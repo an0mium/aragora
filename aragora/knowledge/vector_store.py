@@ -49,14 +49,12 @@ except ImportError:
     WEAVIATE_AVAILABLE = False
     logger.info("weaviate-client not available - install with: pip install weaviate-client")
 
-
 __all__ = [
     "KnowledgeVectorStore",
     "KnowledgeVectorConfig",
     "KnowledgeSearchResult",
     "WEAVIATE_AVAILABLE",
 ]
-
 
 @dataclass
 class KnowledgeSearchResult:
@@ -90,13 +88,12 @@ class KnowledgeSearchResult:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class KnowledgeVectorConfig:
     """Configuration for knowledge vector storage."""
 
     url: str = "http://localhost:8080"
-    api_key: Optional[str] = None
+    api_key: str | None = None
     collection_name: str = "KnowledgeNodes"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
@@ -108,7 +105,7 @@ class KnowledgeVectorConfig:
     index_relationships: bool = True
 
     @classmethod
-    def from_env(cls, workspace_id: Optional[str] = None) -> "KnowledgeVectorConfig":
+    def from_env(cls, workspace_id: str | None = None) -> "KnowledgeVectorConfig":
         """Create config from environment variables."""
         return cls(
             url=os.getenv("WEAVIATE_URL", "http://localhost:8080"),
@@ -117,7 +114,6 @@ class KnowledgeVectorConfig:
             embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
             default_workspace=workspace_id or os.getenv("ARAGORA_WORKSPACE", "default"),
         )
-
 
 class KnowledgeVectorStore:
     """
@@ -132,8 +128,8 @@ class KnowledgeVectorStore:
 
     def __init__(
         self,
-        workspace_id: Optional[str] = None,
-        config: Optional[KnowledgeVectorConfig] = None,
+        workspace_id: str | None = None,
+        config: KnowledgeVectorConfig | None = None,
     ):
         """
         Initialize knowledge vector store.
@@ -144,8 +140,8 @@ class KnowledgeVectorStore:
         """
         self.config = config or KnowledgeVectorConfig.from_env(workspace_id)
         self.workspace_id = workspace_id or self.config.default_workspace
-        self._client: Optional[Any] = None
-        self._collection: Optional[Any] = None
+        self._client: Any | None = None
+        self._collection: Any | None = None
         self._connected = False
 
     @property
@@ -378,10 +374,10 @@ class KnowledgeVectorStore:
         self,
         embedding: list[float],
         limit: int = 10,
-        node_types: Optional[list[str]] = None,
+        node_types: list[str] | None = None,
         min_confidence: float = 0.0,
         min_score: float = 0.0,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[KnowledgeSearchResult]:
         """
         Search for similar knowledge nodes using vector similarity.
@@ -411,10 +407,10 @@ class KnowledgeVectorStore:
         self,
         embedding: list[float],
         limit: int,
-        node_types: Optional[list[str]],
+        node_types: list[str] | None,
         min_confidence: float,
         min_score: float,
-        workspace_id: Optional[str],
+        workspace_id: str | None,
     ) -> list[KnowledgeSearchResult]:
         """Internal implementation of semantic search."""
         # Build filters
@@ -480,9 +476,9 @@ class KnowledgeVectorStore:
         self,
         query: str,
         limit: int = 10,
-        node_types: Optional[list[str]] = None,
+        node_types: list[str] | None = None,
         min_confidence: float = 0.0,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[KnowledgeSearchResult]:
         """
         Search for knowledge nodes using BM25 keyword matching.
@@ -511,9 +507,9 @@ class KnowledgeVectorStore:
         self,
         query: str,
         limit: int,
-        node_types: Optional[list[str]],
+        node_types: list[str] | None,
         min_confidence: float,
-        workspace_id: Optional[str],
+        workspace_id: str | None,
     ) -> list[KnowledgeSearchResult]:
         """Internal implementation of keyword search."""
         # Build filters
@@ -569,7 +565,7 @@ class KnowledgeVectorStore:
         node_id: str,
         relationship_type: str,  # "supports", "contradicts", "derived_from"
         limit: int = 10,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[KnowledgeSearchResult]:
         """
         Search for nodes related to a specific node.
@@ -626,8 +622,8 @@ class KnowledgeVectorStore:
         return results
 
     async def get_node(
-        self, node_id: str, workspace_id: Optional[str] = None
-    ) -> Optional[KnowledgeSearchResult]:
+        self, node_id: str, workspace_id: str | None = None
+    ) -> KnowledgeSearchResult | None:
         """
         Get a specific node by ID.
 
@@ -672,7 +668,7 @@ class KnowledgeVectorStore:
             derived_from=derived_from,
         )
 
-    async def delete_node(self, node_id: str, workspace_id: Optional[str] = None) -> bool:
+    async def delete_node(self, node_id: str, workspace_id: str | None = None) -> bool:
         """
         Delete a specific node.
 
@@ -695,7 +691,7 @@ class KnowledgeVectorStore:
         deleted = result.successful if hasattr(result, "successful") else 0
         return deleted > 0
 
-    async def delete_workspace(self, workspace_id: Optional[str] = None) -> int:
+    async def delete_workspace(self, workspace_id: str | None = None) -> int:
         """
         Delete all nodes in a workspace.
 
@@ -719,8 +715,8 @@ class KnowledgeVectorStore:
 
     async def count_nodes(
         self,
-        node_type: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        node_type: str | None = None,
+        workspace_id: str | None = None,
     ) -> int:
         """
         Count nodes in the collection.
@@ -748,7 +744,7 @@ class KnowledgeVectorStore:
 
         return response.total_count or 0
 
-    async def get_type_distribution(self, workspace_id: Optional[str] = None) -> dict[str, int]:
+    async def get_type_distribution(self, workspace_id: str | None = None) -> dict[str, int]:
         """
         Get distribution of node types in a workspace.
 
@@ -798,14 +794,12 @@ class KnowledgeVectorStore:
             return []
         return [id.strip() for id in ids_string.split(",") if id.strip()]
 
-
 # Global store instances per workspace (singleton pattern)
 _stores: dict[str, KnowledgeVectorStore] = {}
 
-
 def get_knowledge_vector_store(
     workspace_id: str = "default",
-    config: Optional[KnowledgeVectorConfig] = None,
+    config: KnowledgeVectorConfig | None = None,
 ) -> KnowledgeVectorStore:
     """Get or create knowledge vector store instance for a workspace."""
     global _stores

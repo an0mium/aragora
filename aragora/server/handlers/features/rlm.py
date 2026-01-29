@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.rbac.checker import get_permission_checker
@@ -78,7 +78,7 @@ class RLMHandler(BaseHandler):
             return True
         return False
 
-    def _extract_debate_id(self, path: str) -> Optional[str]:
+    def _extract_debate_id(self, path: str) -> str | None:
         """Extract debate ID from path like /api/v1/debates/{id}/..."""
         parts = path.split("/")
         # Path: /api/v1/debates/{id}/... - debate_id at index 4
@@ -86,7 +86,7 @@ class RLMHandler(BaseHandler):
             return parts[4]
         return None
 
-    def _extract_level(self, path: str) -> Optional[str]:
+    def _extract_level(self, path: str) -> str | None:
         """Extract abstraction level from path like /api/v1/debates/{id}/context/{level}."""
         parts = path.split("/")
         # Path: /api/v1/debates/{id}/context/{level} - context at index 5, level at index 6
@@ -94,7 +94,7 @@ class RLMHandler(BaseHandler):
             return parts[6].upper()
         return None
 
-    def _check_permission(self, user, permission: str) -> Optional[HandlerResult]:
+    def _check_permission(self, user, permission: str) -> HandlerResult | None:
         """Check RBAC permission for the authenticated user.
 
         Returns None if permission is granted, or an error response if denied.
@@ -119,7 +119,7 @@ class RLMHandler(BaseHandler):
             logger.error(f"RBAC check failed: {e}")
             return error_response("Authorization check failed", 500)
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/rlm/status":
             return self._get_rlm_status()
@@ -131,7 +131,7 @@ class RLMHandler(BaseHandler):
             return self._get_refinement_status(path, handler)
         return error_response("Use POST method for RLM queries", 405)
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if "/query-rlm" in path and path.startswith("/api/v1/debates/"):
             return self._query_debate_rlm(path, handler)
@@ -249,7 +249,7 @@ class RLMHandler(BaseHandler):
 
         return result
 
-    async def _get_debate_result(self, debate_id: str) -> Optional[Any]:
+    async def _get_debate_result(self, debate_id: str) -> Any | None:
         """Fetch debate result from storage."""
         try:
             from aragora.storage.factory import get_store  # type: ignore[attr-defined]

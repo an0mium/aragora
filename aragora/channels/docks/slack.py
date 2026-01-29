@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
 
@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = ["SlackDock"]
-
 
 class SlackDock(ChannelDock):
     """
@@ -44,7 +43,7 @@ class SlackDock(ChannelDock):
         | ChannelCapability.REACTIONS
     )
 
-    def __init__(self, config: Optional[dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize Slack dock.
 
@@ -52,7 +51,7 @@ class SlackDock(ChannelDock):
             token: Slack bot token (or use SLACK_BOT_TOKEN env var)
         """
         super().__init__(config)
-        self._token: Optional[str] = None
+        self._token: str | None = None
 
     async def initialize(self) -> bool:
         """Initialize the Slack dock."""

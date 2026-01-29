@@ -21,14 +21,13 @@ Usage:
     # Early termination check
     converged, min_sim = find_convergence_threshold(embeddings, threshold=0.85)
 """
+from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 def compute_pairwise_matrix(embeddings: np.ndarray) -> np.ndarray:
     """Compute full pairwise cosine similarity matrix using vectorized operations.
@@ -57,7 +56,6 @@ def compute_pairwise_matrix(embeddings: np.ndarray) -> np.ndarray:
     similarity_matrix = np.dot(normalized, normalized.T)
 
     return similarity_matrix
-
 
 def compute_batch_similarity_fast(
     embeddings: np.ndarray,
@@ -89,7 +87,6 @@ def compute_batch_similarity_fast(
 
     return float(np.mean(similarities)) if len(similarities) > 0 else 0.0
 
-
 def compute_min_similarity(embeddings: np.ndarray) -> float:
     """Compute minimum pairwise similarity.
 
@@ -111,12 +108,11 @@ def compute_min_similarity(embeddings: np.ndarray) -> float:
 
     return float(np.min(similarities)) if len(similarities) > 0 else 0.0
 
-
 def find_convergence_threshold(
     embeddings: np.ndarray,
     threshold: float = 0.85,
     return_details: bool = False,
-) -> Tuple[bool, float]:
+) -> tuple[bool, float]:
     """Check if all pairs exceed convergence threshold with early termination.
 
     Optimized to return as soon as we find a pair below threshold.
@@ -160,7 +156,6 @@ def find_convergence_threshold(
             return False, row_min
 
     return True, min_sim
-
 
 def cluster_by_similarity(
     embeddings: np.ndarray,
@@ -208,7 +203,6 @@ def cluster_by_similarity(
 
     return clusters
 
-
 class FAISSIndex:
     """Optional FAISS wrapper for very large scale similarity search.
 
@@ -232,7 +226,7 @@ class FAISSIndex:
         self.use_gpu = use_gpu
         self._faiss = None
         self._index = None
-        self._fallback_data: Optional[np.ndarray] = None
+        self._fallback_data: np.ndarray | None = None
 
         self._init_faiss()
 
@@ -284,7 +278,7 @@ class FAISSIndex:
             else:
                 self._fallback_data = np.vstack([self._fallback_data, normalized])
 
-    def search(self, query: np.ndarray, k: int = 5) -> Tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 5) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:
@@ -333,12 +327,11 @@ class FAISSIndex:
             self._index.reset()
         self._fallback_data = None
 
-
 def count_unique_fast(
     embeddings: np.ndarray,
     threshold: float = 0.7,
     use_faiss: bool = True,
-) -> Tuple[int, int, float]:
+) -> tuple[int, int, float]:
     """Count unique items efficiently using vectorized operations.
 
     An item is "unique" if no other item has similarity >= threshold.
@@ -404,11 +397,10 @@ def count_unique_fast(
     diversity_score = unique_count / n if n > 0 else 0.0
     return (unique_count, n, diversity_score)
 
-
 def compute_argument_diversity_optimized(
     embeddings: np.ndarray,
     threshold: float = 0.7,
-) -> Tuple[int, int, float]:
+) -> tuple[int, int, float]:
     """Compute argument diversity using optimized similarity computation.
 
     This is a drop-in replacement for the O(n²) naive approach in
@@ -422,7 +414,6 @@ def compute_argument_diversity_optimized(
         Tuple of (unique_arguments, total_arguments, diversity_score)
     """
     return count_unique_fast(embeddings, threshold=threshold)
-
 
 __all__ = [
     "compute_pairwise_matrix",

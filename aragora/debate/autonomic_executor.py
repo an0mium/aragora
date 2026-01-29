@@ -34,7 +34,6 @@ from aragora.debate.schemas import validate_agent_response
 # Lazy import for telemetry to avoid circular imports
 _telemetry_initialized = False
 
-
 def _ensure_telemetry_collectors() -> None:
     """Initialize default telemetry collectors (once)."""
     global _telemetry_initialized
@@ -48,7 +47,6 @@ def _ensure_telemetry_collectors() -> None:
     except ImportError:
         pass
 
-
 if TYPE_CHECKING:
     from aragora.agents.performance_monitor import AgentPerformanceMonitor
     from aragora.core import Agent, Critique, Message, Vote
@@ -57,7 +55,6 @@ if TYPE_CHECKING:
     from aragora.insights.store import InsightStore
 
 logger = logging.getLogger(__name__)
-
 
 class StreamingContentBuffer:
     """
@@ -97,7 +94,6 @@ class StreamingContentBuffer:
         """Clear agent's buffer (non-async)."""
         self._buffer.pop(agent_name, None)
 
-
 class AutonomicExecutor:
     """
     Executes agent operations with automatic error handling.
@@ -126,18 +122,18 @@ class AutonomicExecutor:
 
     def __init__(
         self,
-        circuit_breaker: Optional[CircuitBreaker] = None,
-        default_timeout: Optional[float] = None,  # Uses AGENT_TIMEOUT_SECONDS if not specified
+        circuit_breaker: CircuitBreaker | None = None,
+        default_timeout: float | None = None,  # Uses AGENT_TIMEOUT_SECONDS if not specified
         timeout_escalation_factor: float = 1.5,
         max_timeout: float = 600.0,  # Max timeout cap
-        streaming_buffer: Optional[StreamingContentBuffer] = None,
+        streaming_buffer: StreamingContentBuffer | None = None,
         wisdom_store: Optional["InsightStore"] = None,
-        loop_id: Optional[str] = None,
+        loop_id: str | None = None,
         immune_system: Optional["TransparentImmuneSystem"] = None,
         chaos_director: Optional["ChaosDirector"] = None,
         performance_monitor: Optional["AgentPerformanceMonitor"] = None,
         enable_telemetry: bool = False,
-        event_hooks: Optional[dict] = None,  # Optional hooks for emitting events
+        event_hooks: dict | None = None,  # Optional hooks for emitting events
     ):
         """
         Initialize the autonomic executor.
@@ -270,7 +266,7 @@ class AutonomicExecutor:
             # Unexpected errors - log at warning level
             logger.warning(f"[telemetry] Unexpected emission error: {type(e).__name__}: {e}")
 
-    def _get_wisdom_fallback(self, failed_agent: str) -> Optional[str]:
+    def _get_wisdom_fallback(self, failed_agent: str) -> str | None:
         """
         Get audience wisdom as fallback when agent fails.
 
@@ -304,7 +300,7 @@ class AutonomicExecutor:
             logger.error(f"[wisdom] Unexpected error retrieving wisdom: {type(e).__name__}: {e}")
             return None
 
-    def get_escalated_timeout(self, agent_name: str, base_timeout: Optional[float] = None) -> float:
+    def get_escalated_timeout(self, agent_name: str, base_timeout: float | None = None) -> float:
         """
         Calculate escalated timeout based on retry count.
 
@@ -345,7 +341,7 @@ class AutonomicExecutor:
         self,
         coro: Awaitable[T],
         agent_name: str,
-        timeout_seconds: Optional[float] = None,
+        timeout_seconds: float | None = None,
     ) -> T:
         """
         Wrap coroutine with per-agent timeout.
@@ -607,7 +603,7 @@ class AutonomicExecutor:
         context: list["Message"],
         phase: str = "",
         round_num: int = 0,
-        target_agent: Optional[str] = None,
+        target_agent: str | None = None,
     ) -> Optional["Critique"]:
         """
         Get critique from an agent with autonomic error handling.
@@ -897,7 +893,7 @@ class AutonomicExecutor:
         agent: "Agent",
         prompt: str,
         context: list["Message"],
-        fallback_agents: Optional[list["Agent"]] = None,
+        fallback_agents: list["Agent"] | None = None,
         max_retries: int = 2,
     ) -> str:
         """
@@ -1011,6 +1007,5 @@ class AutonomicExecutor:
         # Total failure
         tried_names = [a.name for a in all_agents]
         return f"[System: All agents failed ({', '.join(tried_names)}). Last error: {last_error}]"
-
 
 __all__ = ["AutonomicExecutor", "StreamingContentBuffer"]

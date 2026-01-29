@@ -86,7 +86,6 @@ from aragora.server.initialization import init_persistence
 # Server startup time for uptime tracking
 _server_start_time: float = time.time()
 
-
 class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ignore[misc]
     """HTTP handler with API endpoints and static file serving.
 
@@ -94,9 +93,9 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     Response helpers are provided by ResponseHelpersMixin from response_utils.py.
     """
 
-    storage: Optional[DebateStorage] = None
-    static_dir: Optional[Path] = None
-    stream_emitter: Optional[SyncEventEmitter] = None
+    storage: DebateStorage | None = None
+    static_dir: Path | None = None
+    stream_emitter: SyncEventEmitter | None = None
     control_plane_stream: Optional["ControlPlaneStreamServer"] = None
     nomic_loop_stream: Optional["NomicLoopStreamServer"] = None
     canvas_stream: Optional["CanvasStreamServer"] = None
@@ -156,7 +155,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
             default_authenticated=True,  # SECURITY: Require auth by default for unmatched routes
         )
     )
-    nomic_state_file: Optional[Path] = None
+    nomic_state_file: Path | None = None
     persistence: Optional["SupabaseClient"] = None
     insight_store: Optional["InsightStore"] = None
     elo_system: Optional["EloSystem"] = None
@@ -178,8 +177,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     decision_router: Optional["DecisionRouter"] = None
 
     # Debate controller and factory (initialized lazily)
-    _debate_controller: Optional[DebateController] = None
-    _debate_factory: Optional[DebateFactory] = None
+    _debate_controller: DebateController | None = None
+    _debate_factory: DebateFactory | None = None
 
     # Request logging for observability
     _request_log_enabled = True
@@ -215,7 +214,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         self._send_json(error_body, status=code)
 
     def _log_request(
-        self, method: str, path: str, status: int, duration_ms: float, extra: Optional[dict] = None
+        self, method: str, path: str, status: int, duration_ms: float, extra: dict | None = None
     ) -> None:
         """Log request details for observability.
 
@@ -316,8 +315,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         return safe_query_float(query, key, default, min_val=min_val, max_val=max_val)
 
     def _safe_string(
-        self, value: str, max_len: int = 500, pattern: Optional[str] = None
-    ) -> Optional[str]:
+        self, value: str, max_len: int = 500, pattern: str | None = None
+    ) -> str | None:
         """Safely validate string parameter with length and pattern checks.
 
         Args:
@@ -341,7 +340,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def _extract_path_segment(
         self, path: str, index: int, segment_name: str = "id"
-    ) -> Optional[str]:
+    ) -> str | None:
         """Safely extract path segment with bounds checking.
 
         Returns None and sends 400 error if segment is missing.
@@ -355,7 +354,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     # Note: _init_handlers(), _log_resource_availability(), and _try_modular_handler()
     # are inherited from HandlerRegistryMixin (handler_registry.py)
 
-    def _validate_content_length(self, max_size: int | None = None) -> Optional[int]:
+    def _validate_content_length(self, max_size: int | None = None) -> int | None:
         """Validate Content-Length header for DoS protection.
 
         Returns content length if valid, None if invalid (error already sent).
@@ -866,7 +865,6 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         """Suppress default logging."""
         pass
 
-
 class UnifiedServer:
     """
     Combined HTTP + WebSocket server for the nomic loop dashboard.
@@ -890,12 +888,12 @@ class UnifiedServer:
         canvas_port: int = 8768,
         ws_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         http_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
-        static_dir: Optional[Path] = None,
-        nomic_dir: Optional[Path] = None,
-        storage: Optional[DebateStorage] = None,
+        static_dir: Path | None = None,
+        nomic_dir: Path | None = None,
+        storage: DebateStorage | None = None,
         enable_persistence: bool = True,
-        ssl_cert: Optional[str] = None,
-        ssl_key: Optional[str] = None,
+        ssl_cert: str | None = None,
+        ssl_key: str | None = None,
     ):
         """Initialize the unified HTTP/WebSocket server with all subsystems.
 
@@ -1210,16 +1208,15 @@ class UnifiedServer:
         """Check if server is in shutdown mode."""
         return getattr(self, "_shutting_down", False)
 
-
 async def run_unified_server(
     http_port: int = 8080,
     ws_port: int = 8765,
-    http_host: Optional[str] = None,
-    ws_host: Optional[str] = None,
-    static_dir: Optional[Path] = None,
-    nomic_dir: Optional[Path] = None,
-    ssl_cert: Optional[str] = None,
-    ssl_key: Optional[str] = None,
+    http_host: str | None = None,
+    ws_host: str | None = None,
+    static_dir: Path | None = None,
+    nomic_dir: Path | None = None,
+    ssl_cert: str | None = None,
+    ssl_key: str | None = None,
 ) -> None:
     """
     Convenience function to run the unified server.

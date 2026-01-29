@@ -18,7 +18,6 @@ from typing import Any, Awaitable, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-
 class BreakpointTrigger(Enum):
     """Triggers for breakpoints."""
 
@@ -31,7 +30,6 @@ class BreakpointTrigger(Enum):
     SAFETY_CONCERN = "safety_concern"  # Potential safety issue detected
     HOLLOW_CONSENSUS = "hollow_consensus"  # Evidence-Powered Trickster: agreement without substance
     CUSTOM = "custom"  # Custom trigger condition
-
 
 @dataclass
 class DebateSnapshot:
@@ -46,7 +44,7 @@ class DebateSnapshot:
     latest_messages: list[dict]  # Last few messages
     active_proposals: list[str]
     open_critiques: list[str]
-    current_consensus: Optional[str]
+    current_consensus: str | None
     confidence: float
 
     # Context
@@ -56,7 +54,6 @@ class DebateSnapshot:
 
     # Metadata
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-
 
 @dataclass
 class HumanGuidance:
@@ -70,10 +67,10 @@ class HumanGuidance:
     action: str  # "continue", "resolve", "redirect", "abort"
 
     # Guidance content
-    decision: Optional[str] = None  # Direct decision if resolving
+    decision: str | None = None  # Direct decision if resolving
     hints: list[str] = field(default_factory=list)  # Hints for agents
     constraints: list[str] = field(default_factory=list)  # New constraints to apply
-    preferred_direction: Optional[str] = None  # Which approach to favor
+    preferred_direction: str | None = None  # Which approach to favor
 
     # For appeals
     answers: dict[str, str] = field(default_factory=dict)  # Answers to specific questions
@@ -81,7 +78,6 @@ class HumanGuidance:
     # Metadata
     reasoning: str = ""
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-
 
 @dataclass
 class Breakpoint:
@@ -94,13 +90,12 @@ class Breakpoint:
 
     # Resolution
     resolved: bool = False
-    guidance: Optional[HumanGuidance] = None
-    resolved_at: Optional[str] = None
+    guidance: HumanGuidance | None = None
+    resolved_at: str | None = None
 
     # Escalation
     escalation_level: int = 1  # 1-3, higher = more urgent
     timeout_minutes: int = 30  # How long to wait for human
-
 
 @dataclass
 class BreakpointConfig:
@@ -121,7 +116,6 @@ class BreakpointConfig:
     safety_keywords: list[str] = field(
         default_factory=lambda: ["dangerous", "harmful", "illegal", "unethical", "unsafe"]
     )
-
 
 class HumanNotifier:
     """
@@ -184,7 +178,6 @@ class HumanNotifier:
         logger.info(f"Timeout: {breakpoint.timeout_minutes} minutes")
         logger.info("=" * 60)
 
-
 class BreakpointManager:
     """
     Manages breakpoints during debates.
@@ -194,10 +187,10 @@ class BreakpointManager:
 
     def __init__(
         self,
-        config: Optional[BreakpointConfig] = None,
+        config: BreakpointConfig | None = None,
         get_human_input: Optional[Callable[[Breakpoint], Awaitable[HumanGuidance]]] = None,
-        event_emitter: Optional[Any] = None,
-        loop_id: Optional[str] = None,
+        event_emitter: Any | None = None,
+        loop_id: str | None = None,
     ):
         self.config = config or BreakpointConfig()
         self.get_human_input = get_human_input or self._default_human_input
@@ -217,7 +210,7 @@ class BreakpointManager:
         round_num: int,
         max_rounds: int,
         critiques: list[Any] | None = None,
-    ) -> Optional[Breakpoint]:
+    ) -> Breakpoint | None:
         """Check if any breakpoint should trigger."""
 
         # Low confidence
@@ -489,7 +482,7 @@ How would you like to proceed?
         """Get all unresolved breakpoints."""
         return [bp for bp in self.breakpoints if not bp.resolved]
 
-    def get_breakpoint(self, breakpoint_id: str) -> Optional[Breakpoint]:
+    def get_breakpoint(self, breakpoint_id: str) -> Breakpoint | None:
         """Get a specific breakpoint by ID."""
         for bp in self.breakpoints:
             if bp.breakpoint_id == breakpoint_id:
@@ -592,7 +585,6 @@ How would you like to proceed?
 
         return messages, environment
 
-
 # Decorator for marking critical decision points
 def critical_decision(reason: str = "") -> Callable[[Callable], Callable]:
     """Decorator to mark a debate point as requiring human review."""
@@ -603,7 +595,6 @@ def critical_decision(reason: str = "") -> Callable[[Callable], Callable]:
         return func
 
     return decorator
-
 
 # Example usage helper
 def breakpoint(

@@ -19,7 +19,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -29,7 +29,6 @@ from aragora.connectors.enterprise.base import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 # Standard ServiceNow tables for ITSM
 SERVICENOW_TABLES = {
@@ -129,7 +128,6 @@ SERVICENOW_TABLES = {
     },
 }
 
-
 @dataclass
 class ServiceNowRecord:
     """A ServiceNow record."""
@@ -146,13 +144,12 @@ class ServiceNowRecord:
     assigned_to: str = ""
     caller_id: str = ""
     category: str = ""
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
-    closed_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    resolved_at: datetime | None = None
+    closed_at: datetime | None = None
     url: str = ""
-    additional_fields: Dict[str, Any] = field(default_factory=dict)
-
+    additional_fields: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ServiceNowComment:
@@ -162,8 +159,7 @@ class ServiceNowComment:
     element_id: str
     value: str
     author: str = ""
-    created_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
 
 class ServiceNowConnector(EnterpriseConnector):
     """
@@ -192,11 +188,11 @@ class ServiceNowConnector(EnterpriseConnector):
     def __init__(
         self,
         instance_url: str,
-        tables: Optional[List[str]] = None,
-        query: Optional[str] = None,
+        tables: Optional[list[str]] = None,
+        query: str | None = None,
         include_comments: bool = True,
         include_knowledge: bool = False,
-        exclude_states: Optional[List[str]] = None,
+        exclude_states: Optional[list[str]] = None,
         use_oauth: bool = False,
         **kwargs,
     ):
@@ -233,8 +229,8 @@ class ServiceNowConnector(EnterpriseConnector):
         self.use_oauth = use_oauth
 
         # OAuth token cache
-        self._oauth_token: Optional[str] = None
-        self._oauth_expires: Optional[datetime] = None
+        self._oauth_token: str | None = None
+        self._oauth_expires: datetime | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -244,7 +240,7 @@ class ServiceNowConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"ServiceNow ({self.instance_url})"
 
-    async def _get_auth_header(self) -> Dict[str, str]:
+    async def _get_auth_header(self) -> dict[str, str]:
         """Get authentication header."""
         if self.use_oauth:
             token = await self._get_oauth_token()
@@ -308,9 +304,9 @@ class ServiceNowConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make a request to ServiceNow REST API."""
         import httpx
 
@@ -335,10 +331,10 @@ class ServiceNowConnector(EnterpriseConnector):
     async def _get_table_records(
         self,
         table: str,
-        modified_since: Optional[datetime] = None,
+        modified_since: datetime | None = None,
         offset: int = 0,
         limit: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get records from a ServiceNow table."""
         table_config = SERVICENOW_TABLES.get(table, {})
         fields = table_config.get("fields", ["number", "short_description", "description"])
@@ -369,7 +365,7 @@ class ServiceNowConnector(EnterpriseConnector):
     async def _get_records(
         self,
         table: str,
-        modified_since: Optional[datetime] = None,
+        modified_since: datetime | None = None,
     ) -> AsyncIterator[ServiceNowRecord]:
         """Get all records from a table."""
         offset = 0
@@ -445,7 +441,7 @@ class ServiceNowConnector(EnterpriseConnector):
                 break
             offset += limit
 
-    def _parse_datetime(self, value: Optional[str]) -> Optional[datetime]:
+    def _parse_datetime(self, value: str | None) -> datetime | None:
         """Parse ServiceNow datetime string."""
         if not value:
             return None
@@ -472,7 +468,7 @@ class ServiceNowConnector(EnterpriseConnector):
         self,
         table: str,
         sys_id: str,
-    ) -> List[ServiceNowComment]:
+    ) -> list[ServiceNowComment]:
         """Get work notes and comments for a record."""
         if not self.include_comments:
             return []
@@ -613,7 +609,7 @@ class ServiceNowConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        table: Optional[str] = None,
+        table: str | None = None,
         **kwargs,
     ) -> list:
         """Search ServiceNow records via text search."""
@@ -661,7 +657,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         return results[:limit]
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific ServiceNow record."""
         from aragora.connectors.base import Evidence
 
@@ -713,9 +709,9 @@ class ServiceNowConnector(EnterpriseConnector):
 
     async def handle_webhook(
         self,
-        payload: Dict[str, Any],
-        signature: Optional[str] = None,
-        timestamp: Optional[str] = None,
+        payload: dict[str, Any],
+        signature: str | None = None,
+        timestamp: str | None = None,
     ) -> bool:
         """
         Handle ServiceNow webhook notification (Business Rule).
@@ -766,7 +762,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
     def verify_webhook_signature(  # type: ignore[override]
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         signature: str,
         secret: str,
     ) -> bool:
@@ -810,7 +806,7 @@ class ServiceNowConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Signature verification error: {e}")
             return False
 
-    def get_webhook_secret(self) -> Optional[str]:
+    def get_webhook_secret(self) -> str | None:
         """Get webhook secret for signature verification."""
         import os
 
@@ -820,8 +816,8 @@ class ServiceNowConnector(EnterpriseConnector):
         self,
         table: str,
         sys_id: str,
-        fields: Optional[List[str]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        fields: Optional[list[str]] = None,
+    ) -> Optional[dict[str, Any]]:
         """
         Resolve a reference field to its full record.
 
@@ -836,7 +832,7 @@ class ServiceNowConnector(EnterpriseConnector):
         if not sys_id:
             return None
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "sysparm_query": f"sys_id={sys_id}",
             "sysparm_limit": 1,
         }
@@ -860,7 +856,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         return None
 
-    async def get_user_details(self, user_sys_id: str) -> Optional[Dict[str, str]]:
+    async def get_user_details(self, user_sys_id: str) -> Optional[dict[str, str]]:
         """
         Get user details from sys_user table.
 
@@ -883,6 +879,5 @@ class ServiceNowConnector(EnterpriseConnector):
                 "department": record.get("department", {}).get("display_value", ""),
             }
         return None
-
 
 __all__ = ["ServiceNowConnector", "ServiceNowRecord", "ServiceNowComment", "SERVICENOW_TABLES"]

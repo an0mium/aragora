@@ -47,10 +47,9 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class TokenType(Enum):
     """Types of reconnection tokens."""
@@ -60,7 +59,6 @@ class TokenType(Enum):
     SESSION_MIGRATE = "session_migrate"
     WEBSOCKET_RECONNECT = "websocket_reconnect"
 
-
 @dataclass
 class TokenConfig:
     """Configuration for token management."""
@@ -69,7 +67,7 @@ class TokenConfig:
     ttl_seconds: float = 300.0
 
     # Secret key for HMAC signing (auto-generated if not provided)
-    secret_key: Optional[str] = None
+    secret_key: str | None = None
 
     # Token length in bytes (before hex encoding)
     token_bytes: int = 32
@@ -88,7 +86,6 @@ class TokenConfig:
         if self.secret_key is None:
             self.secret_key = secrets.token_hex(32)
 
-
 @dataclass
 class TokenData:
     """Data associated with a token."""
@@ -99,7 +96,7 @@ class TokenData:
     token_type: TokenType
     created_at: datetime
     expires_at: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_expired(self) -> bool:
@@ -112,7 +109,7 @@ class TokenData:
         delta = self.expires_at - datetime.now(timezone.utc)
         return max(0, delta.total_seconds())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "token": self.token,
@@ -125,7 +122,7 @@ class TokenData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TokenData:
+    def from_dict(cls, data: dict[str, Any]) -> TokenData:
         """Deserialize from dictionary."""
         return cls(
             token=data["token"],
@@ -136,7 +133,6 @@ class TokenData:
             expires_at=datetime.fromisoformat(data["expires_at"]),
             metadata=data.get("metadata", {}),
         )
-
 
 class TokenManager:
     """
@@ -149,7 +145,7 @@ class TokenManager:
     - Distributed validation via Redis
     """
 
-    def __init__(self, config: Optional[TokenConfig] = None):
+    def __init__(self, config: TokenConfig | None = None):
         """
         Initialize the token manager.
 
@@ -157,12 +153,12 @@ class TokenManager:
             config: Token configuration (uses defaults if not provided)
         """
         self.config = config or TokenConfig()
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_available = False
-        self._local_store: Dict[str, TokenData] = {}
+        self._local_store: dict[str, TokenData] = {}
         self._lock = asyncio.Lock()
 
-    async def _get_redis(self) -> Optional[Any]:
+    async def _get_redis(self) -> Any | None:
         """Get Redis connection if available."""
         if not self.config.use_redis:
             return None
@@ -221,8 +217,8 @@ class TokenManager:
         session_id: str,
         user_id: str,
         token_type: TokenType,
-        ttl_seconds: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        ttl_seconds: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> TokenData:
         """
         Generate a new reconnection token.
@@ -280,8 +276,8 @@ class TokenManager:
     async def validate_token(
         self,
         token: str,
-        expected_type: Optional[TokenType] = None,
-    ) -> Optional[TokenData]:
+        expected_type: TokenType | None = None,
+    ) -> TokenData | None:
         """
         Validate a token and return its data.
 
@@ -336,7 +332,7 @@ class TokenManager:
     async def refresh_token(
         self,
         token: str,
-        ttl_seconds: Optional[float] = None,
+        ttl_seconds: float | None = None,
     ) -> bool:
         """
         Refresh a token's TTL.
@@ -403,7 +399,7 @@ class TokenManager:
     async def revoke_session_tokens(
         self,
         session_id: str,
-        token_type: Optional[TokenType] = None,
+        token_type: TokenType | None = None,
     ) -> int:
         """
         Revoke all tokens for a session.
@@ -469,7 +465,7 @@ class TokenManager:
     async def get_session_tokens(
         self,
         session_id: str,
-        token_type: Optional[TokenType] = None,
+        token_type: TokenType | None = None,
     ) -> list[TokenData]:
         """
         Get all valid tokens for a session.
@@ -517,10 +513,8 @@ class TokenManager:
 
         return tokens
 
-
 # Global token manager instance
-_token_manager: Optional[TokenManager] = None
-
+_token_manager: TokenManager | None = None
 
 def get_token_manager() -> TokenManager:
     """Get or create the global token manager instance."""
@@ -529,8 +523,7 @@ def get_token_manager() -> TokenManager:
         _token_manager = TokenManager()
     return _token_manager
 
-
-async def init_token_manager(config: Optional[TokenConfig] = None) -> TokenManager:
+async def init_token_manager(config: TokenConfig | None = None) -> TokenManager:
     """
     Initialize the global token manager with custom config.
 

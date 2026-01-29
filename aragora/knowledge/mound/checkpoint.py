@@ -37,13 +37,12 @@ import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class KMCheckpointMetadata:
@@ -73,38 +72,37 @@ class KMCheckpointMetadata:
 
     # Incremental checkpoint info
     incremental: bool = False
-    parent_checkpoint_id: Optional[str] = None
+    parent_checkpoint_id: str | None = None
 
     # Tags for categorization/filtering
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
 
 @dataclass
 class KMCheckpointContent:
     """Content of a Knowledge Mound checkpoint."""
 
     # Nodes as list of dicts
-    nodes: List[Dict[str, Any]] = field(default_factory=list)
+    nodes: list[dict[str, Any]] = field(default_factory=list)
 
     # Relationships as list of dicts
-    relationships: List[Dict[str, Any]] = field(default_factory=list)
+    relationships: list[dict[str, Any]] = field(default_factory=list)
 
     # Culture patterns
-    culture_patterns: Dict[str, Any] = field(default_factory=dict)
+    culture_patterns: dict[str, Any] = field(default_factory=dict)
 
     # Staleness tracking state
-    staleness_state: Dict[str, Any] = field(default_factory=dict)
+    staleness_state: dict[str, Any] = field(default_factory=dict)
 
     # Vector embeddings (optional, large)
-    vector_embeddings: Dict[str, List[float]] = field(default_factory=dict)
+    vector_embeddings: dict[str, list[float]] = field(default_factory=dict)
 
     # Workspace metadata
-    workspace_metadata: Dict[str, Any] = field(default_factory=dict)
+    workspace_metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "nodes": self.nodes,
             "relationships": self.relationships,
@@ -113,7 +111,6 @@ class KMCheckpointContent:
             "vector_embeddings": self.vector_embeddings,
             "workspace_metadata": self.workspace_metadata,
         }
-
 
 @dataclass
 class RestoreResult:
@@ -125,8 +122,7 @@ class RestoreResult:
     relationships_restored: int = 0
     culture_restored: bool = False
     duration_ms: int = 0
-    errors: List[str] = field(default_factory=list)
-
+    errors: list[str] = field(default_factory=list)
 
 class KMCheckpointStore:
     """
@@ -141,7 +137,7 @@ class KMCheckpointStore:
     def __init__(
         self,
         mound: "KnowledgeMound",
-        checkpoint_dir: Optional[str] = None,
+        checkpoint_dir: str | None = None,
         compress: bool = True,
         max_checkpoints: int = 10,
     ):
@@ -169,14 +165,14 @@ class KMCheckpointStore:
 
     async def create_checkpoint(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         description: str = "",
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         include_vectors: bool = False,
         include_culture: bool = True,
         include_staleness: bool = True,
         incremental: bool = False,
-        parent_checkpoint_id: Optional[str] = None,
+        parent_checkpoint_id: str | None = None,
         return_metadata: bool = False,
     ) -> str | KMCheckpointMetadata:
         """
@@ -318,7 +314,7 @@ class KMCheckpointStore:
             RestoreResult with statistics
         """
         start_time = time.time()
-        errors: List[str] = []
+        errors: list[str] = []
 
         logger.info(f"Restoring KM from checkpoint: {checkpoint_id}")
 
@@ -445,7 +441,7 @@ class KMCheckpointStore:
             errors=errors,
         )
 
-    async def list_checkpoints(self) -> List[KMCheckpointMetadata]:
+    async def list_checkpoints(self) -> list[KMCheckpointMetadata]:
         """List all available checkpoints."""
         checkpoints = []
 
@@ -464,7 +460,7 @@ class KMCheckpointStore:
 
         return checkpoints
 
-    async def get_checkpoint_metadata(self, checkpoint_id: str) -> Optional[KMCheckpointMetadata]:
+    async def get_checkpoint_metadata(self, checkpoint_id: str) -> KMCheckpointMetadata | None:
         """Get metadata for a specific checkpoint."""
         checkpoint_path = self.checkpoint_dir / checkpoint_id
         metadata_file = checkpoint_path / "metadata.json"
@@ -497,7 +493,7 @@ class KMCheckpointStore:
         self,
         checkpoint_id_1: str,
         checkpoint_id_2: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Compare two checkpoints.
 
@@ -527,8 +523,8 @@ class KMCheckpointStore:
     async def _export_nodes(
         self,
         incremental: bool,
-        parent_checkpoint_id: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        parent_checkpoint_id: str | None,
+    ) -> list[dict[str, Any]]:
         """Export nodes from KM."""
         nodes = []
 
@@ -571,8 +567,8 @@ class KMCheckpointStore:
     async def _export_relationships(
         self,
         incremental: bool,
-        parent_checkpoint_id: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        parent_checkpoint_id: str | None,
+    ) -> list[dict[str, Any]]:
         """Export relationships from KM."""
         relationships = []
 
@@ -592,7 +588,7 @@ class KMCheckpointStore:
 
         return relationships
 
-    async def _export_culture(self) -> Dict[str, Any]:
+    async def _export_culture(self) -> dict[str, Any]:
         """Export culture accumulator state."""
         if hasattr(self.mound, "_culture_accumulator") and self.mound._culture_accumulator:
             try:
@@ -601,7 +597,7 @@ class KMCheckpointStore:
                 logger.debug(f"Culture export skipped due to error: {e}")
         return {}
 
-    async def _export_staleness(self) -> Dict[str, Any]:
+    async def _export_staleness(self) -> dict[str, Any]:
         """Export staleness detector state."""
         if hasattr(self.mound, "_staleness_detector") and self.mound._staleness_detector:
             try:
@@ -610,7 +606,7 @@ class KMCheckpointStore:
                 logger.debug(f"Staleness export skipped due to error: {e}")
         return {}
 
-    async def _export_vectors(self) -> Dict[str, List[float]]:
+    async def _export_vectors(self) -> dict[str, list[float]]:
         """Export vector embeddings."""
         vectors = {}
 
@@ -635,11 +631,11 @@ class KMCheckpointStore:
             if hasattr(self.mound._meta_store, "clear_workspace"):
                 self.mound._meta_store.clear_workspace(self.mound.workspace_id)
 
-    async def _restore_node(self, node_dict: Dict[str, Any]) -> None:
+    async def _restore_node(self, node_dict: dict[str, Any]) -> None:
         """Restore a single node."""
         await self.mound._save_node(node_dict)
 
-    async def _restore_relationship(self, rel_dict: Dict[str, Any]) -> None:
+    async def _restore_relationship(self, rel_dict: dict[str, Any]) -> None:
         """Restore a single relationship."""
         await self.mound._save_relationship(
             from_id=rel_dict["from_node_id"],
@@ -647,7 +643,7 @@ class KMCheckpointStore:
             rel_type=rel_dict["relationship_type"],
         )
 
-    async def _restore_culture(self, culture_state: Dict[str, Any]) -> None:
+    async def _restore_culture(self, culture_state: dict[str, Any]) -> None:
         """Restore culture accumulator state."""
         if hasattr(self.mound, "_culture_accumulator") and self.mound._culture_accumulator:
             try:
@@ -655,7 +651,7 @@ class KMCheckpointStore:
             except Exception as e:
                 logger.warning(f"Failed to restore culture state: {e}")
 
-    async def _restore_staleness(self, staleness_state: Dict[str, Any]) -> None:
+    async def _restore_staleness(self, staleness_state: dict[str, Any]) -> None:
         """Restore staleness detector state."""
         if hasattr(self.mound, "_staleness_detector") and self.mound._staleness_detector:
             try:
@@ -663,7 +659,7 @@ class KMCheckpointStore:
             except Exception as e:
                 logger.warning(f"Failed to restore staleness state: {e}")
 
-    async def _restore_vectors(self, vectors: Dict[str, List[float]]) -> None:
+    async def _restore_vectors(self, vectors: dict[str, list[float]]) -> None:
         """Restore vector embeddings."""
         if hasattr(self.mound, "_semantic_store") and self.mound._semantic_store:
             try:
@@ -691,18 +687,16 @@ class KMCheckpointStore:
 
         return deleted
 
-
 # ============================================================================
 # Singleton and Factory
 # ============================================================================
 
-_checkpoint_store: Optional[KMCheckpointStore] = None
-
+_checkpoint_store: KMCheckpointStore | None = None
 
 def get_km_checkpoint_store(
     mound: Optional["KnowledgeMound"] = None,
-    checkpoint_dir: Optional[str] = None,
-) -> Optional[KMCheckpointStore]:
+    checkpoint_dir: str | None = None,
+) -> KMCheckpointStore | None:
     """
     Get or create the KM checkpoint store singleton.
 
@@ -720,12 +714,10 @@ def get_km_checkpoint_store(
 
     return _checkpoint_store
 
-
 def reset_km_checkpoint_store() -> None:
     """Reset the checkpoint store singleton (for testing)."""
     global _checkpoint_store
     _checkpoint_store = None
-
 
 __all__ = [
     "KMCheckpointStore",

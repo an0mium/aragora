@@ -52,7 +52,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class StreamState(str, Enum):
     """State of a stream."""
 
@@ -60,7 +59,6 @@ class StreamState(str, Enum):
     STREAMING = "streaming"
     COMPLETE = "complete"
     ERROR = "error"
-
 
 @dataclass
 class StreamMessage:
@@ -72,7 +70,6 @@ class StreamMessage:
     is_final: bool = False
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class StreamBuffer:
@@ -86,7 +83,7 @@ class StreamBuffer:
     max_size: int = 1000
     _buffer: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=1000))
     _complete: asyncio.Event = field(default_factory=asyncio.Event)
-    _error: Optional[Exception] = field(default=None)
+    _error: Exception | None = field(default=None)
     _chunks_written: int = field(default=0)
     _chunks_read: int = field(default=0)
 
@@ -103,7 +100,7 @@ class StreamBuffer:
         self._error = error
         self._complete.set()
 
-    async def read(self) -> Optional[str]:
+    async def read(self) -> str | None:
         """Read the next chunk from the buffer."""
         if self._buffer.empty() and self._complete.is_set():
             return None
@@ -171,7 +168,6 @@ class StreamBuffer:
             "read": self._chunks_read,
             "pending": self._buffer.qsize(),
         }
-
 
 @dataclass
 class StreamChain:
@@ -264,8 +260,8 @@ class StreamChain:
         source_agent: "Agent",
         target_agent: "Agent",
         prompt: str,
-        context: Optional[list["Message"]] = None,
-        chain_prompt: Optional[str] = None,
+        context: list["Message"] | None = None,
+        chain_prompt: str | None = None,
     ) -> AsyncIterator[str]:
         """
         Stream from source agent through to target agent.
@@ -355,7 +351,6 @@ class StreamChain:
             "buffers": {k: v.stats for k, v in self._buffers.items()},
         }
 
-
 @dataclass
 class ChainedDebate:
     """
@@ -409,7 +404,7 @@ class ChainedDebate:
     async def run_round(
         self,
         prompt: str,
-        context: Optional[list["Message"]] = None,
+        context: list["Message"] | None = None,
     ) -> dict[str, str]:
         """
         Run a debate round with streaming between agents.
@@ -469,7 +464,6 @@ class ChainedDebate:
 
         self.chain.reset_all()
         return responses
-
 
 def create_chain_from_topology(
     topology: str,

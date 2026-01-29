@@ -5,10 +5,11 @@ Provides reusable error handling patterns for async agent operations,
 implementing the "Autonomic layer" that keeps debates alive by gracefully
 handling agent failures.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, cast
 
 from aragora.agents.types import T
 
@@ -16,13 +17,12 @@ from .classifier import ErrorClassifier
 
 logger = logging.getLogger(__name__)
 
-
 async def handle_agent_operation(
     operation: Callable[[], Any],
     agent_name: str,
     operation_name: str = "operation",
     fallback_value: T = None,
-    fallback_message: Optional[str] = None,
+    fallback_message: str | None = None,
 ) -> T:
     """Execute an async agent operation with autonomic error handling.
 
@@ -77,7 +77,6 @@ async def handle_agent_operation(
         )
         return cast(T, fallback_message if fallback_message else fallback_value)
 
-
 class AgentErrorHandler:
     """Context manager for agent error handling with automatic fallback.
 
@@ -102,7 +101,7 @@ class AgentErrorHandler:
         self.operation_name = operation_name
         self.fallback_value = fallback_value
         self.result = fallback_value
-        self.error: Optional[Exception] = None
+        self.error: Exception | None = None
 
     def set_result(self, value: Any) -> None:
         """Set the successful result."""
@@ -136,7 +135,6 @@ class AgentErrorHandler:
         )
         return True  # Suppress exception and use fallback
 
-
 def make_fallback_message(agent_name: str, operation: str = "turn") -> str:
     """Generate a standardized system fallback message.
 
@@ -148,7 +146,6 @@ def make_fallback_message(agent_name: str, operation: str = "turn") -> str:
         Formatted system message for inclusion in debate context
     """
     return f"[System: Agent {agent_name} encountered an error - skipping this {operation}]"
-
 
 def _build_error_action(e: Exception, context: str = "") -> tuple[str, str, bool]:
     """Build error action info for consistent logging.
@@ -174,7 +171,6 @@ def _build_error_action(e: Exception, context: str = "") -> tuple[str, str, bool
     should_use_exc_info = category == "unknown"
 
     return category, log_message, should_use_exc_info
-
 
 __all__ = [
     "handle_agent_operation",

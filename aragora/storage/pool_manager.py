@@ -32,17 +32,15 @@ logger = logging.getLogger(__name__)
 
 # Global pool state
 _shared_pool: Optional["Pool"] = None
-_pool_event_loop: Optional[asyncio.AbstractEventLoop] = None
+_pool_event_loop: asyncio.AbstractEventLoop | None = None
 _pool_config: dict[str, Any] = {}
-
 
 def _is_shared_pool_enabled() -> bool:
     """Check if shared pool feature is enabled via environment variable."""
     return os.environ.get("ARAGORA_USE_SHARED_POOL", "true").lower() in ("true", "1", "yes")
 
-
 async def initialize_shared_pool(
-    dsn: Optional[str] = None,
+    dsn: str | None = None,
     min_size: int = 5,
     max_size: int = 20,
     command_timeout: float = 60.0,
@@ -112,9 +110,25 @@ async def initialize_shared_pool(
             "is_supabase": config.is_supabase,
         }
 
+        # Apply nest_asyncio to allow nested run_until_complete() calls.
+        # This is required because PostgreSQL store sync wrappers use
+        # asyncio.get_event_loop().run_until_complete() which needs to work
+        # from within handler coroutines running on this event loop.
+        try:
+            import nest_asyncio
+
+            nest_asyncio.apply(_pool_event_loop)
+            logger.warning("[pool_manager] nest_asyncio applied to main event loop")
+        except ImportError:
+            logger.warning(
+                "[pool_manager] nest_asyncio not installed. "
+                "Sync store wrappers may deadlock in async contexts. "
+                "Install with: pip install nest_asyncio"
+            )
+
         pool_size = _shared_pool.get_size() if hasattr(_shared_pool, "get_size") else "unknown"
         backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
-        logger.info(
+        logger.warning(
             f"[pool_manager] Shared {backend_name} pool initialized "
             f"(size: {pool_size}, event_loop: {id(_pool_event_loop)})"
         )
@@ -124,7 +138,6 @@ async def initialize_shared_pool(
         logger.error(f"[pool_manager] Failed to initialize shared pool: {e}")
         # Don't raise - let caller handle fallback to SQLite
         return None
-
 
 def get_shared_pool() -> Optional["Pool"]:
     """
@@ -159,11 +172,20 @@ def get_shared_pool() -> Optional["Pool"]:
 
     return _shared_pool
 
-
 def is_pool_initialized() -> bool:
     """Check if the shared pool has been initialized."""
     return _shared_pool is not None and _is_shared_pool_enabled()
 
+def get_pool_event_loop() -> asyncio.AbstractEventLoop | None:
+    """Get the event loop the shared pool was created in (the main event loop).
+
+    This is used by handler_registry to schedule async handler coroutines
+    on the correct event loop via asyncio.run_coroutine_threadsafe().
+
+    Returns:
+        The main event loop if pool is initialized, None otherwise.
+    """
+    return _pool_event_loop
 
 def get_pool_info() -> dict[str, Any]:
     """Get information about the shared pool for diagnostics."""
@@ -189,7 +211,6 @@ def get_pool_info() -> dict[str, Any]:
         "max_size": _pool_config.get("max_size"),
     }
 
-
 async def close_shared_pool() -> None:
     """
     Close the shared pool during shutdown.
@@ -212,7 +233,6 @@ async def close_shared_pool() -> None:
         _pool_event_loop = None
         _pool_config = {}
 
-
 def reset_shared_pool() -> None:
     """
     Reset pool state without closing (for testing only).
@@ -224,10 +244,10 @@ def reset_shared_pool() -> None:
     _pool_event_loop = None
     _pool_config = {}
 
-
 __all__ = [
     "initialize_shared_pool",
     "get_shared_pool",
+    "get_pool_event_loop",
     "is_pool_initialized",
     "get_pool_info",
     "close_shared_pool",

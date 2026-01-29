@@ -38,18 +38,16 @@ from __future__ import annotations
 import base64
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
-
 # Global connector instance for session persistence across steps
 _browser_connector = None
 
-
-async def _get_browser_connector(config: Dict[str, Any]):
+async def _get_browser_connector(config: dict[str, Any]):
     """Get or create browser connector with session persistence."""
     global _browser_connector
 
@@ -78,7 +76,6 @@ async def _get_browser_connector(config: Dict[str, Any]):
 
     return _browser_connector
 
-
 async def _close_browser_connector():
     """Close the global browser connector."""
     global _browser_connector
@@ -86,21 +83,20 @@ async def _close_browser_connector():
         await _browser_connector.close()
         _browser_connector = None
 
-
 @dataclass
 class BrowserStepConfig:
     """Configuration for a browser step."""
 
     action: str  # navigate, click, fill, screenshot, etc.
-    url: Optional[str] = None
-    selector: Optional[str] = None
-    value: Optional[str] = None
+    url: str | None = None
+    selector: str | None = None
+    value: str | None = None
     wait_until: str = "load"
-    timeout_ms: Optional[int] = None
+    timeout_ms: int | None = None
     full_page: bool = False
-    selectors: Optional[Dict[str, str]] = None  # For extract_data
-    script: Optional[str] = None  # For execute_script
-    attribute: Optional[str] = None  # For get_attribute
+    selectors: Optional[dict[str, str]] = None  # For extract_data
+    script: str | None = None  # For execute_script
+    attribute: str | None = None  # For get_attribute
     state: str = "visible"  # For wait_for
     force: bool = False  # For click
     new_session: bool = False  # Start new browser session
@@ -109,14 +105,13 @@ class BrowserStepConfig:
     # Browser configuration (for new sessions)
     headless: bool = True
     browser_type: str = "chromium"
-    allowed_domains: List[str] = field(default_factory=list)
-    blocked_domains: List[str] = field(default_factory=list)
+    allowed_domains: list[str] = field(default_factory=list)
+    blocked_domains: list[str] = field(default_factory=list)
     viewport_width: int = 1280
     viewport_height: int = 720
-    user_agent: Optional[str] = None
-    proxy: Optional[Dict[str, str]] = None
+    user_agent: str | None = None
+    proxy: Optional[dict[str, str]] = None
     ignore_https_errors: bool = False
-
 
 class BrowserStep(BaseStep):
     """
@@ -128,7 +123,7 @@ class BrowserStep(BaseStep):
 
     step_type = "browser"
 
-    def __init__(self, name: str, config: Dict[str, Any]):
+    def __init__(self, name: str, config: dict[str, Any]):
         """
         Initialize browser step.
 
@@ -163,7 +158,7 @@ class BrowserStep(BaseStep):
             ignore_https_errors=config.get("ignore_https_errors", False),
         )
 
-    def _resolve_template(self, value: Optional[str], context: WorkflowContext) -> Optional[str]:
+    def _resolve_template(self, value: str | None, context: WorkflowContext) -> str | None:
         """Resolve template variables in a value."""
         if value is None:
             return None
@@ -188,7 +183,7 @@ class BrowserStep(BaseStep):
 
         return re.sub(r"\{([^}]+)\}", replace_var, value)
 
-    async def execute(self, context: WorkflowContext) -> Dict[str, Any]:
+    async def execute(self, context: WorkflowContext) -> dict[str, Any]:
         """
         Execute the browser action.
 
@@ -214,7 +209,7 @@ class BrowserStep(BaseStep):
         value = self._resolve_template(config.value, context)
         script = self._resolve_template(config.script, context)
 
-        result_data: Dict[str, Any] = {"action": action}
+        result_data: dict[str, Any] = {"action": action}
 
         # Execute action
         if action == "navigate":
@@ -361,7 +356,6 @@ class BrowserStep(BaseStep):
 
         logger.info(f"[BrowserStep] {self._name}: {action} completed")
         return result_data
-
 
 # Register step type
 def register_browser_step():

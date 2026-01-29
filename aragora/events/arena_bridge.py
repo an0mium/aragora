@@ -11,9 +11,10 @@ Usage:
     bridge = ArenaEventBridge(event_bus)
     bridge.connect_to_cross_subscribers()
 """
+from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from aragora.events.cross_subscribers import (
     CrossSubscriberManager,
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
     from aragora.debate.event_bus import DebateEvent, EventBus
 
 logger = logging.getLogger(__name__)
-
 
 # Map EventBus event type strings to StreamEventType
 EVENT_TYPE_MAP: dict[str, StreamEventType] = {
@@ -54,7 +54,6 @@ EVENT_TYPE_MAP: dict[str, StreamEventType] = {
     "vote": StreamEventType.VOTE,
 }
 
-
 class ArenaEventBridge:
     """
     Bridge between Arena's EventBus and CrossSubscriberManager.
@@ -70,7 +69,7 @@ class ArenaEventBridge:
     def __init__(
         self,
         event_bus: "EventBus",
-        cross_manager: Optional[CrossSubscriberManager] = None,
+        cross_manager: CrossSubscriberManager | None = None,
     ) -> None:
         """
         Initialize the bridge.
@@ -160,7 +159,6 @@ class ArenaEventBridge:
         """Check if the bridge is connected."""
         return self._connected
 
-
 def create_arena_bridge(event_bus: "EventBus") -> ArenaEventBridge:
     """
     Factory function to create and connect an ArenaEventBridge.
@@ -174,7 +172,6 @@ def create_arena_bridge(event_bus: "EventBus") -> ArenaEventBridge:
     bridge = ArenaEventBridge(event_bus)
     bridge.connect_to_cross_subscribers()
     return bridge
-
 
 __all__ = [
     "ArenaEventBridge",

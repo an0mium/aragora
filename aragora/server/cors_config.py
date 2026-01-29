@@ -11,7 +11,6 @@ overridden with explicit production domains.
 
 import logging
 import os
-from typing import Set
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 _IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "").lower() == "production"
 
 # Development origins (included by default in dev mode only)
-_DEV_ORIGINS: Set[str] = {
+_DEV_ORIGINS: set[str] = {
     "http://localhost:3000",
     "http://localhost:8080",
     "http://127.0.0.1:3000",
@@ -27,7 +26,7 @@ _DEV_ORIGINS: Set[str] = {
 }
 
 # Production origins (included by default in production)
-_PROD_ORIGINS: Set[str] = {
+_PROD_ORIGINS: set[str] = {
     "https://aragora.ai",
     "https://www.aragora.ai",
     "https://live.aragora.ai",
@@ -37,10 +36,9 @@ _PROD_ORIGINS: Set[str] = {
 
 # Default allowed origins based on environment
 if _IS_PRODUCTION:
-    DEFAULT_ORIGINS: Set[str] = _PROD_ORIGINS.copy()
+    DEFAULT_ORIGINS: set[str] = _PROD_ORIGINS.copy()
 else:
     DEFAULT_ORIGINS = _DEV_ORIGINS | _PROD_ORIGINS
-
 
 class CORSConfig:
     """Centralized CORS configuration with environment variable support."""
@@ -50,7 +48,7 @@ class CORSConfig:
         env_origins = os.getenv("ARAGORA_ALLOWED_ORIGINS", "").strip()
         if env_origins:
             # Parse comma-separated origins from environment
-            self.allowed_origins: Set[str] = {
+            self.allowed_origins: set[str] = {
                 o.strip() for o in env_origins.split(",") if o.strip()
             }
             self._using_env_config = True
@@ -96,7 +94,6 @@ class CORSConfig:
     def remove_origin(self, origin: str) -> None:
         """Remove an origin from the allowlist at runtime."""
         self.allowed_origins.discard(origin)
-
 
 # Singleton instance for import
 cors_config = CORSConfig()

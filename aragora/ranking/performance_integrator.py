@@ -31,14 +31,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.performance_monitor import AgentPerformanceMonitor
     from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class PerformanceScore:
@@ -51,7 +50,7 @@ class PerformanceScore:
     participation_score: float = 0.5  # 0.0-1.0, more calls = higher (up to saturation)
     composite_score: float = 0.5  # Weighted combination
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "agent_name": self.agent_name,
@@ -61,7 +60,6 @@ class PerformanceScore:
             "participation_score": round(self.participation_score, 3),
             "composite_score": round(self.composite_score, 3),
         }
-
 
 @dataclass
 class PerformanceEloIntegrator:
@@ -106,7 +104,7 @@ class PerformanceEloIntegrator:
     k_factor_range: tuple = (0.7, 1.5)  # Min/max K-factor multiplier
 
     # Cached scores
-    _score_cache: Dict[str, PerformanceScore] = field(default_factory=dict, repr=False)
+    _score_cache: dict[str, PerformanceScore] = field(default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
         """Normalize weights to sum to 1.0."""
@@ -208,7 +206,7 @@ class PerformanceEloIntegrator:
 
         return score
 
-    def compute_k_multipliers(self, participants: List[str]) -> Dict[str, float]:
+    def compute_k_multipliers(self, participants: list[str]) -> dict[str, float]:
         """Compute K-factor multipliers for each participant.
 
         Higher multipliers mean more volatile ELO (bigger changes per match).
@@ -225,7 +223,7 @@ class PerformanceEloIntegrator:
         Returns:
             Dict mapping agent_name → K-factor multiplier
         """
-        multipliers: Dict[str, float] = {}
+        multipliers: dict[str, float] = {}
         min_k, max_k = self.k_factor_range
 
         for agent_name in participants:
@@ -249,7 +247,7 @@ class PerformanceEloIntegrator:
 
         return multipliers
 
-    def get_cached_score(self, agent_name: str) -> Optional[PerformanceScore]:
+    def get_cached_score(self, agent_name: str) -> PerformanceScore | None:
         """Get cached performance score for an agent.
 
         Args:
@@ -260,7 +258,7 @@ class PerformanceEloIntegrator:
         """
         return self._score_cache.get(agent_name)
 
-    def get_all_scores(self) -> Dict[str, PerformanceScore]:
+    def get_all_scores(self) -> dict[str, PerformanceScore]:
         """Get all cached performance scores.
 
         Returns:
@@ -272,7 +270,7 @@ class PerformanceEloIntegrator:
         """Clear the score cache."""
         self._score_cache.clear()
 
-    def get_degraded_agents(self, threshold: float = 0.3) -> List[str]:
+    def get_degraded_agents(self, threshold: float = 0.3) -> list[str]:
         """Get list of agents with low performance scores.
 
         Args:
@@ -293,7 +291,7 @@ class PerformanceEloIntegrator:
 
         return degraded
 
-    def get_performance_summary(self) -> Dict[str, Any]:
+    def get_performance_summary(self) -> dict[str, Any]:
         """Get a summary of performance metrics for all agents.
 
         Returns:
@@ -302,7 +300,7 @@ class PerformanceEloIntegrator:
         if self.performance_monitor is None:
             return {"message": "No performance monitor configured"}
 
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "agents": {},
             "degraded": [],
             "top_performers": [],
@@ -385,7 +383,6 @@ class PerformanceEloIntegrator:
             brier_score=brier,
         )
 
-
 def create_performance_integrator(
     elo_system: Optional["EloSystem"] = None,
     performance_monitor: Optional["AgentPerformanceMonitor"] = None,
@@ -406,7 +403,6 @@ def create_performance_integrator(
         performance_monitor=performance_monitor,
         **kwargs,
     )
-
 
 __all__ = [
     "PerformanceEloIntegrator",

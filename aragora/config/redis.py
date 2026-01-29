@@ -47,8 +47,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
-
 
 class RedisMode(str, Enum):
     """Redis deployment mode."""
@@ -56,7 +54,6 @@ class RedisMode(str, Enum):
     STANDALONE = "standalone"
     SENTINEL = "sentinel"
     CLUSTER = "cluster"
-
 
 @dataclass
 class RedisHASettings:
@@ -107,17 +104,17 @@ class RedisHASettings:
     # Standalone configuration
     host: str = "localhost"
     port: int = 6379
-    password: Optional[str] = None
+    password: str | None = None
     db: int = 0
-    url: Optional[str] = None
+    url: str | None = None
 
     # Sentinel configuration
-    sentinel_hosts: List[str] = field(default_factory=list)
+    sentinel_hosts: list[str] = field(default_factory=list)
     sentinel_master: str = "mymaster"
-    sentinel_password: Optional[str] = None
+    sentinel_password: str | None = None
 
     # Cluster configuration
-    cluster_nodes: List[str] = field(default_factory=list)
+    cluster_nodes: list[str] = field(default_factory=list)
     cluster_read_from_replicas: bool = True
     cluster_skip_full_coverage_check: bool = False
 
@@ -131,8 +128,8 @@ class RedisHASettings:
 
     # SSL/TLS settings
     ssl: bool = False
-    ssl_cert_reqs: Optional[str] = None
-    ssl_ca_certs: Optional[str] = None
+    ssl_cert_reqs: str | None = None
+    ssl_ca_certs: str | None = None
 
     @property
     def is_ha_mode(self) -> bool:
@@ -162,7 +159,6 @@ class RedisHASettings:
         else:
             return f"Standalone ({self.host}:{self.port})"
 
-
 from aragora.config.env_helpers import (
     env_str as _env_str,
     env_int as _env_int,
@@ -170,8 +166,7 @@ from aragora.config.env_helpers import (
     env_bool as _env_bool,
 )
 
-
-def _parse_comma_separated(value: str) -> List[str]:
+def _parse_comma_separated(value: str) -> list[str]:
     """Parse comma-separated string into list of stripped strings.
 
     Note: Consider using env_list() from env_helpers for new code.
@@ -179,7 +174,6 @@ def _parse_comma_separated(value: str) -> List[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
-
 
 def get_redis_ha_config() -> RedisHASettings:
     """
@@ -262,13 +256,11 @@ def get_redis_ha_config() -> RedisHASettings:
         ssl_ca_certs=_env_str("ARAGORA_REDIS_SSL_CA_CERTS") or None,
     )
 
-
 # Module-level constants for direct import
 REDIS_MODE = _env_str("ARAGORA_REDIS_MODE", "standalone")
 REDIS_SENTINEL_HOSTS = _env_str("ARAGORA_REDIS_SENTINEL_HOSTS", "")
 REDIS_SENTINEL_MASTER = _env_str("ARAGORA_REDIS_SENTINEL_MASTER", "mymaster")
 REDIS_CLUSTER_NODES = _env_str("ARAGORA_REDIS_CLUSTER_NODES", "")
-
 
 __all__ = [
     "RedisMode",

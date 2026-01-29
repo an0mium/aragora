@@ -58,11 +58,9 @@ except ImportError:
     MUTAGEN_AVAILABLE = False
     MP3 = None
 
-
 def _run_async(coro: Coroutine[Any, Any, T]) -> T:
     """Run async coroutine in sync context."""
     return run_async(coro)
-
 
 class BroadcastHandler(BaseHandler):
     """Handler for broadcast generation endpoints."""
@@ -82,11 +80,11 @@ class BroadcastHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Handle GET requests (none for this handler - POST only)."""
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle POST requests."""
         # Full pipeline
         # Path: /api/v1/debates/{debate_id}/broadcast/full - debate_id at index 4

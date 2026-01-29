@@ -26,7 +26,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional, Type
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +58,7 @@ except ImportError:
         """Stub Field."""
         return None
 
-
-def get_langchain_version() -> Optional[str]:
+def get_langchain_version() -> str | None:
     """Get the LangChain version if available."""
     try:
         import langchain
@@ -68,12 +67,11 @@ def get_langchain_version() -> Optional[str]:
     except ImportError:
         return None
 
-
 class AragoraToolInput(BaseModel):
     """Input schema for Aragora debate tool (compatible API)."""
 
     question: str = Field(description="The question or task to debate")
-    agents: Optional[List[str]] = Field(
+    agents: Optional[list[str]] = Field(
         default=None,
         description="List of agents to participate",
     )
@@ -90,20 +88,18 @@ class AragoraToolInput(BaseModel):
         description="Whether to include evidence in response",
     )
 
-
 class AragoraDebateInput(BaseModel):
     """Input schema for Aragora debate tool."""
 
     task: str = Field(description="The question or task to debate")
-    agents: Optional[List[str]] = Field(
+    agents: Optional[list[str]] = Field(
         default=None,
         description="List of agents to participate (e.g., ['claude', 'gpt-4']). If not specified, uses defaults.",
     )
-    max_rounds: Optional[int] = Field(
+    max_rounds: int | None = Field(
         default=None,
         description="Maximum debate rounds (default: 5)",
     )
-
 
 class AragoraDebateTool(BaseTool):
     """
@@ -124,19 +120,19 @@ class AragoraDebateTool(BaseTool):
         "Use this when you need multiple perspectives on a complex question. "
         "The debate reaches consensus through structured argumentation."
     )
-    args_schema: Type[BaseModel] = AragoraDebateInput
+    args_schema: type[BaseModel] = AragoraDebateInput
 
     # Configuration
     aragora_url: str = "http://localhost:8080"
-    api_token: Optional[str] = None
-    default_agents: List[str] = ["claude", "gpt-4", "gemini"]
+    api_token: str | None = None
+    default_agents: list[str] = ["claude", "gpt-4", "gemini"]
     default_max_rounds: int = 5
     timeout_seconds: float = 120.0
 
     def __init__(
         self,
         aragora_url: str = "http://localhost:8080",
-        api_token: Optional[str] = None,
+        api_token: str | None = None,
         **kwargs: Any,
     ):
         """
@@ -154,9 +150,9 @@ class AragoraDebateTool(BaseTool):
     def _run(
         self,
         task: str,
-        agents: Optional[List[str]] = None,
-        max_rounds: Optional[int] = None,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        agents: Optional[list[str]] = None,
+        max_rounds: int | None = None,
+        run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the debate synchronously."""
         import asyncio
@@ -168,9 +164,9 @@ class AragoraDebateTool(BaseTool):
     async def _arun(
         self,
         task: str,
-        agents: Optional[List[str]] = None,
-        max_rounds: Optional[int] = None,
-        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+        agents: Optional[list[str]] = None,
+        max_rounds: int | None = None,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the debate asynchronously."""
         import httpx
@@ -211,16 +207,14 @@ class AragoraDebateTool(BaseTool):
             logger.error(f"[AragoraDebateTool] Error: {e}")
             return f"Error running debate: {e}"
 
-
 class AragoraKnowledgeInput(BaseModel):
     """Input schema for Aragora knowledge tool."""
 
     query: str = Field(description="Search query for the knowledge base")
-    limit: Optional[int] = Field(
+    limit: int | None = Field(
         default=5,
         description="Maximum number of results to return",
     )
-
 
 class AragoraKnowledgeTool(BaseTool):
     """
@@ -240,17 +234,17 @@ class AragoraKnowledgeTool(BaseTool):
         "Use this to find documents, past decisions, and institutional knowledge. "
         "Returns the most relevant results with confidence scores."
     )
-    args_schema: Type[BaseModel] = AragoraKnowledgeInput
+    args_schema: type[BaseModel] = AragoraKnowledgeInput
 
     # Configuration
     aragora_url: str = "http://localhost:8080"
-    api_token: Optional[str] = None
+    api_token: str | None = None
     timeout_seconds: float = 30.0
 
     def __init__(
         self,
         aragora_url: str = "http://localhost:8080",
-        api_token: Optional[str] = None,
+        api_token: str | None = None,
         **kwargs: Any,
     ):
         """Initialize the knowledge tool."""
@@ -261,8 +255,8 @@ class AragoraKnowledgeTool(BaseTool):
     def _run(
         self,
         query: str,
-        limit: Optional[int] = 5,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        limit: int | None = 5,
+        run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the query synchronously."""
         import asyncio
@@ -272,8 +266,8 @@ class AragoraKnowledgeTool(BaseTool):
     async def _arun(
         self,
         query: str,
-        limit: Optional[int] = 5,
-        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+        limit: int | None = 5,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the query asynchronously."""
         import httpx
@@ -310,16 +304,14 @@ class AragoraKnowledgeTool(BaseTool):
             logger.error(f"[AragoraKnowledgeTool] Error: {e}")
             return f"Error querying knowledge: {e}"
 
-
 class AragoraDecisionInput(BaseModel):
     """Input schema for Aragora decision tool."""
 
     question: str = Field(description="The decision question")
-    options: Optional[List[str]] = Field(
+    options: Optional[list[str]] = Field(
         default=None,
         description="List of options to choose from (optional)",
     )
-
 
 class AragoraDecisionTool(BaseTool):
     """
@@ -339,17 +331,17 @@ class AragoraDecisionTool(BaseTool):
         "Use this for important decisions that need audit trails. "
         "Returns a decision with rationale and confidence."
     )
-    args_schema: Type[BaseModel] = AragoraDecisionInput
+    args_schema: type[BaseModel] = AragoraDecisionInput
 
     # Configuration
     aragora_url: str = "http://localhost:8080"
-    api_token: Optional[str] = None
+    api_token: str | None = None
     timeout_seconds: float = 120.0
 
     def __init__(
         self,
         aragora_url: str = "http://localhost:8080",
-        api_token: Optional[str] = None,
+        api_token: str | None = None,
         **kwargs: Any,
     ):
         """Initialize the decision tool."""
@@ -360,8 +352,8 @@ class AragoraDecisionTool(BaseTool):
     def _run(
         self,
         question: str,
-        options: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        options: Optional[list[str]] = None,
+        run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the decision synchronously."""
         import asyncio
@@ -371,8 +363,8 @@ class AragoraDecisionTool(BaseTool):
     async def _arun(
         self,
         question: str,
-        options: Optional[List[str]] = None,
-        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+        options: Optional[list[str]] = None,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the decision asynchronously."""
         import httpx
@@ -411,12 +403,11 @@ class AragoraDecisionTool(BaseTool):
             logger.error(f"[AragoraDecisionTool] Error: {e}")
             return f"Error making decision: {e}"
 
-
 # Convenience function to get all tools
 def get_aragora_tools(
     aragora_url: str = "http://localhost:8080",
-    api_token: Optional[str] = None,
-) -> List[BaseTool]:
+    api_token: str | None = None,
+) -> list[BaseTool]:
     """
     Get all Aragora LangChain tools.
 

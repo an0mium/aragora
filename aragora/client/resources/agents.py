@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..models import (
     AgentCalibration,
@@ -21,14 +21,13 @@ from ..models import (
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
-
 class AgentsAPI:
     """API interface for agents."""
 
     def __init__(self, client: "AragoraClient"):
         self._client = client
 
-    def list(self) -> List[AgentProfile]:
+    def list(self) -> list[AgentProfile]:
         """
         List all available agents.
 
@@ -39,7 +38,7 @@ class AgentsAPI:
         agents = response.get("agents", response) if isinstance(response, dict) else response
         return [AgentProfile(**a) for a in agents]
 
-    async def list_async(self) -> List[AgentProfile]:
+    async def list_async(self) -> list[AgentProfile]:
         """Async version of list()."""
         response = await self._client._get_async("/api/agents")
         agents = response.get("agents", response) if isinstance(response, dict) else response
@@ -179,7 +178,7 @@ class AgentsAPI:
         response = await self._client._get_async(f"/api/v1/agent/{agent_id}/consistency")
         return AgentConsistency(**response)
 
-    def get_flips(self, agent_id: str, limit: int = 20, offset: int = 0) -> List[AgentFlip]:
+    def get_flips(self, agent_id: str, limit: int = 20, offset: int = 0) -> list[AgentFlip]:
         """
         Get position flip history.
 
@@ -199,7 +198,7 @@ class AgentsAPI:
 
     async def get_flips_async(
         self, agent_id: str, limit: int = 20, offset: int = 0
-    ) -> List[AgentFlip]:
+    ) -> list[AgentFlip]:
         """Async version of get_flips()."""
         response = await self._client._get_async(
             f"/api/v1/agent/{agent_id}/flips", params={"limit": limit, "offset": offset}
@@ -226,8 +225,8 @@ class AgentsAPI:
         return AgentNetwork(**response)
 
     def get_moments(
-        self, agent_id: str, moment_type: Optional[str] = None, limit: int = 20, offset: int = 0
-    ) -> List[AgentMoment]:
+        self, agent_id: str, moment_type: str | None = None, limit: int = 20, offset: int = 0
+    ) -> list[AgentMoment]:
         """
         Get significant moments.
 
@@ -248,8 +247,8 @@ class AgentsAPI:
         return [AgentMoment(**m) for m in moments]
 
     async def get_moments_async(
-        self, agent_id: str, moment_type: Optional[str] = None, limit: int = 20, offset: int = 0
-    ) -> List[AgentMoment]:
+        self, agent_id: str, moment_type: str | None = None, limit: int = 20, offset: int = 0
+    ) -> list[AgentMoment]:
         """Async version of get_moments()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if moment_type:
@@ -259,8 +258,8 @@ class AgentsAPI:
         return [AgentMoment(**m) for m in moments]
 
     def get_positions(
-        self, agent_id: str, topic: Optional[str] = None, limit: int = 20, offset: int = 0
-    ) -> List[AgentPosition]:
+        self, agent_id: str, topic: str | None = None, limit: int = 20, offset: int = 0
+    ) -> list[AgentPosition]:
         """
         Get position history.
 
@@ -281,8 +280,8 @@ class AgentsAPI:
         return [AgentPosition(**p) for p in positions]
 
     async def get_positions_async(
-        self, agent_id: str, topic: Optional[str] = None, limit: int = 20, offset: int = 0
-    ) -> List[AgentPosition]:
+        self, agent_id: str, topic: str | None = None, limit: int = 20, offset: int = 0
+    ) -> list[AgentPosition]:
         """Async version of get_positions()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if topic:
@@ -293,7 +292,7 @@ class AgentsAPI:
         positions = response.get("positions", response) if isinstance(response, dict) else response
         return [AgentPosition(**p) for p in positions]
 
-    def get_domains(self, agent_id: str) -> List[DomainRating]:
+    def get_domains(self, agent_id: str) -> list[DomainRating]:
         """
         Get domain-specific ELO ratings.
 
@@ -307,7 +306,7 @@ class AgentsAPI:
         domains = response.get("domains", response) if isinstance(response, dict) else response
         return [DomainRating(**d) for d in domains]
 
-    async def get_domains_async(self, agent_id: str) -> List[DomainRating]:
+    async def get_domains_async(self, agent_id: str) -> list[DomainRating]:
         """Async version of get_domains()."""
         response = await self._client._get_async(f"/api/v1/agent/{agent_id}/domains")
         domains = response.get("domains", response) if isinstance(response, dict) else response

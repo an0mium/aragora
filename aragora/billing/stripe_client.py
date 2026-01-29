@@ -21,7 +21,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -53,7 +53,6 @@ STRIPE_METERED_PRICES = {
     "debates": os.environ.get("STRIPE_METERED_DEBATES", ""),  # Per debate overage
 }
 
-
 class StripeError(Exception):
     """Base exception for Stripe API errors."""
 
@@ -62,18 +61,15 @@ class StripeError(Exception):
         self.code = code
         self.status = status
 
-
 class StripeConfigError(StripeError):
     """Stripe configuration is missing or invalid."""
 
     pass
 
-
 class StripeAPIError(StripeError):
     """Stripe API returned an error."""
 
     pass
-
 
 @dataclass
 class StripeCustomer:
@@ -81,7 +77,7 @@ class StripeCustomer:
 
     id: str
     email: str
-    name: Optional[str] = None
+    name: str | None = None
     metadata: dict = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -91,7 +87,6 @@ class StripeCustomer:
             "name": self.name,
             "metadata": self.metadata or {},
         }
-
 
 @dataclass
 class StripeSubscription:
@@ -104,8 +99,8 @@ class StripeSubscription:
     current_period_start: datetime
     current_period_end: datetime
     cancel_at_period_end: bool = False
-    trial_start: Optional[datetime] = None
-    trial_end: Optional[datetime] = None
+    trial_start: datetime | None = None
+    trial_end: datetime | None = None
 
     @property
     def is_trialing(self) -> bool:
@@ -133,15 +128,14 @@ class StripeSubscription:
         result["is_trialing"] = self.is_trialing
         return result
 
-
 @dataclass
 class CheckoutSession:
     """Stripe checkout session data."""
 
     id: str
     url: str
-    customer_id: Optional[str] = None
-    subscription_id: Optional[str] = None
+    customer_id: str | None = None
+    subscription_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -150,7 +144,6 @@ class CheckoutSession:
             "customer_id": self.customer_id,
             "subscription_id": self.subscription_id,
         }
-
 
 @dataclass
 class BillingPortalSession:
@@ -161,7 +154,6 @@ class BillingPortalSession:
 
     def to_dict(self) -> dict[str, Any]:
         return {"id": self.id, "url": self.url}
-
 
 @dataclass
 class UsageRecord:
@@ -182,7 +174,6 @@ class UsageRecord:
             "action": self.action,
         }
 
-
 class StripeClient:
     """
     Stripe API client.
@@ -191,7 +182,7 @@ class StripeClient:
     Uses urllib to avoid external dependencies.
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         Initialize Stripe client.
 
@@ -212,8 +203,8 @@ class StripeClient:
         self,
         method: str,
         endpoint: str,
-        data: Optional[dict] = None,
-        idempotency_key: Optional[str] = None,
+        data: dict | None = None,
+        idempotency_key: str | None = None,
     ) -> dict:
         """
         Make a request to the Stripe API.
@@ -307,8 +298,8 @@ class StripeClient:
     def create_customer(
         self,
         email: str,
-        name: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        name: str | None = None,
+        metadata: dict | None = None,
     ) -> StripeCustomer:
         """
         Create a Stripe customer.
@@ -336,7 +327,7 @@ class StripeClient:
             metadata=response.get("metadata", {}),
         )
 
-    def get_customer(self, customer_id: str) -> Optional[StripeCustomer]:
+    def get_customer(self, customer_id: str) -> StripeCustomer | None:
         """
         Get a Stripe customer by ID.
 
@@ -362,9 +353,9 @@ class StripeClient:
     def update_customer(
         self,
         customer_id: str,
-        email: Optional[str] = None,
-        name: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        email: str | None = None,
+        name: str | None = None,
+        metadata: dict | None = None,
     ) -> StripeCustomer:
         """Update a Stripe customer."""
         data: dict[str, Any] = {}
@@ -394,9 +385,9 @@ class StripeClient:
         customer_email: str,
         success_url: str,
         cancel_url: str,
-        customer_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
-        trial_days: Optional[int] = None,
+        customer_id: str | None = None,
+        metadata: dict | None = None,
+        trial_days: int | None = None,
     ) -> CheckoutSession:
         """
         Create a Stripe Checkout session for subscription.
@@ -490,7 +481,7 @@ class StripeClient:
     # Subscription Management
     # =========================================================================
 
-    def get_subscription(self, subscription_id: str) -> Optional[StripeSubscription]:
+    def get_subscription(self, subscription_id: str) -> StripeSubscription | None:
         """Get a subscription by ID."""
         try:
             response = self._request("GET", f"/subscriptions/{subscription_id}")
@@ -547,7 +538,7 @@ class StripeClient:
         self,
         customer_id: str,
         limit: int = 10,
-        starting_after: Optional[str] = None,
+        starting_after: str | None = None,
     ) -> list[dict]:
         """
         List invoices for a customer.
@@ -602,9 +593,9 @@ class StripeClient:
         self,
         subscription_item_id: str,
         quantity: int,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
         action: str = "increment",
-        idempotency_key: Optional[str] = None,
+        idempotency_key: str | None = None,
     ) -> UsageRecord:
         """
         Report usage for metered billing.
@@ -674,7 +665,7 @@ class StripeClient:
         self,
         subscription_id: str,
         price_id: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Find a subscription item by price ID.
 
@@ -721,11 +712,9 @@ class StripeClient:
             trial_end=trial_end,
         )
 
-
 # =============================================================================
 # Webhook Handling
 # =============================================================================
-
 
 class WebhookEvent:
     """Parsed Stripe webhook event."""
@@ -737,12 +726,12 @@ class WebhookEvent:
         self.event_id = event_id  # Top-level Stripe event ID for idempotency
 
     @property
-    def customer_id(self) -> Optional[str]:
+    def customer_id(self) -> str | None:
         """Get customer ID from event."""
         return self.object.get("customer") or self.object.get("id")
 
     @property
-    def subscription_id(self) -> Optional[str]:
+    def subscription_id(self) -> str | None:
         """Get subscription ID from event."""
         if self.type.startswith("customer.subscription"):
             return self.object.get("id")
@@ -753,11 +742,10 @@ class WebhookEvent:
         """Get metadata from event object."""
         return self.object.get("metadata", {})
 
-
 def verify_webhook_signature(
     payload: bytes,
     signature: str,
-    secret: Optional[str] = None,
+    secret: str | None = None,
 ) -> bool:
     """
     Verify Stripe webhook signature.
@@ -808,8 +796,7 @@ def verify_webhook_signature(
     # Check if any signature matches
     return any(hmac.compare_digest(expected, sig) for sig in signatures)
 
-
-def parse_webhook_event(payload: bytes, signature: str) -> Optional[WebhookEvent]:
+def parse_webhook_event(payload: bytes, signature: str) -> WebhookEvent | None:
     """
     Parse and verify a Stripe webhook event.
 
@@ -835,13 +822,11 @@ def parse_webhook_event(payload: bytes, signature: str) -> Optional[WebhookEvent
         logger.warning("Invalid webhook payload")
         return None
 
-
 # =============================================================================
 # Tier Mapping
 # =============================================================================
 
-
-def get_tier_from_price_id(price_id: str) -> Optional[SubscriptionTier]:
+def get_tier_from_price_id(price_id: str) -> SubscriptionTier | None:
     """
     Get subscription tier from Stripe price ID.
 
@@ -856,8 +841,7 @@ def get_tier_from_price_id(price_id: str) -> Optional[SubscriptionTier]:
             return tier
     return None
 
-
-def get_price_id_for_tier(tier: SubscriptionTier) -> Optional[str]:
+def get_price_id_for_tier(tier: SubscriptionTier) -> str | None:
     """
     Get Stripe price ID for a subscription tier.
 
@@ -869,13 +853,11 @@ def get_price_id_for_tier(tier: SubscriptionTier) -> Optional[str]:
     """
     return STRIPE_PRICES.get(tier)
 
-
 # =============================================================================
 # Default client instance
 # =============================================================================
 
-_default_client: Optional[StripeClient] = None
-
+_default_client: StripeClient | None = None
 
 def get_stripe_client() -> StripeClient:
     """Get the default Stripe client instance."""
@@ -883,7 +865,6 @@ def get_stripe_client() -> StripeClient:
     if _default_client is None:
         _default_client = StripeClient()
     return _default_client
-
 
 __all__ = [
     # Client

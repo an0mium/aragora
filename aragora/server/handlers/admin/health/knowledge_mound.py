@@ -12,12 +12,11 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 def knowledge_mound_health(handler) -> HandlerResult:
     """Comprehensive health check for Knowledge Mound subsystem.
@@ -39,7 +38,7 @@ def knowledge_mound_health(handler) -> HandlerResult:
     Returns:
         JSON response with comprehensive KM health metrics
     """
-    components: Dict[str, Dict[str, Any]] = {}
+    components: dict[str, dict[str, Any]] = {}
     all_healthy = True
     warnings: list[str] = []
     start_time = time.time()
@@ -466,7 +465,6 @@ def knowledge_mound_health(handler) -> HandlerResult:
         }
     )
 
-
 def decay_health(handler) -> HandlerResult:
     """Confidence decay scheduler health - dedicated endpoint for decay monitoring.
 
@@ -512,7 +510,7 @@ def decay_health(handler) -> HandlerResult:
     is_running = scheduler.is_running
 
     # Build workspace status
-    workspace_status: Dict[str, Any] = {}
+    workspace_status: dict[str, Any] = {}
     last_runs = stats.get("last_decay_per_workspace", {})
     now = datetime.now(timezone.utc)
     stale_threshold_hours = 48

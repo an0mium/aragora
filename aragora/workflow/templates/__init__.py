@@ -15,8 +15,9 @@ Pattern-based workflow templates:
 - MapReduce: Split work, parallel processing, aggregate results
 - ReviewCycle: Iterative refinement with convergence check
 """
+from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from aragora.workflow.templates.legal import (
     CONTRACT_REVIEW_TEMPLATE,
@@ -143,13 +144,11 @@ WORKFLOW_TEMPLATES = {
     # Use PATTERN_TEMPLATES or create_*_workflow() functions instead.
 }
 
-
-def get_template(template_id: str) -> Optional[dict[str, Any]]:
+def get_template(template_id: str) -> dict[str, Any] | None:
     """Get a workflow template by ID."""
     return WORKFLOW_TEMPLATES.get(template_id)
 
-
-def list_templates(category: Optional[str] = None) -> list[dict[str, Any]]:
+def list_templates(category: str | None = None) -> list[dict[str, Any]]:
     """List available templates, optionally filtered by category."""
     templates = []
     for template_id, template in WORKFLOW_TEMPLATES.items():
@@ -164,7 +163,6 @@ def list_templates(category: Optional[str] = None) -> list[dict[str, Any]]:
             }
         )
     return templates
-
 
 # Export packaging utilities
 from aragora.workflow.templates.package import (

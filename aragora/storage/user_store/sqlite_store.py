@@ -28,7 +28,7 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, ClassVar, Iterator, Optional
+from typing import Any, ClassVar, Iterator
 
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
 from aragora.storage.repositories import (
@@ -42,7 +42,6 @@ from aragora.storage.repositories import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class UserStore:
     """
@@ -342,13 +341,13 @@ class UserStore:
         password_hash: str,
         password_salt: str,
         name: str = "",
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         role: str = "member",
     ) -> User:
         """Create a new user."""
         return self._user_repo.create(email, password_hash, password_salt, name, org_id, role)
 
-    def get_user_by_id(self, user_id: str) -> Optional[User]:
+    def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID."""
         return self._user_repo.get_by_id(user_id)
 
@@ -356,11 +355,11 @@ class UserStore:
         """Fetch multiple users in a single query."""
         return self._user_repo.get_batch(user_ids)
 
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> User | None:
         """Get user by email."""
         return self._user_repo.get_by_email(email)
 
-    def get_user_by_api_key(self, api_key: str) -> Optional[User]:
+    def get_user_by_api_key(self, api_key: str) -> User | None:
         """Get user by API key."""
         return self._user_repo.get_by_api_key(api_key)
 
@@ -376,7 +375,7 @@ class UserStore:
         """Delete a user."""
         return self._user_repo.delete(user_id)
 
-    def get_user_preferences(self, user_id: str) -> Optional[dict]:
+    def get_user_preferences(self, user_id: str) -> dict | None:
         """Get user preferences."""
         return self._user_repo.get_preferences(user_id)
 
@@ -400,27 +399,27 @@ class UserStore:
         self,
         name: str,
         owner_id: str,
-        slug: Optional[str] = None,
+        slug: str | None = None,
         tier: SubscriptionTier = SubscriptionTier.FREE,
     ) -> Organization:
         """Create a new organization."""
         return self._org_repo.create(name, owner_id, slug, tier)
 
-    def get_organization_by_id(self, org_id: str) -> Optional[Organization]:
+    def get_organization_by_id(self, org_id: str) -> Organization | None:
         """Get organization by ID."""
         return self._org_repo.get_by_id(org_id)
 
-    def get_organization_by_slug(self, slug: str) -> Optional[Organization]:
+    def get_organization_by_slug(self, slug: str) -> Organization | None:
         """Get organization by slug."""
         return self._org_repo.get_by_slug(slug)
 
     def get_organization_by_stripe_customer(
         self, stripe_customer_id: str
-    ) -> Optional[Organization]:
+    ) -> Organization | None:
         """Get organization by Stripe customer ID."""
         return self._org_repo.get_by_stripe_customer(stripe_customer_id)
 
-    def get_organization_by_subscription(self, subscription_id: str) -> Optional[Organization]:
+    def get_organization_by_subscription(self, subscription_id: str) -> Organization | None:
         """Get organization by Stripe subscription ID."""
         return self._org_repo.get_by_subscription(subscription_id)
 
@@ -444,7 +443,7 @@ class UserStore:
         """Get all members of an organization."""
         return self._org_repo.get_members(org_id)
 
-    def get_org_members_eager(self, org_id: str) -> tuple[Optional[Organization], list[User]]:
+    def get_org_members_eager(self, org_id: str) -> tuple[Organization | None, list[User]]:
         """Get organization and all its members in a single query operation."""
         return self._org_repo.get_with_members(org_id)
 
@@ -466,15 +465,15 @@ class UserStore:
         """Create a new organization invitation."""
         return self._invitation_repo.create_invitation(invitation)
 
-    def get_invitation_by_id(self, invitation_id: str) -> Optional[OrganizationInvitation]:
+    def get_invitation_by_id(self, invitation_id: str) -> OrganizationInvitation | None:
         """Get invitation by ID."""
         return self._invitation_repo.get_by_id(invitation_id)
 
-    def get_invitation_by_token(self, token: str) -> Optional[OrganizationInvitation]:
+    def get_invitation_by_token(self, token: str) -> OrganizationInvitation | None:
         """Get invitation by token."""
         return self._invitation_repo.get_by_token(token)
 
-    def get_invitation_by_email(self, org_id: str, email: str) -> Optional[OrganizationInvitation]:
+    def get_invitation_by_email(self, org_id: str, email: str) -> OrganizationInvitation | None:
         """Get pending invitation by org and email."""
         return self._invitation_repo.get_by_email(org_id, email)
 
@@ -490,7 +489,7 @@ class UserStore:
         self,
         invitation_id: str,
         status: str,
-        accepted_at: Optional[datetime] = None,
+        accepted_at: datetime | None = None,
     ) -> bool:
         """Update invitation status."""
         return self._invitation_repo.update_status(invitation_id, status, accepted_at)
@@ -516,7 +515,7 @@ class UserStore:
         org_id: str,
         event_type: str,
         count: int = 1,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """Record a usage event for analytics."""
         self._usage_repo.record_event(org_id, event_type, count, metadata)
@@ -538,7 +537,7 @@ class UserStore:
         user_id: str,
         provider: str,
         provider_user_id: str,
-        email: Optional[str] = None,
+        email: str | None = None,
     ) -> bool:
         """Link an OAuth provider to a user account."""
         return self._oauth_repo.link_provider(user_id, provider, provider_user_id, email)
@@ -547,7 +546,7 @@ class UserStore:
         """Unlink an OAuth provider from a user account."""
         return self._oauth_repo.unlink_provider(user_id, provider)
 
-    def get_user_by_oauth(self, provider: str, provider_user_id: str) -> Optional[User]:
+    def get_user_by_oauth(self, provider: str, provider_user_id: str) -> User | None:
         """Get user by OAuth provider ID."""
         user_id = self._oauth_repo.get_user_id_by_provider(provider, provider_user_id)
         return self.get_user_by_id(user_id) if user_id else None
@@ -564,14 +563,14 @@ class UserStore:
         self,
         action: str,
         resource_type: str,
-        resource_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        old_value: Optional[dict] = None,
-        new_value: Optional[dict] = None,
-        metadata: Optional[dict] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        resource_id: str | None = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
+        old_value: dict | None = None,
+        new_value: dict | None = None,
+        metadata: dict | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> int:
         """Log an audit event."""
         return self._audit_repo.log_event(
@@ -589,12 +588,12 @@ class UserStore:
 
     def get_audit_log(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
@@ -612,10 +611,10 @@ class UserStore:
 
     def get_audit_log_count(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
     ) -> int:
         """Get count of audit log entries matching filters."""
         return self._audit_repo.get_log_count(
@@ -629,11 +628,11 @@ class UserStore:
     # Account Lockout Methods (delegated to SecurityRepository)
     # =========================================================================
 
-    def is_account_locked(self, email: str) -> tuple[bool, Optional[datetime], int]:
+    def is_account_locked(self, email: str) -> tuple[bool, datetime | None, int]:
         """Check if an account is currently locked."""
         return self._security_repo.is_account_locked(email)
 
-    def record_failed_login(self, email: str) -> tuple[int, Optional[datetime]]:
+    def record_failed_login(self, email: str) -> tuple[int, datetime | None]:
         """Record a failed login attempt and potentially lock the account."""
         return self._security_repo.record_failed_login(email)
 
@@ -653,7 +652,7 @@ class UserStore:
         self,
         limit: int = 50,
         offset: int = 0,
-        tier_filter: Optional[str] = None,
+        tier_filter: str | None = None,
     ) -> tuple[list[Organization], int]:
         """List all organizations with pagination."""
         conn = self._get_connection()
@@ -685,8 +684,8 @@ class UserStore:
         self,
         limit: int = 50,
         offset: int = 0,
-        org_id_filter: Optional[str] = None,
-        role_filter: Optional[str] = None,
+        org_id_filter: str | None = None,
+        role_filter: str | None = None,
         active_only: bool = False,
     ) -> tuple[list[User], int]:
         """List all users with pagination and filtering."""

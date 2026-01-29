@@ -32,10 +32,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class ToolStatus(str, Enum):
     """Status of tool execution."""
@@ -47,7 +46,6 @@ class ToolStatus(str, Enum):
     CANCELLED = "cancelled"
     TIMEOUT = "timeout"
 
-
 class Platform(str, Enum):
     """Supported chat platforms."""
 
@@ -58,26 +56,24 @@ class Platform(str, Enum):
     WHATSAPP = "whatsapp"
     GENERIC = "generic"
 
-
 @dataclass
 class ToolInvocation:
     """Record of a tool invocation."""
 
     id: str
     tool_name: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
     status: ToolStatus
     channel_id: str
-    user_id: Optional[str]
+    user_id: str | None
     platform: Platform
     started_at: datetime
-    completed_at: Optional[datetime] = None
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    completed_at: datetime | None = None
+    result: Optional[dict[str, Any]] = None
+    error: str | None = None
     progress: float = 0.0
-    progress_message: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    progress_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ProgressUpdate:
@@ -87,8 +83,7 @@ class ProgressUpdate:
     message: str
     status: ToolStatus
     timestamp: datetime
-    partial_result: Optional[Dict[str, Any]] = None
-
+    partial_result: Optional[dict[str, Any]] = None
 
 class ResultFormatter:
     """Formats tool results for different platforms."""
@@ -102,7 +97,7 @@ class ResultFormatter:
         """
         self.platform = platform
 
-    def format_result(self, tool_name: str, result: Dict[str, Any]) -> str:
+    def format_result(self, tool_name: str, result: dict[str, Any]) -> str:
         """
         Format a tool result for the platform.
 
@@ -139,7 +134,7 @@ class ResultFormatter:
         else:
             return f"{bar} {progress:.0f}% - {message}"
 
-    def _get_result_formatter(self, tool_name: str) -> Callable[[Dict[str, Any]], str]:
+    def _get_result_formatter(self, tool_name: str) -> Callable[[dict[str, Any]], str]:
         """Get the formatter for a specific tool."""
         formatters = {
             "run_debate": self._format_debate_result,
@@ -150,7 +145,7 @@ class ResultFormatter:
         }
         return formatters.get(tool_name, self._format_generic_result)
 
-    def _format_debate_result(self, result: Dict[str, Any]) -> str:
+    def _format_debate_result(self, result: dict[str, Any]) -> str:
         """Format debate result."""
         lines = []
 
@@ -179,13 +174,13 @@ class ResultFormatter:
 
         return "\n".join(lines)
 
-    def _format_poll_result(self, result: Dict[str, Any]) -> str:
+    def _format_poll_result(self, result: dict[str, Any]) -> str:
         """Format poll creation result."""
         if self.platform == Platform.SLACK:
             return f":bar_chart: Poll created: {result.get('poll_id', 'N/A')}"
         return f"Poll created: {result.get('poll_id', 'N/A')}"
 
-    def _format_knowledge_result(self, result: Dict[str, Any]) -> str:
+    def _format_knowledge_result(self, result: dict[str, Any]) -> str:
         """Format knowledge query result."""
         entries = result.get("entries", [])
         if not entries:
@@ -197,7 +192,7 @@ class ResultFormatter:
 
         return "\n".join(lines)
 
-    def _format_gauntlet_result(self, result: Dict[str, Any]) -> str:
+    def _format_gauntlet_result(self, result: dict[str, Any]) -> str:
         """Format gauntlet result."""
         findings = result.get("findings", [])
         score = result.get("score", 0)
@@ -211,7 +206,7 @@ class ResultFormatter:
             )
         return f"Gauntlet Complete - Score: {score:.1%}, Findings: {len(findings)}"
 
-    def _format_generic_result(self, result: Dict[str, Any]) -> str:
+    def _format_generic_result(self, result: dict[str, Any]) -> str:
         """Format a generic result."""
         if "success" in result and result["success"]:
             return "Operation completed successfully."
@@ -222,7 +217,6 @@ class ResultFormatter:
         filled = int(width * progress / 100)
         empty = width - filled
         return f"[{'=' * filled}{' ' * empty}]"
-
 
 class ErrorHandler:
     """Handles errors with user-friendly messages."""
@@ -278,7 +272,6 @@ class ErrorHandler:
         )
         return type(error).__name__ in retryable
 
-
 class ToolBridge:
     """
     Bridges between MCP tools and chat platforms.
@@ -318,8 +311,8 @@ class ToolBridge:
         self.formatter = ResultFormatter(self.platform)
         self.error_handler = ErrorHandler(self.platform)
 
-        self._invocations: Dict[str, ToolInvocation] = {}
-        self._tools: Dict[str, Callable] = {}
+        self._invocations: dict[str, ToolInvocation] = {}
+        self._tools: dict[str, Callable] = {}
         self._lock = asyncio.Lock()
 
         # Register default tools
@@ -359,11 +352,11 @@ class ToolBridge:
     async def invoke_tool(
         self,
         tool_name: str,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         channel_id: str,
-        user_id: Optional[str] = None,
-        timeout: Optional[float] = None,
-    ) -> Tuple[str, Dict[str, Any]]:
+        user_id: str | None = None,
+        timeout: float | None = None,
+    ) -> tuple[str, dict[str, Any]]:
         """
         Invoke a tool and return formatted result.
 
@@ -448,7 +441,7 @@ class ToolBridge:
     async def stream_tool_progress(
         self,
         tool_name: str,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         channel_id: str,
         update_interval: float = 2.0,
     ) -> AsyncIterator[ProgressUpdate]:
@@ -519,18 +512,18 @@ class ToolBridge:
                 timestamp=datetime.now(timezone.utc),
             )
 
-    def get_available_tools(self) -> List[str]:
+    def get_available_tools(self) -> list[str]:
         """Get list of available tool names."""
         return list(self._tools.keys())
 
-    def get_tool_help(self, tool_name: str) -> Optional[str]:
+    def get_tool_help(self, tool_name: str) -> str | None:
         """Get help text for a tool."""
         tool_fn = self._tools.get(tool_name)
         if tool_fn and tool_fn.__doc__:
             return tool_fn.__doc__.strip()
         return None
 
-    async def get_invocation(self, invocation_id: str) -> Optional[ToolInvocation]:
+    async def get_invocation(self, invocation_id: str) -> ToolInvocation | None:
         """Get an invocation by ID."""
         return self._invocations.get(invocation_id)
 
@@ -543,10 +536,8 @@ class ToolBridge:
             return True
         return False
 
-
 # Singleton instance per platform
-_bridges: Dict[Platform, ToolBridge] = {}
-
+_bridges: dict[Platform, ToolBridge] = {}
 
 def get_tool_bridge(platform: str = "generic") -> ToolBridge:
     """Get the tool bridge for a platform."""
@@ -559,7 +550,6 @@ def get_tool_bridge(platform: str = "generic") -> ToolBridge:
         _bridges[p] = ToolBridge(platform=p)
 
     return _bridges[p]
-
 
 def reset_tool_bridges() -> None:
     """Reset all tool bridges (for testing)."""

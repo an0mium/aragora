@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from aragora.knowledge.mound.types import (
     StalenessCheck,
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # Default staleness thresholds by tier
 TIER_AGE_THRESHOLDS = {
     "fast": timedelta(hours=1),
@@ -32,13 +31,12 @@ TIER_AGE_THRESHOLDS = {
     "glacial": timedelta(days=30),
 }
 
-
 @dataclass
 class StalenessConfig:
     """Configuration for staleness detection."""
 
     # Age-based staleness
-    age_thresholds: Dict[str, timedelta] = None
+    age_thresholds: dict[str, timedelta] = None
     age_weight: float = 0.4
 
     # Contradiction-based staleness
@@ -60,7 +58,6 @@ class StalenessConfig:
         if self.age_thresholds is None:
             self.age_thresholds = TIER_AGE_THRESHOLDS.copy()
 
-
 class StalenessDetector:
     """
     Detects and manages stale knowledge in the Knowledge Mound.
@@ -75,9 +72,9 @@ class StalenessDetector:
     def __init__(
         self,
         mound: "KnowledgeMound",
-        config: Optional[StalenessConfig] = None,
-        age_threshold: Optional[timedelta] = None,
-        event_emitter: Optional[Any] = None,
+        config: StalenessConfig | None = None,
+        age_threshold: timedelta | None = None,
+        event_emitter: Any | None = None,
     ):
         """
         Initialize staleness detector.
@@ -116,8 +113,8 @@ class StalenessDetector:
                 revalidation_recommended=False,
             )
 
-        reasons: List[StalenessReason] = []
-        scores: Dict[str, float] = {}
+        reasons: list[StalenessReason] = []
+        scores: dict[str, float] = {}
 
         # 1. Age-based staleness
         age_score = self._compute_age_score(node)
@@ -332,7 +329,7 @@ class StalenessDetector:
         workspace_id: str,
         threshold: float = 0.5,
         limit: int = 100,
-    ) -> List[StalenessCheck]:
+    ) -> list[StalenessCheck]:
         """
         Get knowledge nodes that may need revalidation.
 
@@ -345,7 +342,7 @@ class StalenessDetector:
             List of StalenessCheck results, sorted by staleness
         """
         # Get all nodes for workspace (paginated)
-        all_checks: List[StalenessCheck] = []
+        all_checks: list[StalenessCheck] = []
 
         # Query nodes ordered by last update (oldest first)
         nodes = await self._mound.query_nodes(  # type: ignore[misc]
@@ -368,8 +365,8 @@ class StalenessDetector:
 
     async def batch_check_staleness(
         self,
-        node_ids: List[str],
-    ) -> List[StalenessCheck]:
+        node_ids: list[str],
+    ) -> list[StalenessCheck]:
         """
         Check staleness for a batch of nodes.
 

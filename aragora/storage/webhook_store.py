@@ -18,13 +18,12 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
-
 
 class WebhookStoreBackend(ABC):
     """Abstract base for webhook idempotency storage."""
@@ -66,7 +65,6 @@ class WebhookStoreBackend(ABC):
     def size(self) -> int:
         """Get current store size (optional)."""
         return -1  # Not supported by default
-
 
 class InMemoryWebhookStore(WebhookStoreBackend):
     """
@@ -134,7 +132,6 @@ class InMemoryWebhookStore(WebhookStoreBackend):
         """Clear all entries (for testing)."""
         with self._lock:
             self._store.clear()
-
 
 class SQLiteWebhookStore(WebhookStoreBackend):
     """
@@ -250,7 +247,6 @@ class SQLiteWebhookStore(WebhookStoreBackend):
         if hasattr(self._local, "conn"):
             self._local.conn.close()
             del self._local.conn
-
 
 class PostgresWebhookStore(WebhookStoreBackend):
     """
@@ -395,10 +391,8 @@ class PostgresWebhookStore(WebhookStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 # Global webhook store instance
-_webhook_store: Optional[WebhookStoreBackend] = None
-
+_webhook_store: WebhookStoreBackend | None = None
 
 def get_webhook_store() -> WebhookStoreBackend:
     """
@@ -471,7 +465,6 @@ def get_webhook_store() -> WebhookStoreBackend:
 
     return _webhook_store
 
-
 def set_webhook_store(store: WebhookStoreBackend) -> None:
     """
     Set custom webhook store.
@@ -485,12 +478,10 @@ def set_webhook_store(store: WebhookStoreBackend) -> None:
     _webhook_store = store
     logger.debug(f"Webhook store backend set: {type(store).__name__}")
 
-
 def reset_webhook_store() -> None:
     """Reset the global webhook store (for testing)."""
     global _webhook_store
     _webhook_store = None
-
 
 __all__ = [
     "WebhookStoreBackend",

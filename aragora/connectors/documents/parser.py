@@ -29,10 +29,9 @@ import mimetypes
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class DocumentFormat(str, Enum):
     """Supported document formats."""
@@ -76,27 +75,25 @@ class DocumentFormat(str, Enum):
 
     UNKNOWN = "unknown"
 
-
 @dataclass
 class DocumentChunk:
     """A chunk of extracted content from a document."""
 
     content: str
     chunk_type: str = "text"  # text, table, heading, code, etc.
-    page: Optional[int] = None
-    section: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    page: int | None = None
+    section: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class DocumentTable:
     """A table extracted from a document."""
 
-    data: List[List[str]]  # 2D array of cell values
-    headers: Optional[List[str]] = None  # Column headers if detected
-    page: Optional[int] = None  # Page number where table was found
-    caption: Optional[str] = None  # Table caption if available
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    data: list[list[str]]  # 2D array of cell values
+    headers: Optional[list[str]] = None  # Column headers if detected
+    page: int | None = None  # Page number where table was found
+    caption: str | None = None  # Table caption if available
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def rows(self) -> int:
@@ -124,29 +121,27 @@ class DocumentTable:
 
         return "\n".join(lines)
 
-
 @dataclass
 class ParsedDocument:
     """Result of parsing a document."""
 
     content: str  # Full text content
-    chunks: List[DocumentChunk] = field(default_factory=list)
+    chunks: list[DocumentChunk] = field(default_factory=list)
     format: DocumentFormat = DocumentFormat.UNKNOWN
-    filename: Optional[str] = None  # Original filename
-    title: Optional[str] = None  # Document title if extracted
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    tables: List[Union[DocumentTable, List[List[str]]]] = field(default_factory=list)
+    filename: str | None = None  # Original filename
+    title: str | None = None  # Document title if extracted
+    metadata: dict[str, Any] = field(default_factory=dict)
+    tables: list[DocumentTable | list[list[str]]] = field(default_factory=list)
     pages: int = 0
     word_count: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.word_count and self.content:
             self.word_count = len(self.content.split())
 
-
 # Extension to format mapping
-EXTENSION_MAP: Dict[str, DocumentFormat] = {
+EXTENSION_MAP: dict[str, DocumentFormat] = {
     ".pdf": DocumentFormat.PDF,
     ".docx": DocumentFormat.DOCX,
     ".doc": DocumentFormat.DOC,
@@ -187,7 +182,6 @@ EXTENSION_MAP: Dict[str, DocumentFormat] = {
     ".tar.gz": DocumentFormat.TAR,
 }
 
-
 class DocumentParser:
     """
     Unified document parser for omnivorous ingestion.
@@ -217,7 +211,7 @@ class DocumentParser:
         self.extract_metadata = extract_metadata
 
     def detect_format(
-        self, filename: Optional[str] = None, content: Optional[bytes] = None
+        self, filename: str | None = None, content: bytes | None = None
     ) -> DocumentFormat:
         """Detect document format from filename or content."""
         if filename:
@@ -252,9 +246,9 @@ class DocumentParser:
 
     def parse(
         self,
-        content: Union[bytes, str],
-        format: Optional[DocumentFormat] = None,
-        filename: Optional[str] = None,
+        content: bytes | str,
+        format: DocumentFormat | None = None,
+        filename: str | None = None,
     ) -> ParsedDocument:
         """
         Parse a document and extract content.
@@ -318,11 +312,11 @@ class DocumentParser:
 
     def _parse_pdf(self, content: bytes) -> ParsedDocument:
         """Parse PDF document."""
-        chunks: List[DocumentChunk] = []
-        tables: List[Union[DocumentTable, List[List[str]]]] = []
-        all_text: List[str] = []
-        metadata: Dict[str, Any] = {}
-        errors: List[str] = []
+        chunks: list[DocumentChunk] = []
+        tables: list[DocumentTable | list[list[str]]] = []
+        all_text: list[str] = []
+        metadata: dict[str, Any] = {}
+        errors: list[str] = []
         pages = 0
 
         # Try pdfplumber first (better table extraction)
@@ -430,11 +424,11 @@ class DocumentParser:
 
     def _parse_docx(self, content: bytes) -> ParsedDocument:
         """Parse Word document (.docx)."""
-        chunks: List[DocumentChunk] = []
-        tables: List[Union[DocumentTable, List[List[str]]]] = []
-        all_text: List[str] = []
-        metadata: Dict[str, Any] = {}
-        errors: List[str] = []
+        chunks: list[DocumentChunk] = []
+        tables: list[DocumentTable | list[list[str]]] = []
+        all_text: list[str] = []
+        metadata: dict[str, Any] = {}
+        errors: list[str] = []
 
         try:
             from docx import Document
@@ -473,7 +467,7 @@ class DocumentParser:
             # Extract tables
             if self.extract_tables:
                 for table in doc.tables:
-                    table_data: List[List[str]] = []
+                    table_data: list[list[str]] = []
                     for row in table.rows:
                         row_data = [cell.text.strip() for cell in row.cells]
                         table_data.append(row_data)
@@ -505,11 +499,11 @@ class DocumentParser:
 
     def _parse_excel(self, content: bytes) -> ParsedDocument:
         """Parse Excel spreadsheet (.xlsx, .xls)."""
-        chunks: List[DocumentChunk] = []
-        tables: List[Union[DocumentTable, List[List[str]]]] = []
-        all_text: List[str] = []
-        metadata: Dict[str, Any] = {}
-        errors: List[str] = []
+        chunks: list[DocumentChunk] = []
+        tables: list[DocumentTable | list[list[str]]] = []
+        all_text: list[str] = []
+        metadata: dict[str, Any] = {}
+        errors: list[str] = []
 
         try:
             from openpyxl import load_workbook
@@ -532,7 +526,7 @@ class DocumentParser:
             # Extract content from each sheet
             for sheet_name in wb.sheetnames:
                 sheet = wb[sheet_name]
-                sheet_data: List[List[str]] = []
+                sheet_data: list[list[str]] = []
 
                 for row in sheet.iter_rows(max_row=1000):  # Limit rows
                     row_data = [str(cell.value) if cell.value is not None else "" for cell in row]
@@ -579,10 +573,10 @@ class DocumentParser:
 
     def _parse_pptx(self, content: bytes) -> ParsedDocument:
         """Parse PowerPoint presentation (.pptx)."""
-        chunks: List[DocumentChunk] = []
-        all_text: List[str] = []
-        metadata: Dict[str, Any] = {}
-        errors: List[str] = []
+        chunks: list[DocumentChunk] = []
+        all_text: list[str] = []
+        metadata: dict[str, Any] = {}
+        errors: list[str] = []
 
         try:
             from pptx import Presentation
@@ -603,7 +597,7 @@ class DocumentParser:
 
             # Extract content from slides
             for i, slide in enumerate(prs.slides):
-                slide_texts: List[str] = []
+                slide_texts: list[str] = []
                 notes_text = ""
 
                 # Extract text from shapes
@@ -676,7 +670,7 @@ class DocumentParser:
             text = soup.get_text(separator="\n", strip=True)
 
             # Extract metadata
-            metadata: Dict[str, Any] = {}
+            metadata: dict[str, Any] = {}
             if self.extract_metadata:
                 title = soup.find("title")
                 if title:
@@ -764,7 +758,7 @@ class DocumentParser:
             root = ET.fromstring(content)
 
             # Extract all text content
-            texts: List[str] = []
+            texts: list[str] = []
 
             def extract_text(element, depth=0):
                 if element.text and element.text.strip():
@@ -815,10 +809,10 @@ class DocumentParser:
 
     def _parse_jupyter(self, content: bytes) -> ParsedDocument:
         """Parse Jupyter notebook (.ipynb) files."""
-        chunks: List[DocumentChunk] = []
-        all_text: List[str] = []
-        metadata: Dict[str, Any] = {}
-        errors: List[str] = []
+        chunks: list[DocumentChunk] = []
+        all_text: list[str] = []
+        metadata: dict[str, Any] = {}
+        errors: list[str] = []
 
         try:
             notebook = json.loads(content.decode("utf-8"))
@@ -907,10 +901,10 @@ class DocumentParser:
 
     def _parse_epub(self, content: bytes) -> ParsedDocument:
         """Parse EPUB e-book files."""
-        chunks: List[DocumentChunk] = []
-        all_text: List[str] = []
-        metadata: Dict[str, Any] = {}
-        errors: List[str] = []
+        chunks: list[DocumentChunk] = []
+        all_text: list[str] = []
+        metadata: dict[str, Any] = {}
+        errors: list[str] = []
 
         try:
             import ebooklib
@@ -983,7 +977,7 @@ class DocumentParser:
 
     def _parse_mobi(self, content: bytes) -> ParsedDocument:
         """Parse MOBI/Kindle e-book files."""
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             import mobi
@@ -1032,18 +1026,18 @@ class DocumentParser:
 
     def _parse_archive(self, content: bytes, format: DocumentFormat) -> ParsedDocument:
         """Parse archive files (ZIP, TAR, GZIP) and extract documents."""
-        chunks: List[DocumentChunk] = []
-        all_text: List[str] = []
-        metadata: Dict[str, Any] = {"files": []}
-        errors: List[str] = []
-        tables: List[Union[DocumentTable, List[List[str]]]] = []
+        chunks: list[DocumentChunk] = []
+        all_text: list[str] = []
+        metadata: dict[str, Any] = {"files": []}
+        errors: list[str] = []
+        tables: list[DocumentTable | list[list[str]]] = []
 
         try:
             import zipfile
             import tarfile
             import gzip
 
-            extracted_docs: List[ParsedDocument] = []
+            extracted_docs: list[ParsedDocument] = []
 
             if format == DocumentFormat.ZIP:
                 with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
@@ -1139,12 +1133,11 @@ class DocumentParser:
             format=format,
         )
 
-
 # Convenience function
 async def parse_document(
-    content: Union[bytes, str, Path],
-    filename: Optional[str] = None,
-    format: Optional[DocumentFormat] = None,
+    content: bytes | str | Path,
+    filename: str | None = None,
+    format: DocumentFormat | None = None,
     **kwargs,
 ) -> ParsedDocument:
     """
@@ -1166,7 +1159,6 @@ async def parse_document(
 
     parser = DocumentParser(**kwargs)
     return parser.parse(content, format=format, filename=filename)
-
 
 __all__ = [
     "DocumentParser",

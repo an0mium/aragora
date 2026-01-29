@@ -6,19 +6,19 @@ Phase 0: Gather codebase understanding
 - Each agent uses its native codebase exploration harness
 - Prevents proposals for features that already exist
 """
+from __future__ import annotations
 
 import asyncio
 import os
 import time
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional
 
 from . import ContextResult
 
 # Optional metrics recording (imported lazily to avoid circular imports)
 _metrics_recorder: Optional[Callable[[str, str, float], None]] = None
 _agent_metrics_recorder: Optional[Callable[[str, str, float], None]] = None
-
 
 def set_metrics_recorder(
     phase_recorder: Optional[Callable[[str, str, float], None]] = None,
@@ -33,7 +33,6 @@ def set_metrics_recorder(
     global _metrics_recorder, _agent_metrics_recorder
     _metrics_recorder = phase_recorder
     _agent_metrics_recorder = agent_recorder
-
 
 class ContextPhase:
     """
@@ -58,7 +57,7 @@ class ContextPhase:
         log_fn: Optional[Callable[..., None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
         get_features_fn: Optional[Callable[[], str]] = None,
-        context_builder: Optional[Any] = None,
+        context_builder: Any | None = None,
     ):
         """
         Initialize the context gathering phase.
@@ -292,12 +291,12 @@ What's genuinely missing (not already implemented).
 
 CRITICAL: Be thorough. Features you miss here may be accidentally proposed for recreation."""
 
-    async def _gather_with_agent(self, agent: Any, name: str, harness: str) -> Tuple[str, str, str]:
+    async def _gather_with_agent(self, agent: Any, name: str, harness: str) -> tuple[str, str, str]:
         """Run exploration with one agent."""
         from aragora.server.stream.arena_hooks import streaming_task_context
 
         agent_start = time.perf_counter()
-        heartbeat_task: Optional[asyncio.Task] = None
+        heartbeat_task: asyncio.Task | None = None
         done_event = asyncio.Event()
         try:
             self._log(f"  {name} ({harness}): exploring codebase...", agent=name)
@@ -360,6 +359,5 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             if _agent_metrics_recorder:
                 agent_duration = time.perf_counter() - agent_start
                 _agent_metrics_recorder("context", name, agent_duration)
-
 
 __all__ = ["ContextPhase", "set_metrics_recorder"]

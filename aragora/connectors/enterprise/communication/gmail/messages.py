@@ -13,7 +13,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from email.utils import parseaddr
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
+from typing import Any, AsyncIterator, Optional, Protocol, TYPE_CHECKING
 
 from aragora.connectors.enterprise.base import SyncItem, SyncState
 from aragora.reasoning.provenance import SourceType
@@ -29,14 +29,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class GmailBaseMethods(Protocol):
     """Protocol defining expected methods from base classes for type checking."""
 
     user_id: str
     include_spam_trash: bool
     exclude_labels: set[str]
-    labels: Optional[List[str]]
+    labels: Optional[list[str]]
     max_results: int
 
     @property
@@ -44,15 +43,14 @@ class GmailBaseMethods(Protocol):
     async def _get_access_token(self) -> str: ...
     async def _api_request(
         self, endpoint: str, method: str = "GET", **kwargs: Any
-    ) -> Dict[str, Any]: ...
+    ) -> dict[str, Any]: ...
     @asynccontextmanager
     def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
     def check_circuit_breaker(self) -> bool: ...
-    def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
+    def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
     def record_failure(self) -> None: ...
-    async def get_user_info(self) -> Dict[str, Any]: ...
-
+    async def get_user_info(self) -> dict[str, Any]: ...
 
 class GmailMessagesMixin(GmailBaseMethods):
     """Mixin providing message operations for the Gmail connector."""
@@ -60,10 +58,10 @@ class GmailMessagesMixin(GmailBaseMethods):
     async def list_messages(
         self,
         query: str = "",
-        label_ids: Optional[List[str]] = None,
-        page_token: Optional[str] = None,
+        label_ids: Optional[list[str]] = None,
+        page_token: str | None = None,
         max_results: int = 100,
-    ) -> tuple[List[str], Optional[str]]:
+    ) -> tuple[list[str], str | None]:
         """
         List message IDs matching criteria.
 
@@ -76,7 +74,7 @@ class GmailMessagesMixin(GmailBaseMethods):
         Returns:
             Tuple of (message_ids, next_page_token)
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "maxResults": min(max_results, 500),
             "includeSpamTrash": self.include_spam_trash,
         }
@@ -117,10 +115,10 @@ class GmailMessagesMixin(GmailBaseMethods):
 
     async def get_messages(
         self,
-        message_ids: List[str],
+        message_ids: list[str],
         format: str = "full",
         max_concurrent: int = 10,
-    ) -> List[EmailMessage]:
+    ) -> list[EmailMessage]:
         """
         Get multiple messages by IDs in parallel.
 
@@ -141,7 +139,7 @@ class GmailMessagesMixin(GmailBaseMethods):
         # Use semaphore to limit concurrent requests
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def fetch_one(msg_id: str) -> Optional[EmailMessage]:
+        async def fetch_one(msg_id: str) -> EmailMessage | None:
             async with semaphore:
                 try:
                     return await self.get_message(msg_id, format=format)
@@ -155,7 +153,7 @@ class GmailMessagesMixin(GmailBaseMethods):
         # Filter out None (failed fetches) and return
         return [msg for msg in results if msg is not None]
 
-    def _parse_message(self, data: Dict[str, Any]) -> EmailMessage:
+    def _parse_message(self, data: dict[str, Any]) -> EmailMessage:
         """Parse Gmail API message response into EmailMessage."""
         headers = {}
         payload = data.get("payload", {})
@@ -213,8 +211,8 @@ class GmailMessagesMixin(GmailBaseMethods):
 
     def _extract_body_and_attachments(
         self,
-        payload: Dict[str, Any],
-    ) -> tuple[str, str, List[EmailAttachment]]:
+        payload: dict[str, Any],
+    ) -> tuple[str, str, list[EmailAttachment]]:
         """Extract body text, HTML, and attachments from message payload."""
         body_text = ""
         body_html = ""
@@ -304,16 +302,16 @@ class GmailMessagesMixin(GmailBaseMethods):
     async def get_history(
         self,
         start_history_id: str,
-        label_id: Optional[str] = None,
-        page_token: Optional[str] = None,
-    ) -> tuple[List[Dict[str, Any]], Optional[str], str]:
+        label_id: str | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None, str]:
         """
         Get message history changes since a history ID.
 
         Returns:
             Tuple of (history_records, next_page_token, new_history_id)
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "startHistoryId": start_history_id,
             "historyTypes": ["messageAdded", "labelAdded", "labelRemoved"],
         }
@@ -343,7 +341,7 @@ class GmailMessagesMixin(GmailBaseMethods):
         query: str,
         limit: int = 10,
         **kwargs,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Search Gmail messages."""
         from aragora.connectors.base import Evidence
 
@@ -374,7 +372,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
         return results
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific email by ID."""
         from aragora.connectors.base import Evidence
 
@@ -529,14 +527,14 @@ class GmailMessagesMixin(GmailBaseMethods):
 
     async def send_message(
         self,
-        to: List[str],
+        to: list[str],
         subject: str,
         body: str,
-        cc: Optional[List[str]] = None,
-        bcc: Optional[List[str]] = None,
-        reply_to: Optional[str] = None,
-        html_body: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        cc: Optional[list[str]] = None,
+        bcc: Optional[list[str]] = None,
+        reply_to: str | None = None,
+        html_body: str | None = None,
+    ) -> dict[str, Any]:
         """
         Send an email message.
 
@@ -625,9 +623,9 @@ class GmailMessagesMixin(GmailBaseMethods):
         self,
         original_message_id: str,
         body: str,
-        cc: Optional[List[str]] = None,
-        html_body: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        cc: Optional[list[str]] = None,
+        html_body: str | None = None,
+    ) -> dict[str, Any]:
         """
         Reply to an existing email message.
 
@@ -736,10 +734,10 @@ class GmailMessagesMixin(GmailBaseMethods):
 
     async def sync_with_prioritization(
         self,
-        messages: List[EmailMessage],
-        prioritizer: Optional[Any] = None,
+        messages: list[EmailMessage],
+        prioritizer: Any | None = None,
         timeout_seconds: float = 30.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Sync messages with email prioritization scoring.
 
@@ -786,7 +784,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                     for msg in messages
                 ]
 
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         for msg in messages:
             try:
@@ -849,9 +847,9 @@ class GmailMessagesMixin(GmailBaseMethods):
     async def rank_inbox(
         self,
         max_messages: int = 50,
-        labels: Optional[List[str]] = None,
+        labels: Optional[list[str]] = None,
         query: str = "",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Fetch and rank inbox messages by priority.
 

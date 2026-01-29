@@ -16,6 +16,7 @@ Key features:
 - Conditional consensus synthesis
 - Decision tree output
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -23,7 +24,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,6 @@ from aragora.debate.graph import (
     MergeStrategy,
 )
 
-
 class CounterfactualStatus(Enum):
     """Status of a counterfactual branch."""
 
@@ -45,7 +45,6 @@ class CounterfactualStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     MERGED = "merged"
-
 
 @dataclass
 class PivotClaim:
@@ -74,7 +73,6 @@ class PivotClaim:
         # Branch if disagreement is high AND claim is important
         return self.disagreement_score > 0.5 and self.importance_score > 0.3
 
-
 @dataclass
 class CounterfactualBranch:
     """
@@ -95,17 +93,17 @@ class CounterfactualBranch:
     votes: list[Vote] = field(default_factory=list)
 
     # Results
-    conclusion: Optional[str] = None
+    conclusion: str | None = None
     confidence: float = 0.0
     consensus_reached: bool = False
     key_insights: list[str] = field(default_factory=list)
 
     # Timing
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
 
     # Graph
-    graph_branch_id: Optional[str] = None  # Link to DebateGraph branch
+    graph_branch_id: str | None = None  # Link to DebateGraph branch
 
     @property
     def assumption_text(self) -> str:
@@ -116,7 +114,7 @@ class CounterfactualBranch:
             return f"Assuming '{self.pivot_claim.statement[:100]}...' is FALSE"
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Duration of branch execution."""
         if self.started_at and self.completed_at:
             start = datetime.fromisoformat(self.started_at)
@@ -146,7 +144,6 @@ class CounterfactualBranch:
             "duration_seconds": self.duration_seconds,
         }
 
-
 @dataclass
 class BranchComparison:
     """Comparison of two counterfactual branch outcomes."""
@@ -166,9 +163,8 @@ class BranchComparison:
     shared_insights: list[str]
 
     # Recommendation
-    recommended_branch: Optional[str] = None  # Which branch leads to better outcome
+    recommended_branch: str | None = None  # Which branch leads to better outcome
     recommendation_reason: str = ""
-
 
 @dataclass
 class ConditionalConsensus:
@@ -192,7 +188,7 @@ class ConditionalConsensus:
     decision_tree: dict[str, Any] = field(default_factory=dict)
 
     # Meta-analysis
-    preferred_world: Optional[bool] = None  # True/False/None
+    preferred_world: bool | None = None  # True/False/None
     preference_reason: str = ""
     unresolved_uncertainties: list[str] = field(default_factory=list)
 
@@ -228,7 +224,6 @@ class ConditionalConsensus:
             "natural_language": self.to_natural_language(),
         }
 
-
 class ImpactDetector:
     """Detects when a debate has reached an impasse that warrants branching."""
 
@@ -259,7 +254,7 @@ class ImpactDetector:
         self,
         messages: list[Message],
         votes: list[Vote],
-    ) -> Optional[PivotClaim]:
+    ) -> PivotClaim | None:
         """
         Detect if the debate has reached an impasse that should trigger branching.
 
@@ -341,7 +336,6 @@ class ImpactDetector:
 
         return min(1.0, mentions / len(messages)) if messages else 0.0
 
-
 class CounterfactualOrchestrator:
     """
     Orchestrates counterfactual debate branches.
@@ -373,7 +367,7 @@ class CounterfactualOrchestrator:
         messages: list[Message],
         votes: list[Vote],
         run_branch_fn: Callable,
-    ) -> Optional[list[CounterfactualBranch]]:
+    ) -> list[CounterfactualBranch] | None:
         """
         Check if branching is warranted and execute if so.
 
@@ -683,7 +677,6 @@ class CounterfactualOrchestrator:
         self.conditional_consensuses.clear()
         self._branch_counter = 0
 
-
 class CounterfactualIntegration:
     """
     Integration layer for counterfactual branching with DebateGraph.
@@ -755,7 +748,6 @@ class CounterfactualIntegration:
             )
 
         return merge_result, consensus
-
 
 # Convenience function for standalone use
 async def explore_counterfactual(

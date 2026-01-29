@@ -34,10 +34,9 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class RevocationEntry:
@@ -48,13 +47,13 @@ class RevocationEntry:
     expires_at: datetime  # When to auto-cleanup this entry
     reason: str = ""
     revoked_by: str = ""  # User/system that revoked
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def is_expired(self) -> bool:
         """Check if this entry has expired and can be cleaned up."""
         return datetime.now(timezone.utc) > self.expires_at
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "token_hash": self.token_hash,
@@ -64,7 +63,6 @@ class RevocationEntry:
             "revoked_by": self.revoked_by,
             "metadata": self.metadata,
         }
-
 
 class RevocationStore(Protocol):
     """Protocol for token revocation stores."""
@@ -89,7 +87,6 @@ class RevocationStore(Protocol):
         """Get total number of revoked tokens."""
         ...
 
-
 class InMemoryRevocationStore:
     """
     In-memory token revocation store.
@@ -105,7 +102,7 @@ class InMemoryRevocationStore:
         Args:
             cleanup_interval: Seconds between automatic cleanup runs
         """
-        self._store: Dict[str, RevocationEntry] = {}
+        self._store: dict[str, RevocationEntry] = {}
         self._lock = threading.Lock()
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.time()
@@ -160,7 +157,6 @@ class InMemoryRevocationStore:
             # Run cleanup in a separate thread to avoid blocking
             threading.Thread(target=self.cleanup_expired, daemon=True).start()
 
-
 class RedisRevocationStore:
     """
     Redis-backed token revocation store.
@@ -171,7 +167,7 @@ class RedisRevocationStore:
 
     def __init__(
         self,
-        redis_url: Optional[str] = None,
+        redis_url: str | None = None,
         key_prefix: str = "aragora:revoked:",
     ):
         """
@@ -183,7 +179,7 @@ class RedisRevocationStore:
         """
         self._redis_url = redis_url or os.environ.get("REDIS_URL", "redis://localhost:6379")
         self._key_prefix = key_prefix
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
 
     def _get_client(self) -> Any:
         """Get or create Redis client."""
@@ -261,11 +257,9 @@ class RedisRevocationStore:
             logger.warning(f"Redis count error: {e}")
             return 0
 
-
 # Global store instance
-_revocation_store: Optional[RevocationStore] = None
+_revocation_store: RevocationStore | None = None
 _store_lock = threading.Lock()
-
 
 def get_revocation_store() -> RevocationStore:
     """
@@ -318,7 +312,6 @@ def get_revocation_store() -> RevocationStore:
                     logger.debug("token_revocation using in-memory store")
     return _revocation_store
 
-
 def hash_token(token: str) -> str:
     """
     Hash a token for storage.
@@ -333,13 +326,12 @@ def hash_token(token: str) -> str:
     """
     return hashlib.sha256(token.encode()).hexdigest()
 
-
 def revoke_token(
     token: str,
     reason: str = "",
     revoked_by: str = "system",
     ttl_seconds: int = 86400,  # 24 hours default
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> RevocationEntry:
     """
     Revoke a token.
@@ -386,7 +378,6 @@ def revoke_token(
 
     return entry
 
-
 def is_token_revoked(token: str) -> bool:
     """
     Check if a token has been revoked.
@@ -399,7 +390,6 @@ def is_token_revoked(token: str) -> bool:
     """
     store = get_revocation_store()
     return store.contains(hash_token(token))
-
 
 def unrevoke_token(token: str) -> bool:
     """
@@ -419,8 +409,7 @@ def unrevoke_token(token: str) -> bool:
         logger.warning(f"token_unrevoked hash={hash_token(token)[:8]}...")
     return result
 
-
-def get_revocation_stats() -> Dict[str, Any]:
+def get_revocation_stats() -> dict[str, Any]:
     """
     Get statistics about the revocation store.
 
@@ -433,7 +422,6 @@ def get_revocation_stats() -> Dict[str, Any]:
         "store_type": store_type,
         "revoked_count": store.count(),
     }
-
 
 __all__ = [
     "RevocationEntry",

@@ -4,6 +4,7 @@ Template Registry for the Aragora Marketplace.
 Provides local storage and management of templates with
 search, versioning, and validation capabilities.
 """
+from __future__ import annotations
 
 import json
 import sqlite3
@@ -26,11 +27,10 @@ from .models import (
 # Type alias for all template types
 Template = Union[AgentTemplate, DebateTemplate, WorkflowTemplate]
 
-
 class TemplateRegistry:
     """Local registry for marketplace templates."""
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """Initialize the template registry."""
         if db_path is None:
             db_path = Path.home() / ".aragora" / "marketplace.db"
@@ -98,7 +98,7 @@ class TemplateRegistry:
 
     def _upsert_template(
         self,
-        template: Union[AgentTemplate, DebateTemplate, WorkflowTemplate],
+        template: AgentTemplate | DebateTemplate | WorkflowTemplate,
         is_builtin: bool = False,
     ) -> None:
         """Insert or update a template."""
@@ -135,7 +135,7 @@ class TemplateRegistry:
 
     def register(
         self,
-        template: Union[AgentTemplate, DebateTemplate, WorkflowTemplate],
+        template: AgentTemplate | DebateTemplate | WorkflowTemplate,
     ) -> str:
         """Register a new template."""
         self._upsert_template(template)
@@ -144,7 +144,7 @@ class TemplateRegistry:
     def get(
         self,
         template_id: str,
-    ) -> Optional[Union[AgentTemplate, DebateTemplate, WorkflowTemplate]]:
+    ) -> Optional[AgentTemplate | DebateTemplate | WorkflowTemplate]:
         """Get a template by ID."""
         with self._get_conn() as conn:
             row = conn.execute("SELECT * FROM templates WHERE id = ?", (template_id,)).fetchone()
@@ -156,7 +156,7 @@ class TemplateRegistry:
 
     def _row_to_template(
         self, row: sqlite3.Row
-    ) -> Union[AgentTemplate, DebateTemplate, WorkflowTemplate]:
+    ) -> AgentTemplate | DebateTemplate | WorkflowTemplate:
         """Convert a database row to a template object."""
         data = json.loads(row["content"])
         template_type = row["type"]
@@ -208,14 +208,14 @@ class TemplateRegistry:
 
     def search(
         self,
-        query: Optional[str] = None,
-        category: Optional[TemplateCategory] = None,
-        template_type: Optional[str] = None,
-        author: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        query: str | None = None,
+        category: TemplateCategory | None = None,
+        template_type: str | None = None,
+        author: str | None = None,
+        tags: list[str] | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[Union[AgentTemplate, DebateTemplate, WorkflowTemplate]]:
+    ) -> list[AgentTemplate | DebateTemplate | WorkflowTemplate]:
         """Search for templates."""
         conditions = []
         params: list[Any] = []
@@ -309,7 +309,7 @@ class TemplateRegistry:
             for row in rows
         ]
 
-    def get_average_rating(self, template_id: str) -> Optional[float]:
+    def get_average_rating(self, template_id: str) -> float | None:
         """Get average rating for a template."""
         with self._get_conn() as conn:
             row = conn.execute(
@@ -359,7 +359,7 @@ class TemplateRegistry:
             conn.commit()
             return result.rowcount > 0
 
-    def export_template(self, template_id: str) -> Optional[str]:
+    def export_template(self, template_id: str) -> str | None:
         """Export a template as JSON."""
         template = self.get(template_id)
         if template is None:

@@ -20,19 +20,19 @@ Environment variables:
     ARAGORA_REDIS_MAX_CONNECTIONS: Max pool connections (default: 50)
     ARAGORA_REDIS_SOCKET_TIMEOUT: Socket timeout in seconds (default: 5.0)
 """
+from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Module-level connection pool (lazy initialized)
-_redis_pool: Optional[Any] = None
-_redis_available: Optional[bool] = None
+_redis_pool: Any | None = None
+_redis_available: bool | None = None
 
-
-def get_redis_url() -> Optional[str]:
+def get_redis_url() -> str | None:
     """Get the Redis URL from environment.
 
     Returns:
@@ -40,8 +40,7 @@ def get_redis_url() -> Optional[str]:
     """
     return os.getenv("ARAGORA_REDIS_URL")
 
-
-def get_redis_pool() -> Optional[Any]:
+def get_redis_pool() -> Any | None:
     """Get shared Redis connection pool (lazy initialization).
 
     Thread-safe lazy initialization of the Redis connection pool.
@@ -105,7 +104,6 @@ def get_redis_pool() -> Optional[Any]:
         _redis_available = False
         return None
 
-
 def is_redis_available() -> bool:
     """Check if Redis is available.
 
@@ -123,8 +121,7 @@ def is_redis_available() -> bool:
     get_redis_pool()
     return _redis_available or False
 
-
-def get_redis_client() -> Optional[Any]:
+def get_redis_client() -> Any | None:
     """Get a Redis client using the shared pool.
 
     Convenience function that returns a ready-to-use Redis client.
@@ -142,7 +139,6 @@ def get_redis_client() -> Optional[Any]:
         return redis.Redis(connection_pool=pool)
     except ImportError:
         return None
-
 
 def close_redis_pool() -> None:
     """Close the Redis connection pool.
@@ -163,7 +159,6 @@ def close_redis_pool() -> None:
 
     _redis_available = None
 
-
 def reset_redis_state() -> None:
     """Reset Redis state for testing.
 
@@ -172,7 +167,6 @@ def reset_redis_state() -> None:
     global _redis_pool, _redis_available
     _redis_pool = None
     _redis_available = None
-
 
 __all__ = [
     "get_redis_url",

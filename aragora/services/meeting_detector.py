@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.connectors.calendar.google_calendar import (
@@ -50,7 +50,6 @@ if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
 logger = logging.getLogger(__name__)
-
 
 class MeetingType(Enum):
     """Types of meeting-related emails."""
@@ -66,7 +65,6 @@ class MeetingType(Enum):
     FOLLOWUP = "followup"  # Post-meeting follow-up
     NOT_MEETING = "not_meeting"  # Not meeting-related
 
-
 class MeetingPlatform(Enum):
     """Video conferencing platforms."""
 
@@ -80,17 +78,16 @@ class MeetingPlatform(Enum):
     SLACK_HUDDLE = "slack_huddle"
     UNKNOWN = "unknown"
 
-
 @dataclass
 class MeetingParticipant:
     """Participant in a detected meeting."""
 
     email: str
-    name: Optional[str] = None
+    name: str | None = None
     role: str = "attendee"  # organizer, required, optional
-    response_status: Optional[str] = None  # accepted, declined, tentative, pending
+    response_status: str | None = None  # accepted, declined, tentative, pending
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "email": self.email,
             "name": self.name,
@@ -98,24 +95,22 @@ class MeetingParticipant:
             "response_status": self.response_status,
         }
 
-
 @dataclass
 class MeetingLink:
     """Video conferencing link."""
 
     url: str
     platform: MeetingPlatform
-    meeting_id: Optional[str] = None
-    password: Optional[str] = None
+    meeting_id: str | None = None
+    password: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "url": self.url,
             "platform": self.platform.value,
             "meeting_id": self.meeting_id,
             "password": self.password,
         }
-
 
 @dataclass
 class ConflictInfo:
@@ -128,7 +123,7 @@ class ConflictInfo:
     calendar_source: str  # "google" or "outlook"
     severity: str = "hard"  # hard (overlap), soft (adjacent)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "event_id": self.event_id,
             "title": self.title,
@@ -137,7 +132,6 @@ class ConflictInfo:
             "calendar_source": self.calendar_source,
             "severity": self.severity,
         }
-
 
 @dataclass
 class MeetingDetectionResult:
@@ -149,36 +143,36 @@ class MeetingDetectionResult:
     confidence: float
 
     # Meeting details (if detected)
-    title: Optional[str] = None
-    description: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    duration_minutes: Optional[int] = None
-    timezone_str: Optional[str] = None
-    location: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    duration_minutes: int | None = None
+    timezone_str: str | None = None
+    location: str | None = None
     is_all_day: bool = False
 
     # Participants
-    organizer: Optional[MeetingParticipant] = None
-    participants: List[MeetingParticipant] = field(default_factory=list)
+    organizer: MeetingParticipant | None = None
+    participants: list[MeetingParticipant] = field(default_factory=list)
 
     # Video conferencing
-    meeting_links: List[MeetingLink] = field(default_factory=list)
-    primary_meeting_link: Optional[MeetingLink] = None
+    meeting_links: list[MeetingLink] = field(default_factory=list)
+    primary_meeting_link: MeetingLink | None = None
 
     # Calendar integration
-    conflicts: List[ConflictInfo] = field(default_factory=list)
+    conflicts: list[ConflictInfo] = field(default_factory=list)
     has_conflicts: bool = False
     availability_checked: bool = False
 
     # Snooze suggestion
-    suggested_snooze_until: Optional[datetime] = None
+    suggested_snooze_until: datetime | None = None
 
     # Detection metadata
-    matched_patterns: List[str] = field(default_factory=list)
+    matched_patterns: list[str] = field(default_factory=list)
     rationale: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "email_id": self.email_id,
@@ -208,7 +202,6 @@ class MeetingDetectionResult:
             "matched_patterns": self.matched_patterns,
             "rationale": self.rationale,
         }
-
 
 # Meeting detection patterns
 MEETING_TYPE_PATTERNS = {
@@ -326,7 +319,6 @@ DURATION_PATTERNS = [
     (r"(\d+(?:\.\d+)?)\s*(?:hour|hr)s?", "hours_decimal"),
 ]
 
-
 class MeetingDetector:
     """
     Intelligent meeting detection from emails with calendar integration.
@@ -337,8 +329,8 @@ class MeetingDetector:
 
     def __init__(
         self,
-        google_calendar: Optional[GoogleCalendarConnector] = None,
-        outlook_calendar: Optional[OutlookCalendarConnector] = None,
+        google_calendar: GoogleCalendarConnector | None = None,
+        outlook_calendar: OutlookCalendarConnector | None = None,
     ):
         """
         Initialize meeting detector.
@@ -351,7 +343,7 @@ class MeetingDetector:
         self.outlook_calendar = outlook_calendar
 
         # Compile patterns
-        self._compiled_type_patterns: Dict[MeetingType, List[tuple]] = {}
+        self._compiled_type_patterns: dict[MeetingType, list[tuple]] = {}
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
@@ -451,10 +443,10 @@ class MeetingDetector:
     def _detect_meeting_type(
         self,
         text: str,
-    ) -> tuple[MeetingType, float, List[str]]:
+    ) -> tuple[MeetingType, float, list[str]]:
         """Detect the type of meeting email and confidence."""
-        scores: Dict[MeetingType, float] = {}
-        matches: Dict[MeetingType, List[str]] = {}
+        scores: dict[MeetingType, float] = {}
+        matches: dict[MeetingType, list[str]] = {}
 
         for meeting_type, patterns in self._compiled_type_patterns.items():
             type_score = 0.0
@@ -476,7 +468,7 @@ class MeetingDetector:
         best_type = max(scores.items(), key=lambda x: x[1])
         return best_type[0], best_type[1], matches.get(best_type[0], [])
 
-    def _extract_meeting_links(self, text: str) -> List[MeetingLink]:
+    def _extract_meeting_links(self, text: str) -> list[MeetingLink]:
         """Extract video conferencing links from text."""
         links = []
         seen_urls = set()
@@ -501,7 +493,7 @@ class MeetingDetector:
 
         return links
 
-    def _extract_meeting_id(self, url: str, platform: MeetingPlatform) -> Optional[str]:
+    def _extract_meeting_id(self, url: str, platform: MeetingPlatform) -> str | None:
         """Extract meeting ID from URL."""
         if platform == MeetingPlatform.ZOOM:
             match = re.search(r"/j/(\d+)", url)
@@ -517,7 +509,7 @@ class MeetingDetector:
                 return match.group(1)
         return None
 
-    def _extract_title(self, subject: str, body: str) -> Optional[str]:
+    def _extract_title(self, subject: str, body: str) -> str | None:
         """Extract meeting title from email."""
         # Remove common prefixes
         title = subject
@@ -542,7 +534,7 @@ class MeetingDetector:
     def _extract_time(
         self,
         text: str,
-    ) -> tuple[Optional[datetime], Optional[datetime], Optional[int]]:
+    ) -> tuple[datetime | None, datetime | None, int | None]:
         """Extract meeting time from text."""
         now = datetime.now(timezone.utc)
 
@@ -584,11 +576,11 @@ class MeetingDetector:
                     return start_time, start_time + timedelta(hours=1), 60
 
         # Try duration
-        extracted_duration: Optional[int] = self._extract_duration(text)
+        extracted_duration: int | None = self._extract_duration(text)
 
         return None, None, extracted_duration
 
-    def _parse_time_string(self, time_str: str, base_date: datetime) -> Optional[datetime]:
+    def _parse_time_string(self, time_str: str, base_date: datetime) -> datetime | None:
         """Parse a time string like '2:00 pm' into datetime."""
         time_str = time_str.strip().lower()
 
@@ -622,7 +614,7 @@ class MeetingDetector:
         self,
         match: re.Match,
         now: datetime,
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         """Parse datetime from regex match."""
         groups = match.groups()
 
@@ -687,7 +679,7 @@ class MeetingDetector:
 
         return None
 
-    def _extract_duration(self, text: str) -> Optional[int]:
+    def _extract_duration(self, text: str) -> int | None:
         """Extract meeting duration in minutes from text."""
         for pattern, pattern_type in DURATION_PATTERNS:
             match = re.search(pattern, text, re.IGNORECASE)
@@ -707,7 +699,7 @@ class MeetingDetector:
         self,
         text: str,
         sender: str,
-    ) -> List[MeetingParticipant]:
+    ) -> list[MeetingParticipant]:
         """Extract meeting participants from text."""
         participants = []
         seen_emails = {sender.lower()} if sender else set()
@@ -723,7 +715,7 @@ class MeetingDetector:
 
         return participants
 
-    def _extract_location(self, text: str) -> Optional[str]:
+    def _extract_location(self, text: str) -> str | None:
         """Extract meeting location from text."""
         location_patterns = [
             r"location:\s*(.+?)(?:\n|$)",
@@ -747,7 +739,7 @@ class MeetingDetector:
         self,
         start_time: datetime,
         end_time: datetime,
-    ) -> List[ConflictInfo]:
+    ) -> list[ConflictInfo]:
         """Check calendar for conflicts with proposed meeting time."""
         conflicts = []
 
@@ -798,7 +790,7 @@ class MeetingDetector:
     def _generate_rationale(
         self,
         meeting_type: MeetingType,
-        patterns: List[str],
+        patterns: list[str],
     ) -> str:
         """Generate human-readable rationale."""
         type_descriptions = {
@@ -820,9 +812,9 @@ class MeetingDetector:
 
     async def detect_batch(
         self,
-        emails: List[EmailMessage],
+        emails: list[EmailMessage],
         check_calendar: bool = True,
-    ) -> List[MeetingDetectionResult]:
+    ) -> list[MeetingDetectionResult]:
         """
         Detect meetings from multiple emails.
 
@@ -840,9 +832,9 @@ class MeetingDetector:
 
     async def get_upcoming_meetings_from_emails(
         self,
-        emails: List[EmailMessage],
+        emails: list[EmailMessage],
         hours_ahead: int = 24,
-    ) -> List[MeetingDetectionResult]:
+    ) -> list[MeetingDetectionResult]:
         """
         Get meeting emails for upcoming events.
 
@@ -866,7 +858,6 @@ class MeetingDetector:
         upcoming.sort(key=lambda r: r.start_time or datetime.max.replace(tzinfo=timezone.utc))
 
         return upcoming
-
 
 # Convenience function
 async def detect_meeting_quick(
@@ -896,7 +887,6 @@ async def detect_meeting_quick(
     email = SimpleEmail(subject, body, sender)
     detector = MeetingDetector()
     return await detector.detect_meeting(email, check_calendar=False)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
-
 
 __all__ = [
     "MeetingDetector",

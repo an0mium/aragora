@@ -19,10 +19,9 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class FatigueSignal:
@@ -32,10 +31,10 @@ class FatigueSignal:
     score: float  # 0.0 to 1.0, higher = more fatigued
     round: int
     recommendation: str  # "monitor", "consider_rest", "rotate_out"
-    metrics: Dict[str, float]
+    metrics: dict[str, float]
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "agent": self.agent,
@@ -46,7 +45,6 @@ class FatigueSignal:
             "timestamp": self.timestamp,
         }
 
-
 @dataclass
 class AgentBaseline:
     """Baseline metrics for an agent to compare against."""
@@ -55,7 +53,6 @@ class AgentBaseline:
     avg_unique_word_ratio: float = 0.7
     avg_argument_count: int = 3
     samples: int = 0
-
 
 class FatigueDetector:
     """Monitor agent response quality for signs of cognitive fatigue.
@@ -101,18 +98,18 @@ class FatigueDetector:
         self.baseline_rounds = baseline_rounds
 
         # Per-agent state
-        self.baselines: Dict[str, AgentBaseline] = defaultdict(AgentBaseline)
-        self.response_history: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        self.seen_arguments: Dict[str, Set[str]] = defaultdict(set)
-        self.fatigue_signals: List[FatigueSignal] = []
+        self.baselines: dict[str, AgentBaseline] = defaultdict(AgentBaseline)
+        self.response_history: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        self.seen_arguments: dict[str, set[str]] = defaultdict(set)
+        self.fatigue_signals: list[FatigueSignal] = []
 
     def analyze_response(
         self,
         agent: str,
         response: str,
         round: int,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[FatigueSignal]:
+        context: Optional[dict[str, Any]] = None,
+    ) -> FatigueSignal | None:
         """Analyze a response for fatigue indicators.
 
         Args:
@@ -213,7 +210,7 @@ class FatigueDetector:
 
         return min(total_overlap / max(len(recent_responses), 1), 1.0)
 
-    def _extract_ngrams(self, text: str, n: int = 3) -> Set[str]:
+    def _extract_ngrams(self, text: str, n: int = 3) -> set[str]:
         """Extract n-grams from text."""
         words = text.lower().split()
         if len(words) < n:
@@ -240,7 +237,7 @@ class FatigueDetector:
 
         return novelty
 
-    def _extract_key_phrases(self, text: str) -> Set[str]:
+    def _extract_key_phrases(self, text: str) -> set[str]:
         """Extract key argumentative phrases from text."""
         # Simple extraction: sentences that contain argument indicators
         indicators = [
@@ -274,7 +271,7 @@ class FatigueDetector:
 
         return phrases
 
-    def _engagement_score(self, response: str, context: Optional[Dict[str, Any]]) -> float:
+    def _engagement_score(self, response: str, context: Optional[dict[str, Any]]) -> float:
         """Score how engaged the response is with prior arguments.
 
         Higher score = better engagement with context.
@@ -308,7 +305,7 @@ class FatigueDetector:
         score = min(1.0, (referenced * 0.2 + pattern_matches * 0.1) + 0.3)
         return score
 
-    def _update_baseline(self, agent: str, metrics: Dict[str, float]) -> None:
+    def _update_baseline(self, agent: str, metrics: dict[str, float]) -> None:
         """Update baseline metrics for an agent."""
         baseline = self.baselines[agent]
 
@@ -322,7 +319,7 @@ class FatigueDetector:
         ) / (n + 1)
         baseline.samples += 1
 
-    def _calculate_fatigue_score(self, agent: str, metrics: Dict[str, float]) -> float:
+    def _calculate_fatigue_score(self, agent: str, metrics: dict[str, float]) -> float:
         """Calculate overall fatigue score from metrics.
 
         Weights different indicators based on their reliability:
@@ -370,11 +367,11 @@ class FatigueDetector:
             return "consider_rest"
         return "monitor"
 
-    def get_agent_fatigue_history(self, agent: str) -> List[Dict[str, Any]]:
+    def get_agent_fatigue_history(self, agent: str) -> list[dict[str, Any]]:
         """Get fatigue score history for an agent."""
         return self.response_history.get(agent, [])
 
-    def get_current_fatigue_levels(self) -> Dict[str, float]:
+    def get_current_fatigue_levels(self) -> dict[str, float]:
         """Get current fatigue levels for all tracked agents."""
         levels = {}
         for agent, history in self.response_history.items():
@@ -382,7 +379,7 @@ class FatigueDetector:
                 levels[agent] = history[-1].get("fatigue_score", 0.0)
         return levels
 
-    def get_all_signals(self) -> List[FatigueSignal]:
+    def get_all_signals(self) -> list[FatigueSignal]:
         """Get all fatigue signals generated during the debate."""
         return self.fatigue_signals
 
@@ -393,7 +390,7 @@ class FatigueDetector:
         self.seen_arguments.clear()
         self.fatigue_signals.clear()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Export detector state to dictionary."""
         return {
             "fatigue_threshold": self.fatigue_threshold,
@@ -403,10 +400,8 @@ class FatigueDetector:
             "tracked_agents": list(self.response_history.keys()),
         }
 
-
 # Singleton instance for global access
-_default_detector: Optional[FatigueDetector] = None
-
+_default_detector: FatigueDetector | None = None
 
 def get_fatigue_detector() -> FatigueDetector:
     """Get or create the default fatigue detector instance."""
@@ -414,7 +409,6 @@ def get_fatigue_detector() -> FatigueDetector:
     if _default_detector is None:
         _default_detector = FatigueDetector()
     return _default_detector
-
 
 def reset_fatigue_detector() -> None:
     """Reset the global fatigue detector."""

@@ -25,7 +25,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .base import DeviceConnector, DeviceConnectorConfig
 from .models import (
@@ -39,7 +39,6 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class GoogleActionType(Enum):
     """Google Actions request types."""
@@ -55,7 +54,6 @@ class GoogleActionType(Enum):
     EXECUTE = "action.devices.EXECUTE"
     DISCONNECT = "action.devices.DISCONNECT"
 
-
 class GoogleIntent(Enum):
     """Custom intents for Aragora."""
 
@@ -66,27 +64,24 @@ class GoogleIntent(Enum):
     VOTE = "vote"
     HELP = "help"
 
-
 @dataclass
 class GoogleUser:
     """Google user information."""
 
     user_id: str
-    access_token: Optional[str] = None
-    profile: Dict[str, Any] = field(default_factory=dict)
+    access_token: str | None = None
+    profile: dict[str, Any] = field(default_factory=dict)
     locale: str = "en"
-
 
 @dataclass
 class GoogleConversation:
     """Conversation state for Google Actions."""
 
     conversation_id: str
-    conversation_token: Optional[str] = None
-    user: Optional[GoogleUser] = None
+    conversation_token: str | None = None
+    user: GoogleUser | None = None
     is_new: bool = False
-    surface_capabilities: List[str] = field(default_factory=list)
-
+    surface_capabilities: list[str] = field(default_factory=list)
 
 class GoogleHomeConnector(DeviceConnector):
     """
@@ -101,7 +96,7 @@ class GoogleHomeConnector(DeviceConnector):
     - Account linking for user identification
     """
 
-    def __init__(self, config: Optional[DeviceConnectorConfig] = None):
+    def __init__(self, config: DeviceConnectorConfig | None = None):
         """Initialize the Google Home connector."""
         super().__init__(config)
 
@@ -113,15 +108,15 @@ class GoogleHomeConnector(DeviceConnector):
         )
 
         # Service account credentials
-        self._credentials: Optional[Dict[str, Any]] = None
-        self._access_token: Optional[str] = None
+        self._credentials: Optional[dict[str, Any]] = None
+        self._access_token: str | None = None
         self._token_expires_at: float = 0
 
         # Home Graph API endpoint
         self._home_graph_url = "https://homegraph.googleapis.com/v1"
 
         # Intent handlers
-        self._intent_handlers: Dict[str, Any] = {}
+        self._intent_handlers: dict[str, Any] = {}
         self._register_default_handlers()
 
     # ==========================================================================
@@ -139,7 +134,7 @@ class GoogleHomeConnector(DeviceConnector):
         return "Google Home"
 
     @property
-    def supported_device_types(self) -> List[DeviceType]:
+    def supported_device_types(self) -> list[DeviceType]:
         """Return list of device types this connector supports."""
         return [DeviceType.GOOGLE_HOME]
 
@@ -325,7 +320,7 @@ class GoogleHomeConnector(DeviceConnector):
             reprompt="What would you like to do?",
         )
 
-    def parse_google_request(self, request_data: Dict[str, Any]) -> VoiceDeviceRequest:
+    def parse_google_request(self, request_data: dict[str, Any]) -> VoiceDeviceRequest:
         """
         Parse a Google Actions request into VoiceDeviceRequest.
 
@@ -350,7 +345,7 @@ class GoogleHomeConnector(DeviceConnector):
         # Extract slots from intent params
         intent = request_data.get("intent", {})
         intent_params = intent.get("params", {})
-        slots: Dict[str, Any] = {}
+        slots: dict[str, Any] = {}
         for param_name, param_data in intent_params.items():
             if "resolved" in param_data:
                 slots[param_name] = param_data["resolved"]
@@ -382,8 +377,8 @@ class GoogleHomeConnector(DeviceConnector):
     def build_google_response(
         self,
         response: VoiceDeviceResponse,
-        session_params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        session_params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Build a Google Actions response from VoiceDeviceResponse.
 
@@ -394,7 +389,7 @@ class GoogleHomeConnector(DeviceConnector):
         Returns:
             Google Actions response JSON
         """
-        google_response: Dict[str, Any] = {
+        google_response: dict[str, Any] = {
             "prompt": {
                 "firstSimple": {
                     "speech": response.text,
@@ -415,7 +410,7 @@ class GoogleHomeConnector(DeviceConnector):
 
         # Add card if provided
         if response.card_title or response.card_content:
-            card: Dict[str, Any] = {
+            card: dict[str, Any] = {
                 "title": response.card_title or "Aragora",
                 "text": response.card_content or response.text,
             }
@@ -563,7 +558,7 @@ class GoogleHomeConnector(DeviceConnector):
     async def report_state(
         self,
         agent_user_id: str,
-        devices: List[Dict[str, Any]],
+        devices: list[dict[str, Any]],
     ) -> bool:
         """
         Report device state to Home Graph.
@@ -807,7 +802,7 @@ class GoogleHomeConnector(DeviceConnector):
         self,
         request_id: str,
         user_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Handle SYNC intent from Google.
 
@@ -860,8 +855,8 @@ class GoogleHomeConnector(DeviceConnector):
     async def handle_query(
         self,
         request_id: str,
-        devices: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        devices: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """
         Handle QUERY intent from Google.
 
@@ -893,8 +888,8 @@ class GoogleHomeConnector(DeviceConnector):
     async def handle_execute(
         self,
         request_id: str,
-        commands: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        commands: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """
         Handle EXECUTE intent from Google.
 
@@ -930,7 +925,7 @@ class GoogleHomeConnector(DeviceConnector):
         self,
         request_id: str,
         user_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Handle DISCONNECT intent from Google.
 
@@ -950,7 +945,7 @@ class GoogleHomeConnector(DeviceConnector):
     # Health and Status
     # ==========================================================================
 
-    async def get_health(self) -> Dict[str, Any]:
+    async def get_health(self) -> dict[str, Any]:
         """Get health status for the Google Home connector."""
         health = await super().get_health()
 

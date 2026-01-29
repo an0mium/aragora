@@ -40,7 +40,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from aragora.control_plane.leader import (
     is_distributed_state_required,
@@ -51,7 +51,6 @@ logger = logging.getLogger(__name__)
 
 # Module-level shared state singleton
 _shared_state: Optional["SharedControlPlaneState"] = None
-
 
 @dataclass
 class AgentState:
@@ -68,19 +67,19 @@ class AgentState:
     model: str
     status: str  # "active", "paused", "idle", "offline"
     role: str = ""
-    capabilities: Set[str] = field(default_factory=set)
+    capabilities: set[str] = field(default_factory=set)
     tasks_completed: int = 0
     findings_generated: int = 0
     avg_response_time: float = 0.0
     error_rate: float = 0.0
     uptime_seconds: float = 0.0
     created_at: str = ""
-    last_active: Optional[str] = None
-    paused_at: Optional[str] = None
-    resumed_at: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    last_active: str | None = None
+    paused_at: str | None = None
+    resumed_at: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for JSON serialization."""
         return {
             "id": self.id,
@@ -103,7 +102,7 @@ class AgentState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AgentState":
+    def from_dict(cls, data: dict[str, Any]) -> "AgentState":
         """Create from dict."""
         return cls(
             id=data.get("id", ""),
@@ -125,7 +124,6 @@ class AgentState:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class TaskState:
     """
@@ -140,13 +138,13 @@ class TaskState:
     priority: str  # "high", "normal", "low"
     status: str  # "pending", "processing", "completed", "failed"
     created_at: str = ""
-    assigned_agent: Optional[str] = None
-    document_id: Optional[str] = None
-    audit_type: Optional[str] = None
-    payload: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    assigned_agent: str | None = None
+    document_id: str | None = None
+    audit_type: str | None = None
+    payload: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for JSON serialization."""
         return {
             "id": self.id,
@@ -162,7 +160,7 @@ class TaskState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TaskState":
+    def from_dict(cls, data: dict[str, Any]) -> "TaskState":
         """Create from dict."""
         return cls(
             id=data.get("id", ""),
@@ -176,7 +174,6 @@ class TaskState:
             payload=data.get("payload", {}),
             metadata=data.get("metadata", {}),
         )
-
 
 class SharedControlPlaneState:
     """
@@ -196,7 +193,7 @@ class SharedControlPlaneState:
         redis_url: str = "redis://localhost:6379",
         key_prefix: str = "aragora:cp:shared:",
         heartbeat_timeout: float = 30.0,
-        sqlite_path: Optional[str] = None,
+        sqlite_path: str | None = None,
     ):
         """
         Initialize shared state.
@@ -210,7 +207,7 @@ class SharedControlPlaneState:
         self._redis_url = redis_url
         self._key_prefix = key_prefix
         self._heartbeat_timeout = heartbeat_timeout
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._connected = False
 
         # SQLite fallback path
@@ -221,15 +218,15 @@ class SharedControlPlaneState:
         self._sqlite_initialized = False
 
         # In-memory cache (backed by SQLite when Redis unavailable)
-        self._local_agents: Dict[str, AgentState] = {}
-        self._local_tasks: List[TaskState] = []
-        self._local_metrics: Dict[str, Any] = {
+        self._local_agents: dict[str, AgentState] = {}
+        self._local_tasks: list[TaskState] = []
+        self._local_metrics: dict[str, Any] = {
             "total_tasks_processed": 0,
             "total_findings_generated": 0,
             "active_sessions": 0,
             "agent_uptime": {},
         }
-        self._stream_clients: List[asyncio.Queue] = []
+        self._stream_clients: list[asyncio.Queue] = []
 
     @property
     def is_persistent(self) -> bool:
@@ -392,9 +389,9 @@ class SharedControlPlaneState:
 
     async def list_agents(
         self,
-        status_filter: Optional[str] = None,
-        type_filter: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        status_filter: str | None = None,
+        type_filter: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         List all agents with optional filtering.
 
@@ -415,12 +412,12 @@ class SharedControlPlaneState:
 
         return [a.to_dict() for a in agents]
 
-    async def get_agent(self, agent_id: str) -> Optional[Dict[str, Any]]:
+    async def get_agent(self, agent_id: str) -> Optional[dict[str, Any]]:
         """Get a specific agent by ID."""
         agent = await self._get_agent(agent_id)
         return agent.to_dict() if agent else None
 
-    async def register_agent(self, agent_data: Dict[str, Any]) -> AgentState:
+    async def register_agent(self, agent_data: dict[str, Any]) -> AgentState:
         """Register or update an agent."""
         agent = AgentState.from_dict(agent_data)
         if not agent.created_at:
@@ -441,7 +438,7 @@ class SharedControlPlaneState:
         self,
         agent_id: str,
         status: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """
         Update agent status (pause/resume/etc).
 
@@ -487,7 +484,7 @@ class SharedControlPlaneState:
         agent_id: str,
         tasks_completed: int = 0,
         findings_generated: int = 0,
-        response_time_ms: Optional[float] = None,
+        response_time_ms: float | None = None,
         error: bool = False,
     ) -> None:
         """Record activity metrics for an agent."""
@@ -517,12 +514,12 @@ class SharedControlPlaneState:
 
     # --- Task Queue Management ---
 
-    async def list_tasks(self) -> List[Dict[str, Any]]:
+    async def list_tasks(self) -> list[dict[str, Any]]:
         """List all tasks in the queue."""
         tasks = await self._get_all_tasks()
         return [t.to_dict() for t in tasks]
 
-    async def add_task(self, task_data: Dict[str, Any]) -> TaskState:
+    async def add_task(self, task_data: dict[str, Any]) -> TaskState:
         """Add a task to the queue."""
         task = TaskState.from_dict(task_data)
         if not task.created_at:
@@ -542,8 +539,8 @@ class SharedControlPlaneState:
         self,
         task_id: str,
         priority: str,
-        position: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        position: int | None = None,
+    ) -> Optional[dict[str, Any]]:
         """Update task priority and/or position."""
         task = await self._get_task(task_id)
         if not task:
@@ -564,7 +561,7 @@ class SharedControlPlaneState:
 
     # --- Metrics ---
 
-    async def get_metrics(self) -> Dict[str, Any]:
+    async def get_metrics(self) -> dict[str, Any]:
         """Get aggregated metrics."""
         agents = await self._get_all_agents()
         tasks = await self._get_all_tasks()
@@ -628,7 +625,7 @@ class SharedControlPlaneState:
         if queue in self._stream_clients:
             self._stream_clients.remove(queue)
 
-    async def _broadcast_event(self, event: Dict[str, Any]) -> None:
+    async def _broadcast_event(self, event: dict[str, Any]) -> None:
         """Broadcast event to all stream clients."""
         # Broadcast locally
         for queue in self._stream_clients:
@@ -647,7 +644,7 @@ class SharedControlPlaneState:
 
     # --- Internal Storage Methods ---
 
-    async def _get_agent(self, agent_id: str) -> Optional[AgentState]:
+    async def _get_agent(self, agent_id: str) -> AgentState | None:
         """Get agent from storage."""
         if self._redis:
             key = f"{self._key_prefix}agents:{agent_id}"
@@ -658,7 +655,7 @@ class SharedControlPlaneState:
         else:
             return self._local_agents.get(agent_id)
 
-    async def _get_all_agents(self) -> List[AgentState]:
+    async def _get_all_agents(self) -> list[AgentState]:
         """Get all agents from storage."""
         if self._redis:
             agents = []
@@ -698,7 +695,7 @@ class SharedControlPlaneState:
                 except Exception as e:
                     logger.debug(f"Failed to persist agent to SQLite: {e}")
 
-    async def _get_task(self, task_id: str) -> Optional[TaskState]:
+    async def _get_task(self, task_id: str) -> TaskState | None:
         """Get task from storage."""
         if self._redis:
             key = f"{self._key_prefix}tasks:{task_id}"
@@ -712,7 +709,7 @@ class SharedControlPlaneState:
                     return task
             return None
 
-    async def _get_all_tasks(self) -> List[TaskState]:
+    async def _get_all_tasks(self) -> list[TaskState]:
         """Get all tasks from storage."""
         if self._redis:
             tasks = []
@@ -728,7 +725,7 @@ class SharedControlPlaneState:
         else:
             return list(self._local_tasks)
 
-    async def _save_task(self, task: TaskState, position: Optional[int] = None) -> None:
+    async def _save_task(self, task: TaskState, position: int | None = None) -> None:
         """Save task to storage (Redis or SQLite)."""
         if self._redis:
             key = f"{self._key_prefix}tasks:{task.id}"
@@ -789,19 +786,17 @@ class SharedControlPlaneState:
                 except Exception as e:
                     logger.debug(f"Failed to persist task to SQLite: {e}")
 
-    def _calculate_avg_duration(self, agents: List[AgentState]) -> float:
+    def _calculate_avg_duration(self, agents: list[AgentState]) -> float:
         """Calculate average task duration."""
         times = [a.avg_response_time for a in agents if a.avg_response_time > 0]
         return sum(times) / len(times) if times else 0.0
 
-    def _calculate_error_rate(self, agents: List[AgentState]) -> float:
+    def _calculate_error_rate(self, agents: list[AgentState]) -> float:
         """Calculate overall error rate."""
         rates = [a.error_rate for a in agents if a.error_rate > 0]
         return sum(rates) / len(rates) if rates else 0.0
 
-
 # --- Module-level singleton functions ---
-
 
 def set_shared_state(state: SharedControlPlaneState) -> None:
     """
@@ -817,8 +812,7 @@ def set_shared_state(state: SharedControlPlaneState) -> None:
     _shared_state = state
     logger.info(f"Set shared control plane state (persistent={state.is_persistent})")
 
-
-def get_shared_state_sync() -> Optional[SharedControlPlaneState]:
+def get_shared_state_sync() -> SharedControlPlaneState | None:
     """
     Get the global shared state (synchronous version).
 
@@ -826,7 +820,6 @@ def get_shared_state_sync() -> Optional[SharedControlPlaneState]:
         SharedControlPlaneState or None if not initialized
     """
     return _shared_state
-
 
 async def get_shared_state(
     redis_url: str = "redis://localhost:6379",
@@ -857,14 +850,12 @@ async def get_shared_state(
 
     return _shared_state
 
-
 async def close_shared_state() -> None:
     """Close the global shared state connection."""
     global _shared_state
     if _shared_state:
         await _shared_state.close()
         _shared_state = None
-
 
 __all__ = [
     "SharedControlPlaneState",

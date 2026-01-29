@@ -8,6 +8,7 @@ Provides storage and retrieval for:
 
 Enables surfacing "what changed and why" for debugging and learning.
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -15,7 +16,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Generator
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.persistence.models import (
@@ -27,7 +28,6 @@ from aragora.persistence.models import (
 logger = logging.getLogger(__name__)
 
 EVOLUTION_SCHEMA_VERSION = 1
-
 
 class EvolutionRepository:
     """
@@ -109,7 +109,7 @@ class EvolutionRepository:
         ON cycle_file_changes(file_path);
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize the evolution repository.
 
@@ -179,7 +179,7 @@ class EvolutionRepository:
 
             return rollback.id
 
-    def get_rollback(self, rollback_id: str) -> Optional[NomicRollback]:
+    def get_rollback(self, rollback_id: str) -> NomicRollback | None:
         """Get a rollback by ID."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -195,7 +195,7 @@ class EvolutionRepository:
     def get_rollbacks_for_loop(
         self,
         loop_id: str,
-        severity: Optional[str] = None,
+        severity: str | None = None,
     ) -> list[NomicRollback]:
         """Get all rollbacks for a loop, optionally filtered by severity."""
         with self._get_connection() as conn:
@@ -218,7 +218,7 @@ class EvolutionRepository:
     def get_recent_rollbacks(
         self,
         limit: int = 10,
-        severity: Optional[str] = None,
+        severity: str | None = None,
     ) -> list[NomicRollback]:
         """Get most recent rollbacks across all loops."""
         with self._get_connection() as conn:
@@ -292,7 +292,7 @@ class EvolutionRepository:
 
             return evolution.id
 
-    def get_evolution(self, loop_id: str, cycle_number: int) -> Optional[CycleEvolution]:
+    def get_evolution(self, loop_id: str, cycle_number: int) -> CycleEvolution | None:
         """Get evolution record for a specific cycle."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -495,6 +495,5 @@ class EvolutionRepository:
                 "rollback_counts": rollback_counts,
                 "total_rollbacks": sum(rollback_counts.values()),
             }
-
 
 __all__ = ["EvolutionRepository"]

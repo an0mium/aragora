@@ -7,14 +7,13 @@ Dataclasses for representing hook configurations loaded from YAML.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 __all__ = [
     "HookConfig",
     "ActionConfig",
     "ConditionConfig",
 ]
-
 
 @dataclass
 class ConditionConfig:
@@ -55,7 +54,6 @@ class ConditionConfig:
             "negate": self.negate,
         }
 
-
 @dataclass
 class ActionConfig:
     """
@@ -73,7 +71,7 @@ class ActionConfig:
     handler: str
     args: dict[str, Any] = field(default_factory=dict)
     async_execution: bool = True
-    timeout: Optional[float] = None
+    timeout: float | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ActionConfig":
@@ -95,7 +93,6 @@ class ActionConfig:
         if self.timeout is not None:
             result["timeout"] = self.timeout
         return result
-
 
 @dataclass
 class HookConfig:
@@ -127,10 +124,10 @@ class HookConfig:
     tags: list[str] = field(default_factory=list)
 
     # Source tracking
-    source_file: Optional[str] = None
+    source_file: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], source_file: Optional[str] = None) -> "HookConfig":
+    def from_dict(cls, data: dict[str, Any], source_file: str | None = None) -> "HookConfig":
         """Create HookConfig from dictionary."""
         # Parse action
         action_data = data.get("action", {})

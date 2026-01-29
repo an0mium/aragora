@@ -14,8 +14,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Optional
 
 class CanvasNodeType(Enum):
     """Types of nodes that can appear on a canvas."""
@@ -44,7 +43,6 @@ class CanvasNodeType(Enum):
     ALERT = "alert"  # Alert/notification display
     CARD = "card"  # Information card
     TABLE = "table"  # Data table display
-
 
 class CanvasEventType(Enum):
     """Types of canvas events."""
@@ -99,7 +97,6 @@ class CanvasEventType(Enum):
     PROGRESS_UPDATE = "canvas:ui:progress:update"
     ALERT_DISMISS = "canvas:ui:alert:dismiss"
 
-
 @dataclass
 class Position:
     """2D position on the canvas."""
@@ -107,13 +104,12 @@ class Position:
     x: float = 0.0
     y: float = 0.0
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         return {"x": self.x, "y": self.y}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Position:
+    def from_dict(cls, data: dict[str, Any]) -> Position:
         return cls(x=float(data.get("x", 0)), y=float(data.get("y", 0)))
-
 
 @dataclass
 class Size:
@@ -122,16 +118,15 @@ class Size:
     width: float = 200.0
     height: float = 100.0
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         return {"width": self.width, "height": self.height}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Size:
+    def from_dict(cls, data: dict[str, Any]) -> Size:
         return cls(
             width=float(data.get("width", 200)),
             height=float(data.get("height", 100)),
         )
-
 
 @dataclass
 class CanvasNode:
@@ -146,15 +141,15 @@ class CanvasNode:
     position: Position = field(default_factory=Position)
     size: Size = field(default_factory=Size)
     label: str = ""
-    data: Dict[str, Any] = field(default_factory=dict)
-    style: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
+    style: dict[str, Any] = field(default_factory=dict)
     locked: bool = False
     selected: bool = False
-    parent_id: Optional[str] = None  # For grouped nodes
+    parent_id: str | None = None  # For grouped nodes
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "type": self.node_type.value,
@@ -171,7 +166,7 @@ class CanvasNode:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CanvasNode:
+    def from_dict(cls, data: dict[str, Any]) -> CanvasNode:
         return cls(
             id=data.get("id", str(uuid.uuid4())),
             node_type=CanvasNodeType(data.get("type", "text")),
@@ -210,7 +205,6 @@ class CanvasNode:
         self.data.update(kwargs)
         self.updated_at = datetime.now(timezone.utc)
 
-
 class EdgeType(Enum):
     """Types of edges between nodes."""
 
@@ -221,7 +215,6 @@ class EdgeType(Enum):
     DEPENDENCY = "dependency"
     CRITIQUE = "critique"
     SUPPORT = "support"
-
 
 @dataclass
 class CanvasEdge:
@@ -236,12 +229,12 @@ class CanvasEdge:
     target_id: str
     edge_type: EdgeType = EdgeType.DEFAULT
     label: str = ""
-    data: Dict[str, Any] = field(default_factory=dict)
-    style: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
+    style: dict[str, Any] = field(default_factory=dict)
     animated: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "source": self.source_id,
@@ -255,7 +248,7 @@ class CanvasEdge:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CanvasEdge:
+    def from_dict(cls, data: dict[str, Any]) -> CanvasEdge:
         return cls(
             id=data.get("id", str(uuid.uuid4())),
             source_id=data.get("source", data.get("source_id", "")),
@@ -272,7 +265,6 @@ class CanvasEdge:
             ),
         )
 
-
 @dataclass
 class CanvasEvent:
     """
@@ -284,12 +276,12 @@ class CanvasEvent:
     event_type: CanvasEventType
     canvas_id: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    data: Dict[str, Any] = field(default_factory=dict)
-    user_id: Optional[str] = None
-    node_id: Optional[str] = None
-    edge_id: Optional[str] = None
+    data: dict[str, Any] = field(default_factory=dict)
+    user_id: str | None = None
+    node_id: str | None = None
+    edge_id: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.event_type.value,
             "canvas_id": self.canvas_id,
@@ -301,7 +293,7 @@ class CanvasEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CanvasEvent:
+    def from_dict(cls, data: dict[str, Any]) -> CanvasEvent:
         return cls(
             event_type=CanvasEventType(data.get("type", "canvas:error")),
             canvas_id=data.get("canvas_id", ""),
@@ -316,7 +308,6 @@ class CanvasEvent:
             edge_id=data.get("edge_id"),
         )
 
-
 @dataclass
 class Canvas:
     """
@@ -327,15 +318,15 @@ class Canvas:
 
     id: str
     name: str = "Untitled Canvas"
-    nodes: Dict[str, CanvasNode] = field(default_factory=dict)
-    edges: Dict[str, CanvasEdge] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    nodes: dict[str, CanvasNode] = field(default_factory=dict)
+    edges: dict[str, CanvasEdge] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    owner_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    owner_id: str | None = None
+    workspace_id: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -349,7 +340,7 @@ class Canvas:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Canvas:
+    def from_dict(cls, data: dict[str, Any]) -> Canvas:
         canvas = cls(
             id=data.get("id", str(uuid.uuid4())),
             name=data.get("name", "Untitled Canvas"),
@@ -383,9 +374,9 @@ class Canvas:
     def add_node(
         self,
         node_type: CanvasNodeType,
-        position: Optional[Position] = None,
+        position: Position | None = None,
         label: str = "",
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> CanvasNode:
         """Add a new node to the canvas."""
@@ -402,7 +393,7 @@ class Canvas:
         self.updated_at = datetime.now(timezone.utc)
         return node
 
-    def remove_node(self, node_id: str) -> Optional[CanvasNode]:
+    def remove_node(self, node_id: str) -> CanvasNode | None:
         """Remove a node and its connected edges."""
         node = self.nodes.pop(node_id, None)
         if node:
@@ -417,7 +408,7 @@ class Canvas:
             self.updated_at = datetime.now(timezone.utc)
         return node
 
-    def get_node(self, node_id: str) -> Optional[CanvasNode]:
+    def get_node(self, node_id: str) -> CanvasNode | None:
         """Get a node by ID."""
         return self.nodes.get(node_id)
 
@@ -428,7 +419,7 @@ class Canvas:
         edge_type: EdgeType = EdgeType.DEFAULT,
         label: str = "",
         **kwargs: Any,
-    ) -> Optional[CanvasEdge]:
+    ) -> CanvasEdge | None:
         """Add an edge between two nodes."""
         # Validate nodes exist
         if source_id not in self.nodes or target_id not in self.nodes:
@@ -447,18 +438,18 @@ class Canvas:
         self.updated_at = datetime.now(timezone.utc)
         return edge
 
-    def remove_edge(self, edge_id: str) -> Optional[CanvasEdge]:
+    def remove_edge(self, edge_id: str) -> CanvasEdge | None:
         """Remove an edge."""
         edge = self.edges.pop(edge_id, None)
         if edge:
             self.updated_at = datetime.now(timezone.utc)
         return edge
 
-    def get_edge(self, edge_id: str) -> Optional[CanvasEdge]:
+    def get_edge(self, edge_id: str) -> CanvasEdge | None:
         """Get an edge by ID."""
         return self.edges.get(edge_id)
 
-    def get_connected_nodes(self, node_id: str) -> List[CanvasNode]:
+    def get_connected_nodes(self, node_id: str) -> list[CanvasNode]:
         """Get all nodes connected to a given node."""
         connected_ids = set()
         for edge in self.edges.values():
@@ -468,7 +459,7 @@ class Canvas:
                 connected_ids.add(edge.source_id)
         return [self.nodes[nid] for nid in connected_ids if nid in self.nodes]
 
-    def get_edges_for_node(self, node_id: str) -> List[CanvasEdge]:
+    def get_edges_for_node(self, node_id: str) -> list[CanvasEdge]:
         """Get all edges connected to a node."""
         return [
             edge
@@ -476,7 +467,7 @@ class Canvas:
             if edge.source_id == node_id or edge.target_id == node_id
         ]
 
-    def get_nodes_by_type(self, node_type: CanvasNodeType) -> List[CanvasNode]:
+    def get_nodes_by_type(self, node_type: CanvasNodeType) -> list[CanvasNode]:
         """Get all nodes of a specific type."""
         return [node for node in self.nodes.values() if node.node_type == node_type]
 
@@ -485,7 +476,6 @@ class Canvas:
         self.nodes.clear()
         self.edges.clear()
         self.updated_at = datetime.now(timezone.utc)
-
 
 __all__ = [
     "CanvasNodeType",

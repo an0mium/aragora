@@ -12,10 +12,11 @@ Multi-Tenancy:
 - Per-org email/telegram configs stored in NotificationConfigStore
 - Backward compatible with env var configuration (used as system default)
 """
+from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
@@ -44,7 +45,6 @@ logger = logging.getLogger(__name__)
 # Rate limiter for notification endpoints (30 requests per minute - can trigger external calls)
 _notifications_limiter = RateLimiter(requests_per_minute=30)
 
-
 def _run_async_in_thread(coro):
     """Run an async coroutine in a thread-safe manner.
 
@@ -60,21 +60,19 @@ def _run_async_in_thread(coro):
     finally:
         loop.close()
 
-
 # =============================================================================
 # Per-Organization Integration Factory
 # =============================================================================
 
 # Cache of active integrations per org (cleared on config change)
-_org_email_integrations: Dict[str, EmailIntegration] = {}
-_org_telegram_integrations: Dict[str, TelegramIntegration] = {}
+_org_email_integrations: dict[str, EmailIntegration] = {}
+_org_telegram_integrations: dict[str, TelegramIntegration] = {}
 
 # System-wide fallback from environment (for backward compatibility)
-_system_email_integration: Optional[EmailIntegration] = None
-_system_telegram_integration: Optional[TelegramIntegration] = None
+_system_email_integration: EmailIntegration | None = None
+_system_telegram_integration: TelegramIntegration | None = None
 
-
-async def get_email_integration_for_org(org_id: Optional[str] = None) -> Optional[EmailIntegration]:
+async def get_email_integration_for_org(org_id: str | None = None) -> EmailIntegration | None:
     """Get email integration for an organization.
 
     Priority:
@@ -131,8 +129,7 @@ async def get_email_integration_for_org(org_id: Optional[str] = None) -> Optiona
     # Fall back to system-wide config from environment
     return _get_system_email_integration()
 
-
-def _get_system_email_integration() -> Optional[EmailIntegration]:
+def _get_system_email_integration() -> EmailIntegration | None:
     """Get system-wide email integration from environment (backward compatibility)."""
     global _system_email_integration
     if _system_email_integration is not None:
@@ -158,10 +155,9 @@ def _get_system_email_integration() -> Optional[EmailIntegration]:
 
     return _system_email_integration
 
-
 async def get_telegram_integration_for_org(
-    org_id: Optional[str] = None,
-) -> Optional[TelegramIntegration]:
+    org_id: str | None = None,
+) -> TelegramIntegration | None:
     """Get telegram integration for an organization.
 
     Priority:
@@ -197,8 +193,7 @@ async def get_telegram_integration_for_org(
     # Fall back to system-wide config from environment
     return _get_system_telegram_integration()
 
-
-def _get_system_telegram_integration() -> Optional[TelegramIntegration]:
+def _get_system_telegram_integration() -> TelegramIntegration | None:
     """Get system-wide telegram integration from environment (backward compatibility)."""
     global _system_telegram_integration
     if _system_telegram_integration is not None:
@@ -217,28 +212,23 @@ def _get_system_telegram_integration() -> Optional[TelegramIntegration]:
 
     return _system_telegram_integration
 
-
 def invalidate_org_integration_cache(org_id: str) -> None:
     """Invalidate cached integrations when config changes."""
     _org_email_integrations.pop(org_id, None)
     _org_telegram_integrations.pop(org_id, None)
     logger.debug(f"Invalidated integration cache for org {org_id}")
 
-
 # =============================================================================
 # Backward Compatibility Functions (for utility functions and other modules)
 # =============================================================================
 
-
-def get_email_integration() -> Optional[EmailIntegration]:
+def get_email_integration() -> EmailIntegration | None:
     """Get system-wide email integration (backward compatibility)."""
     return _get_system_email_integration()
 
-
-def get_telegram_integration() -> Optional[TelegramIntegration]:
+def get_telegram_integration() -> TelegramIntegration | None:
     """Get system-wide telegram integration (backward compatibility)."""
     return _get_system_telegram_integration()
-
 
 def configure_email_integration(config: EmailConfig) -> EmailIntegration:
     """Configure system-wide email integration (backward compatibility)."""
@@ -247,14 +237,12 @@ def configure_email_integration(config: EmailConfig) -> EmailIntegration:
     logger.info(f"System email integration configured with host: {config.smtp_host}")
     return _system_email_integration
 
-
 def configure_telegram_integration(config: TelegramConfig) -> TelegramIntegration:
     """Configure system-wide telegram integration (backward compatibility)."""
     global _system_telegram_integration
     _system_telegram_integration = TelegramIntegration(config)
     logger.info("System telegram integration configured")
     return _system_telegram_integration
-
 
 class NotificationsHandler(SecureHandler):
     """Handler for notification-related endpoints.
@@ -283,7 +271,7 @@ class NotificationsHandler(SecureHandler):
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests.
 
         SECURITY: All GET endpoints require authentication and RBAC permissions.
@@ -321,7 +309,7 @@ class NotificationsHandler(SecureHandler):
 
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests.
 
         SECURITY: All POST endpoints require authentication and RBAC permissions.
@@ -367,7 +355,7 @@ class NotificationsHandler(SecureHandler):
 
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests.
 
         SECURITY: All DELETE endpoints require authentication and RBAC permissions.
@@ -387,7 +375,7 @@ class NotificationsHandler(SecureHandler):
 
         return None
 
-    def _get_status(self, org_id: Optional[str] = None) -> HandlerResult:
+    def _get_status(self, org_id: str | None = None) -> HandlerResult:
         """Get status of notification integrations scoped to organization.
 
         SECURITY: org_id is used for tenant scoping. Only configuration
@@ -463,7 +451,7 @@ class NotificationsHandler(SecureHandler):
             }
         )
 
-    def _get_email_recipients(self, org_id: Optional[str] = None) -> HandlerResult:
+    def _get_email_recipients(self, org_id: str | None = None) -> HandlerResult:
         """Get list of email recipients scoped to organization.
 
         SECURITY: org_id is used for tenant scoping. Only recipients
@@ -511,7 +499,7 @@ class NotificationsHandler(SecureHandler):
             }
         )
 
-    def _configure_email(self, handler: Any, org_id: Optional[str] = None) -> HandlerResult:
+    def _configure_email(self, handler: Any, org_id: str | None = None) -> HandlerResult:
         """Configure email integration settings for an organization."""
         import asyncio
 
@@ -608,7 +596,7 @@ class NotificationsHandler(SecureHandler):
             logger.error(f"Failed to configure email: {e}")
             return error_response("Failed to configure email", 500)
 
-    def _configure_telegram(self, handler: Any, org_id: Optional[str] = None) -> HandlerResult:
+    def _configure_telegram(self, handler: Any, org_id: str | None = None) -> HandlerResult:
         """Configure Telegram integration settings for an organization."""
         import asyncio
 
@@ -687,7 +675,7 @@ class NotificationsHandler(SecureHandler):
             logger.error(f"Failed to configure telegram: {e}")
             return error_response("Failed to configure telegram", 500)
 
-    def _add_email_recipient(self, handler: Any, org_id: Optional[str] = None) -> HandlerResult:
+    def _add_email_recipient(self, handler: Any, org_id: str | None = None) -> HandlerResult:
         """Add an email recipient for an organization."""
         import asyncio
 
@@ -765,7 +753,7 @@ class NotificationsHandler(SecureHandler):
         )
 
     def _remove_email_recipient(
-        self, handler: Any, query_params: dict, org_id: Optional[str] = None
+        self, handler: Any, query_params: dict, org_id: str | None = None
     ) -> HandlerResult:
         """Remove an email recipient for an organization."""
         import asyncio
@@ -1006,7 +994,6 @@ class NotificationsHandler(SecureHandler):
             }
         )
 
-
 # Utility functions for use by other handlers/orchestrator
 async def notify_debate_completed(result: Any) -> dict[str, bool]:
     """Notify all configured channels about a completed debate.
@@ -1042,12 +1029,11 @@ async def notify_debate_completed(result: Any) -> dict[str, bool]:
 
     return results
 
-
 async def notify_consensus_reached(
     debate_id: str,
     confidence: float,
-    winner: Optional[str] = None,
-    task: Optional[str] = None,
+    winner: str | None = None,
+    task: str | None = None,
 ) -> dict[str, bool]:
     """Notify all configured channels about consensus being reached.
 
@@ -1082,11 +1068,10 @@ async def notify_consensus_reached(
 
     return results
 
-
 async def notify_error(
     error_type: str,
     error_message: str,
-    debate_id: Optional[str] = None,
+    debate_id: str | None = None,
     severity: str = "warning",
 ) -> dict[str, bool]:
     """Notify configured channels about an error.
@@ -1114,7 +1099,6 @@ async def notify_error(
             results["telegram"] = False
 
     return results
-
 
 __all__ = [
     "NotificationsHandler",

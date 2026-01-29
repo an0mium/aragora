@@ -37,17 +37,15 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Optional, Type
+from typing import Any, Optional
 
 from aragora.exceptions import AragoraError
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Error Codes
 # =============================================================================
-
 
 class ErrorCode(str, Enum):
     """Standardized error codes for API responses.
@@ -92,11 +90,9 @@ class ErrorCode(str, Enum):
     AGENT_NOT_FOUND = "AGENT_NOT_FOUND"
     CONFIG_ERROR = "CONFIG_ERROR"
 
-
 # =============================================================================
 # Base Exception Classes
 # =============================================================================
-
 
 @dataclass
 class ErrorContext:
@@ -104,12 +100,11 @@ class ErrorContext:
 
     error_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    path: Optional[str] = None
-    method: Optional[str] = None
-    user_id: Optional[str] = None
-    org_id: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
+    path: str | None = None
+    method: str | None = None
+    user_id: str | None = None
+    org_id: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
 class AragoraAPIError(AragoraError):
     """Base exception for all Aragora API errors.
@@ -133,12 +128,12 @@ class AragoraAPIError(AragoraError):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        code: Optional[ErrorCode] = None,
-        status_code: Optional[int] = None,
-        details: Optional[str] = None,
-        suggestion: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
+        message: str | None = None,
+        code: ErrorCode | None = None,
+        status_code: int | None = None,
+        details: str | None = None,
+        suggestion: str | None = None,
+        context: ErrorContext | None = None,
         **extra: Any,
     ):
         self.message = message or self.default_message
@@ -155,9 +150,9 @@ class AragoraAPIError(AragoraError):
         # Initialize AragoraError with message and context.extra as details (dict)
         super().__init__(self.message, self.context.extra)
 
-    def to_dict(self, include_trace: bool = False) -> Dict[str, Any]:
+    def to_dict(self, include_trace: bool = False) -> dict[str, Any]:
         """Convert error to dictionary for API response."""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "error": self.code.value if isinstance(self.code, ErrorCode) else self.code,
             "message": self.message,
             "error_id": self.context.error_id,
@@ -188,11 +183,9 @@ class AragoraAPIError(AragoraError):
             },
         )
 
-
 # =============================================================================
 # Client Errors (4xx)
 # =============================================================================
-
 
 class BadRequestError(AragoraAPIError):
     """Invalid request format or parameters."""
@@ -200,7 +193,6 @@ class BadRequestError(AragoraAPIError):
     default_message = "Invalid request"
     default_code = ErrorCode.BAD_REQUEST
     default_status_code = 400
-
 
 class ValidationError(AragoraAPIError):
     """Request validation failed."""
@@ -211,8 +203,8 @@ class ValidationError(AragoraAPIError):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        field: Optional[str] = None,
+        message: str | None = None,
+        field: str | None = None,
         value: Any = None,
         **kwargs: Any,
     ):
@@ -222,7 +214,6 @@ class ValidationError(AragoraAPIError):
         if value is not None:
             self.context.extra["value"] = str(value)[:100]
 
-
 class AuthenticationError(AragoraAPIError):
     """Authentication required or failed."""
 
@@ -230,14 +221,12 @@ class AuthenticationError(AragoraAPIError):
     default_code = ErrorCode.UNAUTHORIZED
     default_status_code = 401
 
-
 class ForbiddenError(AragoraAPIError):
     """Access denied to resource."""
 
     default_message = "Access denied"
     default_code = ErrorCode.FORBIDDEN
     default_status_code = 403
-
 
 class NotFoundError(AragoraAPIError):
     """Requested resource not found."""
@@ -248,9 +237,9 @@ class NotFoundError(AragoraAPIError):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        message: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
         **kwargs: Any,
     ):
         super().__init__(message, **kwargs)
@@ -259,7 +248,6 @@ class NotFoundError(AragoraAPIError):
         if resource_id:
             self.context.extra["resource_id"] = resource_id
 
-
 class MethodNotAllowedError(AragoraAPIError):
     """HTTP method not allowed for this endpoint."""
 
@@ -267,14 +255,12 @@ class MethodNotAllowedError(AragoraAPIError):
     default_code = ErrorCode.METHOD_NOT_ALLOWED
     default_status_code = 405
 
-
 class ConflictError(AragoraAPIError):
     """Resource conflict (e.g., duplicate)."""
 
     default_message = "Resource conflict"
     default_code = ErrorCode.CONFLICT
     default_status_code = 409
-
 
 class RateLimitError(AragoraAPIError):
     """Rate limit exceeded."""
@@ -285,9 +271,9 @@ class RateLimitError(AragoraAPIError):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        retry_after: Optional[int] = None,
-        limit: Optional[int] = None,
+        message: str | None = None,
+        retry_after: int | None = None,
+        limit: int | None = None,
         **kwargs: Any,
     ):
         super().__init__(message, **kwargs)
@@ -296,7 +282,6 @@ class RateLimitError(AragoraAPIError):
         if limit:
             self.context.extra["limit"] = limit
 
-
 class PayloadTooLargeError(AragoraAPIError):
     """Request payload too large."""
 
@@ -304,11 +289,9 @@ class PayloadTooLargeError(AragoraAPIError):
     default_code = ErrorCode.PAYLOAD_TOO_LARGE
     default_status_code = 413
 
-
 # =============================================================================
 # Server Errors (5xx)
 # =============================================================================
-
 
 class InternalError(AragoraAPIError):
     """Internal server error."""
@@ -317,14 +300,12 @@ class InternalError(AragoraAPIError):
     default_code = ErrorCode.INTERNAL_ERROR
     default_status_code = 500
 
-
 class ServiceUnavailableError(AragoraAPIError):
     """Service temporarily unavailable."""
 
     default_message = "Service temporarily unavailable"
     default_code = ErrorCode.SERVICE_UNAVAILABLE
     default_status_code = 503
-
 
 class GatewayTimeoutError(AragoraAPIError):
     """Upstream service timeout."""
@@ -333,14 +314,12 @@ class GatewayTimeoutError(AragoraAPIError):
     default_code = ErrorCode.GATEWAY_TIMEOUT
     default_status_code = 504
 
-
 class DatabaseError(AragoraAPIError):
     """Database operation failed."""
 
     default_message = "Database error"
     default_code = ErrorCode.DATABASE_ERROR
     default_status_code = 500
-
 
 class ExternalServiceError(AragoraAPIError):
     """External service (API, connector) failed."""
@@ -351,19 +330,17 @@ class ExternalServiceError(AragoraAPIError):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        service: Optional[str] = None,
+        message: str | None = None,
+        service: str | None = None,
         **kwargs: Any,
     ):
         super().__init__(message, **kwargs)
         if service:
             self.context.extra["service"] = service
 
-
 # =============================================================================
 # Domain-Specific Errors
 # =============================================================================
-
 
 class DebateError(AragoraAPIError):
     """Debate-related error."""
@@ -374,14 +351,13 @@ class DebateError(AragoraAPIError):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        debate_id: Optional[str] = None,
+        message: str | None = None,
+        debate_id: str | None = None,
         **kwargs: Any,
     ):
         super().__init__(message, **kwargs)
         if debate_id:
             self.context.extra["debate_id"] = debate_id
-
 
 class VerificationError(AragoraAPIError):
     """Formal verification error."""
@@ -390,7 +366,6 @@ class VerificationError(AragoraAPIError):
     default_code = ErrorCode.VERIFICATION_ERROR
     default_status_code = 500
 
-
 class MemoryError(AragoraAPIError):
     """Memory system error."""
 
@@ -398,18 +373,16 @@ class MemoryError(AragoraAPIError):
     default_code = ErrorCode.MEMORY_ERROR
     default_status_code = 500
 
-
 # =============================================================================
 # Error Formatting
 # =============================================================================
 
-
 def format_error_response(
     error: Exception,
     include_trace: bool = False,
-    path: Optional[str] = None,
-    method: Optional[str] = None,
-) -> Dict[str, Any]:
+    path: str | None = None,
+    method: str | None = None,
+) -> dict[str, Any]:
     """Format any exception as a standardized API error response.
 
     Args:
@@ -440,20 +413,18 @@ def format_error_response(
 
     return internal.to_dict(include_trace=include_trace)
 
-
 def get_status_code(error: Exception) -> int:
     """Get HTTP status code for an exception."""
     if isinstance(error, AragoraAPIError):
         return error.status_code
     return 500
 
-
 # =============================================================================
 # Error Mapping
 # =============================================================================
 
 # Map common exception types to API errors
-EXCEPTION_MAP: Dict[Type[Exception], Type[AragoraAPIError]] = {
+EXCEPTION_MAP: dict[type[Exception], type[AragoraAPIError]] = {
     ValueError: ValidationError,
     KeyError: NotFoundError,
     PermissionError: ForbiddenError,
@@ -461,10 +432,9 @@ EXCEPTION_MAP: Dict[Type[Exception], Type[AragoraAPIError]] = {
     ConnectionError: ExternalServiceError,
 }
 
-
 def wrap_exception(
     error: Exception,
-    default_class: Type[AragoraAPIError] = InternalError,
+    default_class: type[AragoraAPIError] = InternalError,
 ) -> AragoraAPIError:
     """Wrap a standard exception in an AragoraAPIError.
 
@@ -481,16 +451,14 @@ def wrap_exception(
     error_class = EXCEPTION_MAP.get(type(error), default_class)
     return error_class(message=str(error), details=type(error).__name__)
 
-
 # =============================================================================
 # Logging Helpers
 # =============================================================================
 
-
 def log_error(
     error: Exception,
     level: int = logging.ERROR,
-    context: Optional[Dict[str, Any]] = None,
+    context: Optional[dict[str, Any]] = None,
 ) -> str:
     """Log an error with context and return the error ID.
 
@@ -518,12 +486,11 @@ def log_error(
     )
     return error_id
 
-
 # =============================================================================
 # Error Suggestions Registry (from error_utils.py)
 # =============================================================================
 
-ERROR_SUGGESTIONS: Dict[ErrorCode, Dict[str, str]] = {
+ERROR_SUGGESTIONS: dict[ErrorCode, dict[str, str]] = {
     ErrorCode.INVALID_API_KEY: {
         "message": "Invalid or missing API key",
         "suggestion": "Check your API key configuration",
@@ -592,8 +559,7 @@ ERROR_SUGGESTIONS: Dict[ErrorCode, Dict[str, str]] = {
     },
 }
 
-
-def get_error_suggestion(code: ErrorCode) -> Dict[str, str]:
+def get_error_suggestion(code: ErrorCode) -> dict[str, str]:
     """Get suggestion details for an error code.
 
     Returns:
@@ -608,7 +574,6 @@ def get_error_suggestion(code: ErrorCode) -> Dict[str, str]:
             "docs": "See docs/TROUBLESHOOTING.md",
         },
     )
-
 
 def format_cli_error(code: ErrorCode, details: str = "") -> str:
     """Format an error message for CLI output with actionable suggestions.
@@ -630,11 +595,9 @@ def format_cli_error(code: ErrorCode, details: str = "") -> str:
     lines.append(f"  -> Try: {info['cli_help']}")
     return "\n".join(lines)
 
-
 # =============================================================================
 # Safe Error Message (from error_utils.py)
 # =============================================================================
-
 
 def safe_error_message(e: Exception, context: str = "") -> str:
     """Return a sanitized error message for client responses.
@@ -666,13 +629,12 @@ def safe_error_message(e: Exception, context: str = "") -> str:
     else:
         return "An error occurred"
 
-
 # =============================================================================
 # Error Formatter Class (from error_utils.py)
 # =============================================================================
 
 # Map HTTP status codes to error codes
-_STATUS_TO_CODE: Dict[int, ErrorCode] = {
+_STATUS_TO_CODE: dict[int, ErrorCode] = {
     400: ErrorCode.INVALID_REQUEST,
     401: ErrorCode.UNAUTHORIZED,
     403: ErrorCode.FORBIDDEN,
@@ -685,7 +647,6 @@ _STATUS_TO_CODE: Dict[int, ErrorCode] = {
     503: ErrorCode.SERVICE_UNAVAILABLE,
     504: ErrorCode.TIMEOUT,
 }
-
 
 class ErrorFormatter:
     """Unified error formatter for consistent API responses.
@@ -715,7 +676,7 @@ class ErrorFormatter:
     """
 
     # Map exception types to (status_code, error_code, default_message)
-    EXCEPTION_TYPE_MAP: Dict[str, tuple] = {
+    EXCEPTION_TYPE_MAP: dict[str, tuple] = {
         "FileNotFoundError": (404, ErrorCode.NOT_FOUND, "Resource not found"),
         "OSError": (500, ErrorCode.INTERNAL_ERROR, "System error"),
         "JSONDecodeError": (400, ErrorCode.INVALID_FORMAT, "Invalid JSON format"),
@@ -732,11 +693,11 @@ class ErrorFormatter:
         cls,
         message: str,
         status: int = 400,
-        code: Optional[ErrorCode] = None,
-        field: Optional[str] = None,
-        trace_id: Optional[str] = None,
-        suggestion: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        code: ErrorCode | None = None,
+        field: str | None = None,
+        trace_id: str | None = None,
+        suggestion: str | None = None,
+    ) -> dict[str, Any]:
         """Format a client error (4xx) response.
 
         Use for validation failures, bad requests, and missing resources.
@@ -753,7 +714,7 @@ class ErrorFormatter:
             Formatted error response dict
         """
         error_code = code or _STATUS_TO_CODE.get(status, ErrorCode.INVALID_REQUEST)
-        error_dict: Dict[str, Any] = {
+        error_dict: dict[str, Any] = {
             "error": error_code.value,
             "message": message,
         }
@@ -770,9 +731,9 @@ class ErrorFormatter:
         cls,
         exception: Exception,
         context: str = "",
-        trace_id: Optional[str] = None,
+        trace_id: str | None = None,
         log_full: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Format a server error (5xx) response.
 
         Logs full details server-side, returns sanitized message to client.
@@ -796,7 +757,7 @@ class ErrorFormatter:
         # Get classification
         status, code, message = cls._classify_exception_type(exception)
 
-        error_dict: Dict[str, Any] = {
+        error_dict: dict[str, Any] = {
             "error": code.value,
             "message": message,
         }
@@ -810,7 +771,7 @@ class ErrorFormatter:
         cls,
         exception: Exception,
         context: str = "",
-        trace_id: Optional[str] = None,
+        trace_id: str | None = None,
     ) -> AragoraAPIError:
         """Classify an exception into an AragoraAPIError.
 
@@ -871,7 +832,6 @@ class ErrorFormatter:
             return "client_error"
         else:
             return "server_error"
-
 
 __all__ = [
     # Error codes

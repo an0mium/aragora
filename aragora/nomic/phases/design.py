@@ -6,11 +6,12 @@ Phase 2: Implementation design
 - Gemini as design lead, others as critics
 - Deadlock resolution via counterfactual branching
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from . import DesignResult
 from ..task_decomposer import TaskDecomposer, TaskDecomposition, DecomposerConfig
@@ -31,7 +32,6 @@ SAFETY_PREAMBLE = """SAFETY RULES:
 3. Focus on MINIMAL viable implementation
 4. Prefer simple, direct solutions"""
 
-
 @dataclass
 class DesignConfig:
     """Configuration for design phase."""
@@ -43,7 +43,7 @@ class DesignConfig:
     early_stopping: bool = True
     early_stop_threshold: float = 0.66
     min_rounds_before_early_stop: int = 1
-    protected_files: List[str] = None
+    protected_files: list[str] = None
     # Task decomposition settings
     enable_decomposition: bool = True
     decomposition_threshold: int = 6  # Complexity score (1-10) above which to decompose
@@ -53,14 +53,13 @@ class DesignConfig:
         if self.protected_files is None:
             self.protected_files = DEFAULT_PROTECTED_FILES
 
-
 @dataclass
 class BeliefContext:
     """Belief analysis context from debate phase."""
 
     contested_count: int = 0
     crux_count: int = 0
-    posteriors: Dict[str, Any] = None
+    posteriors: dict[str, Any] = None
     convergence_achieved: bool = False
 
     def to_string(self) -> str:
@@ -90,7 +89,6 @@ class BeliefContext:
 
         return "\n".join(lines)
 
-
 class DesignPhase:
     """
     Handles the implementation design phase.
@@ -102,12 +100,12 @@ class DesignPhase:
     def __init__(
         self,
         aragora_path: Path,
-        agents: Optional[List[Any]] = None,
+        agents: Optional[list[Any]] = None,
         arena_factory: Optional[Callable[..., Any]] = None,
         environment_factory: Optional[Callable[..., Any]] = None,
         protocol_factory: Optional[Callable[..., Any]] = None,
-        config: Optional[DesignConfig] = None,
-        nomic_integration: Optional[Any] = None,
+        config: DesignConfig | None = None,
+        nomic_integration: Any | None = None,
         deep_audit_fn: Optional[Callable[..., Any]] = None,
         arbitrate_fn: Optional[Callable[..., Any]] = None,
         max_cycle_seconds: int = 3600,
@@ -116,8 +114,8 @@ class DesignPhase:
         stream_emit_fn: Optional[Callable[..., None]] = None,
         record_replay_fn: Optional[Callable[..., None]] = None,
         # Legacy API compatibility
-        claude_agent: Optional[Any] = None,
-        protected_files: Optional[List[str]] = None,
+        claude_agent: Any | None = None,
+        protected_files: Optional[list[str]] = None,
         auto_approve_threshold: float = 0.5,
     ):
         """
@@ -181,9 +179,9 @@ class DesignPhase:
 
     async def run(
         self,
-        proposal: Optional[Dict[str, Any]] = None,
-        winning_proposal: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        proposal: Optional[dict[str, Any]] = None,
+        winning_proposal: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Legacy API: Run the design phase.
 
@@ -227,7 +225,7 @@ class DesignPhase:
             "auto_approved": approval_result.get("auto_approved", False),
         }
 
-    async def generate_design(self, proposal: Dict[str, Any]) -> Dict[str, Any]:
+    async def generate_design(self, proposal: dict[str, Any]) -> dict[str, Any]:
         """
         Legacy API: Generate design from proposal.
 
@@ -239,7 +237,7 @@ class DesignPhase:
         """
         return await self._generate_design(proposal)
 
-    async def _generate_design(self, proposal: Dict[str, Any]) -> Dict[str, Any]:
+    async def _generate_design(self, proposal: dict[str, Any]) -> dict[str, Any]:
         """
         Internal method for design generation.
 
@@ -268,7 +266,7 @@ class DesignPhase:
             "files_to_create": [],
         }
 
-    async def identify_affected_files(self, design: Dict[str, Any]) -> List[str]:
+    async def identify_affected_files(self, design: dict[str, Any]) -> list[str]:
         """
         Legacy API: Identify files affected by the design.
 
@@ -280,7 +278,7 @@ class DesignPhase:
         """
         return await self._identify_files(design)
 
-    async def _identify_files(self, design: Dict[str, Any]) -> List[str]:
+    async def _identify_files(self, design: dict[str, Any]) -> list[str]:
         """
         Internal method for file identification.
 
@@ -295,7 +293,7 @@ class DesignPhase:
         files.extend(design.get("files_to_create", []))
         return files
 
-    async def safety_review(self, design: Dict[str, Any]) -> Dict[str, Any]:
+    async def safety_review(self, design: dict[str, Any]) -> dict[str, Any]:
         """
         Legacy API: Review safety of the design.
 
@@ -343,7 +341,7 @@ class DesignPhase:
             "reason": "; ".join(issues) if issues else "Design is safe",
         }
 
-    def _check_risk_patterns(self, description: str) -> Dict[str, Any]:
+    def _check_risk_patterns(self, description: str) -> dict[str, Any]:
         """
         Check for high-risk patterns in design description.
 
@@ -374,7 +372,7 @@ class DesignPhase:
             "patterns_found": patterns_found,
         }
 
-    async def approve_design(self, design: Dict[str, Any]) -> Dict[str, Any]:
+    async def approve_design(self, design: dict[str, Any]) -> dict[str, Any]:
         """
         Approve or flag design for review.
 
@@ -424,9 +422,9 @@ class DesignPhase:
     async def execute(
         self,
         improvement: str,
-        belief_context: Optional[BeliefContext] = None,
+        belief_context: BeliefContext | None = None,
         learning_context: str = "",
-        arena_kwargs: Optional[Dict[str, Any]] = None,
+        arena_kwargs: Optional[dict[str, Any]] = None,
     ) -> DesignResult:
         """
         Execute the design phase.
@@ -559,18 +557,18 @@ class DesignPhase:
     async def _execute_decomposed(
         self,
         decomposition: TaskDecomposition,
-        belief_context: Optional[BeliefContext],
+        belief_context: BeliefContext | None,
         learning_context: str,
-        arena_kwargs: Optional[Dict[str, Any]],
+        arena_kwargs: Optional[dict[str, Any]],
         phase_start: datetime,
     ) -> DesignResult:
         """Execute design phase for a decomposed task.
 
         Runs design for each subtask and merges the results.
         """
-        subtask_designs: List[str] = []
-        all_files_affected: List[str] = []
-        all_proposals: Dict[str, str] = {}
+        subtask_designs: list[str] = []
+        all_files_affected: list[str] = []
+        all_proposals: dict[str, str] = {}
         total_complexity = 0
 
         for i, subtask in enumerate(decomposition.subtasks, 1):
@@ -701,7 +699,7 @@ class DesignPhase:
     def _merge_subtask_designs(
         self,
         original_task: str,
-        subtask_designs: List[str],
+        subtask_designs: list[str],
         decomposition: TaskDecomposition,
     ) -> str:
         """Merge subtask designs into a coherent overall design."""
@@ -730,7 +728,7 @@ class DesignPhase:
 
         return header + body + footer
 
-    async def _check_deep_audit(self, improvement: str) -> Optional[Dict]:
+    async def _check_deep_audit(self, improvement: str) -> dict | None:
         """Check if deep audit is needed and run it."""
         try:
             should_audit, reason = self._deep_audit("check", improvement, phase="design")
@@ -741,7 +739,7 @@ class DesignPhase:
             self._log(f"  [deep-audit] Check failed: {e}")
         return None
 
-    def _rejected_result(self, phase_start: datetime, audit_result: Dict) -> DesignResult:
+    def _rejected_result(self, phase_start: datetime, audit_result: dict) -> DesignResult:
         """Create a rejected result from deep audit."""
         self._log("  [deep-audit] Design rejected - returning issues for rework")
         phase_duration = (datetime.now() - phase_start).total_seconds()
@@ -818,7 +816,7 @@ Working code snippet showing the feature in action.
 
 Designs missing any of these will be automatically rejected."""
 
-    async def _probe_agents(self) -> Dict[str, float]:
+    async def _probe_agents(self) -> dict[str, float]:
         """Probe agents for reliability weights."""
         if not self.nomic_integration:
             return {}
@@ -910,7 +908,7 @@ Designs missing any of these will be automatically rejected."""
             f"{'True assumption' if conditional.preferred_world else 'False assumption'}"
         )
 
-    def _extract_proposals(self, result: Any) -> Dict[str, str]:
+    def _extract_proposals(self, result: Any) -> dict[str, str]:
         """Extract individual proposals from messages."""
         proposals = {}
         if hasattr(result, "messages"):
@@ -919,16 +917,16 @@ Designs missing any of these will be automatically rejected."""
                     proposals[msg.agent] = msg.content
         return proposals
 
-    def _count_votes(self, result: Any) -> Dict[str, int]:
+    def _count_votes(self, result: Any) -> dict[str, int]:
         """Count votes from result."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         if hasattr(result, "votes"):
             for vote in result.votes:
                 choice = vote.choice
                 counts[choice] = counts.get(choice, 0) + 1
         return counts
 
-    async def _checkpoint(self, result: Any, agent_weights: Dict) -> None:
+    async def _checkpoint(self, result: Any, agent_weights: dict) -> None:
         """Checkpoint the design phase."""
         if not self.nomic_integration:
             return
@@ -942,7 +940,7 @@ Designs missing any of these will be automatically rejected."""
         except Exception as e:
             self._log(f"  [integration] Checkpoint failed: {e}")
 
-    def _extract_files_from_design(self, design: str) -> List[str]:
+    def _extract_files_from_design(self, design: str) -> list[str]:
         """Extract file paths mentioned in the design."""
         import re
 
@@ -967,6 +965,5 @@ Designs missing any of these will be automatically rejected."""
             return "medium"
         else:
             return "low"
-
 
 __all__ = ["DesignPhase", "DesignConfig", "BeliefContext"]

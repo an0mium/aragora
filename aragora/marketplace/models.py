@@ -4,14 +4,14 @@ Marketplace data models.
 Defines templates for agents, debates, and workflows that can be
 shared and reused across the Aragora ecosystem.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 import hashlib
 import json
-
 
 class TemplateCategory(Enum):
     """Categories for marketplace templates."""
@@ -26,7 +26,6 @@ class TemplateCategory(Enum):
     REVIEW = "review"
     PLANNING = "planning"
     CUSTOM = "custom"
-
 
 @dataclass
 class TemplateMetadata:
@@ -44,8 +43,8 @@ class TemplateMetadata:
     downloads: int = 0
     stars: int = 0
     license: str = "MIT"
-    repository_url: Optional[str] = None
-    documentation_url: Optional[str] = None
+    repository_url: str | None = None
+    documentation_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -66,7 +65,6 @@ class TemplateMetadata:
             "documentation_url": self.documentation_url,
         }
 
-
 @dataclass
 class TemplateRating:
     """User rating for a template."""
@@ -74,13 +72,12 @@ class TemplateRating:
     user_id: str
     template_id: str
     score: int  # 1-5
-    review: Optional[str] = None
+    review: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     def __post_init__(self) -> None:
         if not 1 <= self.score <= 5:
             raise ValueError("Score must be between 1 and 5")
-
 
 @dataclass
 class AgentTemplate:
@@ -121,7 +118,6 @@ class AgentTemplate:
             "content_hash": self.content_hash(),
         }
 
-
 @dataclass
 class DebateTemplate:
     """Template for creating a debate configuration."""
@@ -158,7 +154,6 @@ class DebateTemplate:
             "content_hash": self.content_hash(),
         }
 
-
 @dataclass
 class WorkflowTemplate:
     """Template for creating a workflow DAG."""
@@ -194,7 +189,6 @@ class WorkflowTemplate:
             "variables": self.variables,
             "content_hash": self.content_hash(),
         }
-
 
 # Pre-built templates
 BUILTIN_AGENT_TEMPLATES: list[AgentTemplate] = [
@@ -265,7 +259,6 @@ Always cite your sources and acknowledge uncertainty.""",
         constraints=["must_cite_sources", "acknowledge_uncertainty"],
     ),
 ]
-
 
 BUILTIN_DEBATE_TEMPLATES: list[DebateTemplate] = [
     DebateTemplate(

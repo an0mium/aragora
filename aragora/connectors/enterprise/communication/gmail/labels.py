@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
+from typing import Any, AsyncIterator, Optional, Protocol, TYPE_CHECKING
 
 from ..models import GmailLabel
 
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     import httpx
 
 logger = logging.getLogger(__name__)
-
 
 class GmailBaseMethods(Protocol):
     """Protocol defining expected methods from base classes for type checking."""
@@ -28,19 +27,18 @@ class GmailBaseMethods(Protocol):
     async def _get_access_token(self) -> str: ...
     async def _api_request(
         self, endpoint: str, method: str = "GET", **kwargs: Any
-    ) -> Dict[str, Any]: ...
+    ) -> dict[str, Any]: ...
     @asynccontextmanager
     def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
     def check_circuit_breaker(self) -> bool: ...
-    def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
+    def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
     def record_failure(self) -> None: ...
-
 
 class GmailLabelsMixin(GmailBaseMethods):
     """Mixin providing label management and message action operations."""
 
-    async def list_labels(self) -> List[GmailLabel]:
+    async def list_labels(self) -> list[GmailLabel]:
         """List all Gmail labels."""
         data = await self._api_request("/labels")
 
@@ -91,7 +89,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             label_list_visibility=data.get("labelListVisibility", "labelShow"),
         )
 
-    async def add_label(self, message_id: str, label_id: str) -> Dict[str, Any]:
+    async def add_label(self, message_id: str, label_id: str) -> dict[str, Any]:
         """
         Add a label to a message.
 
@@ -107,9 +105,9 @@ class GmailLabelsMixin(GmailBaseMethods):
     async def modify_message(
         self,
         message_id: str,
-        add_labels: Optional[List[str]] = None,
-        remove_labels: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        add_labels: Optional[list[str]] = None,
+        remove_labels: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
         """
         Modify message labels.
 
@@ -164,7 +162,7 @@ class GmailLabelsMixin(GmailBaseMethods):
                 self.record_failure()
             raise
 
-    async def archive_message(self, message_id: str) -> Dict[str, Any]:
+    async def archive_message(self, message_id: str) -> dict[str, Any]:
         """
         Archive a message (remove from INBOX but keep in All Mail).
 
@@ -181,7 +179,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         logger.info(f"[Gmail] Archived message: {message_id}")
         return result
 
-    async def trash_message(self, message_id: str) -> Dict[str, Any]:
+    async def trash_message(self, message_id: str) -> dict[str, Any]:
         """
         Move a message to trash.
 
@@ -226,7 +224,7 @@ class GmailLabelsMixin(GmailBaseMethods):
                 self.record_failure()
             raise
 
-    async def untrash_message(self, message_id: str) -> Dict[str, Any]:
+    async def untrash_message(self, message_id: str) -> dict[str, Any]:
         """
         Restore a message from trash.
 
@@ -271,7 +269,7 @@ class GmailLabelsMixin(GmailBaseMethods):
                 self.record_failure()
             raise
 
-    async def mark_as_read(self, message_id: str) -> Dict[str, Any]:
+    async def mark_as_read(self, message_id: str) -> dict[str, Any]:
         """
         Mark a message as read.
 
@@ -288,7 +286,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         logger.info(f"[Gmail] Marked as read: {message_id}")
         return result
 
-    async def mark_as_unread(self, message_id: str) -> Dict[str, Any]:
+    async def mark_as_unread(self, message_id: str) -> dict[str, Any]:
         """
         Mark a message as unread.
 
@@ -305,7 +303,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         logger.info(f"[Gmail] Marked as unread: {message_id}")
         return result
 
-    async def star_message(self, message_id: str) -> Dict[str, Any]:
+    async def star_message(self, message_id: str) -> dict[str, Any]:
         """
         Star a message.
 
@@ -322,7 +320,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         logger.info(f"[Gmail] Starred message: {message_id}")
         return result
 
-    async def unstar_message(self, message_id: str) -> Dict[str, Any]:
+    async def unstar_message(self, message_id: str) -> dict[str, Any]:
         """
         Remove star from a message.
 
@@ -339,7 +337,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         logger.info(f"[Gmail] Unstarred message: {message_id}")
         return result
 
-    async def mark_important(self, message_id: str) -> Dict[str, Any]:
+    async def mark_important(self, message_id: str) -> dict[str, Any]:
         """
         Mark a message as important.
 
@@ -356,7 +354,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         logger.info(f"[Gmail] Marked important: {message_id}")
         return result
 
-    async def mark_not_important(self, message_id: str) -> Dict[str, Any]:
+    async def mark_not_important(self, message_id: str) -> dict[str, Any]:
         """
         Remove important flag from a message.
 
@@ -378,7 +376,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         message_id: str,
         folder_label: str,
         remove_from_inbox: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Move a message to a specific folder/label.
 
@@ -403,7 +401,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         self,
         message_id: str,
         snooze_until: datetime,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Snooze a message until a specific time.
 
@@ -437,10 +435,10 @@ class GmailLabelsMixin(GmailBaseMethods):
 
     async def batch_modify(
         self,
-        message_ids: List[str],
-        add_labels: Optional[List[str]] = None,
-        remove_labels: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        message_ids: list[str],
+        add_labels: Optional[list[str]] = None,
+        remove_labels: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
         """
         Batch modify multiple messages.
 
@@ -492,7 +490,7 @@ class GmailLabelsMixin(GmailBaseMethods):
                 self.record_failure()
             raise
 
-    async def batch_archive(self, message_ids: List[str]) -> Dict[str, Any]:
+    async def batch_archive(self, message_ids: list[str]) -> dict[str, Any]:
         """
         Archive multiple messages at once.
 
@@ -509,7 +507,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         logger.info(f"[Gmail] Batch archived {len(message_ids)} messages")
         return result
 
-    async def batch_trash(self, message_ids: List[str]) -> Dict[str, Any]:
+    async def batch_trash(self, message_ids: list[str]) -> dict[str, Any]:
         """
         Trash multiple messages at once.
 

@@ -50,6 +50,7 @@ Usage:
         logger.info("processing_request")
         # All logs in this context will include correlation_id
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -62,7 +63,7 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 # Emit deprecation warning on import
 warnings.warn(
@@ -75,24 +76,20 @@ warnings.warn(
 # Thread-local storage for correlation IDs
 _correlation_id = threading.local()
 
-
 def set_correlation_id(correlation_id: str) -> None:
     """Set the correlation ID for the current thread."""
     _correlation_id.value = correlation_id
 
-
-def get_correlation_id() -> Optional[str]:
+def get_correlation_id() -> str | None:
     """Get the correlation ID for the current thread."""
     return getattr(_correlation_id, "value", None)
-
 
 def generate_correlation_id() -> str:
     """Generate a new correlation ID."""
     return str(uuid.uuid4())[:8]
 
-
 @contextmanager
-def correlation_context(correlation_id: Optional[str] = None) -> Generator[str, None, None]:
+def correlation_context(correlation_id: str | None = None) -> Generator[str, None, None]:
     """Context manager for correlation ID scope.
 
     Args:
@@ -111,7 +108,6 @@ def correlation_context(correlation_id: Optional[str] = None) -> Generator[str, 
             set_correlation_id(old_id)
         else:
             _correlation_id.value = None
-
 
 # Fields to redact in logs
 SENSITIVE_FIELDS = frozenset(
@@ -139,7 +135,6 @@ SECRET_PATTERNS = [
     re.compile(r"^[A-Za-z0-9]{32,}$"),  # Generic API key
 ]
 
-
 def _is_sensitive_value(value: Any) -> bool:
     """Check if a value looks like a secret."""
     if not isinstance(value, str):
@@ -150,7 +145,6 @@ def _is_sensitive_value(value: Any) -> bool:
         if pattern.match(value):
             return True
     return False
-
 
 def _redact_sensitive(data: dict[str, Any]) -> dict[str, Any]:
     """Redact sensitive fields from a dict."""
@@ -166,7 +160,6 @@ def _redact_sensitive(data: dict[str, Any]) -> dict[str, Any]:
         else:
             result[key] = value
     return result
-
 
 @dataclass
 class LogConfig:
@@ -205,7 +198,6 @@ class LogConfig:
             redact_sensitive=os.getenv("ARAGORA_LOG_REDACT", "true").lower() == "true",
             include_stacktrace=os.getenv("ARAGORA_LOG_STACKTRACE", "true").lower() == "true",
         )
-
 
 class JSONFormatter(logging.Formatter):
     """JSON log formatter for production."""
@@ -254,7 +246,6 @@ class JSONFormatter(logging.Formatter):
             }
 
         return json.dumps(log_data, default=str)
-
 
 class HumanFormatter(logging.Formatter):
     """Human-readable log formatter for development."""
@@ -305,7 +296,6 @@ class HumanFormatter(logging.Formatter):
             exc_str = "\n" + self.formatException(record.exc_info)
 
         return f"{timestamp} {level_str} {cid_str}{record.name}: {message}{extra_str}{exc_str}"
-
 
 class StructuredLogger:
     """Logger wrapper with structured logging support."""
@@ -377,16 +367,14 @@ class StructuredLogger:
         """Log an exception with traceback."""
         self.error(message, exc_info=True, **kwargs)
 
-
 # Global configuration
-_log_config: Optional[LogConfig] = None
+_log_config: LogConfig | None = None
 _loggers: dict[str, StructuredLogger] = {}
 
-
 def configure_logging(
-    environment: Optional[str] = None,
-    level: Optional[str] = None,
-    format: Optional[str] = None,
+    environment: str | None = None,
+    level: str | None = None,
+    format: str | None = None,
     **kwargs: Any,
 ) -> LogConfig:
     """Configure structured logging.
@@ -438,7 +426,6 @@ def configure_logging(
     root_logger.addHandler(handler)
 
     return config
-
 
 def get_logger(name: str) -> StructuredLogger:
     """Get a structured logger for a module.

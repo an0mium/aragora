@@ -45,12 +45,11 @@ import traceback
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable, Optional
 
 from ..error_codes import ErrorCode, get_status_for_code
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class APIError(Exception):
@@ -70,9 +69,9 @@ class APIError(Exception):
 
     code: str
     message: str
-    status: Optional[int] = None
-    details: Optional[Dict[str, Any]] = None
-    headers: Optional[Dict[str, str]] = None
+    status: int | None = None
+    details: Optional[dict[str, Any]] = None
+    headers: Optional[dict[str, str]] = None
 
     def __post_init__(self):
         if self.status is None:
@@ -80,10 +79,10 @@ class APIError(Exception):
         super().__init__(self.message)
 
     def to_dict(
-        self, request_id: Optional[str] = None, path: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, request_id: str | None = None, path: str | None = None
+    ) -> dict[str, Any]:
         """Convert to standardized error response dict."""
-        error_dict: Dict[str, Any] = {
+        error_dict: dict[str, Any] = {
             "code": self.code,
             "message": self.message,
             "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
@@ -100,12 +99,11 @@ class APIError(Exception):
 
         return {"error": error_dict}
 
-
 def raise_api_error(
     code: str,
     message: str,
-    details: Optional[Dict[str, Any]] = None,
-    status: Optional[int] = None,
+    details: Optional[dict[str, Any]] = None,
+    status: int | None = None,
 ) -> None:
     """
     Raise a standardized API error.
@@ -123,9 +121,8 @@ def raise_api_error(
     """
     raise APIError(code=code, message=message, details=details, status=status)
 
-
 # Exception to error code mapping for common Python exceptions
-EXCEPTION_ERROR_MAP: Dict[Type[Exception], str] = {
+EXCEPTION_ERROR_MAP: dict[type[Exception], str] = {
     ValueError: ErrorCode.VALIDATION_ERROR,
     KeyError: ErrorCode.MISSING_FIELD,
     TypeError: ErrorCode.INVALID_FIELD,
@@ -135,15 +132,13 @@ EXCEPTION_ERROR_MAP: Dict[Type[Exception], str] = {
     ConnectionError: ErrorCode.EXTERNAL_SERVICE_ERROR,
 }
 
-
 @dataclass
 class ErrorResponse:
     """Represents a standardized error response."""
 
     status: int
-    body: Dict[str, Any]
-    headers: Dict[str, str] = field(default_factory=dict)
-
+    body: dict[str, Any]
+    headers: dict[str, str] = field(default_factory=dict)
 
 class ErrorHandlerMiddleware:
     """
@@ -158,7 +153,7 @@ class ErrorHandlerMiddleware:
         app: Callable,
         include_traceback: bool = False,
         log_errors: bool = True,
-        exclude_paths: Optional[list[str]] = None,
+        exclude_paths: list[str] | None = None,
     ):
         """
         Initialize error handler middleware.
@@ -239,7 +234,7 @@ class ErrorHandlerMiddleware:
             if not self.include_traceback:
                 error_message = "An internal error occurred. Please try again later."
 
-        error_dict: Dict[str, Any] = {
+        error_dict: dict[str, Any] = {
             "code": error_code,
             "message": error_message,
             "request_id": request_id,
@@ -257,15 +252,14 @@ class ErrorHandlerMiddleware:
             headers={},
         )
 
-
 def create_error_response(
     code: str,
     message: str,
-    status: Optional[int] = None,
-    details: Optional[Dict[str, Any]] = None,
-    request_id: Optional[str] = None,
-    path: Optional[str] = None,
-) -> Dict[str, Any]:
+    status: int | None = None,
+    details: Optional[dict[str, Any]] = None,
+    request_id: str | None = None,
+    path: str | None = None,
+) -> dict[str, Any]:
     """
     Create a standardized error response dict.
 
@@ -283,7 +277,7 @@ def create_error_response(
     Returns:
         Dict containing standardized error response body
     """
-    error_dict: Dict[str, Any] = {
+    error_dict: dict[str, Any] = {
         "code": code,
         "message": message,
         "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
@@ -300,11 +294,10 @@ def create_error_response(
 
     return {"error": error_dict}
 
-
 # Pre-built common error responses
 def validation_error(
     message: str,
-    field: Optional[str] = None,
+    field: str | None = None,
     value: Any = None,
 ) -> APIError:
     """Create a validation error."""
@@ -320,10 +313,9 @@ def validation_error(
         details=details if details else None,
     )
 
-
 def not_found_error(
     resource: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> APIError:
     """Create a not found error."""
     message = f"{resource} not found"
@@ -336,10 +328,9 @@ def not_found_error(
         details={"resource": resource, "id": resource_id} if resource_id else None,
     )
 
-
 def permission_error(
     action: str,
-    resource: Optional[str] = None,
+    resource: str | None = None,
 ) -> APIError:
     """Create a permission denied error."""
     message = f"Permission denied for action: {action}"
@@ -352,9 +343,8 @@ def permission_error(
         details={"action": action, "resource": resource} if resource else None,
     )
 
-
 def rate_limit_error(
-    retry_after: Optional[int] = None,
+    retry_after: int | None = None,
 ) -> APIError:
     """Create a rate limit error."""
     headers = {}
@@ -367,7 +357,6 @@ def rate_limit_error(
         details={"retry_after_seconds": retry_after} if retry_after else None,
         headers=headers,
     )
-
 
 __all__ = [
     "APIError",

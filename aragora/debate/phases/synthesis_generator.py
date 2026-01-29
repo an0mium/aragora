@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class SynthesisGenerator:
     """Generates final synthesis for debates.
 
@@ -43,7 +42,7 @@ class SynthesisGenerator:
         self,
         *,
         protocol: Any = None,
-        hooks: Optional[dict[str, Any]] = None,
+        hooks: dict[str, Any] | None = None,
         notify_spectator: Optional[Callable[..., Any]] = None,
     ) -> None:
         """Initialize the synthesis generator.
@@ -339,6 +338,5 @@ Create a comprehensive synthesis of **approximately 1200 words** (minimum 1000, 
 
 Write authoritatively. This is the FINAL WORD on this debate.
 Your response MUST be approximately 1200 words to provide comprehensive coverage."""
-
 
 __all__ = ["SynthesisGenerator"]

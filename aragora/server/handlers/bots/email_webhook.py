@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.audit.unified import audit_data, audit_security
 from aragora.server.handlers.base import (
@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 EMAIL_INBOUND_ENABLED = os.environ.get("EMAIL_INBOUND_ENABLED", "true").lower() == "true"
-
 
 class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
     """Handler for email inbound webhook endpoints.
@@ -69,7 +68,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         return EMAIL_INBOUND_ENABLED
 
     def _build_status_response(
-        self, extra_status: Optional[Dict[str, Any]] = None
+        self, extra_status: Optional[dict[str, Any]] = None
     ) -> HandlerResult:
         """Build email-specific status response."""
         sendgrid_configured = bool(os.environ.get("SENDGRID_INBOUND_SECRET"))
@@ -96,8 +95,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=30)
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route email GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/email/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -106,8 +105,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=120)
     def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests (webhooks)."""
         if not EMAIL_INBOUND_ENABLED:
             return error_response("Email inbound processing disabled", 503)
@@ -290,7 +289,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             logger.exception(f"SES webhook error: {e}")
             return json_response({"status": "error", "message": str(e)[:100]})
 
-    def _parse_form_data(self, body: bytes, content_type: str) -> Dict[str, Any]:
+    def _parse_form_data(self, body: bytes, content_type: str) -> dict[str, Any]:
         """Parse multipart form data or urlencoded data."""
         import cgi
         from io import BytesIO
@@ -346,6 +345,5 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 form_data[key] = values[0] if len(values) == 1 else values
 
         return form_data
-
 
 __all__ = ["EmailWebhookHandler"]

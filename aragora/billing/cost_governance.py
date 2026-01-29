@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from uuid import uuid4
 
 from aragora.observability import get_logger
@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-
 class CostPolicyType(str, Enum):
     """Types of cost governance policies."""
 
@@ -35,7 +34,6 @@ class CostPolicyType(str, Enum):
     OPERATION_CAP = "operation_cap"  # Cap cost per operation type
     APPROVAL_REQUIRED = "approval_required"  # Require approval for expensive ops
     TIME_RESTRICTION = "time_restriction"  # Time-based restrictions
-
 
 class CostPolicyScope(str, Enum):
     """Scope of a cost policy."""
@@ -46,7 +44,6 @@ class CostPolicyScope(str, Enum):
     USER = "user"  # Applies to specific users
     PROJECT = "project"  # Applies to specific projects
 
-
 class CostPolicyEnforcement(str, Enum):
     """Enforcement level for cost policies."""
 
@@ -54,7 +51,6 @@ class CostPolicyEnforcement(str, Enum):
     SOFT = "soft"  # Allow but log violations
     WARN = "warn"  # Warn but allow
     AUDIT = "audit"  # Only log, no enforcement
-
 
 class CostPolicyAction(str, Enum):
     """Actions when a policy is violated."""
@@ -65,19 +61,18 @@ class CostPolicyAction(str, Enum):
     QUEUE = "queue"  # Queue for approval
     THROTTLE = "throttle"  # Reduce priority
 
-
 @dataclass
 class ModelRestriction:
     """Restriction on model usage."""
 
     model_pattern: str  # Model name or pattern (e.g., "claude-opus*")
     allowed: bool = True
-    max_requests_per_hour: Optional[int] = None
-    max_tokens_per_request: Optional[int] = None
-    allowed_operations: List[str] = field(default_factory=list)  # Empty = all
-    fallback_model: Optional[str] = None  # Use this if denied
+    max_requests_per_hour: int | None = None
+    max_tokens_per_request: int | None = None
+    allowed_operations: list[str] = field(default_factory=list)  # Empty = all
+    fallback_model: str | None = None  # Use this if denied
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "model_pattern": self.model_pattern,
@@ -89,7 +84,7 @@ class ModelRestriction:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ModelRestriction":
+    def from_dict(cls, data: dict[str, Any]) -> "ModelRestriction":
         """Create from dictionary."""
         return cls(
             model_pattern=data["model_pattern"],
@@ -100,19 +95,18 @@ class ModelRestriction:
             fallback_model=data.get("fallback_model"),
         )
 
-
 @dataclass
 class SpendingLimit:
     """Spending limit configuration."""
 
-    daily_limit_usd: Optional[Decimal] = None
-    weekly_limit_usd: Optional[Decimal] = None
-    monthly_limit_usd: Optional[Decimal] = None
-    per_operation_limit_usd: Optional[Decimal] = None
+    daily_limit_usd: Decimal | None = None
+    weekly_limit_usd: Decimal | None = None
+    monthly_limit_usd: Decimal | None = None
+    per_operation_limit_usd: Decimal | None = None
     alert_threshold_percent: float = 80.0
     hard_limit: bool = True  # If true, block when limit reached
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "daily_limit_usd": str(self.daily_limit_usd) if self.daily_limit_usd else None,
@@ -126,7 +120,7 @@ class SpendingLimit:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SpendingLimit":
+    def from_dict(cls, data: dict[str, Any]) -> "SpendingLimit":
         """Create from dictionary."""
         return cls(
             daily_limit_usd=(
@@ -147,14 +141,13 @@ class SpendingLimit:
             hard_limit=data.get("hard_limit", True),
         )
 
-
 @dataclass
 class TimeRestriction:
     """Time-based usage restriction."""
 
     allowed_hours_start: int = 0  # 0-23
     allowed_hours_end: int = 24  # 0-24
-    allowed_days: List[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])  # Mon-Fri
+    allowed_days: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])  # Mon-Fri
     timezone: str = "UTC"
 
     def is_allowed_now(self) -> bool:
@@ -170,7 +163,7 @@ class TimeRestriction:
 
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "allowed_hours_start": self.allowed_hours_start,
@@ -180,7 +173,7 @@ class TimeRestriction:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TimeRestriction":
+    def from_dict(cls, data: dict[str, Any]) -> "TimeRestriction":
         """Create from dictionary."""
         return cls(
             allowed_hours_start=data.get("allowed_hours_start", 0),
@@ -188,7 +181,6 @@ class TimeRestriction:
             allowed_days=data.get("allowed_days", [0, 1, 2, 3, 4]),
             timezone=data.get("timezone", "UTC"),
         )
-
 
 @dataclass
 class CostGovernancePolicy:
@@ -204,20 +196,20 @@ class CostGovernancePolicy:
     enforcement: CostPolicyEnforcement = CostPolicyEnforcement.HARD
 
     # Target entities (based on scope)
-    target_workspaces: List[str] = field(default_factory=list)
-    target_teams: List[str] = field(default_factory=list)
-    target_users: List[str] = field(default_factory=list)
-    target_projects: List[str] = field(default_factory=list)
+    target_workspaces: list[str] = field(default_factory=list)
+    target_teams: list[str] = field(default_factory=list)
+    target_users: list[str] = field(default_factory=list)
+    target_projects: list[str] = field(default_factory=list)
 
     # Policy rules
-    model_restrictions: List[ModelRestriction] = field(default_factory=list)
-    spending_limit: Optional[SpendingLimit] = None
-    time_restriction: Optional[TimeRestriction] = None
+    model_restrictions: list[ModelRestriction] = field(default_factory=list)
+    spending_limit: SpendingLimit | None = None
+    time_restriction: TimeRestriction | None = None
 
     # Approval configuration (for APPROVAL_REQUIRED type)
-    approval_threshold_usd: Optional[Decimal] = None
-    approvers: List[str] = field(default_factory=list)
-    auto_approve_under_usd: Optional[Decimal] = None
+    approval_threshold_usd: Decimal | None = None
+    approvers: list[str] = field(default_factory=list)
+    auto_approve_under_usd: Decimal | None = None
 
     # Priority and status
     priority: int = 0  # Higher = evaluated first
@@ -225,16 +217,16 @@ class CostGovernancePolicy:
 
     # Metadata
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = None
-    updated_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_by: str | None = None
+    updated_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def matches(
         self,
-        workspace_id: Optional[str] = None,
-        team_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        project_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        team_id: str | None = None,
+        user_id: str | None = None,
+        project_id: str | None = None,
     ) -> bool:
         """Check if this policy applies to the given context."""
         if not self.enabled:
@@ -267,7 +259,7 @@ class CostGovernancePolicy:
 
         return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -299,7 +291,7 @@ class CostGovernancePolicy:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CostGovernancePolicy":
+    def from_dict(cls, data: dict[str, Any]) -> "CostGovernancePolicy":
         """Create from dictionary."""
         model_restrictions = [
             ModelRestriction.from_dict(r) for r in data.get("model_restrictions", [])
@@ -344,16 +336,15 @@ class CostGovernancePolicy:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class PolicyEvaluationContext:
     """Context for evaluating a cost policy."""
 
     # Entity identifiers
-    workspace_id: Optional[str] = None
-    team_id: Optional[str] = None
-    user_id: Optional[str] = None
-    project_id: Optional[str] = None
+    workspace_id: str | None = None
+    team_id: str | None = None
+    user_id: str | None = None
+    project_id: str | None = None
 
     # Operation details
     operation: str = ""
@@ -367,9 +358,8 @@ class PolicyEvaluationContext:
     current_monthly_spend: Decimal = Decimal("0")
 
     # Request metadata
-    request_id: Optional[str] = None
+    request_id: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-
 
 @dataclass
 class PolicyViolation:
@@ -381,9 +371,9 @@ class PolicyViolation:
     message: str
     severity: CostPolicyEnforcement
     action: CostPolicyAction
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "policy_id": self.policy_id,
@@ -395,20 +385,19 @@ class PolicyViolation:
             "details": self.details,
         }
 
-
 @dataclass
 class PolicyEvaluationResult:
     """Result of evaluating cost policies."""
 
     allowed: bool = True
     action: CostPolicyAction = CostPolicyAction.ALLOW
-    violations: List[PolicyViolation] = field(default_factory=list)
-    suggested_model: Optional[str] = None  # If downgrade suggested
+    violations: list[PolicyViolation] = field(default_factory=list)
+    suggested_model: str | None = None  # If downgrade suggested
     requires_approval: bool = False
-    approvers: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    approvers: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "allowed": self.allowed,
@@ -419,7 +408,6 @@ class PolicyEvaluationResult:
             "approvers": self.approvers,
             "warnings": self.warnings,
         }
-
 
 class CostGovernanceEngine:
     """
@@ -447,14 +435,14 @@ class CostGovernanceEngine:
         """
         self._cost_tracker = cost_tracker
         self._cost_attributor = cost_attributor
-        self._policies: Dict[str, CostGovernancePolicy] = {}
-        self._pending_approvals: Dict[str, Dict[str, Any]] = {}
+        self._policies: dict[str, CostGovernancePolicy] = {}
+        self._pending_approvals: dict[str, dict[str, Any]] = {}
 
         # Audit callbacks
-        self._audit_callbacks: List[Callable[[Dict[str, Any]], None]] = []
+        self._audit_callbacks: list[Callable[[dict[str, Any]], None]] = []
 
         # Model request counters (for rate limiting)
-        self._model_requests: Dict[str, List[datetime]] = {}
+        self._model_requests: dict[str, list[datetime]] = {}
         self._request_window = timedelta(hours=1)
 
         logger.info("CostGovernanceEngine initialized")
@@ -477,16 +465,16 @@ class CostGovernanceEngine:
             return True
         return False
 
-    def get_policy(self, policy_id: str) -> Optional[CostGovernancePolicy]:
+    def get_policy(self, policy_id: str) -> CostGovernancePolicy | None:
         """Get a policy by ID."""
         return self._policies.get(policy_id)
 
     def list_policies(
         self,
-        policy_type: Optional[CostPolicyType] = None,
-        scope: Optional[CostPolicyScope] = None,
+        policy_type: CostPolicyType | None = None,
+        scope: CostPolicyScope | None = None,
         enabled_only: bool = True,
-    ) -> List[CostGovernancePolicy]:
+    ) -> list[CostGovernancePolicy]:
         """List all policies matching criteria."""
         policies = []
         for policy in self._policies.values():
@@ -876,7 +864,7 @@ class CostGovernanceEngine:
             except Exception as e:
                 logger.error(f"Audit callback error: {e}")
 
-    def add_audit_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def add_audit_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Add an audit callback."""
         self._audit_callbacks.append(callback)
 
@@ -957,7 +945,7 @@ class CostGovernanceEngine:
 
         return True
 
-    def get_pending_approvals(self, approver_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_pending_approvals(self, approver_id: str | None = None) -> list[dict[str, Any]]:
         """Get pending approval requests."""
         pending = []
         for request in self._pending_approvals.values():
@@ -972,7 +960,6 @@ class CostGovernanceEngine:
             pending.append(request)
 
         return pending
-
 
 # Factory function
 def create_cost_governance_engine(

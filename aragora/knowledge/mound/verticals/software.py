@@ -18,7 +18,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.verticals.base import (
     BaseVerticalKnowledge,
@@ -29,7 +29,6 @@ from aragora.knowledge.mound.verticals.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class VulnerabilityPattern:
@@ -44,7 +43,6 @@ class VulnerabilityPattern:
     recommendation: str
     flags: int = re.IGNORECASE | re.MULTILINE
 
-
 @dataclass
 class SecretPattern:
     """Pattern for detecting secrets and API keys."""
@@ -53,7 +51,6 @@ class SecretPattern:
     pattern: str
     severity: str
     description: str = ""
-
 
 class SoftwareKnowledge(BaseVerticalKnowledge):
     """
@@ -237,7 +234,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
     async def extract_facts(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list[VerticalFact]:
         """Extract security-related facts from code content."""
         facts = []
@@ -296,7 +293,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
     async def validate_fact(
         self,
         fact: VerticalFact,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> tuple[bool, float]:
         """
         Validate a software fact.

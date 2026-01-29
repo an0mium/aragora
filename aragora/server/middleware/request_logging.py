@@ -7,6 +7,7 @@ Provides structured logging for HTTP requests with:
 - Audit trail for security analysis
 - Correlation ID support for distributed tracing
 """
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -14,7 +15,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,6 @@ SENSITIVE_PARAMS = frozenset(
     }
 )
 
-
 @dataclass
 class RequestContext:
     """Context for a single request."""
@@ -55,12 +55,11 @@ class RequestContext:
     path: str
     client_ip: str
     start_time: float
-    token_hash: Optional[str] = None  # Hashed token for audit without exposing secret
+    token_hash: str | None = None  # Hashed token for audit without exposing secret
 
     def elapsed_ms(self) -> float:
         """Get elapsed time in milliseconds."""
         return (time.time() - self.start_time) * 1000
-
 
 def generate_request_id() -> str:
     """Generate a unique request ID.
@@ -71,7 +70,6 @@ def generate_request_id() -> str:
         Request ID string (e.g., "req-a1b2c3d4e5f6")
     """
     return f"req-{uuid.uuid4().hex[:12]}"
-
 
 def hash_token(token: str) -> str:
     """Create a hash of a token for audit logging.
@@ -87,7 +85,6 @@ def hash_token(token: str) -> str:
     """
     return hashlib.sha256(token.encode()).hexdigest()[:8]
 
-
 def mask_sensitive_value(value: str) -> str:
     """Mask a sensitive value for logging.
 
@@ -102,7 +99,6 @@ def mask_sensitive_value(value: str) -> str:
     if len(value) <= 8:
         return "****"
     return f"{value[:4]}****{value[-4:]}"
-
 
 def sanitize_headers(headers: dict) -> dict:
     """Sanitize headers for logging by masking sensitive values.
@@ -121,7 +117,6 @@ def sanitize_headers(headers: dict) -> dict:
             sanitized[key] = value
     return sanitized
 
-
 def sanitize_params(params: dict) -> dict:
     """Sanitize query parameters for logging.
 
@@ -139,11 +134,10 @@ def sanitize_params(params: dict) -> dict:
             sanitized[key] = value
     return sanitized
 
-
 def log_request(
     ctx: RequestContext,
-    query_params: Optional[dict] = None,
-    headers: Optional[dict] = None,
+    query_params: dict | None = None,
+    headers: dict | None = None,
     log_level: int = logging.INFO,
 ) -> None:
     """Log an incoming request.
@@ -170,13 +164,12 @@ def log_request(
     msg = f"[{ctx.request_id}] {ctx.method} {ctx.path} from {ctx.client_ip}"
     logger.log(log_level, msg, extra=extra)
 
-
 def log_response(
     ctx: RequestContext,
     status_code: int,
-    response_size: Optional[int] = None,
-    error: Optional[str] = None,
-    log_level: Optional[int] = None,
+    response_size: int | None = None,
+    error: str | None = None,
+    log_level: int | None = None,
 ) -> None:
     """Log a response.
 
@@ -214,7 +207,6 @@ def log_response(
 
     msg = f"[{ctx.request_id}] {ctx.method} {ctx.path} -> {status_code} ({elapsed:.1f}ms)"
     logger.log(log_level, msg, extra=extra)
-
 
 def request_logging(
     log_request_body: bool = False,
@@ -364,7 +356,6 @@ def request_logging(
 
     return decorator
 
-
 def _extract_ip(request: Any) -> str:
     """Extract client IP from request.
 
@@ -397,16 +388,14 @@ def _extract_ip(request: Any) -> str:
 
     return "unknown"
 
-
 # Context variable for accessing current request ID
 import contextvars
 
-_current_request_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+_current_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "current_request_id", default=None
 )
 
-
-def get_current_request_id() -> Optional[str]:
+def get_current_request_id() -> str | None:
     """Get the current request ID from context.
 
     Useful for including request ID in application logs.
@@ -416,7 +405,6 @@ def get_current_request_id() -> Optional[str]:
     """
     return _current_request_id.get()
 
-
 def set_current_request_id(request_id: str) -> None:
     """Set the current request ID in context.
 
@@ -424,7 +412,6 @@ def set_current_request_id(request_id: str) -> None:
         request_id: The request ID to set
     """
     _current_request_id.set(request_id)
-
 
 __all__ = [
     "REQUEST_ID_HEADER",

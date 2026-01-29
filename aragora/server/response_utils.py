@@ -4,6 +4,7 @@ Response utilities for HTTP handlers.
 This module provides helper methods for sending HTTP responses with
 proper headers (CORS, security, rate limiting, tracing).
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -13,7 +14,6 @@ if TYPE_CHECKING:
     from aragora.server.middleware.rate_limit import RateLimitResult
 
 logger = logging.getLogger(__name__)
-
 
 class _HTTPHandlerProtocol(Protocol):
     """Protocol defining the interface expected from HTTP handler classes."""
@@ -27,7 +27,6 @@ class _HTTPHandlerProtocol(Protocol):
     def send_header(self, keyword: str, value: str) -> None: ...
     def end_headers(self) -> None: ...
 
-
 class ResponseHelpersMixin:
     """Mixin providing HTTP response helper methods.
 
@@ -39,7 +38,7 @@ class ResponseHelpersMixin:
     - headers (dict-like)
 
     And these class attributes:
-    - _rate_limit_result: Optional[RateLimitResult]
+    - _rate_limit_result: RateLimitResult | None
     - _response_status: int
 
     Type stubs are provided for mypy compatibility.
@@ -144,6 +143,5 @@ class ResponseHelpersMixin:
         )
         # Cache preflight response for 1 hour to reduce OPTIONS requests
         self.send_header("Access-Control-Max-Age", "3600")
-
 
 __all__ = ["ResponseHelpersMixin"]

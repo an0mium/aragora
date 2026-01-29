@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-
 from ..base import (
     HandlerResult,
     error_response,
@@ -39,7 +38,6 @@ except ImportError:
     MemoryCoordinator = None  # type: ignore[misc,assignment]
     CoordinatorOptions = None  # type: ignore[misc,assignment]
 
-
 class CoordinatorHandler(SecureHandler):
     """Handler for memory coordinator endpoints.
 
@@ -57,7 +55,7 @@ class CoordinatorHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route coordinator requests with RBAC."""
         client_ip = get_client_ip(handler)
 

@@ -22,7 +22,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,6 @@ except ImportError:
 
         pass
 
-
 class AragoraDebateChain(Chain):
     """
     LangChain Chain for running structured Aragora debates.
@@ -70,27 +69,27 @@ class AragoraDebateChain(Chain):
 
     # Configuration
     aragora_url: str = "http://localhost:8080"
-    api_token: Optional[str] = None
+    api_token: str | None = None
     pre_research: bool = True
     post_verify: bool = True
-    default_agents: List[str] = ["claude", "gpt-4", "gemini"]
+    default_agents: list[str] = ["claude", "gpt-4", "gemini"]
     max_rounds: int = 5
     timeout_seconds: float = 180.0
 
     @property
-    def input_keys(self) -> List[str]:
+    def input_keys(self) -> list[str]:
         """Input keys for the chain."""
         return ["question"]
 
     @property
-    def output_keys(self) -> List[str]:
+    def output_keys(self) -> list[str]:
         """Output keys for the chain."""
         return ["answer", "confidence", "reasoning", "knowledge_context"]
 
     def __init__(
         self,
         aragora_url: str = "http://localhost:8080",
-        api_token: Optional[str] = None,
+        api_token: str | None = None,
         pre_research: bool = True,
         post_verify: bool = True,
         **kwargs: Any,
@@ -113,9 +112,9 @@ class AragoraDebateChain(Chain):
 
     def _call(
         self,
-        inputs: Dict[str, Any],
-        run_manager: Optional[CallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+        inputs: dict[str, Any],
+        run_manager: CallbackManagerForChainRun | None = None,
+    ) -> dict[str, Any]:
         """Run the chain synchronously."""
         import asyncio
 
@@ -123,9 +122,9 @@ class AragoraDebateChain(Chain):
 
     async def _acall(
         self,
-        inputs: Dict[str, Any],
-        run_manager: Optional[AsyncCallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+        inputs: dict[str, Any],
+        run_manager: AsyncCallbackManagerForChainRun | None = None,
+    ) -> dict[str, Any]:
         """Run the chain asynchronously."""
         import httpx
 
@@ -222,7 +221,6 @@ class AragoraDebateChain(Chain):
         """Return chain type for serialization."""
         return "aragora_debate_chain"
 
-
 class AragoraResearchDebateChain(Chain):
     """
     Chain that combines research and debate for comprehensive analysis.
@@ -235,25 +233,25 @@ class AragoraResearchDebateChain(Chain):
     """
 
     aragora_url: str = "http://localhost:8080"
-    api_token: Optional[str] = None
-    search_sources: List[str] = ["knowledge", "web", "documents"]
+    api_token: str | None = None
+    search_sources: list[str] = ["knowledge", "web", "documents"]
     max_search_results: int = 10
 
     @property
-    def input_keys(self) -> List[str]:
+    def input_keys(self) -> list[str]:
         """Input keys for the chain."""
         return ["topic"]
 
     @property
-    def output_keys(self) -> List[str]:
+    def output_keys(self) -> list[str]:
         """Output keys for the chain."""
         return ["conclusion", "sources", "debate_summary"]
 
     def _call(
         self,
-        inputs: Dict[str, Any],
-        run_manager: Optional[CallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+        inputs: dict[str, Any],
+        run_manager: CallbackManagerForChainRun | None = None,
+    ) -> dict[str, Any]:
         """Run the chain synchronously."""
         import asyncio
 
@@ -261,9 +259,9 @@ class AragoraResearchDebateChain(Chain):
 
     async def _acall(
         self,
-        inputs: Dict[str, Any],
-        run_manager: Optional[AsyncCallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+        inputs: dict[str, Any],
+        run_manager: AsyncCallbackManagerForChainRun | None = None,
+    ) -> dict[str, Any]:
         """Run the research and debate chain."""
         import httpx
 

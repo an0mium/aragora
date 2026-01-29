@@ -9,8 +9,7 @@ from __future__ import annotations
 import random
 import time as time_module
 from dataclasses import dataclass
-from typing import Any, Optional
-
+from typing import Any
 
 @dataclass
 class RetryConfig:
@@ -39,7 +38,6 @@ class RetryConfig:
             delay = delay * (0.5 + random.random())
         return delay
 
-
 class RateLimiter:
     """Simple token bucket rate limiter for client-side request throttling.
 
@@ -56,7 +54,7 @@ class RateLimiter:
         self.rps = rps
         self.min_interval = 1.0 / rps if rps > 0 else 0
         self._last_request: float = 0
-        self._lock: Optional[Any] = None
+        self._lock: Any | None = None
 
     def wait(self) -> None:
         """Block until a request is allowed (synchronous)."""
@@ -81,7 +79,6 @@ class RateLimiter:
         if elapsed < self.min_interval:
             await asyncio.sleep(self.min_interval - elapsed)
         self._last_request = asyncio.get_event_loop().time()
-
 
 __all__ = [
     "RetryConfig",

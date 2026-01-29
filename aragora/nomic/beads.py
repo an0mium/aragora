@@ -31,6 +31,7 @@ Usage:
     await store.update_status(bead.id, BeadStatus.COMPLETED)
     await store.commit_to_git("Completed task: Implement feature X")
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -41,13 +42,12 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 # Safe pattern for bead identifiers (alphanumeric, hyphens, underscores)
 _SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
-
 
 class BeadType(str, Enum):
     """Type of work unit."""
@@ -57,7 +57,6 @@ class BeadType(str, Enum):
     EPIC = "epic"  # Large work item containing subtasks
     HOOK = "hook"  # Special: per-agent work queue entry
     DEBATE_DECISION = "debate_decision"  # Decision from a multi-agent debate
-
 
 class BeadStatus(str, Enum):
     """Lifecycle status of a bead."""
@@ -70,7 +69,6 @@ class BeadStatus(str, Enum):
     CANCELLED = "cancelled"  # Cancelled before completion
     BLOCKED = "blocked"  # Waiting on dependencies
 
-
 class BeadPriority(int, Enum):
     """Priority levels for beads."""
 
@@ -78,7 +76,6 @@ class BeadPriority(int, Enum):
     NORMAL = 50
     HIGH = 75
     URGENT = 100
-
 
 @dataclass
 class Bead:
@@ -96,15 +93,15 @@ class Bead:
     description: str
     created_at: datetime
     updated_at: datetime
-    claimed_by: Optional[str] = None  # agent_id
-    claimed_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    parent_id: Optional[str] = None  # For hierarchical beads
-    dependencies: List[str] = field(default_factory=list)  # Bead IDs
+    claimed_by: str | None = None  # agent_id
+    claimed_at: datetime | None = None
+    completed_at: datetime | None = None
+    parent_id: str | None = None  # For hierarchical beads
+    dependencies: list[str] = field(default_factory=list)  # Bead IDs
     priority: BeadPriority = BeadPriority.NORMAL
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    error_message: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
     attempt_count: int = 0
     max_attempts: int = 3
 
@@ -114,11 +111,11 @@ class Bead:
         bead_type: BeadType,
         title: str,
         description: str = "",
-        parent_id: Optional[str] = None,
-        dependencies: Optional[List[str]] = None,
+        parent_id: str | None = None,
+        dependencies: Optional[list[str]] = None,
         priority: BeadPriority = BeadPriority.NORMAL,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> "Bead":
         """Create a new bead with generated ID and timestamps."""
         now = datetime.now(timezone.utc)
@@ -137,7 +134,7 @@ class Bead:
             metadata=metadata or {},
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize bead to dictionary for JSON storage."""
         data = asdict(self)
         # Convert enums to strings
@@ -154,7 +151,7 @@ class Bead:
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Bead":
+    def from_dict(cls, data: dict[str, Any]) -> "Bead":
         """Deserialize bead from dictionary."""
         return cls(
             id=data["id"],
@@ -197,7 +194,6 @@ class Bead:
         """Check if bead can be retried."""
         return self.status == BeadStatus.FAILED and self.attempt_count < self.max_attempts
 
-
 @dataclass
 class BeadEvent:
     """Event recording a bead state change."""
@@ -206,12 +202,12 @@ class BeadEvent:
     bead_id: str
     event_type: str  # created, claimed, started, completed, failed, etc.
     timestamp: datetime
-    agent_id: Optional[str] = None
-    old_status: Optional[BeadStatus] = None
-    new_status: Optional[BeadStatus] = None
-    data: Dict[str, Any] = field(default_factory=dict)
+    agent_id: str | None = None
+    old_status: BeadStatus | None = None
+    new_status: BeadStatus | None = None
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "event_id": self.event_id,
@@ -223,7 +219,6 @@ class BeadEvent:
             "new_status": self.new_status.value if self.new_status else None,
             "data": self.data,
         }
-
 
 class BeadStore:
     """
@@ -254,8 +249,8 @@ class BeadStore:
         self.git_enabled = git_enabled
         self.auto_commit = auto_commit
         self._lock = asyncio.Lock()
-        self._index: Dict[str, int] = {}  # bead_id -> line number
-        self._beads_cache: Dict[str, Bead] = {}  # In-memory cache
+        self._index: dict[str, int] = {}  # bead_id -> line number
+        self._beads_cache: dict[str, Bead] = {}  # In-memory cache
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -376,7 +371,7 @@ class BeadStore:
             logger.debug(f"Created bead: {bead.id} ({bead.title})")
             return bead.id
 
-    async def get(self, bead_id: str) -> Optional[Bead]:
+    async def get(self, bead_id: str) -> Bead | None:
         """Get a bead by ID."""
         return self._beads_cache.get(bead_id)
 
@@ -461,7 +456,7 @@ class BeadStore:
         self,
         bead_id: str,
         status: BeadStatus,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> None:
         """
         Update the status of a bead.
@@ -505,25 +500,25 @@ class BeadStore:
             if self.auto_commit:
                 await self.commit_to_git(f"Bead {bead_id}: {old_status.value} -> {status.value}")
 
-    async def list_by_status(self, status: BeadStatus) -> List[Bead]:
+    async def list_by_status(self, status: BeadStatus) -> list[Bead]:
         """List all beads with a given status."""
         return [b for b in self._beads_cache.values() if b.status == status]
 
-    async def list_by_agent(self, agent_id: str) -> List[Bead]:
+    async def list_by_agent(self, agent_id: str) -> list[Bead]:
         """List all beads claimed by an agent."""
         return [b for b in self._beads_cache.values() if b.claimed_by == agent_id]
 
-    async def list_by_type(self, bead_type: BeadType) -> List[Bead]:
+    async def list_by_type(self, bead_type: BeadType) -> list[Bead]:
         """List all beads of a given type."""
         return [b for b in self._beads_cache.values() if b.bead_type == bead_type]
 
     async def list_beads(
         self,
         *,
-        status: Optional[BeadStatus] = None,
-        priority: Optional[BeadPriority] = None,
-        limit: Optional[int] = None,
-    ) -> List[Bead]:
+        status: BeadStatus | None = None,
+        priority: BeadPriority | None = None,
+        limit: int | None = None,
+    ) -> list[Bead]:
         """List beads with optional status/priority filters and a limit.
 
         Compatibility shim for callers that previously relied on a
@@ -538,7 +533,7 @@ class BeadStore:
             beads = beads[:limit]
         return beads
 
-    async def list_pending_runnable(self) -> List[Bead]:
+    async def list_pending_runnable(self) -> list[Bead]:
         """List pending beads that can be started (dependencies met)."""
         completed_ids = {
             b.id for b in self._beads_cache.values() if b.status == BeadStatus.COMPLETED
@@ -549,23 +544,23 @@ class BeadStore:
             if b.status == BeadStatus.PENDING and b.can_start(completed_ids)
         ]
 
-    async def list_retryable(self) -> List[Bead]:
+    async def list_retryable(self) -> list[Bead]:
         """List failed beads that can be retried."""
         return [b for b in self._beads_cache.values() if b.can_retry()]
 
-    async def list_all(self) -> List[Bead]:
+    async def list_all(self) -> list[Bead]:
         """List all beads."""
         return list(self._beads_cache.values())
 
-    async def get_children(self, parent_id: str) -> List[Bead]:
+    async def get_children(self, parent_id: str) -> list[Bead]:
         """Get all child beads of a parent."""
         return [b for b in self._beads_cache.values() if b.parent_id == parent_id]
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get statistics about the bead store."""
         beads = list(self._beads_cache.values())
-        by_status: Dict[str, int] = {}
-        by_type: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        by_type: dict[str, int] = {}
         for bead in beads:
             by_status[bead.status.value] = by_status.get(bead.status.value, 0) + 1
             by_type[bead.bead_type.value] = by_type.get(bead.bead_type.value, 0) + 1
@@ -577,7 +572,7 @@ class BeadStore:
             "agents_active": len({b.claimed_by for b in beads if b.claimed_by}),
         }
 
-    async def commit_to_git(self, message: str) -> Optional[str]:
+    async def commit_to_git(self, message: str) -> str | None:
         """
         Commit current state to git.
 
@@ -648,7 +643,6 @@ class BeadStore:
             logger.warning(f"Git commit failed: {e}")
             return None
 
-
 # Convenience functions
 async def create_bead_store(
     bead_dir: str = ".beads",
@@ -664,10 +658,8 @@ async def create_bead_store(
     await store.initialize()
     return store
 
-
 # Singleton store instance
-_default_store: Optional[BeadStore] = None
-
+_default_store: BeadStore | None = None
 
 async def get_bead_store(bead_dir: str = ".beads") -> BeadStore:
     """Get the default bead store instance."""
@@ -675,7 +667,6 @@ async def get_bead_store(bead_dir: str = ".beads") -> BeadStore:
     if _default_store is None:
         _default_store = await create_bead_store(bead_dir)
     return _default_store
-
 
 def reset_bead_store() -> None:
     """Reset the default store (for testing)."""

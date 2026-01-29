@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -42,7 +42,7 @@ CONNECTOR_DELETE = "connector:delete"
 logger = logging.getLogger(__name__)
 
 # Provider configurations
-PROVIDERS: Dict[str, Dict[str, Any]] = {
+PROVIDERS: dict[str, dict[str, Any]] = {
     "slack": {
         "name": "Slack",
         "description": "Connect Aragora to Slack workspaces for AI-powered debates in your channels",
@@ -157,7 +157,6 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-
 class OAuthWizardHandler(SecureHandler):
     """
     Unified OAuth wizard handler for SME onboarding.
@@ -190,7 +189,7 @@ class OAuthWizardHandler(SecureHandler):
         self,
         path: str,
         query_params: dict,
-        handler: Optional[Any] = None,
+        handler: Any | None = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method.
 
@@ -266,13 +265,13 @@ class OAuthWizardHandler(SecureHandler):
             logger.exception(f"Error in OAuth wizard handler: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
-    async def _get_wizard_config(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _get_wizard_config(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Get the complete wizard configuration.
 
         Returns all provider information, configuration status, and next steps.
         """
-        providers_status: List[Dict[str, Any]] = []
+        providers_status: list[dict[str, Any]] = []
 
         for provider_id, provider in PROVIDERS.items():
             status = self._check_provider_config(provider_id, provider)
@@ -318,7 +317,7 @@ class OAuthWizardHandler(SecureHandler):
             }
         )
 
-    async def _list_providers(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _list_providers(self, query_params: dict[str, str]) -> HandlerResult:
         """
         List all available providers.
 
@@ -365,13 +364,13 @@ class OAuthWizardHandler(SecureHandler):
             }
         )
 
-    async def _get_status(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _get_status(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Get detailed status of all integrations.
 
         Includes configuration status, health checks, and connection details.
         """
-        statuses: List[Dict[str, Any]] = []
+        statuses: list[dict[str, Any]] = []
 
         for provider_id, provider in PROVIDERS.items():
             config_status = self._check_provider_config(provider_id, provider)
@@ -415,7 +414,7 @@ class OAuthWizardHandler(SecureHandler):
             }
         )
 
-    async def _validate_config(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _validate_config(self, body: dict[str, Any]) -> HandlerResult:
         """
         Validate configuration for a provider before connecting.
 
@@ -436,7 +435,7 @@ class OAuthWizardHandler(SecureHandler):
             )
 
         provider = PROVIDERS[provider_id]
-        validation_results: Dict[str, Any] = {
+        validation_results: dict[str, Any] = {
             "provider": provider_id,
             "valid": True,
             "checks": [],
@@ -489,10 +488,10 @@ class OAuthWizardHandler(SecureHandler):
 
         return json_response(validation_results)
 
-    def _check_provider_config(self, provider_id: str, provider: Dict[str, Any]) -> Dict[str, Any]:
+    def _check_provider_config(self, provider_id: str, provider: dict[str, Any]) -> dict[str, Any]:
         """Check if a provider is properly configured."""
-        errors: List[str] = []
-        warnings: List[str] = []
+        errors: list[str] = []
+        warnings: list[str] = []
 
         # Check required env vars
         missing_required = []
@@ -520,7 +519,7 @@ class OAuthWizardHandler(SecureHandler):
             "required_vars_total": len(provider["required_env_vars"]),
         }
 
-    async def _check_connection(self, provider_id: str) -> Optional[Dict[str, Any]]:
+    async def _check_connection(self, provider_id: str) -> Optional[dict[str, Any]]:
         """Check the connection status for a configured provider."""
         try:
             if provider_id == "slack":
@@ -536,7 +535,7 @@ class OAuthWizardHandler(SecureHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    async def _check_slack_connection(self) -> Dict[str, Any]:
+    async def _check_slack_connection(self) -> dict[str, Any]:
         """Check Slack connection status."""
         try:
             from aragora.storage.slack_workspace_store import get_slack_workspace_store
@@ -554,7 +553,7 @@ class OAuthWizardHandler(SecureHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    async def _check_teams_connection(self) -> Dict[str, Any]:
+    async def _check_teams_connection(self) -> dict[str, Any]:
         """Check Teams connection status."""
         try:
             from aragora.storage.teams_tenant_store import get_teams_tenant_store
@@ -572,7 +571,7 @@ class OAuthWizardHandler(SecureHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    async def _check_discord_connection(self) -> Dict[str, Any]:
+    async def _check_discord_connection(self) -> dict[str, Any]:
         """Check Discord connection status."""
         bot_token = os.environ.get("DISCORD_BOT_TOKEN")
         if not bot_token:
@@ -580,7 +579,7 @@ class OAuthWizardHandler(SecureHandler):
 
         return {"status": "configured", "note": "Bot token present"}
 
-    async def _check_email_connection(self) -> Dict[str, Any]:
+    async def _check_email_connection(self) -> dict[str, Any]:
         """Check email/SMTP connection status."""
         import socket
 
@@ -639,7 +638,7 @@ class OAuthWizardHandler(SecureHandler):
                 }
             )
 
-    async def _test_slack_api(self) -> Dict[str, Any]:
+    async def _test_slack_api(self) -> dict[str, Any]:
         """Test Slack API connectivity with auth.test call."""
         try:
             from aragora.storage.slack_workspace_store import get_slack_workspace_store
@@ -674,7 +673,7 @@ class OAuthWizardHandler(SecureHandler):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def _test_teams_api(self) -> Dict[str, Any]:
+    async def _test_teams_api(self) -> dict[str, Any]:
         """Test Teams API connectivity with Graph API call."""
         try:
             from aragora.storage.teams_tenant_store import get_teams_tenant_store
@@ -709,7 +708,7 @@ class OAuthWizardHandler(SecureHandler):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def _test_discord_api(self) -> Dict[str, Any]:
+    async def _test_discord_api(self) -> dict[str, Any]:
         """Test Discord API connectivity."""
         bot_token = os.environ.get("DISCORD_BOT_TOKEN")
         if not bot_token:
@@ -765,7 +764,7 @@ class OAuthWizardHandler(SecureHandler):
             logger.exception(f"Failed to list workspaces for {provider_id}: {e}")
             return error_response(f"Failed to list workspaces: {str(e)}", 500)
 
-    async def _get_slack_workspaces(self) -> List[Dict[str, Any]]:
+    async def _get_slack_workspaces(self) -> list[dict[str, Any]]:
         """Get list of connected Slack workspaces."""
         from aragora.storage.slack_workspace_store import get_slack_workspace_store
 
@@ -781,7 +780,7 @@ class OAuthWizardHandler(SecureHandler):
             for ws in workspaces
         ]
 
-    async def _get_teams_tenants(self) -> List[Dict[str, Any]]:
+    async def _get_teams_tenants(self) -> list[dict[str, Any]]:
         """Get list of connected Teams tenants."""
         from aragora.storage.teams_tenant_store import get_teams_tenant_store
 
@@ -797,7 +796,7 @@ class OAuthWizardHandler(SecureHandler):
             for t in tenants
         ]
 
-    async def _disconnect_provider(self, provider_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _disconnect_provider(self, provider_id: str, body: dict[str, Any]) -> HandlerResult:
         """
         Disconnect a workspace/tenant from a provider.
 
@@ -832,7 +831,7 @@ class OAuthWizardHandler(SecureHandler):
             logger.exception(f"Failed to disconnect {provider_id}: {e}")
             return error_response(f"Disconnect failed: {str(e)}", 500)
 
-    async def _disconnect_slack_workspace(self, workspace_id: str) -> Dict[str, Any]:
+    async def _disconnect_slack_workspace(self, workspace_id: str) -> dict[str, Any]:
         """Disconnect a Slack workspace."""
         from aragora.storage.slack_workspace_store import get_slack_workspace_store
 
@@ -841,7 +840,7 @@ class OAuthWizardHandler(SecureHandler):
         logger.info(f"Disconnected Slack workspace: {workspace_id}")
         return {"success": True, "message": f"Workspace {workspace_id} disconnected"}
 
-    async def _disconnect_teams_tenant(self, tenant_id: str) -> Dict[str, Any]:
+    async def _disconnect_teams_tenant(self, tenant_id: str) -> dict[str, Any]:
         """Disconnect a Teams tenant."""
         from aragora.storage.teams_tenant_store import get_teams_tenant_store
 
@@ -849,7 +848,6 @@ class OAuthWizardHandler(SecureHandler):
         store.deactivate(tenant_id)
         logger.info(f"Disconnected Teams tenant: {tenant_id}")
         return {"success": True, "message": f"Tenant {tenant_id} disconnected"}
-
 
 # Handler factory function for registration
 def create_oauth_wizard_handler(server_context: ServerContext) -> OAuthWizardHandler:

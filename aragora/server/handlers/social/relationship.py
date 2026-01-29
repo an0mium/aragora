@@ -53,7 +53,6 @@ from aragora.server.errors import safe_error_message as _safe_error_message
 # Score Computation Utilities
 # =============================================================================
 
-
 def compute_rivalry_score(
     debate_count: int, agreement_count: int, a_wins: int, b_wins: int
 ) -> float:
@@ -78,7 +77,6 @@ def compute_rivalry_score(
     frequency_factor = min(1.0, debate_count / 20)
     return disagreement_rate * competitiveness * frequency_factor
 
-
 def compute_alliance_score(debate_count: int, agreement_count: int) -> float:
     """Compute alliance score between two agents.
 
@@ -101,7 +99,6 @@ def compute_alliance_score(debate_count: int, agreement_count: int) -> float:
     # Since we don't have critique data, use agreement_rate * 0.6 as baseline
     return agreement_rate * 0.6
 
-
 def determine_relationship_type(
     rivalry_score: float, alliance_score: float, threshold: float = 0.3
 ) -> str:
@@ -121,14 +118,12 @@ def determine_relationship_type(
         return "alliance"
     return "neutral"
 
-
 class RelationshipScores(NamedTuple):
     """Computed relationship scores and classification."""
 
     rivalry_score: float
     alliance_score: float
     relationship_type: str
-
 
 def compute_relationship_scores(
     debate_count: int, agreement_count: int, a_wins: int, b_wins: int
@@ -152,11 +147,9 @@ def compute_relationship_scores(
     rel_type = determine_relationship_type(rivalry, alliance)
     return RelationshipScores(rivalry, alliance, rel_type)
 
-
 # =============================================================================
 # Handler Decorators
 # =============================================================================
-
 
 def require_tracker(func: Callable) -> Callable:
     """Decorator that handles tracker availability and initialization.
@@ -173,7 +166,7 @@ def require_tracker(func: Callable) -> Callable:
     """
 
     @wraps(func)
-    def wrapper(self, nomic_dir: Optional[Path], *args, **kwargs) -> HandlerResult:
+    def wrapper(self, nomic_dir: Path | None, *args, **kwargs) -> HandlerResult:
         if not RELATIONSHIP_TRACKER_AVAILABLE:
             return error_response("Relationship tracker not available", 503)
         tracker = self._get_tracker(nomic_dir)
@@ -182,7 +175,6 @@ def require_tracker(func: Callable) -> Callable:
         return func(self, tracker, *args, **kwargs)
 
     return wrapper
-
 
 class RelationshipHandler(BaseHandler):
     """Handler for relationship endpoints."""
@@ -203,7 +195,7 @@ class RelationshipHandler(BaseHandler):
         return False
 
     @require_permission("relationships:read")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route relationship requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -240,7 +232,7 @@ class RelationshipHandler(BaseHandler):
 
         return None
 
-    def _get_tracker(self, nomic_dir: Optional[Path]) -> Optional["RelationshipTracker"]:
+    def _get_tracker(self, nomic_dir: Path | None) -> Optional["RelationshipTracker"]:
         """Get or create a RelationshipTracker instance."""
         if not RELATIONSHIP_TRACKER_AVAILABLE:
             return None

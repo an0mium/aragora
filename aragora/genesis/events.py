@@ -7,13 +7,13 @@ Provides hooks for streaming genesis events to the live dashboard:
 - Lineage branching
 - Population changes
 """
+from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from aragora.genesis.genome import AgentGenome
-
 
 class GenesisStreamEventType(Enum):
     """Event types for streaming to dashboard."""
@@ -38,10 +38,9 @@ class GenesisStreamEventType(Enum):
     TENSION_DETECTED = "tension_detected"
     TENSION_RESOLVED = "tension_resolved"
 
-
 def create_genesis_hooks(
     emitter: Any,  # SyncEventEmitter from aragora.server.stream
-    ledger: Optional[Any] = None,  # GenesisLedger instance
+    ledger: Any | None = None,  # GenesisLedger instance
 ) -> dict[str, Callable]:
     """
     Create hooks for streaming genesis events to the dashboard.
@@ -71,7 +70,7 @@ def create_genesis_hooks(
         debate_id: str,
         task: str,
         depth: int,
-        parent_id: Optional[str] = None,
+        parent_id: str | None = None,
     ):
         """Called when a fractal debate starts."""
         emit_event(
@@ -308,7 +307,6 @@ def create_genesis_hooks(
         "on_tension_detected": on_tension_detected,
         "on_tension_resolved": on_tension_resolved,
     }
-
 
 def create_logging_hooks(
     log_func: Callable[[str], None] = print,

@@ -19,9 +19,7 @@ import logging
 import os
 import secrets
 import time
-from collections.abc import Iterator, MutableMapping
-from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 from urllib.parse import urlencode
 
 from aragora.audit.unified import audit_action, audit_security
@@ -41,16 +39,42 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.rbac import AuthorizationContext, check_permission
 from aragora.rbac.defaults import get_role_permissions
 
+# Import from extracted modules (config, models, state, validation)
+from .oauth.config import (  # noqa: F401
+    _get_secret, _is_production,
+    _get_google_client_id, _get_google_client_secret,
+    _get_github_client_id, _get_github_client_secret,
+    _get_microsoft_client_id, _get_microsoft_client_secret, _get_microsoft_tenant,
+    _get_apple_client_id, _get_apple_team_id, _get_apple_key_id, _get_apple_private_key,
+    _get_oidc_issuer, _get_oidc_client_id, _get_oidc_client_secret,
+    _get_google_redirect_uri, _get_github_redirect_uri, _get_microsoft_redirect_uri,
+    _get_apple_redirect_uri, _get_oidc_redirect_uri,
+    _get_oauth_success_url, _get_oauth_error_url, _get_allowed_redirect_hosts,
+    _IS_PRODUCTION, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID,
+    GITHUB_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GITHUB_REDIRECT_URI,
+    OAUTH_SUCCESS_URL, OAUTH_ERROR_URL, ALLOWED_OAUTH_REDIRECT_HOSTS,
+    validate_oauth_config,
+    GOOGLE_AUTH_URL, GOOGLE_TOKEN_URL, GOOGLE_USERINFO_URL,
+    GITHUB_AUTH_URL, GITHUB_TOKEN_URL, GITHUB_USERINFO_URL, GITHUB_EMAILS_URL,
+    MICROSOFT_AUTH_URL_TEMPLATE, MICROSOFT_TOKEN_URL_TEMPLATE, MICROSOFT_USERINFO_URL,
+    APPLE_AUTH_URL, APPLE_TOKEN_URL, APPLE_KEYS_URL,
+)
+from .oauth.models import OAuthUserInfo, _get_param  # noqa: F401
+from .oauth.state import (  # noqa: F401
+    _OAuthStatesView, _OAUTH_STATES, _STATE_TTL_SECONDS, MAX_OAUTH_STATES,
+    _validate_state, _cleanup_expired_states,
+)
+from .oauth.validation import _validate_redirect_url  # noqa: F401
+from aragora.server.oauth_state_store import generate_oauth_state as _generate_state  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 # Rate limiter for OAuth endpoints (20 requests per minute - auth attempts should be limited)
 _oauth_limiter = RateLimiter(requests_per_minute=20)
 
-
 # =============================================================================
 # Configuration (loaded lazily to support AWS Secrets Manager)
 # =============================================================================
-
 
 def _get_secret(name: str, default: str = "") -> str:
     """Get a secret from AWS Secrets Manager or environment."""
@@ -61,68 +85,52 @@ def _get_secret(name: str, default: str = "") -> str:
     except ImportError:
         return os.environ.get(name, default)
 
-
 def _is_production() -> bool:
     """Check if we're in production mode."""
     return os.environ.get("ARAGORA_ENV", "").lower() == "production"
 
-
 def _get_google_client_id() -> str:
     return _get_secret("GOOGLE_OAUTH_CLIENT_ID", "")
-
 
 def _get_google_client_secret() -> str:
     return _get_secret("GOOGLE_OAUTH_CLIENT_SECRET", "")
 
-
 def _get_github_client_id() -> str:
     return _get_secret("GITHUB_OAUTH_CLIENT_ID", "")
-
 
 def _get_github_client_secret() -> str:
     return _get_secret("GITHUB_OAUTH_CLIENT_SECRET", "")
 
-
 def _get_microsoft_client_id() -> str:
     return _get_secret("MICROSOFT_OAUTH_CLIENT_ID", "")
 
-
 def _get_microsoft_client_secret() -> str:
     return _get_secret("MICROSOFT_OAUTH_CLIENT_SECRET", "")
-
 
 def _get_microsoft_tenant() -> str:
     """Get Microsoft tenant ID (default: 'common' for multi-tenant)."""
     return _get_secret("MICROSOFT_OAUTH_TENANT", "common")
 
-
 def _get_apple_client_id() -> str:
     return _get_secret("APPLE_OAUTH_CLIENT_ID", "")
-
 
 def _get_apple_team_id() -> str:
     return _get_secret("APPLE_TEAM_ID", "")
 
-
 def _get_apple_key_id() -> str:
     return _get_secret("APPLE_KEY_ID", "")
-
 
 def _get_apple_private_key() -> str:
     return _get_secret("APPLE_PRIVATE_KEY", "")
 
-
 def _get_oidc_issuer() -> str:
     return _get_secret("OIDC_ISSUER", "")
-
 
 def _get_oidc_client_id() -> str:
     return _get_secret("OIDC_CLIENT_ID", "")
 
-
 def _get_oidc_client_secret() -> str:
     return _get_secret("OIDC_CLIENT_SECRET", "")
-
 
 def _get_google_redirect_uri() -> str:
     val = _get_secret("GOOGLE_OAUTH_REDIRECT_URI", "")
@@ -132,7 +140,6 @@ def _get_google_redirect_uri() -> str:
         return ""
     return "http://localhost:8080/api/auth/oauth/google/callback"
 
-
 def _get_github_redirect_uri() -> str:
     val = _get_secret("GITHUB_OAUTH_REDIRECT_URI", "")
     if val:
@@ -140,7 +147,6 @@ def _get_github_redirect_uri() -> str:
     if _is_production():
         return ""
     return "http://localhost:8080/api/auth/oauth/github/callback"
-
 
 def _get_microsoft_redirect_uri() -> str:
     val = _get_secret("MICROSOFT_OAUTH_REDIRECT_URI", "")
@@ -150,7 +156,6 @@ def _get_microsoft_redirect_uri() -> str:
         return ""
     return "http://localhost:8080/api/auth/oauth/microsoft/callback"
 
-
 def _get_apple_redirect_uri() -> str:
     val = _get_secret("APPLE_OAUTH_REDIRECT_URI", "")
     if val:
@@ -158,7 +163,6 @@ def _get_apple_redirect_uri() -> str:
     if _is_production():
         return ""
     return "http://localhost:8080/api/auth/oauth/apple/callback"
-
 
 def _get_oidc_redirect_uri() -> str:
     val = _get_secret("OIDC_REDIRECT_URI", "")
@@ -168,7 +172,6 @@ def _get_oidc_redirect_uri() -> str:
         return ""
     return "http://localhost:8080/api/auth/oauth/oidc/callback"
 
-
 def _get_oauth_success_url() -> str:
     val = _get_secret("OAUTH_SUCCESS_URL", "")
     if val:
@@ -176,7 +179,6 @@ def _get_oauth_success_url() -> str:
     if _is_production():
         return ""
     return "http://localhost:3000/auth/callback"
-
 
 def _get_oauth_error_url() -> str:
     val = _get_secret("OAUTH_ERROR_URL", "")
@@ -186,7 +188,6 @@ def _get_oauth_error_url() -> str:
         return ""
     return "http://localhost:3000/auth/error"
 
-
 def _get_allowed_redirect_hosts() -> frozenset:
     val = _get_secret("OAUTH_ALLOWED_REDIRECT_HOSTS", "")
     if not val:
@@ -194,7 +195,6 @@ def _get_allowed_redirect_hosts() -> frozenset:
             return frozenset()
         val = "localhost,127.0.0.1"
     return frozenset(host.strip().lower() for host in val.split(",") if host.strip())
-
 
 # Legacy module-level variables (for backward compatibility, now call functions)
 # These are kept for any code that imports them directly
@@ -208,7 +208,6 @@ GITHUB_REDIRECT_URI = _get_github_redirect_uri()
 OAUTH_SUCCESS_URL = _get_oauth_success_url()
 OAUTH_ERROR_URL = _get_oauth_error_url()
 ALLOWED_OAUTH_REDIRECT_HOSTS = _get_allowed_redirect_hosts()
-
 
 def validate_oauth_config() -> list[str]:
     """
@@ -251,7 +250,6 @@ def validate_oauth_config() -> list[str]:
 
     return missing
 
-
 # Google OAuth endpoints
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -286,7 +284,6 @@ from aragora.server.oauth_state_store import (
 from aragora.server.oauth_state_store import (
     validate_oauth_state as _validate_state_internal,
 )
-
 
 class _OAuthStatesView(MutableMapping[str, dict]):
     """Compatibility view over OAuth state storage."""
@@ -335,9 +332,8 @@ class _OAuthStatesView(MutableMapping[str, dict]):
             return self[key]
         return default
 
-
 _state_store = get_oauth_state_store()
-_OAUTH_STATES: Union[_OAuthStatesView, dict[str, Any]] = {}
+_OAUTH_STATES: _OAuthStatesView | dict[str, Any] = {}
 try:
     _OAUTH_STATES = _OAuthStatesView(_state_store)
 except AttributeError:
@@ -347,7 +343,6 @@ except AttributeError:
 _STATE_TTL_SECONDS = 600  # 10 minutes
 MAX_OAUTH_STATES = 10000  # Prevent memory exhaustion from rapid state generation
 
-
 @dataclass
 class OAuthUserInfo:
     """User info from OAuth provider."""
@@ -356,9 +351,8 @@ class OAuthUserInfo:
     provider_user_id: str
     email: str
     name: str
-    picture: Optional[str] = None
+    picture: str | None = None
     email_verified: bool = False
-
 
 def _get_param(query_params: dict, name: str, default: str = None) -> str:
     """
@@ -379,7 +373,6 @@ def _get_param(query_params: dict, name: str, default: str = None) -> str:
     if isinstance(value, list):
         return value[0] if value else default
     return value
-
 
 def _validate_redirect_url(redirect_url: str) -> bool:
     """
@@ -430,8 +423,7 @@ def _validate_redirect_url(redirect_url: str) -> bool:
         logger.warning(f"oauth_redirect_validation_error: {e}")
         return False
 
-
-def _validate_state(state: str) -> Optional[dict[str, Any]]:
+def _validate_state(state: str) -> dict[str, Any] | None:
     """Validate and consume OAuth state token.
 
     Uses Redis in production for multi-instance support,
@@ -439,14 +431,12 @@ def _validate_state(state: str) -> Optional[dict[str, Any]]:
     """
     return _validate_state_internal(state)
 
-
 def _cleanup_expired_states() -> int:
     """Backward-compatible cleanup helper for in-memory states."""
     try:
         return _state_store._memory_store.cleanup_expired()  # type: ignore[attr-defined]
     except AttributeError:
         return 0
-
 
 class OAuthHandler(SecureHandler):
     """Handler for OAuth authentication endpoints.
@@ -502,7 +492,7 @@ class OAuthHandler(SecureHandler):
 
     def handle(
         self, path: str, query_params: dict, handler, method: str = "GET"
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route OAuth requests to appropriate methods."""
         # Extract provider from path for tracing
         provider = "unknown"
@@ -600,7 +590,7 @@ class OAuthHandler(SecureHandler):
 
     def _check_permission(
         self, handler, permission_key: str, resource_id: str | None = None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Check RBAC permission. Returns error response if denied, None if allowed."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
@@ -2114,6 +2104,5 @@ class OAuthHandler(SecureHandler):
         )
 
         return json_response({"message": f"Unlinked {provider} successfully"})
-
 
 __all__ = ["OAuthHandler", "validate_oauth_config"]

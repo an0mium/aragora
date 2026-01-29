@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -31,8 +31,7 @@ from aragora.rbac.decorators import require_permission
 logger = logging.getLogger(__name__)
 
 # Singleton A2A server
-_a2a_server: Optional[Any] = None
-
+_a2a_server: Any | None = None
 
 def get_a2a_server():
     """Get or create the A2A server singleton."""
@@ -42,7 +41,6 @@ def get_a2a_server():
 
         _a2a_server = A2AServer()
     return _a2a_server
-
 
 class A2AHandler(BaseHandler):
     """Handler for A2A protocol endpoints."""
@@ -72,8 +70,8 @@ class A2AHandler(BaseHandler):
     @rate_limit(rpm=120)
     @require_permission("a2a:read")
     async def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route A2A requests."""
         method = handler.command if hasattr(handler, "command") else "GET"
 
@@ -257,12 +255,10 @@ class A2AHandler(BaseHandler):
             status=426,
         )
 
-
 # Handler factory
 _a2a_handler: Optional["A2AHandler"] = None
 
-
-def get_a2a_handler(server_context: Optional[Dict] = None) -> "A2AHandler":
+def get_a2a_handler(server_context: dict | None = None) -> "A2AHandler":
     """Get or create the A2A handler instance."""
     global _a2a_handler
     if _a2a_handler is None:
@@ -270,6 +266,5 @@ def get_a2a_handler(server_context: Optional[Dict] = None) -> "A2AHandler":
             server_context = {}
         _a2a_handler = A2AHandler(server_context)  # type: ignore[arg-type]
     return _a2a_handler
-
 
 __all__ = ["A2AHandler", "get_a2a_handler", "get_a2a_server"]

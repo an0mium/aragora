@@ -15,7 +15,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 
 from ...base import HandlerResult, json_response
 from ..health_utils import (
@@ -26,7 +26,6 @@ from ..health_utils import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 def health_check(handler) -> HandlerResult:
     """Comprehensive health check for k8s/docker deployments.
@@ -46,7 +45,7 @@ def health_check(handler) -> HandlerResult:
     """
     from . import _SERVER_START_TIME
 
-    checks: Dict[str, Dict[str, Any]] = {}
+    checks: dict[str, dict[str, Any]] = {}
     all_healthy = True
     start_time = time.time()
 
@@ -233,7 +232,6 @@ def health_check(handler) -> HandlerResult:
 
     return json_response(health, status=status_code)
 
-
 def websocket_health(handler) -> HandlerResult:
     """Basic WebSocket health check for availability and client count."""
     ws_manager = handler.ctx.get("ws_manager")
@@ -255,7 +253,6 @@ def websocket_health(handler) -> HandlerResult:
             {"status": "error", "clients": 0, "message": str(e)[:120]},
             status=503,
         )
-
 
 def detailed_health_check(handler) -> HandlerResult:
     """Return detailed health status with system observer metrics.
@@ -431,7 +428,6 @@ def detailed_health_check(handler) -> HandlerResult:
 
     return json_response(health)
 
-
 def deep_health_check(handler) -> HandlerResult:
     """Deep health check - verifies all external dependencies.
 
@@ -450,7 +446,7 @@ def deep_health_check(handler) -> HandlerResult:
     - CPU load
     """
     all_healthy = True
-    checks: Dict[str, Dict[str, Any]] = {}
+    checks: dict[str, dict[str, Any]] = {}
     start_time = time.time()
     warnings: list[str] = []
 

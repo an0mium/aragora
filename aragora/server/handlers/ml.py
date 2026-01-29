@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -47,7 +47,6 @@ _ml_limiter = RateLimiter(requests_per_minute=60)
 
 # Lazy load ML components
 _ml_components = {}
-
 
 def _get_ml_component(name: str):
     """Lazy load ML components to avoid import overhead."""
@@ -78,7 +77,6 @@ def _get_ml_component(name: str):
             _ml_components[name] = None
     return _ml_components.get(name)
 
-
 class MLHandler(BaseHandler):
     """Handler for ML endpoints."""
 
@@ -99,7 +97,7 @@ class MLHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("ml:read")
-    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -122,7 +120,7 @@ class MLHandler(BaseHandler):
         data: dict,
         handler: Any = None,
         user: Any = None,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)

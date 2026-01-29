@@ -37,7 +37,6 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-
 class ChatPlatformConnector(ABC):
     """
     Abstract base class for chat platform integrations.
@@ -53,9 +52,9 @@ class ChatPlatformConnector(ABC):
 
     def __init__(
         self,
-        bot_token: Optional[str] = None,
-        signing_secret: Optional[str] = None,
-        webhook_url: Optional[str] = None,
+        bot_token: str | None = None,
+        signing_secret: str | None = None,
+        webhook_url: str | None = None,
         enable_circuit_breaker: bool = True,
         circuit_breaker_threshold: int = 5,
         circuit_breaker_cooldown: float = 60.0,
@@ -86,14 +85,14 @@ class ChatPlatformConnector(ABC):
         self._circuit_breaker_threshold = circuit_breaker_threshold
         self._circuit_breaker_cooldown = circuit_breaker_cooldown
         self._request_timeout = request_timeout
-        self._circuit_breaker: Optional[Any] = None
+        self._circuit_breaker: Any | None = None
         self._circuit_breaker_initialized = False
 
     # ==========================================================================
     # Circuit Breaker Support
     # ==========================================================================
 
-    def _get_circuit_breaker(self) -> Optional[Any]:
+    def _get_circuit_breaker(self) -> Any | None:
         """Get or create circuit breaker (lazy initialization)."""
         if not self._enable_circuit_breaker:
             return None
@@ -114,7 +113,7 @@ class ChatPlatformConnector(ABC):
 
         return self._circuit_breaker
 
-    def _check_circuit_breaker(self) -> tuple[bool, Optional[str]]:
+    def _check_circuit_breaker(self) -> tuple[bool, str | None]:
         """
         Check if circuit breaker allows the request.
 
@@ -139,7 +138,7 @@ class ChatPlatformConnector(ABC):
         if cb:
             cb.record_success()
 
-    def _record_failure(self, error: Optional[Exception] = None) -> None:
+    def _record_failure(self, error: Exception | None = None) -> None:
         """Record a failed operation with the circuit breaker."""
         cb = self._get_circuit_breaker()
         if cb:
@@ -241,17 +240,17 @@ class ChatPlatformConnector(ABC):
         self,
         method: str,
         url: str,
-        headers: Optional[dict[str, str]] = None,
-        json: Optional[dict[str, Any]] = None,
-        data: Optional[Any] = None,
-        content: Optional[bytes] = None,
-        files: Optional[dict[str, Any]] = None,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        data: Any | None = None,
+        content: bytes | None = None,
+        files: dict[str, Any] | None = None,
         max_retries: int = 3,
         base_delay: float = 1.0,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         return_raw: bool = False,
         operation: str = "http_request",
-    ) -> tuple[bool, Optional[dict[str, Any] | bytes], Optional[str]]:
+    ) -> tuple[bool, Optional[dict[str, Any] | bytes], str | None]:
         """
         Make an HTTP request with retry, timeout, and circuit breaker support.
 
@@ -273,7 +272,7 @@ class ChatPlatformConnector(ABC):
             operation: Operation name for logging
 
         Returns:
-            Tuple of (success: bool, response_data: Optional[dict|bytes], error: Optional[str])
+            Tuple of (success: bool, response_data: dict|bytes | None, error: str | None)
         """
         import asyncio
         import random
@@ -289,7 +288,7 @@ class ChatPlatformConnector(ABC):
         except ImportError:
             return False, None, "httpx not available"
 
-        last_error: Optional[str] = None
+        last_error: str | None = None
         request_timeout = timeout or self._request_timeout
 
         for attempt in range(max_retries):
@@ -408,8 +407,8 @@ class ChatPlatformConnector(ABC):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
-        thread_id: Optional[str] = None,
+        blocks: list[dict[str, Any] | None] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -433,7 +432,7 @@ class ChatPlatformConnector(ABC):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -476,7 +475,7 @@ class ChatPlatformConnector(ABC):
         channel_id: str,
         user_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -527,7 +526,7 @@ class ChatPlatformConnector(ABC):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -555,7 +554,7 @@ class ChatPlatformConnector(ABC):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -585,8 +584,8 @@ class ChatPlatformConnector(ABC):
         content: bytes,
         filename: str,
         content_type: str = "application/octet-stream",
-        title: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        title: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """
@@ -630,7 +629,7 @@ class ChatPlatformConnector(ABC):
         audio_content: bytes,
         filename: str = "voice_response.mp3",
         content_type: str = "audio/mpeg",
-        reply_to: Optional[str] = None,
+        reply_to: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -678,10 +677,10 @@ class ChatPlatformConnector(ABC):
     @abstractmethod
     def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        actions: Optional[list[MessageButton]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str] | None] = None,
+        actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """
@@ -704,9 +703,9 @@ class ChatPlatformConnector(ABC):
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
+        value: str | None = None,
         style: str = "default",
-        url: Optional[str] = None,
+        url: str | None = None,
     ) -> dict[str, Any]:
         """
         Format a button element.
@@ -771,7 +770,7 @@ class ChatPlatformConnector(ABC):
         self,
         file_id: str,
         **kwargs: Any,
-    ) -> Optional[VoiceMessage]:
+    ) -> VoiceMessage | None:
         """
         Retrieve a voice message for transcription.
 
@@ -793,7 +792,7 @@ class ChatPlatformConnector(ABC):
         self,
         channel_id: str,
         **kwargs: Any,
-    ) -> Optional[ChatChannel]:
+    ) -> ChatChannel | None:
         """
         Get information about a channel.
 
@@ -811,7 +810,7 @@ class ChatPlatformConnector(ABC):
         self,
         user_id: str,
         **kwargs: Any,
-    ) -> Optional[ChatUser]:
+    ) -> ChatUser | None:
         """
         Get information about a user.
 
@@ -856,7 +855,7 @@ class ChatPlatformConnector(ABC):
         import time
 
         details: dict[str, Any] = {}
-        circuit_breaker: Optional[dict[str, Any]] = None
+        circuit_breaker: dict[str, Any] | None = None
         health: dict[str, Any] = {
             "platform": self.platform_name,
             "display_name": self.platform_display_name,
@@ -917,7 +916,7 @@ class ChatPlatformConnector(ABC):
     async def collect_evidence(
         self,
         channel_id: str,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 100,
         include_threads: bool = True,
         min_relevance: float = 0.0,
@@ -948,8 +947,8 @@ class ChatPlatformConnector(ABC):
         self,
         channel_id: str,
         limit: int = 100,
-        oldest: Optional[str] = None,
-        latest: Optional[str] = None,
+        oldest: str | None = None,
+        latest: str | None = None,
         **kwargs: Any,
     ) -> list[ChatMessage]:
         """
@@ -987,7 +986,7 @@ class ChatPlatformConnector(ABC):
     def _compute_message_relevance(
         self,
         message: ChatMessage,
-        query: Optional[str] = None,
+        query: str | None = None,
     ) -> float:
         """Compute relevance score for a message."""
         if not query:
@@ -1014,7 +1013,7 @@ class ChatPlatformConnector(ABC):
         lookback_minutes: int = 60,
         max_messages: int = 50,
         include_participants: bool = True,
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> "ChannelContext":
         """
@@ -1107,7 +1106,7 @@ class ChatPlatformConnector(ABC):
 
         return context
 
-    def _format_timestamp_for_api(self, timestamp: Any) -> Optional[str]:
+    def _format_timestamp_for_api(self, timestamp: Any) -> str | None:
         """
         Format a datetime for the platform's API.
 
@@ -1132,7 +1131,7 @@ class ChatPlatformConnector(ABC):
         include_participants: bool = True,
         include_topics: bool = True,
         include_sentiment: bool = False,
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         format_for_llm: bool = True,
         **kwargs: Any,
     ) -> dict[str, Any]:
@@ -1656,8 +1655,8 @@ class ChatPlatformConnector(ABC):
     async def get_or_create_session(
         self,
         user_id: str,
-        context: Optional[dict[str, Any]] = None,
-    ) -> Optional[Any]:
+        context: dict[str, Any] | None = None,
+    ) -> Any | None:
         """
         Get or create a debate session for a user on this platform.
 
@@ -1695,8 +1694,8 @@ class ChatPlatformConnector(ABC):
         self,
         user_id: str,
         debate_id: str,
-        context: Optional[dict[str, Any]] = None,
-    ) -> Optional[str]:
+        context: dict[str, Any] | None = None,
+    ) -> str | None:
         """
         Create or get a session and link it to a debate.
 
@@ -1755,8 +1754,8 @@ class ChatPlatformConnector(ABC):
         self,
         debate_id: str,
         result: str,
-        channel_id: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        channel_id: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> list[SendMessageResponse]:
         """

@@ -18,7 +18,7 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
 from aragora.server.prometheus_control_plane import (
@@ -31,7 +31,6 @@ from aragora.observability import get_logger
 
 logger = get_logger(__name__)
 
-
 class HealthStatus(Enum):
     """Health status for agents and the control plane."""
 
@@ -39,7 +38,6 @@ class HealthStatus(Enum):
     DEGRADED = "degraded"  # Some issues but operational
     UNHEALTHY = "unhealthy"  # Significant issues
     CRITICAL = "critical"  # System is failing
-
 
 @dataclass
 class HealthCheck:
@@ -59,10 +57,10 @@ class HealthCheck:
     status: HealthStatus
     latency_ms: float
     timestamp: float = field(default_factory=time.time)
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "agent_id": self.agent_id,
@@ -72,7 +70,6 @@ class HealthCheck:
             "error": self.error,
             "metadata": self.metadata,
         }
-
 
 class HealthMonitor:
     """
@@ -102,7 +99,7 @@ class HealthMonitor:
 
     def __init__(
         self,
-        registry: Optional[Any] = None,  # AgentRegistry, optional to avoid circular import
+        registry: Any | None = None,  # AgentRegistry, optional to avoid circular import
         probe_interval: float = 30.0,
         probe_timeout: float = 10.0,
         unhealthy_threshold: int = 3,
@@ -125,23 +122,23 @@ class HealthMonitor:
         self._recovery_threshold = recovery_threshold
 
         # Health probes: agent_id -> probe function
-        self._probes: Dict[str, Callable[[], bool]] = {}
+        self._probes: dict[str, Callable[[], bool]] = {}
 
         # Health state tracking
-        self._health_checks: Dict[str, HealthCheck] = {}
-        self._failure_counts: Dict[str, int] = {}
-        self._success_counts: Dict[str, int] = {}
+        self._health_checks: dict[str, HealthCheck] = {}
+        self._failure_counts: dict[str, int] = {}
+        self._success_counts: dict[str, int] = {}
 
         # Circuit breakers per agent
-        self._circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self._circuit_breakers: dict[str, CircuitBreaker] = {}
 
         # Monitoring task
-        self._monitor_task: Optional[asyncio.Task] = None
+        self._monitor_task: asyncio.Task | None = None
         self._running = False
 
         # Event callbacks
-        self._on_unhealthy: List[Callable[[str, HealthCheck], None]] = []
-        self._on_recovered: List[Callable[[str, HealthCheck], None]] = []
+        self._on_unhealthy: list[Callable[[str, HealthCheck], None]] = []
+        self._on_recovered: list[Callable[[str, HealthCheck], None]] = []
 
     async def start(self) -> None:
         """Start the health monitoring loop."""
@@ -169,7 +166,7 @@ class HealthMonitor:
         self,
         agent_id: str,
         probe: Callable[[], bool],
-        circuit_breaker_config: Optional[Dict[str, Any]] = None,
+        circuit_breaker_config: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Register a health probe for an agent.
@@ -207,7 +204,7 @@ class HealthMonitor:
 
         logger.debug(f"Unregistered health probe for agent: {agent_id}")
 
-    def get_agent_health(self, agent_id: str) -> Optional[HealthCheck]:
+    def get_agent_health(self, agent_id: str) -> HealthCheck | None:
         """
         Get the latest health check for an agent.
 
@@ -219,7 +216,7 @@ class HealthMonitor:
         """
         return self._health_checks.get(agent_id)
 
-    def get_all_health(self) -> Dict[str, HealthCheck]:
+    def get_all_health(self) -> dict[str, HealthCheck]:
         """
         Get health status for all monitored agents.
 
@@ -278,7 +275,7 @@ class HealthMonitor:
         """
         self._on_recovered.append(callback)
 
-    def get_circuit_breaker(self, agent_id: str) -> Optional[CircuitBreaker]:
+    def get_circuit_breaker(self, agent_id: str) -> CircuitBreaker | None:
         """
         Get circuit breaker for an agent.
 
@@ -312,7 +309,7 @@ class HealthMonitor:
 
         return True
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get health monitoring statistics.
 
@@ -423,7 +420,7 @@ class HealthMonitor:
         agent_id: str,
         is_healthy: bool,
         latency_ms: float,
-        error: Optional[str],
+        error: str | None,
     ) -> None:
         """
         Update agent health state based on probe result.

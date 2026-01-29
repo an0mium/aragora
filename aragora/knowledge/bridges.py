@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.evidence.collector import Evidence as CollectorEvidence  # type: ignore[attr-defined]
@@ -44,7 +44,6 @@ __all__ = [
     "PatternBridge",
     "KnowledgeBridgeHub",
 ]
-
 
 class MetaLearnerBridge:
     """
@@ -77,7 +76,7 @@ class MetaLearnerBridge:
         adjustments: dict[str, Any],
         hyperparams: "HyperparameterState",
         cycle_number: int = 0,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Capture a hyperparameter adjustment as a pattern node.
 
@@ -155,7 +154,7 @@ class MetaLearnerBridge:
     async def capture_learning_summary(
         self,
         summary: dict[str, Any],
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Capture a meta-learning summary as a pattern node.
 
@@ -205,7 +204,6 @@ class MetaLearnerBridge:
         logger.info(f"Captured meta-learning summary as pattern node: {node_id}")
         return node_id
 
-
 class EvidenceBridge:
     """
     Bridge between Evidence Collector and KnowledgeMound.
@@ -235,7 +233,7 @@ class EvidenceBridge:
         evidence_type: str = "citation",
         supports_claim: bool = True,
         strength: float = 0.5,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Store evidence as a KnowledgeNode.
@@ -288,7 +286,7 @@ class EvidenceBridge:
     async def store_from_collector_evidence(
         self,
         evidence: "CollectorEvidence",
-        claim_node_id: Optional[str] = None,
+        claim_node_id: str | None = None,
     ) -> str:
         """
         Store evidence from the Evidence Collector module.
@@ -348,7 +346,6 @@ class EvidenceBridge:
         logger.info(f"Stored collector evidence as node: {node_id}")
         return node_id
 
-
 class PatternBridge:
     """
     Bridge between Pattern Extractor and KnowledgeMound.
@@ -377,8 +374,8 @@ class PatternBridge:
         description: str,
         occurrences: int = 1,
         confidence: float = 0.5,
-        source_ids: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        source_ids: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Store a detected pattern as a KnowledgeNode.
@@ -500,7 +497,6 @@ class PatternBridge:
             },
         )
 
-
 class KnowledgeBridgeHub:
     """
     Central hub for all knowledge bridges.
@@ -525,9 +521,9 @@ class KnowledgeBridgeHub:
             mound: KnowledgeMound to connect bridges to
         """
         self.mound = mound
-        self._meta_learner: Optional[MetaLearnerBridge] = None
-        self._evidence: Optional[EvidenceBridge] = None
-        self._patterns: Optional[PatternBridge] = None
+        self._meta_learner: MetaLearnerBridge | None = None
+        self._evidence: EvidenceBridge | None = None
+        self._patterns: PatternBridge | None = None
 
     @property
     def meta_learner(self) -> MetaLearnerBridge:

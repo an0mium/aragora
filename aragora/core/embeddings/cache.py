@@ -3,18 +3,17 @@
 This module provides a single caching layer for all embedding operations,
 replacing the fragmented caches across memory, debate, and knowledge modules.
 """
+from __future__ import annotations
 
 import hashlib
 import logging
 import threading
 import time
 from collections import OrderedDict
-from typing import Optional
 
 from aragora.core.embeddings.types import CacheStats
 
 logger = logging.getLogger(__name__)
-
 
 class EmbeddingCache:
     """Thread-safe LRU cache for embeddings with TTL expiration.
@@ -54,7 +53,7 @@ class EmbeddingCache:
         """Generate cache key from text."""
         return hashlib.sha256(text.lower().strip().encode()).hexdigest()
 
-    def get(self, text: str) -> Optional[list[float]]:
+    def get(self, text: str) -> list[float] | None:
         """Get cached embedding if valid.
 
         Args:
@@ -148,7 +147,6 @@ class EmbeddingCache:
         """Return number of cached entries."""
         return len(self._cache)
 
-
 class ScopedCacheManager:
     """Manager for scope-isolated embedding caches.
 
@@ -230,11 +228,9 @@ class ScopedCacheManager:
                 cache.clear()
             self._caches.clear()
 
-
 # Global cache instances
-_global_cache: Optional[EmbeddingCache] = None
+_global_cache: EmbeddingCache | None = None
 _scoped_manager = ScopedCacheManager()
-
 
 def get_global_cache(
     ttl_seconds: float = 3600.0,
@@ -249,7 +245,6 @@ def get_global_cache(
         _global_cache = EmbeddingCache(ttl_seconds=ttl_seconds, max_size=max_size)
     return _global_cache
 
-
 def get_scoped_cache(scope_id: str) -> EmbeddingCache:
     """Get embedding cache scoped to a specific context.
 
@@ -258,11 +253,9 @@ def get_scoped_cache(scope_id: str) -> EmbeddingCache:
     """
     return _scoped_manager.get_cache(scope_id)
 
-
 def cleanup_scoped_cache(scope_id: str) -> None:
     """Cleanup cache for a completed scope."""
     _scoped_manager.cleanup(scope_id)
-
 
 def reset_caches() -> None:
     """Reset all caches (for testing)."""

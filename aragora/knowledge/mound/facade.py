@@ -54,8 +54,6 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Optional
-
 from aragora.knowledge.mound.core import KnowledgeMoundCore
 from aragora.knowledge.mound.api.crud import CRUDOperationsMixin
 from aragora.knowledge.mound.api.query import QueryOperationsMixin
@@ -77,7 +75,6 @@ from aragora.knowledge.mound.ops.governance import GovernanceMixin
 from aragora.knowledge.mound.ops.analytics import AnalyticsMixin
 from aragora.knowledge.mound.ops.extraction import ExtractionMixin
 from aragora.knowledge.mound.types import MoundConfig
-
 
 class KnowledgeMound(  # type: ignore[misc]
     CRUDOperationsMixin,
@@ -141,8 +138,8 @@ class KnowledgeMound(  # type: ignore[misc]
 
     def __init__(
         self,
-        config: Optional[MoundConfig] = None,
-        workspace_id: Optional[str] = None,
+        config: MoundConfig | None = None,
+        workspace_id: str | None = None,
     ) -> None:
         """
         Initialize the Knowledge Mound.

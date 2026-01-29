@@ -21,7 +21,7 @@ Configuration:
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -30,7 +30,6 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
-
 
 class HierarchicalPattern(WorkflowPattern):
     """
@@ -54,10 +53,10 @@ class HierarchicalPattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         task: str = "",
-        manager_agent: Optional[str] = None,
-        worker_agents: Optional[List[str]] = None,
+        manager_agent: str | None = None,
+        worker_agents: Optional[list[str]] = None,
         max_subtasks: int = 4,
         delegation_prompt: str = "",
         review_prompt: str = "",
@@ -213,7 +212,6 @@ Instructions:
 
 Final Integrated Response:"""
 
-
 # Register hierarchical handlers
 def _register_hierarchical_handlers():
     """Register hierarchical task handlers."""
@@ -313,6 +311,5 @@ Provide a thorough response:"""
 
     except ImportError:
         pass
-
 
 _register_hierarchical_handlers()

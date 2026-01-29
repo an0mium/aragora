@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
 import aiohttp
 
@@ -32,7 +32,6 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
-
 
 @AgentRegistry.register(
     "ollama",
@@ -112,7 +111,7 @@ class OllamaAgent(APIAgent):
                         except json.JSONDecodeError:
                             continue
 
-    async def model_info(self, model_name: Optional[str] = None) -> dict:
+    async def model_info(self, model_name: str | None = None) -> dict:
         """Get detailed info about a model.
 
         Args:
@@ -275,6 +274,5 @@ REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
         return self._parse_critique(response, target_agent or "proposal", proposal)
-
 
 __all__ = ["OllamaAgent"]

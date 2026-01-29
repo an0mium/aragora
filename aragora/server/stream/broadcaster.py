@@ -4,6 +4,7 @@ WebSocket broadcasting and client management utilities.
 Extracted from servers.py to provide reusable broadcast functionality
 for both DebateStreamServer and AiohttpUnifiedServer.
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -13,14 +14,13 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Optional, Set
+from typing import Any
 
 from .emitter import AudienceInbox, SyncEventEmitter, TokenBucket
 from .events import StreamEvent, StreamEventType
 from .state_manager import LoopInstance
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class BroadcasterConfig:
@@ -43,7 +43,6 @@ class BroadcasterConfig:
     # Client tracking
     max_client_ids: int = 10000
 
-
 class ClientManager:
     """
     Manages WebSocket client connections with secure ID mapping and rate limiting.
@@ -56,11 +55,11 @@ class ClientManager:
     Thread-safe for concurrent access.
     """
 
-    def __init__(self, config: Optional[BroadcasterConfig] = None):
+    def __init__(self, config: BroadcasterConfig | None = None):
         self.config = config or BroadcasterConfig()
 
         # Connected clients (websocket objects)
-        self.clients: Set[Any] = set()
+        self.clients: set[Any] = set()
         self._clients_lock = threading.Lock()
 
         # Secure client ID mapping: websocket_id -> client_id
@@ -109,7 +108,7 @@ class ClientManager:
             self.clients.discard(websocket)
             self._client_ids.pop(ws_id, None)
 
-    def get_client_id(self, websocket: Any) -> Optional[str]:
+    def get_client_id(self, websocket: Any) -> str | None:
         """Get the secure client ID for a websocket."""
         ws_id = id(websocket)
         return self._client_ids.get(ws_id)
@@ -179,7 +178,6 @@ class ClientManager:
 
         logger.debug("ClientManager resources cleaned up")
 
-
 class DebateStateCache:
     """
     Caches debate state for late-joiner synchronization.
@@ -190,7 +188,7 @@ class DebateStateCache:
     Thread-safe for concurrent access.
     """
 
-    def __init__(self, config: Optional[BroadcasterConfig] = None):
+    def __init__(self, config: BroadcasterConfig | None = None):
         self.config = config or BroadcasterConfig()
 
         self.debate_states: dict[str, dict] = {}
@@ -199,7 +197,7 @@ class DebateStateCache:
 
         # TTS callback for live voice response synthesis
         # Signature: async def callback(loop_id: str, agent: str, content: str)
-        self._tts_callback: Optional[Any] = None
+        self._tts_callback: Any | None = None
 
     def set_tts_callback(self, callback: Any) -> None:
         """Set callback for TTS synthesis when agent messages arrive.
@@ -325,7 +323,7 @@ class DebateStateCache:
         self.debate_states.pop(loop_id, None)
         self._last_access.pop(loop_id, None)
 
-    def get_state(self, loop_id: str) -> Optional[dict]:
+    def get_state(self, loop_id: str) -> dict | None:
         """Get cached state for a debate."""
         with self._lock:
             if loop_id in self.debate_states:
@@ -366,7 +364,6 @@ class DebateStateCache:
             self._last_access.clear()
         logger.debug("DebateStateCache resources cleaned up")
 
-
 class LoopRegistry:
     """
     Tracks active nomic loop instances.
@@ -377,7 +374,7 @@ class LoopRegistry:
     Thread-safe for concurrent access.
     """
 
-    def __init__(self, config: Optional[BroadcasterConfig] = None):
+    def __init__(self, config: BroadcasterConfig | None = None):
         self.config = config or BroadcasterConfig()
 
         self.active_loops: dict[str, LoopInstance] = {}
@@ -429,7 +426,7 @@ class LoopRegistry:
         return False
 
     def update_state(
-        self, loop_id: str, cycle: Optional[int] = None, phase: Optional[str] = None
+        self, loop_id: str, cycle: int | None = None, phase: str | None = None
     ) -> bool:
         """Update loop state.
 
@@ -461,7 +458,7 @@ class LoopRegistry:
                 for loop in self.active_loops.values()
             ]
 
-    def get(self, loop_id: str) -> Optional[LoopInstance]:
+    def get(self, loop_id: str) -> LoopInstance | None:
         """Get a specific loop instance."""
         with self._lock:
             if loop_id in self.active_loops:
@@ -504,7 +501,6 @@ class LoopRegistry:
             self._last_access.clear()
         logger.debug("LoopRegistry resources cleaned up")
 
-
 class WebSocketBroadcaster:
     """
     Core broadcasting functionality for WebSocket servers.
@@ -528,8 +524,8 @@ class WebSocketBroadcaster:
 
     def __init__(
         self,
-        emitter: Optional[SyncEventEmitter] = None,
-        config: Optional[BroadcasterConfig] = None,
+        emitter: SyncEventEmitter | None = None,
+        config: BroadcasterConfig | None = None,
     ):
         self.config = config or BroadcasterConfig()
 
@@ -552,7 +548,7 @@ class WebSocketBroadcaster:
         return self._emitter
 
     @property
-    def clients(self) -> Set[Any]:
+    def clients(self) -> set[Any]:
         """Get connected clients (for backward compatibility)."""
         return self.client_manager.clients
 
@@ -713,7 +709,6 @@ class WebSocketBroadcaster:
         self.debate_state_cache.cleanup()
         self.loop_registry.cleanup()
         logger.debug("WebSocketBroadcaster resources cleaned up")
-
 
 __all__ = [
     "BroadcasterConfig",

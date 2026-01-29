@@ -15,10 +15,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class AutomationEventType(str, Enum):
     """Events that can trigger automation workflows."""
@@ -55,37 +54,36 @@ class AutomationEventType(str, Enum):
     HEALTH_CHECK = "health.check"
     TEST_EVENT = "test.event"
 
-
 @dataclass
 class WebhookSubscription:
     """A webhook subscription for automation events."""
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     webhook_url: str = ""
-    events: Set[AutomationEventType] = field(default_factory=set)
+    events: set[AutomationEventType] = field(default_factory=set)
     secret: str = field(default_factory=lambda: hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:32])
 
     # Metadata
     platform: str = "generic"  # zapier, n8n, custom
-    workspace_id: Optional[str] = None
-    user_id: Optional[str] = None
-    name: Optional[str] = None
-    description: Optional[str] = None
+    workspace_id: str | None = None
+    user_id: str | None = None
+    name: str | None = None
+    description: str | None = None
 
     # Status
     enabled: bool = True
     verified: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_delivery_at: Optional[datetime] = None
+    last_delivery_at: datetime | None = None
     delivery_count: int = 0
     failure_count: int = 0
 
     # Configuration
     retry_count: int = 3
     timeout_seconds: int = 30
-    headers: Dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -109,7 +107,7 @@ class WebhookSubscription:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WebhookSubscription:
+    def from_dict(cls, data: dict[str, Any]) -> WebhookSubscription:
         """Deserialize from dictionary."""
         events = {AutomationEventType(e) for e in data.get("events", [])}
         return cls(
@@ -137,7 +135,6 @@ class WebhookSubscription:
             headers=data.get("headers", {}),
         )
 
-
 @dataclass
 class WebhookDeliveryResult:
     """Result of a webhook delivery attempt."""
@@ -145,13 +142,12 @@ class WebhookDeliveryResult:
     subscription_id: str
     event_type: AutomationEventType
     success: bool
-    status_code: Optional[int] = None
-    response_body: Optional[str] = None
-    error: Optional[str] = None
+    status_code: int | None = None
+    response_body: str | None = None
+    error: str | None = None
     duration_ms: float = 0
     attempt: int = 1
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-
 
 class AutomationConnector(ABC):
     """
@@ -161,9 +157,9 @@ class AutomationConnector(ABC):
     """
 
     PLATFORM_NAME: str = "generic"
-    SUPPORTED_EVENTS: Set[AutomationEventType] = set(AutomationEventType)
+    SUPPORTED_EVENTS: set[AutomationEventType] = set(AutomationEventType)
 
-    def __init__(self, http_client: Optional[Any] = None):
+    def __init__(self, http_client: Any | None = None):
         """
         Initialize the connector.
 
@@ -171,15 +167,15 @@ class AutomationConnector(ABC):
             http_client: Optional HTTP client (httpx.AsyncClient or similar)
         """
         self._http_client = http_client
-        self._subscriptions: Dict[str, WebhookSubscription] = {}
+        self._subscriptions: dict[str, WebhookSubscription] = {}
 
     @abstractmethod
     async def format_payload(
         self,
         event_type: AutomationEventType,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         subscription: WebhookSubscription,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Format event payload for the target platform.
 
@@ -238,10 +234,10 @@ class AutomationConnector(ABC):
     async def subscribe(
         self,
         webhook_url: str,
-        events: List[AutomationEventType],
-        workspace_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        name: Optional[str] = None,
+        events: list[AutomationEventType],
+        workspace_id: str | None = None,
+        user_id: str | None = None,
+        name: str | None = None,
     ) -> WebhookSubscription:
         """
         Create a new webhook subscription.
@@ -296,9 +292,9 @@ class AutomationConnector(ABC):
     async def dispatch_event(
         self,
         event_type: AutomationEventType,
-        payload: Dict[str, Any],
-        workspace_id: Optional[str] = None,
-    ) -> List[WebhookDeliveryResult]:
+        payload: dict[str, Any],
+        workspace_id: str | None = None,
+    ) -> list[WebhookDeliveryResult]:
         """
         Dispatch event to all matching subscriptions.
 
@@ -335,7 +331,7 @@ class AutomationConnector(ABC):
         self,
         subscription: WebhookSubscription,
         event_type: AutomationEventType,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
     ) -> WebhookDeliveryResult:
         """
         Deliver webhook to a subscription.
@@ -422,15 +418,15 @@ class AutomationConnector(ABC):
                 duration_ms=duration_ms,
             )
 
-    def get_subscription(self, subscription_id: str) -> Optional[WebhookSubscription]:
+    def get_subscription(self, subscription_id: str) -> WebhookSubscription | None:
         """Get a subscription by ID."""
         return self._subscriptions.get(subscription_id)
 
     def list_subscriptions(
         self,
-        workspace_id: Optional[str] = None,
-        event_type: Optional[AutomationEventType] = None,
-    ) -> List[WebhookSubscription]:
+        workspace_id: str | None = None,
+        event_type: AutomationEventType | None = None,
+    ) -> list[WebhookSubscription]:
         """
         List subscriptions with optional filters.
 

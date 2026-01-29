@@ -10,19 +10,17 @@ from __future__ import annotations
 import gc
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class ModelLoadError(Exception):
     """Error loading a model."""
 
     pass
 
-
 # Recommended models per vertical based on domain expertise
-RECOMMENDED_MODELS: Dict[str, Dict[str, str]] = {
+RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
     "software": {
         "primary": "codellama/CodeLlama-34b-Instruct-hf",
         "embedding": "microsoft/codebert-base",
@@ -50,7 +48,6 @@ RECOMMENDED_MODELS: Dict[str, Dict[str, str]] = {
     },
 }
 
-
 @dataclass
 class SpecialistModel:
     """
@@ -63,11 +60,11 @@ class SpecialistModel:
     vertical_id: str
     model: Any = None  # The actual model
     tokenizer: Any = None
-    adapter_id: Optional[str] = None
-    quantization: Optional[str] = None
+    adapter_id: str | None = None
+    quantization: str | None = None
     device: str = "cuda"
     loaded: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def generate(
         self,
@@ -109,7 +106,7 @@ class SpecialistModel:
 
         return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    def embed(self, texts: Union[str, List[str]]) -> Any:
+    def embed(self, texts: str | list[str]) -> Any:
         """
         Generate embeddings for text(s).
 
@@ -178,7 +175,6 @@ class SpecialistModel:
 
         logger.info(f"Unloaded model: {self.model_id}")
 
-
 class HuggingFaceSpecialistLoader:
     """
     Loader for HuggingFace specialist models.
@@ -192,7 +188,7 @@ class HuggingFaceSpecialistLoader:
 
     def __init__(
         self,
-        cache_dir: Optional[str] = None,
+        cache_dir: str | None = None,
         default_device: str = "auto",
         max_cached_models: int = 2,
     ):
@@ -207,7 +203,7 @@ class HuggingFaceSpecialistLoader:
         self._cache_dir = cache_dir
         self._default_device = default_device
         self._max_cached_models = max_cached_models
-        self._loaded_models: Dict[str, SpecialistModel] = {}
+        self._loaded_models: dict[str, SpecialistModel] = {}
         self._torch_available = self._check_torch()
         self._transformers_available = self._check_transformers()
 
@@ -250,8 +246,8 @@ class HuggingFaceSpecialistLoader:
 
     def _get_quantization_config(
         self,
-        quantization: Optional[str],
-    ) -> Tuple[Optional[Any], Dict[str, Any]]:
+        quantization: str | None,
+    ) -> tuple[Any | None, dict[str, Any]]:
         """
         Get quantization configuration.
 
@@ -298,8 +294,8 @@ class HuggingFaceSpecialistLoader:
         model_id: str,
         vertical_id: str,
         model_type: str = "causal_lm",
-        quantization: Optional[str] = None,
-        adapter_id: Optional[str] = None,
+        quantization: str | None = None,
+        adapter_id: str | None = None,
         trust_remote_code: bool = False,
         **kwargs: Any,
     ) -> SpecialistModel:
@@ -468,7 +464,7 @@ class HuggingFaceSpecialistLoader:
         self,
         vertical_id: str,
         model_type: str = "primary",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Get the recommended model ID for a vertical.
 
@@ -482,7 +478,7 @@ class HuggingFaceSpecialistLoader:
         vertical_models = RECOMMENDED_MODELS.get(vertical_id, {})
         return vertical_models.get(model_type)
 
-    def list_loaded_models(self) -> List[Dict[str, Any]]:
+    def list_loaded_models(self) -> list[dict[str, Any]]:
         """
         List currently loaded models.
 
@@ -525,7 +521,7 @@ class HuggingFaceSpecialistLoader:
         self._loaded_models.clear()
         logger.info("Unloaded all models")
 
-    def get_model_info(self, model_id: str) -> Optional[Dict[str, Any]]:
+    def get_model_info(self, model_id: str) -> Optional[dict[str, Any]]:
         """
         Get information about a HuggingFace model.
 

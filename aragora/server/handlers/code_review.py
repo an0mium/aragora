@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -37,13 +37,12 @@ CODE_REVIEW_READ_PERMISSION = "code_review:read"
 CODE_REVIEW_WRITE_PERMISSION = "code_review:write"
 
 # Thread-safe service instance
-_code_reviewer: Optional[Any] = None
+_code_reviewer: Any | None = None
 _code_reviewer_lock = threading.Lock()
 
 # In-memory storage for review results
-_review_results: Dict[str, Any] = {}
+_review_results: dict[str, Any] = {}
 _review_results_lock = threading.Lock()
-
 
 def get_code_reviewer():
     """Get or create code reviewer (thread-safe singleton)."""
@@ -58,7 +57,6 @@ def get_code_reviewer():
             _code_reviewer = CodeReviewOrchestrator()
         return _code_reviewer
 
-
 def store_review_result(result: Any) -> str:
     """Store review result and return ID."""
     with _review_results_lock:
@@ -70,15 +68,13 @@ def store_review_result(result: Any) -> str:
         }
         return result_id
 
-
 # =============================================================================
 # Code Review Endpoints
 # =============================================================================
 
-
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_code(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -127,10 +123,9 @@ async def handle_review_code(
         logger.exception("Error reviewing code")
         return error_response(f"Failed to review code: {e}", status=500)
 
-
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_diff(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -174,10 +169,9 @@ async def handle_review_diff(
         logger.exception("Error reviewing diff")
         return error_response(f"Failed to review diff: {e}", status=500)
 
-
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_pr(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -224,10 +218,9 @@ async def handle_review_pr(
         logger.exception(f"Error reviewing PR: {data.get('pr_url')}")
         return error_response(f"Failed to review PR: {e}", status=500)
 
-
 @require_permission(CODE_REVIEW_READ_PERMISSION)
 async def handle_get_review_result(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     result_id: str,
     user_id: str = "default",
 ) -> HandlerResult:
@@ -249,10 +242,9 @@ async def handle_get_review_result(
         logger.exception(f"Error getting review result {result_id}")
         return error_response(f"Failed to get result: {e}", status=500)
 
-
 @require_permission(CODE_REVIEW_READ_PERMISSION)
 async def handle_get_review_history(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -290,15 +282,13 @@ async def handle_get_review_history(
         logger.exception("Error getting review history")
         return error_response(f"Failed to get history: {e}", status=500)
 
-
 # =============================================================================
 # Quick Review Endpoints
 # =============================================================================
 
-
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_quick_security_scan(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -343,16 +333,14 @@ async def handle_quick_security_scan(
         logger.exception("Error in security scan")
         return error_response(f"Failed to scan code: {e}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-
 class CodeReviewHandler(BaseHandler):
     """Handler class for code review endpoints."""
 
-    ROUTES: Dict[str, Any] = {
+    ROUTES: dict[str, Any] = {
         "POST /api/v1/code-review/review": handle_review_code,
         "POST /api/v1/code-review/diff": handle_review_diff,
         "POST /api/v1/code-review/pr": handle_review_pr,
@@ -360,6 +348,6 @@ class CodeReviewHandler(BaseHandler):
         "POST /api/v1/code-review/security-scan": handle_quick_security_scan,
     }
 
-    DYNAMIC_ROUTES: Dict[str, Any] = {
+    DYNAMIC_ROUTES: dict[str, Any] = {
         "GET /api/v1/code-review/results/{result_id}": handle_get_review_result,
     }

@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     error_response,
@@ -40,13 +40,12 @@ from aragora.server.handlers.utils.responses import HandlerResult
 logger = logging.getLogger(__name__)
 
 # Thread-safe service instance
-_team_inbox_emitter: Optional[Any] = None
+_team_inbox_emitter: Any | None = None
 _team_inbox_emitter_lock = threading.Lock()
 
 # Activity store for persistent logging
-_activity_store: Optional[Any] = None
+_activity_store: Any | None = None
 _activity_store_lock = threading.Lock()
-
 
 def get_team_inbox_emitter_instance():
     """Get or create team inbox emitter (thread-safe)."""
@@ -60,7 +59,6 @@ def get_team_inbox_emitter_instance():
 
             _team_inbox_emitter = get_team_inbox_emitter()
         return _team_inbox_emitter
-
 
 def _get_activity_store():
     """Get or create the activity store (lazy init, thread-safe)."""
@@ -78,14 +76,13 @@ def _get_activity_store():
                 logger.warning(f"[TeamInbox] Failed to init activity store: {e}")
         return _activity_store
 
-
 def _log_activity(
     inbox_id: str,
     org_id: str,
     actor_id: str,
     action: str,
-    target_id: Optional[str] = None,
-    metadata: Optional[dict[str, Any]] = None,
+    target_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Log an inbox activity (non-blocking helper)."""
     store = _get_activity_store()
@@ -105,11 +102,9 @@ def _log_activity(
         except Exception as e:
             logger.debug(f"[TeamInbox] Failed to log activity: {e}")
 
-
 # =============================================================================
 # Team Member Management
 # =============================================================================
-
 
 @require_permission("inbox:read")
 async def handle_get_team_members(
@@ -142,7 +137,6 @@ async def handle_get_team_members(
     except Exception as e:
         logger.exception("Failed to get team members")
         return error_response(f"Get team members failed: {str(e)}", status=500)
-
 
 @require_permission("inbox:create")
 async def handle_add_team_member(
@@ -229,7 +223,6 @@ async def handle_add_team_member(
         logger.exception("Failed to add team member")
         return error_response(f"Add team member failed: {str(e)}", status=500)
 
-
 @require_permission("org:members")
 async def handle_remove_team_member(
     data: dict[str, Any],
@@ -290,11 +283,9 @@ async def handle_remove_team_member(
         logger.exception("Failed to remove team member")
         return error_response(f"Remove team member failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Presence (Viewing / Typing)
 # =============================================================================
-
 
 @require_permission("inbox:read")
 async def handle_start_viewing(
@@ -343,7 +334,6 @@ async def handle_start_viewing(
         logger.exception("Failed to start viewing")
         return error_response(f"Start viewing failed: {str(e)}", status=500)
 
-
 @require_permission("inbox:read")
 async def handle_stop_viewing(
     data: dict[str, Any],
@@ -384,7 +374,6 @@ async def handle_stop_viewing(
     except Exception as e:
         logger.exception("Failed to stop viewing")
         return error_response(f"Stop viewing failed: {str(e)}", status=500)
-
 
 @require_permission("inbox:write")
 async def handle_start_typing(
@@ -430,7 +419,6 @@ async def handle_start_typing(
         logger.exception("Failed to start typing")
         return error_response(f"Start typing failed: {str(e)}", status=500)
 
-
 @require_permission("inbox:write")
 async def handle_stop_typing(
     data: dict[str, Any],
@@ -472,11 +460,9 @@ async def handle_stop_typing(
         logger.exception("Failed to stop typing")
         return error_response(f"Stop typing failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Internal Notes
 # =============================================================================
-
 
 @require_permission("inbox:read")
 async def handle_get_notes(
@@ -512,7 +498,6 @@ async def handle_get_notes(
     except Exception as e:
         logger.exception("Failed to get notes")
         return error_response(f"Get notes failed: {str(e)}", status=500)
-
 
 @require_permission("inbox:create")
 async def handle_add_note(
@@ -597,11 +582,9 @@ async def handle_add_note(
         logger.exception("Failed to add note")
         return error_response(f"Add note failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Mentions
 # =============================================================================
-
 
 @require_permission("inbox:read")
 async def handle_get_mentions(
@@ -638,7 +621,6 @@ async def handle_get_mentions(
         logger.exception("Failed to get mentions")
         return error_response(f"Get mentions failed: {str(e)}", status=500)
 
-
 @require_permission("inbox:write")
 async def handle_acknowledge_mention(
     data: dict[str, Any],
@@ -674,11 +656,9 @@ async def handle_acknowledge_mention(
         logger.exception("Failed to acknowledge mention")
         return error_response(f"Acknowledge mention failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Activity Feed
 # =============================================================================
-
 
 @require_permission("inbox:read")
 async def handle_get_activity_feed(
@@ -720,11 +700,9 @@ async def handle_get_activity_feed(
         logger.exception("Failed to get activity feed")
         return error_response(f"Get activity feed failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
-
 
 def get_team_inbox_handlers() -> dict[str, Any]:
     """Get all team inbox handlers for registration."""
@@ -747,7 +725,6 @@ def get_team_inbox_handlers() -> dict[str, Any]:
         # Activity
         "get_activity_feed": handle_get_activity_feed,
     }
-
 
 __all__ = [
     # Team members

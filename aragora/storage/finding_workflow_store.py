@@ -44,7 +44,6 @@ logger = logging.getLogger(__name__)
 _finding_workflow_store: Optional["FindingWorkflowStoreBackend"] = None
 _store_lock = threading.RLock()
 
-
 @dataclass
 class WorkflowDataItem:
     """
@@ -58,17 +57,17 @@ class WorkflowDataItem:
     history: list[dict[str, Any]] = field(default_factory=list)
 
     # Assignment
-    assigned_to: Optional[str] = None
-    assigned_by: Optional[str] = None
-    assigned_at: Optional[str] = None
+    assigned_to: str | None = None
+    assigned_by: str | None = None
+    assigned_at: str | None = None
 
     # Priority and scheduling
     priority: int = 3  # 1=highest, 5=lowest
-    due_date: Optional[str] = None
+    due_date: str | None = None
 
     # Linked findings
     linked_findings: list[str] = field(default_factory=list)
-    parent_finding_id: Optional[str] = None
+    parent_finding_id: str | None = None
 
     # Timestamps
     created_at: str = ""
@@ -131,12 +130,11 @@ class WorkflowDataItem:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
-
 class FindingWorkflowStoreBackend(ABC):
     """Abstract base class for finding workflow storage backends."""
 
     @abstractmethod
-    async def get(self, finding_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, finding_id: str) -> dict[str, Any] | None:
         """Get workflow data for a finding."""
         pass
 
@@ -175,7 +173,6 @@ class FindingWorkflowStoreBackend(ABC):
         """Close any resources."""
         pass
 
-
 class InMemoryFindingWorkflowStore(FindingWorkflowStoreBackend):
     """
     In-memory finding workflow store for testing.
@@ -188,7 +185,7 @@ class InMemoryFindingWorkflowStore(FindingWorkflowStoreBackend):
         self._data: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
 
-    async def get(self, finding_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, finding_id: str) -> dict[str, Any] | None:
         """Get workflow data for a finding."""
         with self._lock:
             return self._data.get(finding_id)
@@ -243,7 +240,6 @@ class InMemoryFindingWorkflowStore(FindingWorkflowStoreBackend):
         """No-op for in-memory store."""
         pass
 
-
 class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
     """
     SQLite-backed finding workflow store.
@@ -251,7 +247,7 @@ class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
     Suitable for single-instance deployments.
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         """
         Initialize SQLite store.
 
@@ -305,7 +301,7 @@ class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
             finally:
                 conn.close()
 
-    async def get(self, finding_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, finding_id: str) -> dict[str, Any] | None:
         """Get workflow data for a finding."""
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -440,7 +436,6 @@ class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
         """No-op for SQLite (connections are per-operation)."""
         pass
 
-
 class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
     """
     Redis-backed finding workflow store with SQLite fallback.
@@ -455,8 +450,8 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     def __init__(
         self,
-        fallback_db_path: Optional[Path] = None,
-        redis_url: Optional[str] = None,
+        fallback_db_path: Path | None = None,
+        redis_url: str | None = None,
     ) -> None:
         """
         Initialize Redis store with SQLite fallback.
@@ -492,7 +487,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             self._using_fallback = True
             self._redis_client = None
 
-    async def get(self, finding_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, finding_id: str) -> dict[str, Any] | None:
         """Get workflow data for a finding."""
         if self._using_fallback:
             return await self._fallback.get(finding_id)
@@ -652,7 +647,6 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             except Exception as e:
                 logger.debug(f"Redis close failed: {e}")
 
-
 class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
     """
     PostgreSQL-backed finding workflow store.
@@ -699,7 +693,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
         self._initialized = True
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
 
-    async def get(self, finding_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, finding_id: str) -> dict[str, Any] | None:
         """Get workflow data for a finding."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -711,7 +705,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
                 return json.loads(data) if isinstance(data, str) else data
             return None
 
-    def get_sync(self, finding_id: str) -> Optional[dict[str, Any]]:
+    def get_sync(self, finding_id: str) -> dict[str, Any] | None:
         """Get workflow data for a finding (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get(finding_id))
 
@@ -850,7 +844,6 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 def get_finding_workflow_store() -> FindingWorkflowStoreBackend:
     """
     Get the global finding workflow store instance.
@@ -894,7 +887,6 @@ def get_finding_workflow_store() -> FindingWorkflowStoreBackend:
 
         return _finding_workflow_store
 
-
 def set_finding_workflow_store(store: FindingWorkflowStoreBackend) -> None:
     """Set a custom finding workflow store instance."""
     global _finding_workflow_store
@@ -902,14 +894,12 @@ def set_finding_workflow_store(store: FindingWorkflowStoreBackend) -> None:
     with _store_lock:
         _finding_workflow_store = store
 
-
 def reset_finding_workflow_store() -> None:
     """Reset the global finding workflow store (for testing)."""
     global _finding_workflow_store
 
     with _store_lock:
         _finding_workflow_store = None
-
 
 __all__ = [
     "WorkflowDataItem",

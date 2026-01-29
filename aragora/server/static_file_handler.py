@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,6 @@ CONTENT_TYPES = {
     ".xml": "application/xml",
 }
 
-
 class StaticFileHandler:
     """Handles static file serving with security protections.
 
@@ -53,7 +52,7 @@ class StaticFileHandler:
 
     def __init__(
         self,
-        static_dir: Optional[Path] = None,
+        static_dir: Path | None = None,
         enable_spa_routing: bool = True,
         spa_fallback: str = "index.html",
     ):
@@ -68,7 +67,7 @@ class StaticFileHandler:
         self.enable_spa_routing = enable_spa_routing
         self.spa_fallback = spa_fallback
 
-    def validate_path(self, filename: str) -> Tuple[bool, Optional[Path], str]:
+    def validate_path(self, filename: str) -> tuple[bool, Path | None, str]:
         """Validate and resolve a file path securely.
 
         Args:
@@ -113,7 +112,7 @@ class StaticFileHandler:
                 return content_type
         return "text/html"
 
-    def serve_file(self, filename: str) -> Optional[Tuple[int, dict, bytes]]:
+    def serve_file(self, filename: str) -> Optional[tuple[int, dict, bytes]]:
         """Serve a static file with security protections.
 
         Args:
@@ -159,11 +158,10 @@ class StaticFileHandler:
             logger.error(f"File read error: {e}")
             return None
 
-
 def serve_static_file(
     handler,
     filename: str,
-    static_dir: Optional[Path],
+    static_dir: Path | None,
     add_cors_fn: Callable,
     add_security_fn: Callable,
 ) -> bool:

@@ -18,7 +18,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from aragora.server.prometheus_control_plane import (
     record_control_plane_task_submitted,
@@ -71,7 +71,6 @@ except ImportError:
 
 logger = get_logger(__name__)
 
-
 class TaskStatus(Enum):
     """Task lifecycle status."""
 
@@ -83,7 +82,6 @@ class TaskStatus(Enum):
     CANCELLED = "cancelled"  # Task was cancelled
     TIMEOUT = "timeout"  # Task timed out
 
-
 class TaskPriority(Enum):
     """Task priority levels."""
 
@@ -92,14 +90,12 @@ class TaskPriority(Enum):
     HIGH = 75
     URGENT = 100
 
-
 class RegionRoutingMode(Enum):
     """How tasks should be routed to regions."""
 
     ANY = "any"  # Execute in any available region
     PREFERRED = "preferred"  # Prefer target region, fallback to others
     STRICT = "strict"  # Only execute in target region, fail if unavailable
-
 
 @dataclass
 class Task:
@@ -132,26 +128,26 @@ class Task:
     """
 
     task_type: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    required_capabilities: Set[str] = field(default_factory=set)
+    required_capabilities: set[str] = field(default_factory=set)
     status: TaskStatus = TaskStatus.PENDING
     priority: TaskPriority = TaskPriority.NORMAL
     created_at: float = field(default_factory=time.time)
-    assigned_at: Optional[float] = None
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
-    assigned_agent: Optional[str] = None
+    assigned_at: float | None = None
+    started_at: float | None = None
+    completed_at: float | None = None
+    assigned_agent: str | None = None
     timeout_seconds: float = 300.0
     max_retries: int = 3
     retries: int = 0
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    result: Optional[dict[str, Any]] = None
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     # Regional routing fields
-    target_region: Optional[str] = None
-    fallback_regions: List[str] = field(default_factory=list)
-    assigned_region: Optional[str] = None
+    target_region: str | None = None
+    fallback_regions: list[str] = field(default_factory=list)
+    assigned_region: str | None = None
     region_routing_mode: RegionRoutingMode = RegionRoutingMode.ANY
     origin_region: str = "default"
 
@@ -165,7 +161,7 @@ class Task:
         """Check if task should be retried."""
         return self.retries < self.max_retries
 
-    def get_eligible_regions(self) -> List[str]:
+    def get_eligible_regions(self) -> list[str]:
         """Get list of regions eligible for task execution in priority order.
 
         Returns:
@@ -195,7 +191,7 @@ class Task:
             return True
         return region_id in self.fallback_regions or not self.target_region
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -224,7 +220,7 @@ class Task:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Task":
+    def from_dict(cls, data: dict[str, Any]) -> "Task":
         """Deserialize from dictionary."""
         # Parse region routing mode
         routing_mode_str = data.get("region_routing_mode", "any")
@@ -258,7 +254,6 @@ class Task:
             region_routing_mode=routing_mode,
             origin_region=data.get("origin_region", "default"),
         )
-
 
 class TaskScheduler:
     """
@@ -320,11 +315,11 @@ class TaskScheduler:
         self._claim_timeout_ms = claim_timeout_ms
         self._policy_manager = policy_manager
         self._cost_enforcer = cost_enforcer
-        self._redis: Optional[Any] = None
-        self._local_tasks: Dict[str, Task] = {}
-        self._local_queue: List[Task] = []
+        self._redis: Any | None = None
+        self._local_tasks: dict[str, Task] = {}
+        self._local_queue: list[Task] = []
         # Local indexes for in-memory fallback
-        self._local_status_index: Dict[TaskStatus, Set[str]] = {
+        self._local_status_index: dict[TaskStatus, set[str]] = {
             status: set() for status in TaskStatus
         }
 
@@ -450,8 +445,8 @@ class TaskScheduler:
         logger.info("TaskScheduler connected to CostEnforcer")
 
     def get_budget_status(
-        self, workspace_id: Optional[str] = None, org_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, workspace_id: str | None = None, org_id: str | None = None
+    ) -> dict[str, Any]:
         """
         Get current budget status for a workspace/org.
 
@@ -469,17 +464,17 @@ class TaskScheduler:
     async def submit(
         self,
         task_type: str,
-        payload: Dict[str, Any],
-        required_capabilities: Optional[List[str]] = None,
+        payload: dict[str, Any],
+        required_capabilities: Optional[list[str]] = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout_seconds: float = 300.0,
         max_retries: int = 3,
-        metadata: Optional[Dict[str, Any]] = None,
-        target_region: Optional[str] = None,
-        fallback_regions: Optional[List[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        target_region: str | None = None,
+        fallback_regions: Optional[list[str]] = None,
         region_routing_mode: RegionRoutingMode = RegionRoutingMode.ANY,
         origin_region: str = "default",
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> str:
         """
         Submit a task for execution.
@@ -612,11 +607,11 @@ class TaskScheduler:
     async def claim(
         self,
         worker_id: str,
-        capabilities: List[str],
+        capabilities: list[str],
         block_ms: int = 5000,
-        worker_region: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> Optional[Task]:
+        worker_region: str | None = None,
+        workspace_id: str | None = None,
+    ) -> Task | None:
         """
         Claim a task for execution.
 
@@ -640,10 +635,10 @@ class TaskScheduler:
     async def claim_in_region(
         self,
         worker_id: str,
-        capabilities: List[str],
+        capabilities: list[str],
         worker_region: str,
         block_ms: int = 5000,
-    ) -> Optional[Task]:
+    ) -> Task | None:
         """
         Claim a task for execution with regional affinity.
 
@@ -687,7 +682,7 @@ class TaskScheduler:
     async def complete(
         self,
         task_id: str,
-        result: Optional[Dict[str, Any]] = None,
+        result: Optional[dict[str, Any]] = None,
     ) -> bool:
         """
         Mark a task as completed.
@@ -803,7 +798,7 @@ class TaskScheduler:
         logger.info(f"Task cancelled: {task_id}")
         return True
 
-    async def get(self, task_id: str) -> Optional[Task]:
+    async def get(self, task_id: str) -> Task | None:
         """
         Get task by ID.
 
@@ -826,7 +821,7 @@ class TaskScheduler:
         self,
         status: TaskStatus,
         limit: int = 100,
-    ) -> List[Task]:
+    ) -> list[Task]:
         """
         List tasks by status using secondary index for O(1) lookups.
 
@@ -837,7 +832,7 @@ class TaskScheduler:
         Returns:
             List of tasks with the given status
         """
-        tasks: List[Task] = []
+        tasks: list[Task] = []
 
         if self._redis:
             # Use secondary index for O(1) lookup instead of O(n) SCAN
@@ -862,7 +857,7 @@ class TaskScheduler:
 
         return tasks
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Get scheduler statistics.
 
@@ -871,7 +866,7 @@ class TaskScheduler:
         """
         status_counts = {s.value: 0 for s in TaskStatus}
         priority_counts = {p.name.lower(): 0 for p in TaskPriority}
-        type_counts: Dict[str, int] = {}
+        type_counts: dict[str, int] = {}
 
         if self._redis:
             pattern = f"{self._key_prefix}*"
@@ -955,7 +950,7 @@ class TaskScheduler:
 
         return reclaimed
 
-    async def _save_task(self, task: Task, previous_status: Optional[TaskStatus] = None) -> None:
+    async def _save_task(self, task: Task, previous_status: TaskStatus | None = None) -> None:
         """Save task to Redis or local storage with status index maintenance."""
         if self._redis:
             key = f"{self._key_prefix}{task.id}"
@@ -1087,11 +1082,11 @@ class TaskScheduler:
     async def _claim_from_redis(
         self,
         worker_id: str,
-        capabilities: List[str],
+        capabilities: list[str],
         block_ms: int,
-        worker_region: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> Optional[Task]:
+        worker_region: str | None = None,
+        workspace_id: str | None = None,
+    ) -> Task | None:
         """Claim task from Redis Streams."""
         cap_set = set(capabilities)
 
@@ -1220,10 +1215,10 @@ class TaskScheduler:
     def _claim_from_local(
         self,
         worker_id: str,
-        capabilities: List[str],
-        worker_region: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> Optional[Task]:
+        capabilities: list[str],
+        worker_region: str | None = None,
+        workspace_id: str | None = None,
+    ) -> Task | None:
         """Claim task from local queue."""
         cap_set = set(capabilities)
 

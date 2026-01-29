@@ -37,7 +37,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ DEDUPE_WINDOW_SECONDS = 5.0
 # Response cache TTL (1 hour)
 CACHE_TTL_SECONDS = 3600.0
 
-
 @dataclass
 class RoutingContext:
     """Context for a routed request."""
@@ -59,12 +58,12 @@ class RoutingContext:
     channel_id: str  # Channel/chat ID
     user_id: str  # User who sent the request
     request_id: str  # Unique request ID
-    message_id: Optional[str] = None  # Original message ID
-    thread_id: Optional[str] = None  # Thread ID if threaded
-    workspace_id: Optional[str] = None  # Workspace/org ID
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    message_id: str | None = None  # Original message ID
+    thread_id: str | None = None  # Thread ID if threaded
+    workspace_id: str | None = None  # Workspace/org ID
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "channel": self.channel,
             "channel_id": self.channel_id,
@@ -75,7 +74,6 @@ class RoutingContext:
             "workspace_id": self.workspace_id,
             "metadata": self.metadata,
         }
-
 
 class RequestDeduplicator:
     """
@@ -88,8 +86,8 @@ class RequestDeduplicator:
 
     def __init__(self, window_seconds: float = DEDUPE_WINDOW_SECONDS):
         self._window_seconds = window_seconds
-        self._seen: Dict[str, float] = {}  # hash -> timestamp
-        self._in_flight: Dict[str, asyncio.Future] = {}  # hash -> future
+        self._seen: dict[str, float] = {}  # hash -> timestamp
+        self._in_flight: dict[str, asyncio.Future] = {}  # hash -> future
         self._lock = asyncio.Lock()
 
     def _compute_hash(self, content: str, user_id: str, channel: str) -> str:
@@ -102,7 +100,7 @@ class RequestDeduplicator:
         content: str,
         user_id: str,
         channel: str,
-    ) -> tuple[bool, Optional[asyncio.Future]]:
+    ) -> tuple[bool, asyncio.Future | None]:
         """
         Check if this request is a duplicate.
 
@@ -165,17 +163,16 @@ class RequestDeduplicator:
             self._seen.pop(request_hash, None)
             self._in_flight.pop(request_hash, None)
 
-
 @dataclass
 class CacheEntry:
     """A cache entry with metadata for invalidation."""
 
     result: Any
     timestamp: float
-    workspace_id: Optional[str] = None
-    policy_version: Optional[str] = None
-    agent_versions: Optional[Dict[str, str]] = None
-    tags: List[str] = field(default_factory=list)
+    workspace_id: str | None = None
+    policy_version: str | None = None
+    agent_versions: Optional[dict[str, str]] = None
+    tags: list[str] = field(default_factory=list)
 
     def matches_tag(self, tag: str) -> bool:
         """Check if entry has a specific tag."""
@@ -184,7 +181,6 @@ class CacheEntry:
     def matches_workspace(self, workspace_id: str) -> bool:
         """Check if entry belongs to a workspace."""
         return self.workspace_id == workspace_id
-
 
 class ResponseCache:
     """
@@ -201,7 +197,7 @@ class ResponseCache:
     def __init__(self, ttl_seconds: float = CACHE_TTL_SECONDS, max_size: int = 1000):
         self._ttl_seconds = ttl_seconds
         self._max_size = max_size
-        self._cache: Dict[str, CacheEntry] = {}
+        self._cache: dict[str, CacheEntry] = {}
         self._lock = asyncio.Lock()
 
         # Statistics
@@ -211,9 +207,9 @@ class ResponseCache:
         self._invalidations = 0
 
         # Current policy version (updated on governance changes)
-        self._policy_version: Optional[str] = None
+        self._policy_version: str | None = None
 
-    def _compute_hash(self, content: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def _compute_hash(self, content: str, context: Optional[dict[str, Any]] = None) -> str:
         """Compute a cache key hash."""
         ctx_str = json.dumps(context, sort_keys=True) if context else ""
         data = f"{content}:{ctx_str}"
@@ -222,8 +218,8 @@ class ResponseCache:
     async def get(
         self,
         content: str,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Any]:
+        context: Optional[dict[str, Any]] = None,
+    ) -> Any | None:
         """Get a cached response if available."""
         cache_key = self._compute_hash(content, context)
         now = time.time()
@@ -257,9 +253,9 @@ class ResponseCache:
         self,
         content: str,
         result: Any,
-        context: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
-        agent_versions: Optional[Dict[str, str]] = None,
+        context: Optional[dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
+        agent_versions: Optional[dict[str, str]] = None,
     ) -> None:
         """
         Cache a response with metadata.
@@ -388,7 +384,7 @@ class ResponseCache:
         self._policy_version = version
         logger.info(f"Policy version updated: {old_version} -> {version}")
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 
@@ -400,7 +396,7 @@ class ResponseCache:
             hit_rate = self._hits / total_requests if total_requests > 0 else 0.0
 
             # Count entries by workspace
-            workspace_counts: Dict[str, int] = {}
+            workspace_counts: dict[str, int] = {}
             for entry in self._cache.values():
                 ws = entry.workspace_id or "none"
                 workspace_counts[ws] = workspace_counts.get(ws, 0) + 1
@@ -417,7 +413,6 @@ class ResponseCache:
                 "policy_version": self._policy_version,
                 "entries_by_workspace": workspace_counts,
             }
-
 
 class DecisionRoutingMiddleware:
     """
@@ -461,7 +456,7 @@ class DecisionRoutingMiddleware:
         context: RoutingContext,
         decision_type: str = "debate",
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Process a request through the routing middleware.
 
@@ -599,7 +594,7 @@ class DecisionRoutingMiddleware:
         context: RoutingContext,
         decision_type: str,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Route via the full DecisionRouter."""
         from aragora.core.decision import (
             DecisionRequest,
@@ -673,7 +668,7 @@ class DecisionRoutingMiddleware:
         content: str,
         context: RoutingContext,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fallback routing when DecisionRouter is not available."""
         try:
             from aragora.config.settings import DebateSettings
@@ -704,11 +699,9 @@ class DecisionRoutingMiddleware:
                 "error": str(e),
             }
 
-
 # Global middleware instance
-_middleware: Optional[DecisionRoutingMiddleware] = None
+_middleware: DecisionRoutingMiddleware | None = None
 _middleware_lock = asyncio.Lock()
-
 
 async def get_decision_middleware() -> DecisionRoutingMiddleware:
     """Get or create the global DecisionRoutingMiddleware."""
@@ -718,7 +711,6 @@ async def get_decision_middleware() -> DecisionRoutingMiddleware:
             if _middleware is None:
                 _middleware = DecisionRoutingMiddleware()
     return _middleware
-
 
 def route_decision(
     channel: str,
@@ -778,12 +770,10 @@ def route_decision(
 
     return decorator
 
-
 def reset_decision_middleware() -> None:
     """Reset the global middleware (for testing)."""
     global _middleware
     _middleware = None
-
 
 async def invalidate_cache_for_workspace(workspace_id: str) -> int:
     """
@@ -802,7 +792,6 @@ async def invalidate_cache_for_workspace(workspace_id: str) -> int:
         return await middleware._cache.invalidate_by_workspace(workspace_id)
     return 0
 
-
 async def invalidate_cache_for_policy_change(new_policy_version: str) -> None:
     """
     Mark all cached decisions as stale due to policy change.
@@ -815,7 +804,6 @@ async def invalidate_cache_for_policy_change(new_policy_version: str) -> None:
     middleware = await get_decision_middleware()
     if middleware._cache:
         middleware._cache.set_policy_version(new_policy_version)
-
 
 async def invalidate_cache_for_agent_upgrade(agent_name: str, old_version: str) -> int:
     """
@@ -835,8 +823,7 @@ async def invalidate_cache_for_agent_upgrade(agent_name: str, old_version: str) 
         return await middleware._cache.invalidate_by_agent_version(agent_name, old_version)
     return 0
 
-
-async def get_cache_stats() -> Dict[str, Any]:
+async def get_cache_stats() -> dict[str, Any]:
     """
     Get cache statistics for monitoring.
 
@@ -847,7 +834,6 @@ async def get_cache_stats() -> Dict[str, Any]:
     if middleware._cache:
         return await middleware._cache.get_stats()
     return {"enabled": False}
-
 
 __all__ = [
     "RoutingContext",

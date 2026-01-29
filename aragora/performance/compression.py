@@ -26,7 +26,7 @@ import io
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,6 @@ try:
 except ImportError:
     BROTLI_AVAILABLE = False
     logger.debug("brotli not available, falling back to gzip only")
-
 
 @dataclass
 class CompressionStats:
@@ -67,7 +66,7 @@ class CompressionStats:
             return 0.0
         return self.compression_time_ms / self.compressed_requests
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_requests": self.total_requests,
@@ -82,12 +81,11 @@ class CompressionStats:
             "avg_compression_time_ms": round(self.avg_compression_time_ms, 2),
         }
 
-
 # Global stats
 _compression_stats = CompressionStats()
 
 # Content types that should be compressed
-COMPRESSIBLE_TYPES: Set[str] = {
+COMPRESSIBLE_TYPES: set[str] = {
     "text/plain",
     "text/html",
     "text/css",
@@ -108,13 +106,12 @@ COMPRESSIBLE_TYPES: Set[str] = {
 }
 
 # Paths that should not be compressed (streaming, binary)
-NO_COMPRESS_PATHS: Set[str] = {
+NO_COMPRESS_PATHS: set[str] = {
     "/api/v1/stream/",
     "/api/v1/ws/",
     "/api/v1/audio/",
     "/api/v1/download/",
 }
-
 
 def should_compress(
     content_type: str,
@@ -147,8 +144,7 @@ def should_compress(
     base_type = content_type.split(";")[0].strip().lower()
     return base_type in COMPRESSIBLE_TYPES
 
-
-def parse_accept_encoding(header: str) -> List[Tuple[str, float]]:
+def parse_accept_encoding(header: str) -> list[tuple[str, float]]:
     """
     Parse Accept-Encoding header into ordered list.
 
@@ -183,8 +179,7 @@ def parse_accept_encoding(header: str) -> List[Tuple[str, float]]:
     encodings.sort(key=lambda x: x[1], reverse=True)
     return encodings
 
-
-def select_encoding(accept_encoding: str) -> Optional[str]:
+def select_encoding(accept_encoding: str) -> str | None:
     """
     Select best compression encoding based on Accept-Encoding.
 
@@ -214,7 +209,6 @@ def select_encoding(accept_encoding: str) -> Optional[str]:
 
     return None
 
-
 def compress_gzip(
     data: bytes,
     level: int = 6,
@@ -234,7 +228,6 @@ def compress_gzip(
         f.write(data)
     return buffer.getvalue()
 
-
 def compress_brotli(
     data: bytes,
     level: int = 4,
@@ -253,11 +246,10 @@ def compress_brotli(
         raise RuntimeError("brotli not available")
     return bytes(brotli.compress(data, quality=level))
 
-
 def compress_response(
     data: bytes,
     encoding: str = "gzip",
-    level: Optional[int] = None,
+    level: int | None = None,
 ) -> bytes:
     """
     Compress response data.
@@ -291,7 +283,6 @@ def compress_response(
         logger.warning(f"Compression failed: {e}")
         return data
 
-
 class CompressionMiddleware:
     """
     HTTP middleware for response compression.
@@ -305,7 +296,7 @@ class CompressionMiddleware:
         min_size: int = 1000,
         gzip_level: int = 6,
         brotli_level: int = 4,
-        excluded_paths: Optional[Set[str]] = None,
+        excluded_paths: Optional[set[str]] = None,
     ):
         """
         Initialize compression middleware.
@@ -404,17 +395,14 @@ class CompressionMiddleware:
             media_type=response.media_type,
         )
 
-
-def get_compression_stats() -> Dict[str, Any]:
+def get_compression_stats() -> dict[str, Any]:
     """Get compression statistics."""
     return _compression_stats.to_dict()
-
 
 def reset_compression_stats() -> None:
     """Reset compression statistics."""
     global _compression_stats
     _compression_stats = CompressionStats()
-
 
 __all__ = [
     "CompressionMiddleware",

@@ -17,13 +17,12 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
-
 
 class BlacklistBackend(ABC):
     """Abstract base for token blacklist storage."""
@@ -66,9 +65,7 @@ class BlacklistBackend(ABC):
         """Get current blacklist size (optional)."""
         return -1  # Not supported by default
 
-
 MAX_BLACKLIST_SIZE = 100000  # Prevent unbounded memory growth
-
 
 class InMemoryBlacklist(BlacklistBackend):
     """
@@ -146,7 +143,6 @@ class InMemoryBlacklist(BlacklistBackend):
         """Clear all entries (for testing)."""
         with self._lock:
             self._blacklist.clear()
-
 
 class SQLiteBlacklist(BlacklistBackend):
     """
@@ -253,7 +249,6 @@ class SQLiteBlacklist(BlacklistBackend):
             self._local.conn.close()
             del self._local.conn
 
-
 # Optional Redis backend for multi-instance deployments
 try:
     import redis
@@ -304,7 +299,6 @@ try:
 except ImportError:
     RedisBlacklist = None  # type: ignore[misc,assignment]
     HAS_REDIS = False
-
 
 class PostgresBlacklist(BlacklistBackend):
     """
@@ -425,10 +419,8 @@ class PostgresBlacklist(BlacklistBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 # Global blacklist backend instance
-_blacklist_backend: Optional[BlacklistBackend] = None
-
+_blacklist_backend: BlacklistBackend | None = None
 
 def get_blacklist_backend() -> BlacklistBackend:
     """
@@ -491,7 +483,6 @@ def get_blacklist_backend() -> BlacklistBackend:
 
     return _blacklist_backend
 
-
 def set_blacklist_backend(backend: BlacklistBackend) -> None:
     """
     Set custom blacklist backend.
@@ -504,7 +495,6 @@ def set_blacklist_backend(backend: BlacklistBackend) -> None:
     global _blacklist_backend
     _blacklist_backend = backend
     logger.info(f"Token blacklist backend set: {type(backend).__name__}")
-
 
 __all__ = [
     "BlacklistBackend",

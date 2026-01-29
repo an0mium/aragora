@@ -27,10 +27,9 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 def _run_async(coro):
     """Run an async coroutine synchronously."""
@@ -41,13 +40,11 @@ def _run_async(coro):
         asyncio.set_event_loop(loop)
     return loop.run_until_complete(coro)
 
-
 def _format_timestamp(dt: datetime) -> str:
     """Format datetime for display."""
     return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else "N/A"
 
-
-def _print_table(headers: List[str], rows: List[List[str]], widths: Optional[List[int]] = None):
+def _print_table(headers: list[str], rows: list[list[str]], widths: Optional[list[int]] = None):
     """Print a simple text table."""
     if not widths:
         widths = [max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))]
@@ -61,11 +58,9 @@ def _print_table(headers: List[str], rows: List[List[str]], widths: Optional[Lis
     for row in rows:
         print("  ".join(str(cell).ljust(w) for cell, w in zip(row, widths)))
 
-
 # =============================================================================
 # Convoy Commands
 # =============================================================================
-
 
 def cmd_convoy_list(args: argparse.Namespace) -> int:
     """List active convoys."""
@@ -116,7 +111,6 @@ def cmd_convoy_list(args: argparse.Namespace) -> int:
         print(f"Error listing convoys: {e}")
         return 1
 
-
 def cmd_convoy_create(args: argparse.Namespace) -> int:
     """Create a new convoy."""
     try:
@@ -164,7 +158,6 @@ def cmd_convoy_create(args: argparse.Namespace) -> int:
         print(f"Error creating convoy: {e}")
         return 1
 
-
 def cmd_convoy_status(args: argparse.Namespace) -> int:
     """Get convoy status and progress."""
     try:
@@ -206,11 +199,9 @@ def cmd_convoy_status(args: argparse.Namespace) -> int:
         print(f"Error getting convoy status: {e}")
         return 1
 
-
 # =============================================================================
 # Bead Commands
 # =============================================================================
-
 
 def cmd_bead_list(args: argparse.Namespace) -> int:
     """List beads with optional filters."""
@@ -266,7 +257,6 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
         print(f"Error listing beads: {e}")
         return 1
 
-
 def cmd_bead_assign(args: argparse.Namespace) -> int:
     """Assign a bead to an agent."""
     try:
@@ -289,11 +279,9 @@ def cmd_bead_assign(args: argparse.Namespace) -> int:
         print(f"Error assigning bead: {e}")
         return 1
 
-
 # =============================================================================
 # Agent Commands
 # =============================================================================
-
 
 def cmd_agent_list(args: argparse.Namespace) -> int:
     """List agents with their roles."""
@@ -341,7 +329,6 @@ def cmd_agent_list(args: argparse.Namespace) -> int:
         print(f"Error listing agents: {e}")
         return 1
 
-
 def cmd_agent_promote(args: argparse.Namespace) -> int:
     """Promote an agent to a new role."""
     try:
@@ -374,11 +361,9 @@ def cmd_agent_promote(args: argparse.Namespace) -> int:
         print(f"Error promoting agent: {e}")
         return 1
 
-
 # =============================================================================
 # Witness Commands
 # =============================================================================
-
 
 def cmd_witness_status(args: argparse.Namespace) -> int:
     """Get witness patrol status."""
@@ -422,11 +407,9 @@ def cmd_witness_status(args: argparse.Namespace) -> int:
         print(f"Error getting witness status: {e}")
         return 1
 
-
 # =============================================================================
 # Workspace Commands
 # =============================================================================
-
 
 def cmd_workspace_init(args: argparse.Namespace) -> int:
     """Initialize a Gas Town workspace."""
@@ -466,11 +449,9 @@ def cmd_workspace_init(args: argparse.Namespace) -> int:
     print("  aragora gt agent list")
     return 0
 
-
 # =============================================================================
 # Main GT Command Handler
 # =============================================================================
-
 
 def add_gt_subparsers(subparsers: argparse._SubParsersAction) -> None:
     """Add GT subcommand to the main CLI parser."""
@@ -563,7 +544,6 @@ POLECAT (ephemeral worker), or CREW (persistent worker).
     workspace_init.add_argument("directory", nargs="?", help="Target directory")
     workspace_init.add_argument("--force", "-f", action="store_true", help="Overwrite existing")
     workspace_init.set_defaults(func=cmd_workspace_init)
-
 
 def cmd_gt(args: argparse.Namespace) -> int:
     """Handle the 'gt' command group."""

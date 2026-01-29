@@ -14,7 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
@@ -42,7 +42,6 @@ except ImportError as e:
     ABTestManager = None  # type: ignore[misc,assignment]
     logger.debug(f"A/B testing module not available: {e}")
 
-
 class EvolutionABTestingHandler(BaseHandler):
     """Handler for evolution A/B testing endpoints."""
 
@@ -61,10 +60,10 @@ class EvolutionABTestingHandler(BaseHandler):
     def __init__(self, ctx: dict = None):
         """Initialize with context."""
         super().__init__(ctx)  # type: ignore[arg-type]
-        self._manager: Optional[ABTestManager] = None
+        self._manager: ABTestManager | None = None
 
     @property
-    def manager(self) -> Optional[ABTestManager]:
+    def manager(self) -> ABTestManager | None:
         """Lazy-load A/B test manager."""
         if self._manager is None and AB_TESTING_AVAILABLE:
             db_path = self.ctx.get("ab_tests_db", "ab_tests.db")
@@ -81,7 +80,7 @@ class EvolutionABTestingHandler(BaseHandler):
         return normalized.startswith("/api/evolution/ab-tests")
 
     @require_permission("testing:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Route GET requests."""
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)
@@ -115,7 +114,7 @@ class EvolutionABTestingHandler(BaseHandler):
         return None
 
     @require_permission("testing:create")
-    def handle_post(self, path: str, body: dict, handler=None) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict, handler=None) -> HandlerResult | None:
         """Route POST requests."""
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)
@@ -149,7 +148,7 @@ class EvolutionABTestingHandler(BaseHandler):
 
     def handle_delete(
         self, path: str, query_params: dict, handler: Any = None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route DELETE requests with auth and rate limiting."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
@@ -212,7 +211,7 @@ class EvolutionABTestingHandler(BaseHandler):
             }
         )
 
-    def _get_all_tests(self, limit: int, status: Optional[str] = None) -> list:
+    def _get_all_tests(self, limit: int, status: str | None = None) -> list:
         """Get all tests with optional status filter."""
         from aragora.evolution.ab_testing import ABTest
 

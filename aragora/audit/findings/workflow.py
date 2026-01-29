@@ -17,11 +17,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class WorkflowState(str, Enum):
     """Workflow states for audit findings."""
@@ -47,7 +46,6 @@ class WorkflowState(str, Enum):
     # Legacy states (for backward compatibility)
     ACKNOWLEDGED = "acknowledged"  # Maps to TRIAGING
     WONT_FIX = "wont_fix"  # Maps to ACCEPTED_RISK
-
 
 # Valid state transitions
 VALID_TRANSITIONS: dict[WorkflowState, set[WorkflowState]] = {
@@ -98,7 +96,6 @@ VALID_TRANSITIONS: dict[WorkflowState, set[WorkflowState]] = {
     },
 }
 
-
 class WorkflowEventType(str, Enum):
     """Types of workflow events."""
 
@@ -112,7 +109,6 @@ class WorkflowEventType(str, Enum):
     LINKED = "linked"
     UNLINKED = "unlinked"
     SEVERITY_CHANGE = "severity_change"
-
 
 @dataclass
 class WorkflowEvent:
@@ -128,8 +124,8 @@ class WorkflowEvent:
     user_name: str = ""
 
     # State change details
-    from_state: Optional[WorkflowState] = None
-    to_state: Optional[WorkflowState] = None
+    from_state: WorkflowState | None = None
+    to_state: WorkflowState | None = None
 
     # Generic change data
     field_name: str = ""
@@ -178,7 +174,6 @@ class WorkflowEvent:
             comment=data.get("comment", ""),
         )
 
-
 @dataclass
 class WorkflowTransition:
     """Record of a state transition."""
@@ -190,12 +185,10 @@ class WorkflowTransition:
     comment: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
-
 class WorkflowError(Exception):
     """Error in workflow operation."""
 
     pass
-
 
 class InvalidTransitionError(WorkflowError):
     """Invalid state transition attempted."""
@@ -204,7 +197,6 @@ class InvalidTransitionError(WorkflowError):
         self.from_state = from_state
         self.to_state = to_state
         super().__init__(f"Cannot transition from {from_state.value} to {to_state.value}")
-
 
 @dataclass
 class FindingWorkflowData:
@@ -215,22 +207,22 @@ class FindingWorkflowData:
     history: list[WorkflowEvent] = field(default_factory=list)
 
     # Assignment
-    assigned_to: Optional[str] = None
-    assigned_by: Optional[str] = None
-    assigned_at: Optional[datetime] = None
+    assigned_to: str | None = None
+    assigned_by: str | None = None
+    assigned_at: datetime | None = None
 
     # Priority and scheduling
     priority: int = 3  # 1=highest, 5=lowest
-    due_date: Optional[datetime] = None
+    due_date: datetime | None = None
 
     # Linked findings
     linked_findings: list[str] = field(default_factory=list)
-    parent_finding_id: Optional[str] = None  # For duplicates
+    parent_finding_id: str | None = None  # For duplicates
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
 
     # Metrics
     time_in_states: dict[str, float] = field(default_factory=dict)
@@ -260,7 +252,7 @@ class FindingWorkflowData:
     def from_dict(cls, data: dict[str, Any]) -> "FindingWorkflowData":
         """Create from dictionary."""
 
-        def parse_dt(val: Any) -> Optional[datetime]:
+        def parse_dt(val: Any) -> datetime | None:
             if isinstance(val, str):
                 return datetime.fromisoformat(val)
             return None
@@ -283,7 +275,6 @@ class FindingWorkflowData:
             state_entered_at=parse_dt(data.get("state_entered_at")) or datetime.now(timezone.utc),
         )
 
-
 class FindingWorkflow:
     """
     State machine for finding workflow management.
@@ -305,7 +296,7 @@ class FindingWorkflow:
 
     def __init__(
         self,
-        data: Optional[FindingWorkflowData] = None,
+        data: FindingWorkflowData | None = None,
         finding_id: str = "",
     ):
         """
@@ -360,7 +351,7 @@ class FindingWorkflow:
         user_id: str,
         user_name: str = "",
         comment: str = "",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> WorkflowEvent:
         """
         Transition to a new state.
@@ -585,7 +576,7 @@ class FindingWorkflow:
 
     def set_due_date(
         self,
-        due_date: Optional[datetime],
+        due_date: datetime | None,
         *,
         user_id: str,
         user_name: str = "",
@@ -703,7 +694,7 @@ class FindingWorkflow:
         """Add a callback for state transitions."""
         self._transition_hooks.append(hook)
 
-    def get_time_to_resolution(self) -> Optional[float]:
+    def get_time_to_resolution(self) -> float | None:
         """Get total time from open to resolved in seconds."""
         if not self.data.resolved_at:
             return None
@@ -717,9 +708,7 @@ class FindingWorkflow:
         """Get all state change events."""
         return [e for e in self.data.history if e.event_type == WorkflowEventType.STATE_CHANGE]
 
-
 # State machine visualization helpers
-
 
 def get_workflow_diagram() -> str:
     """Get ASCII representation of workflow states."""
@@ -748,7 +737,6 @@ def get_workflow_diagram() -> str:
     │   Note: Terminal states can transition back to OPEN           │
     └───────────────────────────────────────────────────────────────┘
     """
-
 
 def map_legacy_status(status: str) -> WorkflowState:
     """Map legacy FindingStatus values to WorkflowState."""

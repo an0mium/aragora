@@ -22,18 +22,16 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Enums
 # =============================================================================
-
 
 class ChangeOperation(str, Enum):
     """Type of database change operation."""
@@ -46,7 +44,6 @@ class ChangeOperation(str, Enum):
     TRUNCATE = "truncate"
     SCHEMA_CHANGE = "schema_change"
 
-
 class CDCSourceType(str, Enum):
     """Source database type for CDC events."""
 
@@ -56,11 +53,9 @@ class CDCSourceType(str, Enum):
     MYSQL = "mysql"
     SQLSERVER = "sqlserver"
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 @dataclass
 class ChangeEvent:
@@ -82,28 +77,28 @@ class ChangeEvent:
 
     # Location
     database: str
-    schema: Optional[str] = None  # PostgreSQL schema or MongoDB database
+    schema: str | None = None  # PostgreSQL schema or MongoDB database
     table: str = ""  # Table or collection name
 
     # Key identification
-    primary_key: Optional[Dict[str, Any]] = None  # Primary key values
-    document_id: Optional[str] = None  # MongoDB _id or row identifier
+    primary_key: Optional[dict[str, Any]] = None  # Primary key values
+    document_id: str | None = None  # MongoDB _id or row identifier
 
     # Data (for insert/update/replace)
-    data: Optional[Dict[str, Any]] = None  # New data after change
-    old_data: Optional[Dict[str, Any]] = None  # Old data before change (if available)
+    data: Optional[dict[str, Any]] = None  # New data after change
+    old_data: Optional[dict[str, Any]] = None  # Old data before change (if available)
 
     # Change tracking
-    fields_changed: List[str] = field(default_factory=list)
+    fields_changed: list[str] = field(default_factory=list)
 
     # Resume support
-    resume_token: Optional[str] = None  # MongoDB resume token or LSN
-    sequence_number: Optional[int] = None  # For ordering
+    resume_token: str | None = None  # MongoDB resume token or LSN
+    sequence_number: int | None = None  # For ordering
 
     # Metadata
-    transaction_id: Optional[str] = None
-    user: Optional[str] = None  # User who made the change
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    transaction_id: str | None = None
+    user: str | None = None  # User who made the change
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -140,7 +135,7 @@ class ChangeEvent:
             return f"{self.schema}.{self.table}"
         return self.table
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -164,7 +159,7 @@ class ChangeEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChangeEvent":
+    def from_dict(cls, data: dict[str, Any]) -> "ChangeEvent":
         """Deserialize from dictionary."""
         timestamp = data.get("timestamp")
         if timestamp and isinstance(timestamp, str):
@@ -236,7 +231,7 @@ class ChangeEvent:
     @classmethod
     def from_mongodb_change(
         cls,
-        change: Dict[str, Any],
+        change: dict[str, Any],
         connector_id: str,
     ) -> "ChangeEvent":
         """Create ChangeEvent from MongoDB change stream document."""
@@ -288,11 +283,9 @@ class ChangeEvent:
             metadata={"operation_type": change.get("operationType")},
         )
 
-
 # =============================================================================
 # Resume Token Management
 # =============================================================================
-
 
 @dataclass
 class ResumeToken:
@@ -307,10 +300,10 @@ class ResumeToken:
     source_type: CDCSourceType
     token: str  # Opaque token (MongoDB resume token, PostgreSQL LSN, etc.)
     timestamp: datetime
-    sequence_number: Optional[int] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    sequence_number: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "connector_id": self.connector_id,
             "source_type": self.source_type.value,
@@ -321,7 +314,7 @@ class ResumeToken:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ResumeToken":
+    def from_dict(cls, data: dict[str, Any]) -> "ResumeToken":
         timestamp = data.get("timestamp")
         if timestamp and isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp)
@@ -335,7 +328,6 @@ class ResumeToken:
             metadata=data.get("metadata", {}),
         )
 
-
 class ResumeTokenStore:
     """
     Persistent storage for CDC resume tokens.
@@ -344,13 +336,13 @@ class ResumeTokenStore:
     Can be extended for database-backed storage.
     """
 
-    def __init__(self, storage_path: Optional[Path] = None):
+    def __init__(self, storage_path: Path | None = None):
         if storage_path:
             self.storage_path = storage_path
         else:
             self.storage_path = Path.home() / ".aragora" / "cdc_resume_tokens.json"
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-        self._tokens: Dict[str, ResumeToken] = {}
+        self._tokens: dict[str, ResumeToken] = {}
         self._load()
 
     def _load(self) -> None:
@@ -374,7 +366,7 @@ class ResumeTokenStore:
         except IOError as e:
             logger.error(f"Failed to save resume tokens: {e}")
 
-    def get(self, connector_id: str) -> Optional[ResumeToken]:
+    def get(self, connector_id: str) -> ResumeToken | None:
         """Get resume token for a connector."""
         return self._tokens.get(connector_id)
 
@@ -394,11 +386,9 @@ class ResumeTokenStore:
         self._tokens = {}
         self._save()
 
-
 # =============================================================================
 # Change Event Handlers
 # =============================================================================
-
 
 class ChangeEventHandler(ABC):
     """Abstract handler for processing change events."""
@@ -411,7 +401,6 @@ class ChangeEventHandler(ABC):
         Returns True if event was processed successfully.
         """
         pass
-
 
 class KnowledgeMoundHandler(ChangeEventHandler):
     """
@@ -502,7 +491,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         logger.info(f"Document deleted: {event.table}/{doc_id}")
         # Note: Full deletion support would require Knowledge Mound delete API
 
-    def _data_to_content(self, data: Dict[str, Any]) -> str:
+    def _data_to_content(self, data: dict[str, Any]) -> str:
         """Convert document data to text content."""
         parts = []
         for key, value in data.items():
@@ -526,7 +515,6 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         doc_id = event.document_id or str(event.primary_key or "")
         return f"{event.table}/{doc_id[:20]}"
 
-
 class CallbackHandler(ChangeEventHandler):
     """Handler that calls a callback function for each event."""
 
@@ -540,11 +528,10 @@ class CallbackHandler(ChangeEventHandler):
             return bool(result)
         return bool(self.callback(event))
 
-
 class CompositeHandler(ChangeEventHandler):
     """Handler that delegates to multiple handlers."""
 
-    def __init__(self, handlers: Optional[List[ChangeEventHandler]] = None):
+    def __init__(self, handlers: Optional[list[ChangeEventHandler]] = None):
         self.handlers = handlers or []
 
     def add_handler(self, handler: ChangeEventHandler) -> None:
@@ -564,11 +551,9 @@ class CompositeHandler(ChangeEventHandler):
 
         return all(results)
 
-
 # =============================================================================
 # CDC Stream Manager
 # =============================================================================
-
 
 class CDCStreamManager:
     """
@@ -585,8 +570,8 @@ class CDCStreamManager:
         self,
         connector_id: str,
         source_type: CDCSourceType,
-        handler: Optional[ChangeEventHandler] = None,
-        token_store: Optional[ResumeTokenStore] = None,
+        handler: ChangeEventHandler | None = None,
+        token_store: ResumeTokenStore | None = None,
     ):
         self.connector_id = connector_id
         self.source_type = source_type
@@ -595,14 +580,14 @@ class CDCStreamManager:
 
         self._running = False
         self._events_processed = 0
-        self._last_event_time: Optional[datetime] = None
+        self._last_event_time: datetime | None = None
 
     @property
     def is_running(self) -> bool:
         return self._running
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get stream statistics."""
         return {
             "connector_id": self.connector_id,
@@ -612,7 +597,7 @@ class CDCStreamManager:
             "last_event_time": self._last_event_time.isoformat() if self._last_event_time else None,
         }
 
-    def get_resume_token(self) -> Optional[str]:
+    def get_resume_token(self) -> str | None:
         """Get the last saved resume token."""
         token = self.token_store.get(self.connector_id)
         return token.token if token else None

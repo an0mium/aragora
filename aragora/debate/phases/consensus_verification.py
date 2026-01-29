@@ -12,13 +12,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
-
 
 class ConsensusVerifier:
     """Handles claim verification during consensus phase.
@@ -43,8 +42,8 @@ class ConsensusVerifier:
         self,
         protocol: Any = None,
         elo_system: Any = None,
-        verify_claims: Optional[Callable] = None,
-        extract_debate_domain: Optional[Callable] = None,
+        verify_claims: Callable | None = None,
+        extract_debate_domain: Callable | None = None,
     ):
         """Initialize the consensus verifier.
 
@@ -338,6 +337,5 @@ class ConsensusVerifier:
             )
         except Exception as e:
             logger.debug(f"verification_event_error: {e}")
-
 
 __all__ = ["ConsensusVerifier"]

@@ -25,13 +25,12 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.nomic.cycle_record import NomicCycleRecord
 from aragora.nomic.cycle_store import CycleLearningStore, get_cycle_store
 
 logger = logging.getLogger(__name__)
-
 
 class NomicLoop:
     """
@@ -64,10 +63,10 @@ class NomicLoop:
         self,
         aragora_path: Path,
         max_cycles: int = 1,
-        protected_files: Optional[List[str]] = None,
+        protected_files: Optional[list[str]] = None,
         require_human_approval: bool = False,
         log_fn: Optional[Callable[[str], None]] = None,
-        checkpoint_dir: Optional[Path] = None,
+        checkpoint_dir: Path | None = None,
         max_files_per_cycle: int = 20,
         max_consecutive_failures: int = 3,
     ):
@@ -84,20 +83,20 @@ class NomicLoop:
         # State
         self._cycle_count = 0
         self._consecutive_failures = 0
-        self._current_cycle_id: Optional[str] = None
-        self._cycle_context: Dict[str, Any] = {}
-        self._checkpoints: List[Dict[str, Any]] = []
+        self._current_cycle_id: str | None = None
+        self._cycle_context: dict[str, Any] = {}
+        self._checkpoints: list[dict[str, Any]] = []
 
         # Cross-cycle learning
-        self._cycle_store: Optional[CycleLearningStore] = None
-        self._current_record: Optional[NomicCycleRecord] = None
+        self._cycle_store: CycleLearningStore | None = None
+        self._current_record: NomicCycleRecord | None = None
         self._enable_cycle_learning = True
 
     def _log(self, message: str) -> None:
         """Log a message using the configured log function."""
         self.log_fn(message)
 
-    async def run(self, max_cycles: Optional[int] = None) -> Dict[str, Any]:
+    async def run(self, max_cycles: int | None = None) -> dict[str, Any]:
         """
         Run multiple nomic cycles.
 
@@ -108,7 +107,7 @@ class NomicLoop:
             Summary of all cycles run
         """
         cycles_to_run = max_cycles or self.max_cycles
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         self._log(f"Starting nomic loop with max {cycles_to_run} cycles")
 
@@ -133,7 +132,7 @@ class NomicLoop:
             "results": results,
         }
 
-    async def run_cycle(self) -> Dict[str, Any]:
+    async def run_cycle(self) -> dict[str, Any]:
         """
         Run a single nomic improvement cycle.
 
@@ -237,9 +236,9 @@ class NomicLoop:
     def _cycle_failed(
         self,
         phase: str,
-        result: Dict[str, Any],
-        reason: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        result: dict[str, Any],
+        reason: str | None = None,
+    ) -> dict[str, Any]:
         """Create a failed cycle result."""
         error_msg = reason or result.get("error", "Phase failed")
 
@@ -255,7 +254,7 @@ class NomicLoop:
             "partial_context": self._cycle_context,
         }
 
-    async def run_context_phase(self) -> Dict[str, Any]:
+    async def run_context_phase(self) -> dict[str, Any]:
         """
         Run the context gathering phase.
 
@@ -278,8 +277,8 @@ class NomicLoop:
 
     async def run_debate_phase(
         self,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        context: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Run the debate phase where agents propose improvements.
 
@@ -301,8 +300,8 @@ class NomicLoop:
 
     async def run_design_phase(
         self,
-        debate_result: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        debate_result: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Run the design phase to plan implementation.
 
@@ -326,8 +325,8 @@ class NomicLoop:
 
     async def run_implement_phase(
         self,
-        design_result: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        design_result: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Run the implementation phase to write code changes.
 
@@ -349,8 +348,8 @@ class NomicLoop:
 
     async def run_verify_phase(
         self,
-        impl_result: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        impl_result: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Run the verification phase to test changes.
 
@@ -373,7 +372,7 @@ class NomicLoop:
             },
         }
 
-    def check_safety(self, changes: Dict[str, Any]) -> Dict[str, Any]:
+    def check_safety(self, changes: dict[str, Any]) -> dict[str, Any]:
         """
         Check if proposed changes are safe to apply.
 
@@ -411,7 +410,7 @@ class NomicLoop:
 
     async def get_approval_for_changes(
         self,
-        changes: Dict[str, Any],
+        changes: dict[str, Any],
     ) -> bool:
         """
         Get approval for proposed changes.
@@ -439,7 +438,7 @@ class NomicLoop:
 
     async def request_human_approval(
         self,
-        changes: Optional[Dict[str, Any]] = None,
+        changes: Optional[dict[str, Any]] = None,
     ) -> bool:
         """
         Request human approval for changes.
@@ -457,7 +456,7 @@ class NomicLoop:
         self._log("Human approval requested (auto-approved in default implementation)")
         return True
 
-    def create_checkpoint(self) -> Dict[str, Any]:
+    def create_checkpoint(self) -> dict[str, Any]:
         """
         Create a checkpoint of current cycle state.
 
@@ -489,7 +488,7 @@ class NomicLoop:
 
         return checkpoint
 
-    def restore_from_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+    def restore_from_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         """
         Restore state from a checkpoint.
 
@@ -514,7 +513,7 @@ class NomicLoop:
     def _finalize_cycle_record(
         self,
         success: bool,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """
         Finalize and save the cycle record.
@@ -554,7 +553,7 @@ class NomicLoop:
         except Exception as e:
             logger.warning(f"Failed to save cycle record: {e}")
 
-    def _get_cross_cycle_context(self) -> Dict[str, Any]:
+    def _get_cross_cycle_context(self) -> dict[str, Any]:
         """
         Get learning context from previous cycles.
 
@@ -571,7 +570,7 @@ class NomicLoop:
 
         try:
             store = self._get_cycle_store()
-            context: Dict[str, Any] = {}
+            context: dict[str, Any] = {}
 
             # Get recent successful cycles
             successful = store.get_successful_cycles(5)
@@ -697,7 +696,7 @@ class NomicLoop:
                 confidence=confidence,
             )
 
-    def get_agent_trajectory(self, agent_name: str, n: int = 20) -> List[Dict[str, Any]]:
+    def get_agent_trajectory(self, agent_name: str, n: int = 20) -> list[dict[str, Any]]:
         """
         Get performance trajectory for an agent.
 

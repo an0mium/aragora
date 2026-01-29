@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class VoteWeighterConfig:
     """Configuration for vote weighting."""
@@ -27,13 +26,12 @@ class VoteWeighterConfig:
     # Default user vote weight
     default_user_vote_weight: float = 0.5
 
-
 @dataclass
 class VoteWeighterDeps:
     """Dependencies for vote weighting operations."""
 
     # CalibrationTracker for confidence adjustments
-    calibration_tracker: Optional[Any] = None
+    calibration_tracker: Any | None = None
     # Protocol for user vote weight config
     protocol: Optional["DebateProtocol"] = None
     # User votes list
@@ -42,7 +40,6 @@ class VoteWeighterDeps:
     drain_user_events: Optional[Callable[[], None]] = None
     # Callback for user vote intensity multiplier
     user_vote_multiplier: Optional[Callable[[int, Any], float]] = None
-
 
 class VoteWeighter:
     """Handles vote weighting and calibration adjustments.
@@ -67,8 +64,8 @@ class VoteWeighter:
 
     def __init__(
         self,
-        config: Optional[VoteWeighterConfig] = None,
-        deps: Optional[VoteWeighterDeps] = None,
+        config: VoteWeighterConfig | None = None,
+        deps: VoteWeighterDeps | None = None,
     ) -> None:
         """Initialize the vote weighter.
 

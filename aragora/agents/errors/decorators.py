@@ -12,7 +12,7 @@ import asyncio
 import functools
 import logging
 import random
-from typing import Any, Callable, Type, cast
+from typing import Any, Callable, cast
 
 import aiohttp
 
@@ -33,11 +33,9 @@ from .exceptions import (
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Retry Delay Calculation
 # =============================================================================
-
 
 def calculate_retry_delay_with_jitter(
     attempt: int,
@@ -69,10 +67,8 @@ def calculate_retry_delay_with_jitter(
     # Ensure minimum delay of 0.1s
     return max(0.1, delay + jitter)
 
-
 # Backward compatibility alias
 _calculate_retry_delay_with_jitter = calculate_retry_delay_with_jitter
-
 
 def _build_error_action(
     error: AgentError,
@@ -112,11 +108,9 @@ def _build_error_action(
 
     return ErrorAction(error=error, should_retry=should_retry, delay_seconds=delay)
 
-
 # =============================================================================
 # Error Handler Functions
 # =============================================================================
-
 
 def _handle_timeout_error(
     e: asyncio.TimeoutError,
@@ -132,7 +126,6 @@ def _handle_timeout_error(
     )
     return _build_error_action(error, ctx, retryable_exceptions)
 
-
 def _handle_connection_error(
     e: aiohttp.ClientConnectorError | aiohttp.ServerDisconnectedError,
     ctx: ErrorContext,
@@ -147,7 +140,6 @@ def _handle_connection_error(
     error = AgentConnectionError(msg, agent_name=ctx.agent_name, cause=e)
     return _build_error_action(error, ctx, retryable_exceptions)
 
-
 def _handle_payload_error(
     e: aiohttp.ClientPayloadError,
     ctx: ErrorContext,
@@ -160,7 +152,6 @@ def _handle_payload_error(
         cause=e,
     )
     return _build_error_action(error, ctx, retryable_exceptions)
-
 
 def _handle_response_error(
     e: aiohttp.ClientResponseError,
@@ -214,7 +205,6 @@ def _handle_response_error(
             error=api_error, should_retry=False, delay_seconds=0.0, log_level="error"
         )
 
-
 def _handle_agent_error(
     e: AgentError,
     ctx: ErrorContext,
@@ -228,7 +218,6 @@ def _handle_agent_error(
 
     return _build_error_action(e, ctx, retryable_exceptions)
 
-
 def _handle_json_error(e: ValueError, ctx: ErrorContext) -> ErrorAction:
     """Handle JSON decode errors."""
     error = AgentResponseError(
@@ -237,7 +226,6 @@ def _handle_json_error(e: ValueError, ctx: ErrorContext) -> ErrorAction:
         cause=e,
     )
     return ErrorAction(error=error, should_retry=False, delay_seconds=0.0, log_level="error")
-
 
 def _handle_unexpected_error(e: Exception, ctx: ErrorContext) -> ErrorAction:
     """Handle unexpected/unknown errors."""
@@ -249,11 +237,9 @@ def _handle_unexpected_error(e: Exception, ctx: ErrorContext) -> ErrorAction:
     )
     return ErrorAction(error=error, should_retry=False, delay_seconds=0.0, log_level="error")
 
-
 # =============================================================================
 # Error Handling Decorators
 # =============================================================================
-
 
 def handle_agent_errors(
     agent_name_attr: str = "name",
@@ -401,9 +387,8 @@ def handle_agent_errors(
 
     return decorator
 
-
 def with_error_handling(
-    error_types: tuple[Type[Exception], ...] = (Exception,),
+    error_types: tuple[type[Exception], ...] = (Exception,),
     fallback: Any = None,
     log_level: str = "warning",
     reraise: bool = False,
@@ -475,7 +460,6 @@ def with_error_handling(
 
     return decorator
 
-
 def _log_error(
     func: Callable[..., Any],
     error: Exception,
@@ -495,7 +479,6 @@ def _log_error(
     # Get the appropriate log method
     log_method = getattr(logger, log_level, logger.warning)
     log_method(message)
-
 
 def handle_stream_errors(
     agent_name_attr: str = "name",
@@ -559,7 +542,6 @@ def handle_stream_errors(
         return wrapper
 
     return decorator
-
 
 __all__ = [
     # Retry calculation

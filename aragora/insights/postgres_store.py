@@ -6,6 +6,7 @@ Provides async storage for insights with:
 - Aggregation queries
 - Pattern clustering
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -21,7 +22,6 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
 
 logger = logging.getLogger(__name__)
-
 
 class PostgresInsightStore(PostgresStore):
     """PostgreSQL-backed storage for debate insights.
@@ -186,15 +186,15 @@ class PostgresInsightStore(PostgresStore):
         """Store debate insights (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.store_debate_insights(insights))
 
-    def get_insight_sync(self, insight_id: str) -> Optional[Insight]:
+    def get_insight_sync(self, insight_id: str) -> Insight | None:
         """Get insight by ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_insight(insight_id))
 
     def search_sync(
         self,
         query: str = "",
-        insight_type: Optional[InsightType] = None,
-        agent: Optional[str] = None,
+        insight_type: InsightType | None = None,
+        agent: str | None = None,
         limit: int = 20,
     ) -> list[Insight]:
         """Search insights (sync wrapper)."""
@@ -358,7 +358,7 @@ class PostgresInsightStore(PostgresStore):
 
         return stored_count
 
-    async def get_insight(self, insight_id: str) -> Optional[Insight]:
+    async def get_insight(self, insight_id: str) -> Insight | None:
         """Retrieve a specific insight by ID."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -376,8 +376,8 @@ class PostgresInsightStore(PostgresStore):
     async def search(
         self,
         query: str = "",
-        insight_type: Optional[InsightType] = None,
-        agent: Optional[str] = None,
+        insight_type: InsightType | None = None,
+        agent: str | None = None,
         limit: int = 20,
     ) -> list[Insight]:
         """Search insights by query, type, or agent.
@@ -425,7 +425,7 @@ class PostgresInsightStore(PostgresStore):
     async def get_common_patterns(
         self,
         min_occurrences: int = 2,
-        category: Optional[str] = None,
+        category: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
         """Get commonly occurring patterns across debates.
@@ -643,7 +643,7 @@ class PostgresInsightStore(PostgresStore):
 
     async def get_relevant_insights(
         self,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.7,
         limit: int = 5,
     ) -> list[Insight]:

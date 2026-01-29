@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class LifecycleManager:
     """Manages Arena lifecycle operations including cleanup.
 
@@ -127,7 +126,6 @@ class LifecycleManager:
         self.clear_cache()
         await self.close_checkpoint_manager()
 
-
 class ArenaContextManager:
     """Async context manager mixin for Arena.
 
@@ -155,8 +153,8 @@ class ArenaContextManager:
     async def __aexit__(
         self,
         exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit async context - cleanup resources.
 
@@ -164,6 +162,5 @@ class ArenaContextManager:
         This ensures clean teardown even when tests timeout or fail.
         """
         await self._cleanup()  # type: ignore[attr-defined]
-
 
 __all__ = ["LifecycleManager", "ArenaContextManager"]

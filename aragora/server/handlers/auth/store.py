@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.billing.models import Organization, User
-
 
 class InMemoryUserStore:
     """
@@ -25,18 +24,18 @@ class InMemoryUserStore:
         self.users[user.id] = user
         self.users_by_email[user.email.lower()] = user.id
 
-    def get_user_by_id(self, user_id: str) -> Optional[User]:
+    def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID."""
         return self.users.get(user_id)
 
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> User | None:
         """Get user by email."""
         user_id = self.users_by_email.get(email.lower())
         if user_id:
             return self.users.get(user_id)
         return None
 
-    def get_user_by_api_key(self, api_key: str | None) -> Optional[User]:
+    def get_user_by_api_key(self, api_key: str | None) -> User | None:
         """Get user by API key using hash-based verification."""
         if not api_key:
             return None
@@ -49,9 +48,8 @@ class InMemoryUserStore:
         """Save an organization."""
         self.organizations[org.id] = org
 
-    def get_organization_by_id(self, org_id: str) -> Optional[Organization]:
+    def get_organization_by_id(self, org_id: str) -> Organization | None:
         """Get organization by ID."""
         return self.organizations.get(org_id)
-
 
 __all__ = ["InMemoryUserStore"]

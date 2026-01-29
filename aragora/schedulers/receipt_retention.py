@@ -41,7 +41,6 @@ DEFAULT_RETENTION_DAYS = int(
     os.environ.get("ARAGORA_RECEIPT_RETENTION_DAYS", "2555")  # ~7 years
 )
 
-
 @dataclass
 class CleanupResult:
     """Result of a retention cleanup operation."""
@@ -51,7 +50,7 @@ class CleanupResult:
     completed_at: datetime
     duration_seconds: float
     retention_days: int
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for API/logging."""
@@ -65,15 +64,14 @@ class CleanupResult:
             "error": self.error,
         }
 
-
 @dataclass
 class CleanupStats:
     """Cumulative statistics for cleanup operations."""
 
     total_runs: int = 0
     total_receipts_deleted: int = 0
-    last_run: Optional[datetime] = None
-    last_result: Optional[CleanupResult] = None
+    last_run: datetime | None = None
+    last_result: CleanupResult | None = None
     failures: int = 0
     results: list[CleanupResult] = field(default_factory=list)
 
@@ -106,7 +104,6 @@ class CleanupStats:
             "last_result": self.last_result.to_dict() if self.last_result else None,
         }
 
-
 class ReceiptRetentionScheduler:
     """
     Automatically clean up expired decision receipts.
@@ -127,7 +124,7 @@ class ReceiptRetentionScheduler:
         self,
         store: "ReceiptStore",  # noqa: F821 - forward reference
         interval_hours: int = DEFAULT_CLEANUP_INTERVAL_HOURS,
-        retention_days: Optional[int] = None,
+        retention_days: int | None = None,
         on_cleanup_complete: Optional[Callable[[CleanupResult], None]] = None,
         on_error: Optional[Callable[[Exception], None]] = None,
     ):
@@ -147,7 +144,7 @@ class ReceiptRetentionScheduler:
         self.on_cleanup_complete = on_cleanup_complete
         self.on_error = on_error
 
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._running = False
         self._stats = CleanupStats()
 
@@ -245,7 +242,7 @@ class ReceiptRetentionScheduler:
             CleanupResult with operation details
         """
         started_at = datetime.now(timezone.utc)
-        error: Optional[str] = None
+        error: str | None = None
         receipts_deleted = 0
 
         try:
@@ -285,14 +282,12 @@ class ReceiptRetentionScheduler:
             "stats": self._stats.to_dict(),
         }
 
-
 # Global instance management
-_scheduler: Optional[ReceiptRetentionScheduler] = None
-
+_scheduler: ReceiptRetentionScheduler | None = None
 
 def get_receipt_retention_scheduler(
     store: Optional["ReceiptStore"] = None,  # noqa: F821
-) -> Optional[ReceiptRetentionScheduler]:
+) -> ReceiptRetentionScheduler | None:
     """
     Get or create the global receipt retention scheduler.
 
@@ -313,12 +308,10 @@ def get_receipt_retention_scheduler(
     _scheduler = ReceiptRetentionScheduler(store)
     return _scheduler
 
-
-def set_receipt_retention_scheduler(scheduler: Optional[ReceiptRetentionScheduler]) -> None:
+def set_receipt_retention_scheduler(scheduler: ReceiptRetentionScheduler | None) -> None:
     """Set the global scheduler (for testing)."""
     global _scheduler
     _scheduler = scheduler
-
 
 __all__ = [
     "ReceiptRetentionScheduler",

@@ -44,7 +44,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -54,26 +53,22 @@ from typing import (
     Any,
     Callable,
     Literal,
-    Optional,
     Protocol,
-    Union,
     runtime_checkable,
 )
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.config.settings import get_settings
-from aragora.core import Agent, DebateResult
+from aragora.core import DebateResult
 
 if TYPE_CHECKING:
-    from aragora.memory.continuum import ContinuumMemory
+    pass
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Data Types
 # =============================================================================
-
 
 class DebateStatus(str, Enum):
     """Debate lifecycle states."""
@@ -84,7 +79,6 @@ class DebateStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 class EventType(str, Enum):
     """Types of debate events."""
@@ -100,7 +94,6 @@ class EventType(str, Enum):
     DEBATE_FAILED = "debate_failed"
     PROGRESS_UPDATE = "progress_update"
 
-
 @dataclass
 class DebateRequest:
     """Request to start a new debate.
@@ -109,7 +102,7 @@ class DebateRequest:
     """
 
     task: str
-    agents: Optional[list[str]] = None
+    agents: list[str] | None = None
     rounds: int = DEFAULT_ROUNDS
     consensus: Literal[
         "majority",
@@ -135,7 +128,6 @@ class DebateRequest:
     enable_checkpointing: bool = True
     enable_memory: bool = True
 
-
 @dataclass
 class DebateState:
     """Current state of a debate.
@@ -151,11 +143,11 @@ class DebateState:
     total_rounds: int = DEFAULT_ROUNDS
     agents: list[str] = field(default_factory=list)
     messages: list[dict[str, Any]] = field(default_factory=list)
-    result: Optional[DebateResult] = None
-    error: Optional[str] = None
+    result: DebateResult | None = None
+    error: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -177,7 +169,6 @@ class DebateState:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class DebateEvent:
     """Real-time debate event for streaming updates."""
@@ -196,11 +187,9 @@ class DebateEvent:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 # =============================================================================
 # Protocols (Abstract Interfaces)
 # =============================================================================
-
 
 @runtime_checkable
 class StateStore(Protocol):
@@ -213,7 +202,7 @@ class StateStore(Protocol):
         """Persist debate state."""
         ...
 
-    async def get(self, debate_id: str) -> Optional[DebateState]:
+    async def get(self, debate_id: str) -> DebateState | None:
         """Retrieve debate state by ID."""
         ...
 
@@ -224,7 +213,6 @@ class StateStore(Protocol):
     async def delete(self, debate_id: str) -> bool:
         """Delete debate state."""
         ...
-
 
 @runtime_checkable
 class DecisionService(Protocol):
@@ -248,7 +236,7 @@ class DecisionService(Protocol):
         """
         ...
 
-    async def get_debate(self, debate_id: str) -> Optional[DebateState]:
+    async def get_debate(self, debate_id: str) -> DebateState | None:
         """Get current debate state.
 
         Args:
@@ -281,11 +269,9 @@ class DecisionService(Protocol):
         """
         ...
 
-
 # =============================================================================
 # In-Memory State Store (Default Implementation)
 # =============================================================================
-
 
 class InMemoryStateStore:
     """Simple in-memory state store for development/testing.
@@ -301,7 +287,7 @@ class InMemoryStateStore:
         state.updated_at = datetime.now(timezone.utc)
         self._states[state.id] = state
 
-    async def get(self, debate_id: str) -> Optional[DebateState]:
+    async def get(self, debate_id: str) -> DebateState | None:
         """Get state from memory."""
         return self._states.get(debate_id)
 
@@ -321,11 +307,9 @@ class InMemoryStateStore:
             return True
         return False
 
-
 # =============================================================================
 # Event Bus (Pub/Sub for Debate Events)
 # =============================================================================
-
 
 class EventBus:
     """Simple async event bus for debate events.
@@ -367,11 +351,9 @@ class EventBus:
                 except ValueError:
                     pass
 
-
 # =============================================================================
 # Async Decision Service Implementation
 # =============================================================================
-
 
 class AsyncDecisionService:
     """Async-first decision service implementation.
@@ -404,10 +386,10 @@ class AsyncDecisionService:
 
     def __init__(
         self,
-        store: Optional[StateStore] = None,
-        event_bus: Optional[EventBus] = None,
+        store: StateStore | None = None,
+        event_bus: EventBus | None = None,
         max_concurrent: int = 100,
-        default_agents: Optional[list[str]] = None,
+        default_agents: list[str] | None = None,
     ) -> None:
         """Initialize the decision service.
 
@@ -465,7 +447,7 @@ class AsyncDecisionService:
 
         return debate_id
 
-    async def get_debate(self, debate_id: str) -> Optional[DebateState]:
+    async def get_debate(self, debate_id: str) -> DebateState | None:
         """Get current debate state."""
         return await self._store.get(debate_id)
 
@@ -526,7 +508,7 @@ class AsyncDecisionService:
 
     async def list_debates(
         self,
-        status: Optional[DebateStatus] = None,
+        status: DebateStatus | None = None,
         limit: int = 100,
     ) -> list[DebateState]:
         """List debates, optionally filtered by status."""
@@ -672,18 +654,16 @@ class AsyncDecisionService:
 
         return on_consensus
 
-
 # =============================================================================
 # Global Service Instance
 # =============================================================================
 
-_decision_service: Optional[AsyncDecisionService] = None
-
+_decision_service: AsyncDecisionService | None = None
 
 def get_decision_service(
-    store: Optional[StateStore] = None,
+    store: StateStore | None = None,
     max_concurrent: int = 100,
-    default_agents: Optional[list[str]] = None,
+    default_agents: list[str] | None = None,
     **kwargs: Any,
 ) -> AsyncDecisionService:
     """Get the global decision service instance.
@@ -711,12 +691,10 @@ def get_decision_service(
 
     return _decision_service
 
-
 def reset_decision_service() -> None:
     """Reset the global decision service instance."""
     global _decision_service
     _decision_service = None
-
 
 __all__ = [
     # Protocols

@@ -25,7 +25,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -45,8 +45,7 @@ from aragora.deletion_coordinator import (
 
 logger = logging.getLogger(__name__)
 
-
-def _extract_user_id_from_headers(headers: Optional[Dict[str, str]]) -> str:
+def _extract_user_id_from_headers(headers: Optional[dict[str, str]]) -> str:
     """
     Extract user ID from Authorization header.
 
@@ -79,7 +78,6 @@ def _extract_user_id_from_headers(headers: Optional[Dict[str, str]]) -> str:
 
     return "compliance_api"
 
-
 class ComplianceHandler(BaseHandler):
     """
     HTTP handler for compliance and audit operations.
@@ -108,9 +106,9 @@ class ComplianceHandler(BaseHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
         query_params = query_params or {}
@@ -250,7 +248,7 @@ class ComplianceHandler(BaseHandler):
         )
 
     @require_permission("compliance:soc2")
-    async def _get_soc2_report(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _get_soc2_report(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Generate SOC 2 Type II compliance report summary.
 
@@ -318,7 +316,7 @@ class ComplianceHandler(BaseHandler):
         return json_response(report)
 
     @require_permission("compliance:gdpr")
-    async def _gdpr_export(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _gdpr_export(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Export user data for GDPR compliance.
 
@@ -337,7 +335,7 @@ class ComplianceHandler(BaseHandler):
         now = datetime.now(timezone.utc)
 
         # Collect user data from various sources
-        export_data: Dict[str, Any] = {
+        export_data: dict[str, Any] = {
             "export_id": f"gdpr-{user_id}-{now.strftime('%Y%m%d%H%M%S')}",
             "user_id": user_id,
             "requested_at": now.isoformat(),
@@ -377,7 +375,7 @@ class ComplianceHandler(BaseHandler):
         return json_response(export_data)
 
     @require_permission("compliance:gdpr")
-    async def _right_to_be_forgotten(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _right_to_be_forgotten(self, body: dict[str, Any]) -> HandlerResult:
         """
         Execute GDPR Right-to-be-Forgotten workflow (Article 17).
 
@@ -407,7 +405,7 @@ class ComplianceHandler(BaseHandler):
         deletion_scheduled = now + timedelta(days=grace_period_days)
         request_id = f"rtbf-{user_id}-{now.strftime('%Y%m%d%H%M%S')}"
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "request_id": request_id,
             "user_id": user_id,
             "status": "scheduled",
@@ -499,11 +497,11 @@ class ComplianceHandler(BaseHandler):
             logger.warning(f"Failed to revoke consents for {user_id}: {e}")
             return 0
 
-    async def _generate_final_export(self, user_id: str) -> Dict[str, Any]:
+    async def _generate_final_export(self, user_id: str) -> dict[str, Any]:
         """Generate final data export before deletion."""
         # Use the existing GDPR export logic
         data_categories: list[str] = []
-        export_data: Dict[str, Any] = {
+        export_data: dict[str, Any] = {
             "export_id": f"final-{user_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
             "user_id": user_id,
             "requested_at": datetime.now(timezone.utc).isoformat(),
@@ -546,7 +544,7 @@ class ComplianceHandler(BaseHandler):
         request_id: str,
         scheduled_for: datetime,
         reason: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Schedule data deletion for user using GDPRDeletionScheduler.
 
@@ -668,7 +666,7 @@ class ComplianceHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("compliance:gdpr")
-    async def _list_deletions(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _list_deletions(self, query_params: dict[str, str]) -> HandlerResult:
         """
         List scheduled deletion requests.
 
@@ -723,7 +721,7 @@ class ComplianceHandler(BaseHandler):
     async def _cancel_deletion(
         self,
         request_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
     ) -> HandlerResult:
         """
         Cancel a pending deletion request.
@@ -779,7 +777,7 @@ class ComplianceHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("compliance:legal")
-    async def _list_legal_holds(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _list_legal_holds(self, query_params: dict[str, str]) -> HandlerResult:
         """
         List legal holds.
 
@@ -812,8 +810,8 @@ class ComplianceHandler(BaseHandler):
     @require_permission("compliance:legal")
     async def _create_legal_hold(
         self,
-        body: Dict[str, Any],
-        headers: Optional[Dict[str, str]] = None,
+        body: dict[str, Any],
+        headers: Optional[dict[str, str]] = None,
     ) -> HandlerResult:
         """
         Create a new legal hold.
@@ -886,7 +884,7 @@ class ComplianceHandler(BaseHandler):
     async def _release_legal_hold(
         self,
         hold_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
     ) -> HandlerResult:
         """
         Release a legal hold.
@@ -940,7 +938,7 @@ class ComplianceHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("compliance:gdpr")
-    async def _coordinated_deletion(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _coordinated_deletion(self, body: dict[str, Any]) -> HandlerResult:
         """
         Execute coordinated deletion across all systems including backups.
 
@@ -1022,7 +1020,7 @@ class ComplianceHandler(BaseHandler):
             return error_response(f"Failed to execute deletion: {str(e)}", 500)
 
     @require_permission("compliance:gdpr")
-    async def _execute_pending_deletions(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _execute_pending_deletions(self, body: dict[str, Any]) -> HandlerResult:
         """
         Execute all pending deletions that have passed their grace period.
 
@@ -1083,7 +1081,7 @@ class ComplianceHandler(BaseHandler):
             return error_response(f"Failed to process deletions: {str(e)}", 500)
 
     @require_permission("compliance:gdpr")
-    async def _list_backup_exclusions(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _list_backup_exclusions(self, query_params: dict[str, str]) -> HandlerResult:
         """
         List users excluded from backup retention.
 
@@ -1111,7 +1109,7 @@ class ComplianceHandler(BaseHandler):
             return error_response(f"Failed to list exclusions: {str(e)}", 500)
 
     @require_permission("compliance:gdpr")
-    async def _add_backup_exclusion(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _add_backup_exclusion(self, body: dict[str, Any]) -> HandlerResult:
         """
         Add a user to the backup exclusion list.
 
@@ -1160,7 +1158,7 @@ class ComplianceHandler(BaseHandler):
             return error_response(f"Failed to add exclusion: {str(e)}", 500)
 
     @require_permission("compliance:audit")
-    async def _verify_audit(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _verify_audit(self, body: dict[str, Any]) -> HandlerResult:
         """
         Verify audit trail integrity.
 
@@ -1173,7 +1171,7 @@ class ComplianceHandler(BaseHandler):
         receipt_ids = body.get("receipt_ids", [])
         date_range = body.get("date_range", {})
 
-        verification_results: Dict[str, Any] = {
+        verification_results: dict[str, Any] = {
             "verified": True,
             "checks": [],
             "errors": [],
@@ -1225,7 +1223,7 @@ class ComplianceHandler(BaseHandler):
         return json_response(verification_results)
 
     @require_permission("compliance:audit")
-    async def _get_audit_events(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _get_audit_events(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Export audit events in SIEM-compatible format.
 
@@ -1299,7 +1297,7 @@ class ComplianceHandler(BaseHandler):
             }
         )
 
-    async def _evaluate_controls(self) -> List[Dict[str, Any]]:
+    async def _evaluate_controls(self) -> list[dict[str, Any]]:
         """Evaluate SOC 2 controls status."""
         return [
             {
@@ -1400,7 +1398,7 @@ class ComplianceHandler(BaseHandler):
             },
         ]
 
-    async def _assess_security_criteria(self) -> Dict[str, Any]:
+    async def _assess_security_criteria(self) -> dict[str, Any]:
         """Assess security trust service criteria."""
         return {
             "status": "effective",
@@ -1413,7 +1411,7 @@ class ComplianceHandler(BaseHandler):
             ],
         }
 
-    async def _assess_availability_criteria(self) -> Dict[str, Any]:
+    async def _assess_availability_criteria(self) -> dict[str, Any]:
         """Assess availability trust service criteria."""
         return {
             "status": "effective",
@@ -1427,7 +1425,7 @@ class ComplianceHandler(BaseHandler):
             ],
         }
 
-    async def _assess_integrity_criteria(self) -> Dict[str, Any]:
+    async def _assess_integrity_criteria(self) -> dict[str, Any]:
         """Assess processing integrity trust service criteria."""
         return {
             "status": "effective",
@@ -1440,7 +1438,7 @@ class ComplianceHandler(BaseHandler):
             ],
         }
 
-    async def _assess_confidentiality_criteria(self) -> Dict[str, Any]:
+    async def _assess_confidentiality_criteria(self) -> dict[str, Any]:
         """Assess confidentiality trust service criteria."""
         return {
             "status": "effective",
@@ -1453,7 +1451,7 @@ class ComplianceHandler(BaseHandler):
             ],
         }
 
-    async def _assess_privacy_criteria(self) -> Dict[str, Any]:
+    async def _assess_privacy_criteria(self) -> dict[str, Any]:
         """Assess privacy trust service criteria."""
         return {
             "status": "effective",
@@ -1466,7 +1464,7 @@ class ComplianceHandler(BaseHandler):
             ],
         }
 
-    async def _get_user_decisions(self, user_id: str) -> List[Dict[str, Any]]:
+    async def _get_user_decisions(self, user_id: str) -> list[dict[str, Any]]:
         """Get decisions associated with user from receipt store."""
         try:
             store = get_receipt_store()
@@ -1488,11 +1486,11 @@ class ComplianceHandler(BaseHandler):
             logger.warning(f"Failed to fetch user decisions: {e}")
             return []
 
-    async def _get_user_preferences(self, user_id: str) -> Dict[str, Any]:
+    async def _get_user_preferences(self, user_id: str) -> dict[str, Any]:
         """Get user preferences."""
         return {"notification_settings": {}, "privacy_settings": {}}
 
-    async def _get_user_activity(self, user_id: str) -> List[Dict[str, Any]]:
+    async def _get_user_activity(self, user_id: str) -> list[dict[str, Any]]:
         """Get user activity logs from audit store."""
         try:
             store = get_audit_store()
@@ -1503,7 +1501,7 @@ class ComplianceHandler(BaseHandler):
             logger.warning(f"Failed to fetch user activity: {e}")
             return []
 
-    async def _verify_trail(self, trail_id: str) -> Dict[str, Any]:
+    async def _verify_trail(self, trail_id: str) -> dict[str, Any]:
         """Verify a specific audit trail by checking receipt integrity."""
         try:
             store = get_receipt_store()
@@ -1538,7 +1536,7 @@ class ComplianceHandler(BaseHandler):
                 "checked": datetime.now(timezone.utc).isoformat(),
             }
 
-    async def _verify_date_range(self, date_range: Dict[str, str]) -> Dict[str, Any]:
+    async def _verify_date_range(self, date_range: dict[str, str]) -> dict[str, Any]:
         """Verify audit events in date range by checking integrity."""
         try:
             store = get_audit_store()
@@ -1596,11 +1594,11 @@ class ComplianceHandler(BaseHandler):
 
     async def _fetch_audit_events(
         self,
-        from_ts: Optional[datetime],
-        to_ts: Optional[datetime],
+        from_ts: datetime | None,
+        to_ts: datetime | None,
         limit: int,
-        event_type: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        event_type: str | None,
+    ) -> list[dict[str, Any]]:
         """Fetch audit events from audit store."""
         try:
             store = get_audit_store()
@@ -1631,7 +1629,7 @@ class ComplianceHandler(BaseHandler):
             logger.warning(f"Failed to fetch audit events: {e}")
             return []
 
-    def _render_soc2_html(self, report: Dict[str, Any]) -> str:
+    def _render_soc2_html(self, report: dict[str, Any]) -> str:
         """Render SOC 2 report as HTML."""
         controls_html = ""
         for control in report.get("controls", []):
@@ -1687,7 +1685,7 @@ class ComplianceHandler(BaseHandler):
         </html>
         """
 
-    def _render_gdpr_csv(self, export_data: Dict[str, Any]) -> str:
+    def _render_gdpr_csv(self, export_data: dict[str, Any]) -> str:
         """Render GDPR export as CSV."""
         import io
         import csv
@@ -1716,7 +1714,7 @@ class ComplianceHandler(BaseHandler):
 
         return output.getvalue()
 
-    def _parse_timestamp(self, value: Optional[str]) -> Optional[datetime]:
+    def _parse_timestamp(self, value: str | None) -> datetime | None:
         """Parse timestamp from string (ISO date or unix timestamp)."""
         if not value:
             return None
@@ -1734,7 +1732,6 @@ class ComplianceHandler(BaseHandler):
             pass
 
         return None
-
 
 def create_compliance_handler(server_context: ServerContext) -> ComplianceHandler:
     """Factory function for handler registration."""

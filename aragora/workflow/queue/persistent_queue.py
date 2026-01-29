@@ -33,7 +33,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 from aragora.workflow.queue.queue import TaskQueue, TaskQueueConfig
 from aragora.workflow.queue.task import (
@@ -45,7 +45,6 @@ from aragora.workflow.queue.task import (
 
 logger = logging.getLogger(__name__)
 
-
 def _record_metrics(operation: str, success: bool, latency: float) -> None:
     """Record task queue metrics if available."""
     try:
@@ -54,7 +53,6 @@ def _record_metrics(operation: str, success: bool, latency: float) -> None:
         record_task_queue_operation(operation, success, latency)
     except ImportError:
         pass
-
 
 def _record_recovery(original_status: str, count: int = 1) -> None:
     """Record recovery metrics if available."""
@@ -65,7 +63,6 @@ def _record_recovery(original_status: str, count: int = 1) -> None:
     except ImportError:
         pass
 
-
 def _record_cleanup(count: int) -> None:
     """Record cleanup metrics if available."""
     try:
@@ -74,7 +71,6 @@ def _record_cleanup(count: int) -> None:
         record_task_queue_cleanup(count)
     except ImportError:
         pass
-
 
 # Schema for task persistence
 TASK_QUEUE_SCHEMA = """
@@ -107,7 +103,6 @@ CREATE INDEX IF NOT EXISTS idx_task_queue_tenant ON task_queue(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_task_queue_priority ON task_queue(priority, created_at);
 """
 
-
 class PersistentTaskQueue(TaskQueue):
     """
     TaskQueue with SQLite-backed persistence.
@@ -118,8 +113,8 @@ class PersistentTaskQueue(TaskQueue):
 
     def __init__(
         self,
-        config: Optional[TaskQueueConfig] = None,
-        db_path: Optional[Path | str] = None,
+        config: TaskQueueConfig | None = None,
+        db_path: Path | str | None = None,
     ):
         """
         Initialize persistent task queue.
@@ -146,9 +141,9 @@ class PersistentTaskQueue(TaskQueue):
 
         # Auto-recovery configuration
         self._auto_recover = True
-        self._recovery_tenant_id: Optional[str] = None
+        self._recovery_tenant_id: str | None = None
 
-    async def start(self, auto_recover: bool = True, tenant_id: Optional[str] = None) -> None:
+    async def start(self, auto_recover: bool = True, tenant_id: str | None = None) -> None:
         """
         Start the queue processor with automatic task recovery.
 
@@ -233,7 +228,7 @@ class PersistentTaskQueue(TaskQueue):
             latency = _time.perf_counter() - start
             _record_metrics("enqueue", success, latency)
 
-    async def enqueue_many(self, tasks: List[WorkflowTask]) -> List[str]:
+    async def enqueue_many(self, tasks: list[WorkflowTask]) -> list[str]:
         """Enqueue multiple tasks with persistence."""
         # Persist all tasks
         for task in tasks:
@@ -330,7 +325,7 @@ class PersistentTaskQueue(TaskQueue):
         # Update final status in DB
         self._update_task_status(task)
 
-    async def recover_tasks(self, tenant_id: Optional[str] = None) -> int:
+    async def recover_tasks(self, tenant_id: str | None = None) -> int:
         """
         Recover pending and ready tasks from database.
 
@@ -355,7 +350,7 @@ class PersistentTaskQueue(TaskQueue):
                 SELECT * FROM task_queue
                 WHERE status IN (?, ?, ?, ?)
             """
-            params: List[Any] = list(recoverable_statuses)
+            params: list[Any] = list(recoverable_statuses)
 
             if tenant_id:
                 query += " AND tenant_id = ?"
@@ -367,7 +362,7 @@ class PersistentTaskQueue(TaskQueue):
             rows = cursor.fetchall()
 
             recovered = 0
-            recovery_counts: Dict[str, int] = {}
+            recovery_counts: dict[str, int] = {}
             for row in rows:
                 task = self._row_to_task(row)
                 original_status = task.status.value
@@ -427,7 +422,7 @@ class PersistentTaskQueue(TaskQueue):
             metadata=json.loads(row["metadata"] or "{}"),
         )
 
-    def get_task_from_db(self, task_id: str) -> Optional[WorkflowTask]:
+    def get_task_from_db(self, task_id: str) -> WorkflowTask | None:
         """Get a task directly from the database."""
         conn = self._get_conn()
         try:
@@ -445,12 +440,12 @@ class PersistentTaskQueue(TaskQueue):
 
     def list_tasks_from_db(
         self,
-        workflow_id: Optional[str] = None,
-        status: Optional[str] = None,
+        workflow_id: str | None = None,
+        status: str | None = None,
         tenant_id: str = "default",
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[WorkflowTask], int]:
+    ) -> tuple[list[WorkflowTask], int]:
         """
         List tasks from database with filtering.
 
@@ -468,7 +463,7 @@ class PersistentTaskQueue(TaskQueue):
         try:
             query = "SELECT * FROM task_queue WHERE tenant_id = ?"
             count_query = "SELECT COUNT(*) FROM task_queue WHERE tenant_id = ?"
-            params: List[Any] = [tenant_id]
+            params: list[Any] = [tenant_id]
 
             if workflow_id:
                 query += " AND workflow_id = ?"
@@ -500,7 +495,7 @@ class PersistentTaskQueue(TaskQueue):
     def delete_completed_tasks(
         self,
         older_than_hours: int = 24,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> int:
         """
         Clean up completed tasks older than specified hours.
@@ -521,7 +516,7 @@ class PersistentTaskQueue(TaskQueue):
                 WHERE status IN ('completed', 'failed', 'cancelled', 'timeout')
                 AND completed_at < datetime('now', ?)
             """
-            params: List[Any] = [f"-{older_than_hours} hours"]
+            params: list[Any] = [f"-{older_than_hours} hours"]
 
             if tenant_id:
                 query += " AND tenant_id = ?"
@@ -548,14 +543,12 @@ class PersistentTaskQueue(TaskQueue):
             self._local.conn.close()
             del self._local.conn
 
-
 # Global queue instance
-_persistent_queue: Optional[PersistentTaskQueue] = None
-
+_persistent_queue: PersistentTaskQueue | None = None
 
 def get_persistent_task_queue(
-    config: Optional[TaskQueueConfig] = None,
-    db_path: Optional[Path | str] = None,
+    config: TaskQueueConfig | None = None,
+    db_path: Path | str | None = None,
 ) -> PersistentTaskQueue:
     """
     Get or create the global persistent task queue.
@@ -572,12 +565,10 @@ def get_persistent_task_queue(
         _persistent_queue = PersistentTaskQueue(config, db_path)
     return _persistent_queue
 
-
 def reset_persistent_task_queue() -> None:
     """Reset the global queue (for testing)."""
     global _persistent_queue
     _persistent_queue = None
-
 
 __all__ = [
     "PersistentTaskQueue",

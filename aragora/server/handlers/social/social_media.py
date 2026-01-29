@@ -16,7 +16,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Protocol, cast
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.errors import safe_error_message as _safe_error_message
@@ -34,11 +34,9 @@ from ..base import (
 if TYPE_CHECKING:
     from aragora.connectors.youtube_uploader import YouTubeVideoMetadata
 
-
 # =============================================================================
 # Protocol Types for External Dependencies
 # =============================================================================
-
 
 class YouTubeRateLimiterProtocol(Protocol):
     """Protocol for YouTube rate limiter interface."""
@@ -52,7 +50,6 @@ class YouTubeRateLimiterProtocol(Protocol):
         """Check if we have quota for an upload."""
         ...
 
-
 class CircuitBreakerProtocol(Protocol):
     """Protocol for circuit breaker interface."""
 
@@ -64,7 +61,6 @@ class CircuitBreakerProtocol(Protocol):
     def can_proceed(self) -> bool:
         """Check if operation can proceed."""
         ...
-
 
 class YouTubeConnectorProtocol(Protocol):
     """Protocol for YouTube connector interface used by social media handler."""
@@ -94,7 +90,6 @@ class YouTubeConnectorProtocol(Protocol):
         """Upload a video to YouTube."""
         ...
 
-
 class TwitterConnectorProtocol(Protocol):
     """Protocol for Twitter connector interface used by social media handler."""
 
@@ -111,7 +106,6 @@ class TwitterConnectorProtocol(Protocol):
         """Post a thread (multiple connected tweets)."""
         ...
 
-
 class AudioStoreProtocol(Protocol):
     """Protocol for audio store interface used by social media handler."""
 
@@ -119,17 +113,16 @@ class AudioStoreProtocol(Protocol):
         """Check if audio exists for a debate."""
         ...
 
-    def get_path(self, debate_id: str) -> Optional[Path]:
+    def get_path(self, debate_id: str) -> Path | None:
         """Get the path to an audio file."""
         ...
-
 
 class VideoGeneratorProtocol(Protocol):
     """Protocol for video generator interface used by social media handler."""
 
     def generate_waveform_video(
-        self, audio_path: Path, output_path: Optional[Path] = None
-    ) -> Awaitable[Optional[Path]]:
+        self, audio_path: Path, output_path: Path | None = None
+    ) -> Awaitable[Path | None]:
         """Generate video with animated audio waveform."""
         ...
 
@@ -138,11 +131,10 @@ class VideoGeneratorProtocol(Protocol):
         audio_path: Path,
         title: str,
         agents: list[str],
-        output_path: Optional[Path] = None,
-    ) -> Awaitable[Optional[Path]]:
+        output_path: Path | None = None,
+    ) -> Awaitable[Path | None]:
         """Generate video with static thumbnail and audio track."""
         ...
-
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +164,6 @@ else:
         ALLOWED_OAUTH_HOSTS = frozenset(["localhost:8080", "127.0.0.1:8080"])
         logger.debug("[Social] Using localhost for OAuth hosts (dev mode)")
 
-
 def _store_oauth_state(state: str) -> None:
     """Store OAuth state for later validation."""
     with _oauth_states_lock:
@@ -192,7 +183,6 @@ def _store_oauth_state(state: str) -> None:
         # Store new state
         _oauth_states[state] = now + _OAUTH_STATE_TTL
 
-
 def _validate_oauth_state(state: str) -> bool:
     """Validate and consume OAuth state (one-time use)."""
     with _oauth_states_lock:
@@ -201,11 +191,9 @@ def _validate_oauth_state(state: str) -> bool:
             return time.time() < expiry
         return False
 
-
 def _run_async(coro):
     """Run async coroutine in sync context."""
     return run_async(coro)
-
 
 class SocialMediaHandler(BaseHandler):
     """Handler for social media publishing (Twitter, YouTube) endpoints."""
@@ -220,28 +208,28 @@ class SocialMediaHandler(BaseHandler):
 
     # === Typed Accessor Methods ===
 
-    def _get_youtube_connector(self) -> Optional[YouTubeConnectorProtocol]:
+    def _get_youtube_connector(self) -> YouTubeConnectorProtocol | None:
         """Get the YouTube connector with proper typing."""
         connector = self.ctx.get("youtube_connector")
         if connector is None:
             return None
         return cast(YouTubeConnectorProtocol, connector)
 
-    def _get_twitter_connector(self) -> Optional[TwitterConnectorProtocol]:
+    def _get_twitter_connector(self) -> TwitterConnectorProtocol | None:
         """Get the Twitter connector with proper typing."""
         connector = self.ctx.get("twitter_connector")
         if connector is None:
             return None
         return cast(TwitterConnectorProtocol, connector)
 
-    def _get_audio_store(self) -> Optional[AudioStoreProtocol]:
+    def _get_audio_store(self) -> AudioStoreProtocol | None:
         """Get the audio store with proper typing."""
         store = self.ctx.get("audio_store")
         if store is None:
             return None
         return cast(AudioStoreProtocol, store)
 
-    def _get_video_generator(self) -> Optional[VideoGeneratorProtocol]:
+    def _get_video_generator(self) -> VideoGeneratorProtocol | None:
         """Get the video generator with proper typing."""
         generator = self.ctx.get("video_generator")
         if generator is None:
@@ -257,7 +245,7 @@ class SocialMediaHandler(BaseHandler):
         return False
 
     @require_permission("social:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Handle GET requests."""
         # YouTube OAuth endpoints
         if path == "/api/v1/youtube/auth":
@@ -272,7 +260,7 @@ class SocialMediaHandler(BaseHandler):
         return None
 
     @require_permission("social:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle POST requests."""
         # Twitter publishing
         if path.startswith("/api/v1/debates/") and path.endswith("/publish/twitter"):
@@ -334,7 +322,7 @@ class SocialMediaHandler(BaseHandler):
         )
 
     def _handle_youtube_callback(
-        self, code: Optional[str], state: Optional[str], handler: Any
+        self, code: str | None, state: str | None, handler: Any
     ) -> HandlerResult:
         """Handle YouTube OAuth callback."""
         if not code:

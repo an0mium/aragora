@@ -34,10 +34,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class BugType(str, Enum):
     """Types of bugs detected."""
@@ -57,7 +56,6 @@ class BugType(str, Enum):
     DUPLICATE_CODE = "duplicate_code"
     DEPRECATED_API = "deprecated_api"
 
-
 class BugSeverity(str, Enum):
     """Severity of detected bugs."""
 
@@ -65,7 +63,6 @@ class BugSeverity(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 @dataclass
 class BugFinding:
@@ -84,20 +81,20 @@ class BugFinding:
     confidence: float = 0.8
 
     # Fix suggestion
-    suggested_fix: Optional[str] = None
+    suggested_fix: str | None = None
     fix_confidence: float = 0.0
 
     # Context
-    function_name: Optional[str] = None
-    class_name: Optional[str] = None
+    function_name: str | None = None
+    class_name: str | None = None
     language: str = "python"
 
     # Verification
     verified: bool = False
-    verified_by: Optional[str] = None  # agent, user
+    verified_by: str | None = None  # agent, user
     is_false_positive: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "bug_id": self.bug_id,
             "bug_type": self.bug_type.value,
@@ -118,40 +115,39 @@ class BugFinding:
             "is_false_positive": self.is_false_positive,
         }
 
-
 @dataclass
 class BugScanResult:
     """Result of bug detection scan."""
 
     scan_id: str
     repository_path: str
-    bugs: List[BugFinding]
+    bugs: list[BugFinding]
     scanned_files: int
     total_lines: int
     scan_duration_ms: float
-    languages: List[str]
-    errors: List[str] = field(default_factory=list)
+    languages: list[str]
+    errors: list[str] = field(default_factory=list)
     scanned_at: datetime = field(default_factory=datetime.now)
 
     @property
-    def bugs_by_type(self) -> Dict[str, int]:
+    def bugs_by_type(self) -> dict[str, int]:
         """Count bugs by type."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for bug in self.bugs:
             key = bug.bug_type.value
             counts[key] = counts.get(key, 0) + 1
         return counts
 
     @property
-    def bugs_by_severity(self) -> Dict[str, int]:
+    def bugs_by_severity(self) -> dict[str, int]:
         """Count bugs by severity."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for bug in self.bugs:
             key = bug.severity.value
             counts[key] = counts.get(key, 0) + 1
         return counts
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "scan_id": self.scan_id,
             "repository_path": self.repository_path,
@@ -167,21 +163,20 @@ class BugScanResult:
             "scanned_at": self.scanned_at.isoformat(),
         }
 
-
 class BugPattern:
     """Base class for bug detection patterns."""
 
     name: str = "base"
     bug_type: BugType = BugType.LOGIC_ERROR
     default_severity: BugSeverity = BugSeverity.MEDIUM
-    languages: List[str] = ["python"]
+    languages: list[str] = ["python"]
 
     def detect(
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         """Detect bugs in content. Override in subclasses.
 
         Base implementation returns empty list - subclasses should override
@@ -196,7 +191,6 @@ class BugPattern:
             List of BugFinding objects (empty for base class)
         """
         return []
-
 
 class NullPointerPattern(BugPattern):
     """Detect potential null pointer dereferences."""
@@ -220,8 +214,8 @@ class NullPointerPattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -243,7 +237,6 @@ class NullPointerPattern(BugPattern):
 
         return bugs
 
-
 class ResourceLeakPattern(BugPattern):
     """Detect resource leaks (files, connections, locks)."""
 
@@ -256,8 +249,8 @@ class ResourceLeakPattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -325,7 +318,7 @@ class ResourceLeakPattern(BugPattern):
 
         return bugs
 
-    def _get_function_content(self, content: str, line_num: int) -> Optional[str]:
+    def _get_function_content(self, content: str, line_num: int) -> str | None:
         """Get the content of the function containing the line."""
         lines = content.split("\n")
         if line_num > len(lines):
@@ -350,7 +343,6 @@ class ResourceLeakPattern(BugPattern):
 
         return "\n".join(lines[start_line:end_line])
 
-
 class InfiniteLoopPattern(BugPattern):
     """Detect potential infinite loops."""
 
@@ -363,8 +355,8 @@ class InfiniteLoopPattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -425,7 +417,7 @@ class InfiniteLoopPattern(BugPattern):
 
         return bugs
 
-    def _get_loop_body(self, lines: List[str], start_line: int) -> Optional[str]:
+    def _get_loop_body(self, lines: list[str], start_line: int) -> str | None:
         """Get the body of a loop starting at start_line."""
         if start_line > len(lines):
             return None
@@ -443,7 +435,6 @@ class InfiniteLoopPattern(BugPattern):
 
         return "\n".join(body_lines)
 
-
 class DeadCodePattern(BugPattern):
     """Detect dead/unreachable code."""
 
@@ -456,8 +447,8 @@ class DeadCodePattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -514,7 +505,6 @@ class DeadCodePattern(BugPattern):
 
         return bugs
 
-
 class ExceptionHandlingPattern(BugPattern):
     """Detect exception handling issues."""
 
@@ -527,8 +517,8 @@ class ExceptionHandlingPattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -595,7 +585,7 @@ class ExceptionHandlingPattern(BugPattern):
 
         return bugs
 
-    def _get_block_content(self, lines: List[str], start_line: int) -> Optional[str]:
+    def _get_block_content(self, lines: list[str], start_line: int) -> str | None:
         """Get content of indented block."""
         if start_line > len(lines):
             return None
@@ -613,7 +603,6 @@ class ExceptionHandlingPattern(BugPattern):
 
         return "\n".join(block_lines)
 
-
 class LogicErrorPattern(BugPattern):
     """Detect common logic errors."""
 
@@ -626,8 +615,8 @@ class LogicErrorPattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -705,7 +694,6 @@ class LogicErrorPattern(BugPattern):
 
         return bugs
 
-
 class RaceConditionPattern(BugPattern):
     """Detect potential race conditions in concurrent code."""
 
@@ -718,8 +706,8 @@ class RaceConditionPattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -788,13 +776,12 @@ class RaceConditionPattern(BugPattern):
 
         return bugs
 
-    def _find_function_start(self, lines: List[str], line_num: int) -> Optional[int]:
+    def _find_function_start(self, lines: list[str], line_num: int) -> int | None:
         """Find the start of the function containing the line."""
         for i in range(line_num - 1, -1, -1):
             if re.match(r"^\s*(async\s+)?def\s+\w+", lines[i]):
                 return i
         return None
-
 
 class TypeErrorPattern(BugPattern):
     """Detect potential type-related errors."""
@@ -808,8 +795,8 @@ class TypeErrorPattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -892,7 +879,6 @@ class TypeErrorPattern(BugPattern):
 
         return bugs
 
-
 class DeprecatedAPIPattern(BugPattern):
     """Detect usage of deprecated APIs and patterns."""
 
@@ -928,8 +914,8 @@ class DeprecatedAPIPattern(BugPattern):
         self,
         content: str,
         file_path: str,
-        ast_tree: Optional[ast.AST] = None,
-    ) -> List[BugFinding]:
+        ast_tree: ast.AST | None = None,
+    ) -> list[BugFinding]:
         bugs = []
         lines = content.split("\n")
 
@@ -952,7 +938,6 @@ class DeprecatedAPIPattern(BugPattern):
 
         return bugs
 
-
 class BugDetector:
     """
     Multi-pattern bug detection with confidence scoring.
@@ -961,7 +946,7 @@ class BugDetector:
     AST analysis and pattern matching.
     """
 
-    PATTERNS: List[BugPattern] = [
+    PATTERNS: list[BugPattern] = [
         NullPointerPattern(),
         ResourceLeakPattern(),
         InfiniteLoopPattern(),
@@ -1002,7 +987,7 @@ class BugDetector:
 
     def __init__(
         self,
-        patterns: Optional[List[BugPattern]] = None,
+        patterns: Optional[list[BugPattern]] = None,
         min_confidence: float = 0.5,
     ):
         """
@@ -1018,8 +1003,8 @@ class BugDetector:
     async def scan_repository(
         self,
         repo_path: str,
-        include_patterns: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        include_patterns: Optional[list[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
     ) -> BugScanResult:
         """
         Scan a repository for bugs.
@@ -1038,11 +1023,11 @@ class BugDetector:
         start_time = time.time()
         scan_id = f"bug_scan_{uuid.uuid4().hex[:12]}"
 
-        bugs: List[BugFinding] = []
+        bugs: list[BugFinding] = []
         scanned_files = 0
         total_lines = 0
-        languages: Set[str] = set()
-        errors: List[str] = []
+        languages: set[str] = set()
+        errors: list[str] = []
 
         path = Path(repo_path)
         if not path.exists():
@@ -1108,9 +1093,9 @@ class BugDetector:
     def _collect_files(
         self,
         path: Path,
-        include_patterns: Optional[List[str]],
-        exclude_patterns: Optional[List[str]],
-    ) -> List[Path]:
+        include_patterns: Optional[list[str]],
+        exclude_patterns: Optional[list[str]],
+    ) -> list[Path]:
         """Collect files to scan."""
         files = []
 
@@ -1152,7 +1137,7 @@ class BugDetector:
     async def _scan_file(
         self,
         file_path: Path,
-    ) -> Tuple[List[BugFinding], int, str]:
+    ) -> tuple[list[BugFinding], int, str]:
         """Scan a single file for bugs."""
         try:
             content = file_path.read_text(encoding="utf-8", errors="ignore")
@@ -1163,7 +1148,7 @@ class BugDetector:
         lines = len(content.split("\n"))
         language = self.EXTENSIONS.get(file_path.suffix, "")
 
-        bugs: List[BugFinding] = []
+        bugs: list[BugFinding] = []
 
         # Parse AST for Python files
         ast_tree = None
@@ -1188,9 +1173,9 @@ class BugDetector:
 
     async def verify_with_agents(
         self,
-        bugs: List[BugFinding],
+        bugs: list[BugFinding],
         limit: int = 10,
-    ) -> List[BugFinding]:
+    ) -> list[BugFinding]:
         """
         Use multi-agent debate to verify bugs and suggest fixes.
 
@@ -1259,14 +1244,12 @@ EXPLANATION: <brief explanation>"""
 
         return bugs
 
-
 # =============================================================================
 # Factory Functions
 # =============================================================================
 
-
 def create_bug_detector(
-    patterns: Optional[List[str]] = None,
+    patterns: Optional[list[str]] = None,
     min_confidence: float = 0.5,
 ) -> BugDetector:
     """
@@ -1294,7 +1277,6 @@ def create_bug_detector(
         selected = list(pattern_map.values())
 
     return BugDetector(patterns=selected, min_confidence=min_confidence)
-
 
 __all__ = [
     "BugDetector",

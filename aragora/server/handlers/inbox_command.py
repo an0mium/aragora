@@ -23,7 +23,7 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar
 
 from aiohttp import web
 
@@ -43,9 +43,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-T = TypeVar("T", bound=Dict[str, Any])
-
+T = TypeVar("T", bound=dict[str, Any])
 
 class IterableTTLCache(Generic[T]):
     """
@@ -64,7 +62,7 @@ class IterableTTLCache(Generic[T]):
         self._keys: set[str] = set()  # Track keys for iteration
         self._lock = threading.Lock()
 
-    def get(self, key: str) -> Optional[T]:
+    def get(self, key: str) -> T | None:
         """Get value from cache."""
         return self._cache.get(key)
 
@@ -116,7 +114,6 @@ class IterableTTLCache(Generic[T]):
         """Get cache statistics."""
         return self._cache.stats
 
-
 # Production-ready cache for prioritized emails (Redis when available, fallback to in-memory)
 _email_cache: IterableTTLCache = IterableTTLCache(
     name="inbox_email_cache",
@@ -133,14 +130,13 @@ _priority_results: IterableTTLCache = IterableTTLCache(
 register_cache("inbox_email", _email_cache._cache)
 register_cache("inbox_priority", _priority_results._cache)
 
-
 @dataclass
 class InboxCommandHandler:
     """Handler for inbox command center API endpoints."""
 
     gmail_connector: Optional["GmailConnector"] = None
-    prioritizer: Optional[EmailPrioritizer] = None
-    sender_history: Optional[SenderHistoryService] = None
+    prioritizer: EmailPrioritizer | None = None
+    sender_history: SenderHistoryService | None = None
     _initialized: bool = field(default=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -470,9 +466,9 @@ class InboxCommandHandler:
         self,
         limit: int,
         offset: int,
-        priority_filter: Optional[str],
+        priority_filter: str | None,
         unread_only: bool,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch and prioritize emails using the EmailPrioritizer service."""
         # If no Gmail connector, return demo data
         if self.gmail_connector is None:
@@ -480,7 +476,7 @@ class InboxCommandHandler:
 
         try:
             # Fetch emails from Gmail
-            emails: List[Any] = []
+            emails: list[Any] = []
             fetch_limit = limit + offset + 50  # Fetch extra for filtering
 
             # Use list_messages instead of sync_items for inbox fetching
@@ -576,8 +572,8 @@ class InboxCommandHandler:
         self,
         limit: int,
         offset: int,
-        priority_filter: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        priority_filter: str | None,
+    ) -> list[dict[str, Any]]:
         """Return demo email data when services aren't available."""
         demo_emails = [
             {
@@ -660,8 +656,8 @@ class InboxCommandHandler:
 
     async def _calculate_inbox_stats(
         self,
-        emails: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        emails: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Calculate inbox statistics from prioritized emails."""
         total = len(emails)
 
@@ -696,9 +692,9 @@ class InboxCommandHandler:
     async def _execute_action(
         self,
         action: str,
-        email_ids: List[str],
-        params: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        email_ids: list[str],
+        params: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Execute action on emails using Gmail connector."""
         results = []
         for email_id in email_ids:
@@ -736,8 +732,8 @@ class InboxCommandHandler:
         self,
         action: str,
         email_id: str,
-        params: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
         """Perform a single action on an email."""
         action_handlers = {
             "archive": self._archive_email,
@@ -757,7 +753,7 @@ class InboxCommandHandler:
 
         return await handler(email_id, params)
 
-    async def _archive_email(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _archive_email(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Archive an email via Gmail API."""
         if self.gmail_connector and hasattr(self.gmail_connector, "archive_message"):
             try:
@@ -771,7 +767,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Archiving email {email_id}")
         return {"archived": True, "demo": True}
 
-    async def _snooze_email(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _snooze_email(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Snooze an email."""
         duration = params.get("duration", "1d")
         # Parse duration to snooze until time
@@ -796,7 +792,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Snoozing email {email_id} for {duration}")
         return {"snoozed": True, "until": snooze_until.isoformat(), "demo": True}
 
-    async def _create_reply_draft(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _create_reply_draft(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Create a reply draft."""
         body = params.get("body", "")
 
@@ -814,7 +810,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Creating reply draft for {email_id}")
         return {"draftId": f"draft_{email_id}", "demo": True}
 
-    async def _create_forward_draft(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _create_forward_draft(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Create a forward draft."""
         to = params.get("to", "")
 
@@ -832,7 +828,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Creating forward draft for {email_id}")
         return {"draftId": f"draft_fwd_{email_id}", "demo": True}
 
-    async def _mark_spam(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _mark_spam(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Mark email as spam."""
         if self.gmail_connector and hasattr(self.gmail_connector, "mark_spam"):
             try:
@@ -845,7 +841,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Marking {email_id} as spam")
         return {"spam": True, "demo": True}
 
-    async def _mark_important(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _mark_important(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Mark email as important."""
         if self.gmail_connector and hasattr(self.gmail_connector, "modify_labels"):
             try:
@@ -861,7 +857,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Marking {email_id} as important")
         return {"important": True, "demo": True}
 
-    async def _mark_sender_vip(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _mark_sender_vip(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Mark sender as VIP."""
         email_data = _email_cache.get(email_id)
         sender = email_data.get("from") if email_data else params.get("sender")
@@ -875,7 +871,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Marking sender of {email_id} as VIP")
         return {"vip": True, "demo": True}
 
-    async def _block_sender(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _block_sender(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Block sender."""
         email_data = _email_cache.get(email_id)
         sender = email_data.get("from") if email_data else params.get("sender")
@@ -889,7 +885,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Blocking sender of {email_id}")
         return {"blocked": True, "demo": True}
 
-    async def _delete_email(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _delete_email(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """Delete email."""
         if self.gmail_connector and hasattr(self.gmail_connector, "trash_message"):
             try:
@@ -902,7 +898,7 @@ class InboxCommandHandler:
         logger.info(f"[Demo] Deleting email {email_id}")
         return {"deleted": True, "demo": True}
 
-    async def _get_emails_by_filter(self, filter_type: str) -> List[str]:
+    async def _get_emails_by_filter(self, filter_type: str) -> list[str]:
         """Get email IDs matching filter from cache."""
         filter_map = {
             "low": ["low", "defer"],
@@ -927,7 +923,7 @@ class InboxCommandHandler:
 
         return matching_ids
 
-    async def _get_sender_profile(self, email: str) -> Dict[str, Any]:
+    async def _get_sender_profile(self, email: str) -> dict[str, Any]:
         """Get sender profile information from SenderHistoryService."""
         if self.sender_history:
             try:
@@ -979,7 +975,7 @@ class InboxCommandHandler:
             "lastContact": "Unknown",
         }
 
-    async def _calculate_daily_digest(self) -> Dict[str, Any]:
+    async def _calculate_daily_digest(self) -> dict[str, Any]:
         """Calculate daily digest statistics."""
         # Try to get real stats from sender history (if method exists)
         if self.sender_history and hasattr(self.sender_history, "get_daily_summary"):
@@ -995,12 +991,12 @@ class InboxCommandHandler:
         critical_count = sum(1 for e in emails_in_cache if e.get("priority") == "critical")
 
         # Compute top senders from cache
-        sender_counts: Dict[str, int] = {}
+        sender_counts: dict[str, int] = {}
         for email in emails_in_cache:
             sender = email.get("from", "unknown")
             sender_counts[sender] = sender_counts.get(sender, 0) + 1
 
-        sender_list: List[Dict[str, Any]] = [
+        sender_list: list[dict[str, Any]] = [
             {"name": k, "count": v} for k, v in sender_counts.items()
         ]
         top_senders = sorted(
@@ -1010,7 +1006,7 @@ class InboxCommandHandler:
         )[:5]
 
         # Compute category breakdown
-        category_counts: Dict[str, int] = {}
+        category_counts: dict[str, int] = {}
         for email in emails_in_cache:
             category = email.get("category", "General")
             category_counts[category] = category_counts.get(category, 0) + 1
@@ -1042,9 +1038,9 @@ class InboxCommandHandler:
 
     async def _reprioritize_emails(
         self,
-        email_ids: Optional[List[str]],
-        force_tier: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        email_ids: Optional[list[str]],
+        force_tier: str | None = None,
+    ) -> dict[str, Any]:
         """Reprioritize emails using AI."""
         from aragora.services.email_prioritization import ScoringTier
 
@@ -1074,7 +1070,7 @@ class InboxCommandHandler:
         }
         scoring_tier = tier_map.get(force_tier) if force_tier else None
 
-        changes: List[Dict[str, Any]] = []
+        changes: list[dict[str, Any]] = []
         processed_count = 0
 
         # Re-score each email
@@ -1147,7 +1143,6 @@ class InboxCommandHandler:
             "changes": changes,
             "tier_used": force_tier or "auto",
         }
-
 
 def register_routes(app: web.Application) -> None:
     """Register inbox command center routes."""

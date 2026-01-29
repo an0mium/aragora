@@ -1,7 +1,7 @@
 """Alert management HTTP handlers."""
+from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aiohttp import web
 
@@ -16,8 +16,7 @@ from aragora.rbac.checker import get_permission_checker
 logger = logging.getLogger(__name__)
 
 # Global alert analyzer instance
-_alert_analyzer: Optional[AlertAnalyzer] = None
-
+_alert_analyzer: AlertAnalyzer | None = None
 
 def get_alert_analyzer() -> AlertAnalyzer:
     """Get or create the global alert analyzer instance."""
@@ -26,12 +25,10 @@ def get_alert_analyzer() -> AlertAnalyzer:
         _alert_analyzer = AlertAnalyzer()
     return _alert_analyzer
 
-
 def set_alert_analyzer(analyzer: AlertAnalyzer) -> None:
     """Set the global alert analyzer instance."""
     global _alert_analyzer
     _alert_analyzer = analyzer
-
 
 class AlertHandler:
     """HTTP handlers for alert operations."""

@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypedDict, Union
-
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypedDict
 
 if TYPE_CHECKING:
     from aragora.memory.consensus import (
@@ -27,8 +26,7 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem
 
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 class SyncResult(TypedDict):
     """Type for forward sync result."""
@@ -36,9 +34,8 @@ class SyncResult(TypedDict):
     records_synced: int
     records_skipped: int
     records_failed: int
-    errors: List[str]
+    errors: list[str]
     duration_ms: float
-
 
 logger = logging.getLogger(__name__)
 
@@ -51,19 +48,17 @@ from aragora.knowledge.mound.adapters._reverse_flow_base import (
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
-
 @dataclass
 class ConsensusSearchResult:
     """Wrapper for consensus search results with similarity metadata."""
 
     record: "ConsensusRecord"
     similarity: float = 0.0
-    dissents: List["DissentRecord"] = None
+    dissents: list["DissentRecord"] = None
 
     def __post_init__(self) -> None:
         if self.dissents is None:
             self.dissents = []
-
 
 class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
@@ -102,7 +97,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         self,
         consensus: "ConsensusMemory",
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
     ):
         """
@@ -126,7 +121,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         """Set the event callback for WebSocket notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -139,7 +134,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         operation: str,
         success: bool,
         latency: float,
-        extra_labels: Optional[Dict[str, str]] = None,
+        extra_labels: Optional[dict[str, str]] = None,
     ) -> None:
         """Record Prometheus metric for adapter operation and check SLOs.
 
@@ -200,14 +195,14 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         return self._consensus
 
     # SemanticSearchMixin required methods
-    def _get_record_by_id(self, record_id: str) -> Optional[Any]:
+    def _get_record_by_id(self, record_id: str) -> Any | None:
         """Get a consensus record by ID (required by SemanticSearchMixin)."""
         # Handle prefixed IDs from SemanticStore
         if record_id.startswith("cs_"):
             record_id = record_id[3:]
         return self._consensus.get_consensus(record_id)
 
-    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> Dict[str, Any]:
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> dict[str, Any]:
         """Convert a consensus record to dict (required by SemanticSearchMixin)."""
         return {
             "id": record.id,
@@ -234,7 +229,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         return source_id
 
     # ReverseFlowMixin required methods
-    def _get_record_for_validation(self, source_id: str) -> Optional[Any]:
+    def _get_record_for_validation(self, source_id: str) -> Any | None:
         """Get a consensus record for validation (required by ReverseFlowMixin)."""
         return self.get(source_id)
 
@@ -242,8 +237,8 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         self,
         record: Any,
         km_confidence: float,
-        cross_refs: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        cross_refs: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply KM validation to a consensus record (required by ReverseFlowMixin)."""
         record.metadata["km_validated"] = True
@@ -255,7 +250,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
             record.metadata["km_cross_references"] = cross_refs
         return True
 
-    def _extract_source_id(self, item: Dict[str, Any]) -> Optional[str]:
+    def _extract_source_id(self, item: dict[str, Any]) -> str | None:
         """Extract source ID from KM item (override for ReverseFlowMixin)."""
         meta = item.get("metadata", {})
         return meta.get("source_id") or meta.get("consensus_id") or item.get("id")
@@ -264,10 +259,10 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         self,
         query: str,
         limit: int = 10,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.0,
         include_dissents: bool = True,
-    ) -> List[ConsensusSearchResult]:
+    ) -> list[ConsensusSearchResult]:
         """
         Search consensus memory by topic.
 
@@ -326,7 +321,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
 
     def to_knowledge_item(
         self,
-        record: Union["ConsensusRecord", ConsensusSearchResult],
+        record: "ConsensusRecord" | ConsensusSearchResult,
     ) -> "KnowledgeItem":
         """
         Convert a ConsensusRecord to a KnowledgeItem.
@@ -366,7 +361,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         content = consensus.conclusion or consensus.topic
 
         # Build metadata
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "topic": consensus.topic,
             "strength": consensus.strength.value,
             "domain": consensus.domain,
@@ -428,7 +423,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         if dissent.dissent_type.value == "risk_warning":
             confidence = ConfidenceLevel.MEDIUM  # Risk warnings deserve attention
 
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "debate_id": dissent.debate_id,
             "agent_id": dissent.agent_id,
             "dissent_type": dissent.dissent_type.value,
@@ -453,7 +448,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         self,
         topic: str,
         limit: int = 20,
-    ) -> List["DissentRecord"]:
+    ) -> list["DissentRecord"]:
         """
         Get dissenting views related to a topic.
 
@@ -468,9 +463,9 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
 
     def get_risk_warnings(
         self,
-        topic: Optional[str] = None,
+        topic: str | None = None,
         limit: int = 10,
-    ) -> List["DissentRecord"]:
+    ) -> list["DissentRecord"]:
         """
         Get risk warnings from debates.
 
@@ -489,7 +484,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
     def get_contrarian_views(
         self,
         limit: int = 10,
-    ) -> List["DissentRecord"]:
+    ) -> list["DissentRecord"]:
         """
         Get fundamental disagreements from debates.
 
@@ -504,7 +499,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         """
         return self._consensus.find_contrarian_views(limit=limit)  # type: ignore[attr-defined]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about the consensus memory."""
         return self._consensus.get_stats()  # type: ignore[attr-defined]
 
@@ -513,7 +508,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         topic: str,
         limit: int = 5,
         min_confidence: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find similar consensus records for deduplication (reverse flow).
 
@@ -612,7 +607,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         mound: Any,
         min_confidence: float = 0.7,
         batch_size: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sync pending consensus records to Knowledge Mound (forward flow).
 
@@ -722,7 +717,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
 
     async def sync_validations_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
         batch_size: int = 100,
     ) -> ValidationSyncResult:
@@ -818,7 +813,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
     # FusionMixin Implementation
     # =========================================================================
 
-    def _get_fusion_sources(self) -> List[str]:
+    def _get_fusion_sources(self) -> list[str]:
         """Return list of adapter names this adapter can fuse data from.
 
         ConsensusAdapter can fuse validations from ELO (agent performance),
@@ -826,7 +821,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         """
         return ["elo", "evidence", "belief", "continuum"]
 
-    def _extract_fusible_data(self, km_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _extract_fusible_data(self, km_item: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Extract data from a KM item that can be used for fusion.
 
         Args:
@@ -859,7 +854,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         self,
         record: Any,
         fusion_result: Any,  # FusedValidation from ops.fusion
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply a fusion result to a consensus record.
 

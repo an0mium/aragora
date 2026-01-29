@@ -32,7 +32,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -47,7 +47,6 @@ from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
-
 def _record_governance_verification(verification_type: str, result: str) -> None:
     """Record governance verification metric if available."""
     try:
@@ -56,7 +55,6 @@ def _record_governance_verification(verification_type: str, result: str) -> None
         record_governance_verification(verification_type, result)
     except ImportError:
         pass
-
 
 def _record_governance_decision(decision_type: str, outcome: str) -> None:
     """Record governance decision metric if available."""
@@ -67,7 +65,6 @@ def _record_governance_decision(decision_type: str, outcome: str) -> None:
     except ImportError:
         pass
 
-
 def _record_governance_approval(approval_type: str, status: str) -> None:
     """Record governance approval metric if available."""
     try:
@@ -76,7 +73,6 @@ def _record_governance_approval(approval_type: str, status: str) -> None:
         record_governance_approval(approval_type, status)
     except ImportError:
         pass
-
 
 @dataclass
 class ApprovalRecord:
@@ -91,12 +87,12 @@ class ApprovalRecord:
     requested_at: datetime
     changes_json: str  # JSON serialized changes
     timeout_seconds: int = 3600
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
-    rejection_reason: Optional[str] = None
-    org_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    metadata_json: Optional[str] = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    rejection_reason: str | None = None
+    org_id: str | None = None
+    workspace_id: str | None = None
+    metadata_json: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -126,22 +122,21 @@ class ApprovalRecord:
             "metadata": json.loads(self.metadata_json) if self.metadata_json else {},
         }
 
-
 @dataclass
 class VerificationRecord:
     """Persistent verification history entry."""
 
     verification_id: str
     claim: str
-    claim_type: Optional[str]
+    claim_type: str | None
     context: str
     result_json: str  # JSON serialized result
     timestamp: datetime
     verified_by: str  # system, agent name, etc.
     confidence: float = 0.0
-    proof_tree_json: Optional[str] = None
-    org_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    proof_tree_json: str | None = None
+    org_id: str | None = None
+    workspace_id: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -163,7 +158,6 @@ class VerificationRecord:
             "workspace_id": self.workspace_id,
         }
 
-
 @dataclass
 class DecisionRecord:
     """Persistent decision outcome record."""
@@ -178,9 +172,9 @@ class DecisionRecord:
     vote_pivots_json: str  # JSON serialized
     belief_changes_json: str  # JSON serialized
     agents_involved_json: str  # JSON serialized list
-    org_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    metadata_json: Optional[str] = None
+    org_id: str | None = None
+    workspace_id: str | None = None
+    metadata_json: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -210,7 +204,6 @@ class DecisionRecord:
             "metadata": json.loads(self.metadata_json) if self.metadata_json else {},
         }
 
-
 class GovernanceStore:
     """
     Persistent storage for decision governance artifacts.
@@ -226,8 +219,8 @@ class GovernanceStore:
     def __init__(
         self,
         db_path: str = "aragora_governance.db",
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        backend: str | None = None,
+        database_url: str | None = None,
     ):
         """
         Initialize governance store.
@@ -348,9 +341,9 @@ class GovernanceStore:
         requested_by: str,
         changes: list,
         timeout_seconds: int = 3600,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        metadata: dict | None = None,
     ) -> str:
         """
         Save a new approval request.
@@ -424,8 +417,8 @@ class GovernanceStore:
         self,
         approval_id: str,
         status: str,
-        approved_by: Optional[str] = None,
-        rejection_reason: Optional[str] = None,
+        approved_by: str | None = None,
+        rejection_reason: str | None = None,
     ) -> bool:
         """
         Update approval status.
@@ -461,7 +454,7 @@ class GovernanceStore:
         logger.debug(f"Updated approval {approval_id} -> {status}")
         return True
 
-    def get_approval(self, approval_id: str) -> Optional[ApprovalRecord]:
+    def get_approval(self, approval_id: str) -> ApprovalRecord | None:
         """Get an approval by ID."""
         row = self._backend.fetch_one(
             """
@@ -482,9 +475,9 @@ class GovernanceStore:
 
     def list_approvals(
         self,
-        status: Optional[str] = None,
-        org_id: Optional[str] = None,
-        risk_level: Optional[str] = None,
+        status: str | None = None,
+        org_id: str | None = None,
+        risk_level: str | None = None,
         limit: int = 100,
     ) -> list[ApprovalRecord]:
         """
@@ -577,11 +570,11 @@ class GovernanceStore:
         context: str,
         result: dict,
         verified_by: str = "system",
-        claim_type: Optional[str] = None,
+        claim_type: str | None = None,
         confidence: float = 0.0,
-        proof_tree: Optional[list] = None,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        proof_tree: list | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> str:
         """
         Save a verification result.
@@ -650,7 +643,7 @@ class GovernanceStore:
         logger.debug(f"Saved verification: {verification_id}")
         return verification_id
 
-    def get_verification(self, verification_id: str) -> Optional[VerificationRecord]:
+    def get_verification(self, verification_id: str) -> VerificationRecord | None:
         """Get a verification by ID."""
         row = self._backend.fetch_one(
             """
@@ -670,8 +663,8 @@ class GovernanceStore:
 
     def list_verifications(
         self,
-        org_id: Optional[str] = None,
-        claim_type: Optional[str] = None,
+        org_id: str | None = None,
+        claim_type: str | None = None,
         limit: int = 100,
     ) -> list[VerificationRecord]:
         """List verifications with filters."""
@@ -736,13 +729,13 @@ class GovernanceStore:
         conclusion: str,
         consensus_reached: bool,
         confidence: float,
-        evidence_chain: Optional[list] = None,
-        vote_pivots: Optional[list] = None,
-        belief_changes: Optional[list] = None,
-        agents_involved: Optional[list] = None,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        evidence_chain: list | None = None,
+        vote_pivots: list | None = None,
+        belief_changes: list | None = None,
+        agents_involved: list | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        metadata: dict | None = None,
     ) -> str:
         """
         Save a decision record.
@@ -817,7 +810,7 @@ class GovernanceStore:
         logger.debug(f"Saved decision: {decision_id}")
         return decision_id
 
-    def get_decision(self, decision_id: str) -> Optional[DecisionRecord]:
+    def get_decision(self, decision_id: str) -> DecisionRecord | None:
         """Get a decision by ID."""
         row = self._backend.fetch_one(
             """
@@ -854,7 +847,7 @@ class GovernanceStore:
 
     def list_decisions(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         consensus_only: bool = False,
         limit: int = 100,
     ) -> list[DecisionRecord]:
@@ -981,7 +974,6 @@ class GovernanceStore:
         """Close database connection."""
         self._backend.close()
 
-
 class PostgresGovernanceStore:
     """
     PostgreSQL-backed governance store.
@@ -1081,9 +1073,9 @@ class PostgresGovernanceStore:
         requested_by: str,
         changes: list,
         timeout_seconds: int = 3600,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        metadata: dict | None = None,
     ) -> str:
         """Save a new approval request (sync wrapper for async)."""
         return run_async(
@@ -1112,9 +1104,9 @@ class PostgresGovernanceStore:
         requested_by: str,
         changes: list,
         timeout_seconds: int = 3600,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        metadata: dict | None = None,
     ) -> str:
         """Save a new approval request asynchronously."""
         async with self._pool.acquire() as conn:
@@ -1152,8 +1144,8 @@ class PostgresGovernanceStore:
         self,
         approval_id: str,
         status: str,
-        approved_by: Optional[str] = None,
-        rejection_reason: Optional[str] = None,
+        approved_by: str | None = None,
+        rejection_reason: str | None = None,
     ) -> bool:
         """Update approval status (sync wrapper for async)."""
         return run_async(
@@ -1164,8 +1156,8 @@ class PostgresGovernanceStore:
         self,
         approval_id: str,
         status: str,
-        approved_by: Optional[str] = None,
-        rejection_reason: Optional[str] = None,
+        approved_by: str | None = None,
+        rejection_reason: str | None = None,
     ) -> bool:
         """Update approval status asynchronously."""
         updates = ["status = $1"]
@@ -1194,11 +1186,11 @@ class PostgresGovernanceStore:
         logger.debug(f"Updated approval {approval_id} -> {status}")
         return True
 
-    def get_approval(self, approval_id: str) -> Optional[ApprovalRecord]:
+    def get_approval(self, approval_id: str) -> ApprovalRecord | None:
         """Get an approval by ID (sync wrapper for async)."""
         return run_async(self.get_approval_async(approval_id))
 
-    async def get_approval_async(self, approval_id: str) -> Optional[ApprovalRecord]:
+    async def get_approval_async(self, approval_id: str) -> ApprovalRecord | None:
         """Get an approval by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1220,9 +1212,9 @@ class PostgresGovernanceStore:
 
     def list_approvals(
         self,
-        status: Optional[str] = None,
-        org_id: Optional[str] = None,
-        risk_level: Optional[str] = None,
+        status: str | None = None,
+        org_id: str | None = None,
+        risk_level: str | None = None,
         limit: int = 100,
     ) -> list[ApprovalRecord]:
         """List approvals with filters (sync wrapper for async)."""
@@ -1230,9 +1222,9 @@ class PostgresGovernanceStore:
 
     async def list_approvals_async(
         self,
-        status: Optional[str] = None,
-        org_id: Optional[str] = None,
-        risk_level: Optional[str] = None,
+        status: str | None = None,
+        org_id: str | None = None,
+        risk_level: str | None = None,
         limit: int = 100,
     ) -> list[ApprovalRecord]:
         """List approvals asynchronously."""
@@ -1331,11 +1323,11 @@ class PostgresGovernanceStore:
         context: str,
         result: dict,
         verified_by: str = "system",
-        claim_type: Optional[str] = None,
+        claim_type: str | None = None,
         confidence: float = 0.0,
-        proof_tree: Optional[list] = None,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        proof_tree: list | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> str:
         """Save a verification result (sync wrapper for async)."""
         return run_async(
@@ -1360,11 +1352,11 @@ class PostgresGovernanceStore:
         context: str,
         result: dict,
         verified_by: str = "system",
-        claim_type: Optional[str] = None,
+        claim_type: str | None = None,
         confidence: float = 0.0,
-        proof_tree: Optional[list] = None,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        proof_tree: list | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> str:
         """Save a verification result asynchronously."""
         async with self._pool.acquire() as conn:
@@ -1398,11 +1390,11 @@ class PostgresGovernanceStore:
         logger.debug(f"Saved verification: {verification_id}")
         return verification_id
 
-    def get_verification(self, verification_id: str) -> Optional[VerificationRecord]:
+    def get_verification(self, verification_id: str) -> VerificationRecord | None:
         """Get a verification by ID (sync wrapper for async)."""
         return run_async(self.get_verification_async(verification_id))
 
-    async def get_verification_async(self, verification_id: str) -> Optional[VerificationRecord]:
+    async def get_verification_async(self, verification_id: str) -> VerificationRecord | None:
         """Get a verification by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1422,8 +1414,8 @@ class PostgresGovernanceStore:
 
     def list_verifications(
         self,
-        org_id: Optional[str] = None,
-        claim_type: Optional[str] = None,
+        org_id: str | None = None,
+        claim_type: str | None = None,
         limit: int = 100,
     ) -> list[VerificationRecord]:
         """List verifications with filters (sync wrapper for async)."""
@@ -1431,8 +1423,8 @@ class PostgresGovernanceStore:
 
     async def list_verifications_async(
         self,
-        org_id: Optional[str] = None,
-        claim_type: Optional[str] = None,
+        org_id: str | None = None,
+        claim_type: str | None = None,
         limit: int = 100,
     ) -> list[VerificationRecord]:
         """List verifications asynchronously."""
@@ -1509,13 +1501,13 @@ class PostgresGovernanceStore:
         conclusion: str,
         consensus_reached: bool,
         confidence: float,
-        evidence_chain: Optional[list] = None,
-        vote_pivots: Optional[list] = None,
-        belief_changes: Optional[list] = None,
-        agents_involved: Optional[list] = None,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        evidence_chain: list | None = None,
+        vote_pivots: list | None = None,
+        belief_changes: list | None = None,
+        agents_involved: list | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        metadata: dict | None = None,
     ) -> str:
         """Save a decision record (sync wrapper for async)."""
         return run_async(
@@ -1542,13 +1534,13 @@ class PostgresGovernanceStore:
         conclusion: str,
         consensus_reached: bool,
         confidence: float,
-        evidence_chain: Optional[list] = None,
-        vote_pivots: Optional[list] = None,
-        belief_changes: Optional[list] = None,
-        agents_involved: Optional[list] = None,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        evidence_chain: list | None = None,
+        vote_pivots: list | None = None,
+        belief_changes: list | None = None,
+        agents_involved: list | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        metadata: dict | None = None,
     ) -> str:
         """Save a decision record asynchronously."""
         async with self._pool.acquire() as conn:
@@ -1585,11 +1577,11 @@ class PostgresGovernanceStore:
         logger.debug(f"Saved decision: {decision_id}")
         return decision_id
 
-    def get_decision(self, decision_id: str) -> Optional[DecisionRecord]:
+    def get_decision(self, decision_id: str) -> DecisionRecord | None:
         """Get a decision by ID (sync wrapper for async)."""
         return run_async(self.get_decision_async(decision_id))
 
-    async def get_decision_async(self, decision_id: str) -> Optional[DecisionRecord]:
+    async def get_decision_async(self, decision_id: str) -> DecisionRecord | None:
         """Get a decision by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1630,7 +1622,7 @@ class PostgresGovernanceStore:
 
     def list_decisions(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         consensus_only: bool = False,
         limit: int = 100,
     ) -> list[DecisionRecord]:
@@ -1639,7 +1631,7 @@ class PostgresGovernanceStore:
 
     async def list_decisions_async(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         consensus_only: bool = False,
         limit: int = 100,
     ) -> list[DecisionRecord]:
@@ -1777,16 +1769,14 @@ class PostgresGovernanceStore:
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 # Module-level singleton
-_default_store: Optional[GovernanceStore] = None
-_postgres_store: Optional[PostgresGovernanceStore] = None
-
+_default_store: GovernanceStore | None = None
+_postgres_store: PostgresGovernanceStore | None = None
 
 def get_governance_store(
     db_path: str = "aragora_governance.db",
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    backend: str | None = None,
+    database_url: str | None = None,
 ) -> GovernanceStore | PostgresGovernanceStore:
     """
     Get or create the default GovernanceStore instance.
@@ -1882,7 +1872,6 @@ def get_governance_store(
         )
     return _default_store
 
-
 def reset_governance_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store, _postgres_store
@@ -1892,7 +1881,6 @@ def reset_governance_store() -> None:
     if _postgres_store is not None:
         _postgres_store.close()
         _postgres_store = None
-
 
 __all__ = [
     "GovernanceStore",

@@ -14,7 +14,7 @@ import asyncio
 import logging
 import signal
 import time
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, cast
 
 if TYPE_CHECKING:
     from aragora.agents.base import AgentType
@@ -28,8 +28,7 @@ from aragora.queue.retry import RetryPolicy, is_retryable_error
 logger = logging.getLogger(__name__)
 
 # Type alias for the debate executor function
-DebateExecutor = Callable[[Job], Coroutine[Any, Any, Dict[str, Any]]]
-
+DebateExecutor = Callable[[Job], Coroutine[Any, Any, dict[str, Any]]]
 
 class DebateWorker:
     """
@@ -49,7 +48,7 @@ class DebateWorker:
         worker_id: str,
         executor: DebateExecutor,
         max_concurrent: int = 3,
-        retry_policy: Optional[RetryPolicy] = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         """
         Initialize the worker.
@@ -76,7 +75,7 @@ class DebateWorker:
         # Metrics
         self._jobs_processed = 0
         self._jobs_failed = 0
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
 
     @property
     def worker_id(self) -> str:
@@ -93,7 +92,7 @@ class DebateWorker:
         """Get number of currently processing jobs."""
         return self._max_concurrent - self._semaphore._value
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get worker statistics."""
         uptime = time.time() - self._start_time if self._start_time else 0
         return {
@@ -285,7 +284,6 @@ class DebateWorker:
             except Exception as e:
                 logger.error(f"Error claiming stale jobs: {e}")
 
-
 async def create_default_executor() -> DebateExecutor:
     """
     Create a default debate executor.
@@ -297,7 +295,7 @@ async def create_default_executor() -> DebateExecutor:
         An async function that executes debate jobs
     """
 
-    async def execute_debate(job: Job) -> Dict[str, Any]:
+    async def execute_debate(job: Job) -> dict[str, Any]:
         """Execute a debate from a job."""
         # Import here to avoid circular imports
         from aragora.queue.job import DebateResult, get_debate_payload

@@ -18,7 +18,7 @@ Phase A2 - Workspace Governance
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Set
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -35,14 +35,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class GovernanceHandlerProtocol(Protocol):
     """Protocol for handlers that use GovernanceOperationsMixin."""
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
-
 
 class GovernanceOperationsMixin:
     """Mixin providing governance (RBAC + audit) API endpoints."""
@@ -58,8 +56,8 @@ class GovernanceOperationsMixin:
         name: str,
         permissions: list[str],
         description: str = "",
-        workspace_id: Optional[str] = None,
-        created_by: Optional[str] = None,
+        workspace_id: str | None = None,
+        created_by: str | None = None,
     ) -> HandlerResult:
         """
         Create a new role.
@@ -97,7 +95,7 @@ class GovernanceOperationsMixin:
 
         # Convert permission strings to Permission enum
         try:
-            perm_set: Set[Permission] = set()
+            perm_set: set[Permission] = set()
             for p in permissions:
                 perm_set.add(Permission(p))
         except ValueError as e:
@@ -132,8 +130,8 @@ class GovernanceOperationsMixin:
         self,
         user_id: str,
         role_id: str,
-        workspace_id: Optional[str] = None,
-        assigned_by: Optional[str] = None,
+        workspace_id: str | None = None,
+        assigned_by: str | None = None,
     ) -> HandlerResult:
         """
         Assign a role to a user.
@@ -188,7 +186,7 @@ class GovernanceOperationsMixin:
         self,
         user_id: str,
         role_id: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> HandlerResult:
         """
         Revoke a role from a user.
@@ -240,7 +238,7 @@ class GovernanceOperationsMixin:
     async def get_user_permissions(
         self,
         user_id: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> HandlerResult:
         """
         Get all permissions for a user.
@@ -284,7 +282,7 @@ class GovernanceOperationsMixin:
         self,
         user_id: str,
         permission: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> HandlerResult:
         """
         Check if user has a specific permission.
@@ -344,9 +342,9 @@ class GovernanceOperationsMixin:
     @rate_limit(requests_per_minute=30)
     async def query_audit_trail(
         self,
-        actor_id: Optional[str] = None,
-        action: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        action: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
     ) -> HandlerResult:
         """

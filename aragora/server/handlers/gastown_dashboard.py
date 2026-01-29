@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -38,14 +38,13 @@ from aragora.server.versioning.compat import strip_version_prefix
 logger = logging.getLogger(__name__)
 
 # In-memory cache for dashboard data
-_gt_dashboard_cache: Dict[str, Dict[str, Any]] = {}
+_gt_dashboard_cache: dict[str, dict[str, Any]] = {}
 _gt_dashboard_cache_lock = threading.Lock()
 
 # Cache TTL (15 seconds for near-real-time)
 CACHE_TTL = 15
 
-
-def _get_cached_data(key: str) -> Optional[Dict[str, Any]]:
+def _get_cached_data(key: str) -> Optional[dict[str, Any]]:
     """Get cached dashboard data if not expired."""
     with _gt_dashboard_cache_lock:
         cached = _gt_dashboard_cache.get(key)
@@ -54,15 +53,13 @@ def _get_cached_data(key: str) -> Optional[Dict[str, Any]]:
                 return cached.get("data")
     return None
 
-
-def _set_cached_data(key: str, data: Dict[str, Any]) -> None:
+def _set_cached_data(key: str, data: dict[str, Any]) -> None:
     """Cache dashboard data."""
     with _gt_dashboard_cache_lock:
         _gt_dashboard_cache[key] = {
             "data": data,
             "cached_at": datetime.now(timezone.utc).timestamp(),
         }
-
 
 class GasTownDashboardHandler(SecureHandler):
     """Handler for Gas Town dashboard endpoints."""
@@ -85,9 +82,9 @@ class GasTownDashboardHandler(SecureHandler):
     async def handle(
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route Gas Town dashboard requests."""
         # Require authentication
         try:
@@ -119,7 +116,7 @@ class GasTownDashboardHandler(SecureHandler):
 
         return None
 
-    async def _get_overview(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _get_overview(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get Gas Town overview dashboard data.
 
         Returns:
@@ -138,7 +135,7 @@ class GasTownDashboardHandler(SecureHandler):
                 return json_response(cached)
 
         now = datetime.now(timezone.utc)
-        overview: Dict[str, Any] = {
+        overview: dict[str, Any] = {
             "generated_at": now.isoformat(),
             "convoys": {"active": 0, "completed": 0, "failed": 0, "total": 0},
             "beads": {"pending": 0, "in_progress": 0, "completed": 0, "failed": 0, "total": 0},
@@ -227,7 +224,7 @@ class GasTownDashboardHandler(SecureHandler):
         _set_cached_data("overview", overview)
         return json_response(overview)
 
-    async def _get_convoys(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _get_convoys(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get convoy list with progress.
 
         Returns list of convoys with:
@@ -294,7 +291,7 @@ class GasTownDashboardHandler(SecureHandler):
             logger.error(f"Error getting convoys: {e}")
             return error_response(f"Error getting convoys: {e}", 500)
 
-    async def _get_agents(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _get_agents(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get agent workload distribution.
 
         Returns:
@@ -307,7 +304,7 @@ class GasTownDashboardHandler(SecureHandler):
 
             hierarchy = AgentHierarchy()
 
-            agents_by_role: Dict[str, List[Dict[str, Any]]] = {role.value: [] for role in AgentRole}
+            agents_by_role: dict[str, list[dict[str, Any]]] = {role.value: [] for role in AgentRole}
 
             for role in AgentRole:
                 agents = await hierarchy.list_agents(role=role)
@@ -348,7 +345,7 @@ class GasTownDashboardHandler(SecureHandler):
             logger.error(f"Error getting agents: {e}")
             return error_response(f"Error getting agents: {e}", 500)
 
-    async def _get_beads(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _get_beads(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get bead queue stats.
 
         Returns:
@@ -364,7 +361,7 @@ class GasTownDashboardHandler(SecureHandler):
 
             manager = BeadManager()
 
-            stats: Dict[str, Any] = {
+            stats: dict[str, Any] = {
                 "by_status": {},
                 "by_priority": {},
                 "queue_depth": 0,
@@ -411,7 +408,7 @@ class GasTownDashboardHandler(SecureHandler):
             logger.error(f"Error getting beads: {e}")
             return error_response(f"Error getting beads: {e}", 500)
 
-    async def _get_metrics(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _get_metrics(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get throughput metrics.
 
         Returns:
@@ -422,7 +419,7 @@ class GasTownDashboardHandler(SecureHandler):
         """
         hours = int(query_params.get("hours", 24))
 
-        metrics: Dict[str, Any] = {
+        metrics: dict[str, Any] = {
             "period_hours": hours,
             "beads_per_hour": 0.0,
             "avg_bead_duration_minutes": None,

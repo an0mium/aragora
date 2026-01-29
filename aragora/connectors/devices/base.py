@@ -19,7 +19,7 @@ import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, List, Optional, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 from .models import (
     BatchSendResult,
@@ -36,7 +36,6 @@ from .models import (
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DeviceConnectorConfig:
@@ -63,7 +62,6 @@ class DeviceConnectorConfig:
     # Credentials (platform-specific)
     credentials: dict[str, Any] = field(default_factory=dict)
 
-
 class DeviceConnector(ABC):
     """
     Abstract base class for device/push notification integrations.
@@ -78,7 +76,7 @@ class DeviceConnector(ABC):
     Includes circuit breaker support for fault tolerance in HTTP operations.
     """
 
-    def __init__(self, config: Optional[DeviceConnectorConfig] = None):
+    def __init__(self, config: DeviceConnectorConfig | None = None):
         """
         Initialize the connector.
 
@@ -89,7 +87,7 @@ class DeviceConnector(ABC):
         self._initialized = False
 
         # Circuit breaker state
-        self._circuit_breaker: Optional[Any] = None
+        self._circuit_breaker: Any | None = None
         self._circuit_breaker_initialized = False
 
         # Rate limiting state
@@ -100,7 +98,7 @@ class DeviceConnector(ABC):
     # Circuit Breaker Support
     # ==========================================================================
 
-    def _get_circuit_breaker(self) -> Optional[Any]:
+    def _get_circuit_breaker(self) -> Any | None:
         """Get or create circuit breaker (lazy initialization)."""
         if not self.config.enable_circuit_breaker:
             return None
@@ -121,7 +119,7 @@ class DeviceConnector(ABC):
 
         return self._circuit_breaker
 
-    def _check_circuit_breaker(self) -> tuple[bool, Optional[str]]:
+    def _check_circuit_breaker(self) -> tuple[bool, str | None]:
         """
         Check if circuit breaker allows the request.
 
@@ -146,7 +144,7 @@ class DeviceConnector(ABC):
         if cb:
             cb.record_success()
 
-    def _record_failure(self, error: Optional[Exception] = None) -> None:
+    def _record_failure(self, error: Exception | None = None) -> None:
         """Record a failed operation with the circuit breaker."""
         cb = self._get_circuit_breaker()
         if cb:
@@ -166,9 +164,9 @@ class DeviceConnector(ABC):
         operation: str,
         func: Callable[..., Awaitable[T]],
         *args: Any,
-        max_retries: Optional[int] = None,
-        base_delay: Optional[float] = None,
-        max_delay: Optional[float] = None,
+        max_retries: int | None = None,
+        base_delay: float | None = None,
+        max_delay: float | None = None,
         retryable_exceptions: tuple[type[Exception], ...] = (Exception,),
         **kwargs: Any,
     ) -> T:
@@ -251,11 +249,11 @@ class DeviceConnector(ABC):
         self,
         method: str,
         url: str,
-        headers: Optional[dict[str, str]] = None,
-        json: Optional[dict[str, Any]] = None,
-        data: Optional[Any] = None,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        data: Any | None = None,
         operation: str = "http_request",
-    ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+    ) -> tuple[bool, dict[str, Any] | None, str | None]:
         """
         Make an HTTP request with retry, timeout, and circuit breaker support.
 
@@ -268,7 +266,7 @@ class DeviceConnector(ABC):
             operation: Operation name for logging
 
         Returns:
-            Tuple of (success: bool, response_json: Optional[dict], error: Optional[str])
+            Tuple of (success: bool, response_json: dict | None, error: str | None)
         """
         # Check circuit breaker first
         can_proceed, error_msg = self._check_circuit_breaker()
@@ -281,7 +279,7 @@ class DeviceConnector(ABC):
         except ImportError:
             return False, None, "httpx not available"
 
-        last_error: Optional[str] = None
+        last_error: str | None = None
         max_retries = self.config.max_retries
         base_delay = self.config.base_retry_delay
 
@@ -370,7 +368,7 @@ class DeviceConnector(ABC):
 
     @property
     @abstractmethod
-    def supported_device_types(self) -> List[DeviceType]:
+    def supported_device_types(self) -> list[DeviceType]:
         """Return list of device types this connector supports."""
         raise NotImplementedError
 
@@ -400,7 +398,7 @@ class DeviceConnector(ABC):
 
     async def send_batch(
         self,
-        devices: List[DeviceToken],
+        devices: list[DeviceToken],
         message: DeviceMessage,
         **kwargs: Any,
     ) -> BatchSendResult:
@@ -523,7 +521,7 @@ class DeviceConnector(ABC):
         self,
         registration: DeviceRegistration,
         **kwargs: Any,
-    ) -> Optional[DeviceToken]:
+    ) -> DeviceToken | None:
         """
         Register a device for push notifications.
 

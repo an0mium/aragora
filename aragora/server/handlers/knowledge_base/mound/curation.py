@@ -27,14 +27,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class CurationHandlerProtocol(Protocol):
     """Protocol for handlers that use CurationOperationsMixin."""
 
     _mound: Optional["KnowledgeMound"]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
-
 
 class CurationOperationsMixin:
     """Mixin providing curation management endpoints."""
@@ -45,7 +43,7 @@ class CurationOperationsMixin:
 
     def _check_knowledge_permission(
         self, handler: Any, action: str = "read"
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Check RBAC permission for knowledge operations."""
         permission = f"knowledge.{action}"
         try:
@@ -79,7 +77,7 @@ class CurationOperationsMixin:
 
     def _handle_curation_routes(
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route curation-related requests."""
         # Check RBAC permission for knowledge operations
         method = getattr(handler, "command", "GET")

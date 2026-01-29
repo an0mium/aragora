@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 
@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 # Content type for TwiML responses
 TWIML_CONTENT_TYPE = "application/xml"
 
-
 class VoiceHandler:
     """
     Handler for Twilio Voice webhooks.
@@ -54,8 +53,8 @@ class VoiceHandler:
 
     def __init__(
         self,
-        voice_integration: Optional[TwilioVoiceIntegration] = None,
-        debate_starter: Optional[Any] = None,
+        voice_integration: TwilioVoiceIntegration | None = None,
+        debate_starter: Any | None = None,
     ):
         """
         Initialize voice handler.
@@ -332,8 +331,7 @@ class VoiceHandler:
         except Exception as e:
             logger.error(f"Failed to start debate from voice: {e}")
 
-
-def setup_voice_routes(app: "Application", handler: Optional[VoiceHandler] = None) -> None:
+def setup_voice_routes(app: "Application", handler: VoiceHandler | None = None) -> None:
     """
     Set up voice webhook routes.
 
@@ -357,6 +355,5 @@ def setup_voice_routes(app: "Application", handler: Optional[VoiceHandler] = Non
     app.router.add_post("/api/voice/gather/confirm", handler.handle_gather_confirm)
 
     logger.info("Voice webhook routes registered")
-
 
 __all__ = ["VoiceHandler", "setup_voice_routes"]

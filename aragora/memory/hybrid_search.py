@@ -35,7 +35,6 @@ __all__ = [
     "get_hybrid_memory_search",
 ]
 
-
 @dataclass
 class MemorySearchResult:
     """A search result from hybrid memory search."""
@@ -69,7 +68,6 @@ class MemorySearchResult:
             "updated_at": self.updated_at,
         }
 
-
 @dataclass
 class HybridMemoryConfig:
     """Configuration for hybrid memory search."""
@@ -89,11 +87,10 @@ class HybridMemoryConfig:
     min_combined_score: float = 0.0
 
     # Tier filtering
-    tiers: Optional[list[str]] = None  # None means all tiers
+    tiers: list[str] | None = None  # None means all tiers
 
     # Importance threshold
     min_importance: float = 0.0
-
 
 class EmbeddingProvider(Protocol):
     """Protocol for embedding providers."""
@@ -101,7 +98,6 @@ class EmbeddingProvider(Protocol):
     async def embed(self, text: str) -> list[float]:
         """Generate embedding for text."""
         ...
-
 
 class KeywordIndex:
     """
@@ -119,7 +115,7 @@ class KeywordIndex:
             db_path: Path to SQLite database (should match ContinuumMemory db)
         """
         self.db_path = Path(db_path)
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self._ensure_fts_table()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -180,7 +176,7 @@ class KeywordIndex:
         self,
         query: str,
         limit: int = 50,
-        tiers: Optional[list[str]] = None,
+        tiers: list[str] | None = None,
         min_importance: float = 0.0,
     ) -> list[tuple[str, str, float, str, float]]:
         """
@@ -253,7 +249,6 @@ class KeywordIndex:
             self._conn.close()
             self._conn = None
 
-
 class HybridMemorySearch:
     """
     Hybrid search combining vector similarity and keyword search for memories.
@@ -265,8 +260,8 @@ class HybridMemorySearch:
     def __init__(
         self,
         continuum_memory: "ContinuumMemory",
-        embedder: Optional[EmbeddingProvider] = None,
-        config: Optional[HybridMemoryConfig] = None,
+        embedder: EmbeddingProvider | None = None,
+        config: HybridMemoryConfig | None = None,
     ):
         """
         Initialize hybrid memory search.
@@ -292,8 +287,8 @@ class HybridMemorySearch:
         self,
         query: str,
         limit: int = 10,
-        tiers: Optional[list[str]] = None,
-        vector_weight: Optional[float] = None,
+        tiers: list[str] | None = None,
+        vector_weight: float | None = None,
         min_importance: float = 0.0,
     ) -> list[MemorySearchResult]:
         """
@@ -337,7 +332,7 @@ class HybridMemorySearch:
     async def _vector_search(
         self,
         query: str,
-        tiers: Optional[list[str]],
+        tiers: list[str] | None,
         min_importance: float,
     ) -> list[tuple[str, str, float, str, float]]:
         """
@@ -387,7 +382,7 @@ class HybridMemorySearch:
     async def _keyword_search(
         self,
         query: str,
-        tiers: Optional[list[str]],
+        tiers: list[str] | None,
         min_importance: float,
     ) -> list[tuple[str, str, float, str, float]]:
         """
@@ -507,7 +502,7 @@ class HybridMemorySearch:
         self,
         query: str,
         limit: int = 10,
-        tiers: Optional[list[str]] = None,
+        tiers: list[str] | None = None,
         min_importance: float = 0.0,
     ) -> list[MemorySearchResult]:
         """
@@ -544,7 +539,7 @@ class HybridMemorySearch:
         self,
         query: str,
         limit: int = 10,
-        tiers: Optional[list[str]] = None,
+        tiers: list[str] | None = None,
         min_importance: float = 0.0,
     ) -> list[MemorySearchResult]:
         """
@@ -592,14 +587,12 @@ class HybridMemorySearch:
         """Close resources."""
         self._keyword_index.close()
 
-
 # Singleton instance
-_hybrid_search: Optional[HybridMemorySearch] = None
-
+_hybrid_search: HybridMemorySearch | None = None
 
 def get_hybrid_memory_search(
     continuum_memory: Optional["ContinuumMemory"] = None,
-    config: Optional[HybridMemoryConfig] = None,
+    config: HybridMemoryConfig | None = None,
 ) -> HybridMemorySearch:
     """
     Get the global HybridMemorySearch singleton.

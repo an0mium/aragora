@@ -25,7 +25,7 @@ integrity verification for compliance documentation.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -39,7 +39,6 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-
 class AuditTrailHandler(BaseHandler):
     """
     HTTP handler for audit trail operations.
@@ -49,8 +48,8 @@ class AuditTrailHandler(BaseHandler):
     """
 
     # Legacy in-memory storage (kept for backward compatibility during migration)
-    _trails: Dict[str, Dict[str, Any]] = {}
-    _receipts: Dict[str, Dict[str, Any]] = {}
+    _trails: dict[str, dict[str, Any]] = {}
+    _receipts: dict[str, dict[str, Any]] = {}
 
     def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
@@ -74,9 +73,9 @@ class AuditTrailHandler(BaseHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
         query_params = query_params or {}
@@ -117,7 +116,7 @@ class AuditTrailHandler(BaseHandler):
             return error_response(f"Internal error: {str(e)}", 500)
 
     @require_permission("audit:read")
-    async def _list_audit_trails(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _list_audit_trails(self, query_params: dict[str, str]) -> HandlerResult:
         """List recent audit trails with pagination."""
         limit = int(query_params.get("limit", "20"))
         offset = int(query_params.get("offset", "0"))
@@ -181,7 +180,7 @@ class AuditTrailHandler(BaseHandler):
 
     @require_permission("audit:export")
     async def _export_audit_trail(
-        self, trail_id: str, query_params: Dict[str, str]
+        self, trail_id: str, query_params: dict[str, str]
     ) -> HandlerResult:
         """Export audit trail in specified format."""
         format_type = query_params.get("format", "json")
@@ -285,7 +284,7 @@ class AuditTrailHandler(BaseHandler):
             )
 
     @require_permission("audit:receipts.read")
-    async def _list_receipts(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _list_receipts(self, query_params: dict[str, str]) -> HandlerResult:
         """List recent decision receipts with pagination."""
         limit = int(query_params.get("limit", "20"))
         offset = int(query_params.get("offset", "0"))
@@ -398,7 +397,7 @@ class AuditTrailHandler(BaseHandler):
                 }
             )
 
-    async def _load_trail_from_gauntlet(self, trail_id: str) -> Optional[Dict[str, Any]]:
+    async def _load_trail_from_gauntlet(self, trail_id: str) -> Optional[dict[str, Any]]:
         """
         Try to load audit trail from gauntlet results.
 
@@ -435,7 +434,7 @@ class AuditTrailHandler(BaseHandler):
 
         return None
 
-    async def _load_receipt_from_gauntlet(self, receipt_id: str) -> Optional[Dict[str, Any]]:
+    async def _load_receipt_from_gauntlet(self, receipt_id: str) -> Optional[dict[str, Any]]:
         """
         Try to load decision receipt from gauntlet results.
 
@@ -474,11 +473,11 @@ class AuditTrailHandler(BaseHandler):
         return None
 
     @classmethod
-    def store_trail(cls, trail_id: str, trail_data: Dict[str, Any]) -> None:
+    def store_trail(cls, trail_id: str, trail_data: dict[str, Any]) -> None:
         """Store an audit trail (called from gauntlet handler)."""
         cls._trails[trail_id] = trail_data
 
     @classmethod
-    def store_receipt(cls, receipt_id: str, receipt_data: Dict[str, Any]) -> None:
+    def store_receipt(cls, receipt_id: str, receipt_data: dict[str, Any]) -> None:
         """Store a decision receipt (called from gauntlet handler)."""
         cls._receipts[receipt_id] = receipt_data

@@ -31,10 +31,9 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 # Check for docling library
 try:
@@ -47,7 +46,6 @@ except ImportError:
     DOCLING_AVAILABLE = False
     logger.info("docling not available - install with: pip install docling")
 
-
 @dataclass
 class ExtractedTable:
     """A table extracted from a document."""
@@ -57,7 +55,7 @@ class ExtractedTable:
     rows: list[list[str]] = field(default_factory=list)
     headers: list[str] = field(default_factory=list)
     caption: str = ""
-    bounding_box: Optional[dict[str, float]] = None
+    bounding_box: dict[str, float] | None = None
 
     @property
     def row_count(self) -> int:
@@ -118,7 +116,6 @@ class ExtractedTable:
             "col_count": self.col_count,
         }
 
-
 @dataclass
 class ExtractedFigure:
     """A figure/image extracted from a document."""
@@ -127,8 +124,8 @@ class ExtractedFigure:
     page_number: int = 0
     caption: str = ""
     alt_text: str = ""
-    bounding_box: Optional[dict[str, float]] = None
-    image_data: Optional[bytes] = None  # Raw image bytes if extracted
+    bounding_box: dict[str, float] | None = None
+    image_data: bytes | None = None  # Raw image bytes if extracted
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -140,7 +137,6 @@ class ExtractedFigure:
             "bounding_box": self.bounding_box,
             "has_image_data": self.image_data is not None,
         }
-
 
 @dataclass
 class DoclingResult:
@@ -154,7 +150,7 @@ class DoclingResult:
     metadata: dict[str, Any]
     parser_name: str = "docling"
     parse_duration_ms: int = 0
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -169,7 +165,6 @@ class DoclingResult:
             "parse_duration_ms": self.parse_duration_ms,
             "error": self.error,
         }
-
 
 class DoclingParser:
     """
@@ -202,7 +197,7 @@ class DoclingParser:
         self.extract_images = extract_images
         self.ocr_enabled = ocr_enabled
 
-        self._converter: Optional[Any] = None
+        self._converter: Any | None = None
 
     def _get_converter(self):
         """Get or create the document converter."""
@@ -388,7 +383,6 @@ class DoclingParser:
         ext = Path(filename).suffix.lower()
         return ext in self.SUPPORTED_FORMATS
 
-
 def parse_with_docling(
     content: bytes,
     filename: str,
@@ -413,7 +407,6 @@ def parse_with_docling(
     )
     return parser.parse(content, filename)
 
-
 def get_tables_from_pdf(content: bytes, filename: str = "document.pdf") -> list[ExtractedTable]:
     """
     Extract tables from a PDF document.
@@ -433,7 +426,6 @@ def get_tables_from_pdf(content: bytes, filename: str = "document.pdf") -> list[
         extract_images=False,
     )
     return parser.extract_tables_only(content, filename)
-
 
 __all__ = [
     "DoclingParser",

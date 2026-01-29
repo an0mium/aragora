@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -45,10 +45,9 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
-
 def _check_email_permission(
-    auth_context: Optional[Any], permission_key: str
-) -> Optional[Dict[str, Any]]:
+    auth_context: Any | None, permission_key: str
+) -> Optional[dict[str, Any]]:
     """
     Check RBAC permission for email operations.
 
@@ -86,14 +85,12 @@ def _check_email_permission(
 
     return None
 
-
 # =============================================================================
 # Persistent Storage
 # =============================================================================
 
 _email_store = None
 _email_store_lock = threading.Lock()
-
 
 def get_email_store():
     """Get or create the email store (lazy init, thread-safe)."""
@@ -112,8 +109,7 @@ def get_email_store():
                 logger.warning(f"[EmailHandler] Failed to init email store: {e}")
         return _email_store
 
-
-def _load_config_from_store(user_id: str, workspace_id: str = "default") -> Dict[str, Any]:
+def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict[str, Any]:
     """Load config from persistent store into memory cache."""
     store = get_email_store()
     if store:
@@ -125,9 +121,8 @@ def _load_config_from_store(user_id: str, workspace_id: str = "default") -> Dict
             logger.warning(f"[EmailHandler] Failed to load config from store: {e}")
     return {}
 
-
 def _save_config_to_store(
-    user_id: str, config: Dict[str, Any], workspace_id: str = "default"
+    user_id: str, config: dict[str, Any], workspace_id: str = "default"
 ) -> None:
     """Save config to persistent store."""
     store = get_email_store()
@@ -137,17 +132,15 @@ def _save_config_to_store(
         except Exception as e:
             logger.warning(f"[EmailHandler] Failed to save config to store: {e}")
 
-
 # Global instances (initialized lazily) with thread-safe access
-_gmail_connector: Optional[Any] = None
+_gmail_connector: Any | None = None
 _gmail_connector_lock = threading.Lock()
-_prioritizer: Optional[Any] = None
+_prioritizer: Any | None = None
 _prioritizer_lock = threading.Lock()
-_context_service: Optional[Any] = None
+_context_service: Any | None = None
 _context_service_lock = threading.Lock()
-_user_configs: Dict[str, Dict[str, Any]] = {}
+_user_configs: dict[str, dict[str, Any]] = {}
 _user_configs_lock = threading.Lock()
-
 
 def get_gmail_connector(user_id: str = "default"):
     """Get or create Gmail connector for a user (thread-safe)."""
@@ -162,7 +155,6 @@ def get_gmail_connector(user_id: str = "default"):
 
             _gmail_connector = GmailConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
         return _gmail_connector
-
 
 def get_prioritizer(user_id: str = "default"):
     """Get or create email prioritizer for a user (thread-safe)."""
@@ -195,7 +187,6 @@ def get_prioritizer(user_id: str = "default"):
             )
         return _prioritizer
 
-
 def get_context_service():
     """Get or create cross-channel context service (thread-safe)."""
     global _context_service
@@ -210,19 +201,17 @@ def get_context_service():
             _context_service = CrossChannelContextService()
         return _context_service
 
-
 # =============================================================================
 # Email Prioritization Handlers
 # =============================================================================
 
-
 async def handle_prioritize_email(
-    email_data: Dict[str, Any],
+    email_data: dict[str, Any],
     user_id: str = "default",
     workspace_id: str = "default",
-    force_tier: Optional[str] = None,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    force_tier: str | None = None,
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Score a single email for priority.
 
@@ -302,14 +291,13 @@ async def handle_prioritize_email(
             "error": str(e),
         }
 
-
 async def handle_rank_inbox(
-    emails: List[Dict[str, Any]],
+    emails: list[dict[str, Any]],
     user_id: str = "default",
     workspace_id: str = "default",
-    limit: Optional[int] = None,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    limit: int | None = None,
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Rank multiple emails by priority.
 
@@ -375,15 +363,14 @@ async def handle_rank_inbox(
             "error": str(e),
         }
 
-
 async def handle_email_feedback(
     email_id: str,
     action: str,
     user_id: str = "default",
     workspace_id: str = "default",
-    email_data: Optional[Dict[str, Any]] = None,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    email_data: Optional[dict[str, Any]] = None,
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Record user action for learning.
 
@@ -443,18 +430,16 @@ async def handle_email_feedback(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Cross-Channel Context Handlers
 # =============================================================================
-
 
 async def handle_get_context(
     email_address: str,
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Get cross-channel context for an email address.
 
@@ -483,13 +468,12 @@ async def handle_get_context(
             "error": str(e),
         }
 
-
 async def handle_get_email_context_boost(
-    email_data: Dict[str, Any],
+    email_data: dict[str, Any],
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Get context-based priority boosts for an email.
 
@@ -556,16 +540,13 @@ async def handle_get_email_context_boost(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Email Categorization Handlers
 # =============================================================================
 
-
 # Global categorizer instance
-_categorizer: Optional[Any] = None
+_categorizer: Any | None = None
 _categorizer_lock = threading.Lock()
-
 
 def get_categorizer():
     """Get or create email categorizer (thread-safe)."""
@@ -580,13 +561,12 @@ def get_categorizer():
             _categorizer = EmailCategorizer(gmail_connector=get_gmail_connector())
         return _categorizer
 
-
 async def handle_categorize_email(
-    email_data: Dict[str, Any],
+    email_data: dict[str, Any],
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Categorize a single email into a smart folder.
 
@@ -651,14 +631,13 @@ async def handle_categorize_email(
             "error": str(e),
         }
 
-
 async def handle_categorize_batch(
-    emails: List[Dict[str, Any]],
+    emails: list[dict[str, Any]],
     user_id: str = "default",
     workspace_id: str = "default",
     concurrency: int = 10,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Categorize multiple emails in batch.
 
@@ -683,7 +662,7 @@ async def handle_categorize_batch(
 
     try:
         # Convert dicts to EmailMessages
-        email_objects: List[EmailMessage] = []
+        email_objects: list[EmailMessage] = []
         for email_data in emails:
             email = EmailMessage(
                 id=email_data.get("id", f"unknown_{len(email_objects)}"),
@@ -729,13 +708,12 @@ async def handle_categorize_batch(
             "error": str(e),
         }
 
-
 async def handle_feedback_batch(
-    feedback_items: List[Dict[str, Any]],
+    feedback_items: list[dict[str, Any]],
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Record batch user actions for learning.
 
@@ -793,14 +771,13 @@ async def handle_feedback_batch(
             "error": str(e),
         }
 
-
 async def handle_apply_category_label(
     email_id: str,
     category: str,
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Apply Gmail label based on category.
 
@@ -842,18 +819,16 @@ async def handle_apply_category_label(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Gmail OAuth Handlers
 # =============================================================================
-
 
 async def handle_gmail_oauth_url(
     redirect_uri: str,
     state: str = "",
     scopes: str = "readonly",  # "readonly" or "full"
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Get Gmail OAuth authorization URL.
 
@@ -897,14 +872,13 @@ async def handle_gmail_oauth_url(
             "error": str(e),
         }
 
-
 async def handle_gmail_oauth_callback(
     code: str,
     redirect_uri: str,
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Handle Gmail OAuth callback and store tokens.
 
@@ -940,12 +914,11 @@ async def handle_gmail_oauth_callback(
             "error": str(e),
         }
 
-
 async def handle_gmail_status(
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Check Gmail connection status.
 
@@ -992,20 +965,18 @@ async def handle_gmail_status(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Inbox Fetch and Rank Handler
 # =============================================================================
 
-
 async def handle_fetch_and_rank_inbox(
     user_id: str = "default",
     workspace_id: str = "default",
-    labels: Optional[List[str]] = None,
+    labels: Optional[list[str]] = None,
     limit: int = 50,
     include_read: bool = False,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Fetch inbox from Gmail and return ranked results.
 
@@ -1100,17 +1071,15 @@ async def handle_fetch_and_rank_inbox(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Configuration Handlers
 # =============================================================================
 
-
 async def handle_get_config(
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Get email prioritization configuration.
 
@@ -1150,13 +1119,12 @@ async def handle_get_config(
         },
     }
 
-
 @require_permission("admin:system")
 async def handle_update_config(
     user_id: str = "default",
-    config_updates: Dict[str, Any] = None,
+    config_updates: dict[str, Any] = None,
     workspace_id: str = "default",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Update email prioritization configuration.
 
@@ -1227,19 +1195,17 @@ async def handle_update_config(
             "error": str(e),
         }
 
-
 # =============================================================================
 # VIP Management Handlers
 # =============================================================================
 
-
 async def handle_add_vip(
     user_id: str = "default",
-    email: Optional[str] = None,
-    domain: Optional[str] = None,
+    email: str | None = None,
+    domain: str | None = None,
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Add a VIP email or domain.
 
@@ -1312,14 +1278,13 @@ async def handle_add_vip(
             "error": str(e),
         }
 
-
 async def handle_remove_vip(
     user_id: str = "default",
-    email: Optional[str] = None,
-    domain: Optional[str] = None,
+    email: str | None = None,
+    domain: str | None = None,
     workspace_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Remove a VIP email or domain.
 
@@ -1388,11 +1353,9 @@ async def handle_remove_vip(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Handler Class (for integration with server routing)
 # =============================================================================
-
 
 class EmailHandler(BaseHandler):
     """
@@ -1421,7 +1384,7 @@ class EmailHandler(BaseHandler):
     # Prefix for dynamic routes like /api/email/context/:email_address
     ROUTE_PREFIXES = ["/api/v1/email/context/"]
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)  # type: ignore[arg-type]
 
@@ -1436,15 +1399,15 @@ class EmailHandler(BaseHandler):
         return False
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route email endpoint requests."""
         # This handler uses async methods, so we return None here
         # and let the server's async handling mechanism process it
         # The actual handling is done via HTTP method-specific handlers
         return None
 
-    async def handle_post_prioritize(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_prioritize(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/prioritize"""
         email_data = data.get("email", {})
         force_tier = data.get("force_tier")
@@ -1462,7 +1425,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_rank_inbox(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_rank_inbox(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/rank-inbox"""
         emails = data.get("emails", [])
         limit = data.get("limit")
@@ -1480,7 +1443,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_feedback(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_feedback(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/feedback"""
         email_id = data.get("email_id")
         action = data.get("action")
@@ -1503,7 +1466,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_feedback_batch(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_feedback_batch(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/feedback/batch"""
         items = data.get("items", [])
         user_id = self._get_user_id()
@@ -1522,7 +1485,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_categorize(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_categorize(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/categorize"""
         email_data = data.get("email", {})
         user_id = self._get_user_id()
@@ -1538,7 +1501,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_categorize_batch(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_categorize_batch(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/categorize/batch"""
         emails = data.get("emails", [])
         concurrency = data.get("concurrency", 10)
@@ -1559,7 +1522,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_categorize_apply_label(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_categorize_apply_label(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/categorize/apply-label"""
         email_id = data.get("email_id")
         category = data.get("category")
@@ -1580,7 +1543,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_inbox(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_inbox(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/email/inbox"""
         user_id = self._get_user_id()
         labels = params.get("labels", "").split(",") if params.get("labels") else None
@@ -1602,7 +1565,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_config(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_config(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/email/config"""
         user_id = self._get_user_id()
         result = await handle_get_config(
@@ -1611,7 +1574,7 @@ class EmailHandler(BaseHandler):
         )
         return success_response(result)
 
-    async def handle_put_config(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_put_config(self, data: dict[str, Any]) -> HandlerResult:
         """PUT /api/email/config"""
         user_id = self._get_user_id()
         result = await handle_update_config(
@@ -1625,7 +1588,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_vip(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_vip(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/vip"""
         user_id = self._get_user_id()
         email = data.get("email")
@@ -1643,7 +1606,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_delete_vip(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_delete_vip(self, data: dict[str, Any]) -> HandlerResult:
         """DELETE /api/email/vip"""
         user_id = self._get_user_id()
         email = data.get("email")
@@ -1661,7 +1624,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_gmail_oauth_url(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_gmail_oauth_url(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/gmail/oauth/url"""
         redirect_uri = data.get("redirect_uri")
         state = data.get("state", "")
@@ -1682,7 +1645,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_gmail_oauth_callback(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_gmail_oauth_callback(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/gmail/oauth/callback"""
         code = data.get("code")
         redirect_uri = data.get("redirect_uri")
@@ -1703,7 +1666,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_gmail_status(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_gmail_status(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/email/gmail/status"""
         user_id = self._get_user_id()
         result = await handle_gmail_status(
@@ -1712,7 +1675,7 @@ class EmailHandler(BaseHandler):
         )
         return success_response(result)
 
-    async def handle_get_context(self, params: Dict[str, Any], email_address: str) -> HandlerResult:
+    async def handle_get_context(self, params: dict[str, Any], email_address: str) -> HandlerResult:
         """GET /api/email/context/:email_address"""
         user_id = self._get_user_id()
         result = await handle_get_context(
@@ -1726,7 +1689,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_context_boost(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_context_boost(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/context/boost"""
         email_data = data.get("email", {})
         user_id = self._get_user_id()
@@ -1750,6 +1713,6 @@ class EmailHandler(BaseHandler):
             return auth_ctx.user_id
         return "default"
 
-    def _get_auth_context(self) -> Optional[Any]:
+    def _get_auth_context(self) -> Any | None:
         """Get auth context from handler ctx."""
         return self.ctx.get("auth_context")

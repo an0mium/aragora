@@ -11,7 +11,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -28,7 +28,6 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 class DocumentQueryHandler(BaseHandler):
     """Handler for natural language document query endpoints."""
 
@@ -44,11 +43,11 @@ class DocumentQueryHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("documents:read")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle GET requests - not supported for query endpoints."""
         return error_response("Use POST method for document queries", 405)
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/documents/query":
             return self._query_documents(handler)
@@ -120,9 +119,9 @@ class DocumentQueryHandler(BaseHandler):
     async def _run_query(
         self,
         question: str,
-        document_ids: Optional[list[str]],
-        workspace_id: Optional[str],
-        conversation_id: Optional[str],
+        document_ids: list[str] | None,
+        workspace_id: str | None,
+        conversation_id: str | None,
         config_dict: dict,
     ) -> dict[str, Any]:
         """Run the document query asynchronously."""
@@ -193,7 +192,7 @@ class DocumentQueryHandler(BaseHandler):
     async def _run_summarize(
         self,
         document_ids: list[str],
-        focus: Optional[str],
+        focus: str | None,
         config_dict: dict,
     ) -> dict[str, Any]:
         """Run document summarization asynchronously."""
@@ -258,7 +257,7 @@ class DocumentQueryHandler(BaseHandler):
     async def _run_compare(
         self,
         document_ids: list[str],
-        aspects: Optional[list[str]],
+        aspects: list[str] | None,
         config_dict: dict,
     ) -> dict[str, Any]:
         """Run document comparison asynchronously."""

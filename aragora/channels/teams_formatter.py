@@ -6,13 +6,12 @@ Formats receipts using Teams' Adaptive Cards for rich message display.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from .formatter import ReceiptFormatter, register_formatter
 
 if TYPE_CHECKING:
     from aragora.export.decision_receipt import DecisionReceipt
-
 
 @register_formatter
 class TeamsReceiptFormatter(ReceiptFormatter):
@@ -25,8 +24,8 @@ class TeamsReceiptFormatter(ReceiptFormatter):
     def format(
         self,
         receipt: "DecisionReceipt",
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        options: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Format receipt as Teams Adaptive Card.
 
@@ -44,7 +43,7 @@ class TeamsReceiptFormatter(ReceiptFormatter):
         confidence: float = float(confidence_raw) if confidence_raw is not None else 0.0
         confidence_color = self._get_confidence_color(confidence)
 
-        body: List[Dict[str, Any]] = []
+        body: list[dict[str, Any]] = []
 
         # Header with topic
         body.append(

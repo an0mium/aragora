@@ -15,7 +15,7 @@ Phase A2 - Knowledge Analytics Dashboard
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -32,14 +32,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class AnalyticsHandlerProtocol(Protocol):
     """Protocol for handlers that use AnalyticsOperationsMixin."""
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
-
 
 class AnalyticsOperationsMixin:
     """Mixin providing analytics API endpoints."""
@@ -127,10 +125,10 @@ class AnalyticsOperationsMixin:
     async def record_usage_event(
         self,
         event_type: str,
-        item_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        query: Optional[str] = None,
+        item_id: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
+        query: str | None = None,
     ) -> HandlerResult:
         """
         Record a usage event.

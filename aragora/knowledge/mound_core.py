@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.knowledge.types import (
@@ -54,8 +54,7 @@ from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)
 
-
-def _to_iso_string(value: Any) -> Optional[str]:
+def _to_iso_string(value: Any) -> str | None:
     """Safely convert datetime or string to ISO format string.
 
     Handles both datetime objects and ISO format strings to ensure
@@ -68,7 +67,6 @@ def _to_iso_string(value: Any) -> Optional[str]:
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return str(value)
-
 
 def _to_enum_value(value: Any) -> Any:
     """Safely extract value from enum or return string as-is.
@@ -84,13 +82,11 @@ def _to_enum_value(value: Any) -> Any:
         return value.value
     return str(value)
 
-
 # Type alias for node types
 NodeType = Literal["fact", "claim", "memory", "evidence", "consensus", "entity"]
 
 # Type alias for relationship types
 RelationshipType = Literal["supports", "contradicts", "derived_from", "related_to", "supersedes"]
-
 
 class ProvenanceType(Enum):
     """Source types for knowledge provenance."""
@@ -101,7 +97,6 @@ class ProvenanceType(Enum):
     AGENT = "agent"  # Agent-generated inference
     INFERENCE = "inference"  # Derived from other knowledge
     MIGRATION = "migration"  # Migrated from legacy system
-
 
 @dataclass
 class ProvenanceChain:
@@ -114,18 +109,18 @@ class ProvenanceChain:
 
     source_type: ProvenanceType
     source_id: str  # ID of the source (document, debate, user, etc.)
-    agent_id: Optional[str] = None
-    debate_id: Optional[str] = None
-    document_id: Optional[str] = None
-    user_id: Optional[str] = None
+    agent_id: str | None = None
+    debate_id: str | None = None
+    document_id: str | None = None
+    user_id: str | None = None
     transformations: list[dict[str, Any]] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
 
     def add_transformation(
         self,
         transform_type: str,
-        agent_id: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        agent_id: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Record a transformation to this knowledge."""
         self.transformations.append(
@@ -168,7 +163,6 @@ class ProvenanceChain:
             ),
         )
 
-
 @dataclass
 class KnowledgeNode:
     """
@@ -182,7 +176,7 @@ class KnowledgeNode:
     node_type: NodeType = "fact"
     content: str = ""
     confidence: float = 0.5
-    provenance: Optional[ProvenanceChain] = None
+    provenance: ProvenanceChain | None = None
     tier: MemoryTier = MemoryTier.SLOW
     workspace_id: str = ""
 
@@ -193,7 +187,7 @@ class KnowledgeNode:
 
     # Validation (from FactStore)
     validation_status: ValidationStatus = ValidationStatus.UNVERIFIED
-    consensus_proof_id: Optional[str] = None
+    consensus_proof_id: str | None = None
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.now)
@@ -202,7 +196,7 @@ class KnowledgeNode:
     # Additional metadata
     metadata: dict[str, Any] = field(default_factory=dict)
     topics: list[str] = field(default_factory=list)
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
     # Graph relationships (stored separately, referenced here for convenience)
     supports: list[str] = field(default_factory=list)  # Node IDs this supports
@@ -328,7 +322,6 @@ class KnowledgeNode:
             topics=fact.topics,
         )
 
-
 @dataclass
 class KnowledgeRelationship:
     """
@@ -382,7 +375,6 @@ class KnowledgeRelationship:
             ),
         )
 
-
 @dataclass
 class KnowledgeQueryResult:
     """Result of querying the knowledge mound."""
@@ -392,7 +384,6 @@ class KnowledgeQueryResult:
     query: str
     processing_time_ms: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 class KnowledgeMoundMetaStore(SQLiteStore):
     """
@@ -537,7 +528,7 @@ class KnowledgeMoundMetaStore(SQLiteStore):
 
         return node.id
 
-    def get_node(self, node_id: str) -> Optional[KnowledgeNode]:
+    def get_node(self, node_id: str) -> KnowledgeNode | None:
         """Get a knowledge node by ID."""
         with self.connection() as conn:
             row = conn.execute("SELECT * FROM knowledge_nodes WHERE id = ?", (node_id,)).fetchone()
@@ -640,7 +631,7 @@ class KnowledgeMoundMetaStore(SQLiteStore):
     def get_relationships(
         self,
         node_id: str,
-        relationship_type: Optional[RelationshipType] = None,
+        relationship_type: RelationshipType | None = None,
         direction: Literal["outgoing", "incoming", "both"] = "outgoing",
     ) -> list[KnowledgeRelationship]:
         """Get relationships for a node."""
@@ -668,12 +659,12 @@ class KnowledgeMoundMetaStore(SQLiteStore):
 
     def query_nodes(
         self,
-        workspace_id: Optional[str] = None,
-        node_types: Optional[list[NodeType]] = None,
+        workspace_id: str | None = None,
+        node_types: list[NodeType] | None = None,
         min_confidence: float = 0.0,
-        tier: Optional[MemoryTier] = None,
-        validation_status: Optional[ValidationStatus] = None,
-        topics: Optional[list[str]] = None,
+        tier: MemoryTier | None = None,
+        validation_status: ValidationStatus | None = None,
+        topics: list[str] | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[KnowledgeNode]:
@@ -730,7 +721,7 @@ class KnowledgeMoundMetaStore(SQLiteStore):
 
         return nodes
 
-    def find_by_content_hash(self, content_hash: str, workspace_id: str) -> Optional[KnowledgeNode]:
+    def find_by_content_hash(self, content_hash: str, workspace_id: str) -> KnowledgeNode | None:
         """Find node by content hash (for deduplication)."""
         with self.connection() as conn:
             row = conn.execute(
@@ -759,10 +750,10 @@ class KnowledgeMoundMetaStore(SQLiteStore):
 
     def query_by_provenance(
         self,
-        source_type: Optional[str] = None,
-        source_id: Optional[str] = None,
-        node_type: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        source_type: str | None = None,
+        source_id: str | None = None,
+        node_type: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
     ) -> list[str]:
         """Query nodes by provenance attributes."""
@@ -797,7 +788,7 @@ class KnowledgeMoundMetaStore(SQLiteStore):
             rows = conn.execute(query, params).fetchall()
             return [row["id"] for row in rows]
 
-    def get_stats(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
+    def get_stats(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get statistics about the knowledge mound."""
         with self.connection() as conn:
             where = "WHERE workspace_id = ?" if workspace_id else ""
@@ -848,7 +839,6 @@ class KnowledgeMoundMetaStore(SQLiteStore):
                 "total_relationships": relationship_count,
             }
 
-
 class KnowledgeMound:
     """
     Unified knowledge storage with vector + graph capabilities.
@@ -865,8 +855,8 @@ class KnowledgeMound:
     def __init__(
         self,
         workspace_id: str = "default",
-        db_path: Optional[Union[str, Path]] = None,
-        weaviate_config: Optional[dict[str, Any]] = None,
+        db_path: Optional[str | Path] = None,
+        weaviate_config: dict[str, Any] | None = None,
         embedding_fn: Optional[Callable[[str], list[float]]] = None,
     ):
         """
@@ -888,8 +878,8 @@ class KnowledgeMound:
         self._embedding_fn = embedding_fn
 
         # Initialize stores
-        self._meta_store: Optional[KnowledgeMoundMetaStore] = None
-        self._vector_store: Optional[Any] = None  # WeaviateStore when available
+        self._meta_store: KnowledgeMoundMetaStore | None = None
+        self._vector_store: Any | None = None  # WeaviateStore when available
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -982,7 +972,7 @@ class KnowledgeMound:
         logger.debug(f"Added knowledge node: {node.id} ({node.node_type})")
         return node.id
 
-    async def get_node(self, node_id: str) -> Optional[KnowledgeNode]:
+    async def get_node(self, node_id: str) -> KnowledgeNode | None:
         """Get a knowledge node by ID."""
         self._ensure_initialized()
         assert self._meta_store is not None
@@ -995,7 +985,7 @@ class KnowledgeMound:
         relationship_type: RelationshipType,
         strength: float = 1.0,
         created_by: str = "",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Add a relationship between two nodes.
@@ -1029,9 +1019,9 @@ class KnowledgeMound:
         self,
         query: str,
         limit: int = 10,
-        node_types: Optional[list[NodeType]] = None,
+        node_types: list[NodeType] | None = None,
         min_confidence: float = 0.0,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> KnowledgeQueryResult:
         """
         Semantic search across the knowledge mound.
@@ -1125,7 +1115,7 @@ class KnowledgeMound:
     async def query_graph(
         self,
         start_node_id: str,
-        relationship_type: Optional[RelationshipType] = None,
+        relationship_type: RelationshipType | None = None,
         depth: int = 2,
         direction: Literal["outgoing", "incoming", "both"] = "outgoing",
     ) -> list[KnowledgeNode]:
@@ -1170,14 +1160,14 @@ class KnowledgeMound:
 
     async def query_nodes(
         self,
-        node_types: Optional[list[NodeType]] = None,
+        node_types: list[NodeType] | None = None,
         min_confidence: float = 0.0,
-        tier: Optional[MemoryTier] = None,
-        validation_status: Optional[ValidationStatus] = None,
-        topics: Optional[list[str]] = None,
+        tier: MemoryTier | None = None,
+        validation_status: ValidationStatus | None = None,
+        topics: list[str] | None = None,
         limit: int = 100,
         offset: int = 0,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[KnowledgeNode]:
         """
         Query nodes with filters.
@@ -1239,11 +1229,11 @@ class KnowledgeMound:
 
     async def query_by_provenance(
         self,
-        source_type: Optional[str] = None,
-        source_id: Optional[str] = None,
-        node_type: Optional[str] = None,
+        source_type: str | None = None,
+        source_id: str | None = None,
+        node_type: str | None = None,
         limit: int = 100,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[KnowledgeNode]:
         """
         Query nodes by provenance attributes.
@@ -1281,7 +1271,7 @@ class KnowledgeMound:
     async def get_relationships(
         self,
         node_id: str,
-        relationship_type: Optional[RelationshipType] = None,
+        relationship_type: RelationshipType | None = None,
         direction: Literal["outgoing", "incoming", "both"] = "both",
     ) -> list[KnowledgeRelationship]:
         """
@@ -1381,7 +1371,7 @@ class KnowledgeMound:
 
     async def export_graph_d3(
         self,
-        start_node_id: Optional[str] = None,
+        start_node_id: str | None = None,
         depth: int = 3,
         limit: int = 100,
     ) -> dict[str, Any]:
@@ -1463,7 +1453,7 @@ class KnowledgeMound:
 
     async def export_graph_graphml(
         self,
-        start_node_id: Optional[str] = None,
+        start_node_id: str | None = None,
         depth: int = 3,
         limit: int = 100,
     ) -> str:

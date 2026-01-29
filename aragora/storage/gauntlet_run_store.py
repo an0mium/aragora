@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 _gauntlet_run_store: Optional["GauntletRunStoreBackend"] = None
 _store_lock = threading.RLock()
 
-
 @dataclass
 class GauntletRunItem:
     """
@@ -56,15 +55,15 @@ class GauntletRunItem:
     template_id: str
     status: str = "pending"  # pending, running, completed, failed, cancelled
     config_data: dict[str, Any] = field(default_factory=dict)
-    result_data: Optional[dict[str, Any]] = None
+    result_data: dict[str, Any] | None = None
 
     # Timing
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
 
     # Metadata
-    triggered_by: Optional[str] = None
-    workspace_id: Optional[str] = None
+    triggered_by: str | None = None
+    workspace_id: str | None = None
     tags: list[str] = field(default_factory=list)
 
     # Timestamps
@@ -123,12 +122,11 @@ class GauntletRunItem:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
-
 class GauntletRunStoreBackend(ABC):
     """Abstract base class for gauntlet run storage backends."""
 
     @abstractmethod
-    async def get(self, run_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, run_id: str) -> dict[str, Any] | None:
         """Get run data by ID."""
         pass
 
@@ -164,7 +162,7 @@ class GauntletRunStoreBackend(ABC):
 
     @abstractmethod
     async def update_status(
-        self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
+        self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
         """Update run status and optionally set result."""
         pass
@@ -173,7 +171,6 @@ class GauntletRunStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
-
 
 class InMemoryGauntletRunStore(GauntletRunStoreBackend):
     """
@@ -187,7 +184,7 @@ class InMemoryGauntletRunStore(GauntletRunStoreBackend):
         self._data: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
 
-    async def get(self, run_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, run_id: str) -> dict[str, Any] | None:
         """Get run data by ID."""
         with self._lock:
             return self._data.get(run_id)
@@ -229,7 +226,7 @@ class InMemoryGauntletRunStore(GauntletRunStoreBackend):
             return [r for r in self._data.values() if r.get("status") in ("pending", "running")]
 
     async def update_status(
-        self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
+        self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
         """Update run status and optionally set result."""
         with self._lock:
@@ -249,7 +246,6 @@ class InMemoryGauntletRunStore(GauntletRunStoreBackend):
         """No-op for in-memory store."""
         pass
 
-
 class SQLiteGauntletRunStore(GauntletRunStoreBackend):
     """
     SQLite-backed gauntlet run store.
@@ -257,7 +253,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
     Suitable for single-instance deployments.
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         """
         Initialize SQLite store.
 
@@ -310,7 +306,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
             finally:
                 conn.close()
 
-    async def get(self, run_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, run_id: str) -> dict[str, Any] | None:
         """Get run data by ID."""
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -535,7 +531,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                 conn.close()
 
     async def update_status(
-        self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
+        self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
         """Update run status and optionally set result."""
         with self._lock:
@@ -587,7 +583,6 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
         """No-op for SQLite (connections are per-operation)."""
         pass
 
-
 class RedisGauntletRunStore(GauntletRunStoreBackend):
     """
     Redis-backed gauntlet run store with SQLite fallback.
@@ -602,8 +597,8 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
 
     def __init__(
         self,
-        fallback_db_path: Optional[Path] = None,
-        redis_url: Optional[str] = None,
+        fallback_db_path: Path | None = None,
+        redis_url: str | None = None,
     ) -> None:
         """
         Initialize Redis store with SQLite fallback.
@@ -639,7 +634,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             self._using_fallback = True
             self._redis_client = None
 
-    async def get(self, run_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, run_id: str) -> dict[str, Any] | None:
         """Get run data by ID."""
         if self._using_fallback:
             return await self._fallback.get(run_id)
@@ -796,7 +791,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return await self._fallback.list_active()
 
     async def update_status(
-        self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
+        self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
         """Update run status and optionally set result."""
         # Update SQLite fallback
@@ -851,7 +846,6 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             except Exception as e:
                 logger.debug(f"Redis close failed: {e}")
 
-
 class PostgresGauntletRunStore(GauntletRunStoreBackend):
     """
     PostgreSQL-backed gauntlet run store.
@@ -897,7 +891,7 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
         self._initialized = True
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
 
-    async def get(self, run_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, run_id: str) -> dict[str, Any] | None:
         """Get run data by ID."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -909,7 +903,7 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
                 return json.loads(data) if isinstance(data, str) else data
             return None
 
-    def get_sync(self, run_id: str) -> Optional[dict[str, Any]]:
+    def get_sync(self, run_id: str) -> dict[str, Any] | None:
         """Get run data by ID (sync wrapper)."""
         from aragora.utils.async_utils import run_async
 
@@ -1045,7 +1039,7 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
         return run_async(self.list_active())
 
     async def update_status(
-        self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
+        self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
         """Update run status and optionally set result."""
         async with self._pool.acquire() as conn:
@@ -1087,7 +1081,7 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
             return True
 
     def update_status_sync(
-        self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
+        self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
         """Update run status (sync wrapper)."""
         from aragora.utils.async_utils import run_async
@@ -1097,7 +1091,6 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
     async def close(self) -> None:
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
-
 
 def get_gauntlet_run_store() -> GauntletRunStoreBackend:
     """
@@ -1146,7 +1139,6 @@ def get_gauntlet_run_store() -> GauntletRunStoreBackend:
 
         return _gauntlet_run_store
 
-
 def set_gauntlet_run_store(store: GauntletRunStoreBackend) -> None:
     """Set a custom gauntlet run store instance."""
     global _gauntlet_run_store
@@ -1154,14 +1146,12 @@ def set_gauntlet_run_store(store: GauntletRunStoreBackend) -> None:
     with _store_lock:
         _gauntlet_run_store = store
 
-
 def reset_gauntlet_run_store() -> None:
     """Reset the global gauntlet run store (for testing)."""
     global _gauntlet_run_store
 
     with _store_lock:
         _gauntlet_run_store = None
-
 
 __all__ = [
     "GauntletRunItem",

@@ -35,11 +35,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class ApprovalStatus(str, Enum):
     """Status of an approval request."""
@@ -50,14 +49,13 @@ class ApprovalStatus(str, Enum):
     EXPIRED = "expired"
     CANCELLED = "cancelled"
 
-
 @dataclass
 class ApprovalDecision:
     """Individual approver's decision on a request."""
 
     approver_id: str
     decision: str  # "approved" or "rejected"
-    comment: Optional[str] = None
+    comment: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,7 +67,6 @@ class ApprovalDecision:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 @dataclass
 class ApprovalRequest:
     """Request for elevated permissions or resource access."""
@@ -78,20 +75,20 @@ class ApprovalRequest:
     requester_id: str
     permission: str
     resource_type: str
-    resource_id: Optional[str]
+    resource_id: str | None
     justification: str
     status: ApprovalStatus
     approvers: list[str]  # User IDs who can approve
     required_approvals: int  # Number of approvals needed
     decisions: list[ApprovalDecision] = field(default_factory=list)
-    org_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    org_id: str | None = None
+    workspace_id: str | None = None
     duration_hours: int = 24  # How long access lasts once approved
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7)
     )
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -143,7 +140,6 @@ class ApprovalRequest:
             "metadata": self.metadata,
         }
 
-
 class ApprovalWorkflow:
     """
     Manages approval workflows for permission elevation.
@@ -176,13 +172,13 @@ class ApprovalWorkflow:
         permission: str,
         resource_type: str,
         justification: str,
-        resource_id: Optional[str] = None,
-        approvers: Optional[list[str]] = None,
+        resource_id: str | None = None,
+        approvers: list[str] | None = None,
         required_approvals: int = 1,
         duration_hours: int = 24,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ApprovalRequest:
         """
         Create a new access request.
@@ -269,7 +265,7 @@ class ApprovalWorkflow:
         self,
         approver_id: str,
         request_id: str,
-        comment: Optional[str] = None,
+        comment: str | None = None,
     ) -> ApprovalRequest:
         """
         Approve an access request.
@@ -396,7 +392,7 @@ class ApprovalWorkflow:
         self,
         requester_id: str,
         request_id: str,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> ApprovalRequest:
         """
         Cancel a pending access request.
@@ -436,7 +432,7 @@ class ApprovalWorkflow:
 
         return request
 
-    async def get_request(self, request_id: str) -> Optional[ApprovalRequest]:
+    async def get_request(self, request_id: str) -> ApprovalRequest | None:
         """Get a request by ID."""
         return self._requests.get(request_id)
 
@@ -474,7 +470,7 @@ class ApprovalWorkflow:
     async def get_requests_by_requester(
         self,
         requester_id: str,
-        status: Optional[ApprovalStatus] = None,
+        status: ApprovalStatus | None = None,
         limit: int = 100,
     ) -> list[ApprovalRequest]:
         """
@@ -532,8 +528,8 @@ class ApprovalWorkflow:
         self,
         permission: str,
         resource_type: str,
-        org_id: Optional[str],
-        workspace_id: Optional[str],
+        org_id: str | None,
+        workspace_id: str | None,
     ) -> list[str]:
         """
         Get default approvers for a permission request.
@@ -641,10 +637,8 @@ class ApprovalWorkflow:
             # Fallback to standard logging
             logger.info(f"Approval audit: {event_type} - {kwargs}")
 
-
 # Singleton instance
-_workflow: Optional[ApprovalWorkflow] = None
-
+_workflow: ApprovalWorkflow | None = None
 
 def get_approval_workflow() -> ApprovalWorkflow:
     """Get the global ApprovalWorkflow instance."""
@@ -652,7 +646,6 @@ def get_approval_workflow() -> ApprovalWorkflow:
     if _workflow is None:
         _workflow = ApprovalWorkflow()
     return _workflow
-
 
 __all__ = [
     "ApprovalStatus",

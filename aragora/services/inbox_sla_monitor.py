@@ -24,17 +24,15 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class SLAViolationType(str, Enum):
     """Types of SLA violations."""
 
     FIRST_RESPONSE = "first_response"
     RESOLUTION = "resolution"
-
 
 class EscalationLevel(str, Enum):
     """Escalation severity levels."""
@@ -43,7 +41,6 @@ class EscalationLevel(str, Enum):
     BREACH = "breach"  # SLA breached
     CRITICAL = "critical"  # Extended breach
 
-
 @dataclass
 class EscalationRule:
     """An escalation rule for SLA violations."""
@@ -51,11 +48,11 @@ class EscalationRule:
     id: str
     level: EscalationLevel
     threshold_minutes: int  # Minutes before/after SLA to trigger
-    notify_channels: List[str]  # ["email", "slack", "webhook"]
-    notify_users: List[str]  # User IDs to notify
-    reassign_to: Optional[str] = None  # Auto-reassign on breach
+    notify_channels: list[str]  # ["email", "slack", "webhook"]
+    notify_users: list[str]  # User IDs to notify
+    reassign_to: str | None = None  # Auto-reassign on breach
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "level": self.level.value,
@@ -66,7 +63,7 @@ class EscalationRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EscalationRule":
+    def from_dict(cls, data: dict[str, Any]) -> "EscalationRule":
         return cls(
             id=data.get("id", str(uuid.uuid4())),
             level=EscalationLevel(data["level"]),
@@ -76,7 +73,6 @@ class EscalationRule:
             reassign_to=data.get("reassign_to"),
         )
 
-
 @dataclass
 class SLAConfig:
     """SLA configuration for a shared inbox."""
@@ -85,14 +81,14 @@ class SLAConfig:
     org_id: str
     response_time_minutes: int = 60  # First response SLA (1 hour default)
     resolution_time_minutes: int = 480  # Full resolution SLA (8 hours default)
-    escalation_rules: List[EscalationRule] = field(default_factory=list)
+    escalation_rules: list[EscalationRule] = field(default_factory=list)
     enabled: bool = True
     business_hours_only: bool = False  # If True, only count business hours
     business_hours_start: int = 9  # 9 AM
     business_hours_end: int = 17  # 5 PM
-    business_days: List[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])  # Mon-Fri
+    business_days: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])  # Mon-Fri
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "inbox_id": self.inbox_id,
             "org_id": self.org_id,
@@ -107,7 +103,7 @@ class SLAConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SLAConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "SLAConfig":
         rules = [EscalationRule.from_dict(r) for r in data.get("escalation_rules", [])]
         return cls(
             inbox_id=data["inbox_id"],
@@ -121,7 +117,6 @@ class SLAConfig:
             business_hours_end=data.get("business_hours_end", 17),
             business_days=data.get("business_days", [0, 1, 2, 3, 4]),
         )
-
 
 @dataclass
 class SLAViolation:
@@ -138,7 +133,7 @@ class SLAViolation:
     escalation_triggered: bool = False
     resolved: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "inbox_id": self.inbox_id,
@@ -152,7 +147,6 @@ class SLAViolation:
             "resolved": self.resolved,
         }
 
-
 @dataclass
 class AtRiskMessage:
     """A message at risk of SLA breach."""
@@ -164,9 +158,9 @@ class AtRiskMessage:
     sla_deadline: datetime
     minutes_remaining: int
     risk_type: SLAViolationType
-    assigned_to: Optional[str] = None
+    assigned_to: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "message_id": self.message_id,
             "inbox_id": self.inbox_id,
@@ -177,7 +171,6 @@ class AtRiskMessage:
             "risk_type": self.risk_type.value,
             "assigned_to": self.assigned_to,
         }
-
 
 @dataclass
 class SLAMetrics:
@@ -196,7 +189,7 @@ class SLAMetrics:
     response_compliance_rate: float  # 0.0 to 1.0
     resolution_compliance_rate: float  # 0.0 to 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "inbox_id": self.inbox_id,
             "period_start": self.period_start.isoformat(),
@@ -212,7 +205,6 @@ class SLAMetrics:
             "resolution_compliance_rate": round(self.resolution_compliance_rate, 4),
         }
 
-
 class InboxSLAMonitor:
     """
     SLA monitoring and alerting service for shared inboxes.
@@ -222,10 +214,10 @@ class InboxSLAMonitor:
 
     def __init__(self):
         """Initialize the SLA monitor."""
-        self._configs: Dict[str, SLAConfig] = {}  # inbox_id -> config
-        self._violations: Dict[str, List[SLAViolation]] = {}  # inbox_id -> violations
+        self._configs: dict[str, SLAConfig] = {}  # inbox_id -> config
+        self._violations: dict[str, list[SLAViolation]] = {}  # inbox_id -> violations
         self._lock = threading.Lock()
-        self._escalation_handlers: List[Callable] = []
+        self._escalation_handlers: list[Callable] = []
 
     # =========================================================================
     # Configuration Management
@@ -237,7 +229,7 @@ class InboxSLAMonitor:
             self._configs[config.inbox_id] = config
         logger.info(f"[SLAMonitor] Set SLA config for inbox {config.inbox_id}")
 
-    def get_config(self, inbox_id: str) -> Optional[SLAConfig]:
+    def get_config(self, inbox_id: str) -> SLAConfig | None:
         """Get SLA configuration for an inbox."""
         with self._lock:
             return self._configs.get(inbox_id)
@@ -264,8 +256,8 @@ class InboxSLAMonitor:
     async def check_sla_compliance(
         self,
         inbox_id: str,
-        messages: Optional[List[Dict[str, Any]]] = None,
-    ) -> List[SLAViolation]:
+        messages: Optional[list[dict[str, Any]]] = None,
+    ) -> list[SLAViolation]:
         """
         Check SLA compliance for messages in an inbox.
 
@@ -342,8 +334,8 @@ class InboxSLAMonitor:
         self,
         inbox_id: str,
         threshold_minutes: int = 15,
-        messages: Optional[List[Dict[str, Any]]] = None,
-    ) -> List[AtRiskMessage]:
+        messages: Optional[list[dict[str, Any]]] = None,
+    ) -> list[AtRiskMessage]:
         """
         Get messages that are approaching SLA breach.
 
@@ -491,7 +483,7 @@ class InboxSLAMonitor:
         self,
         inbox_id: str,
         period_days: int = 7,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        messages: Optional[list[dict[str, Any]]] = None,
     ) -> SLAMetrics:
         """
         Get SLA compliance metrics for an inbox.
@@ -518,8 +510,8 @@ class InboxSLAMonitor:
         response_breached = 0
         resolution_met = 0
         resolution_breached = 0
-        response_times: List[float] = []
-        resolution_times: List[float] = []
+        response_times: list[float] = []
+        resolution_times: list[float] = []
 
         for msg in messages:
             received_at = self._parse_datetime(msg.get("received_at"))
@@ -593,7 +585,7 @@ class InboxSLAMonitor:
         else:  # More than 50% over
             return EscalationLevel.CRITICAL
 
-    def _parse_datetime(self, value: Any) -> Optional[datetime]:
+    def _parse_datetime(self, value: Any) -> datetime | None:
         """Parse datetime from various formats."""
         if value is None:
             return None
@@ -613,7 +605,7 @@ class InboxSLAMonitor:
             return datetime.fromtimestamp(value, tz=timezone.utc)
         return None
 
-    def _parse_timestamp(self, value: Optional[str]) -> Optional[datetime]:
+    def _parse_timestamp(self, value: str | None) -> datetime | None:
         """Parse timestamp from string (ISO date or unix timestamp)."""
         if not value:
             return None
@@ -635,9 +627,9 @@ class InboxSLAMonitor:
     async def _get_inbox_messages(
         self,
         inbox_id: str,
-        status: Optional[str] = None,
-        since: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        status: str | None = None,
+        since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """Get messages from inbox store.
 
         Args:
@@ -679,11 +671,9 @@ class InboxSLAMonitor:
             logger.debug(f"[SLAMonitor] Failed to get messages: {e}")
             return []
 
-
 # Module-level singleton
-_default_monitor: Optional[InboxSLAMonitor] = None
+_default_monitor: InboxSLAMonitor | None = None
 _monitor_lock = threading.Lock()
-
 
 def get_sla_monitor() -> InboxSLAMonitor:
     """Get or create the default SLA monitor instance."""
@@ -697,13 +687,11 @@ def get_sla_monitor() -> InboxSLAMonitor:
 
     return _default_monitor
 
-
 def reset_sla_monitor() -> None:
     """Reset the default monitor instance (for testing)."""
     global _default_monitor
     with _monitor_lock:
         _default_monitor = None
-
 
 __all__ = [
     "InboxSLAMonitor",

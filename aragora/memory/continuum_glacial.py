@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemoryEntry
     from aragora.memory.tier_manager import MemoryTier
 
 logger = logging.getLogger(__name__)
-
 
 class ContinuumGlacialMixin:
     """
@@ -27,7 +26,7 @@ class ContinuumGlacialMixin:
     """
 
     # These must be provided by the main class
-    hyperparams: Dict[str, Any]
+    hyperparams: dict[str, Any]
 
     def connection(self) -> Any:
         """Get database connection context manager."""
@@ -35,22 +34,22 @@ class ContinuumGlacialMixin:
 
     def retrieve(
         self,
-        query: Optional[str] = None,
-        tiers: Optional[List["MemoryTier"]] = None,
+        query: str | None = None,
+        tiers: Optional[list["MemoryTier"]] = None,
         limit: int = 10,
         min_importance: float = 0.0,
         include_glacial: bool = True,
-        tier: Optional[Any] = None,
-    ) -> List["ContinuumMemoryEntry"]:
+        tier: Any | None = None,
+    ) -> list["ContinuumMemoryEntry"]:
         """Retrieve memories - must be implemented by main class."""
         raise NotImplementedError
 
     def get_glacial_insights(
         self,
-        topic: Optional[str] = None,
+        topic: str | None = None,
         limit: int = 10,
         min_importance: float = 0.3,
-    ) -> List["ContinuumMemoryEntry"]:
+    ) -> list["ContinuumMemoryEntry"]:
         """
         Retrieve long-term patterns from the glacial tier for cross-session learning.
 
@@ -84,10 +83,10 @@ class ContinuumGlacialMixin:
 
     async def get_glacial_insights_async(
         self,
-        topic: Optional[str] = None,
+        topic: str | None = None,
         limit: int = 10,
         min_importance: float = 0.3,
-    ) -> List["ContinuumMemoryEntry"]:
+    ) -> list["ContinuumMemoryEntry"]:
         """Async wrapper for get_glacial_insights() for use in async contexts."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -101,10 +100,10 @@ class ContinuumGlacialMixin:
 
     def get_cross_session_patterns(
         self,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         include_slow: bool = True,
         limit: int = 20,
-    ) -> List["ContinuumMemoryEntry"]:
+    ) -> list["ContinuumMemoryEntry"]:
         """
         Get patterns that persist across sessions (slow + glacial tiers).
 
@@ -140,10 +139,10 @@ class ContinuumGlacialMixin:
 
     async def get_cross_session_patterns_async(
         self,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         include_slow: bool = True,
         limit: int = 20,
-    ) -> List["ContinuumMemoryEntry"]:
+    ) -> list["ContinuumMemoryEntry"]:
         """Async wrapper for get_cross_session_patterns()."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -155,7 +154,7 @@ class ContinuumGlacialMixin:
             ),
         )
 
-    def get_glacial_tier_stats(self) -> Dict[str, Any]:
+    def get_glacial_tier_stats(self) -> dict[str, Any]:
         """
         Get statistics specifically for the glacial tier.
 
@@ -189,7 +188,7 @@ class ContinuumGlacialMixin:
                 WHERE tier = 'glacial'
                 LIMIT 100
                 """)
-            tag_counts: Dict[str, int] = {}
+            tag_counts: dict[str, int] = {}
             for (metadata_json,) in cursor.fetchall():
                 metadata: dict[str, Any] = safe_json_loads(metadata_json, {})
                 for tag in metadata.get("tags", []):
@@ -213,6 +212,5 @@ class ContinuumGlacialMixin:
                 (row[0] or 0) / self.hyperparams["max_entries_per_tier"]["glacial"], 3
             ),
         }
-
 
 __all__ = ["ContinuumGlacialMixin"]

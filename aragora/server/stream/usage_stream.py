@@ -31,11 +31,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class UsageEventType(Enum):
     """Types of usage stream events."""
@@ -47,7 +46,6 @@ class UsageEventType(Enum):
     RATE_LIMIT = "rate_limit"  # Rate limit event
     QUOTA_WARNING = "quota_warning"  # Approaching quota
 
-
 @dataclass
 class UsageStreamEvent:
     """A real-time usage event."""
@@ -55,8 +53,8 @@ class UsageStreamEvent:
     id: str = field(default_factory=lambda: str(uuid4()))
     event_type: UsageEventType = UsageEventType.TOKEN_USAGE
     tenant_id: str = ""
-    workspace_id: Optional[str] = None
-    user_id: Optional[str] = None
+    workspace_id: str | None = None
+    user_id: str | None = None
 
     # Usage data
     tokens_in: int = 0
@@ -67,7 +65,7 @@ class UsageStreamEvent:
     # Context
     provider: str = ""
     model: str = ""
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     operation: str = ""
 
     # Budget tracking
@@ -75,10 +73,10 @@ class UsageStreamEvent:
     budget_remaining: Decimal = Decimal("0")
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dictionary."""
         return {
             "id": self.id,
@@ -104,7 +102,6 @@ class UsageStreamEvent:
         """Convert to JSON string."""
         return json.dumps(self.to_dict())
 
-
 class UsageStreamEmitter:
     """
     Real-time usage stream emitter.
@@ -119,13 +116,13 @@ class UsageStreamEmitter:
 
     def __init__(self):
         """Initialize usage stream emitter."""
-        self._subscribers: Dict[str, Set[Callable]] = {}  # tenant_id -> callbacks
-        self._workspace_subscribers: Dict[str, Set[Callable]] = {}
-        self._global_subscribers: Set[Callable] = set()
+        self._subscribers: dict[str, set[Callable]] = {}  # tenant_id -> callbacks
+        self._workspace_subscribers: dict[str, set[Callable]] = {}
+        self._global_subscribers: set[Callable] = set()
         self._lock = asyncio.Lock()
 
         # Aggregation state
-        self._current_period_usage: Dict[str, Dict[str, Any]] = {}
+        self._current_period_usage: dict[str, dict[str, Any]] = {}
         self._summary_interval_seconds = 60  # Emit summaries every minute
 
         logger.info("[UsageStream] Emitter initialized")
@@ -284,7 +281,7 @@ class UsageStreamEmitter:
         )
         await self.emit(event)
 
-    def get_subscriber_count(self, tenant_id: Optional[str] = None) -> int:
+    def get_subscriber_count(self, tenant_id: str | None = None) -> int:
         """Get count of subscribers."""
         if tenant_id:
             return len(self._subscribers.get(tenant_id, set()))
@@ -294,10 +291,8 @@ class UsageStreamEmitter:
             + sum(len(s) for s in self._workspace_subscribers.values())
         )
 
-
 # Global emitter instance
-_usage_emitter: Optional[UsageStreamEmitter] = None
-
+_usage_emitter: UsageStreamEmitter | None = None
 
 def get_usage_emitter() -> UsageStreamEmitter:
     """Get or create global usage stream emitter."""
@@ -305,7 +300,6 @@ def get_usage_emitter() -> UsageStreamEmitter:
     if _usage_emitter is None:
         _usage_emitter = UsageStreamEmitter()
     return _usage_emitter
-
 
 async def emit_usage_event(
     tenant_id: str,
@@ -315,11 +309,11 @@ async def emit_usage_event(
     cost_usd: Decimal = Decimal("0"),
     provider: str = "",
     model: str = "",
-    workspace_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-    debate_id: Optional[str] = None,
+    workspace_id: str | None = None,
+    user_id: str | None = None,
+    debate_id: str | None = None,
     operation: str = "",
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> UsageStreamEvent:
     """
     Convenience function to emit a usage event.
@@ -361,7 +355,6 @@ async def emit_usage_event(
 
     await emitter.emit(event)
     return event
-
 
 __all__ = [
     "UsageEventType",

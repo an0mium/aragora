@@ -32,7 +32,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 # Prometheus metrics - optional dependency
 try:
@@ -41,7 +41,6 @@ try:
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
-
 
 # ============================================================================
 # KMEloBridge Prometheus Metrics
@@ -124,12 +123,10 @@ if PROMETHEUS_AVAILABLE:
         "Timestamp of the last successful sync (Unix epoch)",
     )
 
-
 def _record_sync_start() -> None:
     """Record sync operation starting."""
     if PROMETHEUS_AVAILABLE:
         KM_ELO_SYNC_IN_PROGRESS.set(1)
-
 
 def _record_sync_end(
     status: str,
@@ -140,7 +137,7 @@ def _record_sync_end(
     adjustments_applied: int,
     adjustments_skipped: int,
     total_elo_change: float,
-    agents_affected: List[str],
+    agents_affected: list[str],
 ) -> None:
     """Record sync operation completion with metrics."""
     if not PROMETHEUS_AVAILABLE:
@@ -169,24 +166,20 @@ def _record_sync_end(
     if status == "completed":
         KM_ELO_LAST_SYNC_TIMESTAMP.set(time.time())
 
-
 def _record_patterns_for_agent(agent_name: str, pattern_count: int) -> None:
     """Record patterns detected for a specific agent."""
     if PROMETHEUS_AVAILABLE and pattern_count > 0:
         KM_ELO_PATTERNS_DETECTED.labels(agent=agent_name).inc(pattern_count)
-
 
 def _update_pending_adjustments(count: int) -> None:
     """Update the pending adjustments gauge."""
     if PROMETHEUS_AVAILABLE:
         KM_ELO_PENDING_ADJUSTMENTS.set(count)
 
-
 def _update_total_syncs(count: int) -> None:
     """Update the total syncs gauge."""
     if PROMETHEUS_AVAILABLE:
         KM_ELO_TOTAL_SYNCS.set(count)
-
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.elo_adapter import (  # type: ignore[attr-defined]
@@ -198,7 +191,6 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class KMEloBridgeConfig:
@@ -218,7 +210,6 @@ class KMEloBridgeConfig:
     track_history: bool = True  # Track adjustment history
     batch_size: int = 20  # Agents to process per sync batch
 
-
 @dataclass
 class KMEloBridgeSyncResult:
     """Result of a KM → ELO sync operation."""
@@ -229,11 +220,10 @@ class KMEloBridgeSyncResult:
     adjustments_applied: int = 0
     adjustments_skipped: int = 0
     total_elo_change: float = 0.0
-    agents_affected: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    agents_affected: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
     timestamp: str = ""
-
 
 class KMEloBridge:
     """
@@ -252,7 +242,7 @@ class KMEloBridge:
         elo_system: Optional["EloSystem"] = None,
         elo_adapter: Optional["EloAdapter"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
-        config: Optional[KMEloBridgeConfig] = None,
+        config: KMEloBridgeConfig | None = None,
     ):
         """
         Initialize the bridge.
@@ -269,12 +259,12 @@ class KMEloBridge:
         self._config = config or KMEloBridgeConfig()
 
         # Sync state
-        self._last_sync: Optional[float] = None
+        self._last_sync: float | None = None
         self._sync_in_progress: bool = False
         self._sync_lock = asyncio.Lock()
 
         # History tracking
-        self._sync_history: List[KMEloBridgeSyncResult] = []
+        self._sync_history: list[KMEloBridgeSyncResult] = []
         self._max_history: int = 50
         self._total_syncs: int = 0
         self._total_adjustments: int = 0
@@ -310,7 +300,7 @@ class KMEloBridge:
 
     async def sync_km_to_elo(
         self,
-        agent_names: Optional[List[str]] = None,
+        agent_names: Optional[list[str]] = None,
         force: bool = False,
     ) -> KMEloBridgeSyncResult:
         """
@@ -361,7 +351,7 @@ class KMEloBridge:
                 return result
 
             # Process agents in batches
-            all_patterns: Dict[str, List["KMEloPattern"]] = {}
+            all_patterns: dict[str, list["KMEloPattern"]] = {}
 
             for i in range(0, len(agents), self._config.batch_size):
                 batch = agents[i : i + self._config.batch_size]
@@ -442,7 +432,7 @@ class KMEloBridge:
 
         return result
 
-    async def _get_all_agents(self) -> List[str]:
+    async def _get_all_agents(self) -> list[str]:
         """Get all agents from ELO system."""
         if not self._elo_system:
             return []
@@ -457,7 +447,7 @@ class KMEloBridge:
     async def _analyze_agent_patterns(
         self,
         agent_name: str,
-    ) -> List["KMEloPattern"]:
+    ) -> list["KMEloPattern"]:
         """
         Analyze KM patterns for a specific agent.
 
@@ -489,7 +479,7 @@ class KMEloBridge:
     async def _query_agent_km_items(
         self,
         agent_name: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Query KM for items related to an agent."""
         if not self._knowledge_mound:
             return []
@@ -519,7 +509,7 @@ class KMEloBridge:
     async def get_agent_km_patterns(
         self,
         agent_name: str,
-    ) -> List["KMEloPattern"]:
+    ) -> list["KMEloPattern"]:
         """
         Get stored KM patterns for an agent.
 
@@ -536,7 +526,7 @@ class KMEloBridge:
 
     async def get_pending_adjustments(
         self,
-    ) -> List["EloAdjustmentRecommendation"]:
+    ) -> list["EloAdjustmentRecommendation"]:
         """Get pending ELO adjustments that haven't been applied."""
         if not self._elo_adapter:
             return []
@@ -545,7 +535,7 @@ class KMEloBridge:
 
     async def apply_pending_adjustments(
         self,
-        agent_names: Optional[List[str]] = None,
+        agent_names: Optional[list[str]] = None,
         min_confidence: float = 0.7,
     ) -> int:
         """
@@ -579,7 +569,7 @@ class KMEloBridge:
         logger.info(f"Applied {applied} pending ELO adjustments")
         return applied
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get bridge status and metrics."""
         pending = []
         if self._elo_adapter:
@@ -606,7 +596,7 @@ class KMEloBridge:
     def get_sync_history(
         self,
         limit: int = 10,
-    ) -> List[KMEloBridgeSyncResult]:
+    ) -> list[KMEloBridgeSyncResult]:
         """Get recent sync history."""
         return self._sync_history[-limit:]
 
@@ -620,12 +610,11 @@ class KMEloBridge:
         if self._elo_adapter:
             self._elo_adapter.clear_pending_adjustments()
 
-
 def create_km_elo_bridge(
     elo_system: Optional["EloSystem"] = None,
     elo_adapter: Optional["EloAdapter"] = None,
     knowledge_mound: Optional["KnowledgeMound"] = None,
-    config: Optional[KMEloBridgeConfig] = None,
+    config: KMEloBridgeConfig | None = None,
 ) -> KMEloBridge:
     """Factory function to create KMEloBridge."""
     return KMEloBridge(
@@ -634,7 +623,6 @@ def create_km_elo_bridge(
         knowledge_mound=knowledge_mound,
         config=config,
     )
-
 
 __all__ = [
     "KMEloBridge",

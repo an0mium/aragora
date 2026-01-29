@@ -37,7 +37,6 @@ except ImportError:
     Connection = Any
     ASYNCPG_AVAILABLE = False
 
-
 @dataclass
 class MigrationRecord:
     """Record of an applied migration."""
@@ -45,8 +44,7 @@ class MigrationRecord:
     version: int
     name: str
     applied_at: datetime
-    checksum: Optional[str] = None
-
+    checksum: str | None = None
 
 @dataclass
 class MigrationResult:
@@ -58,7 +56,6 @@ class MigrationResult:
     current_version: int
     errors: list[str]
     dry_run: bool = False
-
 
 class PostgresMigrationRunner:
     """
@@ -74,7 +71,7 @@ class PostgresMigrationRunner:
     def __init__(
         self,
         pool: Optional["Pool"] = None,
-        dsn: Optional[str] = None,
+        dsn: str | None = None,
     ):
         """
         Initialize the migration runner.
@@ -123,7 +120,7 @@ class PostgresMigrationRunner:
         return {row["version"] for row in rows}
 
     async def _record_migration(
-        self, conn: "Connection", version: int, name: str, checksum: Optional[str] = None
+        self, conn: "Connection", version: int, name: str, checksum: str | None = None
     ) -> None:
         """Record that a migration was applied."""
         await conn.execute(
@@ -143,7 +140,7 @@ class PostgresMigrationRunner:
         return hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
     def register_migration(
-        self, version: int, name: str, up_sql: str, down_sql: Optional[str] = None
+        self, version: int, name: str, up_sql: str, down_sql: str | None = None
     ) -> None:
         """
         Register a migration.
@@ -173,7 +170,7 @@ class PostgresMigrationRunner:
             "checksum": checksum,
         }
 
-    async def migrate(self, dry_run: bool = False, target: Optional[int] = None) -> MigrationResult:
+    async def migrate(self, dry_run: bool = False, target: int | None = None) -> MigrationResult:
         """
         Run pending migrations.
 
@@ -247,7 +244,7 @@ class PostgresMigrationRunner:
         )
 
     async def rollback(
-        self, target: Optional[int] = None, steps: int = 1, dry_run: bool = False
+        self, target: int | None = None, steps: int = 1, dry_run: bool = False
     ) -> MigrationResult:
         """
         Rollback migrations.
@@ -435,10 +432,8 @@ class PostgresMigrationRunner:
             await self._pool.close()
             self._pool = None
 
-
 # Singleton instance
-_runner: Optional[PostgresMigrationRunner] = None
-
+_runner: PostgresMigrationRunner | None = None
 
 def get_postgres_migration_runner() -> PostgresMigrationRunner:
     """Get or create the global PostgreSQL migration runner."""
@@ -448,7 +443,6 @@ def get_postgres_migration_runner() -> PostgresMigrationRunner:
         # Register built-in migrations
         _register_core_migrations(_runner)
     return _runner
-
 
 def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
     """Register the core Aragora migrations."""

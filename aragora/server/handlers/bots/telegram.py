@@ -20,7 +20,7 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
@@ -50,7 +50,6 @@ TELEGRAM_WEBHOOK_TOKEN = ""
 if TELEGRAM_BOT_TOKEN:
     TELEGRAM_WEBHOOK_TOKEN = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).hexdigest()[:32]
 
-
 def _verify_telegram_secret(secret_token: str) -> bool:
     """Verify Telegram X-Telegram-Bot-Api-Secret-Token header.
 
@@ -63,7 +62,6 @@ def _verify_telegram_secret(secret_token: str) -> bool:
 
     return hmac.compare_digest(secret_token, TELEGRAM_WEBHOOK_SECRET)
 
-
 def _verify_webhook_token(token: str) -> bool:
     """Verify token in webhook URL path.
 
@@ -73,7 +71,6 @@ def _verify_webhook_token(token: str) -> bool:
         return True
 
     return hmac.compare_digest(token, TELEGRAM_WEBHOOK_TOKEN)
-
 
 class TelegramHandler(BotHandlerMixin, SecureHandler):
     """Handler for Telegram Bot API webhook endpoints.
@@ -109,7 +106,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         return bool(TELEGRAM_BOT_TOKEN)
 
     def _build_status_response(
-        self, extra_status: Optional[Dict[str, Any]] = None
+        self, extra_status: Optional[dict[str, Any]] = None
     ) -> HandlerResult:
         """Build Telegram-specific status response."""
         status = {
@@ -127,8 +124,8 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Telegram GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/telegram/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -138,8 +135,8 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=120)
     def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests (webhook updates)."""
         if path == "/api/v1/bots/telegram/webhook":
             return self._handle_webhook(handler)
@@ -202,7 +199,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             # Always return 200 to prevent Telegram from retrying
             return json_response({"ok": False, "error": str(e)[:100]})
 
-    def _handle_message(self, message: Dict[str, Any], edited: bool = False) -> HandlerResult:
+    def _handle_message(self, message: dict[str, Any], edited: bool = False) -> HandlerResult:
         """Handle incoming Telegram message."""
         chat = message.get("chat", {})
         chat_id = chat.get("id")
@@ -234,7 +231,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         args: str,
         chat_id: int,
         user_id: int,
-        message: Dict[str, Any],
+        message: dict[str, Any],
     ) -> HandlerResult:
         """Handle Telegram bot command."""
         command = command.lower().lstrip("/")
@@ -255,7 +252,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         else:
             return self._cmd_unknown(chat_id, command)
 
-    def _handle_callback_query(self, callback: Dict[str, Any]) -> HandlerResult:
+    def _handle_callback_query(self, callback: dict[str, Any]) -> HandlerResult:
         """Handle callback query (inline button press)."""
         callback_id = callback.get("id")
         data = callback.get("data", "")
@@ -278,7 +275,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         # Default: acknowledge callback
         return json_response({"ok": True, "callback_handled": True})
 
-    def _handle_inline_query(self, query: Dict[str, Any]) -> HandlerResult:
+    def _handle_inline_query(self, query: dict[str, Any]) -> HandlerResult:
         """Handle inline query (@bot query)."""
         query.get("id")
         query_text = query.get("query", "")

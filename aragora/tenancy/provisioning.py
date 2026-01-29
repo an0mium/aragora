@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Optional
 
 from aragora.tenancy.tenant import (
     Tenant,
@@ -28,7 +27,6 @@ from aragora.tenancy.tenant import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class TenantProvisioner:
     """
@@ -46,7 +44,7 @@ class TenantProvisioner:
         name: str,
         domain: str,
         tier: TenantTier = TenantTier.FREE,
-        admin_email: Optional[str] = None,
+        admin_email: str | None = None,
         **kwargs,
     ) -> Tenant:
         """Create a new tenant.
@@ -80,7 +78,7 @@ class TenantProvisioner:
         logger.info(f"Created tenant: {tenant.id} ({name}) tier={tier.value}")
         return tenant
 
-    async def get_tenant(self, tenant_id: str) -> Optional[Tenant]:
+    async def get_tenant(self, tenant_id: str) -> Tenant | None:
         """Get a tenant by ID.
 
         Args:
@@ -186,8 +184,8 @@ class TenantProvisioner:
 
     def list_tenants(
         self,
-        status: Optional[TenantStatus] = None,
-        tier: Optional[TenantTier] = None,
+        status: TenantStatus | None = None,
+        tier: TenantTier | None = None,
     ) -> list[Tenant]:
         """List tenants with optional filtering.
 

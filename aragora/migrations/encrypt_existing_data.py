@@ -30,19 +30,18 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class EncryptionMigration:
     """Handles migration of unencrypted data to encrypted format."""
 
     def __init__(
         self,
-        data_dir: Optional[str] = None,
+        data_dir: str | None = None,
         dry_run: bool = False,
-        backup_dir: Optional[str] = None,
+        backup_dir: str | None = None,
     ):
         """Initialize the migration.
 
@@ -85,7 +84,7 @@ class EncryptionMigration:
 
         return True
 
-    def create_backup(self, db_path: Path) -> Optional[Path]:
+    def create_backup(self, db_path: Path) -> Path | None:
         """Create a backup of the database.
 
         Args:
@@ -464,7 +463,7 @@ class EncryptionMigration:
             **self.stats,
         }
 
-    def rollback(self, timestamp: Optional[str] = None) -> bool:
+    def rollback(self, timestamp: str | None = None) -> bool:
         """Rollback to a previous backup.
 
         Args:
@@ -518,7 +517,6 @@ class EncryptionMigration:
         logger.info("Rollback complete")
         return True
 
-
 def main():
     """Main entry point for CLI."""
     parser = argparse.ArgumentParser(description="Migrate unencrypted data to encrypted format")
@@ -569,7 +567,6 @@ def main():
 
     result = migration.run()
     sys.exit(0 if result["success"] else 1)
-
 
 if __name__ == "__main__":
     main()

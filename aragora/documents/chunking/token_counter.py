@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import re
 from functools import lru_cache
-from typing import Literal, Optional
+from typing import Literal
 
 from aragora.utils.cache_registry import register_lru_cache
 
@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 import tiktoken
 
 TIKTOKEN_AVAILABLE = True  # Kept for backwards compatibility
-
 
 # Model family to encoding mapping for tiktoken
 MODEL_ENCODINGS = {
@@ -64,9 +63,7 @@ CHARS_PER_TOKEN = {
     "default": 4.0,
 }
 
-
 ModelFamily = Literal["openai", "anthropic", "google", "mistral", "xai", "default"]
-
 
 def _get_model_family(model: str) -> ModelFamily:
     """Determine the model family from model name."""
@@ -85,7 +82,6 @@ def _get_model_family(model: str) -> ModelFamily:
 
     return "default"
 
-
 @register_lru_cache
 @lru_cache(maxsize=16)
 def _get_tiktoken_encoding(encoding_name: str):
@@ -97,7 +93,6 @@ def _get_tiktoken_encoding(encoding_name: str):
     except Exception as e:
         logger.warning(f"Failed to load tiktoken encoding {encoding_name}: {e}")
         return None
-
 
 class TokenCounter:
     """
@@ -117,7 +112,7 @@ class TokenCounter:
         self.default_model = default_model
         self._cache: dict[tuple[str, str], int] = {}
 
-    def count(self, text: str, model: Optional[str] = None) -> int:
+    def count(self, text: str, model: str | None = None) -> int:
         """
         Count tokens in text for a specific model.
 
@@ -185,7 +180,7 @@ class TokenCounter:
     def count_messages(
         self,
         messages: list[dict[str, str]],
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> int:
         """
         Count tokens in a list of chat messages.
@@ -224,7 +219,7 @@ class TokenCounter:
         text: str,
         chunk_size: int,
         overlap: int = 0,
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> int:
         """
         Estimate number of chunks needed for text.
@@ -253,7 +248,7 @@ class TokenCounter:
         self,
         text: str,
         model: str,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         reserve_tokens: int = 1000,
     ) -> bool:
         """
@@ -282,7 +277,7 @@ class TokenCounter:
         self,
         text: str,
         max_tokens: int,
-        model: Optional[str] = None,
+        model: str | None = None,
         suffix: str = "...",
     ) -> str:
         """
@@ -320,10 +315,8 @@ class TokenCounter:
 
         return truncated.rstrip() + suffix
 
-
 # Global token counter instance
-_token_counter: Optional[TokenCounter] = None
-
+_token_counter: TokenCounter | None = None
 
 def get_token_counter() -> TokenCounter:
     """Get the global token counter instance."""
@@ -332,11 +325,9 @@ def get_token_counter() -> TokenCounter:
         _token_counter = TokenCounter()
     return _token_counter
 
-
 def count_tokens(text: str, model: str = "gpt-4") -> int:
     """Convenience function to count tokens."""
     return get_token_counter().count(text, model)
-
 
 __all__ = [
     "TokenCounter",

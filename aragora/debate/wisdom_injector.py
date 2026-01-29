@@ -20,13 +20,12 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class WisdomSubmission:
@@ -40,7 +39,7 @@ class WisdomSubmission:
     context_tags: list[str] = field(default_factory=list)
     relevance_score: float = 0.0
     used: bool = False
-    used_at: Optional[float] = None
+    used_at: float | None = None
     upvotes: int = 0
 
     def to_dict(self) -> dict:
@@ -51,7 +50,6 @@ class WisdomSubmission:
         """Generate unique ID for a submission."""
         content = f"{text}:{submitter_id}:{timestamp}"
         return hashlib.sha256(content.encode()).hexdigest()[:12]
-
 
 @dataclass
 class WisdomInjection:
@@ -65,7 +63,6 @@ class WisdomInjection:
 
     def to_dict(self) -> dict:
         return asdict(self)
-
 
 class WisdomInjector:
     """
@@ -102,7 +99,7 @@ class WisdomInjector:
     def __init__(
         self,
         loop_id: str,
-        storage_path: Optional[Path] = None,
+        storage_path: Path | None = None,
     ):
         """
         Initialize the wisdom injector.
@@ -161,8 +158,8 @@ class WisdomInjector:
         self,
         text: str,
         submitter_id: str,
-        context_tags: Optional[list[str]] = None,
-    ) -> Optional[WisdomSubmission]:
+        context_tags: list[str] | None = None,
+    ) -> WisdomSubmission | None:
         """
         Submit a wisdom contribution from the audience.
 
@@ -287,7 +284,7 @@ class WisdomInjector:
     def find_relevant_wisdom(
         self,
         debate_context: dict,
-        failed_agent: Optional[str] = None,
+        failed_agent: str | None = None,
         limit: int = 3,
     ) -> list[WisdomSubmission]:
         """
@@ -392,17 +389,14 @@ class WisdomInjector:
             "total_upvotes": sum(s.get("upvotes", 0) for s in self.submitter_stats.values()),
         }
 
-
 # Per-loop injector instances
 _injectors: dict[str, WisdomInjector] = {}
-
 
 def get_wisdom_injector(loop_id: str) -> WisdomInjector:
     """Get or create a wisdom injector for a loop."""
     if loop_id not in _injectors:
         _injectors[loop_id] = WisdomInjector(loop_id)
     return _injectors[loop_id]
-
 
 def close_wisdom_injector(loop_id: str) -> None:
     """Close and remove a wisdom injector."""

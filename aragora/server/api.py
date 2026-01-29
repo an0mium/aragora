@@ -3,13 +3,14 @@ HTTP API for debate retrieval and static file serving.
 
 Provides REST endpoints for fetching debates and serves the viewer HTML.
 """
+from __future__ import annotations
 
 import json
 import logging
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Optional
+
 from urllib.parse import parse_qs, urlparse
 
 # Safe ID pattern for slugs (allows dots for slugs like "rate-limiter-2026-01-01")
@@ -33,13 +34,12 @@ from aragora.replay.storage import ReplayStorage
 from aragora.server.storage import DebateStorage
 from aragora.utils.paths import PathTraversalError, safe_path
 
-
 class DebateAPIHandler(BaseHTTPRequestHandler):
     """HTTP request handler for debate API."""
 
-    storage: Optional[DebateStorage] = None
-    replay_storage: Optional[ReplayStorage] = None
-    static_dir: Optional[Path] = None
+    storage: DebateStorage | None = None
+    replay_storage: ReplayStorage | None = None
+    static_dir: Path | None = None
 
     def do_GET(self) -> None:
         """Handle GET requests."""
@@ -357,12 +357,11 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
         """Suppress default logging (too verbose)."""
         pass
 
-
 def run_api_server(
     storage: DebateStorage,
-    replay_storage: Optional[ReplayStorage] = None,
+    replay_storage: ReplayStorage | None = None,
     port: int = 8080,
-    static_dir: Optional[Path] = None,
+    static_dir: Path | None = None,
     host: str = "",
 ) -> None:
     """

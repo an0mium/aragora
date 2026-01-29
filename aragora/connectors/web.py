@@ -55,7 +55,6 @@ try:
 except ImportError:
     DDGS_AVAILABLE = False
 
-
 # Domain authority scores (0-1) for common sources
 DOMAIN_AUTHORITY = {
     # High authority (0.9+)
@@ -86,7 +85,6 @@ DOMAIN_AUTHORITY = {
     "reuters.com": 0.85,
 }
 
-
 class WebConnector(BaseConnector):
     """
     Connector for live web search and content fetching.
@@ -105,7 +103,7 @@ class WebConnector(BaseConnector):
 
     def __init__(
         self,
-        provenance: Optional[ProvenanceManager] = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.6,
         timeout: int = 30,
         max_content_length: int = 10000,
@@ -419,7 +417,7 @@ class WebConnector(BaseConnector):
             # If caching fails, don't break the search
             logger.debug(f"Failed to cache search results: {e}")
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch full content for a piece of evidence.
 
@@ -448,7 +446,7 @@ class WebConnector(BaseConnector):
         max_redirects: int = 5,
         max_retries: int = 3,
         base_delay: float = 1.0,
-    ) -> Optional[Evidence]:
+    ) -> Evidence | None:
         """
         Fetch and parse content from a URL with SSRF protection and retry logic.
 
@@ -480,7 +478,7 @@ class WebConnector(BaseConnector):
         if not is_safe:
             return self._create_error_evidence(f"SSRF protection: {error_msg}")
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(max_retries):
             await self._rate_limit()

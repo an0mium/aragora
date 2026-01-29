@@ -3,11 +3,10 @@ Filter implementations for folder scanning.
 
 Supports gitignore-style patterns with ** for recursive matching.
 """
+from __future__ import annotations
 
 import re
 from functools import lru_cache
-from typing import Optional
-
 
 class PatternMatcher:
     """
@@ -24,7 +23,7 @@ class PatternMatcher:
     def __init__(
         self,
         exclude_patterns: list[str],
-        include_patterns: Optional[list[str]] = None,
+        include_patterns: list[str] | None = None,
     ):
         """
         Initialize the pattern matcher.
@@ -119,7 +118,7 @@ class PatternMatcher:
 
         return re.compile(regex)
 
-    def is_excluded(self, path: str) -> tuple[bool, Optional[str]]:
+    def is_excluded(self, path: str) -> tuple[bool, str | None]:
         """
         Check if a path should be excluded.
 
@@ -162,7 +161,7 @@ class PatternMatcher:
 
         return False, None
 
-    def is_directory_excluded(self, path: str) -> tuple[bool, Optional[str]]:
+    def is_directory_excluded(self, path: str) -> tuple[bool, str | None]:
         """
         Check if a directory should be excluded from traversal.
 
@@ -194,7 +193,6 @@ class PatternMatcher:
 
         return False, None
 
-
 class SizeFilter:
     """Filter files based on size limits."""
 
@@ -224,7 +222,7 @@ class SizeFilter:
         self._current_total_size = 0
         self._current_file_count = 0
 
-    def check_file(self, size_bytes: int) -> tuple[bool, Optional[str]]:
+    def check_file(self, size_bytes: int) -> tuple[bool, str | None]:
         """
         Check if a file should be excluded based on size.
 
@@ -281,7 +279,6 @@ class SizeFilter:
         """Get remaining file count budget."""
         return max(0, self.max_file_count - self._current_file_count)
 
-
 def parse_size_string(size_str: str) -> int:
     """
     Parse a human-readable size string to bytes.
@@ -321,7 +318,6 @@ def parse_size_string(size_str: str) -> int:
     }
 
     return int(number * multipliers[unit])
-
 
 def format_size_bytes(size_bytes: int) -> str:
     """

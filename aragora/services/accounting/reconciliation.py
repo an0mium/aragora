@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.connectors.accounting.plaid import (
@@ -50,7 +50,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class DiscrepancyType(str, Enum):
     """Types of reconciliation discrepancies."""
 
@@ -61,7 +60,6 @@ class DiscrepancyType(str, Enum):
     POTENTIAL_DUPLICATE = "potential_duplicate"  # Possible duplicate entry
     CATEGORIZATION = "categorization"  # Category/account mismatch
 
-
 class DiscrepancySeverity(str, Enum):
     """Severity of discrepancy."""
 
@@ -69,7 +67,6 @@ class DiscrepancySeverity(str, Enum):
     MEDIUM = "medium"  # Should be reviewed
     HIGH = "high"  # Requires attention
     CRITICAL = "critical"  # Potential error or fraud
-
 
 class ResolutionStatus(str, Enum):
     """Status of discrepancy resolution."""
@@ -79,7 +76,6 @@ class ResolutionStatus(str, Enum):
     USER_RESOLVED = "user_resolved"
     AUTO_RESOLVED = "auto_resolved"
     IGNORED = "ignored"
-
 
 @dataclass
 class MatchedTransaction:
@@ -96,7 +92,7 @@ class MatchedTransaction:
     match_confidence: float = 1.0
     match_method: str = "exact"  # exact, fuzzy, manual
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "bank_txn_id": self.bank_txn_id,
             "book_txn_id": self.book_txn_id,
@@ -110,7 +106,6 @@ class MatchedTransaction:
             "match_method": self.match_method,
         }
 
-
 @dataclass
 class Discrepancy:
     """A reconciliation discrepancy."""
@@ -121,23 +116,23 @@ class Discrepancy:
     description: str
 
     # Transaction references
-    bank_txn_id: Optional[str] = None
-    book_txn_id: Optional[str] = None
-    bank_amount: Optional[Decimal] = None
-    book_amount: Optional[Decimal] = None
-    bank_date: Optional[date] = None
-    book_date: Optional[date] = None
-    bank_description: Optional[str] = None
-    book_description: Optional[str] = None
+    bank_txn_id: str | None = None
+    book_txn_id: str | None = None
+    bank_amount: Decimal | None = None
+    book_amount: Decimal | None = None
+    bank_date: date | None = None
+    book_date: date | None = None
+    bank_description: str | None = None
+    book_description: str | None = None
 
     # Resolution
     resolution_status: ResolutionStatus = ResolutionStatus.PENDING
-    resolution_suggestion: Optional[str] = None
+    resolution_suggestion: str | None = None
     resolution_confidence: float = 0.0
-    resolved_by: Optional[str] = None
-    resolved_at: Optional[datetime] = None
+    resolved_by: str | None = None
+    resolved_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "discrepancy_id": self.discrepancy_id,
             "discrepancy_type": self.discrepancy_type.value,
@@ -153,7 +148,6 @@ class Discrepancy:
             "resolution_suggestion": self.resolution_suggestion,
             "resolution_confidence": self.resolution_confidence,
         }
-
 
 @dataclass
 class ReconciliationResult:
@@ -178,13 +172,13 @@ class ReconciliationResult:
     difference: Decimal = Decimal("0")
 
     # Details
-    matched_transactions: List[MatchedTransaction] = field(default_factory=list)
-    discrepancies: List[Discrepancy] = field(default_factory=list)
+    matched_transactions: list[MatchedTransaction] = field(default_factory=list)
+    discrepancies: list[Discrepancy] = field(default_factory=list)
 
     # Status
     is_reconciled: bool = False
-    reconciled_at: Optional[datetime] = None
-    reconciled_by: Optional[str] = None
+    reconciled_at: datetime | None = None
+    reconciled_by: str | None = None
 
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -199,7 +193,7 @@ class ReconciliationResult:
             return 1.0
         return (self.matched_count * 2) / total
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "reconciliation_id": self.reconciliation_id,
             "start_date": self.start_date.isoformat(),
@@ -219,7 +213,6 @@ class ReconciliationResult:
             "is_reconciled": self.is_reconciled,
             "created_at": self.created_at.isoformat(),
         }
-
 
 class ReconciliationService:
     """
@@ -251,14 +244,14 @@ class ReconciliationService:
         self.amount_tolerance = amount_tolerance
 
         # Reconciliation history
-        self._reconciliation_history: Dict[str, ReconciliationResult] = {}
+        self._reconciliation_history: dict[str, ReconciliationResult] = {}
 
     async def reconcile(
         self,
         plaid_credentials: "PlaidCredentials",
         start_date: date,
         end_date: date,
-        account_id: Optional[str] = None,
+        account_id: str | None = None,
         use_agents: bool = True,
     ) -> ReconciliationResult:
         """
@@ -354,8 +347,8 @@ class ReconciliationService:
         credentials: "PlaidCredentials",
         start_date: date,
         end_date: date,
-        account_id: Optional[str],
-    ) -> List["BankTransaction"]:
+        account_id: str | None,
+    ) -> list["BankTransaction"]:
         """Fetch bank transactions from Plaid."""
         if not self.plaid:
             logger.warning("[Reconciliation] Plaid connector not configured")
@@ -378,7 +371,7 @@ class ReconciliationService:
         self,
         start_date: date,
         end_date: date,
-    ) -> List["QBOTransaction"]:
+    ) -> list["QBOTransaction"]:
         """Fetch book transactions from QuickBooks."""
         if not self.qbo:
             logger.warning("[Reconciliation] QBO connector not configured")
@@ -399,9 +392,9 @@ class ReconciliationService:
 
     async def _match_transactions(
         self,
-        bank_txns: List["BankTransaction"],
-        book_txns: List["QBOTransaction"],
-    ) -> Tuple[List[MatchedTransaction], List["BankTransaction"], List["QBOTransaction"]]:
+        bank_txns: list["BankTransaction"],
+        book_txns: list["QBOTransaction"],
+    ) -> tuple[list[MatchedTransaction], list["BankTransaction"], list["QBOTransaction"]]:
         """
         Match bank transactions to book transactions.
 
@@ -410,7 +403,7 @@ class ReconciliationService:
         2. Fuzzy match (amount + date within tolerance)
         3. Description-based match
         """
-        matched: List[MatchedTransaction] = []
+        matched: list[MatchedTransaction] = []
         unmatched_bank = list(bank_txns)
         unmatched_book = list(book_txns)
 
@@ -475,14 +468,14 @@ class ReconciliationService:
 
     def _generate_discrepancies(
         self,
-        unmatched_bank: List["BankTransaction"],
-        unmatched_book: List["QBOTransaction"],
-        matched: List[MatchedTransaction],
-    ) -> List[Discrepancy]:
+        unmatched_bank: list["BankTransaction"],
+        unmatched_book: list["QBOTransaction"],
+        matched: list[MatchedTransaction],
+    ) -> list[Discrepancy]:
         """Generate discrepancy records from unmatched transactions."""
         import uuid
 
-        discrepancies: List[Discrepancy] = []
+        discrepancies: list[Discrepancy] = []
 
         # Unmatched bank transactions
         for txn in unmatched_bank:
@@ -523,7 +516,7 @@ class ReconciliationService:
             )
 
         # Check for potential duplicates in matched
-        seen_amounts: Dict[Decimal, List[MatchedTransaction]] = {}
+        seen_amounts: dict[Decimal, list[MatchedTransaction]] = {}
         for match in matched:
             key = abs(match.bank_amount)
             if key not in seen_amounts:
@@ -546,7 +539,7 @@ class ReconciliationService:
 
     async def _resolve_with_agents(
         self,
-        discrepancies: List[Discrepancy],
+        discrepancies: list[Discrepancy],
     ) -> None:
         """Use multi-agent debate to suggest discrepancy resolutions."""
         try:
@@ -643,15 +636,15 @@ Format: EXPLANATION: ... ACTION: ... CONFIDENCE: ..."""
     def get_reconciliation(
         self,
         reconciliation_id: str,
-    ) -> Optional[ReconciliationResult]:
+    ) -> ReconciliationResult | None:
         """Get a reconciliation result by ID."""
         return self._reconciliation_history.get(reconciliation_id)
 
     def list_reconciliations(
         self,
-        account_id: Optional[str] = None,
+        account_id: str | None = None,
         limit: int = 10,
-    ) -> List[ReconciliationResult]:
+    ) -> list[ReconciliationResult]:
         """List reconciliation results."""
         results = list(self._reconciliation_history.values())
 
@@ -661,11 +654,9 @@ Format: EXPLANATION: ... ACTION: ... CONFIDENCE: ..."""
         results.sort(key=lambda r: r.created_at, reverse=True)
         return results[:limit]
 
-
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
-
 
 def get_mock_reconciliation_result() -> ReconciliationResult:
     """Generate mock reconciliation result."""
@@ -726,7 +717,6 @@ def get_mock_reconciliation_result() -> ReconciliationResult:
             ),
         ],
     )
-
 
 __all__ = [
     "ReconciliationService",

@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from aragora.integrations.email import EmailConfig, EmailIntegration
 
 logger = logging.getLogger(__name__)
-
 
 class InvoiceStatus(str, Enum):
     """AR invoice status."""
@@ -54,7 +53,6 @@ class InvoiceStatus(str, Enum):
     OVERDUE = "overdue"
     WRITTEN_OFF = "written_off"
 
-
 class ReminderLevel(str, Enum):
     """Payment reminder escalation levels."""
 
@@ -62,7 +60,6 @@ class ReminderLevel(str, Enum):
     FIRM = "firm"  # Second reminder
     URGENT = "urgent"  # Third reminder, urgent tone
     FINAL = "final"  # Final notice before collections
-
 
 class CollectionAction(str, Enum):
     """Suggested collection actions."""
@@ -74,7 +71,6 @@ class CollectionAction(str, Enum):
     LEGAL_ACTION = "legal_action"
     WRITE_OFF = "write_off"
 
-
 @dataclass
 class ARInvoice:
     """An accounts receivable invoice."""
@@ -82,10 +78,10 @@ class ARInvoice:
     id: str
     customer_id: str
     customer_name: str
-    customer_email: Optional[str] = None
+    customer_email: str | None = None
     invoice_number: str = ""
     invoice_date: datetime = field(default_factory=datetime.now)
-    due_date: Optional[datetime] = None
+    due_date: datetime | None = None
     subtotal: Decimal = Decimal("0.00")
     tax_amount: Decimal = Decimal("0.00")
     total_amount: Decimal = Decimal("0.00")
@@ -93,14 +89,14 @@ class ARInvoice:
     balance: Decimal = Decimal("0.00")
     currency: str = "USD"
     status: InvoiceStatus = InvoiceStatus.DRAFT
-    line_items: List[Dict[str, Any]] = field(default_factory=list)
+    line_items: list[dict[str, Any]] = field(default_factory=list)
     payment_terms: str = "Net 30"
     memo: str = ""
-    qbo_id: Optional[str] = None
-    sent_at: Optional[datetime] = None
+    qbo_id: str | None = None
+    sent_at: datetime | None = None
     reminder_count: int = 0
-    last_reminder: Optional[datetime] = None
-    last_reminder_level: Optional[ReminderLevel] = None
+    last_reminder: datetime | None = None
+    last_reminder_level: ReminderLevel | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -132,7 +128,7 @@ class ARInvoice:
         else:
             return "90+"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "customerId": self.customer_id,
@@ -157,7 +153,6 @@ class ARInvoice:
             "createdAt": self.created_at.isoformat(),
         }
 
-
 @dataclass
 class AgingReport:
     """AR aging report."""
@@ -169,11 +164,11 @@ class AgingReport:
     days_31_60: Decimal = Decimal("0.00")
     days_61_90: Decimal = Decimal("0.00")
     days_90_plus: Decimal = Decimal("0.00")
-    by_customer: List[Dict[str, Any]] = field(default_factory=list)
+    by_customer: list[dict[str, Any]] = field(default_factory=list)
     invoice_count: int = 0
     customer_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "asOfDate": self.as_of_date.isoformat(),
             "totalReceivables": float(self.total_receivables),
@@ -186,7 +181,6 @@ class AgingReport:
             "invoiceCount": self.invoice_count,
             "customerCount": self.customer_count,
         }
-
 
 @dataclass
 class CollectionSuggestion:
@@ -202,7 +196,7 @@ class CollectionSuggestion:
     reason: str
     suggested_message: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "invoiceId": self.invoice_id,
             "customerId": self.customer_id,
@@ -215,7 +209,6 @@ class CollectionSuggestion:
             "suggestedMessage": self.suggested_message,
         }
 
-
 @dataclass
 class ReminderTemplate:
     """Email reminder template."""
@@ -223,7 +216,6 @@ class ReminderTemplate:
     level: ReminderLevel
     subject: str
     body: str
-
 
 # Default reminder templates
 REMINDER_TEMPLATES = {
@@ -282,7 +274,6 @@ Please contact us immediately to resolve this matter.
     ),
 }
 
-
 class ARAutomation:
     """
     Service for automating accounts receivable workflows.
@@ -293,11 +284,11 @@ class ARAutomation:
 
     def __init__(
         self,
-        qbo_connector: Optional[QuickBooksConnector] = None,
+        qbo_connector: QuickBooksConnector | None = None,
         company_name: str = "Your Company",
         default_payment_terms: str = "Net 30",
-        email_config: Optional[EmailConfig] = None,
-        email_integration: Optional[EmailIntegration] = None,
+        email_config: EmailConfig | None = None,
+        email_integration: EmailIntegration | None = None,
     ):
         """
         Initialize AR automation service.
@@ -314,17 +305,17 @@ class ARAutomation:
         self.default_payment_terms = default_payment_terms
 
         # Email integration for sending reminders
-        self._email: Optional[EmailIntegration] = email_integration
+        self._email: EmailIntegration | None = email_integration
         self._email_config = email_config
 
         # In-memory storage
-        self._invoices: Dict[str, ARInvoice] = {}
-        self._by_customer: Dict[str, Set[str]] = {}
-        self._by_status: Dict[InvoiceStatus, Set[str]] = {}
-        self._customers: Dict[str, Dict[str, Any]] = {}  # Customer data
-        self._reminder_history: List[Dict[str, Any]] = []
+        self._invoices: dict[str, ARInvoice] = {}
+        self._by_customer: dict[str, set[str]] = {}
+        self._by_status: dict[InvoiceStatus, set[str]] = {}
+        self._customers: dict[str, dict[str, Any]] = {}  # Customer data
+        self._reminder_history: list[dict[str, Any]] = []
 
-    def _get_email_integration(self) -> Optional[EmailIntegration]:
+    def _get_email_integration(self) -> EmailIntegration | None:
         """Get or create email integration lazily."""
         if self._email is not None:
             return self._email
@@ -340,12 +331,12 @@ class ARAutomation:
     async def generate_invoice(
         self,
         customer_id: str,
-        line_items: List[Dict[str, Any]],
-        customer_name: Optional[str] = None,
-        customer_email: Optional[str] = None,
-        invoice_date: Optional[datetime] = None,
-        due_date: Optional[datetime] = None,
-        payment_terms: Optional[str] = None,
+        line_items: list[dict[str, Any]],
+        customer_name: str | None = None,
+        customer_email: str | None = None,
+        invoice_date: datetime | None = None,
+        due_date: datetime | None = None,
+        payment_terms: str | None = None,
         memo: str = "",
         auto_send: bool = False,
     ) -> ARInvoice:
@@ -646,10 +637,10 @@ class ARAutomation:
     async def send_payment_reminder(
         self,
         invoice_id: str,
-        escalation_level: Optional[int] = None,
-        custom_message: Optional[str] = None,
+        escalation_level: int | None = None,
+        custom_message: str | None = None,
         send_email: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """
         Send a payment reminder for an overdue invoice.
 
@@ -898,7 +889,7 @@ class ARAutomation:
             Aging report with buckets
         """
         report = AgingReport()
-        customer_totals: Dict[str, Dict[str, Any]] = {}
+        customer_totals: dict[str, dict[str, Any]] = {}
 
         for invoice in self._invoices.values():
             if invoice.status == InvoiceStatus.PAID or invoice.balance <= 0:
@@ -970,14 +961,14 @@ class ARAutomation:
         report.customer_count = len(customer_totals)
         return report
 
-    async def suggest_collections(self) -> List[CollectionSuggestion]:
+    async def suggest_collections(self) -> list[CollectionSuggestion]:
         """
         Generate collection action suggestions based on aging.
 
         Returns:
             List of suggested collection actions
         """
-        suggestions: List[CollectionSuggestion] = []
+        suggestions: list[CollectionSuggestion] = []
 
         for invoice in self._invoices.values():
             if invoice.status == InvoiceStatus.PAID or invoice.balance <= 0:
@@ -1053,10 +1044,10 @@ class ARAutomation:
         self,
         invoice_id: str,
         amount: float,
-        payment_date: Optional[datetime] = None,
+        payment_date: datetime | None = None,
         payment_method: str = "check",
         reference: str = "",
-    ) -> Optional[ARInvoice]:
+    ) -> ARInvoice | None:
         """
         Record a payment against an invoice.
 
@@ -1095,8 +1086,8 @@ class ARAutomation:
         self,
         customer_id: str,
         name: str,
-        email: Optional[str] = None,
-        phone: Optional[str] = None,
+        email: str | None = None,
+        phone: str | None = None,
     ) -> None:
         """Add or update customer info."""
         self._customers[customer_id] = {
@@ -1120,16 +1111,16 @@ class ARAutomation:
             self._by_status[invoice.status] = set()
         self._by_status[invoice.status].add(invoice.id)
 
-    async def get_invoice(self, invoice_id: str) -> Optional[ARInvoice]:
+    async def get_invoice(self, invoice_id: str) -> ARInvoice | None:
         """Get invoice by ID."""
         return self._invoices.get(invoice_id)
 
     async def list_invoices(
         self,
-        customer_id: Optional[str] = None,
-        status: Optional[InvoiceStatus] = None,
+        customer_id: str | None = None,
+        status: InvoiceStatus | None = None,
         overdue_only: bool = False,
-    ) -> List[ARInvoice]:
+    ) -> list[ARInvoice]:
         """List invoices with filters."""
         invoices = list(self._invoices.values())
 
@@ -1155,7 +1146,7 @@ class ARAutomation:
                 total += invoice.balance
         return total
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get AR statistics."""
         invoices = list(self._invoices.values())
         active = [i for i in invoices if i.status != InvoiceStatus.PAID]
@@ -1175,7 +1166,7 @@ class ARAutomation:
         min_days_overdue: int = 1,
         max_reminders_per_invoice: int = 4,
         min_days_between_reminders: int = 7,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send payment reminders for all overdue invoices.
 
@@ -1190,7 +1181,7 @@ class ARAutomation:
         sent = 0
         skipped = 0
         failed = 0
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         for invoice in self._invoices.values():
             # Skip paid or non-overdue invoices

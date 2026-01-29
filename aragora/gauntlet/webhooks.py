@@ -22,7 +22,6 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-
 class WebhookEventType(Enum):
     """Webhook event types."""
 
@@ -32,13 +31,12 @@ class WebhookEventType(Enum):
     GAUNTLET_FAILED = "gauntlet.failed"
     FINDING_CRITICAL = "finding.critical"
 
-
 @dataclass
 class WebhookConfig:
     """Configuration for a webhook endpoint."""
 
     url: str
-    secret: Optional[str] = None
+    secret: str | None = None
     events: list[WebhookEventType] = field(default_factory=list)
     enabled: bool = True
     timeout_seconds: float = 30.0
@@ -62,7 +60,6 @@ class WebhookConfig:
         if not self.events:
             self.events = list(WebhookEventType)
 
-
 @dataclass
 class WebhookPayload:
     """Payload for a webhook delivery."""
@@ -85,18 +82,16 @@ class WebhookPayload:
         """Convert to JSON string."""
         return json.dumps(self.to_dict(), default=str)
 
-
 @dataclass
 class WebhookDeliveryResult:
     """Result of a webhook delivery attempt."""
 
     success: bool
-    status_code: Optional[int] = None
-    response_body: Optional[str] = None
-    error: Optional[str] = None
+    status_code: int | None = None
+    response_body: str | None = None
+    error: str | None = None
     attempts: int = 0
     duration_ms: float = 0.0
-
 
 class WebhookManager:
     """Manages webhook subscriptions and deliveries."""
@@ -343,7 +338,7 @@ class WebhookManager:
 
         attempts = 0
         delay = config.retry_delay_seconds
-        last_error: Optional[str] = None
+        last_error: str | None = None
         start_time = time.time()
 
         while attempts < config.max_retries:
@@ -421,10 +416,8 @@ class WebhookManager:
                     error=f"HTTP {response.status}",
                 )
 
-
 # Global singleton instance
-_webhook_manager: Optional[WebhookManager] = None
-
+_webhook_manager: WebhookManager | None = None
 
 def get_webhook_manager() -> WebhookManager:
     """Get the global webhook manager instance."""
@@ -433,7 +426,6 @@ def get_webhook_manager() -> WebhookManager:
         _webhook_manager = WebhookManager()
         _load_env_webhooks(_webhook_manager)
     return _webhook_manager
-
 
 def _load_env_webhooks(manager: WebhookManager) -> None:
     """Load webhook configurations from environment variables."""
@@ -451,7 +443,6 @@ def _load_env_webhooks(manager: WebhookManager) -> None:
             )
         except ValueError as e:
             logger.warning(f"Failed to load webhook from environment: {e}")
-
 
 async def notify_gauntlet_completed(
     gauntlet_id: str,
@@ -475,7 +466,6 @@ async def notify_gauntlet_completed(
         robustness_score=robustness_score,
         duration_seconds=duration_seconds,
     )
-
 
 __all__ = [
     "WebhookConfig",

@@ -23,6 +23,7 @@ Usage:
         # ... operation code ...
         span.set_tag("debate_id", debate_id)
 """
+from __future__ import annotations
 
 import time
 import uuid
@@ -31,7 +32,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any, Callable, Generator, Optional
 
 # Trace ID header names (W3C Trace Context compatible)
 TRACE_ID_HEADER = "X-Trace-ID"
@@ -42,11 +43,10 @@ PARENT_SPAN_HEADER = "X-Parent-Span-ID"
 TRACEPARENT_HEADER = "traceparent"
 
 # Context variables for trace propagation
-_trace_id: ContextVar[Optional[str]] = ContextVar("trace_id", default=None)
-_span_id: ContextVar[Optional[str]] = ContextVar("span_id", default=None)
-_parent_span_id: ContextVar[Optional[str]] = ContextVar("parent_span_id", default=None)
-_span_stack: ContextVar[List["Span"]] = ContextVar("span_stack", default=[])
-
+_trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
+_span_id: ContextVar[str | None] = ContextVar("span_id", default=None)
+_parent_span_id: ContextVar[str | None] = ContextVar("parent_span_id", default=None)
+_span_stack: ContextVar[list["Span"]] = ContextVar("span_stack", default=[])
 
 def generate_trace_id() -> str:
     """Generate a unique trace ID.
@@ -59,7 +59,6 @@ def generate_trace_id() -> str:
     """
     return uuid.uuid4().hex
 
-
 def generate_span_id() -> str:
     """Generate a unique span ID.
 
@@ -71,8 +70,7 @@ def generate_span_id() -> str:
     """
     return uuid.uuid4().hex[:16]
 
-
-def get_trace_id() -> Optional[str]:
+def get_trace_id() -> str | None:
     """Get the current trace ID.
 
     Returns:
@@ -80,8 +78,7 @@ def get_trace_id() -> Optional[str]:
     """
     return _trace_id.get()
 
-
-def get_span_id() -> Optional[str]:
+def get_span_id() -> str | None:
     """Get the current span ID.
 
     Returns:
@@ -89,15 +86,13 @@ def get_span_id() -> Optional[str]:
     """
     return _span_id.get()
 
-
-def get_parent_span_id() -> Optional[str]:
+def get_parent_span_id() -> str | None:
     """Get the parent span ID.
 
     Returns:
         Parent span ID or None if no parent
     """
     return _parent_span_id.get()
-
 
 def set_trace_id(trace_id: str) -> None:
     """Set the current trace ID.
@@ -107,7 +102,6 @@ def set_trace_id(trace_id: str) -> None:
     """
     _trace_id.set(trace_id)
 
-
 def set_span_id(span_id: str) -> None:
     """Set the current span ID.
 
@@ -115,7 +109,6 @@ def set_span_id(span_id: str) -> None:
         span_id: The span ID to set
     """
     _span_id.set(span_id)
-
 
 @dataclass
 class Span:
@@ -127,13 +120,13 @@ class Span:
     trace_id: str
     span_id: str
     operation: str
-    parent_span_id: Optional[str] = None
+    parent_span_id: str | None = None
     start_time: float = field(default_factory=time.time)
-    end_time: Optional[float] = None
-    tags: Dict[str, Any] = field(default_factory=dict)
-    events: List[Dict[str, Any]] = field(default_factory=list)
+    end_time: float | None = None
+    tags: dict[str, Any] = field(default_factory=dict)
+    events: list[dict[str, Any]] = field(default_factory=list)
     status: str = "ok"
-    error: Optional[str] = None
+    error: str | None = None
 
     def set_tag(self, key: str, value: Any) -> None:
         """Set a tag on the span.
@@ -144,7 +137,7 @@ class Span:
         """
         self.tags[key] = value
 
-    def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
         """Add an event to the span.
 
         Args:
@@ -185,7 +178,7 @@ class Span:
         end = self.end_time or time.time()
         return (end - self.start_time) * 1000
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert span to dictionary for logging/export."""
         return {
             "trace_id": self.trace_id,
@@ -205,12 +198,11 @@ class Span:
             "events": self.events,
         }
 
-
 @contextmanager
 def trace_context(
     operation: str,
-    trace_id: Optional[str] = None,
-    parent_span_id: Optional[str] = None,
+    trace_id: str | None = None,
+    parent_span_id: str | None = None,
 ) -> Generator[Span, None, None]:
     """Context manager for creating a traced operation.
 
@@ -277,8 +269,7 @@ def trace_context(
         _parent_span_id.reset(old_parent)
         _span_stack.reset(old_stack)
 
-
-def traced(operation: Optional[str] = None) -> Callable:
+def traced(operation: str | None = None) -> Callable:
     """Decorator for tracing function execution.
 
     Args:
@@ -326,7 +317,6 @@ def traced(operation: Optional[str] = None) -> Callable:
 
     return decorator
 
-
 class TracingMiddleware:
     """HTTP middleware for distributed tracing.
 
@@ -348,7 +338,7 @@ class TracingMiddleware:
         """
         self.service_name = service_name
 
-    def extract_trace_id(self, headers: Dict[str, str]) -> str:
+    def extract_trace_id(self, headers: dict[str, str]) -> str:
         """Extract trace ID from request headers or generate new one.
 
         Supports multiple header formats:
@@ -377,7 +367,7 @@ class TracingMiddleware:
         # Generate new trace ID
         return generate_trace_id()
 
-    def extract_parent_span_id(self, headers: Dict[str, str]) -> Optional[str]:
+    def extract_parent_span_id(self, headers: dict[str, str]) -> str | None:
         """Extract parent span ID from request headers.
 
         Args:
@@ -401,9 +391,9 @@ class TracingMiddleware:
 
     def set_response_headers(
         self,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         trace_id: str,
-        span_id: Optional[str] = None,
+        span_id: str | None = None,
     ) -> None:
         """Add tracing headers to response.
 
@@ -420,7 +410,7 @@ class TracingMiddleware:
         self,
         method: str,
         path: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
     ) -> Span:
         """Start a span for an incoming HTTP request.
 
@@ -458,7 +448,7 @@ class TracingMiddleware:
         self,
         span: Span,
         status_code: int,
-        error: Optional[Exception] = None,
+        error: Exception | None = None,
     ) -> None:
         """Finish a request span.
 
@@ -477,14 +467,12 @@ class TracingMiddleware:
 
         span.finish()
 
-
 # WebSocket tracing support
-
 
 def trace_websocket_event(
     event_type: str,
-    event_data: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    event_data: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """Add tracing context to a WebSocket event.
 
     Args:
@@ -508,8 +496,7 @@ def trace_websocket_event(
 
     return data
 
-
-def extract_websocket_trace(event_data: Dict[str, Any]) -> Optional[str]:
+def extract_websocket_trace(event_data: dict[str, Any]) -> str | None:
     """Extract trace ID from WebSocket event data.
 
     Args:
@@ -521,11 +508,9 @@ def extract_websocket_trace(event_data: Dict[str, Any]) -> Optional[str]:
     trace_info = event_data.get("_trace", {})
     return trace_info.get("trace_id")
 
-
 # Error response tracing
 
-
-def add_trace_to_error(error_response: Dict[str, Any]) -> Dict[str, Any]:
+def add_trace_to_error(error_response: dict[str, Any]) -> dict[str, Any]:
     """Add tracing context to error response.
 
     Args:
@@ -538,7 +523,6 @@ def add_trace_to_error(error_response: Dict[str, Any]) -> Dict[str, Any]:
     if trace_id:
         error_response["trace_id"] = trace_id
     return error_response
-
 
 __all__ = [
     # Header constants

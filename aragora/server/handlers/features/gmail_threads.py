@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 from ..base import (
     HandlerResult,
@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 # Gmail permissions
 GMAIL_READ_PERMISSION = "gmail:read"
 GMAIL_WRITE_PERMISSION = "gmail:write"
-
 
 class GmailThreadsHandler(SecureHandler):
     """Handler for Gmail threads and drafts endpoints.
@@ -68,9 +67,9 @@ class GmailThreadsHandler(SecureHandler):
     async def handle(  # type: ignore[override]
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests."""
         # RBAC: Require authentication and gmail:read permission
         try:
@@ -121,9 +120,9 @@ class GmailThreadsHandler(SecureHandler):
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route POST requests."""
         # RBAC: Require authentication and gmail:write permission
         try:
@@ -172,9 +171,9 @@ class GmailThreadsHandler(SecureHandler):
     async def handle_put(  # type: ignore[override]
         self,
         path: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route PUT requests."""
         # RBAC: Require authentication and gmail:write permission
         try:
@@ -203,9 +202,9 @@ class GmailThreadsHandler(SecureHandler):
     async def handle_delete(  # type: ignore[override]
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route DELETE requests."""
         # RBAC: Require authentication and gmail:write permission
         try:
@@ -235,7 +234,7 @@ class GmailThreadsHandler(SecureHandler):
     # Thread Operations
     # =========================================================================
 
-    async def _list_threads(self, state: Any, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _list_threads(self, state: Any, query_params: dict[str, Any]) -> HandlerResult:
         """List Gmail threads."""
         query = query_params.get("q", query_params.get("query", ""))
         label_ids = (
@@ -264,16 +263,16 @@ class GmailThreadsHandler(SecureHandler):
         self,
         state: Any,
         query: str,
-        label_ids: Optional[List[str]],
+        label_ids: Optional[list[str]],
         max_results: int,
-        page_token: Optional[str],
-    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        page_token: str | None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """List threads via Gmail API."""
         import httpx
 
         token = state.access_token
 
-        params: Dict[str, Any] = {"maxResults": min(max_results, 100)}
+        params: dict[str, Any] = {"maxResults": min(max_results, 100)}
         if query:
             params["q"] = query
         if label_ids:
@@ -366,7 +365,7 @@ class GmailThreadsHandler(SecureHandler):
         return await self._modify_thread_labels(state, thread_id, {"remove": ["INBOX"]})
 
     async def _trash_thread(
-        self, state: Any, thread_id: str, body: Dict[str, Any]
+        self, state: Any, thread_id: str, body: dict[str, Any]
     ) -> HandlerResult:
         """Move thread to trash or restore from trash."""
         to_trash = body.get("trash", True)
@@ -419,7 +418,7 @@ class GmailThreadsHandler(SecureHandler):
         self,
         state: Any,
         thread_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
     ) -> HandlerResult:
         """Modify labels on all messages in a thread."""
         add_labels = body.get("add", [])
@@ -445,9 +444,9 @@ class GmailThreadsHandler(SecureHandler):
         self,
         state: Any,
         thread_id: str,
-        add_labels: List[str],
-        remove_labels: List[str],
-    ) -> Dict[str, Any]:
+        add_labels: list[str],
+        remove_labels: list[str],
+    ) -> dict[str, Any]:
         """Modify thread labels via Gmail API."""
         import httpx
 
@@ -469,7 +468,7 @@ class GmailThreadsHandler(SecureHandler):
     # Draft Operations
     # =========================================================================
 
-    async def _list_drafts(self, state: Any, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _list_drafts(self, state: Any, query_params: dict[str, Any]) -> HandlerResult:
         """List Gmail drafts."""
         max_results = int(query_params.get("limit", 20))
         page_token = query_params.get("page_token")
@@ -492,14 +491,14 @@ class GmailThreadsHandler(SecureHandler):
         self,
         state: Any,
         max_results: int,
-        page_token: Optional[str],
-    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        page_token: str | None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """List drafts via Gmail API."""
         import httpx
 
         token = state.access_token
 
-        params: Dict[str, Any] = {"maxResults": min(max_results, 100)}
+        params: dict[str, Any] = {"maxResults": min(max_results, 100)}
         if page_token:
             params["pageToken"] = page_token
 
@@ -534,7 +533,7 @@ class GmailThreadsHandler(SecureHandler):
             logger.error(f"[GmailThreads] Get draft failed: {e}")
             return error_response(f"Failed to get draft: {e}", 500)
 
-    async def _api_get_draft(self, state: Any, draft_id: str) -> Dict[str, Any]:
+    async def _api_get_draft(self, state: Any, draft_id: str) -> dict[str, Any]:
         """Get draft via Gmail API."""
         import httpx
 
@@ -549,7 +548,7 @@ class GmailThreadsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    async def _create_draft(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
+    async def _create_draft(self, state: Any, body: dict[str, Any]) -> HandlerResult:
         """Create a new draft."""
         to = body.get("to", [])
         subject = body.get("subject", "")
@@ -571,13 +570,13 @@ class GmailThreadsHandler(SecureHandler):
     async def _api_create_draft(
         self,
         state: Any,
-        to: List[str],
+        to: list[str],
         subject: str,
         body_text: str,
-        html_body: Optional[str],
-        reply_to_message_id: Optional[str],
-        thread_id: Optional[str],
-    ) -> Dict[str, Any]:
+        html_body: str | None,
+        reply_to_message_id: str | None,
+        thread_id: str | None,
+    ) -> dict[str, Any]:
         """Create draft via Gmail API."""
         import httpx
         from email.mime.multipart import MIMEMultipart
@@ -586,7 +585,7 @@ class GmailThreadsHandler(SecureHandler):
         token = state.access_token
 
         # Build MIME message
-        message: Union[MIMEMultipart, MIMEText]
+        message: MIMEMultipart | MIMEText
         if html_body:
             message = MIMEMultipart("alternative")
             message.attach(MIMEText(body_text, "plain"))
@@ -601,7 +600,7 @@ class GmailThreadsHandler(SecureHandler):
         # Encode message
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
 
-        draft_data: Dict[str, Any] = {"message": {"raw": raw_message}}
+        draft_data: dict[str, Any] = {"message": {"raw": raw_message}}
         if thread_id:
             draft_data["message"]["threadId"] = thread_id
 
@@ -614,7 +613,7 @@ class GmailThreadsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    async def _update_draft(self, state: Any, draft_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _update_draft(self, state: Any, draft_id: str, body: dict[str, Any]) -> HandlerResult:
         """Update an existing draft."""
         to = body.get("to", [])
         subject = body.get("subject", "")
@@ -633,11 +632,11 @@ class GmailThreadsHandler(SecureHandler):
         self,
         state: Any,
         draft_id: str,
-        to: List[str],
+        to: list[str],
         subject: str,
         body_text: str,
-        html_body: Optional[str],
-    ) -> Dict[str, Any]:
+        html_body: str | None,
+    ) -> dict[str, Any]:
         """Update draft via Gmail API."""
         import httpx
         from email.mime.multipart import MIMEMultipart
@@ -646,7 +645,7 @@ class GmailThreadsHandler(SecureHandler):
         token = state.access_token
 
         # Build MIME message
-        message: Union[MIMEMultipart, MIMEText]
+        message: MIMEMultipart | MIMEText
         if html_body:
             message = MIMEMultipart("alternative")
             message.attach(MIMEText(body_text, "plain"))
@@ -708,7 +707,7 @@ class GmailThreadsHandler(SecureHandler):
             logger.error(f"[GmailThreads] Send draft failed: {e}")
             return error_response(f"Failed to send draft: {e}", 500)
 
-    async def _api_send_draft(self, state: Any, draft_id: str) -> Dict[str, Any]:
+    async def _api_send_draft(self, state: Any, draft_id: str) -> dict[str, Any]:
         """Send draft via Gmail API."""
         import httpx
 
@@ -754,7 +753,7 @@ class GmailThreadsHandler(SecureHandler):
         state: Any,
         message_id: str,
         attachment_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get attachment via Gmail API."""
         import httpx
 
@@ -767,7 +766,6 @@ class GmailThreadsHandler(SecureHandler):
             )
             response.raise_for_status()
             return response.json()
-
 
 # Export for handler registration
 __all__ = ["GmailThreadsHandler"]

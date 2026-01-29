@@ -39,10 +39,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Configuration
@@ -63,11 +62,9 @@ MAX_BACKOFF_SECONDS = 300
 # Processing loop interval in seconds
 PROCESS_INTERVAL = float(os.environ.get("ARAGORA_WEBHOOK_RETRY_INTERVAL", "1.0"))
 
-
 # =============================================================================
 # Delivery Status
 # =============================================================================
-
 
 class DeliveryStatus(str, Enum):
     """Status of a webhook delivery attempt."""
@@ -78,11 +75,9 @@ class DeliveryStatus(str, Enum):
     FAILED = "failed"
     DEAD_LETTER = "dead_letter"
 
-
 # =============================================================================
 # Webhook Delivery
 # =============================================================================
-
 
 @dataclass
 class WebhookDelivery:
@@ -95,21 +90,21 @@ class WebhookDelivery:
 
     id: str
     url: str
-    payload: Dict[str, Any]
-    headers: Dict[str, str] = field(default_factory=dict)
+    payload: dict[str, Any]
+    headers: dict[str, str] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: DeliveryStatus = DeliveryStatus.PENDING
     attempts: int = 0
     max_attempts: int = DEFAULT_MAX_ATTEMPTS
-    next_retry_at: Optional[datetime] = None
-    last_error: Optional[str] = None
-    last_status_code: Optional[int] = None
-    correlation_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    next_retry_at: datetime | None = None
+    last_error: str | None = None
+    last_status_code: int | None = None
+    correlation_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Webhook configuration reference
-    webhook_id: Optional[str] = None
-    webhook_secret: Optional[str] = None
+    webhook_id: str | None = None
+    webhook_secret: str | None = None
 
     def calculate_next_retry(self) -> datetime:
         """
@@ -133,7 +128,7 @@ class WebhookDelivery:
         """Check if this delivery should be moved to dead-letter queue."""
         return self.attempts >= self.max_attempts
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize delivery to dictionary."""
         return {
             "id": self.id,
@@ -153,7 +148,7 @@ class WebhookDelivery:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WebhookDelivery":
+    def from_dict(cls, data: dict[str, Any]) -> "WebhookDelivery":
         """Deserialize delivery from dictionary."""
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -196,11 +191,9 @@ class WebhookDelivery:
         """Deserialize delivery from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
-
 # =============================================================================
 # Storage Backends
 # =============================================================================
-
 
 class WebhookDeliveryStore(ABC):
     """Abstract base class for webhook delivery storage backends."""
@@ -211,7 +204,7 @@ class WebhookDeliveryStore(ABC):
         pass
 
     @abstractmethod
-    async def get(self, delivery_id: str) -> Optional[WebhookDelivery]:
+    async def get(self, delivery_id: str) -> WebhookDelivery | None:
         """Get a delivery by ID."""
         pass
 
@@ -221,24 +214,24 @@ class WebhookDeliveryStore(ABC):
         pass
 
     @abstractmethod
-    async def get_ready_for_retry(self, limit: int = 100) -> List[WebhookDelivery]:
+    async def get_ready_for_retry(self, limit: int = 100) -> list[WebhookDelivery]:
         """Get deliveries ready for retry (PENDING status with next_retry_at <= now)."""
         pass
 
     @abstractmethod
     async def get_by_status(
         self, status: DeliveryStatus, limit: int = 100
-    ) -> List[WebhookDelivery]:
+    ) -> list[WebhookDelivery]:
         """Get deliveries by status."""
         pass
 
     @abstractmethod
-    async def get_dead_letters(self, limit: int = 100) -> List[WebhookDelivery]:
+    async def get_dead_letters(self, limit: int = 100) -> list[WebhookDelivery]:
         """Get dead-letter deliveries."""
         pass
 
     @abstractmethod
-    async def count_by_status(self) -> Dict[DeliveryStatus, int]:
+    async def count_by_status(self) -> dict[DeliveryStatus, int]:
         """Count deliveries by status."""
         pass
 
@@ -251,7 +244,6 @@ class WebhookDeliveryStore(ABC):
         """Close the store (optional to implement)."""
         pass
 
-
 class InMemoryDeliveryStore(WebhookDeliveryStore):
     """
     In-memory webhook delivery store.
@@ -261,7 +253,7 @@ class InMemoryDeliveryStore(WebhookDeliveryStore):
     """
 
     def __init__(self) -> None:
-        self._deliveries: Dict[str, WebhookDelivery] = {}
+        self._deliveries: dict[str, WebhookDelivery] = {}
         self._lock = asyncio.Lock()
 
     async def save(self, delivery: WebhookDelivery) -> None:
@@ -269,7 +261,7 @@ class InMemoryDeliveryStore(WebhookDeliveryStore):
         async with self._lock:
             self._deliveries[delivery.id] = delivery
 
-    async def get(self, delivery_id: str) -> Optional[WebhookDelivery]:
+    async def get(self, delivery_id: str) -> WebhookDelivery | None:
         """Get a delivery by ID."""
         async with self._lock:
             return self._deliveries.get(delivery_id)
@@ -282,7 +274,7 @@ class InMemoryDeliveryStore(WebhookDeliveryStore):
                 return True
             return False
 
-    async def get_ready_for_retry(self, limit: int = 100) -> List[WebhookDelivery]:
+    async def get_ready_for_retry(self, limit: int = 100) -> list[WebhookDelivery]:
         """Get deliveries ready for retry."""
         now = datetime.now(timezone.utc)
         async with self._lock:
@@ -297,7 +289,7 @@ class InMemoryDeliveryStore(WebhookDeliveryStore):
 
     async def get_by_status(
         self, status: DeliveryStatus, limit: int = 100
-    ) -> List[WebhookDelivery]:
+    ) -> list[WebhookDelivery]:
         """Get deliveries by status."""
         async with self._lock:
             result = []
@@ -308,14 +300,14 @@ class InMemoryDeliveryStore(WebhookDeliveryStore):
                         break
             return result
 
-    async def get_dead_letters(self, limit: int = 100) -> List[WebhookDelivery]:
+    async def get_dead_letters(self, limit: int = 100) -> list[WebhookDelivery]:
         """Get dead-letter deliveries."""
         return await self.get_by_status(DeliveryStatus.DEAD_LETTER, limit)
 
-    async def count_by_status(self) -> Dict[DeliveryStatus, int]:
+    async def count_by_status(self) -> dict[DeliveryStatus, int]:
         """Count deliveries by status."""
         async with self._lock:
-            counts: Dict[DeliveryStatus, int] = {status: 0 for status in DeliveryStatus}
+            counts: dict[DeliveryStatus, int] = {status: 0 for status in DeliveryStatus}
             for delivery in self._deliveries.values():
                 counts[delivery.status] += 1
             return counts
@@ -326,7 +318,6 @@ class InMemoryDeliveryStore(WebhookDeliveryStore):
             count = len(self._deliveries)
             self._deliveries.clear()
             return count
-
 
 class RedisDeliveryStore(WebhookDeliveryStore):
     """
@@ -344,9 +335,9 @@ class RedisDeliveryStore(WebhookDeliveryStore):
     # TTL for delivery records (7 days)
     DELIVERY_TTL = 7 * 24 * 60 * 60
 
-    def __init__(self, redis_url: Optional[str] = None) -> None:
+    def __init__(self, redis_url: str | None = None) -> None:
         self._redis_url = redis_url or os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379")
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._connected = False
 
     async def _get_redis(self) -> Any:
@@ -400,7 +391,7 @@ class RedisDeliveryStore(WebhookDeliveryStore):
             await redis.zrem(self.PENDING_KEY, delivery.id)
             await redis.zrem(self.DEAD_LETTER_KEY, delivery.id)
 
-    async def get(self, delivery_id: str) -> Optional[WebhookDelivery]:
+    async def get(self, delivery_id: str) -> WebhookDelivery | None:
         """Get a delivery by ID."""
         redis = await self._get_redis()
         data = await redis.get(self._delivery_key(delivery_id))
@@ -421,7 +412,7 @@ class RedisDeliveryStore(WebhookDeliveryStore):
         deleted = await redis.delete(key)
         return deleted > 0
 
-    async def get_ready_for_retry(self, limit: int = 100) -> List[WebhookDelivery]:
+    async def get_ready_for_retry(self, limit: int = 100) -> list[WebhookDelivery]:
         """Get deliveries ready for retry."""
         redis = await self._get_redis()
         now = time.time()
@@ -439,7 +430,7 @@ class RedisDeliveryStore(WebhookDeliveryStore):
 
     async def get_by_status(
         self, status: DeliveryStatus, limit: int = 100
-    ) -> List[WebhookDelivery]:
+    ) -> list[WebhookDelivery]:
         """Get deliveries by status."""
         redis = await self._get_redis()
 
@@ -460,11 +451,11 @@ class RedisDeliveryStore(WebhookDeliveryStore):
 
         return deliveries
 
-    async def get_dead_letters(self, limit: int = 100) -> List[WebhookDelivery]:
+    async def get_dead_letters(self, limit: int = 100) -> list[WebhookDelivery]:
         """Get dead-letter deliveries."""
         return await self.get_by_status(DeliveryStatus.DEAD_LETTER, limit)
 
-    async def count_by_status(self) -> Dict[DeliveryStatus, int]:
+    async def count_by_status(self) -> dict[DeliveryStatus, int]:
         """Count deliveries by status."""
         redis = await self._get_redis()
 
@@ -508,15 +499,12 @@ class RedisDeliveryStore(WebhookDeliveryStore):
             self._redis = None
             self._connected = False
 
-
 # =============================================================================
 # Webhook Retry Queue
 # =============================================================================
 
-
 # Type alias for delivery callback
 DeliveryCallback = Callable[[WebhookDelivery], Awaitable[None]]
-
 
 class WebhookRetryQueue:
     """
@@ -545,10 +533,10 @@ class WebhookRetryQueue:
 
     def __init__(
         self,
-        store: Optional[WebhookDeliveryStore] = None,
+        store: WebhookDeliveryStore | None = None,
         max_concurrent: int = DEFAULT_MAX_CONCURRENT,
-        dead_letter_callback: Optional[DeliveryCallback] = None,
-        delivery_callback: Optional[DeliveryCallback] = None,
+        dead_letter_callback: DeliveryCallback | None = None,
+        delivery_callback: DeliveryCallback | None = None,
         request_timeout: float = DEFAULT_TIMEOUT,
     ) -> None:
         """
@@ -568,7 +556,7 @@ class WebhookRetryQueue:
         self._delivery_callback = delivery_callback
         self._request_timeout = request_timeout
         self._running = False
-        self._processor_task: Optional[asyncio.Task] = None
+        self._processor_task: asyncio.Task | None = None
 
         # Stats
         self._stats = {
@@ -769,7 +757,7 @@ class WebhookRetryQueue:
                 async with self._stats_lock:
                     self._stats["failed"] += 1
 
-    async def _send_webhook(self, delivery: WebhookDelivery) -> tuple[bool, int, Optional[str]]:
+    async def _send_webhook(self, delivery: WebhookDelivery) -> tuple[bool, int, str | None]:
         """
         Send the HTTP request for a webhook delivery.
 
@@ -832,14 +820,14 @@ class WebhookRetryQueue:
 
     async def _send_webhook_sync(
         self, delivery: WebhookDelivery
-    ) -> tuple[bool, int, Optional[str]]:
+    ) -> tuple[bool, int, str | None]:
         """
         Fallback synchronous webhook delivery using urllib.
 
         Used when aiohttp is not available.
         """
 
-        def _sync_send() -> tuple[bool, int, Optional[str]]:
+        def _sync_send() -> tuple[bool, int, str | None]:
             import json as _json
             from urllib.error import HTTPError, URLError
             from urllib.request import Request, urlopen
@@ -893,7 +881,7 @@ class WebhookRetryQueue:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, _sync_send)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get queue statistics."""
         async with self._stats_lock:
             stats = dict(self._stats)
@@ -935,11 +923,11 @@ class WebhookRetryQueue:
         logger.info(f"Dead-letter delivery {delivery_id} queued for retry")
         return True
 
-    async def get_dead_letters(self, limit: int = 100) -> List[WebhookDelivery]:
+    async def get_dead_letters(self, limit: int = 100) -> list[WebhookDelivery]:
         """Get dead-letter deliveries."""
         return await self._store.get_dead_letters(limit)
 
-    async def get_delivery(self, delivery_id: str) -> Optional[WebhookDelivery]:
+    async def get_delivery(self, delivery_id: str) -> WebhookDelivery | None:
         """Get a delivery by ID."""
         return await self._store.get(delivery_id)
 
@@ -964,14 +952,11 @@ class WebhookRetryQueue:
         logger.info(f"Delivery {delivery_id} cancelled")
         return True
 
-
 # =============================================================================
 # Factory Functions
 # =============================================================================
 
-
-_global_queue: Optional[WebhookRetryQueue] = None
-
+_global_queue: WebhookRetryQueue | None = None
 
 def get_retry_queue() -> WebhookRetryQueue:
     """
@@ -1006,12 +991,10 @@ def get_retry_queue() -> WebhookRetryQueue:
 
     return _global_queue
 
-
 def set_retry_queue(queue: WebhookRetryQueue) -> None:
     """Set the global webhook retry queue."""
     global _global_queue
     _global_queue = queue
-
 
 async def reset_retry_queue() -> None:
     """Reset the global webhook retry queue."""
@@ -1019,7 +1002,6 @@ async def reset_retry_queue() -> None:
     if _global_queue is not None:
         await _global_queue.stop()
         _global_queue = None
-
 
 # =============================================================================
 # Exports

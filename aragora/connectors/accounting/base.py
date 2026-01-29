@@ -27,7 +27,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 # Type variable for credentials
 C = TypeVar("C")
 
-
 @dataclass
 class RetryConfig:
     """Configuration for request retry behavior."""
@@ -52,15 +51,13 @@ class RetryConfig:
     retryable_statuses: tuple = (429, 500, 502, 503, 504)
     retry_on_connection_error: bool = True
 
-
 @dataclass
 class PaginationConfig:
     """Configuration for pagination."""
 
     page_size: int = 100
-    max_pages: Optional[int] = None
+    max_pages: int | None = None
     style: str = "offset"  # "offset", "cursor", "page"
-
 
 class AccountingConnectorBase(ABC, Generic[C]):
     """
@@ -88,11 +85,11 @@ class AccountingConnectorBase(ABC, Generic[C]):
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
         environment: str = "sandbox",
         timeout: float = 30.0,
-        retry_config: Optional[RetryConfig] = None,
+        retry_config: RetryConfig | None = None,
     ):
         """
         Initialize the accounting connector.
@@ -110,8 +107,8 @@ class AccountingConnectorBase(ABC, Generic[C]):
         self.timeout = timeout
         self.retry_config = retry_config or self.DEFAULT_RETRY_CONFIG
 
-        self._credentials: Optional[C] = None
-        self._http_client: Optional[Any] = None
+        self._credentials: C | None = None
+        self._http_client: Any | None = None
 
     # =========================================================================
     # Configuration & Authentication (abstract/template methods)
@@ -133,12 +130,12 @@ class AccountingConnectorBase(ABC, Generic[C]):
         self._credentials = credentials
         logger.info(f"[{self.PROVIDER_NAME}] Credentials set")
 
-    def get_credentials(self) -> Optional[C]:
+    def get_credentials(self) -> C | None:
         """Get the current credentials."""
         return self._credentials
 
     @abstractmethod
-    def get_authorization_url(self, state: Optional[str] = None) -> str:
+    def get_authorization_url(self, state: str | None = None) -> str:
         """
         Get the OAuth authorization URL.
 
@@ -181,7 +178,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
     # =========================================================================
 
     @abstractmethod
-    def _get_auth_headers(self) -> Dict[str, str]:
+    def _get_auth_headers(self) -> dict[str, str]:
         """Get headers for authenticated requests."""
         ...
 
@@ -204,11 +201,11 @@ class AccountingConnectorBase(ABC, Generic[C]):
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        retry_config: Optional[RetryConfig] = None,
-    ) -> Dict[str, Any]:
+        data: Optional[dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+        retry_config: RetryConfig | None = None,
+    ) -> dict[str, Any]:
         """
         Make an authenticated HTTP request with retry logic.
 
@@ -237,7 +234,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
         if headers:
             request_headers.update(headers)
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(config.max_retries + 1):
             try:
@@ -322,9 +319,9 @@ class AccountingConnectorBase(ABC, Generic[C]):
         self,
         method: str,
         url: str,
-        data: Optional[Dict[str, Any]],
-        params: Optional[Dict[str, Any]],
-        headers: Dict[str, str],
+        data: Optional[dict[str, Any]],
+        params: Optional[dict[str, Any]],
+        headers: dict[str, str],
     ) -> Any:
         """Make the actual HTTP request (override for custom clients)."""
         client = await self._get_http_client()
@@ -351,7 +348,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
 
     def _get_retry_delay(
         self,
-        response: Optional[Any],
+        response: Any | None,
         attempt: int,
         config: RetryConfig,
     ) -> float:
@@ -371,7 +368,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
         delay = config.base_delay * (2**attempt)
         return min(delay, config.max_delay)
 
-    async def _parse_response(self, response: Any) -> Dict[str, Any]:
+    async def _parse_response(self, response: Any) -> dict[str, Any]:
         """Parse the response body as JSON."""
         if hasattr(response, "json"):
             # httpx
@@ -407,9 +404,9 @@ class AccountingConnectorBase(ABC, Generic[C]):
         self,
         entity_type: str,
         endpoint: str,
-        filters: Optional[Dict[str, Any]] = None,
-        pagination: Optional[PaginationConfig] = None,
-    ) -> List[Dict[str, Any]]:
+        filters: Optional[dict[str, Any]] = None,
+        pagination: PaginationConfig | None = None,
+    ) -> list[dict[str, Any]]:
         """
         List entities with pagination support.
 
@@ -423,7 +420,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
             List of entity dictionaries
         """
         pagination = pagination or PaginationConfig()
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         page = 0
         offset = 0
 
@@ -456,7 +453,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
         logger.debug(f"[{self.PROVIDER_NAME}] Listed {len(results)} {entity_type}(s)")
         return results
 
-    def _extract_entities(self, response: Dict[str, Any], entity_type: str) -> List[Dict[str, Any]]:
+    def _extract_entities(self, response: dict[str, Any], entity_type: str) -> list[dict[str, Any]]:
         """
         Extract entity list from API response.
 
@@ -482,7 +479,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
         entity_type: str,
         endpoint: str,
         entity_id: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """
         Get a single entity by ID.
 
@@ -503,8 +500,8 @@ class AccountingConnectorBase(ABC, Generic[C]):
             raise
 
     def _extract_single_entity(
-        self, response: Dict[str, Any], entity_type: str
-    ) -> Optional[Dict[str, Any]]:
+        self, response: dict[str, Any], entity_type: str
+    ) -> Optional[dict[str, Any]]:
         """Extract single entity from response (override for custom formats)."""
         if entity_type in response:
             return response[entity_type]
@@ -537,7 +534,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
     # Stats & Debugging
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get connector statistics (override for additional stats)."""
         return {
             "provider": self.PROVIDER_NAME,
@@ -546,7 +543,6 @@ class AccountingConnectorBase(ABC, Generic[C]):
             "is_authenticated": self.is_authenticated,
             "base_url": self.BASE_URL,
         }
-
 
 __all__ = [
     "AccountingConnectorBase",

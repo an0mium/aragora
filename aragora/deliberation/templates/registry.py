@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.deliberation.templates.base import (
     DeliberationTemplate,
@@ -20,7 +20,6 @@ from aragora.deliberation.templates.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class TemplateRegistry:
     """
@@ -34,7 +33,7 @@ class TemplateRegistry:
     """
 
     def __init__(self) -> None:
-        self._templates: Dict[str, DeliberationTemplate] = {}
+        self._templates: dict[str, DeliberationTemplate] = {}
         self._initialized = False
 
     def register(self, template: DeliberationTemplate) -> None:
@@ -51,19 +50,19 @@ class TemplateRegistry:
             return True
         return False
 
-    def get(self, name: str) -> Optional[DeliberationTemplate]:
+    def get(self, name: str) -> DeliberationTemplate | None:
         """Get a template by name."""
         self._ensure_initialized()
         return self._templates.get(name)
 
     def list(
         self,
-        category: Optional[TemplateCategory] = None,
-        tags: Optional[List[str]] = None,
-        search: Optional[str] = None,
+        category: TemplateCategory | None = None,
+        tags: Optional[list[str]] = None,
+        search: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[DeliberationTemplate]:
+    ) -> list[DeliberationTemplate]:
         """
         List templates with optional filtering.
 
@@ -102,16 +101,16 @@ class TemplateRegistry:
 
     def count(
         self,
-        category: Optional[TemplateCategory] = None,
-        tags: Optional[List[str]] = None,
+        category: TemplateCategory | None = None,
+        tags: Optional[list[str]] = None,
     ) -> int:
         """Count templates with optional filtering."""
         return len(self.list(category=category, tags=tags, limit=10000))
 
-    def categories(self) -> Dict[str, int]:
+    def categories(self) -> dict[str, int]:
         """Get template counts by category."""
         self._ensure_initialized()
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for template in self._templates.values():
             cat = template.category.value
             counts[cat] = counts.get(cat, 0) + 1
@@ -176,23 +175,20 @@ class TemplateRegistry:
                     self._templates[template.name] = template
             self._initialized = True
 
-
 # Global registry instance
 _global_registry = TemplateRegistry()
 
-
-def get_template(name: str) -> Optional[DeliberationTemplate]:
+def get_template(name: str) -> DeliberationTemplate | None:
     """Get a template from the global registry."""
     return _global_registry.get(name)
 
-
 def list_templates(
-    category: Optional[str] = None,
-    tags: Optional[List[str]] = None,
-    search: Optional[str] = None,
+    category: str | None = None,
+    tags: Optional[list[str]] = None,
+    search: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> List[DeliberationTemplate]:
+) -> list[DeliberationTemplate]:
     """List templates from the global registry."""
     cat = None
     if category:
@@ -202,11 +198,9 @@ def list_templates(
             pass
     return _global_registry.list(category=cat, tags=tags, search=search, limit=limit, offset=offset)
 
-
 def register_template(template: DeliberationTemplate) -> None:
     """Register a template in the global registry."""
     _global_registry.register(template)
-
 
 def load_templates_from_yaml(path: Path) -> int:
     """Load templates from YAML into the global registry."""
@@ -214,8 +208,7 @@ def load_templates_from_yaml(path: Path) -> int:
         return _global_registry.load_from_directory(path)
     return _global_registry.load_from_yaml(path)
 
-
-def get_template_dict(name: str) -> Optional[Dict[str, Any]]:
+def get_template_dict(name: str) -> Optional[dict[str, Any]]:
     """Get a template as a dictionary."""
     template = get_template(name)
     return template.to_dict() if template else None

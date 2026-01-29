@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 # Default columns to use for change tracking
 DEFAULT_TIMESTAMP_COLUMNS = ["updated_at", "modified_at", "last_modified", "timestamp"]
 
-
 class PostgreSQLConnector(EnterpriseConnector):
     """
     PostgreSQL connector for enterprise data sync.
@@ -53,11 +52,11 @@ class PostgreSQLConnector(EnterpriseConnector):
         port: int = 5432,
         database: str = "postgres",
         schema: str = "public",
-        tables: Optional[List[str]] = None,
-        timestamp_column: Optional[str] = None,
+        tables: Optional[list[str]] = None,
+        timestamp_column: str | None = None,
         primary_key_column: str = "id",
-        content_columns: Optional[List[str]] = None,
-        notify_channel: Optional[str] = None,
+        content_columns: Optional[list[str]] = None,
+        notify_channel: str | None = None,
         pool_size: int = 5,
         **kwargs,
     ):
@@ -79,8 +78,8 @@ class PostgreSQLConnector(EnterpriseConnector):
         self._listener_task = None
 
         # CDC support
-        self._cdc_manager: Optional[CDCStreamManager] = None
-        self._change_handlers: List[ChangeEventHandler] = []
+        self._cdc_manager: CDCStreamManager | None = None
+        self._change_handlers: list[ChangeEventHandler] = []
 
     @property
     def cdc_manager(self) -> CDCStreamManager:
@@ -137,7 +136,7 @@ class PostgreSQLConnector(EnterpriseConnector):
             logger.error("asyncpg not installed. Run: pip install asyncpg")
             raise
 
-    async def _discover_tables(self) -> List[str]:
+    async def _discover_tables(self) -> list[str]:
         """Discover tables in the schema."""
         pool = await self._get_pool()
 
@@ -154,7 +153,7 @@ class PostgreSQLConnector(EnterpriseConnector):
             )
             return [row["table_name"] for row in rows]
 
-    async def _get_table_columns(self, table: str) -> List[Dict[str, Any]]:
+    async def _get_table_columns(self, table: str) -> list[dict[str, Any]]:
         """Get column information for a table."""
         pool = await self._get_pool()
 
@@ -171,7 +170,7 @@ class PostgreSQLConnector(EnterpriseConnector):
             )
             return [dict(row) for row in rows]
 
-    def _find_timestamp_column(self, columns: List[Dict[str, Any]]) -> Optional[str]:
+    def _find_timestamp_column(self, columns: list[dict[str, Any]]) -> str | None:
         """Find a suitable timestamp column for incremental sync."""
         if self.timestamp_column:
             return self.timestamp_column
@@ -182,7 +181,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                 return candidate
         return None
 
-    def _row_to_content(self, row: Dict[str, Any], columns: Optional[List[str]] = None) -> str:
+    def _row_to_content(self, row: dict[str, Any], columns: Optional[list[str]] = None) -> str:
         """Convert a row to text content for indexing."""
         if columns:
             filtered = {k: v for k, v in row.items() if k in columns}
@@ -475,7 +474,7 @@ class PostgreSQLConnector(EnterpriseConnector):
             await self._pool.close()
             self._pool = None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle webhook for database changes (e.g., from triggers)."""
         table = payload.get("table")
         operation = payload.get("operation")

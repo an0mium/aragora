@@ -12,7 +12,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Optional
 
 from aragora.workflow.queue.task import (
     TaskPriority,
@@ -25,7 +25,6 @@ from aragora.workflow.queue.executor import ExecutorPool
 
 logger = logging.getLogger(__name__)
 
-
 class SchedulingPolicy(str, Enum):
     """Task scheduling policies."""
 
@@ -34,7 +33,6 @@ class SchedulingPolicy(str, Enum):
     SHORTEST_FIRST = "shortest_first"  # Shortest estimated time first
     DEADLINE = "deadline"  # Earliest deadline first
     FAIR = "fair"  # Fair share among workflows
-
 
 @dataclass
 class SchedulerConfig:
@@ -47,19 +45,18 @@ class SchedulerConfig:
     starvation_threshold_seconds: float = 300.0  # 5 minutes
     rebalance_interval_seconds: float = 30.0
 
-
 @dataclass
 class WorkflowState:
     """State tracking for a workflow."""
 
     workflow_id: str
-    task_ids: Set[str] = field(default_factory=set)
+    task_ids: set[str] = field(default_factory=set)
     pending_count: int = 0
     running_count: int = 0
     completed_count: int = 0
     failed_count: int = 0
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     @property
     def is_complete(self) -> bool:
@@ -74,7 +71,6 @@ class WorkflowState:
             return 0.0
         return self.completed_count / total
 
-
 class DependencyGraph:
     """
     Directed acyclic graph for task dependencies.
@@ -85,13 +81,13 @@ class DependencyGraph:
 
     def __init__(self) -> None:
         # task_id -> set of task IDs it depends on
-        self._dependencies: Dict[str, Set[str]] = defaultdict(set)
+        self._dependencies: dict[str, set[str]] = defaultdict(set)
         # task_id -> set of task IDs that depend on it
-        self._dependents: Dict[str, Set[str]] = defaultdict(set)
+        self._dependents: dict[str, set[str]] = defaultdict(set)
         # All registered tasks
-        self._tasks: Set[str] = set()
+        self._tasks: set[str] = set()
 
-    def add_task(self, task_id: str, depends_on: Optional[List[str]] = None) -> None:
+    def add_task(self, task_id: str, depends_on: Optional[list[str]] = None) -> None:
         """Add a task with its dependencies."""
         self._tasks.add(task_id)
 
@@ -114,7 +110,7 @@ class DependencyGraph:
         for dep_id in dependents:
             self._dependencies[dep_id].discard(task_id)
 
-    def get_ready_tasks(self, completed: Set[str]) -> Set[str]:
+    def get_ready_tasks(self, completed: set[str]) -> set[str]:
         """
         Get tasks that are ready to execute.
 
@@ -132,11 +128,11 @@ class DependencyGraph:
 
         return ready
 
-    def get_dependencies(self, task_id: str) -> Set[str]:
+    def get_dependencies(self, task_id: str) -> set[str]:
         """Get tasks this task depends on."""
         return self._dependencies.get(task_id, set()).copy()
 
-    def get_dependents(self, task_id: str) -> Set[str]:
+    def get_dependents(self, task_id: str) -> set[str]:
         """Get tasks that depend on this task."""
         return self._dependents.get(task_id, set()).copy()
 
@@ -166,13 +162,13 @@ class DependencyGraph:
 
         return False
 
-    def topological_sort(self) -> List[str]:
+    def topological_sort(self) -> list[str]:
         """
         Return tasks in topological order.
 
         Tasks with no dependencies come first.
         """
-        in_degree: Dict[str, int] = {tid: 0 for tid in self._tasks}
+        in_degree: dict[str, int] = {tid: 0 for tid in self._tasks}
 
         for task_id in self._tasks:
             for dep_id in self._dependencies.get(task_id, set()):
@@ -195,7 +191,6 @@ class DependencyGraph:
 
         return result
 
-
 class DependencyScheduler:
     """
     Dependency-aware task scheduler.
@@ -206,28 +201,28 @@ class DependencyScheduler:
 
     def __init__(
         self,
-        config: Optional[SchedulerConfig] = None,
-        queue: Optional[TaskQueue] = None,
-        executor_pool: Optional[ExecutorPool] = None,
+        config: SchedulerConfig | None = None,
+        queue: TaskQueue | None = None,
+        executor_pool: ExecutorPool | None = None,
     ):
         self._config = config or SchedulerConfig()
         self._queue = queue or TaskQueue()
         self._executor_pool = executor_pool or ExecutorPool()
 
         # Workflow tracking
-        self._workflows: Dict[str, WorkflowState] = {}
-        self._dependency_graphs: Dict[str, DependencyGraph] = {}
+        self._workflows: dict[str, WorkflowState] = {}
+        self._dependency_graphs: dict[str, DependencyGraph] = {}
 
         # Task tracking
-        self._tasks: Dict[str, WorkflowTask] = {}
-        self._completed_tasks: Dict[str, Set[str]] = defaultdict(
+        self._tasks: dict[str, WorkflowTask] = {}
+        self._completed_tasks: dict[str, set[str]] = defaultdict(
             set
         )  # workflow_id -> completed task_ids
 
         # Control
         self._started = False
         self._stopping = False
-        self._rebalance_task: Optional[asyncio.Task] = None
+        self._rebalance_task: asyncio.Task | None = None
 
         # Callbacks
         self._on_workflow_complete: Optional[Callable[[str], None]] = None
@@ -279,7 +274,7 @@ class DependencyScheduler:
     async def submit_workflow(
         self,
         workflow_id: str,
-        tasks: List[WorkflowTask],
+        tasks: list[WorkflowTask],
     ) -> str:
         """
         Submit a workflow for execution.
@@ -397,8 +392,8 @@ class DependencyScheduler:
     async def wait_for_workflow(
         self,
         workflow_id: str,
-        timeout: Optional[float] = None,
-    ) -> Dict[str, TaskResult]:
+        timeout: float | None = None,
+    ) -> dict[str, TaskResult]:
         """
         Wait for a workflow to complete.
 
@@ -427,7 +422,7 @@ class DependencyScheduler:
         logger.info(f"Cancelled workflow {workflow_id}, {cancelled} tasks cancelled")
         return cancelled
 
-    def get_workflow_state(self, workflow_id: str) -> Optional[WorkflowState]:
+    def get_workflow_state(self, workflow_id: str) -> WorkflowState | None:
         """Get the current state of a workflow."""
         return self._workflows.get(workflow_id)
 
@@ -472,7 +467,7 @@ class DependencyScheduler:
         """Set callback for task scheduling."""
         self._on_task_scheduled = callback
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get scheduler statistics."""
         queue_stats = self._queue.get_stats()
         pool_stats = self._executor_pool.get_stats()

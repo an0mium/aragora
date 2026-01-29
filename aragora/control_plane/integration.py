@@ -31,7 +31,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.control_plane.coordinator import (
     ControlPlaneConfig,
@@ -45,7 +45,6 @@ from aragora.control_plane.shared_state import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class IntegratedControlPlane:
     """
@@ -75,7 +74,7 @@ class IntegratedControlPlane:
         self._coordinator = coordinator
         self._shared_state = shared_state
         self._sync_interval = sync_interval
-        self._sync_task: Optional[asyncio.Task] = None
+        self._sync_task: asyncio.Task | None = None
         self._running = False
 
     @property
@@ -177,10 +176,10 @@ class IntegratedControlPlane:
     async def register_agent(
         self,
         agent_id: str,
-        capabilities: List[str | AgentCapability],
+        capabilities: list[str | AgentCapability],
         model: str = "unknown",
         provider: str = "unknown",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         health_probe: Optional[Callable[[], bool]] = None,
     ) -> AgentInfo:
         """
@@ -292,16 +291,16 @@ class IntegratedControlPlane:
 
     async def list_agents(
         self,
-        capability: Optional[str | AgentCapability] = None,
+        capability: str | AgentCapability | None = None,
         only_available: bool = True,
-    ) -> List[AgentInfo]:
+    ) -> list[AgentInfo]:
         """List agents from coordinator."""
         return await self._coordinator.list_agents(
             capability=capability,
             only_available=only_available,
         )
 
-    async def get_agent(self, agent_id: str) -> Optional[AgentInfo]:
+    async def get_agent(self, agent_id: str) -> AgentInfo | None:
         """Get agent from coordinator."""
         return await self._coordinator.get_agent(agent_id)
 
@@ -312,11 +311,11 @@ class IntegratedControlPlane:
     async def submit_task(
         self,
         task_type: str,
-        payload: Dict[str, Any],
-        required_capabilities: Optional[List[str]] = None,
+        payload: dict[str, Any],
+        required_capabilities: Optional[list[str]] = None,
         priority: TaskPriority = TaskPriority.NORMAL,
-        timeout_seconds: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        timeout_seconds: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Submit a task with sync to shared state.
@@ -365,9 +364,9 @@ class IntegratedControlPlane:
     async def complete_task(
         self,
         task_id: str,
-        result: Optional[Dict[str, Any]] = None,
-        agent_id: Optional[str] = None,
-        latency_ms: Optional[float] = None,
+        result: Optional[dict[str, Any]] = None,
+        agent_id: str | None = None,
+        latency_ms: float | None = None,
     ) -> bool:
         """
         Complete a task with sync to shared state.
@@ -416,8 +415,8 @@ class IntegratedControlPlane:
         self,
         task_id: str,
         error: str,
-        agent_id: Optional[str] = None,
-        latency_ms: Optional[float] = None,
+        agent_id: str | None = None,
+        latency_ms: float | None = None,
         requeue: bool = True,
     ) -> bool:
         """
@@ -450,15 +449,15 @@ class IntegratedControlPlane:
 
         return success
 
-    async def get_task(self, task_id: str) -> Optional[Task]:
+    async def get_task(self, task_id: str) -> Task | None:
         """Get task from coordinator."""
         return await self._coordinator.get_task(task_id)
 
     async def wait_for_result(
         self,
         task_id: str,
-        timeout: Optional[float] = None,
-    ) -> Optional[Task]:
+        timeout: float | None = None,
+    ) -> Task | None:
         """Wait for task completion."""
         return await self._coordinator.wait_for_result(task_id, timeout)
 
@@ -469,12 +468,12 @@ class IntegratedControlPlane:
     async def submit_deliberation(
         self,
         question: str,
-        context: Optional[str] = None,
-        agents: Optional[List[str]] = None,
+        context: str | None = None,
+        agents: Optional[list[str]] = None,
         priority: str = "normal",
         timeout_seconds: float = 300.0,
         max_rounds: int = 5,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Submit a deliberation as a first-class control plane task.
@@ -530,8 +529,8 @@ class IntegratedControlPlane:
     async def wait_for_deliberation(
         self,
         task_id: str,
-        timeout: Optional[float] = None,
-    ) -> Optional[Dict[str, Any]]:
+        timeout: float | None = None,
+    ) -> Optional[dict[str, Any]]:
         """
         Wait for a deliberation to complete.
 
@@ -580,7 +579,7 @@ class IntegratedControlPlane:
                     return
 
                 # Calculate scores based on consensus contribution
-                scores: Dict[str, float] = {}
+                scores: dict[str, float] = {}
                 for agent_id, perf in outcome.agent_performances.items():
                     score = 0.5  # Base score
                     if perf.contributed_to_consensus:
@@ -608,10 +607,10 @@ class IntegratedControlPlane:
 
         return elo_callback
 
-    def _create_notification_callback(self) -> Callable[[str, Dict[str, Any]], None]:
+    def _create_notification_callback(self) -> Callable[[str, dict[str, Any]], None]:
         """Create callback for deliberation notifications."""
 
-        def notification_callback(event_type: str, data: Dict[str, Any]) -> None:
+        def notification_callback(event_type: str, data: dict[str, Any]) -> None:
             """Handle deliberation SLA notifications."""
             try:
                 from aragora.control_plane.notifications import (
@@ -701,7 +700,7 @@ class IntegratedControlPlane:
     # Metrics (aggregated from both systems)
     # =========================================================================
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Get comprehensive stats from both systems.
 
@@ -720,13 +719,11 @@ class IntegratedControlPlane:
             },
         }
 
-
 # Module-level singleton
-_integrated: Optional[IntegratedControlPlane] = None
-
+_integrated: IntegratedControlPlane | None = None
 
 async def setup_control_plane_integration(
-    config: Optional[ControlPlaneConfig] = None,
+    config: ControlPlaneConfig | None = None,
     redis_url: str = "redis://localhost:6379",
     sync_interval: float = 5.0,
 ) -> IntegratedControlPlane:
@@ -783,8 +780,7 @@ async def setup_control_plane_integration(
     logger.info("Control plane integration set up successfully")
     return _integrated
 
-
-def get_integrated_control_plane() -> Optional[IntegratedControlPlane]:
+def get_integrated_control_plane() -> IntegratedControlPlane | None:
     """
     Get the global integrated control plane instance.
 
@@ -792,7 +788,6 @@ def get_integrated_control_plane() -> Optional[IntegratedControlPlane]:
         IntegratedControlPlane or None if not initialized
     """
     return _integrated
-
 
 async def shutdown_control_plane() -> None:
     """Shutdown the global integrated control plane."""
@@ -804,7 +799,6 @@ async def shutdown_control_plane() -> None:
         await _integrated.shared_state.close()
         _integrated = None
         logger.info("Control plane integration shut down")
-
 
 __all__ = [
     "IntegratedControlPlane",

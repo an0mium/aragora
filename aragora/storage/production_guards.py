@@ -30,10 +30,8 @@ import logging
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 class StorageMode(str, Enum):
     """Storage backend modes.
@@ -53,7 +51,6 @@ class StorageMode(str, Enum):
     FILE = "file"  # File-based (testing)
     MEMORY = "memory"  # In-memory (testing)
 
-
 class EnvironmentMode(str, Enum):
     """Deployment environment modes."""
 
@@ -61,7 +58,6 @@ class EnvironmentMode(str, Enum):
     STAGING = "staging"
     DEVELOPMENT = "development"
     TEST = "test"
-
 
 @dataclass
 class StorageGuardConfig:
@@ -85,10 +81,8 @@ class StorageGuardConfig:
                 "workflow_store",  # Workflow definitions (static config, not dynamic state)
             }
 
-
 # Global configuration
-_config: Optional[StorageGuardConfig] = None
-
+_config: StorageGuardConfig | None = None
 
 def get_config() -> StorageGuardConfig:
     """Get or create storage guard configuration."""
@@ -103,7 +97,6 @@ def get_config() -> StorageGuardConfig:
             require_distributed=require_distributed,
         )
     return _config
-
 
 def get_environment() -> EnvironmentMode:
     """Get the current environment mode."""
@@ -121,7 +114,6 @@ def get_environment() -> EnvironmentMode:
         logger.warning(f"Unknown environment '{env}', treating as development")
         return EnvironmentMode.DEVELOPMENT
 
-
 def is_production_mode() -> bool:
     """Check if running in production mode."""
     return get_environment() in (
@@ -129,8 +121,7 @@ def is_production_mode() -> bool:
         EnvironmentMode.STAGING,
     )
 
-
-def get_storage_mode() -> Optional[StorageMode]:
+def get_storage_mode() -> StorageMode | None:
     """Get the explicitly configured storage mode, if any."""
     mode = os.environ.get("ARAGORA_STORAGE_MODE", "").lower()
     if not mode:
@@ -141,7 +132,6 @@ def get_storage_mode() -> Optional[StorageMode]:
     except ValueError:
         logger.warning(f"Unknown storage mode '{mode}'")
         return None
-
 
 class DistributedStateError(Exception):
     """
@@ -160,7 +150,6 @@ class DistributedStateError(Exception):
             f"Set ARAGORA_REQUIRE_DISTRIBUTED=false (or ARAGORA_REQUIRE_DISTRIBUTED_STATE=false) "
             f"to allow fallback (NOT recommended for production)."
         )
-
 
 def require_distributed_store(
     store_name: str,
@@ -226,12 +215,11 @@ def require_distributed_store(
     # Using distributed backend, all good
     logger.debug(f"Store '{store_name}' using distributed backend: {current_mode.value}")
 
-
 def validate_store_config(
     store_name: str,
-    supabase_dsn: Optional[str] = None,
-    postgres_url: Optional[str] = None,
-    redis_url: Optional[str] = None,
+    supabase_dsn: str | None = None,
+    postgres_url: str | None = None,
+    redis_url: str | None = None,
     fallback_mode: StorageMode = StorageMode.SQLITE,
 ) -> StorageMode:
     """
@@ -295,7 +283,6 @@ def validate_store_config(
 
     logger.info(f"Store '{store_name}' using {fallback_mode.value} backend (fallback)")
     return fallback_mode
-
 
 def check_multi_instance_readiness() -> dict[str, bool]:
     """
@@ -361,7 +348,6 @@ def check_multi_instance_readiness() -> dict[str, bool]:
         logger.debug(f"Could not check audit_log: {e}")
 
     return stores
-
 
 __all__ = [
     "StorageMode",

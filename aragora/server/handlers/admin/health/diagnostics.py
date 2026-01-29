@@ -15,12 +15,11 @@ import concurrent.futures
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 def deployment_diagnostics(handler) -> HandlerResult:
     """Comprehensive deployment diagnostics endpoint.
@@ -142,8 +141,7 @@ def deployment_diagnostics(handler) -> HandlerResult:
             status=500,
         )
 
-
-def _generate_checklist(result) -> Dict[str, Any]:
+def _generate_checklist(result) -> dict[str, Any]:
     """Generate a production readiness checklist from validation results.
 
     Args:

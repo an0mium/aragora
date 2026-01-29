@@ -36,7 +36,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from .log import (
     AuditCategory,
@@ -47,7 +47,6 @@ from .log import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class SlackAuditLogger:
     """
@@ -76,7 +75,7 @@ class SlackAuditLogger:
     ACTION_RATE_LIMIT = "slack_rate_limit"
     ACTION_SIGNATURE_VERIFY = "slack_signature_verify"
 
-    def __init__(self, audit_log: Optional[AuditLog] = None) -> None:
+    def __init__(self, audit_log: AuditLog | None = None) -> None:
         """
         Initialize Slack audit logger.
 
@@ -100,8 +99,8 @@ class SlackAuditLogger:
         args: str = "",
         result: str = "success",
         channel_id: str = "",
-        response_time_ms: Optional[float] = None,
-        error: Optional[str] = None,
+        response_time_ms: float | None = None,
+        error: str | None = None,
     ) -> str:
         """
         Log a Slack slash command execution.
@@ -167,7 +166,7 @@ class SlackAuditLogger:
         user_id: str = "",
         channel_id: str = "",
         success: bool = True,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> str:
         """
         Log a Slack event callback.
@@ -215,9 +214,9 @@ class SlackAuditLogger:
         workspace_id: str,
         action: str,
         success: bool,
-        error: Optional[str] = None,
+        error: str | None = None,
         user_id: str = "",
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
     ) -> str:
         """
         Log a Slack OAuth operation.
@@ -346,10 +345,8 @@ class SlackAuditLogger:
         )
         return event_id
 
-
 # Module-level singleton
-_slack_audit_logger: Optional[SlackAuditLogger] = None
-
+_slack_audit_logger: SlackAuditLogger | None = None
 
 def get_slack_audit_logger() -> SlackAuditLogger:
     """Get the singleton Slack audit logger."""
@@ -358,12 +355,10 @@ def get_slack_audit_logger() -> SlackAuditLogger:
         _slack_audit_logger = SlackAuditLogger()
     return _slack_audit_logger
 
-
 def reset_slack_audit_logger() -> None:
     """Reset the singleton (for testing)."""
     global _slack_audit_logger
     _slack_audit_logger = None
-
 
 __all__ = [
     "SlackAuditLogger",

@@ -19,7 +19,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Optional, Sequence
 
 # Observability
 from aragora.observability import (
@@ -27,7 +27,6 @@ from aragora.observability import (
 )
 
 logger = get_logger(__name__)
-
 
 class AgentStatus(Enum):
     """Agent lifecycle status."""
@@ -38,7 +37,6 @@ class AgentStatus(Enum):
     DRAINING = "draining"  # Agent is completing current task, no new tasks
     OFFLINE = "offline"  # Agent is not responding
     FAILED = "failed"  # Agent has failed
-
 
 class AgentCapability(Enum):
     """Standard agent capabilities."""
@@ -53,7 +51,6 @@ class AgentCapability(Enum):
     RESEARCH = "research"  # Can perform research tasks
     AUDIT = "audit"  # Can perform audits
     SUMMARIZE = "summarize"  # Can summarize content
-
 
 @dataclass
 class AgentInfo:
@@ -81,23 +78,23 @@ class AgentInfo:
     """
 
     agent_id: str
-    capabilities: Set[str]
+    capabilities: set[str]
     status: AgentStatus = AgentStatus.STARTING
     model: str = "unknown"
     provider: str = "unknown"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     registered_at: float = field(default_factory=time.time)
     last_heartbeat: float = field(default_factory=time.time)
-    current_task_id: Optional[str] = None
+    current_task_id: str | None = None
     tasks_completed: int = 0
     tasks_failed: int = 0
     avg_latency_ms: float = 0.0
-    tags: Set[str] = field(default_factory=set)
+    tags: set[str] = field(default_factory=set)
     # Regional metadata for multi-region deployments
     region_id: str = "default"
-    available_regions: Set[str] = field(default_factory=lambda: {"default"})
-    region_latency_ms: Dict[str, float] = field(default_factory=dict)
-    last_heartbeat_by_region: Dict[str, float] = field(default_factory=dict)
+    available_regions: set[str] = field(default_factory=lambda: {"default"})
+    region_latency_ms: dict[str, float] = field(default_factory=dict)
+    last_heartbeat_by_region: dict[str, float] = field(default_factory=dict)
 
     def is_available(self) -> bool:
         """Check if agent is available for new tasks."""
@@ -141,7 +138,7 @@ class AgentInfo:
         self.last_heartbeat = now
         self.last_heartbeat_by_region[region_id] = now
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "agent_id": self.agent_id,
@@ -165,7 +162,7 @@ class AgentInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AgentInfo":
+    def from_dict(cls, data: dict[str, Any]) -> "AgentInfo":
         """Deserialize from dictionary."""
         return cls(
             agent_id=data["agent_id"],
@@ -187,7 +184,6 @@ class AgentInfo:
             region_latency_ms=data.get("region_latency_ms", {}),
             last_heartbeat_by_region=data.get("last_heartbeat_by_region", {}),
         )
-
 
 class AgentRegistry:
     """
@@ -237,9 +233,9 @@ class AgentRegistry:
         self._key_prefix = key_prefix
         self._heartbeat_timeout = heartbeat_timeout
         self._cleanup_interval = cleanup_interval
-        self._redis: Optional[Any] = None
-        self._cleanup_task: Optional[asyncio.Task] = None
-        self._local_cache: Dict[str, AgentInfo] = {}
+        self._redis: Any | None = None
+        self._cleanup_task: asyncio.Task | None = None
+        self._local_cache: dict[str, AgentInfo] = {}
         self._cache_ttl = 5.0  # Local cache TTL in seconds
         self._cache_updated_at: float = 0.0
 
@@ -292,10 +288,10 @@ class AgentRegistry:
         capabilities: Sequence[str | AgentCapability],
         model: str = "unknown",
         provider: str = "unknown",
-        metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        tags: Optional[list[str]] = None,
         region_id: str = "default",
-        available_regions: Optional[List[str]] = None,
+        available_regions: Optional[list[str]] = None,
     ) -> AgentInfo:
         """
         Register a new agent or update existing registration.
@@ -373,8 +369,8 @@ class AgentRegistry:
     async def heartbeat(
         self,
         agent_id: str,
-        status: Optional[AgentStatus] = None,
-        current_task_id: Optional[str] = None,
+        status: AgentStatus | None = None,
+        current_task_id: str | None = None,
     ) -> bool:
         """
         Update agent heartbeat timestamp.
@@ -400,7 +396,7 @@ class AgentRegistry:
         await self._save_agent(agent)
         return True
 
-    async def get(self, agent_id: str) -> Optional[AgentInfo]:
+    async def get(self, agent_id: str) -> AgentInfo | None:
         """
         Get agent info by ID.
 
@@ -420,7 +416,7 @@ class AgentRegistry:
         else:
             return self._local_cache.get(agent_id)
 
-    async def list_all(self, include_offline: bool = False) -> List[AgentInfo]:
+    async def list_all(self, include_offline: bool = False) -> list[AgentInfo]:
         """
         List all registered agents.
 
@@ -452,7 +448,7 @@ class AgentRegistry:
         self,
         capability: str | AgentCapability,
         only_available: bool = True,
-    ) -> List[AgentInfo]:
+    ) -> list[AgentInfo]:
         """
         Find agents with a specific capability.
 
@@ -476,7 +472,7 @@ class AgentRegistry:
         self,
         capabilities: Sequence[str | AgentCapability],
         only_available: bool = True,
-    ) -> List[AgentInfo]:
+    ) -> list[AgentInfo]:
         """
         Find agents with all specified capabilities.
 
@@ -499,7 +495,7 @@ class AgentRegistry:
         self,
         region_id: str,
         only_available: bool = True,
-    ) -> List[AgentInfo]:
+    ) -> list[AgentInfo]:
         """
         Find agents available in a specific region.
 
@@ -523,7 +519,7 @@ class AgentRegistry:
         capability: str | AgentCapability,
         region_id: str,
         only_available: bool = True,
-    ) -> List[AgentInfo]:
+    ) -> list[AgentInfo]:
         """
         Find agents with a capability available in a region.
 
@@ -549,9 +545,9 @@ class AgentRegistry:
     async def find_by_capabilities_and_regions(
         self,
         capabilities: Sequence[str | AgentCapability],
-        regions: List[str],
+        regions: list[str],
         only_available: bool = True,
-    ) -> List[AgentInfo]:
+    ) -> list[AgentInfo]:
         """
         Find agents with all capabilities available in any of the specified regions.
 
@@ -593,8 +589,8 @@ class AgentRegistry:
         self,
         capabilities: Sequence[str | AgentCapability],
         strategy: str = "least_loaded",
-        exclude: Optional[List[str]] = None,
-    ) -> Optional[AgentInfo]:
+        exclude: Optional[list[str]] = None,
+    ) -> AgentInfo | None:
         """
         Select an agent based on capabilities and load balancing strategy.
 
@@ -631,12 +627,12 @@ class AgentRegistry:
     async def select_agent_in_region(
         self,
         capabilities: Sequence[str | AgentCapability],
-        target_region: Optional[str] = None,
-        fallback_regions: Optional[List[str]] = None,
+        target_region: str | None = None,
+        fallback_regions: Optional[list[str]] = None,
         strategy: str = "least_loaded",
-        exclude: Optional[List[str]] = None,
+        exclude: Optional[list[str]] = None,
         prefer_low_latency: bool = True,
-    ) -> Optional[AgentInfo]:
+    ) -> AgentInfo | None:
         """
         Select an agent based on capabilities and regional preference.
 
@@ -705,7 +701,7 @@ class AgentRegistry:
         else:
             return candidates[0]
 
-    async def list_regions(self) -> List[str]:
+    async def list_regions(self) -> list[str]:
         """
         List all unique regions with registered agents.
 
@@ -719,7 +715,7 @@ class AgentRegistry:
             regions.update(agent.available_regions)
         return sorted(regions)
 
-    async def get_agents_by_region(self) -> Dict[str, List[AgentInfo]]:
+    async def get_agents_by_region(self) -> dict[str, list[AgentInfo]]:
         """
         Get agents grouped by their primary region.
 
@@ -727,7 +723,7 @@ class AgentRegistry:
             Dict mapping region_id to list of agents
         """
         agents = await self.list_all()
-        by_region: Dict[str, List[AgentInfo]] = {}
+        by_region: dict[str, list[AgentInfo]] = {}
         for agent in agents:
             region = agent.region_id
             if region not in by_region:
@@ -791,7 +787,7 @@ class AgentRegistry:
         await self._save_agent(agent)
         return True
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Get registry statistics.
 

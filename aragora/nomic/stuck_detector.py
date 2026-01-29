@@ -29,13 +29,14 @@ Usage:
     # Start continuous monitoring
     await detector.start_monitoring()
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.nomic.beads import BeadStore
@@ -44,7 +45,6 @@ if TYPE_CHECKING:
     from aragora.nomic.escalation_store import EscalationStore
 
 logger = logging.getLogger(__name__)
-
 
 class WorkAge(str, Enum):
     """
@@ -60,7 +60,6 @@ class WorkAge(str, Enum):
     YELLOW = "yellow"  # Attention needed
     RED = "red"  # Likely stuck
 
-
 class RecoveryAction(str, Enum):
     """Actions that can be taken for stuck work."""
 
@@ -71,7 +70,6 @@ class RecoveryAction(str, Enum):
     CANCEL = "cancel"  # Cancel the work
     RETRY = "retry"  # Retry from checkpoint
 
-
 @dataclass
 class StuckWorkItem:
     """Information about a potentially stuck work item."""
@@ -79,14 +77,14 @@ class StuckWorkItem:
     id: str
     work_type: str  # bead, convoy, assignment
     title: str
-    agent_id: Optional[str]
+    agent_id: str | None
     age: WorkAge
     last_update: datetime
     time_since_update: timedelta
-    expected_duration: Optional[timedelta] = None
+    expected_duration: timedelta | None = None
     previous_recoveries: int = 0
     recommended_action: RecoveryAction = RecoveryAction.NONE
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def age_minutes(self) -> float:
@@ -97,7 +95,6 @@ class StuckWorkItem:
     def is_stuck(self) -> bool:
         """Check if work is considered stuck."""
         return self.age == WorkAge.RED
-
 
 @dataclass
 class StuckDetectorConfig:
@@ -123,7 +120,6 @@ class StuckDetectorConfig:
     notify_on_red: bool = True
     notify_on_recovery: bool = True
 
-
 @dataclass
 class HealthSummary:
     """Summary of work health across the system."""
@@ -134,9 +130,9 @@ class HealthSummary:
     red_count: int
     recovered_count: int
     failed_recoveries: int
-    by_agent: Dict[str, Dict[str, int]]
-    by_convoy: Dict[str, Dict[str, int]]
-    oldest_stuck: Optional[StuckWorkItem] = None
+    by_agent: dict[str, dict[str, int]]
+    by_convoy: dict[str, dict[str, int]]
+    oldest_stuck: StuckWorkItem | None = None
 
     @property
     def health_percentage(self) -> float:
@@ -149,7 +145,6 @@ class HealthSummary:
     def stuck_count(self) -> int:
         """Get total stuck (red) items."""
         return self.red_count
-
 
 class StuckDetector:
     """
@@ -165,7 +160,7 @@ class StuckDetector:
         convoy_manager: Optional["ConvoyManager"] = None,
         coordinator: Optional["ConvoyCoordinator"] = None,
         escalation_store: Optional["EscalationStore"] = None,
-        config: Optional[StuckDetectorConfig] = None,
+        config: StuckDetectorConfig | None = None,
     ):
         """
         Initialize the stuck detector.
@@ -183,11 +178,11 @@ class StuckDetector:
         self.escalation_store = escalation_store
         self.config = config or StuckDetectorConfig()
 
-        self._recovery_counts: Dict[str, int] = {}  # item_id -> recovery count
-        self._last_check: Dict[str, datetime] = {}  # item_id -> last check time
-        self._monitoring_task: Optional[asyncio.Task] = None
+        self._recovery_counts: dict[str, int] = {}  # item_id -> recovery count
+        self._last_check: dict[str, datetime] = {}  # item_id -> last check time
+        self._monitoring_task: asyncio.Task | None = None
         self._running = False
-        self._callbacks: List[Callable] = []
+        self._callbacks: list[Callable] = []
         self._lock = asyncio.Lock()
 
     def register_callback(self, callback: Callable) -> None:
@@ -267,7 +262,7 @@ class StuckDetector:
         else:
             return RecoveryAction.ESCALATE
 
-    async def detect_stuck_work(self) -> List[StuckWorkItem]:
+    async def detect_stuck_work(self) -> list[StuckWorkItem]:
         """
         Detect all stuck work items.
 
@@ -287,7 +282,7 @@ class StuckDetector:
 
         return stuck_items
 
-    async def _check_beads(self, now: datetime) -> List[StuckWorkItem]:
+    async def _check_beads(self, now: datetime) -> list[StuckWorkItem]:
         """Check beads for stuck work."""
         items = []
 
@@ -317,7 +312,7 @@ class StuckDetector:
 
         return items
 
-    async def _check_assignments(self, now: datetime) -> List[StuckWorkItem]:
+    async def _check_assignments(self, now: datetime) -> list[StuckWorkItem]:
         """Check bead assignments for stuck work."""
         items = []
 
@@ -491,7 +486,7 @@ class StuckDetector:
         logger.info(f"Would retry {item.id} from checkpoint")
         return False
 
-    async def check_item(self, item_id: str, work_type: str) -> Optional[StuckWorkItem]:
+    async def check_item(self, item_id: str, work_type: str) -> StuckWorkItem | None:
         """
         Check a specific work item.
 
@@ -560,7 +555,7 @@ class StuckDetector:
         red_count = len([i for i in items if i.age == WorkAge.RED])
 
         # Group by agent
-        by_agent: Dict[str, Dict[str, int]] = {}
+        by_agent: dict[str, dict[str, int]] = {}
         for item in items:
             if item.agent_id:
                 if item.agent_id not in by_agent:
@@ -568,7 +563,7 @@ class StuckDetector:
                 by_agent[item.agent_id][item.age.value] += 1
 
         # Group by convoy
-        by_convoy: Dict[str, Dict[str, int]] = {}
+        by_convoy: dict[str, dict[str, int]] = {}
         for item in items:
             convoy_id = item.metadata.get("convoy_id")
             if convoy_id:
@@ -594,7 +589,7 @@ class StuckDetector:
             oldest_stuck=oldest,
         )
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get detector statistics."""
         summary = await self.get_health_summary()
         return {
@@ -605,10 +600,8 @@ class StuckDetector:
             "monitoring_active": self._running,
         }
 
-
 # Singleton instance
-_default_detector: Optional[StuckDetector] = None
-
+_default_detector: StuckDetector | None = None
 
 async def get_stuck_detector(
     bead_store: Optional["BeadStore"] = None,
@@ -625,7 +618,6 @@ async def get_stuck_detector(
         )
         await _default_detector.initialize()
     return _default_detector
-
 
 def reset_stuck_detector() -> None:
     """Reset the default detector (for testing)."""

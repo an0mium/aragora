@@ -14,18 +14,16 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
 # Type variable for generic validation
 T = TypeVar("T")
 
-
 # =============================================================================
 # Validation Limits Configuration
 # =============================================================================
-
 
 @dataclass
 class ValidationLimits:
@@ -58,33 +56,29 @@ class ValidationLimits:
     # Event/log limits
     max_event_log_size: int = 1000
 
-
 # Global default limits
 DEFAULT_LIMITS = ValidationLimits()
-
 
 # =============================================================================
 # Validation Errors
 # =============================================================================
 
-
 class ValidationError(Exception):
     """Base class for validation errors."""
 
-    def __init__(self, message: str, field: Optional[str] = None, code: str = "VALIDATION_ERROR"):
+    def __init__(self, message: str, field: str | None = None, code: str = "VALIDATION_ERROR"):
         self.message = message
         self.field = field
         self.code = code
         super().__init__(message)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to error response dict."""
         return {
             "error": self.code,
             "message": self.message,
             "field": self.field,
         }
-
 
 class ContentTooLargeError(ValidationError):
     """Content exceeds maximum allowed size."""
@@ -96,7 +90,6 @@ class ContentTooLargeError(ValidationError):
             code="CONTENT_TOO_LARGE",
         )
 
-
 class InvalidIdError(ValidationError):
     """Invalid ID format."""
 
@@ -106,7 +99,6 @@ class InvalidIdError(ValidationError):
             field=field,
             code="INVALID_ID",
         )
-
 
 class ResourceLimitExceededError(ValidationError):
     """Resource limit exceeded."""
@@ -118,7 +110,6 @@ class ResourceLimitExceededError(ValidationError):
             code="RESOURCE_LIMIT_EXCEEDED",
         )
 
-
 class NotFoundError(ValidationError):
     """Resource not found."""
 
@@ -128,7 +119,6 @@ class NotFoundError(ValidationError):
             field="id",
             code="NOT_FOUND",
         )
-
 
 class AccessDeniedError(ValidationError):
     """Access denied to resource."""
@@ -140,11 +130,9 @@ class AccessDeniedError(ValidationError):
             code="ACCESS_DENIED",
         )
 
-
 # =============================================================================
 # Input Validators
 # =============================================================================
-
 
 def validate_content(
     content: str,
@@ -170,7 +158,6 @@ def validate_content(
         raise ContentTooLargeError(content_size, limits.max_content_size)
 
     return content
-
 
 def validate_id(
     value: str,
@@ -201,7 +188,6 @@ def validate_id(
         raise InvalidIdError(value, field=field_name)
 
     return value
-
 
 def validate_workspace_id(
     workspace_id: str,
@@ -238,11 +224,10 @@ def validate_workspace_id(
 
     return workspace_id
 
-
 def validate_topics(
-    topics: Optional[List[str]],
+    topics: Optional[list[str]],
     limits: ValidationLimits = DEFAULT_LIMITS,
-) -> List[str]:
+) -> list[str]:
     """Validate topics list.
 
     Args:
@@ -270,11 +255,10 @@ def validate_topics(
 
     return validated
 
-
 def validate_metadata(
-    metadata: Optional[Dict[str, Any]],
+    metadata: Optional[dict[str, Any]],
     limits: ValidationLimits = DEFAULT_LIMITS,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validate metadata dict.
 
     Args:
@@ -310,7 +294,6 @@ def validate_metadata(
 
     return metadata
 
-
 def validate_query(
     query: str,
     limits: ValidationLimits = DEFAULT_LIMITS,
@@ -334,7 +317,6 @@ def validate_query(
         raise ResourceLimitExceededError("query", limits.max_query_length, len(query))
 
     return query
-
 
 def validate_graph_params(
     depth: int,
@@ -372,10 +354,9 @@ def validate_graph_params(
 
     return depth, max_nodes
 
-
 def validate_pagination(
-    limit: Optional[int],
-    offset: Optional[int],
+    limit: int | None,
+    offset: int | None,
     limits: ValidationLimits = DEFAULT_LIMITS,
 ) -> tuple[int, int]:
     """Validate pagination parameters.
@@ -404,18 +385,16 @@ def validate_pagination(
 
     return validated_limit, validated_offset
 
-
 # =============================================================================
 # Thread-Safe Utilities
 # =============================================================================
-
 
 @dataclass
 class BoundedList:
     """Thread-safe bounded list that implements FIFO eviction."""
 
     max_size: int
-    _items: List[Any] = field(default_factory=list)
+    _items: list[Any] = field(default_factory=list)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     async def append(self, item: Any) -> None:
@@ -425,7 +404,7 @@ class BoundedList:
             if len(self._items) > self.max_size:
                 self._items.pop(0)
 
-    async def get_all(self) -> List[Any]:
+    async def get_all(self) -> list[Any]:
         """Get copy of all items."""
         async with self._lock:
             return list(self._items)
@@ -439,13 +418,12 @@ class BoundedList:
         """Get current size (not thread-safe, for monitoring only)."""
         return len(self._items)
 
-
 @dataclass
 class ConcurrencyLimiter:
     """Limit concurrent operations."""
 
     max_concurrent: int
-    _semaphore: Optional[asyncio.Semaphore] = None
+    _semaphore: asyncio.Semaphore | None = None
 
     def __post_init__(self):
         self._semaphore = asyncio.Semaphore(self.max_concurrent)
@@ -457,11 +435,9 @@ class ConcurrencyLimiter:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self._semaphore.release()
 
-
 # =============================================================================
 # Validation Decorators
 # =============================================================================
-
 
 def validate_input(validation_func):
     """Decorator to validate input parameters.
@@ -484,12 +460,11 @@ def validate_input(validation_func):
 
     return decorator
 
-
 # =============================================================================
 # HTTP Status Code Mapping
 # =============================================================================
 
-ERROR_STATUS_CODES: Dict[str, int] = {
+ERROR_STATUS_CODES: dict[str, int] = {
     "VALIDATION_ERROR": 400,
     "CONTENT_TOO_LARGE": 413,
     "INVALID_ID": 400,
@@ -505,7 +480,6 @@ ERROR_STATUS_CODES: Dict[str, int] = {
     "NOT_FOUND": 404,
     "ACCESS_DENIED": 403,
 }
-
 
 def get_http_status(error: ValidationError) -> int:
     """Get HTTP status code for a validation error."""

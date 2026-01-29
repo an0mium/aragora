@@ -10,6 +10,7 @@ Provides multiple export formats:
 - votes: Vote breakdown for consensus analysis
 - summary: High-level debate statistics
 """
+from __future__ import annotations
 
 __all__ = [
     "CSVExporter",
@@ -20,10 +21,8 @@ __all__ = [
 import csv
 from io import StringIO
 from pathlib import Path
-from typing import Optional
 
 from aragora.export.artifact import DebateArtifact
-
 
 class CSVExporter:
     """
@@ -35,7 +34,7 @@ class CSVExporter:
     def __init__(self, artifact: DebateArtifact):
         self.artifact = artifact
 
-    def export_messages(self, output_path: Optional[Path] = None) -> str:
+    def export_messages(self, output_path: Path | None = None) -> str:
         """
         Export all messages as CSV.
 
@@ -67,7 +66,7 @@ class CSVExporter:
             output_path.write_text(content)
         return content
 
-    def export_critiques(self, output_path: Optional[Path] = None) -> str:
+    def export_critiques(self, output_path: Path | None = None) -> str:
         """
         Export all critiques as CSV.
 
@@ -113,7 +112,7 @@ class CSVExporter:
             output_path.write_text(content)
         return content
 
-    def export_votes(self, output_path: Optional[Path] = None) -> str:
+    def export_votes(self, output_path: Path | None = None) -> str:
         """
         Export vote breakdown as CSV.
 
@@ -145,7 +144,7 @@ class CSVExporter:
             output_path.write_text(content)
         return content
 
-    def export_summary(self, output_path: Optional[Path] = None) -> str:
+    def export_summary(self, output_path: Path | None = None) -> str:
         """
         Export high-level summary as CSV.
 
@@ -193,7 +192,7 @@ class CSVExporter:
             output_path.write_text(content)
         return content
 
-    def export_verifications(self, output_path: Optional[Path] = None) -> str:
+    def export_verifications(self, output_path: Path | None = None) -> str:
         """
         Export verification results as CSV.
 
@@ -268,7 +267,6 @@ class CSVExporter:
 
         return outputs
 
-
 def export_debate_to_csv(
     artifact: DebateArtifact,
     output_path: Path,
@@ -301,7 +299,6 @@ def export_debate_to_csv(
         raise ValueError(
             f"Unknown table: {table}. Use 'messages', 'critiques', 'votes', 'summary', or 'verifications'"
         )
-
 
 def export_multiple_debates(
     artifacts: list[DebateArtifact],

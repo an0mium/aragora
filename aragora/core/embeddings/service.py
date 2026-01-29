@@ -4,10 +4,11 @@ This module provides the main entry point for generating text embeddings.
 It consolidates previously fragmented implementations and provides a single,
 consistent interface.
 """
+from __future__ import annotations
 
 import logging
 import struct
-from typing import Callable, Optional
+from typing import Callable
 
 from aragora.core.embeddings.types import CacheStats, EmbeddingConfig, EmbeddingResult
 from aragora.core.embeddings.cache import EmbeddingCache, get_global_cache, get_scoped_cache
@@ -20,7 +21,6 @@ from aragora.core.embeddings.backends import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class UnifiedEmbeddingService:
     """Unified embedding service for all Aragora subsystems.
@@ -48,8 +48,8 @@ class UnifiedEmbeddingService:
 
     def __init__(
         self,
-        config: Optional[EmbeddingConfig] = None,
-        cache: Optional[EmbeddingCache] = None,
+        config: EmbeddingConfig | None = None,
+        cache: EmbeddingCache | None = None,
     ):
         """Initialize the unified embedding service.
 
@@ -290,7 +290,7 @@ class UnifiedEmbeddingService:
 
         return scored[:top_k]
 
-    def get_cache_stats(self) -> Optional[CacheStats]:
+    def get_cache_stats(self) -> CacheStats | None:
         """Get cache statistics.
 
         Returns:
@@ -304,7 +304,6 @@ class UnifiedEmbeddingService:
         """Clear the embedding cache."""
         if self._cache is not None:
             self._cache.clear()
-
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     """Compute cosine similarity between two vectors.
@@ -338,7 +337,6 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
             return 0.0
         return dot / (norm_a * norm_b)
 
-
 def pack_embedding(embedding: list[float]) -> bytes:
     """Pack embedding as binary for SQLite storage.
 
@@ -349,7 +347,6 @@ def pack_embedding(embedding: list[float]) -> bytes:
         Binary representation
     """
     return struct.pack(f"{len(embedding)}f", *embedding)
-
 
 def unpack_embedding(data: bytes) -> list[float]:
     """Unpack embedding from binary.
@@ -363,14 +360,12 @@ def unpack_embedding(data: bytes) -> list[float]:
     count = len(data) // 4  # 4 bytes per float
     return list(struct.unpack(f"{count}f", data))
 
-
 # Global service instance
-_global_service: Optional[UnifiedEmbeddingService] = None
-
+_global_service: UnifiedEmbeddingService | None = None
 
 def get_embedding_service(
-    config: Optional[EmbeddingConfig] = None,
-    scope_id: Optional[str] = None,
+    config: EmbeddingConfig | None = None,
+    scope_id: str | None = None,
 ) -> UnifiedEmbeddingService:
     """Get or create the embedding service.
 
@@ -398,14 +393,12 @@ def get_embedding_service(
 
     return _global_service
 
-
 def reset_embedding_service() -> None:
     """Reset the global embedding service (for testing)."""
     global _global_service
     if _global_service:
         _global_service.clear_cache()
     _global_service = None
-
 
 __all__ = [
     "UnifiedEmbeddingService",

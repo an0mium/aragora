@@ -20,7 +20,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -47,7 +47,6 @@ if TYPE_CHECKING:
     from aragora.server.handlers.base import ServerContext
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # GraphiQL HTML Template
@@ -118,11 +117,9 @@ query GetDebates {
 </html>
 """
 
-
 # =============================================================================
 # GraphQL Handler
 # =============================================================================
-
 
 class GraphQLHandler(BaseHandler):
     """HTTP handler for GraphQL requests.
@@ -169,7 +166,7 @@ class GraphQLHandler(BaseHandler):
         normalized = path.rstrip("/")
         return normalized in ("/graphql", "/api/graphql", "/api/v1/graphql")
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle GET requests (GraphiQL playground).
 
         Args:
@@ -199,7 +196,7 @@ class GraphQLHandler(BaseHandler):
         )
 
     @rate_limit(rpm=60, limiter_name="graphql")
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle POST requests (GraphQL execution).
 
         Args:
@@ -253,10 +250,10 @@ class GraphQLHandler(BaseHandler):
     def _execute(
         self,
         query: str,
-        variables: Optional[Dict[str, Any]],
-        operation_name: Optional[str],
+        variables: Optional[dict[str, Any]],
+        operation_name: str | None,
         ctx: ResolverContext,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute a GraphQL query.
 
         Args:
@@ -318,7 +315,7 @@ class GraphQLHandler(BaseHandler):
         try:
             data, errors = self._resolve_operation(operation, ctx, parsed.fragments)
 
-            result: Dict[str, Any] = {"data": data}
+            result: dict[str, Any] = {"data": data}
             if errors:
                 result["errors"] = [{"message": e} for e in errors]
 
@@ -335,8 +332,8 @@ class GraphQLHandler(BaseHandler):
         self,
         operation: Any,
         ctx: ResolverContext,
-        fragments: Dict[str, Any],
-    ) -> tuple[Optional[Dict[str, Any]], List[str]]:
+        fragments: dict[str, Any],
+    ) -> tuple[Optional[dict[str, Any]], list[str]]:
         """Resolve a GraphQL operation.
 
         Args:
@@ -347,8 +344,8 @@ class GraphQLHandler(BaseHandler):
         Returns:
             Tuple of (data, errors)
         """
-        errors: List[str] = []
-        data: Dict[str, Any] = {}
+        errors: list[str] = []
+        data: dict[str, Any] = {}
 
         # Get the appropriate resolver map
         if operation.type == OperationType.QUERY:
@@ -397,7 +394,7 @@ class GraphQLHandler(BaseHandler):
         self,
         resolver: Any,
         ctx: ResolverContext,
-        args: Dict[str, Any],
+        args: dict[str, Any],
     ) -> ResolverResult:
         """Execute a resolver function.
 
@@ -434,9 +431,9 @@ class GraphQLHandler(BaseHandler):
 
     def _resolve_arguments(
         self,
-        arguments: Dict[str, Any],
-        variables: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        arguments: dict[str, Any],
+        variables: dict[str, Any],
+    ) -> dict[str, Any]:
         """Resolve argument values, substituting variables.
 
         Args:
@@ -474,8 +471,8 @@ class GraphQLHandler(BaseHandler):
     def _filter_selections(
         self,
         data: Any,
-        selections: List[Any],
-        fragments: Dict[str, Any],
+        selections: list[Any],
+        fragments: dict[str, Any],
     ) -> Any:
         """Filter data to only include selected fields.
 
@@ -498,7 +495,7 @@ class GraphQLHandler(BaseHandler):
 
         # Build set of selected field names
         selected_fields = set()
-        nested_selections: Dict[str, List[Any]] = {}
+        nested_selections: dict[str, list[Any]] = {}
 
         for selection in selections:
             field_name = selection.name
@@ -518,11 +515,9 @@ class GraphQLHandler(BaseHandler):
 
         return result
 
-
 # =============================================================================
 # Schema Introspection Handler
 # =============================================================================
-
 
 class GraphQLSchemaHandler(BaseHandler):
     """Handler for GraphQL schema introspection requests.
@@ -540,7 +535,7 @@ class GraphQLSchemaHandler(BaseHandler):
             "/api/v1/graphql/schema",
         )
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle GET requests for schema.
 
         Args:
@@ -578,7 +573,6 @@ class GraphQLSchemaHandler(BaseHandler):
             content_type="text/plain; charset=utf-8",
             body=SCHEMA_SDL.encode("utf-8"),
         )
-
 
 # =============================================================================
 # Exports

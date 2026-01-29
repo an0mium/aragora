@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class FederationMode(str, Enum):
     """Mode of federation between regions."""
 
@@ -37,14 +36,12 @@ class FederationMode(str, Enum):
     BIDIRECTIONAL = "bidirectional"  # Both push and pull
     NONE = "none"  # Federation disabled
 
-
 class SyncScope(str, Enum):
     """Scope of data to sync."""
 
     FULL = "full"  # Full content and metadata
     METADATA = "metadata"  # Only metadata (no content)
     SUMMARY = "summary"  # Summarized content
-
 
 @dataclass
 class FederatedRegion:
@@ -56,10 +53,9 @@ class FederatedRegion:
     mode: FederationMode = FederationMode.BIDIRECTIONAL
     sync_scope: SyncScope = SyncScope.SUMMARY
     enabled: bool = True
-    last_sync_at: Optional[datetime] = None
-    last_sync_error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    last_sync_at: datetime | None = None
+    last_sync_error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class SyncResult:
@@ -72,16 +68,15 @@ class SyncResult:
     nodes_failed: int = 0
     duration_ms: float = 0
     success: bool = True
-    error: Optional[str] = None
-
+    error: str | None = None
 
 class FederationProtocol(Protocol):
     """Protocol defining expected interface for Federation mixin."""
 
     config: "MoundConfig"
     workspace_id: str
-    _meta_store: Optional[Any]
-    _cache: Optional[Any]
+    _meta_store: Any | None
+    _cache: Any | None
     _initialized: bool
 
     def _ensure_initialized(self) -> None: ...
@@ -94,9 +89,8 @@ class FederationProtocol(Protocol):
         sources: Any = ("all",),
         filters: Any = None,
         limit: int = 20,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> Any: ...
-
 
 class KnowledgeFederationMixin:
     """Mixin providing federation operations for KnowledgeMound.
@@ -227,9 +221,9 @@ class KnowledgeFederationMixin:
     async def sync_to_region(
         self,
         region_id: str,
-        workspace_id: Optional[str] = None,
-        since: Optional[datetime] = None,
-        visibility_levels: Optional[List[str]] = None,
+        workspace_id: str | None = None,
+        since: datetime | None = None,
+        visibility_levels: Optional[list[str]] = None,
     ) -> SyncResult:
         """
         Sync knowledge to a federated region.
@@ -349,8 +343,8 @@ class KnowledgeFederationMixin:
     async def pull_from_region(
         self,
         region_id: str,
-        workspace_id: Optional[str] = None,
-        since: Optional[datetime] = None,
+        workspace_id: str | None = None,
+        since: datetime | None = None,
     ) -> SyncResult:
         """
         Pull knowledge from a federated region.
@@ -452,9 +446,9 @@ class KnowledgeFederationMixin:
 
     async def sync_all_regions(
         self,
-        workspace_id: Optional[str] = None,
-        since: Optional[datetime] = None,
-    ) -> List[SyncResult]:
+        workspace_id: str | None = None,
+        since: datetime | None = None,
+    ) -> list[SyncResult]:
         """
         Sync with all registered federated regions.
 
@@ -483,7 +477,7 @@ class KnowledgeFederationMixin:
 
     async def get_federation_status(
         self,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """
         Get sync status for all registered regions.
 
@@ -514,7 +508,7 @@ class KnowledgeFederationMixin:
     async def _get_region_from_store(
         self,
         region_id: str,
-    ) -> Optional[FederatedRegion]:
+    ) -> FederatedRegion | None:
         """Get a federated region from persistent storage or cache."""
         try:
             from aragora.storage.federation_registry_store import get_federation_registry_store
@@ -545,7 +539,7 @@ class KnowledgeFederationMixin:
 
     async def _list_enabled_regions(
         self,
-    ) -> List[FederatedRegion]:
+    ) -> list[FederatedRegion]:
         """List all enabled federated regions from persistent storage or cache."""
         try:
             from aragora.storage.federation_registry_store import get_federation_registry_store
@@ -581,7 +575,7 @@ class KnowledgeFederationMixin:
 
     async def _list_all_regions(
         self,
-    ) -> List[FederatedRegion]:
+    ) -> list[FederatedRegion]:
         """List all federated regions from persistent storage or cache."""
         try:
             from aragora.storage.federation_registry_store import get_federation_registry_store
@@ -616,7 +610,7 @@ class KnowledgeFederationMixin:
         region_id: str,
         direction: str,
         nodes_synced: int = 0,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """Update sync status for a region in persistent storage and cache."""
         # Update class-level cache first
@@ -646,7 +640,7 @@ class KnowledgeFederationMixin:
         self,
         item: "KnowledgeItem",
         scope: SyncScope,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Apply sync scope filtering to an item."""
         if scope == SyncScope.FULL:
             return {
@@ -705,7 +699,7 @@ class KnowledgeFederationMixin:
     async def _push_to_region(
         self,
         region: FederatedRegion,
-        items: List[Dict[str, Any]],
+        items: list[dict[str, Any]],
     ) -> int:
         """Push items to remote region via coordinator."""
         try:
@@ -735,8 +729,8 @@ class KnowledgeFederationMixin:
     async def _fetch_from_region(
         self,
         region: FederatedRegion,
-        since: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch items from remote region via coordinator."""
         try:
             from aragora.coordination.cross_workspace import (  # type: ignore[attr-defined]

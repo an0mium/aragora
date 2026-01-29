@@ -6,7 +6,7 @@ Bridges compliance policies to control plane.
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
 
 from aragora.observability import get_logger
 
@@ -19,7 +19,6 @@ from .types import (
 )
 
 logger = get_logger(__name__)
-
 
 class PolicyStoreSync:
     """
@@ -50,9 +49,9 @@ class PolicyStoreSync:
 
     def sync_from_store(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         enabled_only: bool = True,
-        store: Optional[Any] = None,
+        store: Any | None = None,
         replace: bool = True,
     ) -> int:
         """
@@ -137,11 +136,11 @@ class PolicyStoreSync:
 
         return False
 
-    def _convert_data_residency_policy(self, policy) -> Optional[ControlPlanePolicy]:
+    def _convert_data_residency_policy(self, policy) -> ControlPlanePolicy | None:
         """Convert data residency compliance policy to region constraint."""
         # Extract allowed regions from policy rules
-        allowed_regions: List[str] = []
-        blocked_regions: List[str] = []
+        allowed_regions: list[str] = []
+        blocked_regions: list[str] = []
 
         for rule in policy.rules:
             if not rule.enabled:
@@ -175,11 +174,11 @@ class PolicyStoreSync:
             metadata={"source": "compliance_store", "framework_id": policy.framework_id},
         )
 
-    def _convert_agent_restriction_policy(self, policy) -> Optional[ControlPlanePolicy]:
+    def _convert_agent_restriction_policy(self, policy) -> ControlPlanePolicy | None:
         """Convert agent restriction compliance policy."""
-        allowlist: List[str] = []
-        blocklist: List[str] = []
-        task_types: List[str] = []
+        allowlist: list[str] = []
+        blocklist: list[str] = []
+        task_types: list[str] = []
 
         for rule in policy.rules:
             if not rule.enabled:
@@ -213,12 +212,12 @@ class PolicyStoreSync:
             metadata={"source": "compliance_store", "framework_id": policy.framework_id},
         )
 
-    def _convert_sla_policy(self, policy) -> Optional[ControlPlanePolicy]:
+    def _convert_sla_policy(self, policy) -> ControlPlanePolicy | None:
         """Convert SLA compliance policy."""
         max_execution = None
         max_queue = None
         min_agents = None
-        task_types: List[str] = []
+        task_types: list[str] = []
 
         for rule in policy.rules:
             if not rule.enabled:
@@ -257,10 +256,10 @@ class PolicyStoreSync:
             metadata={"source": "compliance_store", "framework_id": policy.framework_id},
         )
 
-    def _convert_task_restriction_policy(self, policy) -> Optional[ControlPlanePolicy]:
+    def _convert_task_restriction_policy(self, policy) -> ControlPlanePolicy | None:
         """Convert task restriction compliance policy."""
-        task_types: List[str] = []
-        capabilities: List[str] = []
+        task_types: list[str] = []
+        capabilities: list[str] = []
 
         for rule in policy.rules:
             if not rule.enabled:
@@ -291,7 +290,7 @@ class PolicyStoreSync:
             metadata={"source": "compliance_store", "framework_id": policy.framework_id},
         )
 
-    def _convert_generic_policy(self, policy) -> Optional[ControlPlanePolicy]:
+    def _convert_generic_policy(self, policy) -> ControlPlanePolicy | None:
         """Convert a generic compliance policy with basic mapping."""
         # Only convert if the policy has rules with control-plane-relevant metadata
         has_relevant_rules = False
@@ -337,13 +336,12 @@ class PolicyStoreSync:
                 self._synced_policy_ids.discard(policy_id)
         return removed
 
-
 # Add sync method to ControlPlanePolicyManager
 def _sync_from_compliance_store(
     self,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
     enabled_only: bool = True,
-    store: Optional[Any] = None,
+    store: Any | None = None,
     replace: bool = True,
 ) -> int:
     """
@@ -367,7 +365,6 @@ def _sync_from_compliance_store(
         store=store,
         replace=replace,
     )
-
 
 def _apply_monkey_patch() -> None:
     """Apply the monkey-patch to add sync_from_compliance_store to ControlPlanePolicyManager."""

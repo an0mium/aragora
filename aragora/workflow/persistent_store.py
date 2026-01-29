@@ -21,7 +21,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Optional, Union, TYPE_CHECKING
 
 from aragora.workflow.types import WorkflowDefinition
 
@@ -33,10 +33,8 @@ logger = logging.getLogger(__name__)
 # Type alias for workflow store backends
 WorkflowStoreType = Union["PersistentWorkflowStore", "PostgresWorkflowStore"]
 
-
 # Default database path
 DEFAULT_DB_PATH = Path(os.getenv("ARAGORA_WORKFLOW_DB", Path.home() / ".aragora" / "workflows.db"))
-
 
 # Schema definition
 WORKFLOW_SCHEMA = """
@@ -106,7 +104,6 @@ CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant ON workflow_executions(tenant_id);
 """
 
-
 class PersistentWorkflowStore:
     """
     SQLite-backed persistent storage for workflows.
@@ -115,7 +112,7 @@ class PersistentWorkflowStore:
     but persists data to disk.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize the persistent store.
 
@@ -263,7 +260,7 @@ class PersistentWorkflowStore:
 
     def get_workflow(
         self, workflow_id: str, tenant_id: str = "default"
-    ) -> Optional[WorkflowDefinition]:
+    ) -> WorkflowDefinition | None:
         """
         Get a workflow by ID.
 
@@ -297,12 +294,12 @@ class PersistentWorkflowStore:
     def list_workflows(
         self,
         tenant_id: str = "default",
-        category: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        search: Optional[str] = None,
+        category: str | None = None,
+        tags: Optional[list[str]] = None,
+        search: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[WorkflowDefinition], int]:
+    ) -> tuple[list[WorkflowDefinition], int]:
         """
         List workflows with filtering.
 
@@ -316,7 +313,7 @@ class PersistentWorkflowStore:
             # Build query
             query = "SELECT definition FROM workflows WHERE tenant_id = ?"
             count_query = "SELECT COUNT(*) FROM workflows WHERE tenant_id = ?"
-            params: List[Any] = [tenant_id]
+            params: list[Any] = [tenant_id]
 
             if category:
                 query += " AND category = ?"
@@ -428,7 +425,7 @@ class PersistentWorkflowStore:
         workflow_id: str,
         tenant_id: str = "default",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get version history for a workflow."""
         conn = self._get_conn()
         try:
@@ -465,7 +462,7 @@ class PersistentWorkflowStore:
         self,
         workflow_id: str,
         version: str,
-    ) -> Optional[WorkflowDefinition]:
+    ) -> WorkflowDefinition | None:
         """Get a specific version of a workflow."""
         conn = self._get_conn()
         try:
@@ -530,7 +527,7 @@ class PersistentWorkflowStore:
         finally:
             conn.close()
 
-    def get_template(self, template_id: str) -> Optional[WorkflowDefinition]:
+    def get_template(self, template_id: str) -> WorkflowDefinition | None:
         """Get a template by ID."""
         conn = self._get_conn()
         try:
@@ -554,17 +551,17 @@ class PersistentWorkflowStore:
 
     def list_templates(
         self,
-        category: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        category: str | None = None,
+        tags: Optional[list[str]] = None,
         limit: int = 50,
-    ) -> List[WorkflowDefinition]:
+    ) -> list[WorkflowDefinition]:
         """List workflow templates."""
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
 
             query = "SELECT definition FROM workflow_templates"
-            params: List[Any] = []
+            params: list[Any] = []
 
             if category:
                 query += " WHERE category = ?"
@@ -611,7 +608,7 @@ class PersistentWorkflowStore:
     # Executions
     # =========================================================================
 
-    def save_execution(self, execution: Dict[str, Any]) -> None:
+    def save_execution(self, execution: dict[str, Any]) -> None:
         """Save or update an execution record."""
         conn = self._get_conn()
         try:
@@ -644,7 +641,7 @@ class PersistentWorkflowStore:
         finally:
             conn.close()
 
-    def get_execution(self, execution_id: str) -> Optional[Dict[str, Any]]:
+    def get_execution(self, execution_id: str) -> Optional[dict[str, Any]]:
         """Get an execution by ID."""
         conn = self._get_conn()
         try:
@@ -679,12 +676,12 @@ class PersistentWorkflowStore:
 
     def list_executions(
         self,
-        workflow_id: Optional[str] = None,
+        workflow_id: str | None = None,
         tenant_id: str = "default",
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """List executions with filtering."""
         conn = self._get_conn()
         try:
@@ -692,7 +689,7 @@ class PersistentWorkflowStore:
 
             query = "SELECT * FROM workflow_executions WHERE tenant_id = ?"
             count_query = "SELECT COUNT(*) FROM workflow_executions WHERE tenant_id = ?"
-            params: List[Any] = [tenant_id]
+            params: list[Any] = [tenant_id]
 
             if workflow_id:
                 query += " AND workflow_id = ?"
@@ -737,16 +734,14 @@ class PersistentWorkflowStore:
         finally:
             conn.close()
 
-
 # Global store instance
-_store: Optional[PersistentWorkflowStore] = None
+_store: PersistentWorkflowStore | None = None
 
 # Global workflow store instance for factory function
-_workflow_store_instance: Optional[WorkflowStoreType] = None
-
+_workflow_store_instance: WorkflowStoreType | None = None
 
 def get_workflow_store(
-    db_path: Optional[Path] = None,
+    db_path: Path | None = None,
     force_new: bool = False,
 ) -> WorkflowStoreType:
     """
@@ -800,7 +795,6 @@ def get_workflow_store(
 
     return _workflow_store_instance
 
-
 async def get_async_workflow_store(
     force_new: bool = False,
 ) -> WorkflowStoreType:
@@ -843,7 +837,6 @@ async def get_async_workflow_store(
     _workflow_store_instance = PersistentWorkflowStore()
     return _workflow_store_instance
 
-
 async def create_postgres_workflow_store() -> "PostgresWorkflowStore":
     """
     Create and initialize a PostgreSQL workflow store.
@@ -865,13 +858,11 @@ async def create_postgres_workflow_store() -> "PostgresWorkflowStore":
     await store.initialize()
     return store
 
-
 def reset_workflow_store() -> None:
     """Reset the global store (for testing)."""
     global _store, _workflow_store_instance
     _store = None
     _workflow_store_instance = None
-
 
 __all__ = [
     "PersistentWorkflowStore",

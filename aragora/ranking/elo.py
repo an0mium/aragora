@@ -92,10 +92,8 @@ __all__ = [
     "get_elo_store",
 ]
 
-
 # Singleton EloSystem instance
 _elo_store: Optional["EloSystem"] = None
-
 
 def get_elo_store() -> "EloSystem":
     """Get the global EloSystem singleton instance.
@@ -111,16 +109,13 @@ def get_elo_store() -> "EloSystem":
         _elo_store = EloSystem()
     return _elo_store
 
-
 # Use centralized config values (can be overridden via environment variables)
 DEFAULT_ELO = ELO_INITIAL_RATING
 K_FACTOR = ELO_K_FACTOR
 CALIBRATION_MIN_COUNT = ELO_CALIBRATION_MIN_COUNT
 
-
 # Maximum agent name length (matches SAFE_AGENT_PATTERN in validation/entities.py)
 MAX_AGENT_NAME_LENGTH = 32
-
 
 def _validate_agent_name(agent_name: str) -> None:
     """Validate agent name length to prevent performance issues.
@@ -136,7 +131,6 @@ def _validate_agent_name(agent_name: str) -> None:
             f"Agent name exceeds {MAX_AGENT_NAME_LENGTH} characters: {len(agent_name)}"
         )
 
-
 def _record_learning_bonus(agent: str, category: str) -> None:
     """Record learning bonus metric with lazy import."""
     try:
@@ -146,7 +140,6 @@ def _record_learning_bonus(agent: str, category: str) -> None:
     except ImportError:
         pass
 
-
 def _record_voting_accuracy(result: str) -> None:
     """Record voting accuracy update metric with lazy import."""
     try:
@@ -155,7 +148,6 @@ def _record_voting_accuracy(result: str) -> None:
         record_voting_accuracy_update(result)
     except ImportError:
         pass
-
 
 @dataclass
 class AgentRating:
@@ -230,18 +222,16 @@ class AgentRating:
         """Total debates (alias for debates_count)."""
         return self.debates_count
 
-
 @dataclass
 class MatchResult:
     """Result of a debate match between agents."""
 
     debate_id: str
-    winner: Optional[str]  # None for draw
+    winner: str | None  # None for draw
     participants: list[str]
-    domain: Optional[str]
+    domain: str | None
     scores: dict[str, float]  # agent -> score
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-
 
 class EloSystem:
     """
@@ -303,7 +293,7 @@ class EloSystem:
     def query_km_agent_skill_history(
         self,
         agent_name: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """Query Knowledge Mound for agent skill history (reverse flow).
@@ -373,12 +363,12 @@ class EloSystem:
             self._redteam_integrator = RedTeamIntegrator(self)
         return self._redteam_integrator
 
-    def register_agent(self, agent_name: str, model: Optional[str] = None) -> AgentRating:
+    def register_agent(self, agent_name: str, model: str | None = None) -> AgentRating:
         """Ensure an agent exists in the ratings table (legacy compatibility)."""
         _validate_agent_name(agent_name)
         return self.get_rating(agent_name, use_cache=False)
 
-    def initialize_agent(self, agent_name: str, model: Optional[str] = None) -> AgentRating:
+    def initialize_agent(self, agent_name: str, model: str | None = None) -> AgentRating:
         """Backward-compatible alias for register_agent."""
         return self.register_agent(agent_name, model=model)
 
@@ -725,8 +715,8 @@ class EloSystem:
         self,
         elo_changes: dict[str, float],
         ratings: dict[str, "AgentRating"],
-        winner: Optional[str],
-        domain: Optional[str],
+        winner: str | None,
+        domain: str | None,
         debate_id: str,
     ) -> tuple[list["AgentRating"], list[tuple[str, float, str]]]:
         """Apply ELO changes to ratings and prepare for batch save."""
@@ -778,12 +768,12 @@ class EloSystem:
         scores: dict[str, float] | None = None,
         domain: str | None = None,
         confidence_weight: float = 1.0,
-        calibration_tracker: Optional[object] = None,
+        calibration_tracker: object | None = None,
         *,
-        winner: Optional[str] = None,
-        loser: Optional[str] = None,
-        draw: Optional[bool] = None,
-        task: Optional[str] = None,
+        winner: str | None = None,
+        loser: str | None = None,
+        draw: bool | None = None,
+        task: str | None = None,
     ) -> dict[str, float]:
         """
         Record a match result and update ELO ratings.
@@ -919,9 +909,9 @@ class EloSystem:
     def _save_match(
         self,
         debate_id: str,
-        winner: Optional[str],
+        winner: str | None,
         participants: list[str],
-        domain: Optional[str],
+        domain: str | None,
         scores: dict[str, float],
         elo_changes: dict[str, float],
     ):
@@ -1149,12 +1139,12 @@ class EloSystem:
         """Record a domain-specific prediction. Delegates to DomainCalibrationEngine."""
         self._domain_calibration_engine.record_prediction(agent_name, domain, confidence, correct)
 
-    def get_domain_calibration(self, agent_name: str, domain: Optional[str] = None) -> dict:
+    def get_domain_calibration(self, agent_name: str, domain: str | None = None) -> dict:
         """Get calibration statistics for an agent. Delegates to DomainCalibrationEngine."""
         return self._domain_calibration_engine.get_domain_stats(agent_name, domain)
 
     def get_calibration_by_bucket(
-        self, agent_name: str, domain: Optional[str] = None
+        self, agent_name: str, domain: str | None = None
     ) -> list[dict]:
         """Get calibration broken down by confidence bucket. Delegates to DomainCalibrationEngine."""
         buckets = self._domain_calibration_engine.get_calibration_curve(agent_name, domain)
@@ -1230,7 +1220,7 @@ class EloSystem:
         """
         self.relationship_tracker.update_batch(updates)
 
-    def get_relationship_raw(self, agent_a: str, agent_b: str) -> Optional[dict]:
+    def get_relationship_raw(self, agent_a: str, agent_b: str) -> dict | None:
         """Get raw relationship data between two agents.
 
         Delegates to RelationshipTracker. For new code, use:
@@ -1482,7 +1472,7 @@ class EloSystem:
         agent_name: str,
         voted_for_consensus: bool,
         domain: str = "general",
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         apply_elo_bonus: bool = True,
         bonus_k_factor: float = 4.0,
     ) -> float:
@@ -1590,7 +1580,7 @@ class EloSystem:
     def get_learning_efficiency(
         self,
         agent_name: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         window_debates: int = 20,
     ) -> dict:
         """
@@ -1732,7 +1722,7 @@ class EloSystem:
         self,
         agent_name: str,
         domain: str = "general",
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         bonus_factor: float = 0.5,
     ) -> float:
         """

@@ -8,7 +8,7 @@ orchestrator size and improve testability.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.disagreement import DisagreementReporter
@@ -35,14 +35,13 @@ try:
 
     GENESIS_AVAILABLE = True
 except ImportError:
-    PopulationManager: Optional[Type[Any]] = None  # type: ignore[no-redef]
+    PopulationManager: Optional[type[Any]] = None  # type: ignore[no-redef]
     GENESIS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.debate.orchestrator import Arena
-
 
 def _create_verify_claims_callback(arena: "Arena"):
     """
@@ -169,7 +168,6 @@ def _create_verify_claims_callback(arena: "Arena"):
         return {"verified": verified_count, "disproven": disproven_count}
 
     return verify_claims
-
 
 def init_phases(arena: "Arena") -> None:
     """Initialize phase classes for orchestrator decomposition."""
@@ -453,7 +451,6 @@ def init_phases(arena: "Arena") -> None:
         selection_feedback_loop=getattr(arena, "selection_feedback_loop", None),
         enable_performance_feedback=getattr(arena, "enable_performance_feedback", True),
     )
-
 
 def create_phase_executor(arena: "Arena") -> PhaseExecutor:
     """Create and configure the PhaseExecutor for debate execution.

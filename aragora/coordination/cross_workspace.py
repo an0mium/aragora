@@ -22,11 +22,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class SharingScope(str, Enum):
     """Scope of data sharing between workspaces."""
@@ -37,7 +36,6 @@ class SharingScope(str, Enum):
     FULL = "full"  # Full content sharing
     SELECTIVE = "selective"  # Selected fields only
 
-
 class FederationMode(str, Enum):
     """Mode of workspace federation."""
 
@@ -45,7 +43,6 @@ class FederationMode(str, Enum):
     READONLY = "readonly"  # Read from federated workspaces only
     BIDIRECTIONAL = "bidirectional"  # Read and write
     ORCHESTRATED = "orchestrated"  # Central orchestration
-
 
 class OperationType(str, Enum):
     """Types of cross-workspace operations."""
@@ -57,7 +54,6 @@ class OperationType(str, Enum):
     SHARE_FINDINGS = "share_findings"
     SYNC_CULTURE = "sync_culture"
     BROADCAST_MESSAGE = "broadcast_message"
-
 
 @dataclass
 class FederationPolicy:
@@ -72,13 +68,13 @@ class FederationPolicy:
     sharing_scope: SharingScope = SharingScope.NONE
 
     # Allowed operations
-    allowed_operations: Set[OperationType] = field(default_factory=set)
-    blocked_operations: Set[OperationType] = field(default_factory=set)
+    allowed_operations: set[OperationType] = field(default_factory=set)
+    blocked_operations: set[OperationType] = field(default_factory=set)
 
     # Workspace permissions
-    allowed_source_workspaces: Optional[Set[str]] = None  # None = any
-    allowed_target_workspaces: Optional[Set[str]] = None  # None = any
-    blocked_workspaces: Set[str] = field(default_factory=set)
+    allowed_source_workspaces: Optional[set[str]] = None  # None = any
+    allowed_target_workspaces: Optional[set[str]] = None  # None = any
+    blocked_workspaces: set[str] = field(default_factory=set)
 
     # Rate limiting
     max_requests_per_hour: int = 100
@@ -91,7 +87,7 @@ class FederationPolicy:
 
     # Validity
     valid_from: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    valid_until: Optional[datetime] = None
+    valid_until: datetime | None = None
     created_by: str = ""
 
     def is_valid(self) -> bool:
@@ -150,7 +146,7 @@ class FederationPolicy:
 
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -175,7 +171,6 @@ class FederationPolicy:
             "valid_until": self.valid_until.isoformat() if self.valid_until else None,
         }
 
-
 @dataclass
 class DataSharingConsent:
     """Consent for data sharing between workspaces."""
@@ -186,20 +181,20 @@ class DataSharingConsent:
 
     # Consent details
     scope: SharingScope = SharingScope.METADATA
-    data_types: Set[str] = field(default_factory=set)  # e.g., "debates", "findings"
-    operations: Set[OperationType] = field(default_factory=set)
+    data_types: set[str] = field(default_factory=set)  # e.g., "debates", "findings"
+    operations: set[OperationType] = field(default_factory=set)
 
     # Consent metadata
     granted_by: str = ""
     granted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     revoked: bool = False
-    revoked_at: Optional[datetime] = None
-    revoked_by: Optional[str] = None
+    revoked_at: datetime | None = None
+    revoked_by: str | None = None
 
     # Usage tracking
     times_used: int = 0
-    last_used: Optional[datetime] = None
+    last_used: datetime | None = None
     data_transferred_bytes: int = 0
 
     def is_valid(self) -> bool:
@@ -222,7 +217,7 @@ class DataSharingConsent:
         self.revoked_at = datetime.now(timezone.utc)
         self.revoked_by = by
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -238,7 +233,6 @@ class DataSharingConsent:
             "times_used": self.times_used,
             "data_transferred_bytes": self.data_transferred_bytes,
         }
-
 
 @dataclass
 class FederatedWorkspace:
@@ -259,15 +253,15 @@ class FederatedWorkspace:
     supports_knowledge_query: bool = True
 
     # Connection info
-    endpoint_url: Optional[str] = None
-    public_key: Optional[str] = None  # For secure communication
+    endpoint_url: str | None = None
+    public_key: str | None = None  # For secure communication
 
     # Status
     is_online: bool = True
-    last_heartbeat: Optional[datetime] = None
+    last_heartbeat: datetime | None = None
     latency_ms: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -284,7 +278,6 @@ class FederatedWorkspace:
             "latency_ms": self.latency_ms,
         }
 
-
 @dataclass
 class CrossWorkspaceRequest:
     """Request for cross-workspace operation."""
@@ -295,22 +288,22 @@ class CrossWorkspaceRequest:
     target_workspace_id: str = ""
 
     # Request details
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     timeout_seconds: float = 30.0
 
     # Authentication
     requester_id: str = ""
     requester_role: str = ""
-    consent_id: Optional[str] = None
+    consent_id: str | None = None
 
     # Tracking
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "pending"  # pending, approved, rejected, executing, completed, failed
     approval_required: bool = False
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -325,7 +318,6 @@ class CrossWorkspaceRequest:
             "created_at": self.created_at.isoformat(),
         }
 
-
 @dataclass
 class CrossWorkspaceResult:
     """Result of cross-workspace operation."""
@@ -333,8 +325,8 @@ class CrossWorkspaceResult:
     request_id: str = ""
     success: bool = False
     data: Any = None
-    error: Optional[str] = None
-    error_code: Optional[str] = None
+    error: str | None = None
+    error_code: str | None = None
 
     # Performance
     execution_time_ms: float = 0.0
@@ -344,7 +336,7 @@ class CrossWorkspaceResult:
     executed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     executed_in_workspace: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "request_id": self.request_id,
@@ -357,10 +349,8 @@ class CrossWorkspaceResult:
             "executed_at": self.executed_at.isoformat(),
         }
 
-
 # Type for operation handlers
 OperationHandler = Callable[[CrossWorkspaceRequest], CrossWorkspaceResult]
-
 
 class CrossWorkspaceCoordinator:
     """
@@ -376,8 +366,8 @@ class CrossWorkspaceCoordinator:
 
     def __init__(
         self,
-        default_policy: Optional[FederationPolicy] = None,
-        audit_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        default_policy: FederationPolicy | None = None,
+        audit_callback: Optional[Callable[[dict[str, Any]], None]] = None,
     ):
         """
         Initialize cross-workspace coordinator.
@@ -387,30 +377,30 @@ class CrossWorkspaceCoordinator:
             audit_callback: Callback for audit events
         """
         # Workspace registry
-        self._workspaces: Dict[str, FederatedWorkspace] = {}
+        self._workspaces: dict[str, FederatedWorkspace] = {}
 
         # Policies
         self._default_policy = default_policy or FederationPolicy(
             name="default",
             mode=FederationMode.ISOLATED,
         )
-        self._workspace_policies: Dict[str, FederationPolicy] = {}  # workspace_id -> policy
-        self._pair_policies: Dict[
-            Tuple[str, str], FederationPolicy
+        self._workspace_policies: dict[str, FederationPolicy] = {}  # workspace_id -> policy
+        self._pair_policies: dict[
+            tuple[str, str], FederationPolicy
         ] = {}  # (source, target) -> policy
 
         # Consents
-        self._consents: Dict[str, DataSharingConsent] = {}  # consent_id -> consent
-        self._workspace_consents: Dict[str, Set[str]] = {}  # workspace_id -> consent_ids
+        self._consents: dict[str, DataSharingConsent] = {}  # consent_id -> consent
+        self._workspace_consents: dict[str, set[str]] = {}  # workspace_id -> consent_ids
 
         # Pending requests
-        self._pending_requests: Dict[str, CrossWorkspaceRequest] = {}
+        self._pending_requests: dict[str, CrossWorkspaceRequest] = {}
 
         # Rate limiting
-        self._request_counts: Dict[str, List[datetime]] = {}  # workspace_id -> request times
+        self._request_counts: dict[str, list[datetime]] = {}  # workspace_id -> request times
 
         # Operation handlers
-        self._handlers: Dict[OperationType, OperationHandler] = {}
+        self._handlers: dict[OperationType, OperationHandler] = {}
 
         # Audit
         self._audit_callback = audit_callback
@@ -453,9 +443,9 @@ class CrossWorkspaceCoordinator:
     def set_policy(
         self,
         policy: FederationPolicy,
-        workspace_id: Optional[str] = None,
-        source_workspace_id: Optional[str] = None,
-        target_workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        source_workspace_id: str | None = None,
+        target_workspace_id: str | None = None,
     ) -> None:
         """
         Set a federation policy.
@@ -497,10 +487,10 @@ class CrossWorkspaceCoordinator:
         source_workspace_id: str,
         target_workspace_id: str,
         scope: SharingScope,
-        data_types: Set[str],
-        operations: Set[OperationType],
+        data_types: set[str],
+        operations: set[OperationType],
         granted_by: str,
-        expires_in_days: Optional[int] = None,
+        expires_in_days: int | None = None,
     ) -> DataSharingConsent:
         """
         Grant data sharing consent between workspaces.
@@ -571,7 +561,7 @@ class CrossWorkspaceCoordinator:
         source_workspace_id: str,
         target_workspace_id: str,
         operation: OperationType,
-    ) -> Optional[DataSharingConsent]:
+    ) -> DataSharingConsent | None:
         """Find a valid consent for the operation."""
         # Check consents for source workspace
         for consent_id in self._workspace_consents.get(source_workspace_id, set()):
@@ -829,14 +819,14 @@ class CrossWorkspaceCoordinator:
 
         return True
 
-    def list_workspaces(self) -> List[FederatedWorkspace]:
+    def list_workspaces(self) -> list[FederatedWorkspace]:
         """List all federated workspaces."""
         return list(self._workspaces.values())
 
     def list_consents(
         self,
-        workspace_id: Optional[str] = None,
-    ) -> List[DataSharingConsent]:
+        workspace_id: str | None = None,
+    ) -> list[DataSharingConsent]:
         """List consents, optionally filtered by workspace."""
         if workspace_id:
             consent_ids = self._workspace_consents.get(workspace_id, set())
@@ -845,8 +835,8 @@ class CrossWorkspaceCoordinator:
 
     def list_pending_requests(
         self,
-        workspace_id: Optional[str] = None,
-    ) -> List[CrossWorkspaceRequest]:
+        workspace_id: str | None = None,
+    ) -> list[CrossWorkspaceRequest]:
         """List pending approval requests."""
         requests = list(self._pending_requests.values())
         if workspace_id:
@@ -869,7 +859,7 @@ class CrossWorkspaceCoordinator:
 
         logger.debug(f"Audit: {event_type} {kwargs}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get coordinator statistics."""
         return {
             "total_workspaces": len(self._workspaces),
@@ -879,10 +869,8 @@ class CrossWorkspaceCoordinator:
             "registered_handlers": list(h.value for h in self._handlers.keys()),
         }
 
-
 # Global coordinator instance
-_coordinator: Optional[CrossWorkspaceCoordinator] = None
-
+_coordinator: CrossWorkspaceCoordinator | None = None
 
 def get_coordinator() -> CrossWorkspaceCoordinator:
     """Get or create the global coordinator."""
@@ -890,7 +878,6 @@ def get_coordinator() -> CrossWorkspaceCoordinator:
     if _coordinator is None:
         _coordinator = CrossWorkspaceCoordinator()
     return _coordinator
-
 
 __all__ = [
     "CrossWorkspaceCoordinator",

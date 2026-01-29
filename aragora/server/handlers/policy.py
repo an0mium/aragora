@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 from aragora.audit.unified import audit_security
@@ -41,7 +41,6 @@ from .utils.decorators import require_permission
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
 
 class PolicyHandler(BaseHandler):
     """Handler for policy and compliance endpoints."""
@@ -68,9 +67,9 @@ class PolicyHandler(BaseHandler):
         return False
 
     @rate_limit(rpm=120)
-    async def handle(self, path: str, method: str, handler: Any = None) -> Optional[HandlerResult]:  # type: ignore[override]
+    async def handle(self, path: str, method: str, handler: Any = None) -> HandlerResult | None:  # type: ignore[override]
         """Route request to appropriate handler method."""
-        query_params: Dict[str, Any] = {}
+        query_params: dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
@@ -194,7 +193,7 @@ class PolicyHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("policies:read")
-    def _list_policies(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _list_policies(self, query_params: dict[str, Any]) -> HandlerResult:
         """List policies with optional filters."""
         store = self._get_policy_store()
         if store is None:
@@ -444,7 +443,7 @@ class PolicyHandler(BaseHandler):
             return error_response(f"Failed to toggle policy: {e}", 500)
 
     @require_permission("policies:read")
-    def _get_policy_violations(self, policy_id: str, query_params: Dict[str, Any]) -> HandlerResult:
+    def _get_policy_violations(self, policy_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Get violations for a specific policy."""
         store = self._get_policy_store()
         if store is None:
@@ -486,7 +485,7 @@ class PolicyHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("policies:read")
-    def _list_violations(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _list_violations(self, query_params: dict[str, Any]) -> HandlerResult:
         """List all violations with optional filters."""
         store = self._get_policy_store()
         if store is None:
@@ -681,7 +680,7 @@ class PolicyHandler(BaseHandler):
             return error_response(f"Failed to check compliance: {e}", 500)
 
     @require_permission("policies:read")
-    def _get_stats(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _get_stats(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get compliance statistics."""
         store = self._get_policy_store()
         if store is None:
@@ -732,7 +731,6 @@ class PolicyHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to get compliance stats: {e}")
             return error_response(f"Failed to get stats: {e}", 500)
-
 
 # Export for registration
 __all__ = ["PolicyHandler"]

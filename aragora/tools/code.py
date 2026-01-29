@@ -19,8 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional
-
+from typing import Any, Callable
 
 class ChangeType(Enum):
     """Types of code changes."""
@@ -31,7 +30,6 @@ class ChangeType(Enum):
     RENAME = "rename"  # Rename file/symbol
     MOVE = "move"  # Move code to different location
     REFACTOR = "refactor"  # Restructure without behavior change
-
 
 @dataclass
 class FileContext:
@@ -48,7 +46,6 @@ class FileContext:
     functions: list[str] = field(default_factory=list)
     classes: list[str] = field(default_factory=list)
 
-
 @dataclass
 class CodeSpan:
     """A span of code in a file."""
@@ -59,7 +56,6 @@ class CodeSpan:
     content: str
     context_before: str = ""  # Lines before for context
     context_after: str = ""  # Lines after for context
-
 
 @dataclass
 class CodeChange:
@@ -72,16 +68,16 @@ class CodeChange:
     rationale: str
 
     # For modifications
-    old_code: Optional[str] = None
-    new_code: Optional[str] = None
-    start_line: Optional[int] = None
-    end_line: Optional[int] = None
+    old_code: str | None = None
+    new_code: str | None = None
+    start_line: int | None = None
+    end_line: int | None = None
 
     # For new files
-    new_file_content: Optional[str] = None
+    new_file_content: str | None = None
 
     # For renames/moves
-    new_path: Optional[str] = None
+    new_path: str | None = None
 
     # Metadata
     author: str = ""
@@ -89,7 +85,6 @@ class CodeChange:
     risk_level: str = "medium"  # "low", "medium", "high"
     requires_test: bool = True
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-
 
 @dataclass
 class CodeProposal:
@@ -108,9 +103,9 @@ class CodeProposal:
     breaking_changes: list[str] = field(default_factory=list)
 
     # Validation
-    tests_passed: Optional[bool] = None
-    lint_passed: Optional[bool] = None
-    type_check_passed: Optional[bool] = None
+    tests_passed: bool | None = None
+    lint_passed: bool | None = None
+    type_check_passed: bool | None = None
 
     # Metadata
     confidence: float = 0.5
@@ -132,7 +127,6 @@ class CodeProposal:
                 patches.append(patch)
         return "\n".join(patches)
 
-
 @dataclass
 class ValidationResult:
     """Result of validating a code proposal."""
@@ -141,9 +135,8 @@ class ValidationResult:
     valid: bool
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    test_results: Optional[dict] = None
-    lint_results: Optional[dict] = None
-
+    test_results: dict | None = None
+    lint_results: dict | None = None
 
 class CodeReader:
     """
@@ -350,7 +343,6 @@ class CodeReader:
 
         return classes[:30]
 
-
 class CodeWriter:
     """
     Safely applies code changes with git integration.
@@ -550,7 +542,6 @@ class CodeWriter:
         except subprocess.CalledProcessError:
             return False
 
-
 class SelfImprover:
     """
     Orchestrates self-improvement through multi-agent debate.
@@ -615,7 +606,7 @@ class SelfImprover:
 
         return analysis
 
-    def generate_improvement_prompt(self, focus: Optional[str] = None) -> str:
+    def generate_improvement_prompt(self, focus: str | None = None) -> str:
         """Generate a prompt for improvement debate."""
         analysis = self.analyze_codebase()
 
@@ -650,7 +641,7 @@ Be specific with code snippets. Prioritize:
 
     async def debate_improvement(
         self,
-        focus: Optional[str] = None,
+        focus: str | None = None,
         rounds: int | None = None,
     ) -> list[CodeProposal]:
         """Run a debate to generate improvement proposals."""
@@ -698,7 +689,7 @@ Be specific with code snippets. Prioritize:
 
         return proposals
 
-    def apply_best_proposal(self, proposal_id: Optional[str] = None) -> ValidationResult:
+    def apply_best_proposal(self, proposal_id: str | None = None) -> ValidationResult:
         """Apply the best (or specified) proposal."""
         if not self.proposals:
             return ValidationResult(

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aiohttp import web
 
@@ -30,7 +30,6 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 class CreditsAdminHandler(SecureHandler):
     """Handler for credit administration endpoints.
 
@@ -44,7 +43,7 @@ class CreditsAdminHandler(SecureHandler):
     async def issue_credit(
         self,
         org_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         user_id: str,
     ) -> HandlerResult:
         """Issue credits to an organization.
@@ -124,7 +123,7 @@ class CreditsAdminHandler(SecureHandler):
         org_id: str,
         limit: int = 100,
         offset: int = 0,
-        transaction_type: Optional[str] = None,
+        transaction_type: str | None = None,
     ) -> HandlerResult:
         """List credit transactions for an organization.
 
@@ -167,7 +166,7 @@ class CreditsAdminHandler(SecureHandler):
     async def adjust_balance(
         self,
         org_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         user_id: str,
     ) -> HandlerResult:
         """Make a manual balance adjustment.
@@ -239,7 +238,6 @@ class CreditsAdminHandler(SecureHandler):
             }
         )
 
-
 def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHandler) -> None:
     """Register credits admin routes with the application.
 
@@ -304,7 +302,6 @@ def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHan
     app.router.add_get("/api/admin/credits/{org_id}/transactions", list_transactions)
     app.router.add_post("/api/admin/credits/{org_id}/adjust", adjust_balance)
     app.router.add_get("/api/admin/credits/{org_id}/expiring", get_expiring)
-
 
 __all__ = [
     "CreditsAdminHandler",

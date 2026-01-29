@@ -6,8 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 class TeamStrategy(Enum):
     """Strategy for selecting the agent team."""
@@ -17,7 +16,6 @@ class TeamStrategy(Enum):
     DIVERSE = "diverse"  # Maximize agent diversity
     FAST = "fast"  # Optimize for speed
     RANDOM = "random"  # Random selection
-
 
 class OutputFormat(Enum):
     """Format for deliberation output."""
@@ -32,7 +30,6 @@ class OutputFormat(Enum):
     EMAIL = "email"  # Email format
     COMPLIANCE_REPORT = "compliance_report"  # Compliance audit report
 
-
 class TemplateCategory(Enum):
     """Category for organizing templates."""
 
@@ -43,7 +40,6 @@ class TemplateCategory(Enum):
     COMPLIANCE = "compliance"
     ACADEMIC = "academic"
     GENERAL = "general"
-
 
 @dataclass
 class DeliberationTemplate:
@@ -71,18 +67,18 @@ class DeliberationTemplate:
     category: TemplateCategory = TemplateCategory.GENERAL
 
     # Agent configuration
-    default_agents: List[str] = field(default_factory=list)
+    default_agents: list[str] = field(default_factory=list)
     team_strategy: TeamStrategy = TeamStrategy.BEST_FOR_DOMAIN
     min_agents: int = 2
     max_agents: int = 5
 
     # Knowledge configuration
-    default_knowledge_sources: List[str] = field(default_factory=list)
-    required_knowledge_types: List[str] = field(default_factory=list)
+    default_knowledge_sources: list[str] = field(default_factory=list)
+    required_knowledge_types: list[str] = field(default_factory=list)
 
     # Output configuration
     output_format: OutputFormat = OutputFormat.STANDARD
-    default_output_channels: List[str] = field(default_factory=list)
+    default_output_channels: list[str] = field(default_factory=list)
 
     # Deliberation configuration
     consensus_threshold: float = 0.7
@@ -91,21 +87,21 @@ class DeliberationTemplate:
     timeout_seconds: float = 300.0
 
     # Persona configuration for specialized analysis
-    personas: List[str] = field(default_factory=list)
+    personas: list[str] = field(default_factory=list)
 
     # Tags for filtering and discovery
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     # Version for template evolution
     version: str = "1.0.0"
 
     # Optional system prompt additions
-    system_prompt_additions: Optional[str] = None
+    system_prompt_additions: str | None = None
 
     # Optional metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         return {
             "name": self.name,
@@ -129,7 +125,7 @@ class DeliberationTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DeliberationTemplate":
+    def from_dict(cls, data: dict[str, Any]) -> "DeliberationTemplate":
         """Create from dictionary (e.g., YAML loaded data)."""
         # Parse enums
         category = TemplateCategory.GENERAL
@@ -176,7 +172,7 @@ class DeliberationTemplate:
             metadata=data.get("metadata", {}),
         )
 
-    def merge_with_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+    def merge_with_request(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """
         Merge template defaults with request data.
 

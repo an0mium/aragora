@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 class EventsMixin:
     """Mixin providing Slack event handling implementations.
@@ -27,7 +26,7 @@ class EventsMixin:
     # Subclass should provide this
     SLACK_BOT_TOKEN: str = ""
 
-    def handle_app_mention(self, event: Dict[str, Any]) -> HandlerResult:
+    def handle_app_mention(self, event: dict[str, Any]) -> HandlerResult:
         """Handle @mentions of the app.
 
         Args:
@@ -84,9 +83,9 @@ class EventsMixin:
         self,
         channel: str,
         text: str,
-        thread_ts: Optional[str] = None,
-        blocks: Optional[List[Dict[str, Any]]] = None,
-    ) -> Optional[str]:
+        thread_ts: str | None = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
+    ) -> str | None:
         """Post a message to Slack using the Web API.
 
         Args:
@@ -107,7 +106,7 @@ class EventsMixin:
             return None
 
         try:
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "channel": channel,
                 "text": text,
             }
@@ -139,7 +138,7 @@ class EventsMixin:
             logger.exception(f"Unexpected error posting Slack message: {e}")
             return None
 
-    def handle_message_event(self, event: Dict[str, Any]) -> HandlerResult:
+    def handle_message_event(self, event: dict[str, Any]) -> HandlerResult:
         """Handle direct messages to the app.
 
         Args:
@@ -257,6 +256,5 @@ class EventsMixin:
         except (ImportError, AttributeError, RuntimeError) as e:
             logger.debug(f"Failed to fetch agents: {e}")
             return "Agent list temporarily unavailable."
-
 
 __all__ = ["EventsMixin"]

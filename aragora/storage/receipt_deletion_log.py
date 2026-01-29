@@ -25,7 +25,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,6 @@ DEFAULT_DB_PATH = (
     Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "receipt_deletions.db"
 )
 
-
 @dataclass
 class ReceiptDeletionRecord:
     """Record of a receipt deletion for audit purposes."""
@@ -42,14 +41,14 @@ class ReceiptDeletionRecord:
     deletion_id: str
     receipt_id: str
     receipt_checksum: str
-    gauntlet_id: Optional[str]
-    verdict: Optional[str]
+    gauntlet_id: str | None
+    verdict: str | None
     deleted_at: float  # Unix timestamp
     reason: str  # "retention_expired", "user_request", "gdpr_erasure", "admin_action"
     operator: str  # User/system that initiated deletion
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "deletion_id": self.deletion_id,
@@ -63,7 +62,6 @@ class ReceiptDeletionRecord:
             "operator": self.operator,
             "metadata": self.metadata,
         }
-
 
 class ReceiptDeletionLog:
     """
@@ -116,7 +114,7 @@ class ReceiptDeletionLog:
         "legal_hold_release",
     }
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize the deletion log.
 
@@ -156,9 +154,9 @@ class ReceiptDeletionLog:
         receipt_checksum: str,
         reason: str,
         operator: str,
-        gauntlet_id: Optional[str] = None,
-        verdict: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        gauntlet_id: str | None = None,
+        verdict: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Log a receipt deletion.
@@ -228,10 +226,10 @@ class ReceiptDeletionLog:
 
     def log_batch_deletion(
         self,
-        receipts: List[Dict[str, Any]],
+        receipts: list[dict[str, Any]],
         reason: str,
         operator: str,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Log multiple receipt deletions in a single transaction.
 
@@ -293,7 +291,7 @@ class ReceiptDeletionLog:
             logger.error(f"Failed to log batch deletion: {e}")
             raise
 
-    def get_deletion(self, deletion_id: str) -> Optional[ReceiptDeletionRecord]:
+    def get_deletion(self, deletion_id: str) -> ReceiptDeletionRecord | None:
         """Get a specific deletion record."""
         conn = self._get_connection()
         try:
@@ -309,7 +307,7 @@ class ReceiptDeletionLog:
             logger.error(f"Failed to get deletion {deletion_id}: {e}")
             return None
 
-    def find_by_receipt_id(self, receipt_id: str) -> List[ReceiptDeletionRecord]:
+    def find_by_receipt_id(self, receipt_id: str) -> list[ReceiptDeletionRecord]:
         """Find all deletion records for a receipt ID."""
         conn = self._get_connection()
         try:
@@ -324,13 +322,13 @@ class ReceiptDeletionLog:
 
     def list_deletions(
         self,
-        reason: Optional[str] = None,
-        operator: Optional[str] = None,
-        from_date: Optional[float] = None,
-        to_date: Optional[float] = None,
+        reason: str | None = None,
+        operator: str | None = None,
+        from_date: float | None = None,
+        to_date: float | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[ReceiptDeletionRecord]:
+    ) -> list[ReceiptDeletionRecord]:
         """
         List deletion records with optional filters.
 
@@ -348,7 +346,7 @@ class ReceiptDeletionLog:
         conn = self._get_connection()
 
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if reason:
             conditions.append("reason = ?")
@@ -382,15 +380,15 @@ class ReceiptDeletionLog:
 
     def count_deletions(
         self,
-        reason: Optional[str] = None,
-        from_date: Optional[float] = None,
-        to_date: Optional[float] = None,
+        reason: str | None = None,
+        from_date: float | None = None,
+        to_date: float | None = None,
     ) -> int:
         """Count deletion records with optional filters."""
         conn = self._get_connection()
 
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if reason:
             conditions.append("reason = ?")
@@ -415,7 +413,7 @@ class ReceiptDeletionLog:
             logger.error(f"Failed to count deletions: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get deletion statistics."""
         conn = self._get_connection()
         try:
@@ -448,13 +446,11 @@ class ReceiptDeletionLog:
             metadata=json.loads(row["metadata"]) if row["metadata"] else {},
         )
 
-
 # Singleton instance
-_deletion_log: Optional[ReceiptDeletionLog] = None
+_deletion_log: ReceiptDeletionLog | None = None
 _log_lock = threading.RLock()
 
-
-def get_receipt_deletion_log(db_path: Optional[Path] = None) -> ReceiptDeletionLog:
+def get_receipt_deletion_log(db_path: Path | None = None) -> ReceiptDeletionLog:
     """Get or create the singleton deletion log instance."""
     global _deletion_log
 

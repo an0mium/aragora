@@ -26,12 +26,11 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Coroutine, Dict, List, Optional
+from typing import Any, Coroutine, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 logger = logging.getLogger(__name__)
-
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
@@ -41,13 +40,11 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
 
-
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
-
 
 from ..base import (
     BaseHandler,
@@ -110,7 +107,6 @@ if not TELEGRAM_BOT_TOKEN:
 if not TELEGRAM_WEBHOOK_SECRET:
     logger.warning("TELEGRAM_WEBHOOK_SECRET not configured - webhook verification disabled")
 
-
 class TelegramHandler(BaseHandler):
     """Handler for Telegram Bot integration endpoints."""
 
@@ -128,7 +124,7 @@ class TelegramHandler(BaseHandler):
     # RBAC Helper Methods
     # =========================================================================
 
-    def _get_auth_context(self, handler: Any) -> Optional[Any]:
+    def _get_auth_context(self, handler: Any) -> Any | None:
         """Extract authorization context from the request."""
         if not RBAC_AVAILABLE or extract_user_from_request is None:
             return None
@@ -147,7 +143,7 @@ class TelegramHandler(BaseHandler):
             logger.debug(f"Could not extract auth context: {e}")
             return None
 
-    def _check_permission(self, handler: Any, permission_key: str) -> Optional[HandlerResult]:
+    def _check_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
         """Check if current user has permission. Returns error response if denied."""
         if not RBAC_AVAILABLE or check_permission is None:
             return None
@@ -168,8 +164,8 @@ class TelegramHandler(BaseHandler):
         return None
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Telegram requests to appropriate methods."""
         logger.debug(f"Telegram request: {path}")
 
@@ -203,7 +199,7 @@ class TelegramHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    def handle_post(self, path: str, body: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests."""
         return self.handle(path, {}, handler)
 
@@ -341,7 +337,7 @@ class TelegramHandler(BaseHandler):
             record_webhook_request("telegram", status)
             record_webhook_latency("telegram", latency)
 
-    def _handle_message(self, message: Dict[str, Any]) -> HandlerResult:
+    def _handle_message(self, message: dict[str, Any]) -> HandlerResult:
         """Handle incoming text message."""
         chat_id = message.get("chat", {}).get("id")
         text = message.get("text", "").strip()
@@ -570,7 +566,7 @@ class TelegramHandler(BaseHandler):
         user_id: int,
         username: str,
         topic: str,
-        message_id: Optional[int] = None,
+        message_id: int | None = None,
     ) -> None:
         """Run debate asynchronously and send result to chat."""
         record_debate_started("telegram")
@@ -907,7 +903,7 @@ class TelegramHandler(BaseHandler):
                 f"Gauntlet failed: {str(e)[:100]}",
             )
 
-    def _handle_callback_query(self, callback: Dict[str, Any]) -> HandlerResult:
+    def _handle_callback_query(self, callback: dict[str, Any]) -> HandlerResult:
         """Handle inline keyboard button clicks."""
         callback_id = callback.get("id")
         data = callback.get("data", "")
@@ -1056,13 +1052,13 @@ class TelegramHandler(BaseHandler):
 
         return json_response({"ok": True})
 
-    def _handle_inline_query(self, query: Dict[str, Any]) -> HandlerResult:
+    def _handle_inline_query(self, query: dict[str, Any]) -> HandlerResult:
         """Handle inline queries (@bot query)."""
         query_id = query.get("id")
         query_text = query.get("query", "").strip()
 
         if not query_text or len(query_text) < 5:
-            results: List[Dict[str, Any]] = []
+            results: list[dict[str, Any]] = []
         else:
             # Provide inline results for debate topics
             results = [
@@ -1097,8 +1093,8 @@ class TelegramHandler(BaseHandler):
         self,
         chat_id: int,
         text: str,
-        parse_mode: Optional[str] = None,
-        reply_markup: Optional[Dict[str, Any]] = None,
+        parse_mode: str | None = None,
+        reply_markup: Optional[dict[str, Any]] = None,
     ) -> None:
         """Send a message to Telegram chat."""
         import aiohttp
@@ -1112,7 +1108,7 @@ class TelegramHandler(BaseHandler):
         status = "success"
         try:
             url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/sendMessage"
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "chat_id": chat_id,
                 "text": text,
             }
@@ -1185,7 +1181,7 @@ class TelegramHandler(BaseHandler):
     async def _answer_inline_query_async(
         self,
         inline_query_id: str,
-        results: List[Dict[str, Any]],
+        results: list[dict[str, Any]],
     ) -> None:
         """Answer an inline query."""
         import aiohttp
@@ -1228,7 +1224,7 @@ class TelegramHandler(BaseHandler):
         self,
         chat_id: int,
         topic: str,
-        final_answer: Optional[str],
+        final_answer: str | None,
         consensus_reached: bool,
         confidence: float,
         rounds_used: int,
@@ -1301,12 +1297,10 @@ class TelegramHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error sending Telegram voice: {e}")
 
-
 # Export handler factory
 _telegram_handler: Optional["TelegramHandler"] = None
 
-
-def get_telegram_handler(server_context: Optional[Dict] = None) -> "TelegramHandler":
+def get_telegram_handler(server_context: dict | None = None) -> "TelegramHandler":
     """Get or create the Telegram handler instance."""
     global _telegram_handler
     if _telegram_handler is None:
@@ -1314,6 +1308,5 @@ def get_telegram_handler(server_context: Optional[Dict] = None) -> "TelegramHand
             server_context = {}
         _telegram_handler = TelegramHandler(server_context)  # type: ignore[arg-type]
     return _telegram_handler
-
 
 __all__ = ["TelegramHandler", "get_telegram_handler"]

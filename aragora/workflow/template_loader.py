@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 import yaml
 
@@ -17,14 +17,12 @@ from aragora.workflow.types import WorkflowDefinition, WorkflowCategory
 
 logger = logging.getLogger(__name__)
 
-
 # Template directory (relative to this file)
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-
 # Category to directory mapping
 # Note: Multiple directories can map to same category
-CATEGORY_DIRS: Dict[WorkflowCategory, str] = {
+CATEGORY_DIRS: dict[WorkflowCategory, str] = {
     WorkflowCategory.GENERAL: "general",
     WorkflowCategory.LEGAL: "legal",
     WorkflowCategory.HEALTHCARE: "healthcare",
@@ -35,11 +33,10 @@ CATEGORY_DIRS: Dict[WorkflowCategory, str] = {
 }
 
 # Additional directories that also contain templates (mapped to categories)
-ADDITIONAL_TEMPLATE_DIRS: Dict[str, WorkflowCategory] = {
+ADDITIONAL_TEMPLATE_DIRS: dict[str, WorkflowCategory] = {
     "finance": WorkflowCategory.FINANCE,  # Investment/trading templates
     "sme": WorkflowCategory.SME,  # SME business decision templates
 }
-
 
 class TemplateLoader:
     """
@@ -56,7 +53,7 @@ class TemplateLoader:
             ...
     """
 
-    def __init__(self, templates_dir: Optional[Path] = None):
+    def __init__(self, templates_dir: Path | None = None):
         """
         Initialize template loader.
 
@@ -64,10 +61,10 @@ class TemplateLoader:
             templates_dir: Directory containing template YAML files
         """
         self._templates_dir = templates_dir or TEMPLATES_DIR
-        self._templates: Dict[str, WorkflowDefinition] = {}
+        self._templates: dict[str, WorkflowDefinition] = {}
         self._loaded = False
 
-    def load_all(self) -> Dict[str, WorkflowDefinition]:
+    def load_all(self) -> dict[str, WorkflowDefinition]:
         """
         Load all templates from the templates directory.
 
@@ -111,7 +108,7 @@ class TemplateLoader:
                 template.is_template = True
                 self._templates[template.id] = template
 
-    def _load_template_file(self, yaml_file: Path) -> Optional[WorkflowDefinition]:
+    def _load_template_file(self, yaml_file: Path) -> WorkflowDefinition | None:
         """Load a single template from a YAML file."""
         try:
             with open(yaml_file, "r") as f:
@@ -141,7 +138,7 @@ class TemplateLoader:
             logger.error(f"Failed to load template {yaml_file}: {e}")
             return None
 
-    def get_template(self, template_id: str) -> Optional[WorkflowDefinition]:
+    def get_template(self, template_id: str) -> WorkflowDefinition | None:
         """Get a template by ID."""
         if not self._loaded:
             self.load_all()
@@ -149,9 +146,9 @@ class TemplateLoader:
 
     def list_templates(
         self,
-        category: Optional[WorkflowCategory] = None,
-        tags: Optional[List[str]] = None,
-    ) -> List[WorkflowDefinition]:
+        category: WorkflowCategory | None = None,
+        tags: Optional[list[str]] = None,
+    ) -> list[WorkflowDefinition]:
         """
         List templates with optional filtering.
 
@@ -175,16 +172,14 @@ class TemplateLoader:
 
         return templates
 
-    def reload(self) -> Dict[str, WorkflowDefinition]:
+    def reload(self) -> dict[str, WorkflowDefinition]:
         """Force reload all templates."""
         self._loaded = False
         self._templates.clear()
         return self.load_all()
 
-
 # Global loader instance
-_loader: Optional[TemplateLoader] = None
-
+_loader: TemplateLoader | None = None
 
 def get_template_loader() -> TemplateLoader:
     """Get or create the global template loader."""
@@ -193,24 +188,20 @@ def get_template_loader() -> TemplateLoader:
         _loader = TemplateLoader()
     return _loader
 
-
-def load_templates() -> Dict[str, WorkflowDefinition]:
+def load_templates() -> dict[str, WorkflowDefinition]:
     """Load all workflow templates."""
     return get_template_loader().load_all()
 
-
-def get_template(template_id: str) -> Optional[WorkflowDefinition]:
+def get_template(template_id: str) -> WorkflowDefinition | None:
     """Get a template by ID."""
     return get_template_loader().get_template(template_id)
 
-
 def list_templates(
-    category: Optional[WorkflowCategory] = None,
-    tags: Optional[List[str]] = None,
-) -> List[WorkflowDefinition]:
+    category: WorkflowCategory | None = None,
+    tags: Optional[list[str]] = None,
+) -> list[WorkflowDefinition]:
     """List templates with optional filtering."""
     return get_template_loader().list_templates(category, tags)
-
 
 __all__ = [
     "TemplateLoader",

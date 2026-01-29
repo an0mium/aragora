@@ -20,10 +20,11 @@ Usage:
     # Register callback with state machine
     machine.on_transition(nomic_metrics_callback)
 """
+from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.server.metrics import Counter, Gauge, Histogram
 
@@ -32,7 +33,6 @@ if TYPE_CHECKING:
     from .states import NomicState
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Nomic Loop Metrics
@@ -114,11 +114,9 @@ PHASE_ENCODING = {
     "RECOVERY": 10,
 }
 
-
 # =============================================================================
 # Tracking Functions
 # =============================================================================
-
 
 def track_phase_transition(
     from_phase: str,
@@ -150,7 +148,6 @@ def track_phase_transition(
 
     logger.debug(f"Nomic metric: {from_phase} -> {to_phase} ({duration_seconds:.1f}s)")
 
-
 def track_cycle_start(cycle_id: str = "unknown") -> None:
     """Track the start of a nomic cycle.
 
@@ -160,7 +157,6 @@ def track_cycle_start(cycle_id: str = "unknown") -> None:
     NOMIC_CYCLES_IN_PROGRESS.inc()
     NOMIC_CURRENT_PHASE.set(PHASE_ENCODING["IDLE"], cycle_id=cycle_id)
     NOMIC_PHASE_LAST_TRANSITION.set(time.time(), cycle_id=cycle_id)
-
 
 def track_cycle_complete(outcome: str, cycle_id: str = "unknown") -> None:
     """Track completion of a nomic cycle.
@@ -175,7 +171,6 @@ def track_cycle_complete(outcome: str, cycle_id: str = "unknown") -> None:
     # Clear the current phase for this cycle
     NOMIC_CURRENT_PHASE.set(-1, cycle_id=cycle_id)
 
-
 def track_error(phase: str, error_type: str) -> None:
     """Track an error in the nomic loop.
 
@@ -185,7 +180,6 @@ def track_error(phase: str, error_type: str) -> None:
     """
     NOMIC_ERRORS.inc(phase=phase.lower(), error_type=error_type.lower())
 
-
 def track_recovery_decision(strategy: str) -> None:
     """Track a recovery decision.
 
@@ -193,7 +187,6 @@ def track_recovery_decision(strategy: str) -> None:
         strategy: The recovery strategy chosen (retry, skip, rollback, etc)
     """
     NOMIC_RECOVERY_DECISIONS.inc(strategy=strategy.lower())
-
 
 def track_retry(phase: str) -> None:
     """Track a retry attempt.
@@ -203,7 +196,6 @@ def track_retry(phase: str) -> None:
     """
     NOMIC_RETRIES.inc(phase=phase.lower())
 
-
 def update_circuit_breaker_count(open_count: int) -> None:
     """Update the count of open circuit breakers.
 
@@ -212,11 +204,9 @@ def update_circuit_breaker_count(open_count: int) -> None:
     """
     NOMIC_CIRCUIT_BREAKERS_OPEN.set(open_count)
 
-
 # =============================================================================
 # State Machine Integration
 # =============================================================================
-
 
 def nomic_metrics_callback(
     from_state: "NomicState",
@@ -250,7 +240,6 @@ def nomic_metrics_callback(
     elif to_state.name == "FAILED":
         track_cycle_complete("failure", cycle_id)
 
-
 def create_metrics_callback(cycle_id: str = "unknown"):
     """Create a metrics callback with bound cycle_id.
 
@@ -262,7 +251,7 @@ def create_metrics_callback(cycle_id: str = "unknown"):
     Returns:
         A callback function suitable for state machine registration
     """
-    state_entry_times: Dict[str, float] = {}
+    state_entry_times: dict[str, float] = {}
 
     def callback(from_state: "NomicState", to_state: "NomicState", event: "Event") -> None:
         # Calculate duration
@@ -284,13 +273,11 @@ def create_metrics_callback(cycle_id: str = "unknown"):
 
     return callback
 
-
 # =============================================================================
 # Metrics Summary
 # =============================================================================
 
-
-def get_nomic_metrics_summary() -> Dict[str, Any]:
+def get_nomic_metrics_summary() -> dict[str, Any]:
     """Get a summary of nomic loop metrics.
 
     Returns:
@@ -310,16 +297,14 @@ def get_nomic_metrics_summary() -> Dict[str, Any]:
         },
     }
 
-
 # =============================================================================
 # Stuck Phase Detection
 # =============================================================================
 
-
 def check_stuck_phases(
     max_idle_seconds: float = 3600.0,
-    cycle_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    cycle_id: str | None = None,
+) -> dict[str, Any]:
     """Check for phases that appear stuck.
 
     A phase is considered stuck if no transition has occurred for
@@ -353,7 +338,6 @@ def check_stuck_phases(
                 break
 
     return stuck_info
-
 
 __all__ = [
     # Metrics

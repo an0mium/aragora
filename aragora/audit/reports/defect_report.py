@@ -26,10 +26,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class ReportFormat(str, Enum):
     """Available report output formats."""
@@ -38,7 +37,6 @@ class ReportFormat(str, Enum):
     MARKDOWN = "markdown"
     HTML = "html"
     CSV = "csv"
-
 
 @dataclass
 class ReportConfig:
@@ -56,8 +54,8 @@ class ReportConfig:
     include_evidence: bool = True
 
     # Filtering
-    min_severity: Optional[str] = None  # Filter findings below this severity
-    audit_types: Optional[list[str]] = None  # Filter to specific audit types
+    min_severity: str | None = None  # Filter findings below this severity
+    audit_types: list[str] | None = None  # Filter to specific audit types
     max_findings: int = 0  # 0 = unlimited
 
     # Grouping
@@ -67,7 +65,6 @@ class ReportConfig:
     title: str = "Document Audit Report"
     company_name: str = ""
     logo_url: str = ""
-
 
 @dataclass
 class SeverityStats:
@@ -93,7 +90,6 @@ class SeverityStats:
             "total": self.total,
         }
 
-
 @dataclass
 class CategoryStats:
     """Statistics by audit category."""
@@ -105,7 +101,6 @@ class CategoryStats:
 
     def to_dict(self) -> dict[str, int]:
         return dict(sorted(self.counts.items(), key=lambda x: x[1], reverse=True))
-
 
 @dataclass
 class DocumentStats:
@@ -135,7 +130,6 @@ class DocumentStats:
         else:
             stats.info += 1
 
-
 class DefectReport:
     """
     Generates comprehensive defect reports from audit findings.
@@ -146,10 +140,10 @@ class DefectReport:
     def __init__(
         self,
         findings: list[Any],
-        config: Optional[ReportConfig] = None,
+        config: ReportConfig | None = None,
         session_id: str = "",
-        audit_start: Optional[datetime] = None,
-        audit_end: Optional[datetime] = None,
+        audit_start: datetime | None = None,
+        audit_end: datetime | None = None,
     ):
         """
         Initialize defect report.
@@ -562,7 +556,7 @@ class DefectReport:
 
         return output.getvalue()
 
-    def generate(self, format: Optional[ReportFormat] = None) -> str:
+    def generate(self, format: ReportFormat | None = None) -> str:
         """
         Generate report in specified format.
 
@@ -585,7 +579,6 @@ class DefectReport:
         else:
             return self.to_markdown()
 
-
 def generate_report(
     findings: list[Any],
     format: ReportFormat = ReportFormat.MARKDOWN,
@@ -607,7 +600,6 @@ def generate_report(
     config = ReportConfig(format=format, **config_kwargs)
     report = DefectReport(findings, config=config, session_id=session_id)
     return report.generate()
-
 
 __all__ = [
     "DefectReport",

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.connectors.automation import (
     AutomationEventType,
@@ -48,7 +48,6 @@ WEBHOOKS_CREATE = "webhooks.create"
 WEBHOOKS_DELETE = "webhooks.delete"
 WEBHOOKS_DISPATCH = "webhooks.all"  # Admin-level: dispatch events
 INTEGRATIONS_ADMIN = "connectors.authorize"  # Admin-level: n8n definitions
-
 
 class AutomationHandler(SecureHandler):
     """
@@ -92,8 +91,8 @@ class AutomationHandler(SecureHandler):
         logger.info("[AutomationHandler] Initialized")
 
     def _check_rbac_permission(
-        self, handler: Any, permission: str, resource_id: Optional[str] = None
-    ) -> Optional[HandlerResult]:
+        self, handler: Any, permission: str, resource_id: str | None = None
+    ) -> HandlerResult | None:
         """Check RBAC permission. Returns error response if denied, None if allowed."""
         try:
             from aragora.billing.jwt_auth import extract_user_from_request
@@ -136,9 +135,9 @@ class AutomationHandler(SecureHandler):
     def handle_get(
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests with RBAC enforcement."""
         # List webhooks - requires webhooks:read
         if path == "/api/v1/webhooks":
@@ -189,9 +188,9 @@ class AutomationHandler(SecureHandler):
     async def handle_post(
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests with RBAC enforcement."""
         # Subscribe to webhooks - requires webhooks:create
         if path in ["/api/v1/webhooks", "/api/v1/webhooks/subscribe"]:
@@ -217,9 +216,9 @@ class AutomationHandler(SecureHandler):
     def handle_delete(
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests with RBAC enforcement."""
         if path.startswith("/api/v1/webhooks/"):
             webhook_id = path.split("/")[-1]
@@ -229,7 +228,7 @@ class AutomationHandler(SecureHandler):
             return self._unsubscribe(webhook_id)
         return None
 
-    def _list_webhooks(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _list_webhooks(self, query_params: dict[str, Any]) -> HandlerResult:
         """List all webhook subscriptions."""
         platform = query_params.get("platform")
         workspace_id = query_params.get("workspace_id")
@@ -237,7 +236,7 @@ class AutomationHandler(SecureHandler):
 
         event_type = AutomationEventType(event) if event else None
 
-        all_subs: List[Dict[str, Any]] = []
+        all_subs: list[dict[str, Any]] = []
         for name, connector in self._connectors.items():
             if platform and name != platform:
                 continue
@@ -280,7 +279,7 @@ class AutomationHandler(SecureHandler):
             )
 
         # Group by category
-        categories: Dict[str, List[Dict[str, Any]]] = {}
+        categories: dict[str, list[dict[str, Any]]] = {}
         for event in events:
             cat = event["category"]
             if cat not in categories:
@@ -500,7 +499,7 @@ class AutomationHandler(SecureHandler):
         """Get n8n trigger node definition."""
         return success_response(self._n8n.get_trigger_definition())
 
-    def _get_request_body(self, handler: Any) -> Dict[str, Any]:
+    def _get_request_body(self, handler: Any) -> dict[str, Any]:
         """Extract request body from handler."""
         if hasattr(handler, "request") and hasattr(handler.request, "body"):
             body = handler.request.body

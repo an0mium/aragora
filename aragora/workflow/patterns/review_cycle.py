@@ -23,7 +23,7 @@ Configuration:
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -35,7 +35,6 @@ from aragora.workflow.types import (
     EdgeType,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
-
 
 class ReviewCyclePattern(WorkflowPattern):
     """
@@ -61,13 +60,13 @@ class ReviewCyclePattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         task: str = "",
-        draft_agent: Optional[str] = None,
-        review_agent: Optional[str] = None,
+        draft_agent: str | None = None,
+        review_agent: str | None = None,
         max_iterations: int = 3,
         convergence_threshold: float = 0.85,
-        review_criteria: Optional[List[str]] = None,
+        review_criteria: Optional[list[str]] = None,
         draft_prompt: str = "",
         review_prompt: str = "",
         timeout_per_step: float = 120.0,
@@ -238,7 +237,6 @@ FEEDBACK:
 SUGGESTIONS:
 <improvement suggestions>"""
 
-
 # Register review cycle handlers
 def _register_review_cycle_handlers():
     """Register review cycle task handlers."""
@@ -304,6 +302,5 @@ def _register_review_cycle_handlers():
 
     except ImportError:
         pass
-
 
 _register_review_cycle_handlers()

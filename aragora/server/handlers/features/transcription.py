@@ -20,7 +20,7 @@ import uuid
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from ..base import (
     BaseHandler,
@@ -47,7 +47,6 @@ ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS | VIDEO_EXTENSIONS
 MAX_MULTIPART_PARTS = 10
 MAX_FILENAME_LENGTH = 255
 
-
 class TranscriptionErrorCode(Enum):
     """Specific error codes for transcription failures."""
 
@@ -67,7 +66,6 @@ class TranscriptionErrorCode(Enum):
     API_NOT_CONFIGURED = "api_not_configured"
     QUOTA_EXCEEDED = "quota_exceeded"
 
-
 class TranscriptionStatus(Enum):
     """Status of a transcription job."""
 
@@ -76,14 +74,13 @@ class TranscriptionStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
-
 @dataclass
 class TranscriptionError:
     """Structured transcription error response."""
 
     code: TranscriptionErrorCode
     message: str
-    details: Optional[dict] = None
+    details: dict | None = None
 
     def to_response(self, status: int = 400) -> HandlerResult:
         """Convert to error response."""
@@ -95,7 +92,6 @@ class TranscriptionError:
             payload["details"] = self.details
         return json_response(payload, status=status)
 
-
 @dataclass
 class TranscriptionJob:
     """Tracks a transcription job."""
@@ -104,13 +100,13 @@ class TranscriptionJob:
     filename: str
     status: TranscriptionStatus
     created_at: float = field(default_factory=time.time)
-    completed_at: Optional[float] = None
-    transcription_id: Optional[str] = None
-    error: Optional[str] = None
+    completed_at: float | None = None
+    transcription_id: str | None = None
+    error: str | None = None
     file_size_bytes: int = 0
-    duration_seconds: Optional[float] = None
-    text: Optional[str] = None
-    language: Optional[str] = None
+    duration_seconds: float | None = None
+    text: str | None = None
+    language: str | None = None
     word_count: int = 0
     segments: list = field(default_factory=list)
 
@@ -130,7 +126,6 @@ class TranscriptionJob:
             "word_count": self.word_count,
             "segment_count": len(self.segments),
         }
-
 
 class TranscriptionHandler(BaseHandler):
     """Handler for audio/video transcription endpoints."""
@@ -161,7 +156,7 @@ class TranscriptionHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         if path == "/api/v1/transcription/formats":
             return self._get_supported_formats()
@@ -178,13 +173,13 @@ class TranscriptionHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/transcription/upload":
             return self._upload_and_transcribe(handler)
         return None
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
         if path.startswith("/api/v1/transcription/"):
             parts = path.split("/")
@@ -267,7 +262,7 @@ class TranscriptionHandler(BaseHandler):
             }
         )
 
-    def _check_rate_limit(self, handler) -> Optional[HandlerResult]:
+    def _check_rate_limit(self, handler) -> HandlerResult | None:
         """Check IP-based upload rate limit."""
         client_ip = self._get_client_ip(handler)
 
@@ -524,7 +519,7 @@ class TranscriptionHandler(BaseHandler):
         handler,
         content_type: str,
         content_length: int,
-    ) -> tuple[Optional[bytes], Optional[str], Optional[TranscriptionError]]:
+    ) -> tuple[bytes | None, str | None, TranscriptionError | None]:
         """Parse file content and filename from upload request."""
         if "multipart/form-data" in content_type:
             return self._parse_multipart(handler, content_type, content_length)
@@ -536,7 +531,7 @@ class TranscriptionHandler(BaseHandler):
         handler,
         content_type: str,
         content_length: int,
-    ) -> tuple[Optional[bytes], Optional[str], Optional[TranscriptionError]]:
+    ) -> tuple[bytes | None, str | None, TranscriptionError | None]:
         """Parse multipart form data upload."""
         # Extract boundary
         boundary = None
@@ -641,7 +636,7 @@ class TranscriptionHandler(BaseHandler):
         self,
         handler,
         content_length: int,
-    ) -> tuple[Optional[bytes], Optional[str], Optional[TranscriptionError]]:
+    ) -> tuple[bytes | None, str | None, TranscriptionError | None]:
         """Parse raw file upload with X-Filename header."""
         filename = handler.headers.get("X-Filename")
 

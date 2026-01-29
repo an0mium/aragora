@@ -14,12 +14,11 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
-
 
 class KnowledgePruningStep(BaseStep):
     """
@@ -36,7 +35,7 @@ class KnowledgePruningStep(BaseStep):
         action: str - Pruning action: archive, delete, demote, flag (default: archive)
         dry_run: bool - Report only without changes (default: True)
         max_items: int - Maximum items to prune per run (default: 100)
-        tier_exceptions: List[str] - Tiers to exclude (default: ["glacial"])
+        tier_exceptions: list[str] - Tiers to exclude (default: ["glacial"])
 
     Usage:
         step = KnowledgePruningStep(
@@ -53,7 +52,7 @@ class KnowledgePruningStep(BaseStep):
 
     VALID_ACTIONS = ["archive", "delete", "demote", "flag"]
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
         self._mound = None
 
@@ -149,7 +148,6 @@ class KnowledgePruningStep(BaseStep):
                 "error": str(e),
             }
 
-
 class KnowledgeDedupStep(BaseStep):
     """
     Workflow step for automatic knowledge deduplication.
@@ -176,7 +174,7 @@ class KnowledgeDedupStep(BaseStep):
         result = await step.execute(context)
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -236,7 +234,6 @@ class KnowledgeDedupStep(BaseStep):
                 "error": str(e),
             }
 
-
 class ConfidenceDecayStep(BaseStep):
     """
     Workflow step for applying confidence decay to knowledge items.
@@ -261,7 +258,7 @@ class ConfidenceDecayStep(BaseStep):
         result = await step.execute(context)
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -319,13 +316,12 @@ class ConfidenceDecayStep(BaseStep):
                 "error": str(e),
             }
 
-
 # Register task handlers for use with TaskStep
 def _register_pruning_handlers():
     """Register pruning task handlers."""
     from aragora.workflow.nodes.task import register_task_handler
 
-    async def prune_handler(context: Dict[str, Any]) -> Dict[str, Any]:
+    async def prune_handler(context: dict[str, Any]) -> dict[str, Any]:
         """Handler for pruning tasks."""
         step = KnowledgePruningStep("prune_task", context)
         from aragora.workflow.step import WorkflowContext
@@ -333,7 +329,7 @@ def _register_pruning_handlers():
         wf_context = WorkflowContext(workflow_id="task_handler", definition_id="knowledge_prune")
         return await step.execute(wf_context)
 
-    async def dedup_handler(context: Dict[str, Any]) -> Dict[str, Any]:
+    async def dedup_handler(context: dict[str, Any]) -> dict[str, Any]:
         """Handler for dedup tasks."""
         step = KnowledgeDedupStep("dedup_task", context)
         from aragora.workflow.step import WorkflowContext
@@ -341,7 +337,7 @@ def _register_pruning_handlers():
         wf_context = WorkflowContext(workflow_id="task_handler", definition_id="knowledge_dedup")
         return await step.execute(wf_context)
 
-    async def decay_handler(context: Dict[str, Any]) -> Dict[str, Any]:
+    async def decay_handler(context: dict[str, Any]) -> dict[str, Any]:
         """Handler for confidence decay tasks."""
         step = ConfidenceDecayStep("decay_task", context)
         from aragora.workflow.step import WorkflowContext
@@ -354,7 +350,6 @@ def _register_pruning_handlers():
     register_task_handler("knowledge_decay", decay_handler)
 
     logger.debug("Registered knowledge maintenance task handlers")
-
 
 # Auto-register handlers on module load
 try:

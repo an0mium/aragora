@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -35,7 +35,6 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-
 # Microsoft Graph API scopes
 OUTLOOK_SCOPES_READONLY = [
     "https://graph.microsoft.com/Mail.Read",
@@ -52,7 +51,6 @@ OUTLOOK_SCOPES_FULL = [
 
 # Default to read-only for backward compatibility
 OUTLOOK_SCOPES = OUTLOOK_SCOPES_READONLY
-
 
 class OutlookConnector(EnterpriseConnector):
     """
@@ -87,8 +85,8 @@ class OutlookConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        folders: Optional[List[str]] = None,
-        exclude_folders: Optional[List[str]] = None,
+        folders: Optional[list[str]] = None,
+        exclude_folders: Optional[list[str]] = None,
         max_results: int = 100,
         include_deleted: bool = False,
         user_id: str = "me",
@@ -113,13 +111,13 @@ class OutlookConnector(EnterpriseConnector):
         self.user_id = user_id
 
         # OAuth tokens (protected by _token_lock for thread-safety)
-        self._access_token: Optional[str] = None
-        self._refresh_token: Optional[str] = None
-        self._token_expiry: Optional[datetime] = None
+        self._access_token: str | None = None
+        self._refresh_token: str | None = None
+        self._token_expiry: datetime | None = None
         self._token_lock: asyncio.Lock = asyncio.Lock()
 
         # Outlook-specific state
-        self._outlook_state: Optional[OutlookSyncState] = None
+        self._outlook_state: OutlookSyncState | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -130,17 +128,17 @@ class OutlookConnector(EnterpriseConnector):
         return "Outlook"
 
     @property
-    def access_token(self) -> Optional[str]:
+    def access_token(self) -> str | None:
         """Expose current access token (if available)."""
         return self._access_token
 
     @property
-    def refresh_token(self) -> Optional[str]:
+    def refresh_token(self) -> str | None:
         """Expose current refresh token (if available)."""
         return self._refresh_token
 
     @property
-    def token_expiry(self) -> Optional[datetime]:
+    def token_expiry(self) -> datetime | None:
         """Expose access token expiry (if available)."""
         return self._token_expiry
 
@@ -195,9 +193,9 @@ class OutlookConnector(EnterpriseConnector):
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        code: str | None = None,
+        redirect_uri: str | None = None,
+        refresh_token: str | None = None,
     ) -> bool:
         """
         Authenticate with Microsoft Graph API.
@@ -351,9 +349,9 @@ class OutlookConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make a request to Microsoft Graph API with circuit breaker protection."""
         import httpx
 
@@ -414,11 +412,11 @@ class OutlookConnector(EnterpriseConnector):
 
         return httpx.AsyncClient(timeout=60)
 
-    async def get_user_info(self) -> Dict[str, Any]:
+    async def get_user_info(self) -> dict[str, Any]:
         """Get authenticated user's profile."""
         return await self._api_request("/")
 
-    async def list_folders(self) -> List[OutlookFolder]:
+    async def list_folders(self) -> list[OutlookFolder]:
         """List all mail folders."""
         data = await self._api_request("/mailFolders", params={"$top": 100})
 
@@ -440,11 +438,11 @@ class OutlookConnector(EnterpriseConnector):
 
     async def list_messages(
         self,
-        folder_id: Optional[str] = None,
+        folder_id: str | None = None,
         query: str = "",
-        page_token: Optional[str] = None,
+        page_token: str | None = None,
         max_results: int = 100,
-    ) -> tuple[List[str], Optional[str]]:
+    ) -> tuple[list[str], str | None]:
         """
         List message IDs matching criteria.
 
@@ -461,7 +459,7 @@ class OutlookConnector(EnterpriseConnector):
             # Use existing next link
             data = await self._api_request(page_token)
         else:
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "$top": min(max_results, 100),
                 "$select": "id",
                 "$orderby": "receivedDateTime desc",
@@ -519,7 +517,7 @@ class OutlookConnector(EnterpriseConnector):
 
         return self._parse_message(data)
 
-    def _parse_message(self, data: Dict[str, Any]) -> EmailMessage:
+    def _parse_message(self, data: dict[str, Any]) -> EmailMessage:
         """Parse Microsoft Graph message response into EmailMessage."""
         # Parse from address
         from_data = data.get("from", {}).get("emailAddress", {})
@@ -591,7 +589,7 @@ class OutlookConnector(EnterpriseConnector):
             is_important=is_important,
         )
 
-    async def get_message_attachments(self, message_id: str) -> List[EmailAttachment]:
+    async def get_message_attachments(self, message_id: str) -> list[EmailAttachment]:
         """Get attachments for a message."""
         data = await self._api_request(f"/messages/{message_id}/attachments")
 
@@ -642,9 +640,9 @@ class OutlookConnector(EnterpriseConnector):
 
     async def get_delta(
         self,
-        delta_link: Optional[str] = None,
-        folder_id: Optional[str] = None,
-    ) -> tuple[List[Dict[str, Any]], Optional[str], Optional[str]]:
+        delta_link: str | None = None,
+        folder_id: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None, str | None]:
         """
         Get message changes using Delta Query API.
 
@@ -677,7 +675,7 @@ class OutlookConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         **kwargs,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Search Outlook messages."""
         from aragora.connectors.base import Evidence
 
@@ -712,7 +710,7 @@ class OutlookConnector(EnterpriseConnector):
 
         return results
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific email by ID."""
         from aragora.connectors.base import Evidence
 
@@ -870,14 +868,14 @@ class OutlookConnector(EnterpriseConnector):
 
     async def send_message(
         self,
-        to: List[str],
+        to: list[str],
         subject: str,
         body: str,
-        cc: Optional[List[str]] = None,
-        bcc: Optional[List[str]] = None,
-        reply_to: Optional[str] = None,
-        html_body: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        cc: Optional[list[str]] = None,
+        bcc: Optional[list[str]] = None,
+        reply_to: str | None = None,
+        html_body: str | None = None,
+    ) -> dict[str, Any]:
         """
         Send an email message.
 
@@ -940,10 +938,10 @@ class OutlookConnector(EnterpriseConnector):
         self,
         original_message_id: str,
         body: str,
-        cc: Optional[List[str]] = None,
-        html_body: Optional[str] = None,
+        cc: Optional[list[str]] = None,
+        html_body: str | None = None,
         reply_all: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Reply to an existing email message.
 
@@ -1029,7 +1027,6 @@ class OutlookConnector(EnterpriseConnector):
                 "has_attachments": len(msg.attachments) > 0,
             },
         )
-
 
 __all__ = [
     "OutlookConnector",

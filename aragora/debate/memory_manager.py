@@ -28,7 +28,6 @@ from aragora.memory.tier_analytics import TierAnalyticsTracker
 
 logger = logging.getLogger(__name__)
 
-
 # Event types emitted by MemoryManager (for documentation and consistency)
 class MemoryEventType:
     """Constants for memory-related event types."""
@@ -38,7 +37,6 @@ class MemoryEventType:
     MEMORY_PROMOTED = "memory:promoted"
     PATTERN_CACHED = "pattern:cached"
     PATTERN_RETRIEVED = "pattern:retrieved"
-
 
 class MemoryManager:
     """Manages debate memory operations across multiple memory systems.
@@ -56,10 +54,10 @@ class MemoryManager:
         consensus_memory: Optional["ConsensusMemory"] = None,
         debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None,
         domain_extractor: Optional[Callable[[], str]] = None,
-        event_emitter: Optional[EventEmitterProtocol] = None,
+        event_emitter: EventEmitterProtocol | None = None,
         spectator: Optional["SpectatorStream"] = None,
         loop_id: str = "",
-        tier_analytics_tracker: Optional[TierAnalyticsTracker] = None,
+        tier_analytics_tracker: TierAnalyticsTracker | None = None,
     ) -> None:
         """Initialize memory manager with memory systems.
 
@@ -126,7 +124,7 @@ class MemoryManager:
         self,
         result: "DebateResult",
         task: str,
-        belief_cruxes: Optional[list[str]] = None,
+        belief_cruxes: list[str] | None = None,
     ) -> None:
         """Store debate outcome in ContinuumMemory for future retrieval.
 
@@ -208,7 +206,7 @@ class MemoryManager:
         self,
         result: "DebateResult",
         task: str,
-        belief_cruxes: Optional[list[str]] = None,
+        belief_cruxes: list[str] | None = None,
     ) -> None:
         """Store debate consensus and dissents in ConsensusMemory.
 
@@ -762,7 +760,7 @@ class MemoryManager:
     def track_retrieved_ids(
         self,
         ids: list[str],
-        tiers: Optional[dict[str, MemoryTier]] = None,
+        tiers: dict[str, MemoryTier] | None = None,
     ) -> None:
         """Track retrieved memory IDs for later outcome updates.
 

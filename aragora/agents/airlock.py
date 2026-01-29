@@ -26,13 +26,12 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message, Vote
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AirlockMetrics:
@@ -71,7 +70,6 @@ class AirlockMetrics:
             "avg_latency_ms": round(self.avg_latency_ms, 2),
         }
 
-
 @dataclass
 class AirlockConfig:
     """Configuration for the airlock wrapper."""
@@ -92,7 +90,6 @@ class AirlockConfig:
     # Fallback settings
     fallback_on_timeout: bool = True
     fallback_on_error: bool = True
-
 
 class AirlockProxy:
     """
@@ -119,7 +116,7 @@ class AirlockProxy:
     def __init__(
         self,
         agent: "Agent",
-        config: Optional[AirlockConfig] = None,
+        config: AirlockConfig | None = None,
     ):
         """
         Initialize the airlock wrapper.
@@ -152,7 +149,7 @@ class AirlockProxy:
     async def generate(
         self,
         prompt: str,
-        context: Optional[list["Message"]] = None,
+        context: list["Message"] | None = None,
     ) -> str:
         """Generate a response with timeout and sanitization."""
 
@@ -170,8 +167,8 @@ class AirlockProxy:
         self,
         proposal: str,
         task: str,
-        context: Optional[list["Message"]] = None,
-        target_agent: Optional[str] = None,
+        context: list["Message"] | None = None,
+        target_agent: str | None = None,
     ) -> "Critique":
         """Critique a proposal with timeout handling.
 
@@ -457,10 +454,9 @@ class AirlockProxy:
             "continue_debate": False,
         }
 
-
 def wrap_agent(
     agent: "Agent",
-    config: Optional[AirlockConfig] = None,
+    config: AirlockConfig | None = None,
 ) -> AirlockProxy:
     """
     Convenience function to wrap an agent with airlock protection.
@@ -476,10 +472,9 @@ def wrap_agent(
         return agent
     return AirlockProxy(agent, config)
 
-
 def wrap_agents(
     agents: list["Agent"],
-    config: Optional[AirlockConfig] = None,
+    config: AirlockConfig | None = None,
 ) -> list["AirlockProxy"]:
     """
     Wrap multiple agents with airlock protection.

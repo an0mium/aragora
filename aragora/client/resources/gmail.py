@@ -13,13 +13,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class GmailConnection:
@@ -28,10 +27,9 @@ class GmailConnection:
     id: str
     email: str
     status: str  # connected, disconnected, error
-    scopes: List[str] = field(default_factory=list)
-    connected_at: Optional[datetime] = None
-    last_synced_at: Optional[datetime] = None
-
+    scopes: list[str] = field(default_factory=list)
+    connected_at: datetime | None = None
+    last_synced_at: datetime | None = None
 
 @dataclass
 class EmailTriageRule:
@@ -40,10 +38,9 @@ class EmailTriageRule:
     id: str
     name: str
     enabled: bool = True
-    conditions: Dict[str, Any] = field(default_factory=dict)
-    actions: List[str] = field(default_factory=list)
+    conditions: dict[str, Any] = field(default_factory=dict)
+    actions: list[str] = field(default_factory=list)
     priority: int = 0
-
 
 @dataclass
 class EmailDebateConfig:
@@ -52,11 +49,10 @@ class EmailDebateConfig:
     id: str
     name: str
     enabled: bool = True
-    trigger_conditions: Dict[str, Any] = field(default_factory=dict)
-    debate_template: Optional[str] = None
-    agents: List[str] = field(default_factory=list)
+    trigger_conditions: dict[str, Any] = field(default_factory=dict)
+    debate_template: str | None = None
+    agents: list[str] = field(default_factory=list)
     auto_reply: bool = False
-
 
 @dataclass
 class ProcessedEmail:
@@ -67,10 +63,9 @@ class ProcessedEmail:
     subject: str
     sender: str
     status: str  # pending, processing, completed, failed
-    debate_id: Optional[str] = None
-    processed_at: Optional[datetime] = None
-    summary: Optional[str] = None
-
+    debate_id: str | None = None
+    processed_at: datetime | None = None
+    summary: str | None = None
 
 @dataclass
 class GmailStats:
@@ -82,7 +77,6 @@ class GmailStats:
     errors: int = 0
     avg_processing_time_ms: float = 0.0
 
-
 class GmailAPI:
     """API interface for Gmail integration."""
 
@@ -93,7 +87,7 @@ class GmailAPI:
     # Connection Management
     # =========================================================================
 
-    def get_connection(self) -> Optional[GmailConnection]:
+    def get_connection(self) -> GmailConnection | None:
         """
         Get Gmail connection status.
 
@@ -108,7 +102,7 @@ class GmailAPI:
         except Exception:
             return None
 
-    async def get_connection_async(self) -> Optional[GmailConnection]:
+    async def get_connection_async(self) -> GmailConnection | None:
         """Async version of get_connection()."""
         try:
             response = await self._client._get_async("/api/v1/connectors/gmail/status")
@@ -118,7 +112,7 @@ class GmailAPI:
         except Exception:
             return None
 
-    def initiate_connection(self, redirect_uri: Optional[str] = None) -> Dict[str, Any]:
+    def initiate_connection(self, redirect_uri: str | None = None) -> dict[str, Any]:
         """
         Initiate Gmail OAuth connection.
 
@@ -128,15 +122,15 @@ class GmailAPI:
         Returns:
             OAuth authorization URL and state.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if redirect_uri:
             body["redirect_uri"] = redirect_uri
 
         return self._client._post("/api/v1/connectors/gmail/connect", body)
 
-    async def initiate_connection_async(self, redirect_uri: Optional[str] = None) -> Dict[str, Any]:
+    async def initiate_connection_async(self, redirect_uri: str | None = None) -> dict[str, Any]:
         """Async version of initiate_connection()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if redirect_uri:
             body["redirect_uri"] = redirect_uri
 
@@ -178,7 +172,7 @@ class GmailAPI:
         await self._client._delete_async("/api/v1/connectors/gmail")
         return True
 
-    def sync(self) -> Dict[str, Any]:
+    def sync(self) -> dict[str, Any]:
         """
         Trigger manual email sync.
 
@@ -187,7 +181,7 @@ class GmailAPI:
         """
         return self._client._post("/api/v1/connectors/gmail/sync", {})
 
-    async def sync_async(self) -> Dict[str, Any]:
+    async def sync_async(self) -> dict[str, Any]:
         """Async version of sync()."""
         return await self._client._post_async("/api/v1/connectors/gmail/sync", {})
 
@@ -195,7 +189,7 @@ class GmailAPI:
     # Triage Rules
     # =========================================================================
 
-    def list_triage_rules(self) -> List[EmailTriageRule]:
+    def list_triage_rules(self) -> list[EmailTriageRule]:
         """
         List email triage rules.
 
@@ -205,7 +199,7 @@ class GmailAPI:
         response = self._client._get("/api/v1/connectors/gmail/triage/rules")
         return [self._parse_triage_rule(r) for r in response.get("rules", [])]
 
-    async def list_triage_rules_async(self) -> List[EmailTriageRule]:
+    async def list_triage_rules_async(self) -> list[EmailTriageRule]:
         """Async version of list_triage_rules()."""
         response = await self._client._get_async("/api/v1/connectors/gmail/triage/rules")
         return [self._parse_triage_rule(r) for r in response.get("rules", [])]
@@ -213,8 +207,8 @@ class GmailAPI:
     def create_triage_rule(
         self,
         name: str,
-        conditions: Dict[str, Any],
-        actions: List[str],
+        conditions: dict[str, Any],
+        actions: list[str],
         priority: int = 0,
     ) -> EmailTriageRule:
         """
@@ -241,8 +235,8 @@ class GmailAPI:
     async def create_triage_rule_async(
         self,
         name: str,
-        conditions: Dict[str, Any],
-        actions: List[str],
+        conditions: dict[str, Any],
+        actions: list[str],
         priority: int = 0,
     ) -> EmailTriageRule:
         """Async version of create_triage_rule()."""
@@ -258,11 +252,11 @@ class GmailAPI:
     def update_triage_rule(
         self,
         rule_id: str,
-        name: Optional[str] = None,
-        conditions: Optional[Dict[str, Any]] = None,
-        actions: Optional[List[str]] = None,
-        enabled: Optional[bool] = None,
-        priority: Optional[int] = None,
+        name: str | None = None,
+        conditions: Optional[dict[str, Any]] = None,
+        actions: Optional[list[str]] = None,
+        enabled: bool | None = None,
+        priority: int | None = None,
     ) -> EmailTriageRule:
         """
         Update an email triage rule.
@@ -278,7 +272,7 @@ class GmailAPI:
         Returns:
             Updated EmailTriageRule object.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if conditions is not None:
@@ -296,14 +290,14 @@ class GmailAPI:
     async def update_triage_rule_async(
         self,
         rule_id: str,
-        name: Optional[str] = None,
-        conditions: Optional[Dict[str, Any]] = None,
-        actions: Optional[List[str]] = None,
-        enabled: Optional[bool] = None,
-        priority: Optional[int] = None,
+        name: str | None = None,
+        conditions: Optional[dict[str, Any]] = None,
+        actions: Optional[list[str]] = None,
+        enabled: bool | None = None,
+        priority: int | None = None,
     ) -> EmailTriageRule:
         """Async version of update_triage_rule()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if conditions is not None:
@@ -342,7 +336,7 @@ class GmailAPI:
     # Debate Configuration
     # =========================================================================
 
-    def list_debate_configs(self) -> List[EmailDebateConfig]:
+    def list_debate_configs(self) -> list[EmailDebateConfig]:
         """
         List email debate configurations.
 
@@ -352,7 +346,7 @@ class GmailAPI:
         response = self._client._get("/api/v1/connectors/gmail/debates")
         return [self._parse_debate_config(c) for c in response.get("configs", [])]
 
-    async def list_debate_configs_async(self) -> List[EmailDebateConfig]:
+    async def list_debate_configs_async(self) -> list[EmailDebateConfig]:
         """Async version of list_debate_configs()."""
         response = await self._client._get_async("/api/v1/connectors/gmail/debates")
         return [self._parse_debate_config(c) for c in response.get("configs", [])]
@@ -360,9 +354,9 @@ class GmailAPI:
     def create_debate_config(
         self,
         name: str,
-        trigger_conditions: Dict[str, Any],
-        agents: Optional[List[str]] = None,
-        debate_template: Optional[str] = None,
+        trigger_conditions: dict[str, Any],
+        agents: Optional[list[str]] = None,
+        debate_template: str | None = None,
         auto_reply: bool = False,
     ) -> EmailDebateConfig:
         """
@@ -378,7 +372,7 @@ class GmailAPI:
         Returns:
             Created EmailDebateConfig object.
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "trigger_conditions": trigger_conditions,
             "auto_reply": auto_reply,
@@ -394,13 +388,13 @@ class GmailAPI:
     async def create_debate_config_async(
         self,
         name: str,
-        trigger_conditions: Dict[str, Any],
-        agents: Optional[List[str]] = None,
-        debate_template: Optional[str] = None,
+        trigger_conditions: dict[str, Any],
+        agents: Optional[list[str]] = None,
+        debate_template: str | None = None,
         auto_reply: bool = False,
     ) -> EmailDebateConfig:
         """Async version of create_debate_config()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "trigger_conditions": trigger_conditions,
             "auto_reply": auto_reply,
@@ -419,10 +413,10 @@ class GmailAPI:
 
     def list_processed_emails(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[ProcessedEmail], int]:
+    ) -> tuple[list[ProcessedEmail], int]:
         """
         List processed emails.
 
@@ -434,7 +428,7 @@ class GmailAPI:
         Returns:
             Tuple of (list of ProcessedEmail objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -444,12 +438,12 @@ class GmailAPI:
 
     async def list_processed_emails_async(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[ProcessedEmail], int]:
+    ) -> tuple[list[ProcessedEmail], int]:
         """Async version of list_processed_emails()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -476,7 +470,7 @@ class GmailAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_connection(self, data: Dict[str, Any]) -> GmailConnection:
+    def _parse_connection(self, data: dict[str, Any]) -> GmailConnection:
         """Parse connection data into GmailConnection object."""
         connected_at = None
         last_synced_at = None
@@ -504,7 +498,7 @@ class GmailAPI:
             last_synced_at=last_synced_at,
         )
 
-    def _parse_triage_rule(self, data: Dict[str, Any]) -> EmailTriageRule:
+    def _parse_triage_rule(self, data: dict[str, Any]) -> EmailTriageRule:
         """Parse triage rule data into EmailTriageRule object."""
         return EmailTriageRule(
             id=data.get("id", ""),
@@ -515,7 +509,7 @@ class GmailAPI:
             priority=data.get("priority", 0),
         )
 
-    def _parse_debate_config(self, data: Dict[str, Any]) -> EmailDebateConfig:
+    def _parse_debate_config(self, data: dict[str, Any]) -> EmailDebateConfig:
         """Parse debate config data into EmailDebateConfig object."""
         return EmailDebateConfig(
             id=data.get("id", ""),
@@ -527,7 +521,7 @@ class GmailAPI:
             auto_reply=data.get("auto_reply", False),
         )
 
-    def _parse_processed_email(self, data: Dict[str, Any]) -> ProcessedEmail:
+    def _parse_processed_email(self, data: dict[str, Any]) -> ProcessedEmail:
         """Parse processed email data into ProcessedEmail object."""
         processed_at = None
         if data.get("processed_at"):
@@ -547,7 +541,7 @@ class GmailAPI:
             summary=data.get("summary"),
         )
 
-    def _parse_stats(self, data: Dict[str, Any]) -> GmailStats:
+    def _parse_stats(self, data: dict[str, Any]) -> GmailStats:
         """Parse stats data into GmailStats object."""
         return GmailStats(
             total_processed=data.get("total_processed", 0),
@@ -556,7 +550,6 @@ class GmailAPI:
             errors=data.get("errors", 0),
             avg_processing_time_ms=data.get("avg_processing_time_ms", 0.0),
         )
-
 
 __all__ = [
     "GmailAPI",

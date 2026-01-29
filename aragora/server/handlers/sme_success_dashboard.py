@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import (
     error_response,
@@ -31,7 +31,6 @@ from .utils.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
-
 
 def _get_real_consensus_rate(
     org_id: str,
@@ -71,7 +70,6 @@ def _get_real_consensus_rate(
     except Exception as e:
         logger.warning(f"Failed to get consensus rate: {e}")
         return default
-
 
 # Rate limiter for success dashboard (60 requests per minute)
 _dashboard_limiter = RateLimiter(requests_per_minute=60)
@@ -168,7 +166,6 @@ MILESTONES = [
     },
 ]
 
-
 class SMESuccessDashboardHandler(SecureHandler):
     """Handler for SME success dashboard endpoints.
 
@@ -197,7 +194,7 @@ class SMESuccessDashboardHandler(SecureHandler):
         query_params: dict,
         handler,
         method: str = "GET",
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route success dashboard requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -280,7 +277,7 @@ class SMESuccessDashboardHandler(SecureHandler):
 
     def _calculate_success_metrics(
         self, org_id: str, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Calculate core success metrics for an organization."""
         cost_tracker = self._get_cost_tracker()
         workspace_stats = cost_tracker.get_workspace_stats(org_id)
@@ -635,8 +632,8 @@ class SMESuccessDashboardHandler(SecureHandler):
         metrics = self._calculate_success_metrics(org.id, start_date, end_date)
 
         # Evaluate milestones
-        earned: List[Dict[str, Any]] = []
-        upcoming: List[Dict[str, Any]] = []
+        earned: list[dict[str, Any]] = []
+        upcoming: list[dict[str, Any]] = []
         next_milestone = None
 
         for milestone in MILESTONES:
@@ -712,7 +709,7 @@ class SMESuccessDashboardHandler(SecureHandler):
         start_date, end_date, period = self._parse_period(handler)
         metrics = self._calculate_success_metrics(org.id, start_date, end_date)
 
-        insights: List[Dict[str, Any]] = []
+        insights: list[dict[str, Any]] = []
 
         # Generate contextual insights
         if metrics["total_debates"] == 0:
@@ -805,6 +802,5 @@ class SMESuccessDashboardHandler(SecureHandler):
                 }
             }
         )
-
 
 __all__ = ["SMESuccessDashboardHandler"]

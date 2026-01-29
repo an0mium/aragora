@@ -27,10 +27,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class DependencyType(str, Enum):
     """Type of dependency."""
@@ -40,7 +39,6 @@ class DependencyType(str, Enum):
     DEV = "dev"
     OPTIONAL = "optional"
     PEER = "peer"
-
 
 class PackageManager(str, Enum):
     """Supported package managers."""
@@ -54,7 +52,6 @@ class PackageManager(str, Enum):
     CARGO = "cargo"
     GO = "go"
 
-
 class LicenseCategory(str, Enum):
     """License categories for compatibility checking."""
 
@@ -65,7 +62,6 @@ class LicenseCategory(str, Enum):
     PUBLIC_DOMAIN = "public_domain"
     UNKNOWN = "unknown"
 
-
 class VulnerabilitySeverity(str, Enum):
     """Vulnerability severity levels."""
 
@@ -74,7 +70,6 @@ class VulnerabilitySeverity(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
     UNKNOWN = "unknown"
-
 
 @dataclass
 class Dependency:
@@ -90,7 +85,7 @@ class Dependency:
     repository: str = ""
     description: str = ""
     dependencies: list[str] = field(default_factory=list)
-    parent: Optional[str] = None
+    parent: str | None = None
     depth: int = 0
     purl: str = ""  # Package URL (PURL) for SBOM
 
@@ -114,7 +109,6 @@ class Dependency:
             return f"pkg:golang/{self.name}@{self.version}"
         return f"pkg:generic/{self.name}@{self.version}"
 
-
 @dataclass
 class Vulnerability:
     """Represents a known vulnerability."""
@@ -125,12 +119,11 @@ class Vulnerability:
     description: str
     affected_package: str
     affected_versions: str
-    fixed_version: Optional[str] = None
-    cvss_score: Optional[float] = None
-    cwe_id: Optional[str] = None
-    published_date: Optional[datetime] = None
+    fixed_version: str | None = None
+    cvss_score: float | None = None
+    cwe_id: str | None = None
+    published_date: datetime | None = None
     references: list[str] = field(default_factory=list)
-
 
 @dataclass
 class LicenseConflict:
@@ -143,7 +136,6 @@ class LicenseConflict:
     conflict_type: str
     description: str
     severity: str = "warning"
-
 
 @dataclass
 class DependencyTree:
@@ -173,7 +165,6 @@ class DependencyTree:
             d for d in self.dependencies.values() if d.dependency_type == DependencyType.TRANSITIVE
         ]
 
-
 # Common license mappings
 LICENSE_CATEGORIES: dict[str, LicenseCategory] = {
     # Permissive
@@ -201,7 +192,6 @@ LICENSE_CATEGORIES: dict[str, LicenseCategory] = {
     "commercial": LicenseCategory.PROPRIETARY,
 }
 
-
 class DependencyAnalyzer:
     """
     Comprehensive dependency analyzer for software projects.
@@ -212,7 +202,7 @@ class DependencyAnalyzer:
 
     def __init__(
         self,
-        cache_dir: Optional[Path] = None,
+        cache_dir: Path | None = None,
         offline_mode: bool = False,
     ):
         self.cache_dir = cache_dir or Path.home() / ".cache" / "aragora" / "deps"
@@ -1088,7 +1078,6 @@ class DependencyAnalyzer:
             ],
         }
 
-
 async def analyze_project(
     repo_path: str,
     output_format: str = "cyclonedx",
@@ -1145,7 +1134,6 @@ async def analyze_project(
         ]
 
     return result
-
 
 # CLI entrypoint
 if __name__ == "__main__":

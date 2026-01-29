@@ -5,6 +5,7 @@ This module defines the shared state container used by all debate phases.
 The DebateContext is passed between phases, allowing them to read and
 modify debate state without tight coupling to the orchestrator.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
@@ -14,13 +15,11 @@ if TYPE_CHECKING:
     from aragora.debate.cancellation import CancellationToken
     from aragora.type_protocols import EventEmitterProtocol
 
-
 def _default_environment() -> "Environment":
     """Create a minimal Environment for tests or standalone usage."""
     from aragora.core import Environment
 
     return Environment(task="default")
-
 
 @dataclass
 class AgentWorkspace:
@@ -71,7 +70,6 @@ class AgentWorkspace:
             "created_at": self.created_at,
         }
 
-
 @dataclass
 class DebateContext:
     """
@@ -115,7 +113,7 @@ class DebateContext:
     org_id: str = ""
     """Organization ID for multi-tenancy and budget tracking."""
 
-    budget_check_callback: Optional[Any] = None
+    budget_check_callback: Any | None = None
     """Optional callback for mid-execution budget checks.
 
     If set, this should be a callable that returns (allowed: bool, reason: str).
@@ -126,16 +124,16 @@ class DebateContext:
     cancellation_token: Optional["CancellationToken"] = None
     """Cancellation token for cooperative cancellation of long-running operations."""
 
-    hook_manager: Optional[Any] = None
+    hook_manager: Any | None = None
     """HookManager for extended lifecycle hooks (PRE_ROUND, POST_ROUND, etc)."""
 
-    channel_integration: Optional[Any] = None
+    channel_integration: Any | None = None
     """Optional ChannelIntegration for agent-to-agent messaging."""
 
-    checkpoint_bridge: Optional[Any] = None
+    checkpoint_bridge: Any | None = None
     """Optional CheckpointBridge for unified molecule/checkpoint recovery."""
 
-    molecule_orchestrator: Optional[Any] = None
+    molecule_orchestrator: Any | None = None
     """Optional MoleculeOrchestrator for debate phase tracking."""
 
     # =========================================================================
@@ -209,7 +207,7 @@ class DebateContext:
     vote_weight_cache: dict[str, float] = field(default_factory=dict)
     """Pre-computed vote weights per agent."""
 
-    winner_agent: Optional[str] = None
+    winner_agent: str | None = None
     """Name of winning agent (set after consensus)."""
 
     # =========================================================================
@@ -222,7 +220,7 @@ class DebateContext:
     continuum_context_cache: str = ""
     """Context from ContinuumMemory retrieval."""
 
-    research_context: Optional[str] = None
+    research_context: str | None = None
     """Pre-debate research results."""
 
     evidence_pack: Any = None
@@ -364,7 +362,7 @@ class DebateContext:
         phase: str,
         error_type: str,
         message: str,
-        provider: Optional[str] = None,
+        provider: str | None = None,
     ) -> None:
         """Record an agent failure for post-run diagnostics."""
         import time

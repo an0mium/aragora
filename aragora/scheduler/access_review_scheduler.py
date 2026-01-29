@@ -41,15 +41,39 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional, TypedDict
+
+
+class RiskCounts(TypedDict):
+    low: int
+    medium: int
+    high: int
+    critical: int
+
+
+class ReviewSummary(TypedDict):
+    total_items: int
+    by_risk: RiskCounts
+    by_type: dict[str, int]
+    by_status: dict[str, int]
+    unique_users: int
+    stale_count: int
+
+
+class _ReviewSummaryBuilder(TypedDict):
+    """Internal builder type for summary before final conversion."""
+    total_items: int
+    by_risk: RiskCounts
+    by_type: dict[str, int]
+    by_status: dict[str, int]
+    unique_users: set[str]
+    stale_count: int
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Types and Enums
 # =============================================================================
-
 
 class ReviewType(Enum):
     """Types of access reviews."""
@@ -60,7 +84,6 @@ class ReviewType(Enum):
     STALE_CREDENTIALS = "stale_credentials"  # 90+ day unused
     ORPHANED_ACCOUNTS = "orphaned_accounts"  # No manager/inactive
     PRIVILEGE_ESCALATION = "privilege_escalation"  # High privilege review
-
 
 class ReviewStatus(Enum):
     """Status of an access review."""
@@ -73,7 +96,6 @@ class ReviewStatus(Enum):
     EXPIRED = "expired"
     CANCELLED = "cancelled"
 
-
 class ReviewItemStatus(Enum):
     """Status of a review item."""
 
@@ -82,7 +104,6 @@ class ReviewItemStatus(Enum):
     REVOKED = "revoked"
     MODIFIED = "modified"
     SKIPPED = "skipped"
-
 
 @dataclass
 class AccessReviewItem:
@@ -94,16 +115,15 @@ class AccessReviewItem:
     resource_type: str  # role, permission, api_key, workspace_access
     resource_id: str
     resource_name: str
-    granted_at: Optional[datetime] = None
-    last_used: Optional[datetime] = None
-    granted_by: Optional[str] = None
+    granted_at: datetime | None = None
+    last_used: datetime | None = None
+    granted_by: str | None = None
     risk_level: str = "low"  # low, medium, high, critical
     status: ReviewItemStatus = ReviewItemStatus.PENDING
-    decision_by: Optional[str] = None
-    decision_at: Optional[datetime] = None
-    decision_notes: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    decision_by: str | None = None
+    decision_at: datetime | None = None
+    decision_notes: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AccessReview:
@@ -112,17 +132,17 @@ class AccessReview:
     review_id: str
     review_type: ReviewType
     status: ReviewStatus = ReviewStatus.PENDING
-    scope_workspaces: List[str] = field(default_factory=list)
-    scope_users: List[str] = field(default_factory=list)
+    scope_workspaces: list[str] = field(default_factory=list)
+    scope_users: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    due_date: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    due_date: datetime | None = None
+    completed_at: datetime | None = None
     created_by: str = "system"
-    assigned_reviewer: Optional[str] = None
-    items: List[AccessReviewItem] = field(default_factory=list)
-    summary: Dict[str, Any] = field(default_factory=dict)
+    assigned_reviewer: str | None = None
+    items: list[AccessReviewItem] = field(default_factory=list)
+    summary: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "review_id": self.review_id,
@@ -139,11 +159,9 @@ class AccessReview:
             "summary": self.summary,
         }
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
-
 
 @dataclass
 class AccessReviewConfig:
@@ -151,7 +169,7 @@ class AccessReviewConfig:
 
     # Review frequency
     monthly_review_day: int = 1  # Day of month for monthly reviews
-    quarterly_review_months: List[int] = field(default_factory=lambda: [1, 4, 7, 10])
+    quarterly_review_months: list[int] = field(default_factory=lambda: [1, 4, 7, 10])
 
     # Thresholds
     stale_credential_days: int = 90
@@ -159,22 +177,20 @@ class AccessReviewConfig:
     review_due_days: int = 14  # Days to complete a review
 
     # Notifications
-    notification_email: Optional[str] = None
-    slack_webhook: Optional[str] = None
+    notification_email: str | None = None
+    slack_webhook: str | None = None
 
     # Storage
-    storage_path: Optional[str] = None
-
+    storage_path: str | None = None
 
 # =============================================================================
 # Storage Layer
 # =============================================================================
 
-
 class AccessReviewStorage:
     """SQLite-backed storage for access reviews."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize storage."""
         self._db_path = db_path or ":memory:"
         self._local = threading.local()
@@ -311,7 +327,7 @@ class AccessReviewStorage:
 
         conn.commit()
 
-    def get_review(self, review_id: str) -> Optional[AccessReview]:
+    def get_review(self, review_id: str) -> AccessReview | None:
         """Get a review by ID."""
         import json
 
@@ -373,7 +389,7 @@ class AccessReviewStorage:
             summary=json.loads(row["summary_json"] or "{}"),
         )
 
-    def get_pending_reviews(self) -> List[AccessReview]:
+    def get_pending_reviews(self) -> list[AccessReview]:
         """Get all pending reviews."""
         conn = self._get_conn()
         rows = conn.execute(
@@ -392,7 +408,7 @@ class AccessReviewStorage:
 
         return reviews
 
-    def get_overdue_reviews(self) -> List[AccessReview]:
+    def get_overdue_reviews(self) -> list[AccessReview]:
         """Get overdue reviews."""
         conn = self._get_conn()
         now = datetime.now(timezone.utc).isoformat()
@@ -432,7 +448,7 @@ class AccessReviewStorage:
 
     def get_last_access(
         self, user_id: str, resource_type: str, resource_id: str
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         """Get last access time for a user/resource."""
         conn = self._get_conn()
         row = conn.execute(
@@ -447,7 +463,7 @@ class AccessReviewStorage:
             return datetime.fromisoformat(row["last_accessed"])
         return None
 
-    def get_stale_credentials(self, days: int = 90) -> List[Dict[str, Any]]:
+    def get_stale_credentials(self, days: int = 90) -> list[dict[str, Any]]:
         """Get credentials not used in N days."""
         conn = self._get_conn()
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
@@ -494,7 +510,7 @@ class AccessReviewStorage:
         )
         conn.commit()
 
-    def get_due_schedules(self) -> List[Dict[str, Any]]:
+    def get_due_schedules(self) -> list[dict[str, Any]]:
         """Get schedules that are due to run."""
         conn = self._get_conn()
         now = datetime.now(timezone.utc).isoformat()
@@ -532,16 +548,14 @@ class AccessReviewStorage:
         )
         conn.commit()
 
-
 # =============================================================================
 # Access Review Scheduler
 # =============================================================================
 
-
 class AccessReviewScheduler:
     """Main access review scheduler."""
 
-    def __init__(self, config: Optional[AccessReviewConfig] = None):
+    def __init__(self, config: AccessReviewConfig | None = None):
         """Initialize scheduler.
 
         Args:
@@ -550,12 +564,12 @@ class AccessReviewScheduler:
         self.config = config or AccessReviewConfig()
         self._storage = AccessReviewStorage(self.config.storage_path)
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
         # Callbacks for integrating with access control systems
-        self._access_providers: List[Callable[[], List[Dict[str, Any]]]] = []
-        self._revocation_handlers: List[Callable[[str, str, str], None]] = []
-        self._notification_handlers: List[Callable[[Dict[str, Any]], None]] = []
+        self._access_providers: list[Callable[[], list[dict[str, Any]]]] = []
+        self._revocation_handlers: list[Callable[[str, str, str], None]] = []
+        self._notification_handlers: list[Callable[[dict[str, Any]], None]] = []
 
     # =========================================================================
     # Lifecycle
@@ -626,7 +640,7 @@ class AccessReviewScheduler:
                 logger.error(f"Error in access review scheduler: {e}")
                 await asyncio.sleep(60)
 
-    async def _execute_scheduled_review(self, schedule: Dict[str, Any]) -> None:
+    async def _execute_scheduled_review(self, schedule: dict[str, Any]) -> None:
         """Execute a scheduled review."""
         review_type = ReviewType(schedule["review_type"])
         logger.info(f"Executing scheduled review: {review_type.value}")
@@ -672,9 +686,9 @@ class AccessReviewScheduler:
     async def create_review(
         self,
         review_type: ReviewType,
-        scope_workspaces: Optional[List[str]] = None,
-        scope_users: Optional[List[str]] = None,
-        assigned_reviewer: Optional[str] = None,
+        scope_workspaces: Optional[list[str]] = None,
+        scope_users: Optional[list[str]] = None,
+        assigned_reviewer: str | None = None,
         created_by: str = "system",
     ) -> AccessReview:
         """Create a new access review.
@@ -717,12 +731,12 @@ class AccessReviewScheduler:
 
         return review
 
-    async def _gather_review_items(self, review: AccessReview) -> List[AccessReviewItem]:
+    async def _gather_review_items(self, review: AccessReview) -> list[AccessReviewItem]:
         """Gather items to review based on type and scope."""
-        items: List[AccessReviewItem] = []
+        items: list[AccessReviewItem] = []
 
         # Get access data from providers
-        all_access: List[Dict[str, Any]] = []
+        all_access: list[dict[str, Any]] = []
         for provider in self._access_providers:
             try:
                 access_data = provider()
@@ -783,7 +797,7 @@ class AccessReviewScheduler:
 
         return items
 
-    def _assess_risk_level(self, access: Dict[str, Any]) -> str:
+    def _assess_risk_level(self, access: dict[str, Any]) -> str:
         """Assess risk level for an access item."""
         resource_type = access.get("resource_type", "")
         resource_id = access.get("resource_id", "")
@@ -808,42 +822,46 @@ class AccessReviewScheduler:
 
         return "low"
 
-    def _calculate_summary(self, items: List[AccessReviewItem]) -> Dict[str, Any]:
+    def _calculate_summary(self, items: list[AccessReviewItem]) -> ReviewSummary:
         """Calculate summary statistics for a review."""
-        summary = {
-            "total_items": len(items),
-            "by_risk": {"low": 0, "medium": 0, "high": 0, "critical": 0},
-            "by_type": {},
-            "by_status": {},
-            "unique_users": set(),
-            "stale_count": 0,
-        }
+        by_risk: RiskCounts = {"low": 0, "medium": 0, "high": 0, "critical": 0}
+        by_type: dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        unique_users: set[str] = set()
+        stale_count = 0
 
         now = datetime.now(timezone.utc)
         stale_threshold = now - timedelta(days=self.config.stale_credential_days)
 
         for item in items:
-            summary["by_risk"][item.risk_level] += 1  # type: ignore[index]
+            risk_level = item.risk_level
+            if risk_level in by_risk:
+                by_risk[risk_level] += 1
 
-            if item.resource_type not in summary["by_type"]:  # type: ignore[operator]
-                summary["by_type"][item.resource_type] = 0  # type: ignore[index]
-            summary["by_type"][item.resource_type] += 1  # type: ignore[index]
+            if item.resource_type not in by_type:
+                by_type[item.resource_type] = 0
+            by_type[item.resource_type] += 1
 
             status = item.status.value
-            if status not in summary["by_status"]:  # type: ignore[operator]
-                summary["by_status"][status] = 0  # type: ignore[index]
-            summary["by_status"][status] += 1  # type: ignore[index]
+            if status not in by_status:
+                by_status[status] = 0
+            by_status[status] += 1
 
-            summary["unique_users"].add(item.user_id)  # type: ignore[attr-defined]
+            unique_users.add(item.user_id)
 
             if item.last_used and item.last_used < stale_threshold:
-                summary["stale_count"] += 1  # type: ignore[operator]
+                stale_count += 1
 
-        summary["unique_users"] = len(summary["unique_users"])  # type: ignore[arg-type]
+        return ReviewSummary(
+            total_items=len(items),
+            by_risk=by_risk,
+            by_type=by_type,
+            by_status=by_status,
+            unique_users=len(unique_users),
+            stale_count=stale_count,
+        )
 
-        return summary
-
-    def _get_mock_access_data(self) -> List[Dict[str, Any]]:
+    def _get_mock_access_data(self) -> list[dict[str, Any]]:
         """Get mock access data for testing."""
         # This would be replaced with actual RBAC/IAM data in production
         return [
@@ -874,7 +892,7 @@ class AccessReviewScheduler:
         review_id: str,
         item_id: str,
         decision_by: str,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> bool:
         """Approve a review item (keep access)."""
         return await self._process_item(
@@ -886,7 +904,7 @@ class AccessReviewScheduler:
         review_id: str,
         item_id: str,
         decision_by: str,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> bool:
         """Revoke a review item (remove access)."""
         success = await self._process_item(
@@ -909,7 +927,7 @@ class AccessReviewScheduler:
         item_id: str,
         status: ReviewItemStatus,
         decision_by: str,
-        notes: Optional[str],
+        notes: str | None,
     ) -> bool:
         """Process a review item decision."""
         review = self._storage.get_review(review_id)
@@ -934,7 +952,7 @@ class AccessReviewScheduler:
         self._storage.save_review(review)
         return True
 
-    async def complete_review(self, review_id: str, approved_by: str) -> Optional[AccessReview]:
+    async def complete_review(self, review_id: str, approved_by: str) -> AccessReview | None:
         """Complete a review after all items processed."""
         review = self._storage.get_review(review_id)
         if not review:
@@ -1009,7 +1027,7 @@ class AccessReviewScheduler:
     # Registration
     # =========================================================================
 
-    def register_access_provider(self, provider: Callable[[], List[Dict[str, Any]]]) -> None:
+    def register_access_provider(self, provider: Callable[[], list[dict[str, Any]]]) -> None:
         """Register an access data provider."""
         self._access_providers.append(provider)
 
@@ -1017,7 +1035,7 @@ class AccessReviewScheduler:
         """Register a revocation handler."""
         self._revocation_handlers.append(handler)
 
-    def register_notification_handler(self, handler: Callable[[Dict[str, Any]], None]) -> None:
+    def register_notification_handler(self, handler: Callable[[dict[str, Any]], None]) -> None:
         """Register a notification handler."""
         self._notification_handlers.append(handler)
 
@@ -1025,15 +1043,15 @@ class AccessReviewScheduler:
     # Queries
     # =========================================================================
 
-    def get_review(self, review_id: str) -> Optional[AccessReview]:
+    def get_review(self, review_id: str) -> AccessReview | None:
         """Get a review by ID."""
         return self._storage.get_review(review_id)
 
-    def get_pending_reviews(self) -> List[AccessReview]:
+    def get_pending_reviews(self) -> list[AccessReview]:
         """Get all pending reviews."""
         return self._storage.get_pending_reviews()
 
-    def get_stale_credentials(self) -> List[Dict[str, Any]]:
+    def get_stale_credentials(self) -> list[dict[str, Any]]:
         """Get credentials not used in 90+ days."""
         return self._storage.get_stale_credentials(self.config.stale_credential_days)
 
@@ -1041,17 +1059,15 @@ class AccessReviewScheduler:
         """Record user access for tracking."""
         self._storage.record_user_access(user_id, resource_type, resource_id)
 
-
 # =============================================================================
 # Global Instance
 # =============================================================================
 
-_scheduler: Optional[AccessReviewScheduler] = None
+_scheduler: AccessReviewScheduler | None = None
 _scheduler_lock = threading.Lock()
 
-
 def get_access_review_scheduler(
-    config: Optional[AccessReviewConfig] = None,
+    config: AccessReviewConfig | None = None,
 ) -> AccessReviewScheduler:
     """Get or create the global access review scheduler."""
     global _scheduler
@@ -1060,17 +1076,15 @@ def get_access_review_scheduler(
             _scheduler = AccessReviewScheduler(config)
         return _scheduler
 
-
 async def schedule_access_review(
     review_type: ReviewType = ReviewType.MONTHLY,
-    scope_workspaces: Optional[List[str]] = None,
+    scope_workspaces: Optional[list[str]] = None,
 ) -> AccessReview:
     """Convenience function to schedule an access review."""
     return await get_access_review_scheduler().create_review(
         review_type=review_type,
         scope_workspaces=scope_workspaces,
     )
-
 
 __all__ = [
     # Types

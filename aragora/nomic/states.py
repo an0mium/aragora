@@ -4,12 +4,12 @@ Nomic Loop State Definitions.
 Defines all possible states and valid transitions for the nomic loop
 state machine. Each state is idempotent and can be safely retried.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Dict, Optional, Set
-
+from typing import Any, Optional
 
 class NomicState(Enum):
     """
@@ -43,11 +43,10 @@ class NomicState(Enum):
     FAILED = auto()  # Cycle failed, cannot recover
     PAUSED = auto()  # Manually paused, awaiting resume
 
-
 # Valid state transitions
 # All active states can transition to PAUSED (for manual pause)
 # and RECOVERY (for error handling)
-VALID_TRANSITIONS: Dict[NomicState, Set[NomicState]] = {
+VALID_TRANSITIONS: dict[NomicState, set[NomicState]] = {
     NomicState.IDLE: {NomicState.CONTEXT, NomicState.PAUSED},
     NomicState.CONTEXT: {NomicState.DEBATE, NomicState.RECOVERY, NomicState.PAUSED},
     NomicState.DEBATE: {
@@ -102,7 +101,6 @@ VALID_TRANSITIONS: Dict[NomicState, Set[NomicState]] = {
     },
 }
 
-
 @dataclass
 class StateMetadata:
     """Metadata for a state in the state machine."""
@@ -114,9 +112,8 @@ class StateMetadata:
     is_critical: bool  # If True, failure goes to FAILED instead of RECOVERY
     requires_checkpoint: bool  # If True, must checkpoint after this state
 
-
 # State configuration
-STATE_CONFIG: Dict[NomicState, StateMetadata] = {
+STATE_CONFIG: dict[NomicState, StateMetadata] = {
     NomicState.IDLE: StateMetadata(
         name="idle",
         description="Waiting for trigger to start cycle",
@@ -207,7 +204,6 @@ STATE_CONFIG: Dict[NomicState, StateMetadata] = {
     ),
 }
 
-
 @dataclass
 class StateContext:
     """
@@ -219,31 +215,31 @@ class StateContext:
 
     # Cycle metadata
     cycle_id: str = ""
-    started_at: Optional[datetime] = None
+    started_at: datetime | None = None
     current_state: NomicState = NomicState.IDLE
-    previous_state: Optional[NomicState] = None
+    previous_state: NomicState | None = None
 
     # Phase outputs
-    context_result: Optional[Dict[str, Any]] = None
-    debate_result: Optional[Dict[str, Any]] = None
-    design_result: Optional[Dict[str, Any]] = None
-    implement_result: Optional[Dict[str, Any]] = None
-    verify_result: Optional[Dict[str, Any]] = None
-    commit_result: Optional[Dict[str, Any]] = None
+    context_result: Optional[dict[str, Any]] = None
+    debate_result: Optional[dict[str, Any]] = None
+    design_result: Optional[dict[str, Any]] = None
+    implement_result: Optional[dict[str, Any]] = None
+    verify_result: Optional[dict[str, Any]] = None
+    commit_result: Optional[dict[str, Any]] = None
 
     # Error tracking
     errors: list = field(default_factory=list)
-    retry_counts: Dict[str, int] = field(default_factory=dict)
+    retry_counts: dict[str, int] = field(default_factory=dict)
 
     # Agent health
-    agent_failures: Dict[str, int] = field(default_factory=dict)
-    circuit_breaker_states: Dict[str, bool] = field(default_factory=dict)
+    agent_failures: dict[str, int] = field(default_factory=dict)
+    circuit_breaker_states: dict[str, bool] = field(default_factory=dict)
 
     # Metrics
-    state_durations: Dict[str, float] = field(default_factory=dict)
+    state_durations: dict[str, float] = field(default_factory=dict)
     total_tokens_used: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize context to dictionary for checkpointing."""
         return {
             "cycle_id": self.cycle_id,
@@ -265,7 +261,7 @@ class StateContext:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StateContext":
+    def from_dict(cls, data: dict[str, Any]) -> "StateContext":
         """Deserialize context from dictionary."""
         ctx = cls()
         ctx.cycle_id = data.get("cycle_id", "")
@@ -290,11 +286,9 @@ class StateContext:
         ctx.total_tokens_used = data.get("total_tokens_used", 0)
         return ctx
 
-
 def is_valid_transition(from_state: NomicState, to_state: NomicState) -> bool:
     """Check if a state transition is valid."""
     return to_state in VALID_TRANSITIONS.get(from_state, set())
-
 
 def get_state_config(state: NomicState) -> StateMetadata:
     """Get configuration for a state."""

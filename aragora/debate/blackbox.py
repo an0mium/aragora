@@ -18,13 +18,12 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class BlackboxEvent:
@@ -37,7 +36,6 @@ class BlackboxEvent:
 
     def to_dict(self) -> dict:
         return asdict(self)
-
 
 @dataclass
 class BlackboxSnapshot:
@@ -53,7 +51,6 @@ class BlackboxSnapshot:
 
     def to_dict(self) -> dict:
         return asdict(self)
-
 
 class BlackboxRecorder:
     """
@@ -72,7 +69,7 @@ class BlackboxRecorder:
     def __init__(
         self,
         session_id: str,
-        base_path: Optional[Path] = None,
+        base_path: Path | None = None,
         max_events: int = 10000,
     ):
         """
@@ -112,7 +109,7 @@ class BlackboxRecorder:
         self,
         event_type: str,
         component: str,
-        data: Optional[dict] = None,
+        data: dict | None = None,
     ) -> BlackboxEvent:
         """
         Record a generic event.
@@ -181,7 +178,7 @@ class BlackboxRecorder:
         component: str,
         error: str,
         recoverable: bool = True,
-        context: Optional[dict] = None,
+        context: dict | None = None,
     ) -> BlackboxEvent:
         """
         Log an error without crashing.
@@ -222,7 +219,7 @@ class BlackboxRecorder:
         agent_name: str,
         failure_type: str,
         duration_seconds: float,
-        context: Optional[dict] = None,
+        context: dict | None = None,
     ) -> BlackboxEvent:
         """
         Log an agent failure for analysis.
@@ -251,7 +248,7 @@ class BlackboxRecorder:
         component: str,
         recovery_type: str,
         original_error: str,
-        context: Optional[dict] = None,
+        context: dict | None = None,
     ) -> BlackboxEvent:
         """
         Log a successful recovery from an error.
@@ -280,7 +277,7 @@ class BlackboxRecorder:
         strength: float,
         participating_agents: list[str],
         topic: str,
-        result: Optional[str] = None,
+        result: str | None = None,
     ) -> BlackboxEvent:
         """
         Log a consensus event.
@@ -320,7 +317,7 @@ class BlackboxRecorder:
         except Exception as e:
             logger.error(f"blackbox_flush_failed error={e}")
 
-    def get_latest_snapshot(self) -> Optional[BlackboxSnapshot]:
+    def get_latest_snapshot(self) -> BlackboxSnapshot | None:
         """Get the most recent snapshot."""
         if self.snapshots:
             return self.snapshots[-1]
@@ -366,10 +363,8 @@ class BlackboxRecorder:
 
         logger.info(f"blackbox_close session={self.session_id}")
 
-
 # Convenience function for getting a session blackbox
 _active_recorders: dict[str, BlackboxRecorder] = {}
-
 
 def get_blackbox(session_id: str) -> BlackboxRecorder:
     """
@@ -384,7 +379,6 @@ def get_blackbox(session_id: str) -> BlackboxRecorder:
     if session_id not in _active_recorders:
         _active_recorders[session_id] = BlackboxRecorder(session_id)
     return _active_recorders[session_id]
-
 
 def close_blackbox(session_id: str) -> None:
     """Close and remove a blackbox recorder."""

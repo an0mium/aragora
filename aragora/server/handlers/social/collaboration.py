@@ -8,7 +8,7 @@ and collaboration features.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.collaboration import (
     CollaborationSession,
@@ -21,13 +21,12 @@ from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
 
-
 def _check_permission(
     user_id: str,
     permission: str,
-    org_id: Optional[str] = None,
-    roles: Optional[set[str]] = None,
-) -> Optional[dict[str, Any]]:
+    org_id: str | None = None,
+    roles: set[str] | None = None,
+) -> dict[str, Any] | None:
     """Check RBAC permission for collaboration operations.
 
     Returns None if allowed, or error dict if denied.
@@ -48,7 +47,6 @@ def _check_permission(
     except Exception as e:
         logger.error(f"RBAC check failed: {e}")
         return {"error": "Authorization check failed", "status": 500}
-
 
 class CollaborationHandlers:
     """
@@ -449,10 +447,8 @@ class CollaborationHandlers:
             "online_count": session.online_count,
         }
 
-
 # Singleton handler instance
 _handlers: CollaborationHandlers | None = None
-
 
 def get_collaboration_handlers() -> CollaborationHandlers:
     """Get the global collaboration handlers instance."""
@@ -460,7 +456,6 @@ def get_collaboration_handlers() -> CollaborationHandlers:
     if _handlers is None:
         _handlers = CollaborationHandlers()
     return _handlers
-
 
 __all__ = [
     "CollaborationHandlers",

@@ -1,13 +1,13 @@
 """
 Data models for persistent storage.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from aragora.serialization import SerializableMixin
-
 
 @dataclass
 class NomicCycle(SerializableMixin):
@@ -18,17 +18,16 @@ class NomicCycle(SerializableMixin):
     phase: str  # debate, design, implement, verify, commit
     stage: str  # proposing, critiquing, voting, executing, etc.
     started_at: datetime
-    completed_at: Optional[datetime] = None
-    success: Optional[bool] = None
-    git_commit: Optional[str] = None
-    task_description: Optional[str] = None
+    completed_at: datetime | None = None
+    success: bool | None = None
+    git_commit: str | None = None
+    task_description: str | None = None
     total_tasks: int = 0
     completed_tasks: int = 0
-    error_message: Optional[str] = None
-    id: Optional[str] = None  # Set by database
+    error_message: str | None = None
+    id: str | None = None  # Set by database
 
     # to_dict() inherited from SerializableMixin (handles datetime serialization)
-
 
 @dataclass
 class DebateArtifact(SerializableMixin):
@@ -44,13 +43,12 @@ class DebateArtifact(SerializableMixin):
     transcript: list[dict]  # Full message history
     consensus_reached: bool
     confidence: float
-    winning_proposal: Optional[str] = None
-    vote_tally: Optional[dict] = None
+    winning_proposal: str | None = None
+    vote_tally: dict | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
-    id: Optional[str] = None
+    id: str | None = None
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
-
 
 @dataclass
 class StreamEvent(SerializableMixin):
@@ -62,12 +60,11 @@ class StreamEvent(SerializableMixin):
     cycle: int
     event_type: str  # cycle_start, phase_start, task_complete, error, etc.
     event_data: dict
-    agent: Optional[str] = None
+    agent: str | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    id: Optional[str] = None
+    id: str | None = None
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
-
 
 @dataclass
 class AgentMetrics(SerializableMixin):
@@ -86,12 +83,11 @@ class AgentMetrics(SerializableMixin):
     votes_won: int = 0
     votes_received: int = 0
     consensus_contributions: int = 0
-    avg_response_time_ms: Optional[float] = None
+    avg_response_time_ms: float | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    id: Optional[str] = None
+    id: str | None = None
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
-
 
 @dataclass
 class NomicRollback(SerializableMixin):
@@ -108,15 +104,14 @@ class NomicRollback(SerializableMixin):
     phase: str  # debate, design, implement, verify, commit
     reason: str  # verify_failure, manual_intervention, timeout, conflict
     severity: str  # low, medium, high, critical
-    rolled_back_commit: Optional[str] = None  # Git commit that was reverted
-    preserved_branch: Optional[str] = None  # Where failed work was saved
+    rolled_back_commit: str | None = None  # Git commit that was reverted
+    preserved_branch: str | None = None  # Where failed work was saved
     files_affected: list[str] = field(default_factory=list)
     diff_summary: str = ""  # git diff --stat summary
-    error_message: Optional[str] = None
+    error_message: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     # to_dict() inherited from SerializableMixin (handles datetime)
-
 
 @dataclass
 class CycleEvolution(SerializableMixin):
@@ -130,15 +125,14 @@ class CycleEvolution(SerializableMixin):
     id: str
     loop_id: str
     cycle_number: int
-    debate_artifact_id: Optional[str] = None  # Link to DebateArtifact
-    winning_proposal_summary: Optional[str] = None
+    debate_artifact_id: str | None = None  # Link to DebateArtifact
+    winning_proposal_summary: str | None = None
     files_changed: list[str] = field(default_factory=list)
-    git_commit: Optional[str] = None
-    rollback_id: Optional[str] = None  # If this cycle was rolled back
+    git_commit: str | None = None
+    rollback_id: str | None = None  # If this cycle was rolled back
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     # to_dict() inherited from SerializableMixin (handles datetime)
-
 
 @dataclass
 class CycleFileChange(SerializableMixin):

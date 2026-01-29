@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.audit.unified import audit_action
 from aragora.bots.base import (
@@ -45,8 +45,7 @@ SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
 # error messages for production environments.
 API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
-
-def _check_slack_available() -> tuple[bool, Optional[str]]:
+def _check_slack_available() -> tuple[bool, str | None]:
     """Check if slack_bolt is available."""
     try:
         from slack_bolt.async_app import AsyncApp  # noqa: F401
@@ -55,21 +54,20 @@ def _check_slack_available() -> tuple[bool, Optional[str]]:
     except ImportError:
         return False, "slack_bolt is required. Install with: pip install slack-bolt"
 
-
 class AragoraSlackBot:
     """Slack bot for Aragora platform integration."""
 
     def __init__(
         self,
         token: str,
-        app_token: Optional[str] = None,
-        signing_secret: Optional[str] = None,
+        app_token: str | None = None,
+        signing_secret: str | None = None,
     ):
         self.token = token
         self.app_token = app_token
         self.signing_secret = signing_secret
-        self._app: Optional[Any] = None
-        self._handler: Optional[Any] = None
+        self._app: Any | None = None
+        self._handler: Any | None = None
         self.config = BotConfig(
             platform=Platform.SLACK,
             token=token,
@@ -107,12 +105,12 @@ class AragoraSlackBot:
         """Register Slack event handlers."""
 
         @self._app.event("app_mention")
-        async def handle_app_mention(event: Dict[str, Any], say: Callable) -> None:
+        async def handle_app_mention(event: dict[str, Any], say: Callable) -> None:
             """Handle @mentions of the bot."""
             await self._handle_mention(event, say)
 
         @self._app.event("message")
-        async def handle_message(event: Dict[str, Any], say: Callable) -> None:
+        async def handle_message(event: dict[str, Any], say: Callable) -> None:
             """Handle direct messages and channel messages."""
             # Skip bot messages and thread replies to avoid loops
             if event.get("bot_id") or event.get("subtype"):
@@ -128,7 +126,7 @@ class AragoraSlackBot:
 
         @self._app.command("/aragora")
         async def handle_aragora_command(
-            ack: Callable, body: Dict[str, Any], respond: Callable
+            ack: Callable, body: dict[str, Any], respond: Callable
         ) -> None:
             """Handle /aragora command."""
             await ack()
@@ -140,7 +138,7 @@ class AragoraSlackBot:
 
         @self._app.command("/debate")
         async def handle_debate_command(
-            ack: Callable, body: Dict[str, Any], respond: Callable
+            ack: Callable, body: dict[str, Any], respond: Callable
         ) -> None:
             """Handle /debate command."""
             await ack()
@@ -149,7 +147,7 @@ class AragoraSlackBot:
 
         @self._app.command("/gauntlet")
         async def handle_gauntlet_command(
-            ack: Callable, body: Dict[str, Any], respond: Callable
+            ack: Callable, body: dict[str, Any], respond: Callable
         ) -> None:
             """Handle /gauntlet command."""
             await ack()
@@ -158,7 +156,7 @@ class AragoraSlackBot:
 
         @self._app.command("/aragora-status")
         async def handle_status_command(
-            ack: Callable, body: Dict[str, Any], respond: Callable
+            ack: Callable, body: dict[str, Any], respond: Callable
         ) -> None:
             """Handle /aragora-status command."""
             await ack()
@@ -166,7 +164,7 @@ class AragoraSlackBot:
 
     async def _handle_slash_command(
         self,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         command: str,
         args: str,
         respond: Callable,
@@ -197,7 +195,7 @@ class AragoraSlackBot:
             response_type="in_channel" if not result.ephemeral else "ephemeral",
         )
 
-    async def _handle_dm(self, event: Dict[str, Any], say: Callable) -> None:
+    async def _handle_dm(self, event: dict[str, Any], say: Callable) -> None:
         """Handle direct messages."""
         text = event.get("text", "").strip()
 
@@ -238,7 +236,7 @@ class AragoraSlackBot:
                 thread_ts=event.get("thread_ts"),
             )
 
-    async def _handle_mention(self, event: Dict[str, Any], say: Callable) -> None:
+    async def _handle_mention(self, event: dict[str, Any], say: Callable) -> None:
         """Handle @mentions of the bot."""
         text = event.get("text", "").strip()
 
@@ -288,7 +286,7 @@ class AragoraSlackBot:
 
     def _create_context_from_body(
         self,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         command: str,
         args: str,
     ) -> CommandContext:
@@ -329,7 +327,7 @@ class AragoraSlackBot:
 
     def _create_context_from_event(
         self,
-        event: Dict[str, Any],
+        event: dict[str, Any],
         command: str,
         args: str,
     ) -> CommandContext:
@@ -372,7 +370,7 @@ class AragoraSlackBot:
         self,
         result: CommandResult,
         command: str,
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> Optional[list[dict[str, Any]]]:
         """Convert CommandResult to Slack blocks."""
         if result.slack_blocks:
             return result.slack_blocks
@@ -381,7 +379,7 @@ class AragoraSlackBot:
             return None
 
         # Create default blocks for specific commands
-        blocks: List[Dict[str, Any]] = []
+        blocks: list[dict[str, Any]] = []
 
         if command == "debate" and result.data:
             blocks = [
@@ -472,11 +470,10 @@ class AragoraSlackBot:
         """Get the underlying Slack Bolt app for custom integration."""
         return self._app
 
-
 async def run_slack_bot(
-    token: Optional[str] = None,
-    app_token: Optional[str] = None,
-    signing_secret: Optional[str] = None,
+    token: str | None = None,
+    app_token: str | None = None,
+    signing_secret: str | None = None,
 ) -> None:
     """Run the Aragora Slack bot.
 
@@ -496,11 +493,10 @@ async def run_slack_bot(
     await bot.setup()
     await bot.run()
 
-
 def create_slack_bot(
-    token: Optional[str] = None,
-    app_token: Optional[str] = None,
-    signing_secret: Optional[str] = None,
+    token: str | None = None,
+    app_token: str | None = None,
+    signing_secret: str | None = None,
 ) -> AragoraSlackBot:
     """Create an Aragora Slack bot instance.
 
@@ -520,7 +516,6 @@ def create_slack_bot(
         raise ValueError("Slack bot token is required. Set SLACK_BOT_TOKEN env var.")
 
     return AragoraSlackBot(token, app_token, signing_secret)
-
 
 __all__ = [
     "AragoraSlackBot",

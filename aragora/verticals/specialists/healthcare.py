@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.core import Message
 from aragora.verticals.base import VerticalSpecialistAgent
@@ -23,7 +23,6 @@ from aragora.verticals.config import (
 from aragora.verticals.registry import VerticalRegistry
 
 logger = logging.getLogger(__name__)
-
 
 # Healthcare vertical configuration
 HEALTHCARE_CONFIG = VerticalConfig(
@@ -144,7 +143,6 @@ qualified healthcare professionals for clinical decisions.""",
     tags=["healthcare", "medical", "clinical", "HIPAA"],
 )
 
-
 @VerticalRegistry.register(
     "healthcare",
     config=HEALTHCARE_CONFIG,
@@ -196,8 +194,8 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
     async def _execute_tool(
         self,
         tool: ToolConfig,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute a healthcare tool."""
         tool_name = tool.name
 
@@ -212,14 +210,14 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
-    async def _pubmed_search(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _pubmed_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search PubMed for medical literature."""
         return {
             "articles": [],
             "message": "PubMed search not yet implemented - requires NCBI API integration",
         }
 
-    async def _drug_lookup(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _drug_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up drug information."""
         return {
             "drug_info": None,
@@ -227,14 +225,14 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
             "message": "Drug lookup not yet implemented",
         }
 
-    async def _icd_lookup(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _icd_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up ICD-10 codes."""
         return {
             "codes": [],
             "message": "ICD lookup not yet implemented",
         }
 
-    async def _clinical_guidelines_search(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _clinical_guidelines_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search clinical practice guidelines."""
         return {
             "guidelines": [],
@@ -245,7 +243,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check content against healthcare compliance frameworks."""
         violations = []
 
@@ -262,7 +260,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check HIPAA compliance."""
         violations = []
 
@@ -300,7 +298,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check HITECH compliance."""
         violations = []
 
@@ -323,7 +321,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check FDA 21 CFR Part 11 compliance."""
         violations = []
 
@@ -342,7 +340,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
 
         return violations
 
-    def _detect_phi(self, content: str) -> Dict[str, List[str]]:
+    def _detect_phi(self, content: str) -> dict[str, list[str]]:
         """
         Detect potential PHI in content.
 
@@ -373,7 +371,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         self,
         task: str,
         system_prompt: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
         **kwargs: Any,
     ) -> Message:
         """Generate a healthcare analysis response."""
@@ -390,7 +388,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         self,
         document_text: str,
         document_type: str = "clinical_note",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze a clinical document for compliance and quality.
 
@@ -426,7 +424,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
             ],
         }
 
-    async def check_deidentification(self, content: str) -> Dict[str, Any]:
+    async def check_deidentification(self, content: str) -> dict[str, Any]:
         """
         Check if content is properly de-identified per HIPAA Safe Harbor.
 

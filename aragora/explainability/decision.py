@@ -20,10 +20,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class InfluenceType(str, Enum):
     """Types of influence on a decision."""
@@ -36,7 +35,6 @@ class InfluenceType(str, Enum):
     CONSENSUS = "consensus"
     USER = "user"
 
-
 @dataclass
 class EvidenceLink:
     """A link in the evidence chain supporting a decision."""
@@ -45,13 +43,13 @@ class EvidenceLink:
     content: str
     source: str  # Agent name, user, or external source
     relevance_score: float  # 0-1
-    quality_scores: Dict[str, float] = field(default_factory=dict)
-    cited_by: List[str] = field(default_factory=list)  # Agent names
+    quality_scores: dict[str, float] = field(default_factory=dict)
+    cited_by: list[str] = field(default_factory=list)  # Agent names
     grounding_type: str = "claim"  # claim, fact, opinion, citation
-    timestamp: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    timestamp: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "content": self.content,
@@ -64,7 +62,6 @@ class EvidenceLink:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class VotePivot:
     """A vote that significantly influenced the outcome."""
@@ -75,12 +72,12 @@ class VotePivot:
     weight: float  # Computed weight (ELO + calibration)
     reasoning_summary: str
     influence_score: float  # How much this vote affected the outcome
-    calibration_adjustment: Optional[float] = None
-    elo_rating: Optional[float] = None
+    calibration_adjustment: float | None = None
+    elo_rating: float | None = None
     flip_detected: bool = False  # Did this agent flip position?
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "agent": self.agent,
             "choice": self.choice,
@@ -93,7 +90,6 @@ class VotePivot:
             "flip_detected": self.flip_detected,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class BeliefChange:
@@ -108,13 +104,13 @@ class BeliefChange:
     posterior_confidence: float
     trigger: str  # What caused the change (argument, evidence, etc.)
     trigger_source: str  # Who/what provided the trigger
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def confidence_delta(self) -> float:
         return self.posterior_confidence - self.prior_confidence
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "agent": self.agent,
             "round": self.round,
@@ -129,7 +125,6 @@ class BeliefChange:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ConfidenceAttribution:
     """Attribution of confidence to different factors."""
@@ -137,10 +132,10 @@ class ConfidenceAttribution:
     factor: str  # consensus_strength, evidence_quality, agent_agreement, etc.
     contribution: float  # 0-1, contribution to final confidence
     explanation: str
-    raw_value: Optional[float] = None  # Underlying metric value
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    raw_value: float | None = None  # Underlying metric value
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "factor": self.factor,
             "contribution": self.contribution,
@@ -148,7 +143,6 @@ class ConfidenceAttribution:
             "raw_value": self.raw_value,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class Counterfactual:
@@ -158,10 +152,10 @@ class Counterfactual:
     outcome_change: str  # What the new outcome would be
     likelihood: float  # How likely is this counterfactual (0-1)
     sensitivity: float  # How sensitive is outcome to this factor (0-1)
-    affected_agents: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    affected_agents: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "condition": self.condition,
             "outcome_change": self.outcome_change,
@@ -170,7 +164,6 @@ class Counterfactual:
             "affected_agents": self.affected_agents,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class Decision:
@@ -196,14 +189,14 @@ class Decision:
     task: str = ""
     domain: str = "general"
     rounds_used: int = 0
-    agents_participated: List[str] = field(default_factory=list)
+    agents_participated: list[str] = field(default_factory=list)
 
     # Explainability components
-    evidence_chain: List[EvidenceLink] = field(default_factory=list)
-    vote_pivots: List[VotePivot] = field(default_factory=list)
-    belief_changes: List[BeliefChange] = field(default_factory=list)
-    confidence_attribution: List[ConfidenceAttribution] = field(default_factory=list)
-    counterfactuals: List[Counterfactual] = field(default_factory=list)
+    evidence_chain: list[EvidenceLink] = field(default_factory=list)
+    vote_pivots: list[VotePivot] = field(default_factory=list)
+    belief_changes: list[BeliefChange] = field(default_factory=list)
+    confidence_attribution: list[ConfidenceAttribution] = field(default_factory=list)
+    counterfactuals: list[Counterfactual] = field(default_factory=list)
 
     # Summary metrics
     evidence_quality_score: float = 0.0
@@ -211,7 +204,7 @@ class Decision:
     belief_stability_score: float = 0.0  # How stable were beliefs (1 = no changes)
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.decision_id:
@@ -222,7 +215,7 @@ class Decision:
         content = f"{self.debate_id}:{self.timestamp}:{self.conclusion[:50]}"
         return f"dec-{hashlib.sha256(content.encode()).hexdigest()[:12]}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Export decision to dictionary."""
         return {
             "decision_id": self.decision_id,
@@ -252,7 +245,7 @@ class Decision:
         return json.dumps(self.to_dict(), indent=indent)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Decision":
+    def from_dict(cls, data: dict[str, Any]) -> "Decision":
         """Create decision from dictionary."""
         return cls(
             decision_id=data.get("decision_id", ""),
@@ -283,26 +276,25 @@ class Decision:
     # Query Methods
     # ==========================================================================
 
-    def get_top_evidence(self, n: int = 5) -> List[EvidenceLink]:
+    def get_top_evidence(self, n: int = 5) -> list[EvidenceLink]:
         """Get top N evidence items by relevance."""
         return sorted(self.evidence_chain, key=lambda e: e.relevance_score, reverse=True)[:n]
 
-    def get_pivotal_votes(self, threshold: float = 0.3) -> List[VotePivot]:
+    def get_pivotal_votes(self, threshold: float = 0.3) -> list[VotePivot]:
         """Get votes with influence above threshold."""
         return [v for v in self.vote_pivots if v.influence_score >= threshold]
 
-    def get_significant_belief_changes(self, min_delta: float = 0.2) -> List[BeliefChange]:
+    def get_significant_belief_changes(self, min_delta: float = 0.2) -> list[BeliefChange]:
         """Get belief changes with significant confidence delta."""
         return [b for b in self.belief_changes if abs(b.confidence_delta) >= min_delta]
 
-    def get_major_confidence_factors(self, threshold: float = 0.1) -> List[ConfidenceAttribution]:
+    def get_major_confidence_factors(self, threshold: float = 0.1) -> list[ConfidenceAttribution]:
         """Get confidence factors above contribution threshold."""
         return [c for c in self.confidence_attribution if c.contribution >= threshold]
 
-    def get_high_sensitivity_counterfactuals(self, threshold: float = 0.5) -> List[Counterfactual]:
+    def get_high_sensitivity_counterfactuals(self, threshold: float = 0.5) -> list[Counterfactual]:
         """Get counterfactuals with high sensitivity."""
         return [c for c in self.counterfactuals if c.sensitivity >= threshold]
-
 
 __all__ = [
     "Decision",

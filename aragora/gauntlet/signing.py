@@ -25,7 +25,7 @@ import secrets
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 # Try to import cryptography for RSA/Ed25519 support
 try:
@@ -36,7 +36,6 @@ try:
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
-
 
 @dataclass
 class SignatureMetadata:
@@ -63,7 +62,6 @@ class SignatureMetadata:
             key_id=data["key_id"],
             version=data.get("version", "1.0"),
         )
-
 
 @dataclass
 class SignedReceipt:
@@ -95,7 +93,6 @@ class SignedReceipt:
     def from_json(cls, json_str: str) -> "SignedReceipt":
         return cls.from_dict(json.loads(json_str))
 
-
 class SigningBackend(ABC):
     """Abstract base class for signing backends."""
 
@@ -121,11 +118,10 @@ class SigningBackend(ABC):
         """Verify a signature. Returns True if valid."""
         pass
 
-
 class HMACSigner(SigningBackend):
     """HMAC-SHA256 signing backend for symmetric key signing."""
 
-    def __init__(self, secret_key: Optional[bytes] = None, key_id: Optional[str] = None):
+    def __init__(self, secret_key: bytes | None = None, key_id: str | None = None):
         """
         Initialize HMAC signer.
 
@@ -159,15 +155,14 @@ class HMACSigner(SigningBackend):
             return cls(secret_key=bytes.fromhex(key_hex))
         return cls()
 
-
 class RSASigner(SigningBackend):
     """RSA-SHA256 signing backend for asymmetric key signing."""
 
     def __init__(
         self,
-        private_key: Optional[Any] = None,
-        public_key: Optional[Any] = None,
-        key_id: Optional[str] = None,
+        private_key: Any | None = None,
+        public_key: Any | None = None,
+        key_id: str | None = None,
     ):
         """
         Initialize RSA signer.
@@ -222,7 +217,7 @@ class RSASigner(SigningBackend):
             return False
 
     @classmethod
-    def generate_keypair(cls, key_id: Optional[str] = None) -> "RSASigner":
+    def generate_keypair(cls, key_id: str | None = None) -> "RSASigner":
         """Generate a new RSA key pair."""
         if not CRYPTO_AVAILABLE:
             raise ImportError("cryptography package required for RSA signing")
@@ -248,15 +243,14 @@ class RSASigner(SigningBackend):
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         ).decode()
 
-
 class Ed25519Signer(SigningBackend):
     """Ed25519 signing backend for modern, high-performance signing."""
 
     def __init__(
         self,
-        private_key: Optional[Any] = None,
-        public_key: Optional[Any] = None,
-        key_id: Optional[str] = None,
+        private_key: Any | None = None,
+        public_key: Any | None = None,
+        key_id: str | None = None,
     ):
         """
         Initialize Ed25519 signer.
@@ -296,7 +290,7 @@ class Ed25519Signer(SigningBackend):
             return False
 
     @classmethod
-    def generate_keypair(cls, key_id: Optional[str] = None) -> "Ed25519Signer":
+    def generate_keypair(cls, key_id: str | None = None) -> "Ed25519Signer":
         """Generate a new Ed25519 key pair."""
         if not CRYPTO_AVAILABLE:
             raise ImportError("cryptography package required for Ed25519 signing")
@@ -309,7 +303,6 @@ class Ed25519Signer(SigningBackend):
             public_key=public_key,
             key_id=key_id,
         )
-
 
 class ReceiptSigner:
     """
@@ -331,7 +324,7 @@ class ReceiptSigner:
         signed_json = signed.to_json()
     """
 
-    def __init__(self, backend: Optional[SigningBackend] = None):
+    def __init__(self, backend: SigningBackend | None = None):
         """
         Initialize receipt signer.
 
@@ -413,10 +406,8 @@ class ReceiptSigner:
         signed_receipt = SignedReceipt.from_dict(signed_receipt_dict)
         return self.verify(signed_receipt)
 
-
 # Default signer instance for convenience
-_default_signer: Optional[ReceiptSigner] = None
-
+_default_signer: ReceiptSigner | None = None
 
 def get_default_signer() -> ReceiptSigner:
     """Get or create the default receipt signer."""
@@ -424,7 +415,6 @@ def get_default_signer() -> ReceiptSigner:
     if _default_signer is None:
         _default_signer = ReceiptSigner()
     return _default_signer
-
 
 def sign_receipt(receipt_data: dict[str, Any]) -> SignedReceipt:
     """
@@ -437,7 +427,6 @@ def sign_receipt(receipt_data: dict[str, Any]) -> SignedReceipt:
         SignedReceipt with signature
     """
     return get_default_signer().sign(receipt_data)
-
 
 def verify_receipt(signed_receipt: SignedReceipt) -> bool:
     """

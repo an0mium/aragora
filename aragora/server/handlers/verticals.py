@@ -17,7 +17,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
@@ -35,7 +35,6 @@ from .utils.auth import ForbiddenError, UnauthorizedError
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
 
 class VerticalsHandler(SecureHandler):
     """Handler for vertical specialist endpoints with RBAC protection."""
@@ -67,7 +66,7 @@ class VerticalsHandler(SecureHandler):
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any = None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
         path = strip_version_prefix(path)
         # Get HTTP method from handler
@@ -148,7 +147,7 @@ class VerticalsHandler(SecureHandler):
 
         return None
 
-    def _get_registry(self) -> Optional[Any]:
+    def _get_registry(self) -> Any | None:
         """Get the VerticalRegistry, handling import errors."""
         try:
             from aragora.verticals import VerticalRegistry
@@ -158,7 +157,7 @@ class VerticalsHandler(SecureHandler):
             logger.warning("Verticals module not available")
             return None
 
-    def _list_verticals(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _list_verticals(self, query_params: dict[str, Any]) -> HandlerResult:
         """List all available verticals."""
         registry = self._get_registry()
         if registry is None:
@@ -274,7 +273,7 @@ class VerticalsHandler(SecureHandler):
             logger.exception(f"Unexpected error getting tools for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical tools"), 500)
 
-    def _get_compliance(self, vertical_id: str, query_params: Dict[str, Any]) -> HandlerResult:
+    def _get_compliance(self, vertical_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Get compliance frameworks for a vertical."""
         registry = self._get_registry()
         if registry is None:
@@ -319,7 +318,7 @@ class VerticalsHandler(SecureHandler):
             logger.exception(f"Unexpected error getting compliance for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical compliance"), 500)
 
-    def _suggest_vertical(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _suggest_vertical(self, query_params: dict[str, Any]) -> HandlerResult:
         """Suggest the best vertical for a task description."""
         registry = self._get_registry()
         if registry is None:

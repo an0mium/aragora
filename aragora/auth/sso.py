@@ -24,10 +24,9 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class SSOProviderType(str, Enum):
     """Supported SSO provider types."""
@@ -39,30 +38,26 @@ class SSOProviderType(str, Enum):
     GOOGLE = "google"
     GITHUB = "github"
 
-
 class SSOError(Exception):
     """Base exception for SSO errors."""
 
-    def __init__(self, message: str, code: str = "SSO_ERROR", details: Optional[Dict] = None):
+    def __init__(self, message: str, code: str = "SSO_ERROR", details: dict | None = None):
         super().__init__(message)
         self.message = message
         self.code = code
         self.details = details or {}
 
-
 class SSOAuthenticationError(SSOError):
     """Authentication failed."""
 
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    def __init__(self, message: str, details: dict | None = None):
         super().__init__(message, "SSO_AUTH_FAILED", details)
-
 
 class SSOConfigurationError(SSOError):
     """SSO is misconfigured."""
 
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    def __init__(self, message: str, details: dict | None = None):
         super().__init__(message, "SSO_CONFIG_ERROR", details)
-
 
 @dataclass
 class SSOUser:
@@ -84,30 +79,30 @@ class SSOUser:
     username: str = ""
 
     # Organization/tenant info
-    organization_id: Optional[str] = None
-    organization_name: Optional[str] = None
-    tenant_id: Optional[str] = None
+    organization_id: str | None = None
+    organization_name: str | None = None
+    tenant_id: str | None = None
 
     # Azure AD / Microsoft Entra ID specific
-    azure_object_id: Optional[str] = None  # AAD object ID (aadObjectId from Teams)
-    azure_tenant_id: Optional[str] = None  # AAD tenant ID
+    azure_object_id: str | None = None  # AAD object ID (aadObjectId from Teams)
+    azure_tenant_id: str | None = None  # AAD tenant ID
 
     # Roles and groups
-    roles: List[str] = field(default_factory=list)
-    groups: List[str] = field(default_factory=list)
+    roles: list[str] = field(default_factory=list)
+    groups: list[str] = field(default_factory=list)
 
     # Provider info
     provider_type: str = ""
     provider_id: str = ""
 
     # Tokens (for refresh/logout)
-    access_token: Optional[str] = None
-    refresh_token: Optional[str] = None
-    id_token: Optional[str] = None
-    token_expires_at: Optional[float] = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    id_token: str | None = None
+    token_expires_at: float | None = None
 
     # Raw claims from IdP
-    raw_claims: Dict[str, Any] = field(default_factory=dict)
+    raw_claims: dict[str, Any] = field(default_factory=dict)
 
     # Timestamps
     authenticated_at: float = field(default_factory=time.time)
@@ -125,7 +120,7 @@ class SSOUser:
             return f"{self.first_name} {self.last_name}"
         return self.name or self.display_name or self.email.split("@")[0]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         result = {
             "id": self.id,
@@ -146,7 +141,6 @@ class SSOUser:
         if self.azure_tenant_id:
             result["azure_tenant_id"] = self.azure_tenant_id
         return result
-
 
 @dataclass
 class SSOConfig:
@@ -177,13 +171,13 @@ class SSOConfig:
     session_duration_seconds: int = 3600 * 8  # 8 hours
 
     # Domain restrictions (optional)
-    allowed_domains: List[str] = field(default_factory=list)
+    allowed_domains: list[str] = field(default_factory=list)
 
     # Role mapping (IdP role -> Aragora role)
-    role_mapping: Dict[str, str] = field(default_factory=dict)
+    role_mapping: dict[str, str] = field(default_factory=dict)
 
     # Group mapping (IdP group -> Aragora group)
-    group_mapping: Dict[str, str] = field(default_factory=dict)
+    group_mapping: dict[str, str] = field(default_factory=dict)
 
     # Auto-provision users on first login
     auto_provision: bool = True
@@ -191,7 +185,7 @@ class SSOConfig:
     # Default role for new users
     default_role: str = "user"
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """
         Validate configuration.
 
@@ -208,7 +202,6 @@ class SSOConfig:
 
         return errors
 
-
 class SSOProvider(ABC):
     """
     Abstract base class for SSO providers.
@@ -221,7 +214,7 @@ class SSOProvider(ABC):
 
     def __init__(self, config: SSOConfig):
         self.config = config
-        self._state_store: Dict[str, float] = {}  # state -> timestamp
+        self._state_store: dict[str, float] = {}  # state -> timestamp
 
     @property
     @abstractmethod
@@ -232,8 +225,8 @@ class SSOProvider(ABC):
     @abstractmethod
     async def get_authorization_url(
         self,
-        state: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
+        state: str | None = None,
+        redirect_uri: str | None = None,
         **kwargs,
     ) -> str:
         """
@@ -252,8 +245,8 @@ class SSOProvider(ABC):
     @abstractmethod
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        saml_response: Optional[str] = None,
+        code: str | None = None,
+        saml_response: str | None = None,
         **kwargs,
     ) -> SSOUser:
         """
@@ -272,7 +265,7 @@ class SSOProvider(ABC):
         """
         pass
 
-    async def logout(self, user: SSOUser) -> Optional[str]:
+    async def logout(self, user: SSOUser) -> str | None:
         """
         Handle user logout.
 
@@ -285,7 +278,7 @@ class SSOProvider(ABC):
         # Default: just return logout URL if configured
         return self.config.logout_url or None
 
-    async def refresh_token(self, user: SSOUser) -> Optional[SSOUser]:
+    async def refresh_token(self, user: SSOUser) -> SSOUser | None:
         """
         Refresh user's access token.
 
@@ -320,7 +313,7 @@ class SSOProvider(ABC):
             del self._state_store[k]
         return len(expired)
 
-    def map_roles(self, idp_roles: List[str]) -> List[str]:
+    def map_roles(self, idp_roles: list[str]) -> list[str]:
         """Map IdP roles to Aragora roles."""
         mapped = []
         for role in idp_roles:
@@ -335,7 +328,7 @@ class SSOProvider(ABC):
 
         return list(set(mapped))  # Deduplicate
 
-    def map_groups(self, idp_groups: List[str]) -> List[str]:
+    def map_groups(self, idp_groups: list[str]) -> list[str]:
         """Map IdP groups to Aragora groups."""
         mapped = []
         for group in idp_groups:
@@ -353,16 +346,14 @@ class SSOProvider(ABC):
         domain = email.split("@")[-1].lower()
         return domain in [d.lower() for d in self.config.allowed_domains]
 
-
 # =============================================================================
 # Global Provider Instance
 # =============================================================================
 
-_sso_provider: Optional[SSOProvider] = None
+_sso_provider: SSOProvider | None = None
 _sso_initialized: bool = False
 
-
-def get_sso_provider() -> Optional[SSOProvider]:
+def get_sso_provider() -> SSOProvider | None:
     """
     Get the configured SSO provider.
 
@@ -438,18 +429,15 @@ def get_sso_provider() -> Optional[SSOProvider]:
 
     return _sso_provider
 
-
 def reset_sso_provider() -> None:
     """Reset SSO provider (for testing)."""
     global _sso_provider, _sso_initialized
     _sso_provider = None
     _sso_initialized = False
 
-
 # =============================================================================
 # SSO Utilities
 # =============================================================================
-
 
 class SSOGroupMapper:
     """Maps IdP groups to Aragora roles.
@@ -464,8 +452,8 @@ class SSOGroupMapper:
 
     def __init__(
         self,
-        mappings: Dict[str, str],
-        default_role: Optional[str] = None,
+        mappings: dict[str, str],
+        default_role: str | None = None,
     ):
         """Initialize the group mapper.
 
@@ -476,7 +464,7 @@ class SSOGroupMapper:
         self.mappings = mappings
         self.default_role = default_role
 
-    def map_groups(self, groups: List[str]) -> List[str]:
+    def map_groups(self, groups: list[str]) -> list[str]:
         """Map a list of IdP groups to Aragora roles.
 
         Args:
@@ -496,7 +484,6 @@ class SSOGroupMapper:
 
         return list(roles)
 
-
 @dataclass
 class SSOSession:
     """An active SSO session."""
@@ -504,11 +491,10 @@ class SSOSession:
     session_id: str
     user_id: str
     email: str
-    org_id: Optional[str] = None
+    org_id: str | None = None
     created_at: float = field(default_factory=time.time)
     expires_at: float = field(default_factory=lambda: time.time() + 3600 * 8)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 class SSOSessionManager:
     """Manages SSO sessions.
@@ -529,7 +515,7 @@ class SSOSessionManager:
             session_duration: Session duration in seconds (default: 8 hours)
         """
         self.session_duration = session_duration
-        self._sessions: Dict[str, SSOSession] = {}
+        self._sessions: dict[str, SSOSession] = {}
 
     async def create_session(self, user: SSOUser) -> SSOSession:
         """Create a new session for a user.
@@ -595,7 +581,6 @@ class SSOSessionManager:
             del self._sessions[session_id]
             logger.info(f"Logged out session: {session_id}")
 
-
 @dataclass
 class SSOAuditEntry:
     """An SSO audit log entry."""
@@ -603,15 +588,14 @@ class SSOAuditEntry:
     timestamp: float
     event_type: str
     user_id: str
-    email: Optional[str] = None
-    provider: Optional[str] = None
-    tenant_id: Optional[str] = None
-    session_id: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    reason: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    email: str | None = None
+    provider: str | None = None
+    tenant_id: str | None = None
+    session_id: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    reason: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 class SSOAuditLogger:
     """Logs SSO authentication events for compliance.
@@ -626,16 +610,16 @@ class SSOAuditLogger:
 
     def __init__(self):
         """Initialize the audit logger."""
-        self._logs: List[SSOAuditEntry] = []
+        self._logs: list[SSOAuditEntry] = []
 
     async def log_login(
         self,
         user_id: str,
         email: str,
         provider: str,
-        tenant_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        tenant_id: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
         **metadata: Any,
     ) -> None:
         """Log a successful SSO login.
@@ -666,7 +650,7 @@ class SSOAuditLogger:
     async def log_logout(
         self,
         user_id: str,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
         reason: str = "user_initiated",
         **metadata: Any,
     ) -> None:
@@ -691,10 +675,10 @@ class SSOAuditLogger:
 
     async def get_logs(
         self,
-        user_id: Optional[str] = None,
-        event_type: Optional[str] = None,
+        user_id: str | None = None,
+        event_type: str | None = None,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get audit log entries.
 
         Args:
@@ -731,7 +715,6 @@ class SSOAuditLogger:
             }
             for e in entries
         ]
-
 
 __all__ = [
     "SSOProviderType",

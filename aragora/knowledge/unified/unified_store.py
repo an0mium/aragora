@@ -20,7 +20,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
 from aragora.knowledge.unified.types import (
     ConfidenceLevel,
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from aragora.documents.indexing.weaviate_store import WeaviateStore
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class KnowledgeMoundConfig:
@@ -66,7 +65,6 @@ class KnowledgeMoundConfig:
 
     # Cross-reference settings
     auto_link_threshold: float = 0.85  # Similarity threshold for auto-linking
-
 
 class KnowledgeMound:
     """
@@ -100,7 +98,7 @@ class KnowledgeMound:
         )
     """
 
-    def __init__(self, config: Optional[KnowledgeMoundConfig] = None):
+    def __init__(self, config: KnowledgeMoundConfig | None = None):
         self.config = config or KnowledgeMoundConfig()
         self._initialized = False
 
@@ -111,9 +109,9 @@ class KnowledgeMound:
         self._vectors: Optional["WeaviateStore"] = config.vector_store if config else None
 
         # In-memory link storage (will be persisted in Phase 1.2)
-        self._links: Dict[str, KnowledgeLink] = {}
-        self._source_links: Dict[str, List[str]] = {}  # source_id -> [link_ids]
-        self._target_links: Dict[str, List[str]] = {}  # target_id -> [link_ids]
+        self._links: dict[str, KnowledgeLink] = {}
+        self._source_links: dict[str, list[str]] = {}  # source_id -> [link_ids]
+        self._target_links: dict[str, list[str]] = {}  # target_id -> [link_ids]
 
     async def initialize(self) -> None:
         """Initialize connections to all knowledge stores."""
@@ -163,7 +161,7 @@ class KnowledgeMound:
         self,
         query: str,
         sources: Sequence[SourceFilter] = ("all",),
-        filters: Optional[QueryFilters] = None,
+        filters: QueryFilters | None = None,
         limit: int = 20,
         include_links: bool = False,
     ) -> QueryResult:
@@ -205,7 +203,7 @@ class KnowledgeMound:
                     results.append(e)
 
         # Combine results
-        all_items: List[KnowledgeItem] = []
+        all_items: list[KnowledgeItem] = []
         for i, result in enumerate(results):  # type: ignore[assignment]
             if isinstance(result, Exception):
                 logger.warning(f"Query to {source_list[i]} failed: {result}")
@@ -240,8 +238,8 @@ class KnowledgeMound:
         self,
         content: str,
         source_type: KnowledgeSource,
-        metadata: Optional[Dict[str, Any]] = None,
-        cross_references: Optional[List[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        cross_references: Optional[list[str]] = None,
         importance: float = 0.5,
     ) -> StoreResult:
         """
@@ -319,8 +317,8 @@ class KnowledgeMound:
         target_id: str,
         relationship: RelationshipType,
         confidence: float = 1.0,
-        created_by: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        created_by: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> LinkResult:
         """
         Create a link between two knowledge items.
@@ -374,8 +372,8 @@ class KnowledgeMound:
         self,
         item_id: str,
         direction: str = "both",  # "outgoing", "incoming", "both"
-        relationship: Optional[RelationshipType] = None,
-    ) -> List[KnowledgeLink]:
+        relationship: RelationshipType | None = None,
+    ) -> list[KnowledgeLink]:
         """
         Get all links for a knowledge item.
 
@@ -387,7 +385,7 @@ class KnowledgeMound:
         Returns:
             List of matching links
         """
-        links: List[KnowledgeLink] = []
+        links: list[KnowledgeLink] = []
 
         if direction in ("outgoing", "both"):
             for link_id in self._source_links.get(item_id, []):
@@ -408,7 +406,7 @@ class KnowledgeMound:
         root_id: str,
         depth: int = 2,
         max_nodes: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get a knowledge subgraph starting from a root item.
 
@@ -420,10 +418,10 @@ class KnowledgeMound:
         Returns:
             Dictionary with nodes and edges for visualization
         """
-        nodes: Dict[str, KnowledgeItem] = {}
-        edges: List[Dict[str, Any]] = []
+        nodes: dict[str, KnowledgeItem] = {}
+        edges: list[dict[str, Any]] = []
         visited: set = set()
-        queue: List[tuple] = [(root_id, 0)]
+        queue: list[tuple] = [(root_id, 0)]
 
         while queue and len(nodes) < max_nodes:
             current_id, current_depth = queue.pop(0)
@@ -461,7 +459,7 @@ class KnowledgeMound:
 
     # Private helper methods
 
-    def _resolve_sources(self, sources: Sequence[SourceFilter]) -> List[KnowledgeSource]:
+    def _resolve_sources(self, sources: Sequence[SourceFilter]) -> list[KnowledgeSource]:
         """Resolve source filter to list of KnowledgeSource."""
         if "all" in sources:
             return [
@@ -481,9 +479,9 @@ class KnowledgeMound:
         self,
         source: KnowledgeSource,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query a specific knowledge source."""
         if source == KnowledgeSource.CONTINUUM:
             return await self._query_continuum(query, filters, limit)
@@ -498,9 +496,9 @@ class KnowledgeMound:
     async def _query_continuum(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query ContinuumMemory."""
         if not self._continuum:
             return []
@@ -531,9 +529,9 @@ class KnowledgeMound:
     async def _query_consensus(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query ConsensusMemory."""
         if not self._consensus:
             return []
@@ -581,9 +579,9 @@ class KnowledgeMound:
     async def _query_facts(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query FactStore."""
         if not self._facts:
             return []
@@ -621,9 +619,9 @@ class KnowledgeMound:
     async def _query_vectors(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query VectorStore for semantic similarity."""
         if not self._vectors:
             return []
@@ -664,7 +662,7 @@ class KnowledgeMound:
         self,
         item_id: str,
         content: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         importance: float,
     ) -> None:
         """Store to ContinuumMemory."""
@@ -682,7 +680,7 @@ class KnowledgeMound:
         self,
         item_id: str,
         content: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> None:
         """Store to FactStore."""
         if not self._facts:
@@ -698,7 +696,7 @@ class KnowledgeMound:
             topics=metadata.get("topics", []),
         )
 
-    async def _get_item_by_id(self, item_id: str) -> Optional[KnowledgeItem]:
+    async def _get_item_by_id(self, item_id: str) -> KnowledgeItem | None:
         """Get a knowledge item by its Knowledge Mound ID."""
         # Parse the ID prefix to determine source
         if item_id.startswith("cm_"):
@@ -711,7 +709,7 @@ class KnowledgeMound:
             return await self._get_vector_item(item_id[3:])
         return None
 
-    async def _get_continuum_item(self, source_id: str) -> Optional[KnowledgeItem]:
+    async def _get_continuum_item(self, source_id: str) -> KnowledgeItem | None:
         """Get a ContinuumMemory item by source ID."""
         if not self._continuum:
             return None
@@ -730,12 +728,12 @@ class KnowledgeMound:
             )
         return None
 
-    async def _get_consensus_item(self, source_id: str) -> Optional[KnowledgeItem]:
+    async def _get_consensus_item(self, source_id: str) -> KnowledgeItem | None:
         """Get a ConsensusMemory item by source ID."""
         # Implementation depends on ConsensusMemory.get() method
         return None
 
-    async def _get_fact_item(self, source_id: str) -> Optional[KnowledgeItem]:
+    async def _get_fact_item(self, source_id: str) -> KnowledgeItem | None:
         """Get a FactStore item by source ID."""
         if not self._facts:
             return None
@@ -757,12 +755,12 @@ class KnowledgeMound:
             )
         return None
 
-    async def _get_vector_item(self, source_id: str) -> Optional[KnowledgeItem]:
+    async def _get_vector_item(self, source_id: str) -> KnowledgeItem | None:
         """Get a VectorStore item by source ID."""
         # Implementation depends on WeaviateStore.get() method
         return None
 
-    async def _get_linked_items(self, item_ids: List[str]) -> List[KnowledgeItem]:
+    async def _get_linked_items(self, item_ids: list[str]) -> list[KnowledgeItem]:
         """Get all items linked to the given item IDs."""
         linked_items = []
         seen_ids = set(item_ids)

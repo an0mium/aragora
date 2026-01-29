@@ -10,7 +10,7 @@ import asyncio
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.observability import get_logger
 
@@ -19,7 +19,6 @@ from .conflicts import PolicyConflict, PolicyConflictDetector
 from .manager import ControlPlanePolicyManager
 
 logger = get_logger(__name__)
-
 
 class PolicySyncScheduler:
     """
@@ -54,11 +53,11 @@ class PolicySyncScheduler:
         self,
         policy_manager: ControlPlanePolicyManager,
         sync_interval_seconds: float = 60.0,
-        policy_cache: Optional[RedisPolicyCache] = None,
-        conflict_callback: Optional[Callable[[List[PolicyConflict]], None]] = None,
+        policy_cache: RedisPolicyCache | None = None,
+        conflict_callback: Optional[Callable[[list[PolicyConflict]], None]] = None,
         sync_from_compliance_store: bool = True,
         sync_from_control_plane_store: bool = True,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ):
         """
         Initialize the sync scheduler.
@@ -82,12 +81,12 @@ class PolicySyncScheduler:
 
         self._conflict_detector = PolicyConflictDetector()
         self._running = False
-        self._task: Optional[asyncio.Task] = None
-        self._last_sync: Optional[datetime] = None
-        self._last_policy_hash: Optional[str] = None
+        self._task: asyncio.Task | None = None
+        self._last_sync: datetime | None = None
+        self._last_policy_hash: str | None = None
         self._sync_count = 0
         self._error_count = 0
-        self._detected_conflicts: List[PolicyConflict] = []
+        self._detected_conflicts: list[PolicyConflict] = []
 
     async def start(self) -> None:
         """Start the background sync task."""
@@ -115,7 +114,7 @@ class PolicySyncScheduler:
             self._task = None
         logger.info("policy_sync_scheduler_stopped")
 
-    async def sync_now(self) -> Dict[str, Any]:
+    async def sync_now(self) -> dict[str, Any]:
         """
         Trigger an immediate sync.
 
@@ -138,7 +137,7 @@ class PolicySyncScheduler:
 
             await asyncio.sleep(self._sync_interval)
 
-    async def _do_sync(self) -> Dict[str, Any]:
+    async def _do_sync(self) -> dict[str, Any]:
         """Perform a single sync operation."""
         self._sync_count += 1
         synced_compliance = 0
@@ -222,7 +221,7 @@ class PolicySyncScheduler:
         data_str = json.dumps(policy_data, sort_keys=True)
         return hashlib.sha256(data_str.encode()).hexdigest()[:16]
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get scheduler status and statistics."""
         return {
             "running": self._running,
@@ -235,11 +234,11 @@ class PolicySyncScheduler:
             "workspace_id": self._workspace_id,
         }
 
-    def get_conflicts(self) -> List[PolicyConflict]:
+    def get_conflicts(self) -> list[PolicyConflict]:
         """Get currently detected conflicts."""
         return self._detected_conflicts.copy()
 
     @property
-    def policy_version(self) -> Optional[str]:
+    def policy_version(self) -> str | None:
         """Get the current policy version hash (for cache keys)."""
         return self._last_policy_hash

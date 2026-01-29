@@ -34,7 +34,7 @@ import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.control_plane.leader import (
     is_distributed_state_required,
@@ -57,7 +57,6 @@ _SESSION_RATE_LIMITER_TTL = int(os.getenv("ARAGORA_SESSION_RATE_LIMIT_TTL", "300
 _SESSION_MAX_DEBATE_STATES = int(os.getenv("ARAGORA_SESSION_MAX_DEBATES", "500"))
 _SESSION_MAX_ACTIVE_LOOPS = int(os.getenv("ARAGORA_SESSION_MAX_LOOPS", "1000"))
 _SESSION_MAX_AUTH_STATES = int(os.getenv("ARAGORA_SESSION_MAX_AUTH", "10000"))
-
 
 @dataclass
 class SessionStoreConfig:
@@ -93,7 +92,6 @@ class SessionStoreConfig:
     # Redis key prefix
     key_prefix: str = "aragora:session:"
 
-
 @dataclass
 class DebateSession:
     """Session tracking for debates across channels.
@@ -114,8 +112,8 @@ class DebateSession:
     session_id: str
     channel: str
     user_id: str
-    debate_id: Optional[str] = None
-    context: Dict[str, Any] = field(default_factory=dict)
+    debate_id: str | None = None
+    context: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     last_active: float = field(default_factory=time.time)
 
@@ -133,7 +131,7 @@ class DebateSession:
         """Update last activity timestamp."""
         self.last_active = time.time()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize session to dictionary."""
         return {
             "session_id": self.session_id,
@@ -146,7 +144,7 @@ class DebateSession:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DebateSession":
+    def from_dict(cls, data: dict[str, Any]) -> "DebateSession":
         """Deserialize session from dictionary."""
         return cls(
             session_id=data["session_id"],
@@ -157,7 +155,6 @@ class DebateSession:
             created_at=data.get("created_at", time.time()),
             last_active=data.get("last_active", time.time()),
         )
-
 
 @dataclass
 class VoiceSession:
@@ -181,14 +178,14 @@ class VoiceSession:
 
     session_id: str
     user_id: str
-    debate_id: Optional[str] = None
-    reconnect_token: Optional[str] = None
-    reconnect_expires_at: Optional[float] = None
+    debate_id: str | None = None
+    reconnect_token: str | None = None
+    reconnect_expires_at: float | None = None
     is_persistent: bool = False
     audio_format: str = "pcm_16khz"
     last_heartbeat: float = field(default_factory=time.time)
     created_at: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_reconnectable(self) -> bool:
@@ -216,7 +213,7 @@ class VoiceSession:
         self.reconnect_token = None
         self.reconnect_expires_at = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize session to dictionary."""
         return {
             "session_id": self.session_id,
@@ -232,7 +229,7 @@ class VoiceSession:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VoiceSession":
+    def from_dict(cls, data: dict[str, Any]) -> "VoiceSession":
         """Deserialize session from dictionary."""
         return cls(
             session_id=data["session_id"],
@@ -246,7 +243,6 @@ class VoiceSession:
             created_at=data.get("created_at", time.time()),
             metadata=data.get("metadata", {}),
         )
-
 
 @dataclass
 class DeviceSession:
@@ -275,13 +271,13 @@ class DeviceSession:
     user_id: str
     device_type: str  # "ios", "android", "web"
     push_token: str
-    device_name: Optional[str] = None
-    app_version: Optional[str] = None
-    last_notified: Optional[float] = None
+    device_name: str | None = None
+    app_version: str | None = None
+    last_notified: float | None = None
     notification_count: int = 0
     created_at: float = field(default_factory=time.time)
     last_active: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def touch(self) -> None:
         """Update last activity timestamp."""
@@ -292,7 +288,7 @@ class DeviceSession:
         self.last_notified = time.time()
         self.notification_count += 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize session to dictionary."""
         return {
             "device_id": self.device_id,
@@ -309,7 +305,7 @@ class DeviceSession:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DeviceSession":
+    def from_dict(cls, data: dict[str, Any]) -> "DeviceSession":
         """Deserialize session from dictionary."""
         return cls(
             device_id=data["device_id"],
@@ -325,7 +321,6 @@ class DeviceSession:
             metadata=data.get("metadata", {}),
         )
 
-
 class SessionStore(ABC):
     """Abstract base class for session stores."""
 
@@ -337,12 +332,12 @@ class SessionStore(ABC):
 
     # Debate state methods
     @abstractmethod
-    def get_debate_state(self, loop_id: str) -> Optional[Dict[str, Any]]:
+    def get_debate_state(self, loop_id: str) -> Optional[dict[str, Any]]:
         """Get cached debate state."""
         pass
 
     @abstractmethod
-    def set_debate_state(self, loop_id: str, state: Dict[str, Any]) -> None:
+    def set_debate_state(self, loop_id: str, state: dict[str, Any]) -> None:
         """Set debate state."""
         pass
 
@@ -353,12 +348,12 @@ class SessionStore(ABC):
 
     # Active loop methods
     @abstractmethod
-    def get_active_loop(self, loop_id: str) -> Optional[Dict[str, Any]]:
+    def get_active_loop(self, loop_id: str) -> Optional[dict[str, Any]]:
         """Get active loop data."""
         pass
 
     @abstractmethod
-    def set_active_loop(self, loop_id: str, data: Dict[str, Any]) -> None:
+    def set_active_loop(self, loop_id: str, data: dict[str, Any]) -> None:
         """Set active loop data."""
         pass
 
@@ -374,12 +369,12 @@ class SessionStore(ABC):
 
     # Auth state methods
     @abstractmethod
-    def get_auth_state(self, connection_id: str) -> Optional[Dict[str, Any]]:
+    def get_auth_state(self, connection_id: str) -> Optional[dict[str, Any]]:
         """Get WebSocket auth state."""
         pass
 
     @abstractmethod
-    def set_auth_state(self, connection_id: str, state: Dict[str, Any]) -> None:
+    def set_auth_state(self, connection_id: str, state: dict[str, Any]) -> None:
         """Set WebSocket auth state."""
         pass
 
@@ -390,7 +385,7 @@ class SessionStore(ABC):
 
     # Pub/Sub for cross-server messaging
     @abstractmethod
-    def publish_event(self, channel: str, event: Dict[str, Any]) -> None:
+    def publish_event(self, channel: str, event: dict[str, Any]) -> None:
         """Publish event to channel for cross-server messaging."""
         pass
 
@@ -401,7 +396,7 @@ class SessionStore(ABC):
 
     # Cleanup
     @abstractmethod
-    def cleanup_expired(self) -> Dict[str, int]:
+    def cleanup_expired(self) -> dict[str, int]:
         """Clean up expired entries. Returns counts by type."""
         pass
 
@@ -423,7 +418,7 @@ class SessionStore(ABC):
 
     @abstractmethod
     def find_sessions_by_user(
-        self, user_id: str, channel: Optional[str] = None
+        self, user_id: str, channel: str | None = None
     ) -> list["DebateSession"]:
         """Find sessions by user ID, optionally filtered by channel."""
         pass
@@ -485,41 +480,40 @@ class SessionStore(ABC):
         """Find all devices for a user."""
         pass
 
-
 class InMemorySessionStore(SessionStore):
     """In-memory session store for single-server deployment."""
 
-    def __init__(self, config: Optional[SessionStoreConfig] = None):
+    def __init__(self, config: SessionStoreConfig | None = None):
         self._config = config or SessionStoreConfig()
 
         # State storage with last-access tracking
-        self._debate_states: OrderedDict[str, Dict[str, Any]] = OrderedDict()
-        self._debate_states_access: Dict[str, float] = {}
+        self._debate_states: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._debate_states_access: dict[str, float] = {}
         self._debate_lock = threading.Lock()
 
-        self._active_loops: OrderedDict[str, Dict[str, Any]] = OrderedDict()
-        self._active_loops_access: Dict[str, float] = {}
+        self._active_loops: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._active_loops_access: dict[str, float] = {}
         self._loops_lock = threading.Lock()
 
-        self._auth_states: OrderedDict[str, Dict[str, Any]] = OrderedDict()
-        self._auth_states_access: Dict[str, float] = {}
+        self._auth_states: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._auth_states_access: dict[str, float] = {}
         self._auth_lock = threading.Lock()
 
         # Event subscribers (for local pub/sub)
-        self._subscribers: Dict[str, list] = {}
+        self._subscribers: dict[str, list] = {}
         self._sub_lock = threading.Lock()
 
         # Debate sessions (for multi-channel session tracking)
-        self._debate_sessions: Dict[str, DebateSession] = {}
+        self._debate_sessions: dict[str, DebateSession] = {}
         self._debate_sessions_lock = threading.Lock()
 
         # Voice sessions (for always-on voice)
-        self._voice_sessions: Dict[str, VoiceSession] = {}
+        self._voice_sessions: dict[str, VoiceSession] = {}
         self._voice_sessions_lock = threading.Lock()
 
         # Device sessions (for push notifications)
-        self._device_sessions: Dict[str, DeviceSession] = {}
-        self._device_token_index: Dict[str, str] = {}  # push_token -> device_id
+        self._device_sessions: dict[str, DeviceSession] = {}
+        self._device_token_index: dict[str, str] = {}  # push_token -> device_id
         self._device_sessions_lock = threading.Lock()
 
     @property
@@ -527,7 +521,7 @@ class InMemorySessionStore(SessionStore):
         return False
 
     # Debate state methods
-    def get_debate_state(self, loop_id: str) -> Optional[Dict[str, Any]]:
+    def get_debate_state(self, loop_id: str) -> Optional[dict[str, Any]]:
         with self._debate_lock:
             if loop_id in self._debate_states:
                 self._debate_states_access[loop_id] = time.time()
@@ -535,7 +529,7 @@ class InMemorySessionStore(SessionStore):
                 return self._debate_states[loop_id].copy()
             return None
 
-    def set_debate_state(self, loop_id: str, state: Dict[str, Any]) -> None:
+    def set_debate_state(self, loop_id: str, state: dict[str, Any]) -> None:
         with self._debate_lock:
             # Enforce max limit with LRU eviction
             while len(self._debate_states) >= self._config.max_debate_states:
@@ -556,7 +550,7 @@ class InMemorySessionStore(SessionStore):
             return False
 
     # Active loop methods
-    def get_active_loop(self, loop_id: str) -> Optional[Dict[str, Any]]:
+    def get_active_loop(self, loop_id: str) -> Optional[dict[str, Any]]:
         with self._loops_lock:
             if loop_id in self._active_loops:
                 self._active_loops_access[loop_id] = time.time()
@@ -564,7 +558,7 @@ class InMemorySessionStore(SessionStore):
                 return self._active_loops[loop_id].copy()
             return None
 
-    def set_active_loop(self, loop_id: str, data: Dict[str, Any]) -> None:
+    def set_active_loop(self, loop_id: str, data: dict[str, Any]) -> None:
         with self._loops_lock:
             while len(self._active_loops) >= self._config.max_active_loops:
                 oldest = next(iter(self._active_loops))
@@ -588,14 +582,14 @@ class InMemorySessionStore(SessionStore):
             return list(self._active_loops.keys())
 
     # Auth state methods
-    def get_auth_state(self, connection_id: str) -> Optional[Dict[str, Any]]:
+    def get_auth_state(self, connection_id: str) -> Optional[dict[str, Any]]:
         with self._auth_lock:
             if connection_id in self._auth_states:
                 self._auth_states_access[connection_id] = time.time()
                 return self._auth_states[connection_id].copy()
             return None
 
-    def set_auth_state(self, connection_id: str, state: Dict[str, Any]) -> None:
+    def set_auth_state(self, connection_id: str, state: dict[str, Any]) -> None:
         with self._auth_lock:
             while len(self._auth_states) >= self._config.max_auth_states:
                 oldest = next(iter(self._auth_states))
@@ -614,7 +608,7 @@ class InMemorySessionStore(SessionStore):
             return False
 
     # Pub/Sub (local only for in-memory store)
-    def publish_event(self, channel: str, event: Dict[str, Any]) -> None:
+    def publish_event(self, channel: str, event: dict[str, Any]) -> None:
         with self._sub_lock:
             callbacks = self._subscribers.get(channel, [])
         for cb in callbacks:
@@ -630,7 +624,7 @@ class InMemorySessionStore(SessionStore):
             self._subscribers[channel].append(callback)
 
     # Debate session methods
-    def get_debate_session(self, session_id: str) -> Optional[DebateSession]:
+    def get_debate_session(self, session_id: str) -> DebateSession | None:
         with self._debate_sessions_lock:
             session = self._debate_sessions.get(session_id)
             if session:
@@ -650,7 +644,7 @@ class InMemorySessionStore(SessionStore):
             return False
 
     def find_sessions_by_user(
-        self, user_id: str, channel: Optional[str] = None
+        self, user_id: str, channel: str | None = None
     ) -> list[DebateSession]:
         with self._debate_sessions_lock:
             results = []
@@ -665,7 +659,7 @@ class InMemorySessionStore(SessionStore):
             return [s for s in self._debate_sessions.values() if s.debate_id == debate_id]
 
     # Voice session methods
-    def get_voice_session(self, session_id: str) -> Optional[VoiceSession]:
+    def get_voice_session(self, session_id: str) -> VoiceSession | None:
         with self._voice_sessions_lock:
             session = self._voice_sessions.get(session_id)
             if session:
@@ -692,7 +686,7 @@ class InMemorySessionStore(SessionStore):
                 return True
             return False
 
-    def find_voice_session_by_token(self, reconnect_token: str) -> Optional[VoiceSession]:
+    def find_voice_session_by_token(self, reconnect_token: str) -> VoiceSession | None:
         with self._voice_sessions_lock:
             for session in self._voice_sessions.values():
                 if session.reconnect_token == reconnect_token and session.is_reconnectable:
@@ -704,7 +698,7 @@ class InMemorySessionStore(SessionStore):
             return [s for s in self._voice_sessions.values() if s.user_id == user_id]
 
     # Device session methods
-    def get_device_session(self, device_id: str) -> Optional[DeviceSession]:
+    def get_device_session(self, device_id: str) -> DeviceSession | None:
         with self._device_sessions_lock:
             session = self._device_sessions.get(device_id)
             if session:
@@ -741,7 +735,7 @@ class InMemorySessionStore(SessionStore):
                 return True
             return False
 
-    def find_device_by_token(self, push_token: str) -> Optional[DeviceSession]:
+    def find_device_by_token(self, push_token: str) -> DeviceSession | None:
         with self._device_sessions_lock:
             device_id = self._device_token_index.get(push_token)
             if device_id:
@@ -753,7 +747,7 @@ class InMemorySessionStore(SessionStore):
             return [s for s in self._device_sessions.values() if s.user_id == user_id]
 
     # Cleanup
-    def cleanup_expired(self) -> Dict[str, int]:
+    def cleanup_expired(self) -> dict[str, int]:
         now = time.time()
         counts = {"debate_states": 0, "active_loops": 0, "auth_states": 0}
 
@@ -804,11 +798,10 @@ class InMemorySessionStore(SessionStore):
 
         return counts
 
-
 class RedisSessionStore(SessionStore):
     """Redis-backed session store for horizontal scaling."""
 
-    def __init__(self, config: Optional[SessionStoreConfig] = None):
+    def __init__(self, config: SessionStoreConfig | None = None):
         self._config = config or SessionStoreConfig()
         self._prefix = self._config.key_prefix
 
@@ -823,7 +816,7 @@ class RedisSessionStore(SessionStore):
         # Pub/Sub subscriber thread
         self._pubsub = None
         self._pubsub_thread = None
-        self._callbacks: Dict[str, list] = {}
+        self._callbacks: dict[str, list] = {}
         self._callbacks_lock = threading.Lock()
 
     @property
@@ -835,7 +828,7 @@ class RedisSessionStore(SessionStore):
         return self._prefix + ":".join(parts)
 
     # Debate state methods
-    def get_debate_state(self, loop_id: str) -> Optional[Dict[str, Any]]:
+    def get_debate_state(self, loop_id: str) -> Optional[dict[str, Any]]:
         try:
             data = self._redis.get(self._key("debate", loop_id))
             if data:
@@ -854,7 +847,7 @@ class RedisSessionStore(SessionStore):
             logger.warning(f"Redis get_debate_state error: {e}")
             return None
 
-    def set_debate_state(self, loop_id: str, state: Dict[str, Any]) -> None:
+    def set_debate_state(self, loop_id: str, state: dict[str, Any]) -> None:
         try:
             self._redis.setex(
                 self._key("debate", loop_id),
@@ -873,7 +866,7 @@ class RedisSessionStore(SessionStore):
 
     # Active loop methods
     # NOTE: Using individual keys with TTL instead of hash to support per-entry expiration
-    def get_active_loop(self, loop_id: str) -> Optional[Dict[str, Any]]:
+    def get_active_loop(self, loop_id: str) -> Optional[dict[str, Any]]:
         try:
             data = self._redis.get(self._key("loop", loop_id))
             if data:
@@ -892,7 +885,7 @@ class RedisSessionStore(SessionStore):
             logger.warning(f"Redis get_active_loop error: {e}")
             return None
 
-    def set_active_loop(self, loop_id: str, data: Dict[str, Any]) -> None:
+    def set_active_loop(self, loop_id: str, data: dict[str, Any]) -> None:
         try:
             # Use setex with TTL for automatic expiration
             self._redis.setex(
@@ -952,7 +945,7 @@ class RedisSessionStore(SessionStore):
             return []
 
     # Auth state methods
-    def get_auth_state(self, connection_id: str) -> Optional[Dict[str, Any]]:
+    def get_auth_state(self, connection_id: str) -> Optional[dict[str, Any]]:
         try:
             data = self._redis.get(self._key("auth", connection_id))
             if data:
@@ -970,7 +963,7 @@ class RedisSessionStore(SessionStore):
             logger.warning(f"Redis get_auth_state error: {e}")
             return None
 
-    def set_auth_state(self, connection_id: str, state: Dict[str, Any]) -> None:
+    def set_auth_state(self, connection_id: str, state: dict[str, Any]) -> None:
         try:
             self._redis.setex(
                 self._key("auth", connection_id),
@@ -988,7 +981,7 @@ class RedisSessionStore(SessionStore):
             return False
 
     # Pub/Sub for cross-server messaging
-    def publish_event(self, channel: str, event: Dict[str, Any]) -> None:
+    def publish_event(self, channel: str, event: dict[str, Any]) -> None:
         try:
             self._redis.publish(self._key("events", channel), json.dumps(event, default=str))
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
@@ -1020,7 +1013,7 @@ class RedisSessionStore(SessionStore):
         except Exception as e:
             logger.warning(f"Failed to start Redis pub/sub: {e}")
 
-    def _handle_message(self, message: Dict[str, Any]) -> None:
+    def _handle_message(self, message: dict[str, Any]) -> None:
         """Handle incoming pub/sub message."""
         if message["type"] != "pmessage":
             return
@@ -1056,7 +1049,7 @@ class RedisSessionStore(SessionStore):
             logger.warning(f"Failed to handle pub/sub message: {e}")
 
     # Debate session methods
-    def get_debate_session(self, session_id: str) -> Optional[DebateSession]:
+    def get_debate_session(self, session_id: str) -> DebateSession | None:
         try:
             data = self._redis.get(self._key("dsession", session_id))
             if data:
@@ -1113,7 +1106,7 @@ class RedisSessionStore(SessionStore):
             return False
 
     def find_sessions_by_user(
-        self, user_id: str, channel: Optional[str] = None
+        self, user_id: str, channel: str | None = None
     ) -> list[DebateSession]:
         try:
             session_ids = self._redis.smembers(self._key("dsession_user", user_id))
@@ -1162,7 +1155,7 @@ class RedisSessionStore(SessionStore):
             return []
 
     # Voice session methods
-    def get_voice_session(self, session_id: str) -> Optional[VoiceSession]:
+    def get_voice_session(self, session_id: str) -> VoiceSession | None:
         try:
             data = self._redis.get(self._key("vsession", session_id))
             if data:
@@ -1224,7 +1217,7 @@ class RedisSessionStore(SessionStore):
             logger.warning(f"Redis delete_voice_session error: {e}")
             return False
 
-    def find_voice_session_by_token(self, reconnect_token: str) -> Optional[VoiceSession]:
+    def find_voice_session_by_token(self, reconnect_token: str) -> VoiceSession | None:
         try:
             session_id = self._redis.get(self._key("vsession_token", reconnect_token))
             if session_id:
@@ -1270,7 +1263,7 @@ class RedisSessionStore(SessionStore):
             return []
 
     # Device session methods
-    def get_device_session(self, device_id: str) -> Optional[DeviceSession]:
+    def get_device_session(self, device_id: str) -> DeviceSession | None:
         try:
             data = self._redis.get(self._key("device", device_id))
             if data:
@@ -1335,7 +1328,7 @@ class RedisSessionStore(SessionStore):
             logger.warning(f"Redis delete_device_session error: {e}")
             return False
 
-    def find_device_by_token(self, push_token: str) -> Optional[DeviceSession]:
+    def find_device_by_token(self, push_token: str) -> DeviceSession | None:
         try:
             device_id = self._redis.get(self._key("device_token", push_token))
             if device_id:
@@ -1378,7 +1371,7 @@ class RedisSessionStore(SessionStore):
             logger.warning(f"Redis find_devices_by_user error: {e}")
             return []
 
-    def cleanup_expired(self) -> Dict[str, int]:
+    def cleanup_expired(self) -> dict[str, int]:
         """Redis handles expiry automatically via TTL."""
         return {"debate_states": 0, "active_loops": 0, "auth_states": 0}
 
@@ -1389,11 +1382,9 @@ class RedisSessionStore(SessionStore):
         if self._pubsub:
             self._pubsub.close()
 
-
 # Global session store instance
-_session_store: Optional[SessionStore] = None
+_session_store: SessionStore | None = None
 _store_lock = threading.Lock()
-
 
 def get_session_store(force_memory: bool = False) -> SessionStore:
     """Get the session store instance.
@@ -1447,7 +1438,6 @@ def get_session_store(force_memory: bool = False) -> SessionStore:
         _session_store = InMemorySessionStore()
         return _session_store
 
-
 def reset_session_store() -> None:
     """Reset session store (for testing)."""
     global _session_store
@@ -1455,7 +1445,6 @@ def reset_session_store() -> None:
         if _session_store is not None and hasattr(_session_store, "close"):
             _session_store.close()
         _session_store = None
-
 
 __all__ = [
     "SessionStore",

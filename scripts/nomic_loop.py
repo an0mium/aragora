@@ -3580,6 +3580,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             from aragora.nomic.rlm_codebase import summarize_codebase_with_rlm
             from aragora.rlm import RLMConfig
 
+            start = time.perf_counter()
             require_true = os.environ.get("NOMIC_RLM_REQUIRE_TRUE", "1") == "1"
             max_bytes = int(
                 os.environ.get(
@@ -3593,6 +3594,10 @@ The most valuable proposals combine deep analysis with actionable implementation
             max_files = int(os.environ.get("NOMIC_RLM_MAX_FILES", "25000"))
             max_file_bytes = int(os.environ.get("NOMIC_RLM_MAX_FILE_BYTES", "2000000"))
 
+            self._log(
+                f"  [rlm] Building codebase summary (require_true={require_true}, "
+                f"max_bytes={max_bytes}, max_files={max_files})"
+            )
             output_dir = self.nomic_dir / "rlm"
             result = await summarize_codebase_with_rlm(
                 repo_path=self.aragora_path,
@@ -3601,6 +3606,11 @@ The most valuable proposals combine deep analysis with actionable implementation
                 max_content_bytes=max_bytes,
                 max_files=max_files,
                 max_file_bytes=max_file_bytes,
+            )
+            elapsed = time.perf_counter() - start
+            self._log(
+                f"  [rlm] Codebase summary complete in {elapsed:.1f}s "
+                f"(true_rlm={result.used_true_rlm}, fallback={result.used_fallback})"
             )
 
             return {

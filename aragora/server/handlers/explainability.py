@@ -23,7 +23,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -42,12 +42,11 @@ from aragora.server.handlers.explainability_store import (
 logger = logging.getLogger(__name__)
 
 # Cache for built Decision objects (simple TTL cache)
-_decision_cache: Dict[str, Any] = {}
-_cache_timestamps: Dict[str, float] = {}
+_decision_cache: dict[str, Any] = {}
+_cache_timestamps: dict[str, float] = {}
 CACHE_TTL_SECONDS = 300  # 5 minutes
 
-
-def _get_cached_decision(debate_id: str) -> Optional[Any]:
+def _get_cached_decision(debate_id: str) -> Any | None:
     """Get cached decision if not expired."""
     import time
 
@@ -62,7 +61,6 @@ def _get_cached_decision(debate_id: str) -> Optional[Any]:
 
     return _decision_cache[debate_id]
 
-
 def _cache_decision(debate_id: str, decision: Any) -> None:
     """Cache a decision."""
     _decision_cache[debate_id] = decision
@@ -74,11 +72,9 @@ def _cache_decision(debate_id: str, decision: Any) -> None:
         del _decision_cache[oldest]
         del _cache_timestamps[oldest]
 
-
 # ============================================================================
 # Batch Processing Types
 # ============================================================================
-
 
 class BatchStatus(Enum):
     """Status of a batch explainability job."""
@@ -89,18 +85,17 @@ class BatchStatus(Enum):
     PARTIAL = "partial"  # Some debates failed
     FAILED = "failed"
 
-
 @dataclass
 class BatchDebateResult:
     """Result for a single debate in a batch."""
 
     debate_id: str
     status: str  # success, error, not_found
-    explanation: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    explanation: Optional[dict[str, Any]] = None
+    error: str | None = None
     processing_time_ms: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         result = {
             "debate_id": self.debate_id,
             "status": self.status,
@@ -112,22 +107,21 @@ class BatchDebateResult:
             result["error"] = self.error
         return result
 
-
 @dataclass
 class BatchJob:
     """A batch explainability job."""
 
     batch_id: str
-    debate_ids: List[str]
+    debate_ids: list[str]
     status: BatchStatus = BatchStatus.PENDING
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
-    results: List[BatchDebateResult] = field(default_factory=list)
+    started_at: float | None = None
+    completed_at: float | None = None
+    results: list[BatchDebateResult] = field(default_factory=list)
     processed_count: int = 0
-    options: Dict[str, Any] = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "batch_id": self.batch_id,
             "status": self.status.value,
@@ -145,11 +139,9 @@ class BatchJob:
             ),
         }
 
-
 # Batch job storage - uses backend-abstracted store
 BATCH_JOB_TTL = 3600  # 1 hour retention
 MAX_BATCH_SIZE = 100
-
 
 def _convert_to_store_job(job: BatchJob) -> StoreBatchJob:
     """Convert local BatchJob to store BatchJob."""
@@ -166,13 +158,11 @@ def _convert_to_store_job(job: BatchJob) -> StoreBatchJob:
         error=None,
     )
 
-
 async def _save_batch_job_async(job: BatchJob) -> None:
     """Save batch job to storage (async version for use in async contexts)."""
     store = get_batch_job_store()
     store_job = _convert_to_store_job(job)
     await store.save_job(store_job)
-
 
 def _save_batch_job(job: BatchJob) -> None:
     """Save batch job to storage (sync wrapper for async store)."""
@@ -190,8 +180,7 @@ def _save_batch_job(job: BatchJob) -> None:
         asyncio.set_event_loop(loop)
     loop.run_until_complete(store.save_job(store_job))
 
-
-def _get_batch_job(batch_id: str) -> Optional[BatchJob]:
+def _get_batch_job(batch_id: str) -> BatchJob | None:
     """Get batch job from storage (sync wrapper for async store)."""
     store = get_batch_job_store()
     try:
@@ -226,7 +215,6 @@ def _get_batch_job(batch_id: str) -> Optional[BatchJob]:
         )
     return job
 
-
 class ExplainabilityHandler(BaseHandler):
     """Handler for debate explainability endpoints."""
 
@@ -249,7 +237,7 @@ class ExplainabilityHandler(BaseHandler):
         "/api/v1/explain/*",
     ]
 
-    def __init__(self, server_context: Optional[Dict] = None):
+    def __init__(self, server_context: dict | None = None):
         """Initialize with server context for richer explanations."""
         super().__init__(server_context)  # type: ignore[arg-type]
         self.elo_system = (server_context or {}).get("elo_system")
@@ -312,8 +300,8 @@ class ExplainabilityHandler(BaseHandler):
     @rate_limit(rpm=60)
     @require_permission("explainability:read")
     async def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route explainability requests."""
         # Handle batch endpoints first
         if path == "/api/v1/explainability/batch":
@@ -377,7 +365,7 @@ class ExplainabilityHandler(BaseHandler):
 
         return result
 
-    async def _get_or_build_decision(self, debate_id: str) -> Optional[Any]:
+    async def _get_or_build_decision(self, debate_id: str) -> Any | None:
         """Get decision from cache or build it."""
         # Check cache
         decision = _get_cached_decision(debate_id)
@@ -406,7 +394,7 @@ class ExplainabilityHandler(BaseHandler):
 
             # Convert dict to simple object for builder
             class ResultProxy:
-                def __init__(self, data: Dict[str, Any]):
+                def __init__(self, data: dict[str, Any]):
                     for k, v in data.items():
                         setattr(self, k, v)
 
@@ -423,7 +411,7 @@ class ExplainabilityHandler(BaseHandler):
             return None
 
     async def _handle_full_explanation(
-        self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
+        self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle full explanation request."""
         try:
@@ -456,7 +444,7 @@ class ExplainabilityHandler(BaseHandler):
             return error_response(f"Failed to generate explanation: {str(e)[:100]}", 500)
 
     async def _handle_evidence(
-        self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
+        self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle evidence chain request."""
         try:
@@ -491,7 +479,7 @@ class ExplainabilityHandler(BaseHandler):
             return error_response(f"Failed to get evidence: {str(e)[:100]}", 500)
 
     async def _handle_vote_pivots(
-        self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
+        self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle vote pivot analysis request."""
         try:
@@ -524,7 +512,7 @@ class ExplainabilityHandler(BaseHandler):
             return error_response(f"Failed to get vote pivots: {str(e)[:100]}", 500)
 
     async def _handle_counterfactuals(
-        self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
+        self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle counterfactual analysis request."""
         try:
@@ -555,7 +543,7 @@ class ExplainabilityHandler(BaseHandler):
             return error_response(f"Failed to get counterfactuals: {str(e)[:100]}", 500)
 
     async def _handle_summary(
-        self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
+        self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle human-readable summary request."""
         try:
@@ -819,7 +807,7 @@ h3 {{ color: #666; }}
         include_counterfactuals: bool = False,
         include_vote_pivots: bool = False,
         format_type: str = "full",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build explanation dictionary based on options."""
         if format_type == "minimal":
             return {
@@ -868,7 +856,7 @@ h3 {{ color: #666; }}
 
         return json_response(job.to_dict())
 
-    def _handle_batch_results(self, batch_id: str, query_params: Dict[str, Any]) -> HandlerResult:
+    def _handle_batch_results(self, batch_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Get results of a completed batch job."""
         job = _get_batch_job(batch_id)
         if not job:
@@ -958,8 +946,8 @@ h3 {{ color: #666; }}
             if len(debates) < 2:
                 return error_response("Need at least 2 valid debates to compare", 404)
 
-            # Build comparison - use Dict[str, Any] to allow dynamic keys
-            comparison_data: Dict[str, Any] = {}
+            # Build comparison - use dict[str, Any] to allow dynamic keys
+            comparison_data: dict[str, Any] = {}
 
             if "confidence" in compare_fields:
                 comparison_data["confidence"] = {
@@ -1001,7 +989,7 @@ h3 {{ color: #666; }}
                     for debate_id, decision in debates.items()
                 }
 
-            comparison: Dict[str, Any] = {
+            comparison: dict[str, Any] = {
                 "debates_compared": list(debates.keys()),
                 "comparison": comparison_data,
             }
@@ -1012,12 +1000,10 @@ h3 {{ color: #666; }}
             logger.error(f"Compare error: {e}")
             return error_response(f"Failed to compare debates: {str(e)[:100]}", 500)
 
-
 # Handler factory
 _explainability_handler: Optional["ExplainabilityHandler"] = None
 
-
-def get_explainability_handler(server_context: Optional[Dict] = None) -> "ExplainabilityHandler":
+def get_explainability_handler(server_context: dict | None = None) -> "ExplainabilityHandler":
     """Get or create the explainability handler instance."""
     global _explainability_handler
     if _explainability_handler is None:
@@ -1025,7 +1011,6 @@ def get_explainability_handler(server_context: Optional[Dict] = None) -> "Explai
             server_context = {}
         _explainability_handler = ExplainabilityHandler(server_context)
     return _explainability_handler
-
 
 __all__ = [
     "ExplainabilityHandler",

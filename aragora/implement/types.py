@@ -7,11 +7,11 @@ These dataclasses represent the core data structures for:
 - Execution results
 - Checkpoint/progress state
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal, Optional
-
+from typing import Literal
 
 @dataclass
 class ImplementTask:
@@ -42,7 +42,6 @@ class ImplementTask:
             dependencies=data.get("dependencies", []),
         )
 
-
 @dataclass
 class ImplementPlan:
     """A complete implementation plan with multiple tasks."""
@@ -66,7 +65,6 @@ class ImplementPlan:
             created_at=datetime.fromisoformat(data["created_at"]),
         )
 
-
 @dataclass
 class TaskResult:
     """Result of executing a single task."""
@@ -74,8 +72,8 @@ class TaskResult:
     task_id: str
     success: bool
     diff: str = ""
-    error: Optional[str] = None
-    model_used: Optional[str] = None
+    error: str | None = None
+    model_used: str | None = None
     duration_seconds: float = 0.0
 
     def to_dict(self) -> dict:
@@ -88,15 +86,14 @@ class TaskResult:
             "duration_seconds": self.duration_seconds,
         }
 
-
 @dataclass
 class ImplementProgress:
     """Checkpoint state for crash recovery."""
 
     plan: ImplementPlan
     completed_tasks: list[str] = field(default_factory=list)
-    current_task: Optional[str] = None
-    git_stash_ref: Optional[str] = None
+    current_task: str | None = None
+    git_stash_ref: str | None = None
     results: list[TaskResult] = field(default_factory=list)
 
     def to_dict(self) -> dict:

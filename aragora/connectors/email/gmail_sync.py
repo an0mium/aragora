@@ -77,7 +77,7 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import httpx
 
@@ -97,7 +97,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class SyncStatus(Enum):
     """Status of the sync service."""
 
@@ -106,7 +105,6 @@ class SyncStatus(Enum):
     WATCHING = "watching"
     ERROR = "error"
     STOPPED = "stopped"
-
 
 @dataclass
 class GmailSyncConfig:
@@ -120,8 +118,8 @@ class GmailSyncConfig:
     # Sync settings
     initial_sync_days: int = 7  # Days of history on initial sync
     max_messages_per_sync: int = 100
-    sync_labels: List[str] = field(default_factory=lambda: ["INBOX"])
-    exclude_labels: List[str] = field(default_factory=lambda: ["SPAM", "TRASH"])
+    sync_labels: list[str] = field(default_factory=lambda: ["INBOX"])
+    exclude_labels: list[str] = field(default_factory=lambda: ["SPAM", "TRASH"])
 
     # Watch renewal (Gmail watch expires after ~7 days)
     watch_renewal_hours: int = 24 * 6  # Renew every 6 days
@@ -137,9 +135,8 @@ class GmailSyncConfig:
 
     # State persistence
     state_backend: str = "memory"  # "memory", "redis", "postgres"
-    redis_url: Optional[str] = None
-    postgres_dsn: Optional[str] = None
-
+    redis_url: str | None = None
+    postgres_dsn: str | None = None
 
 @dataclass
 class GmailSyncState:
@@ -151,23 +148,23 @@ class GmailSyncState:
 
     # Sync state
     history_id: str = ""
-    last_sync: Optional[datetime] = None
+    last_sync: datetime | None = None
     initial_sync_complete: bool = False
 
     # Watch state
-    watch_expiration: Optional[datetime] = None
-    watch_resource_id: Optional[str] = None
+    watch_expiration: datetime | None = None
+    watch_resource_id: str | None = None
 
     # Statistics
     total_messages_synced: int = 0
     total_messages_prioritized: int = 0
     sync_errors: int = 0
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
     # Labels synced
-    synced_labels: List[str] = field(default_factory=list)
+    synced_labels: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for persistence."""
         return {
             "tenant_id": self.tenant_id,
@@ -188,7 +185,7 @@ class GmailSyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "GmailSyncState":
+    def from_dict(cls, data: dict[str, Any]) -> "GmailSyncState":
         """Create from dictionary."""
         state = cls(
             tenant_id=data.get("tenant_id", ""),
@@ -211,7 +208,6 @@ class GmailSyncState:
 
         return state
 
-
 @dataclass
 class GmailWebhookPayload:
     """Parsed webhook payload from Gmail Pub/Sub."""
@@ -220,10 +216,10 @@ class GmailWebhookPayload:
     subscription: str
     email_address: str
     history_id: str
-    raw_data: Dict[str, Any] = field(default_factory=dict)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_pubsub(cls, payload: Dict[str, Any]) -> "GmailWebhookPayload":
+    def from_pubsub(cls, payload: dict[str, Any]) -> "GmailWebhookPayload":
         """
         Parse Pub/Sub webhook payload.
 
@@ -264,7 +260,6 @@ class GmailWebhookPayload:
             raw_data=payload,
         )
 
-
 @dataclass
 class SyncedMessage:
     """A message that was synced and prioritized."""
@@ -274,7 +269,6 @@ class SyncedMessage:
     sync_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     account_id: str = ""
     is_new: bool = True
-
 
 class GmailSyncService:
     """
@@ -292,11 +286,11 @@ class GmailSyncService:
         self,
         tenant_id: str,
         user_id: str,
-        config: Optional[GmailSyncConfig] = None,
+        config: GmailSyncConfig | None = None,
         gmail_connector: Optional["GmailConnector"] = None,
         prioritizer: Optional["EmailPrioritizer"] = None,
         on_message_synced: Optional[Callable[[SyncedMessage], None]] = None,
-        on_batch_complete: Optional[Callable[[List[SyncedMessage]], None]] = None,
+        on_batch_complete: Optional[Callable[[list[SyncedMessage]], None]] = None,
     ):
         """
         Initialize Gmail sync service.
@@ -321,10 +315,10 @@ class GmailSyncService:
         self._on_batch_complete = on_batch_complete
 
         # State
-        self._state: Optional[GmailSyncState] = None
+        self._state: GmailSyncState | None = None
         self._status = SyncStatus.IDLE
         self._sync_lock = asyncio.Lock()
-        self._watch_task: Optional[asyncio.Task] = None
+        self._watch_task: asyncio.Task | None = None
         self._running = False
 
     @property
@@ -333,13 +327,13 @@ class GmailSyncService:
         return self._status
 
     @property
-    def state(self) -> Optional[GmailSyncState]:
+    def state(self) -> GmailSyncState | None:
         """Get current sync state."""
         return self._state
 
     async def start(
         self,
-        refresh_token: Optional[str] = None,
+        refresh_token: str | None = None,
         do_initial_sync: bool = True,
     ) -> bool:
         """
@@ -435,8 +429,8 @@ class GmailSyncService:
 
     async def handle_webhook(
         self,
-        payload: Dict[str, Any],
-    ) -> List[SyncedMessage]:
+        payload: dict[str, Any],
+    ) -> list[SyncedMessage]:
         """
         Handle incoming Pub/Sub webhook notification.
 
@@ -468,7 +462,7 @@ class GmailSyncService:
         # Perform incremental sync
         return await self._incremental_sync(webhook.history_id)
 
-    async def force_sync(self) -> List[SyncedMessage]:
+    async def force_sync(self) -> list[SyncedMessage]:
         """
         Force an immediate sync.
 
@@ -480,11 +474,11 @@ class GmailSyncService:
 
         return await self._incremental_sync()
 
-    async def _initial_sync(self) -> List[SyncedMessage]:
+    async def _initial_sync(self) -> list[SyncedMessage]:
         """Perform initial full sync."""
         async with self._sync_lock:
             self._status = SyncStatus.SYNCING
-            synced_messages: List[SyncedMessage] = []
+            synced_messages: list[SyncedMessage] = []
 
             try:
                 if not self._connector or not self._state:
@@ -551,8 +545,8 @@ class GmailSyncService:
 
     async def _incremental_sync(
         self,
-        new_history_id: Optional[str] = None,
-    ) -> List[SyncedMessage]:
+        new_history_id: str | None = None,
+    ) -> list[SyncedMessage]:
         """
         Perform incremental sync using History API.
 
@@ -564,7 +558,7 @@ class GmailSyncService:
         """
         async with self._sync_lock:
             self._status = SyncStatus.SYNCING
-            synced_messages: List[SyncedMessage] = []
+            synced_messages: list[SyncedMessage] = []
 
             try:
                 if not self._connector or not self._state:
@@ -660,7 +654,7 @@ class GmailSyncService:
         self,
         message: "EmailMessage",
         is_new: bool = True,
-    ) -> Optional[SyncedMessage]:
+    ) -> SyncedMessage | None:
         """
         Process a synced message: prioritize and notify.
 
@@ -792,7 +786,7 @@ class GmailSyncService:
                 logger.error(f"[GmailSync] Watch renewal failed: {e}")
                 await asyncio.sleep(60)  # Retry in 1 minute
 
-    async def _load_state(self) -> Optional[GmailSyncState]:
+    async def _load_state(self) -> GmailSyncState | None:
         """Load sync state from backend."""
         state_key = f"gmail_sync:{self.tenant_id}:{self.user_id}"
 
@@ -861,7 +855,7 @@ class GmailSyncService:
             except Exception as e:
                 logger.warning(f"[GmailSync] Failed to save state to Postgres: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get sync service statistics."""
         return {
             "tenant_id": self.tenant_id,
@@ -887,13 +881,12 @@ class GmailSyncService:
             "last_error": self._state.last_error if self._state else None,
         }
 
-
 # Factory function
 async def start_gmail_sync(
     tenant_id: str,
     user_id: str,
     refresh_token: str,
-    config: Optional[GmailSyncConfig] = None,
+    config: GmailSyncConfig | None = None,
     on_message: Optional[Callable[[SyncedMessage], None]] = None,
 ) -> GmailSyncService:
     """
@@ -918,7 +911,6 @@ async def start_gmail_sync(
 
     await service.start(refresh_token=refresh_token)
     return service
-
 
 __all__ = [
     "GmailSyncService",

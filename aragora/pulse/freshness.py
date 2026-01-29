@@ -10,18 +10,18 @@ Decay models:
 - Step: Binary fresh/stale threshold
 - Platform-aware: Different decay rates per source
 """
+from __future__ import annotations
 
 import logging
 import math
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
-
 
 class DecayModel(str, Enum):
     """Freshness decay model types."""
@@ -30,7 +30,6 @@ class DecayModel(str, Enum):
     LINEAR = "linear"  # f(t) = max(0, 1 - kt)
     STEP = "step"  # f(t) = 1 if t < threshold else 0
     LOGARITHMIC = "logarithmic"  # f(t) = 1 / (1 + ln(1 + kt))
-
 
 @dataclass
 class FreshnessConfig:
@@ -42,8 +41,7 @@ class FreshnessConfig:
     min_freshness: float = 0.05  # Minimum freshness floor
 
     # Platform-specific half-lives (override global)
-    platform_half_lives: Optional[Dict[str, float]] = None
-
+    platform_half_lives: Optional[dict[str, float]] = None
 
 # Default platform-specific half-lives (in hours)
 DEFAULT_PLATFORM_HALF_LIVES = {
@@ -52,7 +50,6 @@ DEFAULT_PLATFORM_HALF_LIVES = {
     "reddit": 12.0,  # Reddit threads have longer life
     "github": 24.0,  # Code repos stay fresh longest
 }
-
 
 @dataclass
 class FreshnessScore:
@@ -69,7 +66,6 @@ class FreshnessScore:
         """Check if topic is considered stale."""
         return self.freshness < 0.1
 
-
 class FreshnessCalculator:
     """
     Calculates time-based freshness scores for trending topics.
@@ -84,7 +80,7 @@ class FreshnessCalculator:
         fresh_only = [s for s in scored if not s.is_stale]
     """
 
-    def __init__(self, config: Optional[FreshnessConfig] = None):
+    def __init__(self, config: FreshnessConfig | None = None):
         """
         Initialize the freshness calculator.
 
@@ -99,8 +95,8 @@ class FreshnessCalculator:
     def calculate_freshness(
         self,
         topic: TrendingTopic,
-        created_at: Optional[float] = None,
-        reference_time: Optional[float] = None,
+        created_at: float | None = None,
+        reference_time: float | None = None,
     ) -> FreshnessScore:
         """
         Calculate freshness score for a topic.
@@ -151,10 +147,10 @@ class FreshnessCalculator:
 
     def score_topics(
         self,
-        topics: List[TrendingTopic],
-        timestamps: Optional[Dict[str, float]] = None,
-        reference_time: Optional[float] = None,
-    ) -> List[FreshnessScore]:
+        topics: list[TrendingTopic],
+        timestamps: Optional[dict[str, float]] = None,
+        reference_time: float | None = None,
+    ) -> list[FreshnessScore]:
         """
         Calculate freshness for multiple topics.
 
@@ -179,10 +175,10 @@ class FreshnessCalculator:
 
     def filter_stale(
         self,
-        topics: List[TrendingTopic],
-        timestamps: Optional[Dict[str, float]] = None,
+        topics: list[TrendingTopic],
+        timestamps: Optional[dict[str, float]] = None,
         min_freshness: float = 0.1,
-    ) -> List[FreshnessScore]:
+    ) -> list[FreshnessScore]:
         """
         Filter out stale topics.
 
@@ -238,7 +234,7 @@ class FreshnessCalculator:
             decay_constant = math.log(2) / half_life_hours
             return math.exp(-decay_constant * age_hours)
 
-    def _extract_timestamp(self, topic: TrendingTopic) -> Optional[float]:
+    def _extract_timestamp(self, topic: TrendingTopic) -> float | None:
         """Try to extract timestamp from topic raw_data."""
         raw = topic.raw_data
 
@@ -253,7 +249,7 @@ class FreshnessCalculator:
 
         return None
 
-    def _parse_timestamp(self, timestamp_str: str) -> Optional[float]:
+    def _parse_timestamp(self, timestamp_str: str) -> float | None:
         """Parse a timestamp string to Unix time."""
         from datetime import datetime
 
@@ -284,7 +280,7 @@ class FreshnessCalculator:
         platform: str = "default",
         max_hours: float = 48.0,
         points: int = 50,
-    ) -> List[Dict[str, float]]:
+    ) -> list[dict[str, float]]:
         """
         Get decay curve data points for visualization.
 
@@ -307,7 +303,7 @@ class FreshnessCalculator:
 
         return curve
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get calculator configuration and stats."""
         return {
             "decay_model": self.config.decay_model.value,
@@ -316,7 +312,6 @@ class FreshnessCalculator:
             "min_freshness": self.config.min_freshness,
             "platform_half_lives": self._platform_half_lives.copy(),
         }
-
 
 __all__ = [
     "DecayModel",

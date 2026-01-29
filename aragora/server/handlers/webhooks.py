@@ -15,12 +15,13 @@ All webhook payloads include HMAC-SHA256 signatures for verification.
 Webhook configurations are persisted to SQLite (default) or Redis+SQLite for
 multi-instance deployments. This ensures webhooks survive server restarts.
 """
+from __future__ import annotations
 
 import hashlib
 import hmac
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
@@ -65,11 +66,9 @@ WEBHOOK_REGISTER_RPM = 10  # Max 10 webhook registrations per minute
 WEBHOOK_TEST_RPM = 5  # Max 5 test deliveries per minute
 WEBHOOK_LIST_RPM = 60  # Max 60 list operations per minute
 
-
 # Backward compatibility alias - the old WebhookStore interface is now provided
 # by WebhookConfigStoreBackend from aragora.storage.webhook_config_store
 WebhookStore = WebhookConfigStoreBackend
-
 
 def get_webhook_store() -> WebhookConfigStoreBackend:
     """Get or create the webhook store.
@@ -84,11 +83,9 @@ def get_webhook_store() -> WebhookConfigStoreBackend:
     """
     return get_webhook_config_store()
 
-
 # =============================================================================
 # Webhook Signature Utilities
 # =============================================================================
-
 
 def generate_signature(payload: str, secret: str) -> str:
     """
@@ -106,7 +103,6 @@ def generate_signature(payload: str, secret: str) -> str:
     ).hexdigest()
     return f"sha256={signature}"
 
-
 def verify_signature(payload: str, signature: str, secret: str) -> bool:
     """
     Verify webhook signature.
@@ -122,11 +118,9 @@ def verify_signature(payload: str, signature: str, secret: str) -> bool:
     expected = generate_signature(payload, secret)
     return hmac.compare_digest(signature, expected)
 
-
 # =============================================================================
 # Webhook Handler
 # =============================================================================
-
 
 class WebhookHandler(SecureHandler):
     """Handler for webhook management API endpoints.
@@ -173,7 +167,7 @@ class WebhookHandler(SecureHandler):
     def __init__(self, server_context: dict):
         """Initialize with server context."""
         super().__init__(server_context)  # type: ignore[arg-type]
-        self._webhook_store: Optional[WebhookStore] = None
+        self._webhook_store: WebhookStore | None = None
 
     def _get_webhook_store(self) -> WebhookStore:
         """Get or create webhook store instance."""
@@ -185,7 +179,7 @@ class WebhookHandler(SecureHandler):
                 self.ctx["webhook_store"] = self._webhook_store
         return self._webhook_store
 
-    def _get_auth_context(self, handler) -> Optional[AuthorizationContext]:
+    def _get_auth_context(self, handler) -> AuthorizationContext | None:
         """Build RBAC authorization context from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
@@ -201,7 +195,7 @@ class WebhookHandler(SecureHandler):
             org_id=getattr(user, "org_id", None),
         )
 
-    def _check_rbac_permission(self, handler, permission_key: str) -> Optional[HandlerResult]:
+    def _check_rbac_permission(self, handler, permission_key: str) -> HandlerResult | None:
         """
         Check RBAC permission.
 
@@ -230,7 +224,7 @@ class WebhookHandler(SecureHandler):
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests for webhook endpoints."""
         # GET /api/webhooks/events - list available event types
         if path == "/api/v1/webhooks/events":
@@ -270,7 +264,7 @@ class WebhookHandler(SecureHandler):
 
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests for webhook endpoints."""
         # POST /api/webhooks/slo/test - send test SLO violation notification
         if path == "/api/v1/webhooks/slo/test":
@@ -301,7 +295,7 @@ class WebhookHandler(SecureHandler):
 
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests for webhook endpoints."""
         # DELETE /api/webhooks/dead-letter/:id - remove from dead-letter queue
         if "/dead-letter/" in path:
@@ -321,7 +315,7 @@ class WebhookHandler(SecureHandler):
 
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle PATCH requests for webhook endpoints."""
         # PATCH /api/webhooks/:id
         if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
@@ -904,7 +898,6 @@ class WebhookHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Error getting queue stats: {e}")
             return error_response(f"Failed to get queue stats: {e}", 500)
-
 
 # =============================================================================
 # Exports

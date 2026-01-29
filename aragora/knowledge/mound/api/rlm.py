@@ -17,7 +17,7 @@ Install TRUE RLM: pip install aragora[rlm]
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem, MoundConfig
@@ -44,7 +44,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
 class RLMProtocol(Protocol):
     """Protocol defining expected interface for RLM mixin."""
 
@@ -58,9 +57,8 @@ class RLMProtocol(Protocol):
         text: str,
         limit: int = 10,
         min_confidence: float = 0.0,
-        workspace_id: Optional[str] = None,
-    ) -> List["KnowledgeItem"]: ...
-
+        workspace_id: str | None = None,
+    ) -> list["KnowledgeItem"]: ...
 
 class RLMOperationsMixin:
     """Mixin providing RLM operations for KnowledgeMound."""
@@ -69,8 +67,8 @@ class RLMOperationsMixin:
         self: RLMProtocol,
         query: str,
         limit: int = 50,
-        workspace_id: Optional[str] = None,
-        agent_call: Optional[Any] = None,
+        workspace_id: str | None = None,
+        agent_call: Any | None = None,
     ) -> Optional["RLMContext"]:
         """
         Query knowledge and build hierarchical RLM context for navigation.
@@ -193,9 +191,9 @@ class RLMOperationsMixin:
         self: RLMProtocol,
         query: str,
         limit: int = 50,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         prefer_true_rlm: bool = True,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Query knowledge using TRUE RLM (REPL-based) when available.
 
@@ -338,9 +336,9 @@ class RLMOperationsMixin:
 
     async def create_knowledge_repl(
         self: RLMProtocol,
-        workspace_id: Optional[str] = None,
-        content_id: Optional[str] = None,
-    ) -> Optional[Any]:
+        workspace_id: str | None = None,
+        content_id: str | None = None,
+    ) -> Any | None:
         """
         Create a TRUE RLM REPL environment for interactive knowledge queries.
 

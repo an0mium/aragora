@@ -26,7 +26,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -69,7 +69,6 @@ except ImportError:
             return True
         return False
 
-
 # Sensitive keys that should be encrypted
 SENSITIVE_KEYS = frozenset(
     [
@@ -80,12 +79,11 @@ SENSITIVE_KEYS = frozenset(
     ]
 )
 
-
 def _encrypt_config(
-    config: Dict[str, Any],
+    config: dict[str, Any],
     org_id: str,
     config_type: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Encrypt sensitive keys in config dict before storage."""
     if not config:
         return config
@@ -113,12 +111,11 @@ def _encrypt_config(
         logger.warning(f"Encryption unavailable, storing unencrypted: {e}")
         return config
 
-
 def _decrypt_config(
-    config: Dict[str, Any],
+    config: dict[str, Any],
     org_id: str,
     config_type: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Decrypt sensitive keys in config dict."""
     if not CRYPTO_AVAILABLE or not config:
         return config
@@ -140,7 +137,6 @@ def _decrypt_config(
     except Exception as e:
         logger.warning(f"Decryption failed for {config_type}: {e}")
         return config
-
 
 @dataclass
 class StoredEmailConfig:
@@ -170,15 +166,14 @@ class StoredEmailConfig:
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StoredEmailConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "StoredEmailConfig":
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
-
 
 @dataclass
 class StoredTelegramConfig:
@@ -195,15 +190,14 @@ class StoredTelegramConfig:
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StoredTelegramConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "StoredTelegramConfig":
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
-
 
 @dataclass
 class StoredEmailRecipient:
@@ -211,19 +205,18 @@ class StoredEmailRecipient:
 
     org_id: str
     email: str
-    name: Optional[str] = None
-    preferences: Dict[str, Any] = field(default_factory=dict)
+    name: str | None = None
+    preferences: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StoredEmailRecipient":
+    def from_dict(cls, data: dict[str, Any]) -> "StoredEmailRecipient":
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
-
 
 class NotificationConfigStore:
     """
@@ -236,9 +229,9 @@ class NotificationConfigStore:
 
     def __init__(
         self,
-        db_path: Optional[str] = None,
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        db_path: str | None = None,
+        backend: str | None = None,
+        database_url: str | None = None,
     ):
         """Initialize the store with optional database path.
 
@@ -257,7 +250,7 @@ class NotificationConfigStore:
         # Backend selection is now handled by get_notification_config_store()
         # using resolve_database_config(). This __init__ just accepts explicit parameters.
         self.backend_type = backend or "sqlite"
-        self._backend: Optional[DatabaseBackend] = None
+        self._backend: DatabaseBackend | None = None
 
         # Initialize backend
         if self.backend_type == "postgresql":
@@ -427,7 +420,7 @@ class NotificationConfigStore:
         conn.commit()
         logger.debug(f"Saved email config for org {config.org_id}")
 
-    async def get_email_config(self, org_id: str) -> Optional[StoredEmailConfig]:
+    async def get_email_config(self, org_id: str) -> StoredEmailConfig | None:
         """Get email configuration for an organization."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -521,7 +514,7 @@ class NotificationConfigStore:
         conn.commit()
         logger.debug(f"Saved telegram config for org {config.org_id}")
 
-    async def get_telegram_config(self, org_id: str) -> Optional[StoredTelegramConfig]:
+    async def get_telegram_config(self, org_id: str) -> StoredTelegramConfig | None:
         """Get telegram configuration for an organization."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -615,7 +608,7 @@ class NotificationConfigStore:
         conn.commit()
         logger.debug(f"Added recipient {recipient.email} for org {recipient.org_id}")
 
-    async def get_recipients(self, org_id: str) -> List[StoredEmailRecipient]:
+    async def get_recipients(self, org_id: str) -> list[StoredEmailRecipient]:
         """Get all email recipients for an organization."""
         if self._backend is not None:
             rows = self._backend.fetch_all(
@@ -720,19 +713,17 @@ class NotificationConfigStore:
             self._local.conn.close()
             self._local.conn = None
 
-
 # =============================================================================
 # Singleton Instance
 # =============================================================================
 
-_notification_config_store: Optional[NotificationConfigStore] = None
+_notification_config_store: NotificationConfigStore | None = None
 _store_lock = threading.Lock()
 
-
 def get_notification_config_store(
-    db_path: Optional[str] = None,
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    db_path: str | None = None,
+    backend: str | None = None,
+    database_url: str | None = None,
 ) -> NotificationConfigStore:
     """Get the singleton notification config store instance.
 
@@ -797,7 +788,6 @@ def get_notification_config_store(
                     )
     return _notification_config_store
 
-
 def reset_notification_config_store() -> None:
     """Reset the singleton store (for testing)."""
     global _notification_config_store
@@ -805,7 +795,6 @@ def reset_notification_config_store() -> None:
         if _notification_config_store is not None:
             _notification_config_store.close()
             _notification_config_store = None
-
 
 __all__ = [
     "NotificationConfigStore",

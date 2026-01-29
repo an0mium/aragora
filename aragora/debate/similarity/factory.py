@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Type
+from typing import Any
 
 from aragora.debate.similarity.backends import (
     JaccardBackend,
@@ -36,20 +36,18 @@ from aragora.debate.similarity.backends import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class BackendInfo:
     """Information about a registered backend."""
 
     name: str
-    backend_class: Type[SimilarityBackend]
+    backend_class: type[SimilarityBackend]
     description: str
     requires: list[str]  # Required packages
     min_input_size: int = 0  # Minimum recommended input size
     max_input_size: int = 10000  # Maximum recommended input size
     accuracy: str = "medium"  # low, medium, high
     speed: str = "medium"  # slow, medium, fast
-
 
 class SimilarityFactory:
     """
@@ -61,7 +59,7 @@ class SimilarityFactory:
     - Unified configuration management
     """
 
-    _registry: Dict[str, BackendInfo] = {}
+    _registry: dict[str, BackendInfo] = {}
     _initialized: bool = False
 
     @classmethod
@@ -127,9 +125,9 @@ class SimilarityFactory:
     def register(
         cls,
         name: str,
-        backend_class: Type[SimilarityBackend],
+        backend_class: type[SimilarityBackend],
         description: str = "",
-        requires: Optional[list[str]] = None,
+        requires: list[str] | None = None,
         min_input_size: int = 0,
         max_input_size: int = 10000,
         accuracy: str = "medium",
@@ -175,7 +173,7 @@ class SimilarityFactory:
         return list(cls._registry.values())
 
     @classmethod
-    def get_backend_info(cls, name: str) -> Optional[BackendInfo]:
+    def get_backend_info(cls, name: str) -> BackendInfo | None:
         """Get information about a specific backend."""
         cls._ensure_initialized()
         return cls._registry.get(name)
@@ -202,7 +200,7 @@ class SimilarityFactory:
     def create(
         cls,
         name: str,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         **kwargs: Any,
     ) -> SimilarityBackend:
         """
@@ -238,7 +236,7 @@ class SimilarityFactory:
         cls,
         input_size: int = 10,
         prefer_accuracy: bool = True,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> SimilarityBackend:
         """
         Auto-select best backend based on input characteristics.
@@ -274,7 +272,6 @@ class SimilarityFactory:
         # Ultimate fallback
         return cls.create("jaccard")
 
-
 class _FAISSBackendWrapper(SimilarityBackend):
     """
     FAISS-backed similarity backend for large-scale comparisons.
@@ -294,7 +291,7 @@ class _FAISSBackendWrapper(SimilarityBackend):
         from aragora.debate.similarity.ann import FAISSIndex
 
         self._index = FAISSIndex(dimension=dimension, use_gpu=use_gpu)
-        self._embedder: Optional[Any] = None
+        self._embedder: Any | None = None
         self._dimension = dimension
 
     def _get_embedder(self) -> Any:
@@ -346,11 +343,10 @@ class _FAISSBackendWrapper(SimilarityBackend):
         # Use optimized batch computation
         return compute_batch_similarity_fast(embeddings)
 
-
 def get_backend(
     preferred: str = "auto",
     input_size: int = 10,
-    debate_id: Optional[str] = None,
+    debate_id: str | None = None,
     **kwargs: Any,
 ) -> SimilarityBackend:
     """
@@ -385,7 +381,6 @@ def get_backend(
         )
 
     return SimilarityFactory.create(preferred, debate_id=debate_id, **kwargs)
-
 
 __all__ = [
     "SimilarityFactory",

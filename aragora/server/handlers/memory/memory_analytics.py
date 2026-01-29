@@ -10,8 +10,6 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Optional
-
 
 from ..base import (
     HandlerResult,
@@ -30,7 +28,6 @@ MEMORY_ANALYTICS_PERMISSION = "memory:analytics"
 
 # Rate limiter for memory analytics endpoints (30 requests per minute - query-heavy)
 _memory_analytics_limiter = RateLimiter(requests_per_minute=30)
-
 
 class MemoryAnalyticsHandler(SecureHandler):
     """Handler for memory analytics endpoints.
@@ -72,7 +69,7 @@ class MemoryAnalyticsHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -103,7 +100,7 @@ class MemoryAnalyticsHandler(SecureHandler):
 
     async def handle_post(  # type: ignore[override]
         self, path: str, body: dict, handler=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests with RBAC."""
         # RBAC: Require authentication and memory:read permission for POST too
         try:

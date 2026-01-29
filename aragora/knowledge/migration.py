@@ -51,7 +51,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class MigrationResult:
     """Result of a migration operation."""
@@ -66,7 +65,7 @@ class MigrationResult:
     errors: list[dict[str, Any]] = field(default_factory=list)
     duration_seconds: float = 0.0
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     @property
     def success_rate(self) -> float:
@@ -92,7 +91,6 @@ class MigrationResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
-
 @dataclass
 class MigrationCheckpoint:
     """Checkpoint for resumable migrations."""
@@ -104,7 +102,6 @@ class MigrationCheckpoint:
     workspace_id: str
     created_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 class MigrationContext:
     """Context manager for migrations with rollback support."""
@@ -118,7 +115,7 @@ class MigrationContext:
         self._migration_id = migration_id
         self._created_node_ids: list[str] = []
         self._created_relationship_ids: list[str] = []
-        self._started_at: Optional[datetime] = None
+        self._started_at: datetime | None = None
         self._completed = False
 
     async def __aenter__(self) -> "MigrationContext":
@@ -151,7 +148,6 @@ class MigrationContext:
     def record_relationship(self, rel_id: str) -> None:
         """Record a created relationship for potential rollback."""
         self._created_relationship_ids.append(rel_id)
-
 
 class KnowledgeMoundMigrator:
     """
@@ -197,7 +193,7 @@ class KnowledgeMoundMigrator:
         self,
         source: "ContinuumMemory",
         workspace_id: str = "default",
-        tier_filter: Optional[list[MemoryTier]] = None,
+        tier_filter: list[MemoryTier] | None = None,
         min_importance: float = 0.0,
     ) -> MigrationResult:
         """
@@ -622,7 +618,6 @@ class KnowledgeMoundMigrator:
 
         return estimates
 
-
 async def run_migration_cli(
     workspace_id: str = "default",
     dry_run: bool = False,
@@ -666,7 +661,6 @@ async def run_migration_cli(
                 pass
 
     await mound.close()
-
 
 if __name__ == "__main__":
     import argparse

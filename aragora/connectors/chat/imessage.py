@@ -21,7 +21,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,6 @@ _bluebubbles_default = (
 BLUEBUBBLES_URL = os.environ.get("BLUEBUBBLES_URL", _bluebubbles_default)
 BLUEBUBBLES_PASSWORD = os.environ.get("BLUEBUBBLES_PASSWORD", "")
 
-
 class IMessageConnector(ChatPlatformConnector):
     """
     iMessage connector using BlueBubbles server.
@@ -82,8 +81,8 @@ class IMessageConnector(ChatPlatformConnector):
 
     def __init__(
         self,
-        server_url: Optional[str] = None,
-        password: Optional[str] = None,
+        server_url: str | None = None,
+        password: str | None = None,
         **config: Any,
     ):
         """
@@ -132,8 +131,8 @@ class IMessageConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
-        thread_id: Optional[str] = None,
+        blocks: list[dict[str, Any] | None] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a message to an iMessage chat.
@@ -216,7 +215,7 @@ class IMessageConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Update an existing message - NOT SUPPORTED by iMessage.
@@ -249,8 +248,8 @@ class IMessageConnector(ChatPlatformConnector):
         content: bytes,
         filename: str,
         content_type: str = "application/octet-stream",
-        title: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        title: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """Upload and send a file attachment."""
@@ -595,7 +594,7 @@ class IMessageConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         ephemeral: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -621,7 +620,7 @@ class IMessageConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -645,10 +644,10 @@ class IMessageConnector(ChatPlatformConnector):
 
     def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        actions: Optional[list[Any]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str] | None] = None,
+        actions: list[Any] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Format content as blocks - NOT SUPPORTED.
@@ -662,9 +661,9 @@ class IMessageConnector(ChatPlatformConnector):
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
+        value: str | None = None,
         style: str = "default",
-        url: Optional[str] = None,
+        url: str | None = None,
     ) -> dict[str, Any]:
         """Format a button - NOT SUPPORTED.
 
@@ -677,7 +676,7 @@ class IMessageConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         **kwargs: Any,
-    ) -> Optional[ChatChannel]:
+    ) -> ChatChannel | None:
         """Get information about a chat."""
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for iMessage connector")
@@ -720,7 +719,7 @@ class IMessageConnector(ChatPlatformConnector):
         self,
         user_id: str,
         **kwargs: Any,
-    ) -> Optional[ChatUser]:
+    ) -> ChatUser | None:
         """Get information about a user (contact)."""
         if not HTTPX_AVAILABLE:
             return ChatUser(
@@ -800,7 +799,7 @@ class IMessageConnector(ChatPlatformConnector):
         self,
         file_id: str,
         **kwargs: Any,
-    ) -> Optional[VoiceMessage]:
+    ) -> VoiceMessage | None:
         """Retrieve a voice message for transcription."""
         try:
             attachment = await self.download_file(file_id)
@@ -936,6 +935,5 @@ class IMessageConnector(ChatPlatformConnector):
         except Exception as e:
             self._record_failure(e)
             raise
-
 
 __all__ = ["IMessageConnector"]

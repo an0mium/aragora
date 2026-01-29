@@ -10,10 +10,9 @@ from __future__ import annotations
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from typing import Callable, ContextManager, Optional
+from typing import Callable, ContextManager
 
 logger = logging.getLogger(__name__)
-
 
 class OAuthRepository:
     """
@@ -44,7 +43,7 @@ class OAuthRepository:
         user_id: str,
         provider: str,
         provider_user_id: str,
-        email: Optional[str] = None,
+        email: str | None = None,
     ) -> bool:
         """
         Link an OAuth provider to a user account.
@@ -105,7 +104,7 @@ class OAuthRepository:
         self,
         provider: str,
         provider_user_id: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Get user ID by OAuth provider credentials.
 

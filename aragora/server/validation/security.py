@@ -30,7 +30,7 @@ import concurrent.futures
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Match, Optional, Pattern, Union
+from typing import Any, Match, Optional, Pattern
 
 logger = logging.getLogger(__name__)
 
@@ -55,16 +55,14 @@ MAX_BATCH_SIZE = 100
 REGEX_TIMEOUT_SECONDS = 1.0
 DEFAULT_OPERATION_TIMEOUT = 30.0
 
-
 # =============================================================================
 # Validation Error
 # =============================================================================
 
-
 class ValidationError(Exception):
     """Exception raised when validation fails."""
 
-    def __init__(self, message: str, field: Optional[str] = None):
+    def __init__(self, message: str, field: str | None = None):
         self.message = message
         self.field = field
         super().__init__(message)
@@ -74,11 +72,9 @@ class ValidationError(Exception):
             return f"ValidationError(field={self.field!r}, message={self.message!r})"
         return f"ValidationError({self.message!r})"
 
-
 # =============================================================================
 # Validation Result
 # =============================================================================
-
 
 @dataclass
 class SecurityValidationResult:
@@ -86,12 +82,12 @@ class SecurityValidationResult:
 
     is_valid: bool
     value: Any = None
-    error: Optional[str] = None
-    sanitized: Optional[str] = None
+    error: str | None = None
+    sanitized: str | None = None
 
     @classmethod
     def success(
-        cls, value: Any = None, sanitized: Optional[str] = None
+        cls, value: Any = None, sanitized: str | None = None
     ) -> "SecurityValidationResult":
         """Create a successful validation result."""
         return cls(is_valid=True, value=value, sanitized=sanitized)
@@ -100,7 +96,6 @@ class SecurityValidationResult:
     def failure(cls, error: str) -> "SecurityValidationResult":
         """Create a failed validation result."""
         return cls(is_valid=False, error=error)
-
 
 # =============================================================================
 # ReDoS Protection
@@ -138,8 +133,7 @@ _DANGEROUS_PATTERN_REGEX = re.compile(
     re.IGNORECASE,
 )
 
-
-def is_safe_regex_pattern(pattern: str) -> tuple[bool, Optional[str]]:
+def is_safe_regex_pattern(pattern: str) -> tuple[bool, str | None]:
     """
     Check if a regex pattern is safe from ReDoS attacks.
 
@@ -188,9 +182,8 @@ def is_safe_regex_pattern(pattern: str) -> tuple[bool, Optional[str]]:
 
     return True, None
 
-
 def execute_regex_with_timeout(
-    pattern: Union[str, Pattern[str]],
+    pattern: str | Pattern[str],
     text: str,
     timeout: float = REGEX_TIMEOUT_SECONDS,
     flags: int = 0,
@@ -239,9 +232,8 @@ def execute_regex_with_timeout(
             logger.warning(f"Regex execution failed: {e}")
             return None
 
-
 def execute_regex_finditer_with_timeout(
-    pattern: Union[str, Pattern[str]],
+    pattern: str | Pattern[str],
     text: str,
     timeout: float = REGEX_TIMEOUT_SECONDS,
     flags: int = 0,
@@ -295,7 +287,6 @@ def execute_regex_finditer_with_timeout(
         except Exception as e:
             logger.warning(f"Regex finditer failed: {e}")
             return []
-
 
 def validate_search_query_redos_safe(
     query: str,
@@ -376,11 +367,9 @@ def validate_search_query_redos_safe(
 
     return SecurityValidationResult.success(value=query, sanitized=escaped)
 
-
 # =============================================================================
 # Input Length Validation
 # =============================================================================
-
 
 def validate_debate_title(title: str) -> SecurityValidationResult:
     """
@@ -404,7 +393,6 @@ def validate_debate_title(title: str) -> SecurityValidationResult:
 
     return SecurityValidationResult.success(value=title, sanitized=title)
 
-
 def validate_task_content(task: str) -> SecurityValidationResult:
     """
     Validate debate task content.
@@ -427,8 +415,7 @@ def validate_task_content(task: str) -> SecurityValidationResult:
 
     return SecurityValidationResult.success(value=task, sanitized=task)
 
-
-def validate_context_size(context: Union[str, bytes, dict, list]) -> SecurityValidationResult:
+def validate_context_size(context: str | bytes | dict | list) -> SecurityValidationResult:
     """
     Validate context size is within limits.
 
@@ -463,7 +450,6 @@ def validate_context_size(context: Union[str, bytes, dict, list]) -> SecurityVal
 
     return SecurityValidationResult.success(value=context)
 
-
 def validate_agent_count(count: int) -> SecurityValidationResult:
     """
     Validate the number of agents for a debate.
@@ -484,15 +470,13 @@ def validate_agent_count(count: int) -> SecurityValidationResult:
 
     return SecurityValidationResult.success(value=count)
 
-
 # =============================================================================
 # User Input Sanitization
 # =============================================================================
 
-
 def sanitize_user_input(
     text: str,
-    max_length: Optional[int] = None,
+    max_length: int | None = None,
     strip_control_chars: bool = True,
     normalize_whitespace: bool = True,
 ) -> str:
@@ -537,7 +521,6 @@ def sanitize_user_input(
         result = result[:max_length]
 
     return result
-
 
 # =============================================================================
 # Exports

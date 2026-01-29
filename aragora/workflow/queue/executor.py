@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 from aragora.workflow.queue.task import (
     TaskResult,
@@ -21,7 +21,6 @@ from aragora.workflow.queue.task import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class ExecutorStatus(str, Enum):
     """Status of an executor."""
@@ -32,7 +31,6 @@ class ExecutorStatus(str, Enum):
     STOPPED = "stopped"
     ERROR = "error"
 
-
 @dataclass
 class ExecutorStats:
     """Statistics for an executor."""
@@ -41,8 +39,7 @@ class ExecutorStats:
     tasks_failed: int = 0
     total_execution_time_ms: float = 0
     avg_execution_time_ms: float = 0
-    last_task_at: Optional[datetime] = None
-
+    last_task_at: datetime | None = None
 
 class TaskExecutor(ABC):
     """
@@ -56,7 +53,7 @@ class TaskExecutor(ABC):
     def __init__(self, executor_id: str):
         self._id = executor_id
         self._status = ExecutorStatus.IDLE
-        self._current_task: Optional[WorkflowTask] = None
+        self._current_task: WorkflowTask | None = None
         self._stats = ExecutorStats()
 
     @property
@@ -121,7 +118,6 @@ class TaskExecutor(ABC):
             self._status = ExecutorStatus.IDLE
             self._current_task = None
 
-
 class StepExecutor(TaskExecutor):
     """
     Default executor that delegates to step handlers.
@@ -132,10 +128,10 @@ class StepExecutor(TaskExecutor):
     def __init__(
         self,
         executor_id: str,
-        handlers: Optional[Dict[str, Callable[[WorkflowTask], TaskResult]]] = None,
+        handlers: Optional[dict[str, Callable[[WorkflowTask], TaskResult]]] = None,
     ):
         super().__init__(executor_id)
-        self._handlers: Dict[str, Callable[[WorkflowTask], TaskResult]] = handlers or {}
+        self._handlers: dict[str, Callable[[WorkflowTask], TaskResult]] = handlers or {}
 
     def register_handler(
         self,
@@ -187,7 +183,6 @@ class StepExecutor(TaskExecutor):
             execution_time_ms=0,
         )
 
-
 @dataclass
 class PoolConfig:
     """Configuration for executor pool."""
@@ -197,7 +192,6 @@ class PoolConfig:
     scale_up_threshold: float = 0.8  # Scale up when utilization > 80%
     scale_down_threshold: float = 0.2  # Scale down when utilization < 20%
     executor_idle_timeout: float = 60.0  # Remove idle executors after 60s
-
 
 class ExecutorPool:
     """
@@ -209,24 +203,24 @@ class ExecutorPool:
 
     def __init__(
         self,
-        config: Optional[PoolConfig] = None,
+        config: PoolConfig | None = None,
         executor_factory: Optional[Callable[[str], TaskExecutor]] = None,
     ):
         self._config = config or PoolConfig()
         self._executor_factory = executor_factory or self._default_factory
 
         # Executor management
-        self._executors: Dict[str, TaskExecutor] = {}
+        self._executors: dict[str, TaskExecutor] = {}
         self._executor_count = 0
 
         # Task assignment
-        self._task_assignments: Dict[str, str] = {}  # task_id -> executor_id
+        self._task_assignments: dict[str, str] = {}  # task_id -> executor_id
         self._assignment_lock = asyncio.Lock()
 
         # Control
         self._started = False
         self._stopping = False
-        self._scale_task: Optional[asyncio.Task] = None
+        self._scale_task: asyncio.Task | None = None
 
     def _default_factory(self, executor_id: str) -> TaskExecutor:
         """Create default step executor."""
@@ -291,7 +285,7 @@ class ExecutorPool:
                 del self._executors[executor_id]
                 logger.debug(f"Removed executor {executor_id}")
 
-    async def acquire(self, task: WorkflowTask) -> Optional[TaskExecutor]:
+    async def acquire(self, task: WorkflowTask) -> TaskExecutor | None:
         """
         Acquire an executor for a task.
 
@@ -405,7 +399,7 @@ class ExecutorPool:
             return 0.0
         return self.busy_count / len(self._executors)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get pool statistics."""
         executor_stats = {
             eid: {

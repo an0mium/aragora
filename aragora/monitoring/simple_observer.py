@@ -10,8 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Any, Dict, Optional
-
+from typing import Any
 
 class SimpleObserver:
     """Observer for monitoring agent execution and system health.
@@ -40,7 +39,7 @@ class SimpleObserver:
             Path to the log file for health events.
         """
         self._log_file = log_file
-        self._metrics: Dict[str, Dict[str, Any]] = {}
+        self._metrics: dict[str, dict[str, Any]] = {}
 
         # Set up logger with consistent name
         self._logger = logging.getLogger("aragora_observer")
@@ -65,12 +64,12 @@ class SimpleObserver:
         return self._log_file
 
     @property
-    def metrics(self) -> Dict[str, Dict[str, Any]]:
+    def metrics(self) -> dict[str, dict[str, Any]]:
         """Get current metrics dictionary.
 
         Returns
         -------
-        Dict[str, Dict[str, Any]]
+        dict[str, dict[str, Any]]
             Dictionary mapping attempt IDs to their metrics.
         """
         return self._metrics
@@ -114,8 +113,8 @@ class SimpleObserver:
     def record_agent_completion(
         self,
         attempt_id: str,
-        output: Optional[str],
-        error: Optional[Exception] = None,
+        output: str | None,
+        error: Exception | None = None,
     ) -> None:
         """Record the completion of an agent attempt.
 
@@ -123,9 +122,9 @@ class SimpleObserver:
         ----------
         attempt_id : str
             The attempt ID returned from record_agent_attempt.
-        output : Optional[str]
+        output : str | None
             The output produced by the agent.
-        error : Optional[Exception]
+        error : Exception | None
             Any exception that occurred during execution.
         """
         if attempt_id not in self._metrics:
@@ -178,12 +177,12 @@ class SimpleObserver:
         failed = sum(1 for m in completed if m["status"] == "failed")
         return failed / len(completed)
 
-    def get_report(self) -> Dict[str, Any]:
+    def get_report(self) -> dict[str, Any]:
         """Generate a comprehensive health report.
 
         Returns
         -------
-        Dict[str, Any]
+        dict[str, Any]
             Report containing aggregated metrics and statistics.
             Returns {"error": "No data..."} if no completed attempts.
         """
@@ -207,6 +206,5 @@ class SimpleObserver:
             "null_byte_incidents": null_byte_incidents,
             "timeout_incidents": timeout_incidents,
         }
-
 
 __all__ = ["SimpleObserver"]

@@ -32,7 +32,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any, Callable, Generator, Optional
 
 from aragora.observability.config import get_metrics_config
 from aragora.observability.metrics.base import NoOpMetric
@@ -66,12 +66,11 @@ __all__ = [
 ]
 
 # Webhook notification callback (set by init_slo_webhooks)
-_webhook_callback: Optional[Callable[[Dict[str, Any]], bool]] = None
+_webhook_callback: Optional[Callable[[dict[str, Any]], bool]] = None
 
 # Violation buffer for batching webhook notifications
-_violation_buffer: List[Dict[str, Any]] = []
-_buffer_lock: Optional[Any] = None  # threading.Lock set on init
-
+_violation_buffer: list[dict[str, Any]] = []
+_buffer_lock: Any | None = None  # threading.Lock set on init
 
 # Config for webhook notifications
 @dataclass
@@ -83,20 +82,19 @@ class SLOWebhookConfig:
     batch_size: int = 10  # Max violations per webhook call
     cooldown_seconds: float = 60.0  # Min time between notifications for same operation
 
-
 # Severity ordering for filtering
 SEVERITY_ORDER = {"minor": 0, "moderate": 1, "major": 2, "critical": 3}
 
 # Cooldown tracking
-_last_notification: Dict[str, float] = {}
+_last_notification: dict[str, float] = {}
 
 # Track violation state for recovery detection
-_violation_state: Dict[str, Dict[str, Any]] = {}  # operation -> {in_violation, last_severity, ...}
+_violation_state: dict[str, dict[str, Any]] = {}  # operation -> {in_violation, last_severity, ...}
 
 # External callback lists for alert bridges (e.g., PagerDuty, Slack)
 # These are async-compatible callbacks that receive violation/recovery data
-_violation_callbacks: List[Callable[[Dict[str, Any]], Any]] = []
-_recovery_callbacks: List[Callable[[Dict[str, Any]], Any]] = []
+_violation_callbacks: list[Callable[[dict[str, Any]], Any]] = []
+_recovery_callbacks: list[Callable[[dict[str, Any]], Any]] = []
 
 # Prometheus metrics - initialized lazily
 _initialized = False
@@ -106,7 +104,6 @@ SLO_CHECKS_TOTAL: Any = None
 SLO_VIOLATIONS_TOTAL: Any = None
 SLO_LATENCY_HISTOGRAM: Any = None
 SLO_VIOLATION_MARGIN: Any = None  # How much over the threshold
-
 
 def init_slo_metrics() -> bool:
     """Initialize SLO Prometheus metrics lazily.
@@ -173,7 +170,6 @@ def init_slo_metrics() -> bool:
         _initialized = True
         return False
 
-
 def record_slo_check(
     operation: str,
     passed: bool,
@@ -196,14 +192,13 @@ def record_slo_check(
         result=result,
     ).inc()
 
-
 def record_slo_violation(
     operation: str,
     percentile: str,
     latency_ms: float,
     threshold_ms: float,
-    severity: Optional[str] = None,
-    context: Optional[Dict[str, Any]] = None,
+    severity: str | None = None,
+    context: Optional[dict[str, Any]] = None,
     notify_webhook: bool = True,
 ) -> str:
     """Record an SLO violation with context and optionally notify via webhook.
@@ -261,7 +256,6 @@ def record_slo_violation(
 
     return severity
 
-
 def record_operation_latency(operation: str, latency_ms: float) -> None:
     """Record operation latency for SLO histogram.
 
@@ -273,7 +267,6 @@ def record_operation_latency(operation: str, latency_ms: float) -> None:
         init_slo_metrics()
 
     SLO_LATENCY_HISTOGRAM.labels(operation=operation).observe(latency_ms)
-
 
 def check_and_record_slo(
     operation: str,
@@ -317,7 +310,6 @@ def check_and_record_slo(
 
     return passed, message
 
-
 @contextmanager
 def track_operation_slo(
     operation: str,
@@ -360,7 +352,6 @@ def track_operation_slo(
                 ctx if ctx else "none",
             )
 
-
 def get_slo_metrics_summary() -> dict:
     """Get a summary of SLO metrics for observability endpoints.
 
@@ -392,12 +383,10 @@ def get_slo_metrics_summary() -> dict:
         ],
     }
 
-
 # --- Webhook Integration ---
 
-
 def init_slo_webhooks(
-    webhook_config: Optional[SLOWebhookConfig] = None,
+    webhook_config: SLOWebhookConfig | None = None,
 ) -> bool:
     """Initialize SLO webhook notifications.
 
@@ -425,7 +414,7 @@ def init_slo_webhooks(
         # Create callback that sends to webhook dispatcher
         config = webhook_config or SLOWebhookConfig()
 
-        def send_violation_webhook(violation_data: Dict[str, Any]) -> bool:
+        def send_violation_webhook(violation_data: dict[str, Any]) -> bool:
             """Send violation to webhook dispatcher."""
             severity = violation_data.get("severity", "minor")
 
@@ -464,14 +453,13 @@ def init_slo_webhooks(
         logger.warning(f"Failed to initialize SLO webhooks: {e}")
         return False
 
-
 def notify_slo_violation(
     operation: str,
     percentile: str,
     latency_ms: float,
     threshold_ms: float,
     severity: str,
-    context: Optional[Dict[str, Any]] = None,
+    context: Optional[dict[str, Any]] = None,
     cooldown_seconds: float = 60.0,
 ) -> bool:
     """Send SLO violation notification via webhook and registered callbacks.
@@ -529,8 +517,7 @@ def notify_slo_violation(
 
     return result
 
-
-def get_slo_webhook_status() -> Dict[str, Any]:
+def get_slo_webhook_status() -> dict[str, Any]:
     """Get status of SLO webhook integration.
 
     Returns:
@@ -545,14 +532,13 @@ def get_slo_webhook_status() -> Dict[str, Any]:
         ],
     }
 
-
 def notify_slo_recovery(
     operation: str,
     percentile: str,
     latency_ms: float,
     threshold_ms: float,
     violation_duration_seconds: float,
-    context: Optional[Dict[str, Any]] = None,
+    context: Optional[dict[str, Any]] = None,
 ) -> bool:
     """Send SLO recovery notification via webhook and registered callbacks.
 
@@ -604,12 +590,11 @@ def notify_slo_recovery(
 
     return result
 
-
 def check_and_record_slo_with_recovery(
     operation: str,
     latency_ms: float,
     percentile: str = "p99",
-    context: Optional[Dict[str, Any]] = None,
+    context: Optional[dict[str, Any]] = None,
 ) -> tuple[bool, str]:
     """Check SLO, record metrics, and handle violation/recovery state.
 
@@ -706,8 +691,7 @@ def check_and_record_slo_with_recovery(
 
     return passed, message
 
-
-def get_violation_state(operation: Optional[str] = None) -> Dict[str, Any]:
+def get_violation_state(operation: str | None = None) -> dict[str, Any]:
     """Get current violation state for operation(s).
 
     Args:
@@ -720,13 +704,11 @@ def get_violation_state(operation: Optional[str] = None) -> Dict[str, Any]:
         return _violation_state.get(operation, {"in_violation": False})
     return dict(_violation_state)
 
-
 # --- External Callback Registration ---
 # Allows external modules (like SLO Alert Bridge) to receive violation/recovery events
 
-
 def register_violation_callback(
-    callback: Callable[[Dict[str, Any]], Any],
+    callback: Callable[[dict[str, Any]], Any],
 ) -> None:
     """Register a callback to be invoked on SLO violations.
 
@@ -751,9 +733,8 @@ def register_violation_callback(
         _violation_callbacks.append(callback)
         logger.debug(f"Registered SLO violation callback: {callback.__name__}")
 
-
 def register_recovery_callback(
-    callback: Callable[[Dict[str, Any]], Any],
+    callback: Callable[[dict[str, Any]], Any],
 ) -> None:
     """Register a callback to be invoked on SLO recoveries.
 
@@ -774,9 +755,8 @@ def register_recovery_callback(
         _recovery_callbacks.append(callback)
         logger.debug(f"Registered SLO recovery callback: {callback.__name__}")
 
-
 def unregister_violation_callback(
-    callback: Callable[[Dict[str, Any]], Any],
+    callback: Callable[[dict[str, Any]], Any],
 ) -> bool:
     """Unregister a previously registered violation callback.
 
@@ -793,9 +773,8 @@ def unregister_violation_callback(
     except ValueError:
         return False
 
-
 def unregister_recovery_callback(
-    callback: Callable[[Dict[str, Any]], Any],
+    callback: Callable[[dict[str, Any]], Any],
 ) -> bool:
     """Unregister a previously registered recovery callback.
 
@@ -812,17 +791,15 @@ def unregister_recovery_callback(
     except ValueError:
         return False
 
-
 def clear_all_callbacks() -> None:
     """Clear all registered callbacks. Primarily for testing."""
     _violation_callbacks.clear()
     _recovery_callbacks.clear()
     logger.debug("Cleared all SLO callbacks")
 
-
 def _invoke_callbacks(
-    callbacks: List[Callable[[Dict[str, Any]], Any]],
-    data: Dict[str, Any],
+    callbacks: list[Callable[[dict[str, Any]], Any]],
+    data: dict[str, Any],
 ) -> None:
     """Invoke all registered callbacks with the given data.
 

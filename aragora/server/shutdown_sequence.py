@@ -14,10 +14,9 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Coroutine, List
+from typing import Any, Callable, Coroutine
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ShutdownPhase:
@@ -34,7 +33,6 @@ class ShutdownPhase:
     execute: Callable[[], Coroutine[Any, Any, None]]
     timeout: float = 5.0
     critical: bool = False
-
 
 class ShutdownSequence:
     """Orchestrates multi-phase graceful shutdown.
@@ -54,9 +52,9 @@ class ShutdownSequence:
 
     def __init__(self):
         """Initialize an empty shutdown sequence."""
-        self._phases: List[ShutdownPhase] = []
-        self._completed: List[str] = []
-        self._failed: List[str] = []
+        self._phases: list[ShutdownPhase] = []
+        self._completed: list[str] = []
+        self._failed: list[str] = []
 
     def add_phase(self, phase: ShutdownPhase) -> "ShutdownSequence":
         """Add a phase to the shutdown sequence.
@@ -141,7 +139,6 @@ class ShutdownSequence:
             else:
                 logger.debug(f"Shutdown phase failed: {phase.name}: {e}")
             return False
-
 
 def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
     """Create the standard shutdown sequence for UnifiedServer.

@@ -14,7 +14,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Optional, Protocol, Union
+from typing import TYPE_CHECKING, Callable, Optional, Protocol
 
 from aragora.knowledge.embeddings import (
     ChunkMatch,
@@ -34,7 +34,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class AgentProtocol(Protocol):
     """Protocol for agents that can answer questions."""
 
@@ -43,7 +42,6 @@ class AgentProtocol(Protocol):
     async def generate(self, prompt: str, context: list[dict[str, str]]) -> str:
         """Generate a response to a prompt with context."""
         ...
-
 
 @dataclass
 class QueryOptions:
@@ -73,7 +71,6 @@ class QueryOptions:
     save_extracted_facts: bool = True
     min_fact_confidence: float = 0.5
 
-
 @dataclass
 class QueryContext:
     """Context for query execution."""
@@ -85,7 +82,6 @@ class QueryContext:
     extracted_facts: list[Fact] = field(default_factory=list)
     agent_responses: dict[str, str] = field(default_factory=dict)
     start_time: float = field(default_factory=time.time)
-
 
 class DatasetQueryEngine:
     """Natural language query interface for document datasets.
@@ -111,12 +107,12 @@ class DatasetQueryEngine:
 
     def __init__(
         self,
-        fact_store: Optional[Union[FactStore, InMemoryFactStore]] = None,
+        fact_store: Optional[FactStore | InMemoryFactStore] = None,
         embedding_service: Optional[
-            Union[WeaviateEmbeddingService, InMemoryEmbeddingService]
+            WeaviateEmbeddingService | InMemoryEmbeddingService
         ] = None,
-        agents: Optional[list[AgentProtocol]] = None,
-        default_agent: Optional[AgentProtocol] = None,
+        agents: list[AgentProtocol] | None = None,
+        default_agent: AgentProtocol | None = None,
     ):
         """Initialize the query engine.
 
@@ -151,7 +147,7 @@ class DatasetQueryEngine:
         self,
         question: str,
         workspace_id: str,
-        options: Optional[QueryOptions] = None,
+        options: QueryOptions | None = None,
     ) -> QueryResult:
         """Answer a question about the dataset using multi-agent analysis.
 
@@ -411,7 +407,7 @@ Provide a single, definitive answer that:
         # Fallback to first response if synthesis fails
         return list(responses.values())[0]
 
-    async def _safe_generate(self, agent: AgentProtocol, prompt: str) -> Optional[str]:
+    async def _safe_generate(self, agent: AgentProtocol, prompt: str) -> str | None:
         """Safely generate a response, returning None on failure."""
         try:
             return await agent.generate(prompt, [])
@@ -586,7 +582,7 @@ Only include facts that are directly supported by the source material."""
     async def verify_fact(
         self,
         fact_id: str,
-        agents: Optional[list[AgentProtocol]] = None,
+        agents: list[AgentProtocol] | None = None,
     ) -> Fact:
         """Verify a fact using multiple agents.
 
@@ -670,7 +666,6 @@ Then briefly explain your reasoning."""
             # Ignore cleanup errors but log for debugging
             logger.debug(f"Error closing embedding service: {e}")
 
-
 class SimpleQueryEngine:
     """Simplified query engine without agent dependencies.
 
@@ -679,9 +674,9 @@ class SimpleQueryEngine:
 
     def __init__(
         self,
-        fact_store: Optional[Union[FactStore, InMemoryFactStore]] = None,
+        fact_store: Optional[FactStore | InMemoryFactStore] = None,
         embedding_service: Optional[
-            Union[WeaviateEmbeddingService, InMemoryEmbeddingService]
+            WeaviateEmbeddingService | InMemoryEmbeddingService
         ] = None,
     ):
         """Initialize simple engine."""
@@ -692,7 +687,7 @@ class SimpleQueryEngine:
         self,
         question: str,
         workspace_id: str,
-        options: Optional[QueryOptions] = None,
+        options: QueryOptions | None = None,
     ) -> QueryResult:
         """Simple query that returns search results without agent analysis.
 
@@ -757,8 +752,8 @@ class SimpleQueryEngine:
         self,
         statement: str,
         workspace_id: str,
-        evidence_ids: Optional[list[str]] = None,
-        source_documents: Optional[list[str]] = None,
+        evidence_ids: list[str] | None = None,
+        source_documents: list[str] | None = None,
     ) -> Fact:
         """Add a fact directly."""
         return self._fact_store.add_fact(

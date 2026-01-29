@@ -17,25 +17,25 @@ Usage:
     # Or apply ETag to response data
     response_data, headers = with_etag(data, request_etag)
 """
+from __future__ import annotations
 
 import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
 # Type for response data
 T = TypeVar("T")
 
-
 # =============================================================================
 # Cache Configuration
 # =============================================================================
 
 # Default cache durations by endpoint pattern
-CACHE_DURATIONS: Dict[str, int] = {
+CACHE_DURATIONS: dict[str, int] = {
     "/api/leaderboard": 60,  # 1 minute
     "/api/agents/": 120,  # 2 minutes for agent profiles
     "/api/analytics/": 300,  # 5 minutes for analytics
@@ -50,8 +50,7 @@ NO_CACHE_PATTERNS = [
     "/api/user/",  # User-specific data
 ]
 
-
-def get_cache_duration(path: str) -> Optional[int]:
+def get_cache_duration(path: str) -> int | None:
     """Get cache duration for a path, or None if not cacheable.
 
     Args:
@@ -72,11 +71,9 @@ def get_cache_duration(path: str) -> Optional[int]:
 
     return None
 
-
 # =============================================================================
 # ETag Generation
 # =============================================================================
-
 
 def generate_etag(data: Any) -> str:
     """Generate an ETag for response data.
@@ -99,7 +96,6 @@ def generate_etag(data: Any) -> str:
         logger.debug(f"ETag generation failed: {e}")
         return f'"{hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]}"'
 
-
 def generate_weak_etag(data: Any) -> str:
     """Generate a weak ETag for response data.
 
@@ -115,8 +111,7 @@ def generate_weak_etag(data: Any) -> str:
     strong_etag = generate_etag(data)
     return f"W/{strong_etag}"
 
-
-def etag_matches(request_etag: Optional[str], response_etag: str) -> bool:
+def etag_matches(request_etag: str | None, response_etag: str) -> bool:
     """Check if request ETag matches response ETag.
 
     Handles both strong and weak ETag comparison per RFC 7232.
@@ -149,19 +144,17 @@ def etag_matches(request_etag: Optional[str], response_etag: str) -> bool:
 
     return False
 
-
 # =============================================================================
 # Cache Headers
 # =============================================================================
-
 
 def cache_headers(
     max_age: int = 60,
     public: bool = True,
     must_revalidate: bool = False,
-    etag: Optional[str] = None,
-    last_modified: Optional[datetime] = None,
-) -> Dict[str, str]:
+    etag: str | None = None,
+    last_modified: datetime | None = None,
+) -> dict[str, str]:
     """Generate cache headers for a response.
 
     Args:
@@ -174,7 +167,7 @@ def cache_headers(
     Returns:
         Dictionary of headers to add to response
     """
-    headers: Dict[str, str] = {}
+    headers: dict[str, str] = {}
 
     # Build Cache-Control
     directives = []
@@ -196,8 +189,7 @@ def cache_headers(
 
     return headers
 
-
-def no_cache_headers() -> Dict[str, str]:
+def no_cache_headers() -> dict[str, str]:
     """Generate headers to prevent caching.
 
     Returns:
@@ -209,18 +201,16 @@ def no_cache_headers() -> Dict[str, str]:
         "Expires": "0",
     }
 
-
 # =============================================================================
 # High-Level Utilities
 # =============================================================================
 
-
 def with_etag(
     data: T,
-    request_etag: Optional[str] = None,
+    request_etag: str | None = None,
     max_age: int = 60,
     public: bool = True,
-) -> Tuple[Optional[T], Dict[str, str], bool]:
+) -> tuple[T | None, dict[str, str], bool]:
     """Apply ETag caching to response data.
 
     Generates ETag for data and checks if it matches request ETag.
@@ -247,13 +237,12 @@ def with_etag(
     headers = cache_headers(max_age=max_age, public=public, etag=etag)
     return data, headers, False
 
-
 def apply_cache_headers_to_response(
     response: Any,
     path: str,
     data: Any = None,
-    request_etag: Optional[str] = None,
-) -> Optional[bool]:
+    request_etag: str | None = None,
+) -> bool | None:
     """Apply appropriate cache headers to a response object.
 
     Determines cache duration based on path and adds headers.
@@ -293,7 +282,6 @@ def apply_cache_headers_to_response(
         response.headers[key] = value
 
     return False
-
 
 __all__ = [
     # Configuration

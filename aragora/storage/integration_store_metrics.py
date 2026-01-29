@@ -25,13 +25,12 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class OperationMetrics:
@@ -41,11 +40,11 @@ class OperationMetrics:
     successful_calls: int = 0
     failed_calls: int = 0
     total_latency_seconds: float = 0.0
-    min_latency_seconds: Optional[float] = None
-    max_latency_seconds: Optional[float] = None
-    last_call_at: Optional[datetime] = None
-    last_error: Optional[str] = None
-    last_error_at: Optional[datetime] = None
+    min_latency_seconds: float | None = None
+    max_latency_seconds: float | None = None
+    last_call_at: datetime | None = None
+    last_error: str | None = None
+    last_error_at: datetime | None = None
 
     @property
     def avg_latency_seconds(self) -> float:
@@ -80,7 +79,7 @@ class OperationMetrics:
         self.last_error = error
         self.last_error_at = datetime.now(timezone.utc)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_calls": self.total_calls,
@@ -98,7 +97,6 @@ class OperationMetrics:
             "last_error": self.last_error,
             "last_error_at": self.last_error_at.isoformat() if self.last_error_at else None,
         }
-
 
 @dataclass
 class IntegrationStoreMetrics:
@@ -121,7 +119,7 @@ class IntegrationStoreMetrics:
     # Health tracking
     backend_type: str = "unknown"
     is_healthy: bool = True
-    last_health_check: Optional[datetime] = None
+    last_health_check: datetime | None = None
     consecutive_failures: int = 0
     active_integrations: int = 0
 
@@ -145,7 +143,7 @@ class IntegrationStoreMetrics:
             return 0.0
         return (self.cache_hits / total) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "backend_type": self.backend_type,
@@ -170,11 +168,9 @@ class IntegrationStoreMetrics:
             },
         }
 
-
 # Global metrics instance
-_metrics: Optional[IntegrationStoreMetrics] = None
+_metrics: IntegrationStoreMetrics | None = None
 _metrics_lock = asyncio.Lock()
-
 
 def get_metrics() -> IntegrationStoreMetrics:
     """Get the global metrics instance."""
@@ -183,12 +179,10 @@ def get_metrics() -> IntegrationStoreMetrics:
         _metrics = IntegrationStoreMetrics()
     return _metrics
 
-
 def reset_metrics() -> None:
     """Reset global metrics (for testing)."""
     global _metrics
     _metrics = None
-
 
 def track_operation(operation_type: str):
     """
@@ -230,7 +224,6 @@ def track_operation(operation_type: str):
 
     return decorator
 
-
 class InstrumentedIntegrationStore:
     """
     Wrapper that adds metrics to any IntegrationStore implementation.
@@ -260,7 +253,7 @@ class InstrumentedIntegrationStore:
         """Get current metrics."""
         return self._metrics
 
-    async def get(self, integration_type: str, user_id: str = "default") -> Optional[Any]:
+    async def get(self, integration_type: str, user_id: str = "default") -> Any | None:
         """Get integration with metrics tracking."""
         start_time = time.time()
         try:
@@ -313,7 +306,7 @@ class InstrumentedIntegrationStore:
                 self._metrics.is_healthy = False
             raise
 
-    async def list_for_user(self, user_id: str = "default") -> List[Any]:
+    async def list_for_user(self, user_id: str = "default") -> list[Any]:
         """List integrations with metrics tracking."""
         start_time = time.time()
         try:
@@ -331,7 +324,7 @@ class InstrumentedIntegrationStore:
                 self._metrics.is_healthy = False
             raise
 
-    async def list_all(self) -> List[Any]:
+    async def list_all(self) -> list[Any]:
         """List all integrations with metrics tracking."""
         start_time = time.time()
         try:
@@ -349,7 +342,7 @@ class InstrumentedIntegrationStore:
                 self._metrics.is_healthy = False
             raise
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """
         Perform a health check on the store.
 
@@ -380,8 +373,7 @@ class InstrumentedIntegrationStore:
         """Delegate to base store for untracked methods."""
         return getattr(self._store, name)
 
-
-async def get_integration_metrics() -> Dict[str, Any]:
+async def get_integration_metrics() -> dict[str, Any]:
     """
     Get current integration store metrics.
 
@@ -390,8 +382,7 @@ async def get_integration_metrics() -> Dict[str, Any]:
     """
     return get_metrics().to_dict()
 
-
-async def get_integration_health() -> Dict[str, Any]:
+async def get_integration_health() -> dict[str, Any]:
     """
     Get integration store health status.
 
@@ -412,7 +403,6 @@ async def get_integration_health() -> Dict[str, Any]:
             "cache_hit_rate": metrics.cache_hit_rate,
         },
     }
-
 
 __all__ = [
     "OperationMetrics",

@@ -10,7 +10,7 @@ import logging
 import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from aragora.agents.cli_agents import CLIAgent
 from aragora.core import Message
@@ -27,7 +27,6 @@ from aragora.audit.exploration.session import (
 
 logger = logging.getLogger(__name__)
 
-
 class ExplorationMode(str, Enum):
     """Mode of exploration for different purposes."""
 
@@ -36,7 +35,6 @@ class ExplorationMode(str, Enum):
     CROSS_REFERENCE = "cross_reference"  # Find connections to other documents
     VERIFY = "verify"  # Verify claims against evidence
     SUMMARIZE = "summarize"  # Produce high-level summary
-
 
 @dataclass
 class ExplorationConfig:
@@ -49,7 +47,6 @@ class ExplorationConfig:
     extract_relationships: bool = True
     confidence_threshold: float = 0.5
     response_format: str = "json"  # json or text
-
 
 class ExplorationAgent(CLIAgent):
     """Agent specialized for iterative document exploration.
@@ -201,7 +198,7 @@ Return JSON:
         model: str = "claude-sonnet-4",
         role: AgentRole = "analyst",
         timeout: int = 120,
-        config: Optional[ExplorationConfig] = None,
+        config: ExplorationConfig | None = None,
         **kwargs,
     ):
         """Initialize exploration agent.
@@ -521,7 +518,6 @@ Confidence: {understanding.confidence}
                 except json.JSONDecodeError:
                     pass
             raise ValueError(f"Could not parse JSON from response: {response[:200]}...")
-
 
 class VerifierAgent(ExplorationAgent):
     """Agent specialized for verifying exploration findings.

@@ -19,6 +19,7 @@ Usage:
     # Emit events
     await bus.emit("debate_start", debate_id="123", task="Design a rate limiter")
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -27,12 +28,11 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any, Callable, Coroutine
 
 from aragora.server.middleware.tracing import get_span_id, get_trace_id
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DebateEvent:
@@ -41,10 +41,10 @@ class DebateEvent:
     event_type: str
     debate_id: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
     # Distributed tracing fields for correlation across services
-    correlation_id: Optional[str] = field(default=None)
-    span_id: Optional[str] = field(default=None)
+    correlation_id: str | None = field(default=None)
+    span_id: str | None = field(default=None)
 
     def __post_init__(self):
         """Auto-populate correlation_id from current trace context if not provided."""
@@ -53,7 +53,7 @@ class DebateEvent:
         if self.span_id is None:
             self.span_id = get_span_id()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary for serialization."""
         result = {
             "event_type": self.event_type,
@@ -68,11 +68,9 @@ class DebateEvent:
             result["span_id"] = self.span_id
         return result
 
-
 # Type alias for event handlers
 EventHandler = Callable[[DebateEvent], Coroutine[Any, Any, None]]
 SyncEventHandler = Callable[[DebateEvent], None]
-
 
 class EventBus:
     """
@@ -88,10 +86,10 @@ class EventBus:
 
     def __init__(
         self,
-        event_bridge: Optional[Any] = None,  # EventEmitterBridge
-        audience_manager: Optional[Any] = None,  # AudienceManager
-        immune_system: Optional[Any] = None,  # TransparentImmuneSystem
-        spectator: Optional[Any] = None,  # SpectatorStream
+        event_bridge: Any | None = None,  # EventEmitterBridge
+        audience_manager: Any | None = None,  # AudienceManager
+        immune_system: Any | None = None,  # TransparentImmuneSystem
+        spectator: Any | None = None,  # SpectatorStream
     ):
         """
         Initialize the event bus.
@@ -108,16 +106,16 @@ class EventBus:
         self._spectator = spectator
 
         # Event subscribers
-        self._async_handlers: Dict[str, List[EventHandler]] = {}
-        self._sync_handlers: Dict[str, List[SyncEventHandler]] = {}
+        self._async_handlers: dict[str, list[EventHandler]] = {}
+        self._sync_handlers: dict[str, list[SyncEventHandler]] = {}
 
         # User event queue (thread-safe for external input)
-        self._user_event_queue: queue.Queue[Dict[str, Any]] = queue.Queue()
+        self._user_event_queue: queue.Queue[dict[str, Any]] = queue.Queue()
         self._user_event_lock = threading.Lock()
 
         # Metrics
         self._events_emitted: int = 0
-        self._events_by_type: Dict[str, int] = {}
+        self._events_by_type: dict[str, int] = {}
 
     # =========================================================================
     # Subscription Management
@@ -176,7 +174,7 @@ class EventBus:
         self,
         event_type: str,
         debate_id: str = "",
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
         **data: Any,
     ) -> None:
         """
@@ -248,7 +246,7 @@ class EventBus:
         self,
         event_type: str,
         debate_id: str = "",
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
         **data: Any,
     ) -> None:
         """
@@ -317,8 +315,8 @@ class EventBus:
         debate_id: str,
         moment_type: str,
         description: str,
-        agent: Optional[str] = None,
-        round_num: Optional[int] = None,
+        agent: str | None = None,
+        round_num: int | None = None,
         significance: float = 0.5,
         **extra: Any,
     ) -> None:
@@ -350,7 +348,7 @@ class EventBus:
     async def broadcast_health_event(
         self,
         debate_id: str,
-        health_status: Dict[str, Any],
+        health_status: dict[str, Any],
     ) -> None:
         """
         Broadcast immune system health status.
@@ -378,7 +376,7 @@ class EventBus:
     # Lock timeout to prevent deadlocks (1 second)
     LOCK_TIMEOUT = 1.0
 
-    def queue_user_event(self, event: Dict[str, Any]) -> None:
+    def queue_user_event(self, event: dict[str, Any]) -> None:
         """
         Queue a user participation event (thread-safe with timeout).
 
@@ -400,7 +398,7 @@ class EventBus:
             self._user_event_lock.release()
         logger.debug(f"Queued user event: {event.get('type', 'unknown')}")
 
-    async def drain_user_events(self, debate_id: str) -> List[Dict[str, Any]]:
+    async def drain_user_events(self, debate_id: str) -> list[dict[str, Any]]:
         """
         Process all queued user events (with timeout protection).
 
@@ -412,7 +410,7 @@ class EventBus:
         Returns:
             List of processed events
         """
-        events: List[Dict[str, Any]] = []
+        events: list[dict[str, Any]] = []
         acquired = self._user_event_lock.acquire(timeout=self.LOCK_TIMEOUT)
         if not acquired:
             logger.warning("[event_bus] Lock timeout in drain_user_events, returning empty")
@@ -439,7 +437,7 @@ class EventBus:
 
     async def _process_user_event(
         self,
-        event: Dict[str, Any],
+        event: dict[str, Any],
         debate_id: str,
     ) -> None:
         """Process a single user event."""
@@ -462,7 +460,7 @@ class EventBus:
     # Metrics
     # =========================================================================
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get event bus metrics.
 
@@ -482,10 +480,8 @@ class EventBus:
         self._events_emitted = 0
         self._events_by_type.clear()
 
-
 # Singleton instance for global access (optional pattern)
-_default_bus: Optional[EventBus] = None
-
+_default_bus: EventBus | None = None
 
 def get_event_bus() -> EventBus:
     """Get the default event bus instance."""
@@ -494,12 +490,10 @@ def get_event_bus() -> EventBus:
         _default_bus = EventBus()
     return _default_bus
 
-
 def set_event_bus(bus: EventBus) -> None:
     """Set the default event bus instance."""
     global _default_bus
     _default_bus = bus
-
 
 __all__ = [
     "EventBus",

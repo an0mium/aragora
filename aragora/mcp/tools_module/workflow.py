@@ -11,17 +11,16 @@ Provides tools for executing and managing Aragora workflows:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def run_workflow_tool(
     template: str,
     inputs: str = "",
     async_execution: bool = False,
     timeout_seconds: int = 300,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Execute a workflow from a template.
 
@@ -90,10 +89,9 @@ async def run_workflow_tool(
         logger.error(f"Workflow execution failed: {e}")
         return {"error": f"Execution failed: {str(e)}"}
 
-
 async def get_workflow_status_tool(
     execution_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get the status of a workflow execution.
 
@@ -129,10 +127,9 @@ async def get_workflow_status_tool(
         logger.error(f"Failed to get workflow status: {e}")
         return {"error": f"Status check failed: {str(e)}"}
 
-
 async def list_workflow_templates_tool(
     category: str = "all",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List available workflow templates.
 
@@ -197,11 +194,10 @@ async def list_workflow_templates_tool(
         logger.error(f"Failed to list templates: {e}")
         return {"error": f"List failed: {str(e)}"}
 
-
 async def cancel_workflow_tool(
     execution_id: str,
     reason: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Cancel a running workflow execution.
 
@@ -230,7 +226,6 @@ async def cancel_workflow_tool(
     except Exception as e:
         logger.error(f"Failed to cancel workflow: {e}")
         return {"error": f"Cancel failed: {str(e)}"}
-
 
 # Export all tools
 __all__ = [

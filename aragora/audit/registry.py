@@ -27,7 +27,7 @@ import logging
 import pkgutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional
 
 import yaml
 
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
     from aragora.audit.base_auditor import BaseAuditor
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AuditTypeInfo:
@@ -48,7 +47,6 @@ class AuditTypeInfo:
     author: str
     capabilities: dict[str, Any]
     is_builtin: bool = True
-
 
 @dataclass
 class PresetConfig:
@@ -82,7 +80,6 @@ class PresetConfig:
         with open(path, "r") as f:
             return cls.from_yaml(f.read())
 
-
 class AuditRegistry:
     """
     Registry for audit type plugins.
@@ -106,7 +103,7 @@ class AuditRegistry:
             return
 
         self._auditors: dict[str, "BaseAuditor"] = {}
-        self._auditor_classes: dict[str, Type["BaseAuditor"]] = {}
+        self._auditor_classes: dict[str, type["BaseAuditor"]] = {}
         self._presets: dict[str, PresetConfig] = {}
         self._legacy_auditors: dict[str, Any] = {}
         self._initialized = True
@@ -139,7 +136,7 @@ class AuditRegistry:
 
     def register_class(
         self,
-        auditor_class: Type["BaseAuditor"],
+        auditor_class: type["BaseAuditor"],
         *,
         override: bool = False,
     ) -> None:
@@ -208,12 +205,12 @@ class AuditRegistry:
 
         return None
 
-    def get_legacy(self, audit_type_id: str) -> Optional[Any]:
+    def get_legacy(self, audit_type_id: str) -> Any | None:
         """Get a legacy auditor by ID."""
         entry = self._legacy_auditors.get(audit_type_id)
         return entry["instance"] if entry else None
 
-    def get_any(self, audit_type_id: str) -> Optional[Any]:
+    def get_any(self, audit_type_id: str) -> Any | None:
         """
         Get either a new-style or legacy auditor.
 
@@ -307,7 +304,7 @@ class AuditRegistry:
         self.register_preset(preset)
         return preset
 
-    def get_preset(self, name: str) -> Optional[PresetConfig]:
+    def get_preset(self, name: str) -> PresetConfig | None:
         """Get a registered preset by name."""
         normalized = name.lower().replace(" ", "_")
         return self._presets.get(normalized)
@@ -395,7 +392,7 @@ class AuditRegistry:
 
         return count
 
-    def discover_plugins(self, plugin_dirs: Optional[list[Path]] = None) -> int:
+    def discover_plugins(self, plugin_dirs: list[Path] | None = None) -> int:
         """
         Discover auditor plugins from directories.
 
@@ -452,7 +449,7 @@ class AuditRegistry:
 
         return count
 
-    def discover_presets(self, preset_dirs: Optional[list[Path]] = None) -> int:
+    def discover_presets(self, preset_dirs: list[Path] | None = None) -> int:
         """
         Discover preset configurations from directories.
 
@@ -517,28 +514,22 @@ class AuditRegistry:
         self._presets.clear()
         self._legacy_auditors.clear()
 
-
 # Global registry instance
 audit_registry = AuditRegistry()
-
 
 def get_registry() -> AuditRegistry:
     """Get the global audit registry."""
     return audit_registry
 
-
 # Convenience functions
-
 
 def register_auditor(auditor: "BaseAuditor", override: bool = False) -> None:
     """Register an auditor with the global registry."""
     audit_registry.register(auditor, override=override)
 
-
 def get_auditor(audit_type_id: str) -> Optional["BaseAuditor"]:
     """Get an auditor from the global registry."""
     return audit_registry.get(audit_type_id)
-
 
 def list_audit_types() -> list[AuditTypeInfo]:
     """List all audit types in the global registry."""

@@ -19,7 +19,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from ._base import KnowledgeMoundAdapter
 
@@ -32,8 +32,7 @@ KnowledgeMound = Any
 logger = logging.getLogger(__name__)
 
 # Type alias for event callbacks
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 @dataclass
 class TaskExecutionRecord:
@@ -47,11 +46,10 @@ class TaskExecutionRecord:
     failed_steps: int
     blocked_steps: int
     duration_seconds: float
-    agent_id: Optional[str] = None
-    error_message: Optional[str] = None
+    agent_id: str | None = None
+    error_message: str | None = None
     workspace_id: str = "default"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ActionPerformanceRecord:
@@ -65,7 +63,6 @@ class ActionPerformanceRecord:
     policy_blocked_count: int = 0
     workspace_id: str = "default"
 
-
 @dataclass
 class PolicyBlockRecord:
     """Record of a policy-blocked action for analysis."""
@@ -73,13 +70,12 @@ class PolicyBlockRecord:
     block_id: str
     task_id: str
     action_type: str
-    element_selector: Optional[str]
-    domain: Optional[str]
+    element_selector: str | None
+    domain: str | None
     policy_rule: str
     reason: str
     timestamp: float
     workspace_id: str = "default"
-
 
 class ComputerUseAdapter(KnowledgeMoundAdapter):
     """
@@ -110,7 +106,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         orchestrator: Optional["ComputerUseOrchestrator"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
         workspace_id: str = "default",
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         min_confidence_threshold: float = 0.6,
         enable_dual_write: bool = False,
     ):
@@ -135,10 +131,10 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         self._min_confidence_threshold = min_confidence_threshold
 
         # Caches for reverse flow
-        self._task_patterns_cache: Dict[str, List[TaskExecutionRecord]] = {}
-        self._action_stats_cache: Dict[str, ActionPerformanceRecord] = {}
+        self._task_patterns_cache: dict[str, list[TaskExecutionRecord]] = {}
+        self._action_stats_cache: dict[str, ActionPerformanceRecord] = {}
         self._cache_ttl: float = 300  # 5 minutes
-        self._cache_times: Dict[str, float] = {}
+        self._cache_times: dict[str, float] = {}
 
         # Statistics
         self._stats = {
@@ -156,8 +152,8 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
     async def store_task_result(
         self,
         result: "TaskResult",
-        agent_id: Optional[str] = None,
-    ) -> Optional[str]:
+        agent_id: str | None = None,
+    ) -> str | None:
         """
         Store a task execution result in the Knowledge Mound.
 
@@ -253,7 +249,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
     async def store_task_execution_record(
         self,
         record: TaskExecutionRecord,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a task execution record in the Knowledge Mound.
 
@@ -333,7 +329,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
     async def store_action_performance(
         self,
         record: ActionPerformanceRecord,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store aggregated action performance in the Knowledge Mound.
 
@@ -407,7 +403,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
     async def store_policy_block(
         self,
         record: PolicyBlockRecord,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a policy block record for audit and analysis.
 
@@ -485,7 +481,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         goal: str,
         limit: int = 10,
         success_only: bool = False,
-    ) -> List[TaskExecutionRecord]:
+    ) -> list[TaskExecutionRecord]:
         """
         Find similar task executions from KM based on goal.
 
@@ -551,8 +547,8 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
     async def get_action_statistics(
         self,
-        action_type: Optional[str] = None,
-    ) -> Dict[str, ActionPerformanceRecord]:
+        action_type: str | None = None,
+    ) -> dict[str, ActionPerformanceRecord]:
         """
         Get action performance statistics from KM.
 
@@ -580,7 +576,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                     workspace_id=self._workspace_id,
                 )
 
-                stats: Dict[str, ActionPerformanceRecord] = {}
+                stats: dict[str, ActionPerformanceRecord] = {}
                 for result in results:
                     metadata = result.get("metadata", {})
                     if metadata.get("type") != "computer_use_action_performance":
@@ -620,7 +616,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         self,
         goal: str,
         top_n: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get recommendations for executing a task based on historical patterns.
 
@@ -644,7 +640,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         # Analyze successful patterns
         avg_steps = sum(t.total_steps for t in similar) / len(similar)
         avg_duration = sum(t.duration_seconds for t in similar) / len(similar)
-        common_agents: Dict[str, int] = {}
+        common_agents: dict[str, int] = {}
         for t in similar:
             if t.agent_id:
                 common_agents[t.agent_id] = common_agents.get(t.agent_id, 0) + 1
@@ -674,7 +670,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
         # Agent recommendation (if patterns exist)
         if common_agents:
-            best_agent = max(common_agents, key=common_agents.get)
+            best_agent = max(common_agents, key=lambda k: common_agents[k])
             agent_count = common_agents[best_agent]
             recommendations.append(
                 {
@@ -691,7 +687,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         self,
         days_back: int = 7,
         limit: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze policy blocks to identify patterns and potential policy adjustments.
 
@@ -713,9 +709,9 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                     workspace_id=self._workspace_id,
                 )
 
-                blocks_by_rule: Dict[str, int] = {}
-                blocks_by_action: Dict[str, int] = {}
-                blocks_by_domain: Dict[str, int] = {}
+                blocks_by_rule: dict[str, int] = {}
+                blocks_by_action: dict[str, int] = {}
+                blocks_by_domain: dict[str, int] = {}
 
                 cutoff = time.time() - (days_back * 86400)
 
@@ -764,10 +760,10 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
     def _generate_policy_recommendations(
         self,
-        blocks_by_rule: Dict[str, int],
-        blocks_by_action: Dict[str, int],
+        blocks_by_rule: dict[str, int],
+        blocks_by_action: dict[str, int],
         total_blocks: int,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate policy adjustment recommendations based on block patterns."""
         recommendations = []
 
@@ -799,7 +795,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
     # Sync from Orchestrator
     # =========================================================================
 
-    async def sync_from_orchestrator(self) -> Dict[str, Any]:
+    async def sync_from_orchestrator(self) -> dict[str, Any]:
         """
         Sync current orchestrator metrics to Knowledge Mound.
 
@@ -845,7 +841,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
     # Stats and Health
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         return {
             **self._stats,
@@ -863,7 +859,6 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         self._action_stats_cache.clear()
         self._cache_times.clear()
         return count
-
 
 __all__ = [
     "ComputerUseAdapter",

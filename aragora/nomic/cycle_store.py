@@ -15,12 +15,11 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.nomic.cycle_record import NomicCycleRecord
 
 logger = logging.getLogger(__name__)
-
 
 class CycleLearningStore:
     """SQLite-backed storage for Nomic cycle records.
@@ -45,7 +44,7 @@ class CycleLearningStore:
             print(f"Cycle {r.cycle_id}: {r.success}")
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the store.
 
         Args:
@@ -119,7 +118,7 @@ class CycleLearningStore:
         finally:
             conn.close()
 
-    def load_cycle(self, cycle_id: str) -> Optional[NomicCycleRecord]:
+    def load_cycle(self, cycle_id: str) -> NomicCycleRecord | None:
         """Load a specific cycle by ID.
 
         Args:
@@ -141,7 +140,7 @@ class CycleLearningStore:
         finally:
             conn.close()
 
-    def get_recent_cycles(self, n: int = 10) -> List[NomicCycleRecord]:
+    def get_recent_cycles(self, n: int = 10) -> list[NomicCycleRecord]:
         """Get the N most recent cycles.
 
         Args:
@@ -160,7 +159,7 @@ class CycleLearningStore:
         finally:
             conn.close()
 
-    def get_successful_cycles(self, n: int = 10) -> List[NomicCycleRecord]:
+    def get_successful_cycles(self, n: int = 10) -> list[NomicCycleRecord]:
         """Get the N most recent successful cycles.
 
         Args:
@@ -188,7 +187,7 @@ class CycleLearningStore:
         self,
         topic: str,
         limit: int = 10,
-    ) -> List[NomicCycleRecord]:
+    ) -> list[NomicCycleRecord]:
         """Find cycles that addressed similar topics.
 
         Uses simple substring matching on topics.
@@ -221,7 +220,7 @@ class CycleLearningStore:
         self,
         agent_name: str,
         n: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get performance trajectory for an agent across cycles.
 
         Args:
@@ -232,7 +231,7 @@ class CycleLearningStore:
             List of performance snapshots for the agent
         """
         cycles = self.get_recent_cycles(n)
-        trajectory: List[Dict[str, Any]] = []
+        trajectory: list[dict[str, Any]] = []
 
         for cycle in cycles:
             if agent_name in cycle.agent_contributions:
@@ -257,14 +256,14 @@ class CycleLearningStore:
 
         return trajectory
 
-    def get_pattern_statistics(self) -> Dict[str, Dict[str, Any]]:
+    def get_pattern_statistics(self) -> dict[str, dict[str, Any]]:
         """Aggregate pattern success statistics across all cycles.
 
         Returns:
             Dict mapping pattern types to success rates and counts
         """
         cycles = self.get_recent_cycles(100)
-        stats: Dict[str, Dict[str, Any]] = {}
+        stats: dict[str, dict[str, Any]] = {}
 
         for cycle in cycles:
             for reinforcement in cycle.pattern_reinforcements:
@@ -296,7 +295,7 @@ class CycleLearningStore:
 
         return stats
 
-    def get_surprise_summary(self, n: int = 50) -> Dict[str, List[Dict[str, Any]]]:
+    def get_surprise_summary(self, n: int = 50) -> dict[str, list[dict[str, Any]]]:
         """Get summary of surprise events grouped by phase.
 
         Args:
@@ -306,7 +305,7 @@ class CycleLearningStore:
             Dict mapping phases to lists of surprise events
         """
         cycles = self.get_recent_cycles(n)
-        summary: Dict[str, List[Dict[str, Any]]] = {}
+        summary: dict[str, list[dict[str, Any]]] = {}
 
         for cycle in cycles:
             for surprise in cycle.surprise_events:
@@ -376,10 +375,8 @@ class CycleLearningStore:
         finally:
             conn.close()
 
-
 # Module-level singleton
-_cycle_store: Optional[CycleLearningStore] = None
-
+_cycle_store: CycleLearningStore | None = None
 
 def get_cycle_store() -> CycleLearningStore:
     """Get or create the singleton CycleLearningStore instance."""
@@ -388,12 +385,10 @@ def get_cycle_store() -> CycleLearningStore:
         _cycle_store = CycleLearningStore()
     return _cycle_store
 
-
 def save_cycle(record: NomicCycleRecord) -> None:
     """Convenience function to save a cycle."""
     get_cycle_store().save_cycle(record)
 
-
-def get_recent_cycles(n: int = 10) -> List[NomicCycleRecord]:
+def get_recent_cycles(n: int = 10) -> list[NomicCycleRecord]:
     """Convenience function to get recent cycles."""
     return get_cycle_store().get_recent_cycles(n)

@@ -28,9 +28,10 @@ Endpoints:
 - DELETE /api/integrations/n8n/webhooks/:id         - Unregister webhook
 - GET    /api/integrations/n8n/nodes                - Get node definitions
 """
+from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.audit.unified import audit_data
 
@@ -72,11 +73,9 @@ except ImportError:
     def record_rbac_check(*args, **kwargs):
         pass
 
-
 # =============================================================================
 # External Integrations Handler
 # =============================================================================
-
 
 class ExternalIntegrationsHandler(SecureHandler):
     """Handler for external integration management.
@@ -138,15 +137,15 @@ class ExternalIntegrationsHandler(SecureHandler):
     def __init__(self, server_context: dict):
         """Initialize with server context."""
         super().__init__(server_context)  # type: ignore[arg-type]
-        self._zapier: Optional[ZapierIntegration] = None
-        self._make: Optional[MakeIntegration] = None
-        self._n8n: Optional[N8nIntegration] = None
+        self._zapier: ZapierIntegration | None = None
+        self._make: MakeIntegration | None = None
+        self._n8n: N8nIntegration | None = None
 
     # =========================================================================
     # RBAC Helper Methods
     # =========================================================================
 
-    def _get_auth_context(self, handler: Any) -> Optional[AuthorizationContext]:
+    def _get_auth_context(self, handler: Any) -> AuthorizationContext | None:
         """Extract authorization context from the request."""
         if not RBAC_AVAILABLE:
             return None
@@ -167,8 +166,8 @@ class ExternalIntegrationsHandler(SecureHandler):
             return None
 
     def _check_permission(
-        self, handler: Any, permission_key: str, resource_id: Optional[str] = None
-    ) -> Optional[HandlerResult]:
+        self, handler: Any, permission_key: str, resource_id: str | None = None
+    ) -> HandlerResult | None:
         """
         Check if current user has permission. Returns error response if denied.
 
@@ -231,7 +230,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests for external integrations endpoints."""
 
         # Zapier endpoints
@@ -260,7 +259,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests for external integrations endpoints."""
 
         # Zapier endpoints
@@ -319,7 +318,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests for external integrations endpoints."""
 
         # Zapier app deletion
@@ -941,7 +940,6 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         else:
             return error_response(f"Unknown platform: {platform}", 400)
-
 
 # =============================================================================
 # Exports

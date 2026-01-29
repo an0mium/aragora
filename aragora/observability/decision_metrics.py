@@ -44,7 +44,7 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, Optional
+from typing import Any, Generator
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,6 @@ DECISION_ACTIVE: Any = None
 DECISION_ERRORS: Any = None
 DECISION_CONSENSUS_RATE: Any = None
 DECISION_AGENTS_USED: Any = None
-
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -178,7 +177,6 @@ def _init_metrics() -> bool:
         _initialized = True
         return False
 
-
 def _init_noop_metrics() -> None:
     """Initialize no-op metrics when Prometheus is disabled."""
     global DECISION_REQUESTS, DECISION_RESULTS, DECISION_LATENCY
@@ -206,11 +204,9 @@ def _init_noop_metrics() -> None:
     DECISION_CONSENSUS_RATE = noop
     DECISION_AGENTS_USED = noop
 
-
 # =============================================================================
 # Recording Functions
 # =============================================================================
-
 
 def record_decision_request(
     decision_type: str,
@@ -226,7 +222,6 @@ def record_decision_request(
     ).inc()
     DECISION_ACTIVE.labels(decision_type=decision_type).inc()
 
-
 def record_decision_result(
     decision_type: str,
     source: str,
@@ -237,7 +232,7 @@ def record_decision_result(
     cache_hit: bool = False,
     dedup_hit: bool = False,
     agent_count: int = 0,
-    error_type: Optional[str] = None,
+    error_type: str | None = None,
 ) -> None:
     """Record a decision result with all metrics."""
     _init_metrics()
@@ -288,7 +283,6 @@ def record_decision_result(
     # Decrement active count
     DECISION_ACTIVE.labels(decision_type=decision_type).dec()
 
-
 def record_decision_error(
     decision_type: str,
     error_type: str,
@@ -300,36 +294,31 @@ def record_decision_error(
         error_type=error_type,
     ).inc()
 
-
 def record_decision_cache_hit(decision_type: str) -> None:
     """Record a decision cache hit."""
     _init_metrics()
     DECISION_CACHE_HITS.labels(decision_type=decision_type).inc()
-
 
 def record_decision_cache_miss(decision_type: str) -> None:
     """Record a decision cache miss."""
     _init_metrics()
     DECISION_CACHE_MISSES.labels(decision_type=decision_type).inc()
 
-
 def record_decision_dedup_hit(decision_type: str) -> None:
     """Record a deduplication hit."""
     _init_metrics()
     DECISION_DEDUP_HITS.labels(decision_type=decision_type).inc()
 
-
 # =============================================================================
 # Context Managers
 # =============================================================================
-
 
 @contextmanager
 def track_decision(
     decision_type: str,
     source: str,
     priority: str = "normal",
-) -> Generator[Dict[str, Any], None, None]:
+) -> Generator[dict[str, Any], None, None]:
     """
     Context manager for tracking a decision through its lifecycle.
 
@@ -352,7 +341,7 @@ def track_decision(
     start_time = time.perf_counter()
     record_decision_request(decision_type, source, priority)
 
-    context: Dict[str, Any] = {
+    context: dict[str, Any] = {
         "success": True,
         "confidence": 0.0,
         "consensus_reached": False,
@@ -383,13 +372,11 @@ def track_decision(
             error_type=context.get("error_type"),
         )
 
-
 # =============================================================================
 # Metrics Retrieval
 # =============================================================================
 
-
-def get_decision_metrics() -> Dict[str, Any]:
+def get_decision_metrics() -> dict[str, Any]:
     """Get current decision metrics summary."""
     _init_metrics()
 
@@ -416,8 +403,7 @@ def get_decision_metrics() -> Dict[str, Any]:
     except Exception as e:
         return {"error": str(e)}
 
-
-def get_decision_summary() -> Dict[str, Any]:
+def get_decision_summary() -> dict[str, Any]:
     """Get a human-readable summary of decision metrics."""
     _init_metrics()
 
@@ -483,7 +469,6 @@ def get_decision_summary() -> Dict[str, Any]:
         return {"error": "prometheus_client not installed"}
     except Exception as e:
         return {"error": str(e)}
-
 
 __all__ = [
     "record_decision_request",

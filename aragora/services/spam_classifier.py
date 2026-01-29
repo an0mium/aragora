@@ -59,14 +59,13 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from aragora.services.sender_history import SenderHistoryService
 
 logger = logging.getLogger(__name__)
-
 
 class SpamCategory(Enum):
     """Spam classification categories."""
@@ -76,7 +75,6 @@ class SpamCategory(Enum):
     PROMOTIONAL = "promotional"  # Marketing/promotional
     SUSPICIOUS = "suspicious"  # Possibly spam
     PHISHING = "phishing"  # Phishing attempt
-
 
 @dataclass
 class SpamClassificationResult:
@@ -98,17 +96,17 @@ class SpamClassificationResult:
     subject_score: float = 0.0
 
     # Reasoning
-    reasons: List[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
     model_used: str = "rule_based"
 
     # Detected threats
-    suspicious_urls: List[str] = field(default_factory=list)
-    dangerous_attachments: List[str] = field(default_factory=list)
+    suspicious_urls: list[str] = field(default_factory=list)
+    dangerous_attachments: list[str] = field(default_factory=list)
 
     # Metadata
     classified_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "email_id": self.email_id,
@@ -151,7 +149,6 @@ class SpamClassificationResult:
         if self.category == SpamCategory.PROMOTIONAL:
             return 0.3
         return 0.0
-
 
 @dataclass
 class EmailFeatures:
@@ -198,20 +195,20 @@ class EmailFeatures:
     has_dmarc: bool = False
     received_hop_count: int = 0
     has_suspicious_headers: bool = False
-    missing_required_headers: List[str] = field(default_factory=list)
+    missing_required_headers: list[str] = field(default_factory=list)
     has_suspicious_routing: bool = False
     has_forged_headers: bool = False
 
     # URL features
     shortened_url_count: int = 0
-    suspicious_domain_urls: List[str] = field(default_factory=list)
+    suspicious_domain_urls: list[str] = field(default_factory=list)
     mismatched_anchor_urls: int = 0  # <a href="X">Y</a> where X != Y
     ip_address_urls: int = 0  # URLs with IP addresses instead of domains
     data_uri_count: int = 0  # data: URIs (can hide content)
 
     # Attachment features
     dangerous_extension_count: int = 0
-    dangerous_attachments: List[str] = field(default_factory=list)
+    dangerous_attachments: list[str] = field(default_factory=list)
     double_extension_count: int = 0  # e.g., "document.pdf.exe"
     archive_with_executable: bool = False
 
@@ -225,10 +222,10 @@ class EmailFeatures:
     has_form_elements: bool = False  # Forms in email (phishing indicator)
 
     # N-gram features (populated during extraction)
-    top_unigrams: List[Tuple[str, int]] = field(default_factory=list)
-    top_bigrams: List[Tuple[str, int]] = field(default_factory=list)
+    top_unigrams: list[tuple[str, int]] = field(default_factory=list)
+    top_bigrams: list[tuple[str, int]] = field(default_factory=list)
 
-    def to_vector(self) -> List[float]:
+    def to_vector(self) -> list[float]:
         """Convert to feature vector for ML model."""
         return [
             self.word_count / 1000,  # Normalize
@@ -285,7 +282,7 @@ class EmailFeatures:
             1.0 if self.has_form_elements else 0.0,
         ]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage/logging."""
         return {
             "word_count": self.word_count,
@@ -306,7 +303,6 @@ class EmailFeatures:
             "top_unigrams": self.top_unigrams[:10],
             "top_bigrams": self.top_bigrams[:10],
         }
-
 
 @dataclass
 class SpamClassifierConfig:
@@ -332,7 +328,6 @@ class SpamClassifierConfig:
 
     # Storage
     feedback_db_path: str = "spam_feedback.db"
-
 
 # Spam indicator patterns
 SPAM_WORDS = {
@@ -576,7 +571,6 @@ REQUIRED_HEADERS = {
     "message-id",
 }
 
-
 class SpamFeatures:
     """
     Feature extraction engine for spam classification.
@@ -588,7 +582,7 @@ class SpamFeatures:
     def __init__(
         self,
         sender_history_service: Optional["SenderHistoryService"] = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ):
         """
         Initialize feature extractor.
@@ -619,8 +613,8 @@ class SpamFeatures:
         subject: str,
         body: str,
         sender: str,
-        headers: Optional[Dict[str, str]] = None,
-        attachments: Optional[List[str]] = None,
+        headers: Optional[dict[str, str]] = None,
+        attachments: Optional[list[str]] = None,
     ) -> EmailFeatures:
         """
         Extract all features from an email.
@@ -750,7 +744,7 @@ class SpamFeatures:
     def _extract_header_features(
         self,
         features: EmailFeatures,
-        headers: Dict[str, str],
+        headers: dict[str, str],
     ) -> None:
         """Extract header-based features."""
         if not headers:
@@ -832,7 +826,7 @@ class SpamFeatures:
     def _extract_attachment_features(
         self,
         features: EmailFeatures,
-        attachments: List[str],
+        attachments: list[str],
     ) -> None:
         """Extract attachment-based features."""
         features.attachment_count = len(attachments)
@@ -877,7 +871,6 @@ class SpamFeatures:
         bigram_counts = Counter(bigrams)
         features.top_bigrams = bigram_counts.most_common(n_top)
 
-
 @dataclass
 class SpamFeedback:
     """
@@ -892,11 +885,11 @@ class SpamFeedback:
     original_classification: SpamCategory
     original_confidence: float
     feedback_type: str = "explicit"  # "explicit" (user marked) or "implicit" (user action)
-    content_hash: Optional[str] = None
-    features_json: Optional[str] = None
+    content_hash: str | None = None
+    features_json: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "email_id": self.email_id,
@@ -909,7 +902,6 @@ class SpamFeedback:
             "created_at": self.created_at.isoformat(),
         }
 
-
 class NaiveBayesClassifier:
     """Simple Naive Bayes classifier for spam detection."""
 
@@ -919,7 +911,7 @@ class NaiveBayesClassifier:
         self.word_ham_counts: Counter = Counter()
         self.spam_count: int = 0
         self.ham_count: int = 0
-        self.vocabulary: Set[str] = set()
+        self.vocabulary: set[str] = set()
         self._lock = threading.Lock()
 
     def train(self, text: str, is_spam: bool) -> None:
@@ -935,7 +927,7 @@ class NaiveBayesClassifier:
                 self.word_ham_counts.update(words)
             self.vocabulary.update(words)
 
-    def predict(self, text: str) -> Tuple[bool, float]:
+    def predict(self, text: str) -> tuple[bool, float]:
         """
         Predict if text is spam.
 
@@ -981,7 +973,7 @@ class NaiveBayesClassifier:
 
             return is_spam, confidence
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """Tokenize text into words."""
         text = text.lower()
         # Simple word tokenization
@@ -1046,7 +1038,6 @@ class NaiveBayesClassifier:
         """Check if model has been trained."""
         return self.spam_count > 0 or self.ham_count > 0
 
-
 class SpamClassifier:
     """
     ML-enhanced spam classifier with online learning.
@@ -1067,9 +1058,9 @@ class SpamClassifier:
 
     def __init__(
         self,
-        config: Optional[SpamClassifierConfig] = None,
+        config: SpamClassifierConfig | None = None,
         sender_history_service: Optional["SenderHistoryService"] = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ):
         """
         Initialize spam classifier.
@@ -1081,10 +1072,10 @@ class SpamClassifier:
         """
         self.config = config or SpamClassifierConfig()
         self.model = NaiveBayesClassifier()
-        self._db_conn: Optional[sqlite3.Connection] = None
+        self._db_conn: sqlite3.Connection | None = None
         self._compiled_promotional = [re.compile(p, re.IGNORECASE) for p in PROMOTIONAL_PATTERNS]
         self._initialized = False
-        self._last_retrain: Optional[datetime] = None
+        self._last_retrain: datetime | None = None
 
         # Feature extractor
         self._feature_extractor = SpamFeatures(
@@ -1093,7 +1084,7 @@ class SpamClassifier:
         )
 
         # Domain reputation cache
-        self._domain_reputation_cache: Dict[str, Tuple[datetime, float]] = {}
+        self._domain_reputation_cache: dict[str, tuple[datetime, float]] = {}
         self._domain_cache_ttl = 3600  # 1 hour
 
     async def initialize(self) -> None:
@@ -1163,8 +1154,8 @@ class SpamClassifier:
         subject: str,
         body: str,
         sender: str,
-        headers: Optional[Dict[str, str]] = None,
-        attachments: Optional[List[str]] = None,
+        headers: Optional[dict[str, str]] = None,
+        attachments: Optional[list[str]] = None,
     ) -> SpamClassificationResult:
         """
         Classify an email as spam or ham.
@@ -1200,7 +1191,7 @@ class SpamClassifier:
             cached.email_id = email_id
             return cached
 
-        reasons: List[str] = []
+        reasons: list[str] = []
         model_used = "rule_based"
 
         # Try ML model first if trained
@@ -1303,8 +1294,8 @@ class SpamClassifier:
         self,
         content: str,
         sender: str,
-        headers: Optional[Dict[str, str]],
-        attachments: Optional[List[str]],
+        headers: Optional[dict[str, str]],
+        attachments: Optional[list[str]],
     ) -> EmailFeatures:
         """Extract features from email for classification."""
         features = EmailFeatures()
@@ -1429,7 +1420,7 @@ class SpamClassifier:
 
         return max(0.0, min(score, 1.0))
 
-    def _score_headers(self, headers: Dict[str, str], features: EmailFeatures) -> float:
+    def _score_headers(self, headers: dict[str, str], features: EmailFeatures) -> float:
         """Score headers for spam likelihood (0-1)."""
         score = 0.0
 
@@ -1568,8 +1559,8 @@ class SpamClassifier:
         spam_score: float,
         content: str,
         features: EmailFeatures,
-        reasons: List[str],
-    ) -> Tuple[SpamCategory, float]:
+        reasons: list[str],
+    ) -> tuple[SpamCategory, float]:
         """Determine spam category and confidence."""
         # Check for phishing indicators
         phishing_score = self._check_phishing(content, features)
@@ -1652,8 +1643,8 @@ class SpamClassifier:
         self,
         email_id: str,
         is_spam: bool,
-        content: Optional[str] = None,
-        user_id: Optional[str] = None,
+        content: str | None = None,
+        user_id: str | None = None,
     ) -> bool:
         """
         Train the model from user feedback.
@@ -1773,7 +1764,7 @@ class SpamClassifier:
         """Hash content for caching."""
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    async def _get_cached_result(self, content_hash: str) -> Optional[SpamClassificationResult]:
+    async def _get_cached_result(self, content_hash: str) -> SpamClassificationResult | None:
         """Get cached classification result."""
         if not self._db_conn:
             return None
@@ -1843,7 +1834,7 @@ class SpamClassifier:
         except Exception:
             pass
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get classifier statistics."""
         stats = {
             "model_trained": self.model.is_trained,
@@ -1875,15 +1866,14 @@ class SpamClassifier:
             self._db_conn.close()
             self._db_conn = None
 
-
 # Convenience function
 async def classify_email_spam(
     email_id: str,
     subject: str,
     body: str,
     sender: str,
-    headers: Optional[Dict[str, str]] = None,
-    attachments: Optional[List[str]] = None,
+    headers: Optional[dict[str, str]] = None,
+    attachments: Optional[list[str]] = None,
 ) -> SpamClassificationResult:
     """
     Quick convenience function for spam classification.
@@ -1914,8 +1904,7 @@ async def classify_email_spam(
     finally:
         await classifier.close()
 
-
-async def classify_email(email: Dict[str, Any]) -> SpamClassificationResult:
+async def classify_email(email: dict[str, Any]) -> SpamClassificationResult:
     """
     Classify an email from a dictionary representation.
 
@@ -1956,11 +1945,10 @@ async def classify_email(email: Dict[str, Any]) -> SpamClassificationResult:
         attachments=email.get("attachments"),
     )
 
-
 async def classify_emails_batch(
-    emails: List[Dict[str, Any]],
+    emails: list[dict[str, Any]],
     max_concurrent: int = 10,
-) -> List[SpamClassificationResult]:
+) -> list[SpamClassificationResult]:
     """
     Classify multiple emails concurrently.
 
@@ -1977,7 +1965,7 @@ async def classify_emails_batch(
     classifier = SpamClassifier()
     await classifier.initialize()
 
-    async def classify_one(email: Dict[str, Any]) -> SpamClassificationResult:
+    async def classify_one(email: dict[str, Any]) -> SpamClassificationResult:
         async with semaphore:
             return await classifier.classify_email(
                 email_id=email.get("id", ""),
@@ -1993,7 +1981,6 @@ async def classify_emails_batch(
         return await asyncio.gather(*tasks)
     finally:
         await classifier.close()
-
 
 __all__ = [
     # Core classes

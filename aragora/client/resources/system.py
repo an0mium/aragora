@@ -7,11 +7,10 @@ Provides access to system health, status, and configuration.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
-
 
 @dataclass
 class HealthStatus:
@@ -20,7 +19,7 @@ class HealthStatus:
     status: str
     version: str
     uptime_seconds: float
-    checks: Dict[str, bool]
+    checks: dict[str, bool]
     timestamp: str
 
     @property
@@ -29,7 +28,7 @@ class HealthStatus:
         return self.status == "healthy" and all(self.checks.values())
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HealthStatus":
+    def from_dict(cls, data: dict[str, Any]) -> "HealthStatus":
         return cls(
             status=data.get("status", "unknown"),
             version=data.get("version", "unknown"),
@@ -37,7 +36,6 @@ class HealthStatus:
             checks=data.get("checks", {}),
             timestamp=data.get("timestamp", ""),
         )
-
 
 @dataclass
 class SystemInfo:
@@ -47,13 +45,13 @@ class SystemInfo:
     environment: str
     python_version: str
     platform: str
-    agents_available: List[str]
-    features_enabled: List[str]
+    agents_available: list[str]
+    features_enabled: list[str]
     memory_mb: float = 0.0
     cpu_percent: float = 0.0
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SystemInfo":
+    def from_dict(cls, data: dict[str, Any]) -> "SystemInfo":
         return cls(
             version=data.get("version", "unknown"),
             environment=data.get("environment", "production"),
@@ -64,7 +62,6 @@ class SystemInfo:
             memory_mb=data.get("memory_mb", 0.0),
             cpu_percent=data.get("cpu_percent", 0.0),
         )
-
 
 @dataclass
 class SystemStats:
@@ -80,7 +77,7 @@ class SystemStats:
     consensus_rate: float
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SystemStats":
+    def from_dict(cls, data: dict[str, Any]) -> "SystemStats":
         return cls(
             total_debates=data.get("total_debates", 0),
             total_agents=data.get("total_agents", 0),
@@ -92,7 +89,6 @@ class SystemStats:
             consensus_rate=data.get("consensus_rate", 0.0),
         )
 
-
 @dataclass
 class CircuitBreakerStatus:
     """Circuit breaker status for an agent."""
@@ -101,8 +97,8 @@ class CircuitBreakerStatus:
     state: str
     failure_count: int
     success_count: int
-    last_failure: Optional[str] = None
-    last_success: Optional[str] = None
+    last_failure: str | None = None
+    last_success: str | None = None
 
     @property
     def is_open(self) -> bool:
@@ -110,7 +106,7 @@ class CircuitBreakerStatus:
         return self.state == "open"
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CircuitBreakerStatus":
+    def from_dict(cls, data: dict[str, Any]) -> "CircuitBreakerStatus":
         return cls(
             agent_id=data.get("agent_id", ""),
             state=data.get("state", "closed"),
@@ -119,7 +115,6 @@ class CircuitBreakerStatus:
             last_failure=data.get("last_failure"),
             last_success=data.get("last_success"),
         )
-
 
 class SystemAPI:
     """
@@ -193,7 +188,7 @@ class SystemAPI:
         response = await self._client._get_async("/api/system/stats")
         return SystemStats.from_dict(response)
 
-    def circuit_breakers(self) -> List[CircuitBreakerStatus]:
+    def circuit_breakers(self) -> list[CircuitBreakerStatus]:
         """
         Get circuit breaker status for all agents.
 
@@ -204,7 +199,7 @@ class SystemAPI:
         breakers = response.get("breakers", [])
         return [CircuitBreakerStatus.from_dict(b) for b in breakers]
 
-    async def circuit_breakers_async(self) -> List[CircuitBreakerStatus]:
+    async def circuit_breakers_async(self) -> list[CircuitBreakerStatus]:
         """Async version of circuit_breakers."""
         response = await self._client._get_async("/api/system/circuit-breakers")
         breakers = response.get("breakers", [])
@@ -230,7 +225,7 @@ class SystemAPI:
         )
         return response.get("reset", False)
 
-    def modes(self) -> Dict[str, Any]:
+    def modes(self) -> dict[str, Any]:
         """
         Get current system modes.
 
@@ -239,6 +234,6 @@ class SystemAPI:
         """
         return self._client._get("/api/system/modes")
 
-    async def modes_async(self) -> Dict[str, Any]:
+    async def modes_async(self) -> dict[str, Any]:
         """Async version of modes."""
         return await self._client._get_async("/api/system/modes")

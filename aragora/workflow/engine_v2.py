@@ -42,7 +42,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, Optional, Set, Type
+from typing import Any, Callable, Optional
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.config.settings import get_settings
@@ -59,7 +59,6 @@ from aragora.workflow.types import (
 from aragora.workflow.step import WorkflowContext, WorkflowStep
 
 logger = logging.getLogger(__name__)
-
 
 # Model pricing (approximate, per 1K tokens)
 MODEL_PRICING = {
@@ -87,12 +86,10 @@ MODEL_PRICING = {
     "default": {"input": 0.003, "output": 0.015},
 }
 
-
 class ResourceExhaustedError(Exception):
     """Raised when resource limits are exceeded."""
 
     pass
-
 
 class ResourceType(Enum):
     """Types of resources tracked."""
@@ -101,7 +98,6 @@ class ResourceType(Enum):
     COST = "cost"
     TIME = "time"
     API_CALLS = "api_calls"
-
 
 @dataclass
 class ResourceLimits:
@@ -117,7 +113,7 @@ class ResourceLimits:
     # Warning thresholds (percentage of limit)
     warning_threshold: float = 0.8
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "max_tokens": self.max_tokens,
             "max_cost_usd": self.max_cost_usd,
@@ -126,7 +122,6 @@ class ResourceLimits:
             "max_parallel_agents": self.max_parallel_agents,
             "max_retries_per_step": self.max_retries_per_step,
         }
-
 
 @dataclass
 class ResourceUsage:
@@ -138,13 +133,13 @@ class ResourceUsage:
     api_calls: int = 0
 
     # Per-step tracking
-    step_tokens: Dict[str, int] = field(default_factory=dict)
-    step_costs: Dict[str, float] = field(default_factory=dict)
-    step_durations: Dict[str, float] = field(default_factory=dict)
+    step_tokens: dict[str, int] = field(default_factory=dict)
+    step_costs: dict[str, float] = field(default_factory=dict)
+    step_durations: dict[str, float] = field(default_factory=dict)
 
     # Per-agent tracking
-    agent_tokens: Dict[str, int] = field(default_factory=dict)
-    agent_costs: Dict[str, float] = field(default_factory=dict)
+    agent_tokens: dict[str, int] = field(default_factory=dict)
+    agent_costs: dict[str, float] = field(default_factory=dict)
 
     def add_tokens(
         self, step_id: str, agent_type: str, input_tokens: int, output_tokens: int
@@ -168,7 +163,7 @@ class ResourceUsage:
         """Record an API call."""
         self.api_calls += 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "tokens_used": self.tokens_used,
             "cost_usd": self.cost_usd,
@@ -180,17 +175,16 @@ class ResourceUsage:
             "agent_costs": self.agent_costs,
         }
 
-
 @dataclass
 class EnhancedWorkflowResult(WorkflowResult):
     """Extended workflow result with resource metrics."""
 
     resource_usage: ResourceUsage = field(default_factory=ResourceUsage)
     limits_exceeded: bool = False
-    limit_exceeded_type: Optional[ResourceType] = None
+    limit_exceeded_type: ResourceType | None = None
 
     @property
-    def metrics(self) -> Dict[str, Any]:
+    def metrics(self) -> dict[str, Any]:
         """Get execution metrics."""
         return {
             "total_tokens": self.resource_usage.tokens_used,
@@ -203,7 +197,6 @@ class EnhancedWorkflowResult(WorkflowResult):
             "per_step_costs": self.resource_usage.step_costs,
             "per_agent_costs": self.resource_usage.agent_costs,
         }
-
 
 class EnhancedWorkflowEngine(WorkflowEngine):
     """
@@ -219,17 +212,17 @@ class EnhancedWorkflowEngine(WorkflowEngine):
 
     def __init__(
         self,
-        config: Optional[WorkflowConfig] = None,
-        limits: Optional[ResourceLimits] = None,
-        step_registry: Optional[Dict[str, Type[WorkflowStep]]] = None,
-        metrics_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        config: WorkflowConfig | None = None,
+        limits: ResourceLimits | None = None,
+        step_registry: Optional[dict[str, type[WorkflowStep]]] = None,
+        metrics_callback: Optional[Callable[[dict[str, Any]], None]] = None,
     ):
         super().__init__(config, step_registry)
         self._limits = limits or ResourceLimits()
         self._usage = ResourceUsage()
         self._metrics_callback = metrics_callback
-        self._start_time: Optional[float] = None
-        self._parallel_semaphore: Optional[asyncio.Semaphore] = None
+        self._start_time: float | None = None
+        self._parallel_semaphore: asyncio.Semaphore | None = None
 
     @property
     def limits(self) -> ResourceLimits:
@@ -248,8 +241,8 @@ class EnhancedWorkflowEngine(WorkflowEngine):
     async def execute(
         self,
         definition: WorkflowDefinition,
-        inputs: Optional[Dict[str, Any]] = None,
-        workflow_id: Optional[str] = None,
+        inputs: Optional[dict[str, Any]] = None,
+        workflow_id: str | None = None,
     ) -> EnhancedWorkflowResult:
         """
         Execute workflow with resource tracking and limits.
@@ -358,7 +351,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         definition: WorkflowDefinition,
         context: WorkflowContext,
         start_step: str,
-        completed_steps: Set[str],
+        completed_steps: set[str],
     ) -> Any:
         """Execute workflow starting from a specific step with resource tracking."""
         current_step_id: str | None = start_step
@@ -517,7 +510,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 output={"parallel_results": []},
             )
 
-        async def execute_with_semaphore(sub_step_id: str) -> Dict[str, Any]:
+        async def execute_with_semaphore(sub_step_id: str) -> dict[str, Any]:
             semaphore = self._parallel_semaphore
             if semaphore is None:
                 semaphore = asyncio.Semaphore(1)
@@ -623,7 +616,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             except Exception as e:
                 logger.warning(f"Metrics callback failed: {e}")
 
-    def estimate_cost(self, definition: WorkflowDefinition) -> Dict[str, float]:
+    def estimate_cost(self, definition: WorkflowDefinition) -> dict[str, float]:
         """
         Estimate workflow cost before execution.
 
@@ -658,7 +651,6 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                     estimates["total"] += cost
 
         return estimates
-
 
 # Export for convenience
 __all__ = [

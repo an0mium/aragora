@@ -26,6 +26,7 @@ Usage:
         # High confidence - safe to terminate
         pass
 """
+from __future__ import annotations
 
 __all__ = [
     "TerminationChecker",
@@ -49,7 +50,6 @@ logger = logging.getLogger(__name__)
 RLM_HIGH_CONFIDENCE_THRESHOLD = 0.8  # Confidence needed for early termination
 RLM_MIN_CONFIDENCE_FOR_STOP = 0.6  # Minimum confidence to consider stopping
 
-
 @dataclass
 class TerminationResult:
     """Result of a termination check with RLM-style confidence scoring.
@@ -70,7 +70,7 @@ class TerminationResult:
     source: str = "unknown"
     """Source of the decision (judge, early_stop, agent_quorum)."""
 
-    votes: Optional[dict[str, bool]] = None
+    votes: dict[str, bool] | None = None
     """Individual agent votes if applicable."""
 
     @property
@@ -82,7 +82,6 @@ class TerminationResult:
     def should_consider_stopping(self) -> bool:
         """Check if termination should be considered (meets minimum threshold)."""
         return self.should_terminate and self.confidence >= RLM_MIN_CONFIDENCE_FOR_STOP
-
 
 class TerminationChecker:
     """Checks if a debate should terminate early.
@@ -101,7 +100,7 @@ class TerminationChecker:
         generate_fn: Callable[["Agent", str, list["Message"]], Any],
         task: str,
         select_judge_fn: Optional[Callable[[dict[str, str], list["Message"]], Any]] = None,
-        hooks: Optional[dict[str, Callable]] = None,
+        hooks: dict[str, Callable] | None = None,
     ) -> None:
         """Initialize the termination checker.
 

@@ -13,7 +13,7 @@ Phase A2 - Knowledge Quality Assurance
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -30,14 +30,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ConfidenceDecayHandlerProtocol(Protocol):
     """Protocol for handlers that use ConfidenceDecayOperationsMixin."""
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
-
 
 class ConfidenceDecayOperationsMixin:
     """Mixin providing confidence decay API endpoints."""
@@ -162,8 +160,8 @@ class ConfidenceDecayOperationsMixin:
     @rate_limit(requests_per_minute=30)
     async def get_confidence_history(
         self,
-        item_id: Optional[str] = None,
-        event_type: Optional[str] = None,
+        item_id: str | None = None,
+        event_type: str | None = None,
         limit: int = 100,
     ) -> HandlerResult:
         """

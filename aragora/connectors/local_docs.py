@@ -9,6 +9,7 @@ Searches:
 
 Uses simple text search with optional regex support.
 """
+from __future__ import annotations
 
 __all__ = [
     "LocalDocsConnector",
@@ -19,13 +20,11 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 from aragora.connectors.base import BaseConnector, Evidence
-
 
 class LocalDocsConnector(BaseConnector):
     """
@@ -63,7 +62,7 @@ class LocalDocsConnector(BaseConnector):
     def name(self) -> str:
         return "Local Documentation"
 
-    def _get_extensions(self) -> Optional[list[str]]:
+    def _get_extensions(self) -> list[str] | None:
         """Get file extensions to search."""
         return self.EXTENSIONS.get(self.file_types)
 
@@ -249,7 +248,7 @@ class LocalDocsConnector(BaseConnector):
 
         return results[:limit]
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """Fetch file content by path."""
         # Extract path from evidence_id
         if evidence_id.startswith("local:"):

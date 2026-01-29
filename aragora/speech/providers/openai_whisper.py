@@ -18,14 +18,13 @@ from aragora.speech.providers.base import (
     TranscriptionSegment,
 )
 
-
 class OpenAIWhisperProvider(STTProvider):
     """Speech-to-text provider using OpenAI's Whisper API."""
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        config: Optional[STTProviderConfig] = None,
+        api_key: str | None = None,
+        config: STTProviderConfig | None = None,
     ):
         super().__init__(config)
         self._api_key = api_key or os.getenv("OPENAI_API_KEY")
@@ -65,8 +64,8 @@ class OpenAIWhisperProvider(STTProvider):
     async def transcribe(
         self,
         audio_file: Path | BinaryIO,
-        language: Optional[str] = None,
-        prompt: Optional[str] = None,
+        language: str | None = None,
+        prompt: str | None = None,
     ) -> TranscriptionResult:
         """
         Transcribe audio using OpenAI Whisper API.

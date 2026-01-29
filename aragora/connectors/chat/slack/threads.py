@@ -10,7 +10,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,6 @@ from aragora.connectors.chat.models import (
     ChatMessage,
     ChatUser,
 )
-
 
 class SlackThreadManager:
     """
@@ -91,8 +90,8 @@ class SlackThreadManager:
         )
 
     async def get_thread_messages(
-        self, thread_ts: str, channel_id: str, limit: int = 50, cursor: Optional[str] = None
-    ) -> tuple[list[ChatMessage], Optional[str]]:
+        self, thread_ts: str, channel_id: str, limit: int = 50, cursor: str | None = None
+    ) -> tuple[list[ChatMessage], str | None]:
         """Get all messages in a thread with pagination."""
         if not HTTPX_AVAILABLE:
             return [], None
@@ -139,8 +138,8 @@ class SlackThreadManager:
         return messages, next_cursor if next_cursor else None
 
     async def list_threads(
-        self, channel_id: str, limit: int = 20, cursor: Optional[str] = None
-    ) -> tuple[list["ThreadInfo"], Optional[str]]:
+        self, channel_id: str, limit: int = 20, cursor: str | None = None
+    ) -> tuple[list["ThreadInfo"], str | None]:
         """List threads in a channel."""
         from aragora.connectors.chat.thread_manager import ThreadInfo
 
@@ -258,7 +257,7 @@ class SlackThreadManager:
         from aragora.connectors.chat.thread_manager import ThreadStats
 
         all_messages: list[ChatMessage] = []
-        cursor: Optional[str] = None
+        cursor: str | None = None
         while True:
             messages, next_cursor = await self.get_thread_messages(
                 thread_ts, channel_id, limit=200, cursor=cursor
@@ -292,7 +291,7 @@ class SlackThreadManager:
         from aragora.connectors.chat.thread_manager import ThreadParticipant
 
         all_messages: list[ChatMessage] = []
-        cursor: Optional[str] = None
+        cursor: str | None = None
         while True:
             messages, next_cursor = await self.get_thread_messages(
                 thread_ts, channel_id, limit=200, cursor=cursor

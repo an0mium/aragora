@@ -40,15 +40,13 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, TypeVar, cast
+from typing import Any, Callable, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Configuration
 # =============================================================================
-
 
 @dataclass
 class RequestTimeoutConfig:
@@ -64,7 +62,7 @@ class RequestTimeoutConfig:
     max_timeout: float = float(os.environ.get("ARAGORA_MAX_REQUEST_TIMEOUT", "600"))
 
     # Per-endpoint timeout overrides
-    endpoint_timeouts: Dict[str, float] = field(default_factory=dict)
+    endpoint_timeouts: dict[str, float] = field(default_factory=dict)
 
     def get_timeout(self, path: str) -> float:
         """Get timeout for a specific endpoint path.
@@ -97,10 +95,8 @@ class RequestTimeoutConfig:
 
         return min(self.default_timeout, self.max_timeout)
 
-
 # Global config instance
-_timeout_config: Optional[RequestTimeoutConfig] = None
-
+_timeout_config: RequestTimeoutConfig | None = None
 
 def get_timeout_config() -> RequestTimeoutConfig:
     """Get or create the global timeout configuration."""
@@ -109,12 +105,11 @@ def get_timeout_config() -> RequestTimeoutConfig:
         _timeout_config = RequestTimeoutConfig()
     return _timeout_config
 
-
 def configure_timeout(
-    default_timeout: Optional[float] = None,
-    slow_timeout: Optional[float] = None,
-    max_timeout: Optional[float] = None,
-    endpoint_overrides: Optional[Dict[str, float]] = None,
+    default_timeout: float | None = None,
+    slow_timeout: float | None = None,
+    max_timeout: float | None = None,
+    endpoint_overrides: Optional[dict[str, float]] = None,
 ) -> RequestTimeoutConfig:
     """Configure request timeout settings.
 
@@ -142,11 +137,9 @@ def configure_timeout(
     _timeout_config = config
     return config
 
-
 # =============================================================================
 # Timeout Error
 # =============================================================================
-
 
 class RequestTimeoutError(Exception):
     """Exception raised when a request times out."""
@@ -161,14 +154,12 @@ class RequestTimeoutError(Exception):
         self.path = path
         super().__init__(f"{message} (timeout={timeout}s, path={path})")
 
-
 # =============================================================================
 # Sync Timeout Implementation
 # =============================================================================
 
 # Thread pool for running sync functions with timeout
-_executor: Optional[ThreadPoolExecutor] = None
-
+_executor: ThreadPoolExecutor | None = None
 
 def get_executor() -> ThreadPoolExecutor:
     """Get or create thread pool executor for timeout handling."""
@@ -180,7 +171,6 @@ def get_executor() -> ThreadPoolExecutor:
         )
     return _executor
 
-
 def shutdown_executor() -> None:
     """Shutdown the timeout executor gracefully."""
     global _executor
@@ -188,12 +178,10 @@ def shutdown_executor() -> None:
         _executor.shutdown(wait=False)
         _executor = None
 
-
 F = TypeVar("F", bound=Callable[..., Any])
 
-
 def with_timeout(
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
     error_response: Optional[Callable[[float, str], Any]] = None,
 ) -> Callable[[F], F]:
     """
@@ -263,14 +251,12 @@ def with_timeout(
 
     return decorator
 
-
 # =============================================================================
 # Async Timeout Implementation
 # =============================================================================
 
-
 def async_with_timeout(
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
     error_response: Optional[Callable[[float, str], Any]] = None,
 ) -> Callable[[F], F]:
     """
@@ -336,11 +322,9 @@ def async_with_timeout(
 
     return decorator
 
-
 # =============================================================================
 # Context Manager Style
 # =============================================================================
-
 
 @contextmanager
 def timeout_context(
@@ -382,13 +366,11 @@ def timeout_context(
         logger.debug("timeout_context: signal.alarm not available on Windows")
         yield
 
-
 # =============================================================================
 # Health Check
 # =============================================================================
 
-
-def get_timeout_stats() -> Dict[str, Any]:
+def get_timeout_stats() -> dict[str, Any]:
     """Get statistics about timeout configuration and state."""
     config = get_timeout_config()
 
@@ -408,7 +390,6 @@ def get_timeout_stats() -> Dict[str, Any]:
         },
         "executor": executor_stats,
     }
-
 
 # =============================================================================
 # Exports

@@ -16,7 +16,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -41,7 +41,6 @@ DEFAULT_TIMESTAMP_COLUMNS = ["updated_at", "modified_at", "last_modified", "time
 import re
 
 _SAFE_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
-
 
 def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> str:
     """
@@ -68,7 +67,6 @@ def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> 
         )
     return name
 
-
 class SQLServerConnector(EnterpriseConnector):
     """
     SQL Server connector for enterprise data sync.
@@ -87,10 +85,10 @@ class SQLServerConnector(EnterpriseConnector):
         port: int = 1433,
         database: str = "master",
         schema: str = "dbo",
-        tables: Optional[List[str]] = None,
-        timestamp_column: Optional[str] = None,
+        tables: Optional[list[str]] = None,
+        timestamp_column: str | None = None,
         primary_key_column: str = "id",
-        content_columns: Optional[List[str]] = None,
+        content_columns: Optional[list[str]] = None,
         use_cdc: bool = False,  # Use SQL Server CDC
         use_change_tracking: bool = False,  # Use Change Tracking
         poll_interval_seconds: int = 5,
@@ -115,11 +113,11 @@ class SQLServerConnector(EnterpriseConnector):
 
         self._pool = None
         self._cdc_task: Optional[asyncio.Task[None]] = None
-        self._last_lsn: Optional[bytes] = None  # Last processed LSN for CDC
+        self._last_lsn: bytes | None = None  # Last processed LSN for CDC
 
         # CDC support
-        self._cdc_manager: Optional[CDCStreamManager] = None
-        self._change_handlers: List[ChangeEventHandler] = []
+        self._cdc_manager: CDCStreamManager | None = None
+        self._change_handlers: list[ChangeEventHandler] = []
 
     @property
     def cdc_manager(self) -> CDCStreamManager:
@@ -180,7 +178,7 @@ class SQLServerConnector(EnterpriseConnector):
             logger.error("aioodbc not installed. Run: pip install aioodbc")
             raise
 
-    async def _discover_tables(self) -> List[str]:
+    async def _discover_tables(self) -> list[str]:
         """Discover tables in the schema."""
         pool = await self._get_pool()
 
@@ -199,7 +197,7 @@ class SQLServerConnector(EnterpriseConnector):
                 rows = await cursor.fetchall()
                 return [row[0] for row in rows]
 
-    async def _get_table_columns(self, table: str) -> List[Dict[str, Any]]:
+    async def _get_table_columns(self, table: str) -> list[dict[str, Any]]:
         """Get column information for a table."""
         pool = await self._get_pool()
 
@@ -225,7 +223,7 @@ class SQLServerConnector(EnterpriseConnector):
                     for row in rows
                 ]
 
-    def _find_timestamp_column(self, columns: List[Dict[str, Any]]) -> Optional[str]:
+    def _find_timestamp_column(self, columns: list[dict[str, Any]]) -> str | None:
         """Find a suitable timestamp column for incremental sync."""
         if self.timestamp_column:
             return self.timestamp_column
@@ -236,7 +234,7 @@ class SQLServerConnector(EnterpriseConnector):
                 return candidate
         return None
 
-    def _row_to_content(self, row: Dict[str, Any], columns: Optional[List[str]] = None) -> str:
+    def _row_to_content(self, row: dict[str, Any], columns: Optional[list[str]] = None) -> str:
         """Convert a row to text content for indexing."""
         if columns:
             filtered = {k: v for k, v in row.items() if k in columns}
@@ -254,7 +252,7 @@ class SQLServerConnector(EnterpriseConnector):
 
         return "\n".join(parts)
 
-    async def sync_items(self, state: Optional[SyncState] = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
+    async def sync_items(self, state: SyncState | None = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync items from SQL Server tables.
 
@@ -327,7 +325,7 @@ class SQLServerConnector(EnterpriseConnector):
         For full-text search, tables should have full-text indexes.
         """
         pool = await self._get_pool()
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         tables = self.tables or await self._discover_tables()
 
@@ -665,7 +663,7 @@ class SQLServerConnector(EnterpriseConnector):
             await self._pool.wait_closed()
             self._pool = None
 
-    async def health_check(self) -> Dict[str, Any]:  # type: ignore[override]
+    async def health_check(self) -> dict[str, Any]:  # type: ignore[override]
         """Check SQL Server connection health."""
         try:
             pool = await self._get_pool()

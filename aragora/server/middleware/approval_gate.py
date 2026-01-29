@@ -42,7 +42,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar, ParamSpec
+from typing import Any, Callable, Optional, TypeVar, ParamSpec
 
 from aragora.rbac.models import AuthorizationContext
 
@@ -51,7 +51,6 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 T = TypeVar("T")
 
-
 class OperationRiskLevel(Enum):
     """Risk level for operations requiring approval."""
 
@@ -59,7 +58,6 @@ class OperationRiskLevel(Enum):
     MEDIUM = "medium"  # Requires single approver
     HIGH = "high"  # Requires approval with checklist
     CRITICAL = "critical"  # Requires multi-approver or escalation
-
 
 class ApprovalState(Enum):
     """State of an approval request."""
@@ -70,7 +68,6 @@ class ApprovalState(Enum):
     EXPIRED = "expired"
     ESCALATED = "escalated"
 
-
 @dataclass
 class ApprovalChecklistItem:
     """A checklist item for approval."""
@@ -78,7 +75,6 @@ class ApprovalChecklistItem:
     label: str
     required: bool = True
     checked: bool = False
-
 
 @dataclass
 class OperationApprovalRequest:
@@ -88,22 +84,22 @@ class OperationApprovalRequest:
     operation: str
     risk_level: OperationRiskLevel
     requester_id: str
-    requester_email: Optional[str] = None
-    org_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    requester_email: str | None = None
+    org_id: str | None = None
+    workspace_id: str | None = None
     resource_type: str = ""
     resource_id: str = ""
     description: str = ""
-    checklist: List[ApprovalChecklistItem] = field(default_factory=list)
-    context: Dict[str, Any] = field(default_factory=dict)
+    checklist: list[ApprovalChecklistItem] = field(default_factory=list)
+    context: dict[str, Any] = field(default_factory=dict)
     state: ApprovalState = ApprovalState.PENDING
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
-    rejection_reason: Optional[str] = None
+    expires_at: datetime | None = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    rejection_reason: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -129,14 +125,12 @@ class OperationApprovalRequest:
             "rejection_reason": self.rejection_reason,
         }
 
-
 class ApprovalPendingError(Exception):
     """Raised when operation requires approval that is pending."""
 
     def __init__(self, request: OperationApprovalRequest):
         self.request = request
         super().__init__(f"Operation '{request.operation}' requires approval (ID: {request.id})")
-
 
 class ApprovalDeniedError(Exception):
     """Raised when approval was denied."""
@@ -146,10 +140,8 @@ class ApprovalDeniedError(Exception):
         self.reason = reason
         super().__init__(f"Operation '{request.operation}' was denied: {reason}")
 
-
 # In-memory storage for pending approvals (should use GovernanceStore in production)
-_pending_approvals: Dict[str, OperationApprovalRequest] = {}
-
+_pending_approvals: dict[str, OperationApprovalRequest] = {}
 
 async def create_approval_request(
     operation: str,
@@ -158,8 +150,8 @@ async def create_approval_request(
     resource_type: str = "",
     resource_id: str = "",
     description: str = "",
-    checklist: Optional[List[str]] = None,
-    context: Optional[Dict[str, Any]] = None,
+    checklist: Optional[list[str]] = None,
+    context: Optional[dict[str, Any]] = None,
     timeout_hours: float = 24.0,
 ) -> OperationApprovalRequest:
     """
@@ -215,8 +207,7 @@ async def create_approval_request(
 
     return request
 
-
-async def get_approval_request(request_id: str) -> Optional[OperationApprovalRequest]:
+async def get_approval_request(request_id: str) -> OperationApprovalRequest | None:
     """Get an approval request by ID."""
     # Check in-memory first
     if request_id in _pending_approvals:
@@ -225,12 +216,11 @@ async def get_approval_request(request_id: str) -> Optional[OperationApprovalReq
     # Try to recover from governance store
     return await _recover_approval_request(request_id)
 
-
 async def resolve_approval(
     request_id: str,
     approved: bool,
     approver_id: str,
-    checklist_status: Optional[Dict[str, bool]] = None,
+    checklist_status: Optional[dict[str, bool]] = None,
     rejection_reason: str = "",
 ) -> bool:
     """
@@ -299,11 +289,10 @@ async def resolve_approval(
 
     return True
 
-
 async def get_pending_approvals(
-    org_id: Optional[str] = None,
-    requester_id: Optional[str] = None,
-) -> List[OperationApprovalRequest]:
+    org_id: str | None = None,
+    requester_id: str | None = None,
+) -> list[OperationApprovalRequest]:
     """Get pending approval requests."""
     results = []
 
@@ -328,15 +317,14 @@ async def get_pending_approvals(
 
     return results
 
-
 def require_approval(
     operation: str,
     risk_level: OperationRiskLevel = OperationRiskLevel.HIGH,
-    checklist: Optional[List[str]] = None,
+    checklist: Optional[list[str]] = None,
     description: str = "",
-    resource_type_param: Optional[str] = None,
-    resource_id_param: Optional[str] = None,
-    auto_approve_roles: Optional[set[str]] = None,
+    resource_type_param: str | None = None,
+    resource_id_param: str | None = None,
+    auto_approve_roles: set[str] | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator to require approval for a sensitive operation.
@@ -439,11 +427,9 @@ def require_approval(
 
     return decorator
 
-
 # =============================================================================
 # Internal Helpers
 # =============================================================================
-
 
 async def _persist_approval_request(request: OperationApprovalRequest) -> None:
     """Persist approval request to governance store.
@@ -495,8 +481,7 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
             )
         logger.warning(f"Failed to persist approval request: {e}")
 
-
-async def _recover_approval_request(request_id: str) -> Optional[OperationApprovalRequest]:
+async def _recover_approval_request(request_id: str) -> OperationApprovalRequest | None:
     """Try to recover approval request from governance store."""
     try:
         from aragora.storage.governance_store import get_governance_store
@@ -552,7 +537,6 @@ async def _recover_approval_request(request_id: str) -> Optional[OperationApprov
         logger.warning(f"Failed to recover approval request {request_id}: {e}")
         return None
 
-
 async def _update_approval_state(request: OperationApprovalRequest) -> None:
     """Update approval state in governance store."""
     try:
@@ -568,7 +552,6 @@ async def _update_approval_state(request: OperationApprovalRequest) -> None:
     except Exception as e:
         logger.warning(f"Failed to update approval state: {e}")
 
-
 def _record_approval_request_created(request: OperationApprovalRequest) -> None:
     """Record metrics for approval request creation."""
     try:
@@ -580,7 +563,6 @@ def _record_approval_request_created(request: OperationApprovalRequest) -> None:
         pass
     except (AttributeError, TypeError, RuntimeError) as e:
         logger.warning(f"Failed to record approval creation metric: {e}")
-
 
 def _record_approval_resolved(request: OperationApprovalRequest) -> None:
     """Record metrics and audit for approval resolution."""
@@ -616,11 +598,9 @@ def _record_approval_resolved(request: OperationApprovalRequest) -> None:
     except (RuntimeError, TypeError) as e:
         logger.warning(f"Failed to create audit task for approval: {e}")
 
-
 # =============================================================================
 # Startup Recovery
 # =============================================================================
-
 
 async def recover_pending_approvals() -> int:
     """
@@ -707,11 +687,9 @@ async def recover_pending_approvals() -> int:
         logger.warning(f"Failed to recover pending approvals: {e}")
         return 0
 
-
 # =============================================================================
 # Exports
 # =============================================================================
-
 
 __all__ = [
     "ApprovalChecklistItem",

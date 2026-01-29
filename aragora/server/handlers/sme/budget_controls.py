@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ..base import (
     error_response,
@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter for budget APIs (60 requests per minute)
 _budget_limiter = RateLimiter(requests_per_minute=60)
-
 
 class BudgetControlsHandler(SecureHandler):
     """Handler for budget control endpoints.
@@ -68,7 +67,7 @@ class BudgetControlsHandler(SecureHandler):
                 return True
         return False
 
-    def _match_route(self, path: str) -> tuple[Optional[str], Optional[str]]:
+    def _match_route(self, path: str) -> tuple[str | None, str | None]:
         """Match a path against parameterized routes.
 
         Returns:
@@ -86,7 +85,7 @@ class BudgetControlsHandler(SecureHandler):
         query_params: dict,
         handler,
         method: str = "GET",
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route budget control requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -361,7 +360,7 @@ class BudgetControlsHandler(SecureHandler):
             return error_response("Invalid JSON body", 400)
 
         # Build update kwargs
-        update_kwargs: Dict[str, Any] = {}
+        update_kwargs: dict[str, Any] = {}
 
         if "name" in data:
             update_kwargs["name"] = data["name"]
@@ -684,6 +683,5 @@ class BudgetControlsHandler(SecureHandler):
                 "budget": budget.to_dict(),
             }
         )
-
 
 __all__ = ["BudgetControlsHandler"]

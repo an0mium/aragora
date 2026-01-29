@@ -57,7 +57,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Re-export types for backward compatibility
 from aragora.observability.log_types import (
@@ -96,7 +96,6 @@ __all__ = [
     "init_audit_log",
 ]
 
-
 class ImmutableAuditLog:
     """
     Main interface for immutable audit logging.
@@ -114,12 +113,12 @@ class ImmutableAuditLog:
     def __init__(
         self,
         backend: AuditLogBackend,
-        signing_key: Optional[bytes] = None,
+        signing_key: bytes | None = None,
     ):
         self.backend = backend
         self.signing_key = signing_key
         self._lock = asyncio.Lock()
-        self._last_entry: Optional[AuditEntry] = None
+        self._last_entry: AuditEntry | None = None
         self._initialized = False
 
     async def _ensure_initialized(self) -> None:
@@ -153,7 +152,7 @@ class ImmutableAuditLog:
 
         return hashes[0]
 
-    def _sign_entry(self, entry: AuditEntry) -> Optional[str]:
+    def _sign_entry(self, entry: AuditEntry) -> str | None:
         """Sign entry hash with HMAC if signing key is configured."""
         if not self.signing_key:
             return None
@@ -176,11 +175,11 @@ class ImmutableAuditLog:
         resource_id: str,
         action: str,
         actor_type: str = "user",
-        details: Optional[dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
+        workspace_id: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> AuditEntry:
         """
         Append a new entry to the immutable log.
@@ -251,8 +250,8 @@ class ImmutableAuditLog:
 
     async def verify_integrity(
         self,
-        start_sequence: Optional[int] = None,
-        end_sequence: Optional[int] = None,
+        start_sequence: int | None = None,
+        end_sequence: int | None = None,
     ) -> VerificationResult:
         """
         Verify the integrity of the hash chain.
@@ -269,7 +268,7 @@ class ImmutableAuditLog:
         start_time = time.time()
         errors: list[str] = []
         warnings: list[str] = []
-        first_error_seq: Optional[int] = None
+        first_error_seq: int | None = None
 
         # Determine range
         if start_sequence is None:
@@ -354,7 +353,7 @@ class ImmutableAuditLog:
             verification_time_ms=elapsed_ms,
         )
 
-    async def create_daily_anchor(self, date: Optional[str] = None) -> Optional[DailyAnchor]:
+    async def create_daily_anchor(self, date: str | None = None) -> DailyAnchor | None:
         """
         Create a daily anchor for external verification.
 
@@ -471,13 +470,13 @@ class ImmutableAuditLog:
 
     async def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
-        actors: Optional[list[str]] = None,
-        resource_types: Optional[list[str]] = None,
-        resource_ids: Optional[list[str]] = None,
-        workspace_id: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
+        actors: list[str] | None = None,
+        resource_types: list[str] | None = None,
+        resource_ids: list[str] | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditEntry]:
@@ -515,7 +514,7 @@ class ImmutableAuditLog:
         start_time: datetime,
         end_time: datetime,
         format: str = "json",
-        path: Optional[str] = None,
+        path: str | None = None,
     ) -> str | bytes:
         """
         Export audit entries for compliance reporting.
@@ -571,8 +570,8 @@ class ImmutableAuditLog:
 
     async def get_statistics(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> dict[str, Any]:
         """
         Get audit log statistics.
@@ -596,11 +595,9 @@ class ImmutableAuditLog:
             "last_entry_hash": last_entry.entry_hash if last_entry else None,
         }
 
-
 # Global instance
-_audit_log: Optional[ImmutableAuditLog] = None
+_audit_log: ImmutableAuditLog | None = None
 _lock = threading.Lock()
-
 
 def get_audit_log() -> ImmutableAuditLog:
     """Get the global audit log instance."""
@@ -625,10 +622,9 @@ def get_audit_log() -> ImmutableAuditLog:
 
     return _audit_log
 
-
 def init_audit_log(
     backend: AuditBackend = AuditBackend.LOCAL,
-    signing_key: Optional[bytes] = None,
+    signing_key: bytes | None = None,
     **backend_kwargs: Any,
 ) -> ImmutableAuditLog:
     """
@@ -666,7 +662,6 @@ def init_audit_log(
 
     return _audit_log
 
-
 # Convenience functions for common audit events
 async def audit_finding_created(
     finding_id: str,
@@ -687,7 +682,6 @@ async def audit_finding_created(
         details={"severity": severity, "category": category, **kwargs},
     )
 
-
 async def audit_finding_updated(
     finding_id: str,
     actor: str,
@@ -703,7 +697,6 @@ async def audit_finding_updated(
         action="update",
         details={"changes": changes, **kwargs},
     )
-
 
 async def audit_document_uploaded(
     document_id: str,
@@ -723,7 +716,6 @@ async def audit_document_uploaded(
         details={"filename": filename, **kwargs},
     )
 
-
 async def audit_document_accessed(
     document_id: str,
     actor: str,
@@ -739,7 +731,6 @@ async def audit_document_accessed(
         action=access_type,
         details=kwargs,
     )
-
 
 async def audit_session_started(
     session_id: str,
@@ -758,7 +749,6 @@ async def audit_session_started(
         workspace_id=workspace_id,
         details={"session_type": session_type, **kwargs},
     )
-
 
 async def audit_data_exported(
     export_id: str,

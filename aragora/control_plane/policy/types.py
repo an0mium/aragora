@@ -10,8 +10,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 class PolicyScope(Enum):
     """Scope of a control plane policy."""
@@ -22,14 +21,12 @@ class PolicyScope(Enum):
     REGION = "region"  # Applies to specific regions
     WORKSPACE = "workspace"  # Applies to specific workspaces
 
-
 class EnforcementLevel(Enum):
     """How strictly a policy is enforced."""
 
     WARN = "warn"  # Log warning but allow
     SOFT = "soft"  # Deny but allow override
     HARD = "hard"  # Deny with no override
-
 
 class PolicyDecision(Enum):
     """Result of a policy evaluation."""
@@ -38,7 +35,6 @@ class PolicyDecision(Enum):
     DENY = "deny"
     WARN = "warn"
     ESCALATE = "escalate"
-
 
 class PolicyViolationError(Exception):
     """Raised when task violates HARD enforcement policy."""
@@ -55,7 +51,6 @@ class PolicyViolationError(Exception):
         self.agent_id = agent_id
         self.region = region
         super().__init__(f"Policy violation ({result.enforcement_level.value}): {result.reason}")
-
 
 @dataclass
 class SLARequirements:
@@ -83,7 +78,7 @@ class SLARequirements:
         """Check if queue time is within SLA."""
         return wait_seconds <= self.max_queue_seconds
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
             "max_execution_seconds": self.max_execution_seconds,
@@ -94,7 +89,7 @@ class SLARequirements:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SLARequirements":
+    def from_dict(cls, data: dict[str, Any]) -> "SLARequirements":
         """Deserialize from dict."""
         return cls(
             max_execution_seconds=data.get("max_execution_seconds", 300.0),
@@ -103,7 +98,6 @@ class SLARequirements:
             max_concurrent_tasks=data.get("max_concurrent_tasks", 5),
             response_time_p99_ms=data.get("response_time_p99_ms", 5000.0),
         )
-
 
 @dataclass
 class RegionConstraint:
@@ -116,12 +110,12 @@ class RegionConstraint:
         allow_cross_region: Whether cross-region execution is allowed
     """
 
-    allowed_regions: List[str] = field(default_factory=list)
-    blocked_regions: List[str] = field(default_factory=list)
+    allowed_regions: list[str] = field(default_factory=list)
+    blocked_regions: list[str] = field(default_factory=list)
     require_data_residency: bool = False
     allow_cross_region: bool = True
 
-    def is_region_allowed(self, region: str, data_region: Optional[str] = None) -> bool:
+    def is_region_allowed(self, region: str, data_region: str | None = None) -> bool:
         """Check if a region is allowed for execution."""
         # Check explicit block list
         if region in self.blocked_regions:
@@ -137,7 +131,7 @@ class RegionConstraint:
 
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
             "allowed_regions": self.allowed_regions,
@@ -147,7 +141,7 @@ class RegionConstraint:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RegionConstraint":
+    def from_dict(cls, data: dict[str, Any]) -> "RegionConstraint":
         """Deserialize from dict."""
         return cls(
             allowed_regions=data.get("allowed_regions", []),
@@ -155,7 +149,6 @@ class RegionConstraint:
             require_data_residency=data.get("require_data_residency", False),
             allow_cross_region=data.get("allow_cross_region", True),
         )
-
 
 @dataclass
 class ControlPlanePolicy:
@@ -173,19 +166,19 @@ class ControlPlanePolicy:
 
     # Scope - what this policy applies to
     scope: PolicyScope = PolicyScope.GLOBAL
-    task_types: List[str] = field(default_factory=list)  # Empty = all
-    capabilities: List[str] = field(default_factory=list)  # Empty = all
-    workspaces: List[str] = field(default_factory=list)  # Empty = all
+    task_types: list[str] = field(default_factory=list)  # Empty = all
+    capabilities: list[str] = field(default_factory=list)  # Empty = all
+    workspaces: list[str] = field(default_factory=list)  # Empty = all
 
     # Agent restrictions
-    agent_allowlist: List[str] = field(default_factory=list)  # Empty = all
-    agent_blocklist: List[str] = field(default_factory=list)
+    agent_allowlist: list[str] = field(default_factory=list)  # Empty = all
+    agent_blocklist: list[str] = field(default_factory=list)
 
     # Region constraints
-    region_constraint: Optional[RegionConstraint] = None
+    region_constraint: RegionConstraint | None = None
 
     # SLA requirements
-    sla: Optional[SLARequirements] = None
+    sla: SLARequirements | None = None
 
     # Enforcement
     enforcement_level: EnforcementLevel = EnforcementLevel.HARD
@@ -194,21 +187,21 @@ class ControlPlanePolicy:
 
     # Versioning
     version: int = 1
-    updated_at: Optional[datetime] = None
-    updated_by: Optional[str] = None
-    previous_version_id: Optional[str] = None  # Link to previous version
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+    previous_version_id: str | None = None  # Link to previous version
 
     # Metadata
     id: str = field(default_factory=lambda: f"policy_{uuid.uuid4().hex[:12]}")
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_by: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def matches(
         self,
-        task_type: Optional[str] = None,
-        capability: Optional[str] = None,
-        workspace: Optional[str] = None,
+        task_type: str | None = None,
+        capability: str | None = None,
+        workspace: str | None = None,
     ) -> bool:
         """Check if this policy applies to the given context."""
         if not self.enabled:
@@ -240,13 +233,13 @@ class ControlPlanePolicy:
 
         return True
 
-    def is_region_allowed(self, region: str, data_region: Optional[str] = None) -> bool:
+    def is_region_allowed(self, region: str, data_region: str | None = None) -> bool:
         """Check if a region is allowed by this policy."""
         if not self.region_constraint:
             return True
         return self.region_constraint.is_region_allowed(region, data_region)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
             "id": self.id,
@@ -275,7 +268,7 @@ class ControlPlanePolicy:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ControlPlanePolicy":
+    def from_dict(cls, data: dict[str, Any]) -> "ControlPlanePolicy":
         """Deserialize from dict."""
         region_constraint = None
         if data.get("region_constraint"):
@@ -311,7 +304,6 @@ class ControlPlanePolicy:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class PolicyEvaluationResult:
     """Result of evaluating a policy."""
@@ -325,12 +317,12 @@ class PolicyEvaluationResult:
     evaluated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Context
-    task_type: Optional[str] = None
-    agent_id: Optional[str] = None
-    region: Optional[str] = None
-    sla_violation: Optional[str] = None
+    task_type: str | None = None
+    agent_id: str | None = None
+    region: str | None = None
+    sla_violation: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
             "decision": self.decision.value,
@@ -346,7 +338,6 @@ class PolicyEvaluationResult:
             "sla_violation": self.sla_violation,
         }
 
-
 @dataclass
 class PolicyViolation:
     """A policy violation record."""
@@ -356,16 +347,16 @@ class PolicyViolation:
     policy_name: str
     violation_type: str  # "agent", "region", "sla"
     description: str
-    task_id: Optional[str] = None
-    task_type: Optional[str] = None
-    agent_id: Optional[str] = None
-    region: Optional[str] = None
-    workspace_id: Optional[str] = None
+    task_id: str | None = None
+    task_type: str | None = None
+    agent_id: str | None = None
+    region: str | None = None
+    workspace_id: str | None = None
     enforcement_level: EnforcementLevel = EnforcementLevel.HARD
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
             "id": self.id,

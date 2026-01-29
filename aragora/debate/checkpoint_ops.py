@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class CheckpointOperations:
     """Manages checkpoint and memory operations for Arena debates.
 
@@ -103,7 +102,7 @@ class CheckpointOperations:
         self,
         result: "DebateResult",
         task: str,
-        belief_cruxes: Optional[list[str]] = None,
+        belief_cruxes: list[str] | None = None,
     ) -> None:
         """Store debate outcome in ContinuumMemory for future retrieval.
 
@@ -144,6 +143,5 @@ class CheckpointOperations:
         self.memory_manager.update_memory_outcomes(result)
         # Clear local tracking
         self._cache.clear_continuum_tracking()
-
 
 __all__ = ["CheckpointOperations"]

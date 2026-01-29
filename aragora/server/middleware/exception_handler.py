@@ -38,12 +38,11 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable, Optional, TypeVar, cast
+from typing import Any, AsyncGenerator, Callable, TypeVar, cast
 
 from aragora.server.errors import safe_error_message
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Exception to HTTP Status Code Mapping
@@ -145,7 +144,6 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "OperationalError": 503,
 }
 
-
 def map_exception_to_status(exc: Exception, default: int = 500) -> int:
     """
     Map an exception to its appropriate HTTP status code.
@@ -176,16 +174,13 @@ def map_exception_to_status(exc: Exception, default: int = 500) -> int:
 
     return default
 
-
 def generate_trace_id() -> str:
     """Generate a unique trace ID for request tracking."""
     return str(uuid.uuid4())[:8]
 
-
 # =============================================================================
 # Error Response Builder
 # =============================================================================
-
 
 @dataclass
 class ErrorResponse:
@@ -216,11 +211,10 @@ class ErrorResponse:
             {"X-Trace-Id": self.trace_id},
         )
 
-
 def build_error_response(
     exc: Exception,
     context: str,
-    trace_id: Optional[str] = None,
+    trace_id: str | None = None,
     default_status: int = 500,
 ) -> ErrorResponse:
     """
@@ -249,11 +243,9 @@ def build_error_response(
         context=context,
     )
 
-
 # =============================================================================
 # Exception Handler Context Manager
 # =============================================================================
-
 
 class ExceptionHandler:
     """
@@ -280,8 +272,8 @@ class ExceptionHandler:
         self.log_level = log_level
         self.include_traceback = include_traceback
         self.trace_id = generate_trace_id()
-        self.error: Optional[ErrorResponse] = None
-        self.exception: Optional[Exception] = None
+        self.error: ErrorResponse | None = None
+        self.exception: Exception | None = None
         self.result: Any = None
         self.start_time: float = 0
 
@@ -291,8 +283,8 @@ class ExceptionHandler:
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[Exception],
+        exc_type: type | None,
+        exc_val: Exception | None,
         exc_tb: Any,
     ) -> bool:
         if exc_val is not None:
@@ -329,7 +321,7 @@ class ExceptionHandler:
         logger.debug(f"[{self.trace_id}] {self.context}: success in {duration_ms}ms")
 
     @property
-    def error_response(self) -> Optional[dict[str, Any]]:
+    def error_response(self) -> dict[str, Any] | None:
         """Get error response dict if error occurred."""
         return self.error.to_dict() if self.error else None
 
@@ -337,7 +329,6 @@ class ExceptionHandler:
     def status_code(self) -> int:
         """Get HTTP status code (200 if success, error status otherwise)."""
         return self.error.status if self.error else 200
-
 
 @asynccontextmanager
 async def async_exception_handler(
@@ -375,13 +366,11 @@ async def async_exception_handler(
         else:
             logger.info(log_msg)
 
-
 # =============================================================================
 # Decorator-based Exception Handling
 # =============================================================================
 
 F = TypeVar("F", bound=Callable[..., Any])
-
 
 def handle_exceptions(
     context: str,
@@ -447,7 +436,6 @@ def handle_exceptions(
 
     return decorator
 
-
 def async_handle_exceptions(
     context: str,
     default_status: int = 500,
@@ -498,23 +486,19 @@ def async_handle_exceptions(
 
     return decorator
 
-
 # =============================================================================
 # Exception Type Checker Utilities
 # =============================================================================
-
 
 def is_client_error(exc: Exception) -> bool:
     """Check if exception represents a client error (4xx)."""
     status = map_exception_to_status(exc, 500)
     return 400 <= status < 500
 
-
 def is_server_error(exc: Exception) -> bool:
     """Check if exception represents a server error (5xx)."""
     status = map_exception_to_status(exc, 500)
     return status >= 500
-
 
 def is_retryable(exc: Exception) -> bool:
     """
@@ -529,12 +513,10 @@ def is_retryable(exc: Exception) -> bool:
     status = map_exception_to_status(exc, 500)
     return status in (429, 502, 503, 504)
 
-
 def is_authentication_error(exc: Exception) -> bool:
     """Check if exception is an authentication/authorization error."""
     status = map_exception_to_status(exc, 500)
     return status in (401, 403)
-
 
 # =============================================================================
 # Exports

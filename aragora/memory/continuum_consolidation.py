@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING
 
 from aragora.memory.tier_manager import DEFAULT_TIER_CONFIGS, MemoryTier
 
@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemory
 
 logger = logging.getLogger(__name__)
-
 
 def emit_tier_event(
     cms: "ContinuumMemory",
@@ -64,12 +63,11 @@ def emit_tier_event(
         # Network/IO errors during event emission - non-critical
         logger.debug(f"[memory] Event emission network error: {e}")
 
-
 def promote_batch(
     cms: "ContinuumMemory",
     from_tier: MemoryTier,
     to_tier: MemoryTier,
-    ids: List[str],
+    ids: list[str],
 ) -> int:
     """
     Batch promote memories from one tier to another.
@@ -146,12 +144,11 @@ def promote_batch(
 
     return promoted_count
 
-
 def demote_batch(
     cms: "ContinuumMemory",
     from_tier: MemoryTier,
     to_tier: MemoryTier,
-    ids: List[str],
+    ids: list[str],
 ) -> int:
     """
     Batch demote memories from one tier to another.
@@ -222,8 +219,7 @@ def demote_batch(
 
     return demoted_count
 
-
-def consolidate(cms: "ContinuumMemory") -> Dict[str, int]:
+def consolidate(cms: "ContinuumMemory") -> dict[str, int]:
     """
     Run tier consolidation: promote/demote memories based on surprise.
 
@@ -261,8 +257,8 @@ def consolidate(cms: "ContinuumMemory") -> Dict[str, int]:
 
     # Collect ALL candidates upfront before any processing
     # This ensures each entry only moves one level per consolidate call
-    promotion_candidates: Dict[tuple, List[str]] = {}
-    demotion_candidates: Dict[tuple, List[str]] = {}
+    promotion_candidates: dict[tuple, list[str]] = {}
+    demotion_candidates: dict[tuple, list[str]] = {}
 
     with cms.connection() as conn:
         cursor = conn.cursor()

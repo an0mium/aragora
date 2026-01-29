@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     ServerContext,
@@ -44,10 +44,9 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
-
 def _check_email_permission(
-    auth_context: Optional[Any], permission_key: str
-) -> Optional[HandlerResult]:
+    auth_context: Any | None, permission_key: str
+) -> HandlerResult | None:
     """Check RBAC permission, return error response if denied."""
     write_permissions = {"email:create", "email:update", "email:delete"}
     if auth_context is None:
@@ -73,19 +72,17 @@ def _check_email_permission(
 
     return None
 
-
 # Thread-safe service instances
-_followup_tracker: Optional[Any] = None
+_followup_tracker: Any | None = None
 _followup_tracker_lock = threading.Lock()
-_snooze_recommender: Optional[Any] = None
+_snooze_recommender: Any | None = None
 _snooze_recommender_lock = threading.Lock()
-_email_categorizer: Optional[Any] = None
+_email_categorizer: Any | None = None
 _email_categorizer_lock = threading.Lock()
 
 # In-memory snooze storage (replace with DB in production)
 _snoozed_emails: dict[str, dict[str, Any]] = {}
 _snoozed_emails_lock = threading.Lock()
-
 
 def get_followup_tracker():
     """Get or create follow-up tracker (thread-safe)."""
@@ -100,7 +97,6 @@ def get_followup_tracker():
             _followup_tracker = FollowUpTracker()
         return _followup_tracker
 
-
 def get_snooze_recommender():
     """Get or create snooze recommender (thread-safe)."""
     global _snooze_recommender
@@ -113,7 +109,6 @@ def get_snooze_recommender():
 
             _snooze_recommender = SnoozeRecommender()
         return _snooze_recommender
-
 
 def get_email_categorizer():
     """Get or create email categorizer (thread-safe)."""
@@ -128,16 +123,14 @@ def get_email_categorizer():
             _email_categorizer = EmailCategorizer()
         return _email_categorizer
 
-
 # =============================================================================
 # Follow-Up Tracking Handlers
 # =============================================================================
 
-
 async def handle_mark_followup(
     data: dict[str, Any],
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Mark an email as awaiting reply.
@@ -208,12 +201,11 @@ async def handle_mark_followup(
         logger.exception("Error marking follow-up")
         return error_response(f"Failed to mark follow-up: {e}", status=500)
 
-
 async def handle_get_pending_followups(
     user_id: str = "default",
     include_resolved: bool = False,
     sort_by: str = "urgency",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Get list of pending follow-ups.
@@ -264,12 +256,11 @@ async def handle_get_pending_followups(
         logger.exception("Error getting pending follow-ups")
         return error_response(f"Failed to get follow-ups: {e}", status=500)
 
-
 async def handle_resolve_followup(
     followup_id: str,
     data: dict[str, Any],
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Resolve a follow-up.
@@ -313,10 +304,9 @@ async def handle_resolve_followup(
         logger.exception("Error resolving follow-up")
         return error_response(f"Failed to resolve follow-up: {e}", status=500)
 
-
 async def handle_check_replies(
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Check for replies to pending follow-ups.
@@ -361,11 +351,10 @@ async def handle_check_replies(
         logger.exception("Error checking replies")
         return error_response(f"Failed to check replies: {e}", status=500)
 
-
 async def handle_auto_detect_followups(
     user_id: str = "default",
     days_back: int = 7,
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Auto-detect sent emails that might need follow-up tracking.
@@ -407,17 +396,15 @@ async def handle_auto_detect_followups(
         logger.exception("Error auto-detecting follow-ups")
         return error_response(f"Failed to auto-detect: {e}", status=500)
 
-
 # =============================================================================
 # Snooze Recommendation Handlers
 # =============================================================================
-
 
 async def handle_get_snooze_suggestions(
     email_id: str,
     data: dict[str, Any],
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Get snooze time recommendations for an email.
@@ -494,12 +481,11 @@ async def handle_get_snooze_suggestions(
         logger.exception("Error getting snooze suggestions")
         return error_response(f"Failed to get suggestions: {e}", status=500)
 
-
 async def handle_apply_snooze(
     email_id: str,
     data: dict[str, Any],
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Apply snooze to an email.
@@ -561,11 +547,10 @@ async def handle_apply_snooze(
         logger.exception("Error applying snooze")
         return error_response(f"Failed to apply snooze: {e}", status=500)
 
-
 async def handle_cancel_snooze(
     email_id: str,
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Cancel snooze on an email.
@@ -606,10 +591,9 @@ async def handle_cancel_snooze(
         logger.exception("Error canceling snooze")
         return error_response(f"Failed to cancel snooze: {e}", status=500)
 
-
 async def handle_get_snoozed_emails(
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Get list of snoozed emails.
@@ -652,10 +636,9 @@ async def handle_get_snoozed_emails(
         logger.exception("Error getting snoozed emails")
         return error_response(f"Failed to get snoozed: {e}", status=500)
 
-
 async def handle_process_due_snoozes(
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Process snoozed emails that are now due (bring back to inbox).
@@ -705,15 +688,13 @@ async def handle_process_due_snoozes(
         logger.exception("Error processing due snoozes")
         return error_response(f"Failed to process snoozes: {e}", status=500)
 
-
 # =============================================================================
 # Category Management Handlers
 # =============================================================================
 
-
 async def handle_get_categories(
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Get available email categories.
@@ -743,11 +724,10 @@ async def handle_get_categories(
         logger.exception("Error getting categories")
         return error_response(f"Failed to get categories: {e}", status=500)
 
-
 async def handle_category_feedback(
     data: dict[str, Any],
     user_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """
     Submit feedback on email categorization to improve learning.
@@ -799,7 +779,6 @@ async def handle_category_feedback(
         logger.exception("Error recording category feedback")
         return error_response(f"Failed to record feedback: {e}", status=500)
 
-
 def _get_category_description(category) -> str:
     """Get description for a category."""
     descriptions = {
@@ -817,11 +796,9 @@ def _get_category_description(category) -> str:
     }
     return descriptions.get(category.value, "")
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
-
 
 def get_email_services_routes() -> list[tuple[str, str, Any]]:
     """
@@ -846,7 +823,6 @@ def get_email_services_routes() -> list[tuple[str, str, Any]]:
         ("GET", "/api/v1/email/categories", handle_get_categories),
         ("POST", "/api/v1/email/categories/learn", handle_category_feedback),
     ]
-
 
 class EmailServicesHandler(SecureHandler):
     """
@@ -907,7 +883,7 @@ class EmailServicesHandler(SecureHandler):
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route email services endpoint requests."""
         return None
 

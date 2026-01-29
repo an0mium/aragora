@@ -4,9 +4,9 @@ Product Workflow Templates.
 Templates for PRD review, feature specs, and product decision-making.
 """
 
-from typing import Any, Dict
+from typing import Any
 
-PRD_REVIEW_TEMPLATE: Dict[str, Any] = {
+PRD_REVIEW_TEMPLATE: dict[str, Any] = {
     "name": "PRD Review Workflow",
     "description": "Multi-stakeholder Product Requirements Document review",
     "category": "product",
@@ -136,7 +136,7 @@ PRD_REVIEW_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-FEATURE_SPEC_TEMPLATE: Dict[str, Any] = {
+FEATURE_SPEC_TEMPLATE: dict[str, Any] = {
     "name": "Feature Specification Review",
     "description": "Technical feature specification review workflow",
     "category": "product",
@@ -254,7 +254,7 @@ FEATURE_SPEC_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-USER_RESEARCH_TEMPLATE: Dict[str, Any] = {
+USER_RESEARCH_TEMPLATE: dict[str, Any] = {
     "name": "User Research Analysis",
     "description": "Analyze user research findings with multi-agent synthesis",
     "category": "product",
@@ -366,7 +366,7 @@ USER_RESEARCH_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-LAUNCH_READINESS_TEMPLATE: Dict[str, Any] = {
+LAUNCH_READINESS_TEMPLATE: dict[str, Any] = {
     "name": "Launch Readiness Review",
     "description": "Pre-launch readiness assessment across all functions",
     "category": "product",

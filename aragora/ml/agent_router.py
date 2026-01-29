@@ -26,14 +26,13 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Optional, Sequence
 from collections import defaultdict
 from enum import Enum
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 class TaskType(str, Enum):
     """Categories of tasks for routing."""
@@ -46,14 +45,13 @@ class TaskType(str, Enum):
     MATH = "math"
     GENERAL = "general"
 
-
 @dataclass
 class AgentCapabilities:
     """Known capabilities of an agent."""
 
     agent_id: str
-    strengths: List[TaskType] = field(default_factory=list)
-    weaknesses: List[TaskType] = field(default_factory=list)
+    strengths: list[TaskType] = field(default_factory=list)
+    weaknesses: list[TaskType] = field(default_factory=list)
     speed_tier: int = 2  # 1=fast, 2=medium, 3=slow
     cost_tier: int = 2  # 1=cheap, 2=medium, 3=expensive
     max_context: int = 8000  # Max context window
@@ -62,7 +60,7 @@ class AgentCapabilities:
     elo_rating: float = 1000.0
 
     @classmethod
-    def default_capabilities(cls) -> Dict[str, "AgentCapabilities"]:
+    def default_capabilities(cls) -> dict[str, "AgentCapabilities"]:
         """Get default capabilities for known agents."""
         return {
             "claude": cls(
@@ -153,16 +151,15 @@ class AgentCapabilities:
             ),
         }
 
-
 @dataclass
 class RoutingDecision:
     """Result of agent routing decision."""
 
-    selected_agents: List[str]
+    selected_agents: list[str]
     task_type: TaskType
     confidence: float
-    reasoning: List[str]
-    agent_scores: Dict[str, float] = field(default_factory=dict)
+    reasoning: list[str]
+    agent_scores: dict[str, float] = field(default_factory=dict)
     diversity_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -173,7 +170,6 @@ class RoutingDecision:
             "reasoning": self.reasoning,
             "diversity_score": round(self.diversity_score, 3),
         }
-
 
 @dataclass
 class AgentRouterConfig:
@@ -194,7 +190,6 @@ class AgentRouterConfig:
     # Task classification
     use_embeddings: bool = True
 
-
 class AgentRouter:
     """Routes tasks to optimal agent combinations.
 
@@ -208,7 +203,7 @@ class AgentRouter:
     Learns from outcomes to improve routing over time.
     """
 
-    def __init__(self, config: Optional[AgentRouterConfig] = None):
+    def __init__(self, config: AgentRouterConfig | None = None):
         """Initialize the agent router.
 
         Args:
@@ -216,11 +211,11 @@ class AgentRouter:
         """
         self.config = config or AgentRouterConfig()
         self._capabilities = AgentCapabilities.default_capabilities()
-        self._embedding_service: Optional[Any] = None
-        self._historical_performance: Dict[str, Dict[str, List[bool]]] = defaultdict(
+        self._embedding_service: Any | None = None
+        self._historical_performance: dict[str, dict[str, list[bool]]] = defaultdict(
             lambda: defaultdict(list)
         )
-        self._task_type_embeddings: Dict[TaskType, List[float]] = {}
+        self._task_type_embeddings: dict[TaskType, list[float]] = {}
 
     def _get_embedding_service(self):
         """Lazy load embedding service."""
@@ -377,8 +372,8 @@ class AgentRouter:
 
     def _calculate_diversity_score(
         self,
-        selected: List[str],
-        all_agents: List[str],
+        selected: list[str],
+        all_agents: list[str],
     ) -> float:
         """Calculate diversity score for selected team.
 
@@ -393,7 +388,7 @@ class AgentRouter:
             return 0.0
 
         # Check strength diversity
-        all_strengths: Set[TaskType] = set()
+        all_strengths: set[TaskType] = set()
         for agent_id in selected:
             caps = self._capabilities.get(agent_id)
             if caps:
@@ -441,7 +436,7 @@ class AgentRouter:
         task: str,
         available_agents: Sequence[str],
         team_size: int = 3,
-        constraints: Optional[Dict[str, Any]] = None,
+        constraints: Optional[dict[str, Any]] = None,
     ) -> RoutingDecision:
         """Route a task to optimal agents.
 
@@ -626,10 +621,8 @@ class AgentRouter:
 
         return stats
 
-
 # Global instance
-_agent_router: Optional[AgentRouter] = None
-
+_agent_router: AgentRouter | None = None
 
 def get_agent_router() -> AgentRouter:
     """Get or create the global agent router instance."""

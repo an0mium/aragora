@@ -31,6 +31,7 @@ Usage:
     panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Well-reasoned")
     result = panel.get_result()
 """
+from __future__ import annotations
 
 import logging
 import random
@@ -47,7 +48,6 @@ if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
-
 
 class JudgeProtocol(Protocol):
     """Protocol for judge selection configuration."""
@@ -67,7 +67,6 @@ class JudgeProtocol(Protocol):
         """Minimum rounds before judge can terminate."""
         ...
 
-
 @dataclass
 class JudgeScore:
     """Composite score for judge selection."""
@@ -76,7 +75,6 @@ class JudgeScore:
     elo_score: float
     calibration_score: float
     composite_score: float
-
 
 class JudgeScoringMixin:
     """Mixin providing scoring utilities for judge selection."""
@@ -168,7 +166,6 @@ class JudgeScoringMixin:
         scores.sort(key=lambda x: x.composite_score, reverse=True)
         return scores
 
-
 class JudgeSelectionStrategy(ABC):
     """Base class for judge selection strategies."""
 
@@ -191,7 +188,6 @@ class JudgeSelectionStrategy(ABC):
         """
         ...
 
-
 class LastAgentStrategy(JudgeSelectionStrategy):
     """Legacy strategy: use synthesizer or last agent."""
 
@@ -207,7 +203,6 @@ class LastAgentStrategy(JudgeSelectionStrategy):
             return synthesizers[0]
         return agents[-1] if agents else None
 
-
 class RandomStrategy(JudgeSelectionStrategy):
     """Random selection from all agents."""
 
@@ -219,7 +214,6 @@ class RandomStrategy(JudgeSelectionStrategy):
     ) -> "Agent":
         """Select a random agent as judge."""
         return random.choice(list(agents)) if agents else None
-
 
 class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     """Select highest ELO-rated agent as judge."""
@@ -261,7 +255,6 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
 
         return random.choice(list(agents)) if agents else None
 
-
 class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     """Select based on composite score (ELO + calibration)."""
 
@@ -290,7 +283,6 @@ class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
 
         return random.choice(list(agents)) if agents else None
 
-
 class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     """Select judges who historically dissented on debate cruxes.
 
@@ -314,7 +306,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         agents: Sequence["Agent"],
         proposals: dict[str, str],
         context: list["Message"],
-        cruxes: Optional[list[dict]] = None,
+        cruxes: list[dict] | None = None,
     ) -> "Agent":
         """Select agent who historically dissented on similar cruxes.
 
@@ -432,7 +424,6 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
             logger.debug(f"ELO ranking failed: {e}")
             return list(agents)
 
-
 class VotedStrategy(JudgeSelectionStrategy):
     """Agents vote on who should judge."""
 
@@ -496,7 +487,6 @@ class VotedStrategy(JudgeSelectionStrategy):
 
         return random.choice(list(agents)) if agents else None
 
-
 class JudgeSelector(JudgeScoringMixin):
     """
     Main judge selection coordinator.
@@ -529,9 +519,9 @@ class JudgeSelector(JudgeScoringMixin):
         agents: Sequence["Agent"],
         elo_system: Optional["EloSystem"] = None,
         judge_selection: str = "random",
-        generate_fn: Optional[Callable] = None,
-        build_vote_prompt_fn: Optional[Callable] = None,
-        sanitize_fn: Optional[Callable] = None,
+        generate_fn: Callable | None = None,
+        build_vote_prompt_fn: Callable | None = None,
+        sanitize_fn: Callable | None = None,
         circuit_breaker: Optional["CircuitBreaker"] = None,
         consensus_memory: Optional["ConsensusMemory"] = None,
     ):
@@ -688,9 +678,9 @@ class JudgeSelector(JudgeScoringMixin):
         protocol: JudgeProtocol,
         agents: Sequence["Agent"],
         elo_system: Optional["EloSystem"] = None,
-        generate_fn: Optional[Callable] = None,
-        build_vote_prompt_fn: Optional[Callable] = None,
-        sanitize_fn: Optional[Callable] = None,
+        generate_fn: Callable | None = None,
+        build_vote_prompt_fn: Callable | None = None,
+        sanitize_fn: Callable | None = None,
         circuit_breaker: Optional["CircuitBreaker"] = None,
     ) -> "JudgeSelector":
         """
@@ -718,11 +708,9 @@ class JudgeSelector(JudgeScoringMixin):
             circuit_breaker=circuit_breaker,
         )
 
-
 # =============================================================================
 # Multi-Judge Panel System
 # =============================================================================
-
 
 class JudgingStrategy(Enum):
     """Strategy for aggregating multiple judge votes."""
@@ -732,14 +720,12 @@ class JudgingStrategy(Enum):
     UNANIMOUS = "unanimous"  # All judges must agree
     WEIGHTED = "weighted"  # Votes weighted by expertise/calibration
 
-
 class JudgeVote(Enum):
     """A judge's vote on consensus validity."""
 
     APPROVE = "approve"  # Consensus is valid
     REJECT = "reject"  # Consensus should be rejected
     ABSTAIN = "abstain"  # Cannot evaluate
-
 
 @dataclass
 class JudgeVoteRecord:
@@ -752,7 +738,6 @@ class JudgeVoteRecord:
     weight: float = 1.0  # For weighted voting
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     metadata: dict = field(default_factory=dict)
-
 
 @dataclass
 class JudgingResult:
@@ -791,7 +776,6 @@ class JudgingResult:
             "abstaining_judges": self.abstaining_judges,
         }
 
-
 class JudgePanel:
     """
     Panel of judges that evaluates debate consensus.
@@ -823,7 +807,7 @@ class JudgePanel:
         self,
         judges: list["Agent"],
         strategy: JudgingStrategy = JudgingStrategy.MAJORITY,
-        judge_weights: Optional[dict[str, float]] = None,
+        judge_weights: dict[str, float] | None = None,
     ):
         """
         Initialize judge panel.
@@ -844,7 +828,7 @@ class JudgePanel:
         vote: JudgeVote,
         confidence: float,
         reasoning: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> JudgeVoteRecord:
         """
         Record a judge's vote.
@@ -1004,8 +988,8 @@ class JudgePanel:
         context: list["Message"],
         generate_fn: Callable,
         deliberation_rounds: int = 2,
-        build_assessment_prompt: Optional[Callable] = None,
-        build_deliberation_prompt: Optional[Callable] = None,
+        build_assessment_prompt: Callable | None = None,
+        build_deliberation_prompt: Callable | None = None,
     ) -> JudgingResult:
         """
         Judges deliberate before final verdict (Agent-as-a-Judge bias mitigation).
@@ -1074,7 +1058,7 @@ class JudgePanel:
         task: str,
         context: list["Message"],
         generate_fn: Callable,
-        build_prompt: Optional[Callable] = None,
+        build_prompt: Callable | None = None,
     ) -> dict[str, dict]:
         """Collect initial assessments from all judges.
 
@@ -1140,7 +1124,7 @@ class JudgePanel:
         context: list["Message"],
         generate_fn: Callable,
         round_num: int,
-        build_prompt: Optional[Callable] = None,
+        build_prompt: Callable | None = None,
     ) -> dict[str, dict]:
         """Run a deliberation round where judges respond to each other.
 
@@ -1306,10 +1290,9 @@ Explain any changes in your reasoning.
 
 Deliberation response:"""
 
-
 def create_judge_panel(
     candidates: list["Agent"],
-    participants: Optional[list["Agent"]] = None,
+    participants: list["Agent"] | None = None,
     domain: str = "general",
     strategy: JudgingStrategy = JudgingStrategy.MAJORITY,
     count: int = 3,

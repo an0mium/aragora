@@ -21,14 +21,13 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.config.legacy import DATA_DIR
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 
 logger = logging.getLogger(__name__)
-
 
 class EmailStore(SQLiteStore):
     """
@@ -173,7 +172,7 @@ class EmailStore(SQLiteStore):
         self,
         user_id: str,
         workspace_id: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
     ) -> str:
         """Save user email prioritization configuration.
 
@@ -216,7 +215,7 @@ class EmailStore(SQLiteStore):
         self,
         user_id: str,
         workspace_id: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Get user email prioritization configuration.
 
         Args:
@@ -247,7 +246,7 @@ class EmailStore(SQLiteStore):
             )
             return cursor.rowcount > 0
 
-    def list_workspace_configs(self, workspace_id: str) -> List[Dict[str, Any]]:
+    def list_workspace_configs(self, workspace_id: str) -> list[dict[str, Any]]:
         """List all email configs in a workspace.
 
         Returns:
@@ -275,8 +274,8 @@ class EmailStore(SQLiteStore):
         user_id: str,
         workspace_id: str,
         sender_email: str,
-        sender_name: Optional[str] = None,
-        notes: Optional[str] = None,
+        sender_name: str | None = None,
+        notes: str | None = None,
     ) -> str:
         """Add a VIP sender.
 
@@ -324,7 +323,7 @@ class EmailStore(SQLiteStore):
         self,
         user_id: str,
         workspace_id: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get all VIP senders for a user.
 
         Returns:
@@ -373,10 +372,10 @@ class EmailStore(SQLiteStore):
         inbox_id: str,
         workspace_id: str,
         name: str,
-        description: Optional[str] = None,
-        email_address: Optional[str] = None,
-        members: Optional[List[str]] = None,
-        settings: Optional[Dict[str, Any]] = None,
+        description: str | None = None,
+        email_address: str | None = None,
+        members: Optional[list[str]] = None,
+        settings: Optional[dict[str, Any]] = None,
     ) -> str:
         """Create a shared inbox.
 
@@ -408,7 +407,7 @@ class EmailStore(SQLiteStore):
         logger.info(f"[EmailStore] Created shared inbox: {inbox_id}")
         return inbox_id
 
-    def get_shared_inbox(self, inbox_id: str) -> Optional[Dict[str, Any]]:
+    def get_shared_inbox(self, inbox_id: str) -> Optional[dict[str, Any]]:
         """Get a shared inbox by ID."""
         row = self.fetch_one(
             "SELECT * FROM shared_inboxes WHERE id = ?",
@@ -431,8 +430,8 @@ class EmailStore(SQLiteStore):
     def list_shared_inboxes(
         self,
         workspace_id: str,
-        member_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        member_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """List shared inboxes in a workspace.
 
         Args:
@@ -523,16 +522,16 @@ class EmailStore(SQLiteStore):
         message_id: str,
         inbox_id: str,
         workspace_id: str,
-        subject: Optional[str] = None,
-        from_address: Optional[str] = None,
-        snippet: Optional[str] = None,
+        subject: str | None = None,
+        from_address: str | None = None,
+        snippet: str | None = None,
         status: str = "open",
         priority: str = "normal",
-        assigned_to: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        external_id: Optional[str] = None,
-        received_at: Optional[str] = None,
+        assigned_to: str | None = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        external_id: str | None = None,
+        received_at: str | None = None,
     ) -> str:
         """Save or update a message in a shared inbox."""
         now = datetime.now(timezone.utc).isoformat()
@@ -576,7 +575,7 @@ class EmailStore(SQLiteStore):
 
         return message_id
 
-    def get_message(self, message_id: str) -> Optional[Dict[str, Any]]:
+    def get_message(self, message_id: str) -> Optional[dict[str, Any]]:
         """Get a message by ID."""
         row = self.fetch_one(
             "SELECT * FROM shared_inbox_messages WHERE id = ?",
@@ -586,7 +585,7 @@ class EmailStore(SQLiteStore):
             return self._row_to_message(row)
         return None
 
-    def _row_to_message(self, row: tuple) -> Dict[str, Any]:
+    def _row_to_message(self, row: tuple) -> dict[str, Any]:
         """Convert a database row to a message dict."""
         return {
             "id": row[0],
@@ -609,14 +608,14 @@ class EmailStore(SQLiteStore):
     def list_inbox_messages(
         self,
         inbox_id: str,
-        status: Optional[str] = None,
-        assigned_to: Optional[str] = None,
+        status: str | None = None,
+        assigned_to: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List messages in a shared inbox."""
         conditions = ["inbox_id = ?"]
-        params: List[Any] = [inbox_id]
+        params: list[Any] = [inbox_id]
 
         if status:
             conditions.append("status = ?")
@@ -643,7 +642,7 @@ class EmailStore(SQLiteStore):
         self,
         message_id: str,
         status: str,
-        assigned_to: Optional[str] = None,
+        assigned_to: str | None = None,
     ) -> bool:
         """Update message status and optionally assignee."""
         now = datetime.now(timezone.utc).isoformat()
@@ -677,7 +676,7 @@ class EmailStore(SQLiteStore):
                 )
         return True
 
-    def get_inbox_stats(self, inbox_id: str) -> Dict[str, Any]:
+    def get_inbox_stats(self, inbox_id: str) -> dict[str, Any]:
         """Get statistics for a shared inbox."""
         stats_row = self.fetch_one(
             """
@@ -770,11 +769,11 @@ class EmailStore(SQLiteStore):
         self,
         inbox_id: str,
         query: str,
-        status: Optional[str] = None,
-        assigned_to: Optional[str] = None,
+        status: str | None = None,
+        assigned_to: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Full-text search for messages in a shared inbox.
 
@@ -796,7 +795,7 @@ class EmailStore(SQLiteStore):
 
         # Build the query with filters
         conditions = ["fts.inbox_id = ?"]
-        params: List[Any] = [inbox_id]
+        params: list[Any] = [inbox_id]
 
         # Add status filter
         if status:
@@ -840,7 +839,7 @@ class EmailStore(SQLiteStore):
         inbox_id: str,
         query: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Search messages and return highlighted snippets.
 
@@ -923,10 +922,10 @@ class EmailStore(SQLiteStore):
         rule_id: str,
         workspace_id: str,
         name: str,
-        conditions: List[Dict[str, Any]],
-        actions: List[Dict[str, Any]],
-        description: Optional[str] = None,
-        inbox_id: Optional[str] = None,
+        conditions: list[dict[str, Any]],
+        actions: list[dict[str, Any]],
+        description: str | None = None,
+        inbox_id: str | None = None,
         priority: int = 0,
         enabled: bool = True,
     ) -> str:
@@ -959,14 +958,14 @@ class EmailStore(SQLiteStore):
         logger.info(f"[EmailStore] Created routing rule: {rule_id}")
         return rule_id
 
-    def get_routing_rule(self, rule_id: str) -> Optional[Dict[str, Any]]:
+    def get_routing_rule(self, rule_id: str) -> Optional[dict[str, Any]]:
         """Get a routing rule by ID."""
         row = self.fetch_one("SELECT * FROM routing_rules WHERE id = ?", (rule_id,))
         if row:
             return self._row_to_rule(row)
         return None
 
-    def _row_to_rule(self, row: tuple) -> Dict[str, Any]:
+    def _row_to_rule(self, row: tuple) -> dict[str, Any]:
         """Convert a database row to a rule dict."""
         return {
             "id": row[0],
@@ -987,12 +986,12 @@ class EmailStore(SQLiteStore):
     def list_routing_rules(
         self,
         workspace_id: str,
-        inbox_id: Optional[str] = None,
+        inbox_id: str | None = None,
         enabled_only: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List routing rules for a workspace."""
         conditions = ["workspace_id = ?"]
-        params: List[Any] = [workspace_id]
+        params: list[Any] = [workspace_id]
 
         if inbox_id:
             conditions.append("(inbox_id = ? OR inbox_id IS NULL)")
@@ -1022,8 +1021,8 @@ class EmailStore(SQLiteStore):
             "actions",
             "inbox_id",
         }
-        set_clauses: List[str] = []
-        params: List[Any] = []
+        set_clauses: list[str] = []
+        params: list[Any] = []
 
         for field, value in updates.items():
             if field not in allowed_fields:
@@ -1079,9 +1078,9 @@ class EmailStore(SQLiteStore):
         priority: str,
         confidence: float,
         score: float,
-        rationale: Optional[str] = None,
-        factors: Optional[Dict[str, float]] = None,
-        context_boosts: Optional[Dict[str, float]] = None,
+        rationale: str | None = None,
+        factors: Optional[dict[str, float]] = None,
+        context_boosts: Optional[dict[str, float]] = None,
     ) -> str:
         """Record a prioritization decision for audit trail."""
         now = datetime.now(timezone.utc).isoformat()
@@ -1138,7 +1137,7 @@ class EmailStore(SQLiteStore):
         user_id: str,
         workspace_id: str,
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get feedback statistics for learning improvements."""
         rows = self.fetch_all(
             """
@@ -1157,7 +1156,7 @@ class EmailStore(SQLiteStore):
             (user_id, workspace_id, f"-{days}"),
         )
 
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "by_tier": {},
             "by_priority": {},
             "total_feedback": 0,
@@ -1191,15 +1190,13 @@ class EmailStore(SQLiteStore):
 
         return stats
 
-
 # =============================================================================
 # Singleton Instance
 # =============================================================================
 
-_email_store: Optional[EmailStore] = None
+_email_store: EmailStore | None = None
 
-
-def get_email_store(db_path: Optional[str] = None) -> EmailStore:
+def get_email_store(db_path: str | None = None) -> EmailStore:
     """Get or create the email store singleton.
 
     Args:
@@ -1220,11 +1217,9 @@ def get_email_store(db_path: Optional[str] = None) -> EmailStore:
 
     return _email_store
 
-
 def reset_email_store() -> None:
     """Reset the email store singleton (for testing)."""
     global _email_store
     _email_store = None
-
 
 __all__ = ["EmailStore", "get_email_store", "reset_email_store"]

@@ -6,9 +6,10 @@ Provides endpoints for analytics data:
 - GET /api/knowledge/sharing/stats - Get sharing statistics
 - GET /api/knowledge/federation/stats - Get federation statistics
 """
+from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -38,7 +39,6 @@ except ImportError:
 # Rate limiter for analytics endpoints
 _analytics_limiter = RateLimiter(requests_per_minute=60)
 
-
 class AnalyticsHandler(BaseHandler):
     """Handler for knowledge analytics endpoints.
 
@@ -64,7 +64,7 @@ class AnalyticsHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -126,7 +126,7 @@ class AnalyticsHandler(BaseHandler):
 
         return None
 
-    async def _get_mound_stats(self, workspace_id: Optional[str]) -> HandlerResult:
+    async def _get_mound_stats(self, workspace_id: str | None) -> HandlerResult:
         """Get Knowledge Mound statistics."""
         try:
             # Try to get stats from the knowledge mound
@@ -172,8 +172,8 @@ class AnalyticsHandler(BaseHandler):
 
     def _get_sharing_stats(
         self,
-        workspace_id: Optional[str],
-        user_id: Optional[str],
+        workspace_id: str | None,
+        user_id: str | None,
     ) -> HandlerResult:
         """Get sharing statistics."""
         try:
@@ -224,7 +224,7 @@ class AnalyticsHandler(BaseHandler):
             logger.error(f"Failed to get sharing stats: {e}")
             return error_response("Failed to get sharing stats", 500)
 
-    def _get_federation_stats(self, workspace_id: Optional[str]) -> HandlerResult:
+    def _get_federation_stats(self, workspace_id: str | None) -> HandlerResult:
         """Get federation statistics."""
         try:
             # Try to get federation scheduler stats
@@ -281,8 +281,8 @@ class AnalyticsHandler(BaseHandler):
 
     async def _get_summary(
         self,
-        workspace_id: Optional[str],
-        user_id: Optional[str],
+        workspace_id: str | None,
+        user_id: str | None,
     ) -> HandlerResult:
         """Get combined analytics summary."""
         try:
@@ -319,7 +319,7 @@ class AnalyticsHandler(BaseHandler):
 
     def _get_learning_stats(
         self,
-        workspace_id: Optional[str],
+        workspace_id: str | None,
     ) -> HandlerResult:
         """Get cross-debate learning analytics.
 
@@ -408,7 +408,7 @@ class AnalyticsHandler(BaseHandler):
                     if adapter:
                         stats = adapter.get_stats()
                         # Add consensus stats
-                        reuse_stats = cast(Dict[str, Any], learning_stats["knowledge_reuse"])
+                        reuse_stats = cast(dict[str, Any], learning_stats["knowledge_reuse"])
                         reuse_stats["total_queries"] += stats.get("total_queries", 0)
 
             except ImportError:
@@ -430,7 +430,7 @@ class AnalyticsHandler(BaseHandler):
                     handlers = cs_stats.get("handlers", {})
                     validation_stats = handlers.get("km_validation_feedback", {})
                     if validation_stats:
-                        val_stats = cast(Dict[str, Any], learning_stats["validation"])
+                        val_stats = cast(dict[str, Any], learning_stats["validation"])
                         val_stats["total_validations"] = validation_stats.get("call_count", 0)
 
             except ImportError:
@@ -439,14 +439,14 @@ class AnalyticsHandler(BaseHandler):
                 logger.debug(f"Failed to get cross-subscriber stats: {e}")
 
             # Calculate derived metrics
-            reuse = cast(Dict[str, Any], learning_stats["knowledge_reuse"])
+            reuse = cast(dict[str, Any], learning_stats["knowledge_reuse"])
             if reuse["total_queries"] > 0:
                 reuse["reuse_rate"] = round(
                     reuse["queries_with_hits"] / reuse["total_queries"],
                     3,
                 )
 
-            validation = cast(Dict[str, Any], learning_stats["validation"])
+            validation = cast(dict[str, Any], learning_stats["validation"])
             if validation["total_validations"] > 0:
                 validation["accuracy_rate"] = round(
                     validation["positive_validations"] / validation["total_validations"],
@@ -458,6 +458,5 @@ class AnalyticsHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to get learning stats: {e}")
             return error_response("Failed to get learning stats", 500)
-
 
 __all__ = ["AnalyticsHandler"]

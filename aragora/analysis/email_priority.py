@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional
 
 # Check for AragoraRLM (routes to TRUE RLM when available)
 try:
@@ -27,10 +27,9 @@ try:
 except ImportError:
     HAS_ARAGORA_RLM = False
     HAS_OFFICIAL_RLM = False
-    AragoraRLM: Optional[Type[Any]] = None  # type: ignore[no-redef]
+    AragoraRLM: Optional[type[Any]] = None  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class EmailPriorityScore:
@@ -39,9 +38,9 @@ class EmailPriorityScore:
     email_id: str
     score: float  # 0.0 - 1.0
     reason: str  # AI-generated explanation
-    factors: Dict[str, float] = field(default_factory=dict)
+    factors: dict[str, float] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "email_id": self.email_id,
@@ -50,20 +49,19 @@ class EmailPriorityScore:
             "factors": self.factors,
         }
 
-
 @dataclass
 class UserEmailPreferences:
     """Learned user preferences for email prioritization."""
 
     user_id: str
-    important_senders: List[str] = field(default_factory=list)
-    important_domains: List[str] = field(default_factory=list)
-    important_keywords: List[str] = field(default_factory=list)
-    low_priority_senders: List[str] = field(default_factory=list)
-    low_priority_keywords: List[str] = field(default_factory=list)
-    interaction_weights: Dict[str, float] = field(default_factory=dict)
+    important_senders: list[str] = field(default_factory=list)
+    important_domains: list[str] = field(default_factory=list)
+    important_keywords: list[str] = field(default_factory=list)
+    low_priority_senders: list[str] = field(default_factory=list)
+    low_priority_keywords: list[str] = field(default_factory=list)
+    interaction_weights: dict[str, float] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "user_id": self.user_id,
@@ -74,7 +72,6 @@ class UserEmailPreferences:
             "low_priority_keywords": self.low_priority_keywords,
             "interaction_weights": self.interaction_weights,
         }
-
 
 class EmailPriorityAnalyzer:
     """
@@ -91,8 +88,8 @@ class EmailPriorityAnalyzer:
     def __init__(
         self,
         user_id: str,
-        memory: Optional[Any] = None,
-        rlm: Optional[Any] = None,
+        memory: Any | None = None,
+        rlm: Any | None = None,
     ):
         """
         Initialize analyzer.
@@ -105,7 +102,7 @@ class EmailPriorityAnalyzer:
         self.user_id = user_id
         self._memory = memory
         self._rlm = rlm
-        self._preferences: Optional[UserEmailPreferences] = None
+        self._preferences: UserEmailPreferences | None = None
 
     async def _get_memory(self) -> Any:
         """Get or create ContinuumMemory instance."""
@@ -186,14 +183,14 @@ class EmailPriorityAnalyzer:
 
         return self._preferences
 
-    def _extract_sender(self, content: str) -> Optional[str]:
+    def _extract_sender(self, content: str) -> str | None:
         """Extract sender email from memory content."""
         import re
 
         match = re.search(r"[\w.-]+@[\w.-]+\.\w+", content)
         return match.group(0) if match else None
 
-    def _extract_keywords(self, content: str) -> List[str]:
+    def _extract_keywords(self, content: str) -> list[str]:
         """Extract important keywords from content."""
         # Simple keyword extraction - could use NLP in production
         words = content.lower().split()
@@ -252,7 +249,7 @@ class EmailPriorityAnalyzer:
         from_address: str,
         snippet: str,
         body_text: str = "",
-        labels: Optional[List[str]] = None,
+        labels: Optional[list[str]] = None,
         is_read: bool = False,
         is_starred: bool = False,
         thread_count: int = 1,
@@ -275,7 +272,7 @@ class EmailPriorityAnalyzer:
             EmailPriorityScore with 0.0-1.0 score and explanation
         """
         labels = labels or []
-        factors: Dict[str, float] = {}
+        factors: dict[str, float] = {}
 
         # Load user preferences
         prefs = await self.get_user_preferences()
@@ -347,7 +344,7 @@ class EmailPriorityAnalyzer:
 
         return score
 
-    def _score_gmail_signals(self, labels: List[str], is_starred: bool) -> float:
+    def _score_gmail_signals(self, labels: list[str], is_starred: bool) -> float:
         """Score based on Gmail labels and flags."""
         score = 0.5
 
@@ -511,7 +508,7 @@ class EmailPriorityAnalyzer:
 
     def _generate_reason(
         self,
-        factors: Dict[str, float],
+        factors: dict[str, float],
         from_address: str,
         subject: str,
     ) -> str:
@@ -550,21 +547,39 @@ class EmailPriorityAnalyzer:
 
     async def score_batch(
         self,
-        emails: List[Dict[str, Any]],
-    ) -> List[EmailPriorityScore]:
+        emails: list[dict[str, Any]],
+        max_concurrency: int = 10,
+    ) -> list[EmailPriorityScore]:
         """
-        Score multiple emails in batch.
+        Score multiple emails in batch with optimized parallel processing.
+
+        This method addresses the N+1 query pattern by:
+        1. Loading user preferences once upfront (instead of per-email)
+        2. Running email scoring in parallel using asyncio.gather
+        3. Limiting concurrency to avoid overwhelming external services
 
         Args:
             emails: List of email dicts with id, subject, from_address, snippet, etc.
+            max_concurrency: Maximum number of concurrent scoring operations (default 10)
 
         Returns:
-            List of EmailPriorityScore in same order
+            List of EmailPriorityScore in same order as input
         """
-        results = []
+        import asyncio
 
-        for email in emails:
-            score = await self.score_email(
+        if not emails:
+            return []
+
+        # Pre-load user preferences once (avoids N+1 on preferences query)
+        prefs = await self.get_user_preferences()
+
+        # Pre-initialize RLM if needed (avoids N+1 on RLM initialization)
+        await self._get_rlm()
+
+        async def score_single(email: dict[str, Any]) -> EmailPriorityScore:
+            """Score a single email using pre-loaded preferences."""
+            return await self._score_email_with_prefs(
+                prefs=prefs,
                 email_id=email.get("id", ""),
                 subject=email.get("subject", ""),
                 from_address=email.get("from_address", email.get("from", "")),
@@ -575,10 +590,103 @@ class EmailPriorityAnalyzer:
                 is_starred=email.get("is_starred", False),
                 thread_count=email.get("thread_count", 1),
             )
-            results.append(score)
 
-        return results
+        # Use semaphore to limit concurrency
+        semaphore = asyncio.Semaphore(max_concurrency)
 
+        async def score_with_semaphore(email: dict[str, Any]) -> EmailPriorityScore:
+            async with semaphore:
+                return await score_single(email)
+
+        # Run all scoring operations in parallel (with concurrency limit)
+        results = await asyncio.gather(
+            *[score_with_semaphore(email) for email in emails],
+            return_exceptions=True,
+        )
+
+        # Handle any exceptions by returning default scores
+        final_results: list[EmailPriorityScore] = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.warning(
+                    f"[EmailPriority] Failed to score email {emails[i].get('id', 'unknown')}: {result}"
+                )
+                final_results.append(
+                    EmailPriorityScore(
+                        email_id=emails[i].get("id", ""),
+                        score=0.5,  # Neutral score on error
+                        reason="Unable to compute priority score",
+                        factors={},
+                    )
+                )
+            else:
+                final_results.append(result)
+
+        return final_results
+
+    async def _score_email_with_prefs(
+        self,
+        prefs: UserEmailPreferences,
+        email_id: str,
+        subject: str,
+        from_address: str,
+        snippet: str,
+        body_text: str = "",
+        labels: Optional[list[str]] = None,
+        is_read: bool = False,
+        is_starred: bool = False,
+        thread_count: int = 1,
+    ) -> EmailPriorityScore:
+        """
+        Score an email using pre-loaded preferences (internal method).
+
+        This avoids the N+1 pattern by accepting pre-loaded preferences
+        instead of querying them for each email.
+        """
+        labels = labels or []
+        factors: dict[str, float] = {}
+
+        # 1. Sender importance (0.0 - 0.3)
+        sender_score = self._score_sender(from_address, prefs)
+        factors["sender"] = sender_score
+
+        # 2. Gmail signals (0.0 - 0.2)
+        gmail_score = self._score_gmail_signals(labels, is_starred)
+        factors["gmail_signals"] = gmail_score
+
+        # 3. Urgency signals (0.0 - 0.2)
+        urgency_score = self._score_urgency(subject, snippet)
+        factors["urgency"] = urgency_score
+
+        # 4. Content relevance (0.0 - 0.2)
+        content_score = await self._score_content(subject, snippet, body_text, prefs)
+        factors["content"] = content_score
+
+        # 5. Thread engagement (0.0 - 0.1)
+        thread_score = self._score_thread(thread_count, is_read)
+        factors["thread"] = thread_score
+
+        # Compute weighted total
+        total_score = (
+            sender_score * 0.30
+            + gmail_score * 0.20
+            + urgency_score * 0.20
+            + content_score * 0.20
+            + thread_score * 0.10
+        )
+
+        # Clamp to 0.0-1.0
+        total_score = max(0.0, min(1.0, total_score))
+
+        # Generate explanation
+        reason = self._generate_reason(factors, from_address, subject)
+
+        return EmailPriorityScore(
+            email_id=email_id,
+            score=total_score,
+            reason=reason,
+            factors=factors,
+        )
 
 class EmailFeedbackLearner:
     """
@@ -591,7 +699,7 @@ class EmailFeedbackLearner:
     - Deleting without reading
     """
 
-    def __init__(self, user_id: str, memory: Optional[Any] = None):
+    def __init__(self, user_id: str, memory: Any | None = None):
         """
         Initialize feedback learner.
 
@@ -622,7 +730,7 @@ class EmailFeedbackLearner:
         action: str,
         from_address: str,
         subject: str,
-        labels: Optional[List[str]] = None,
+        labels: Optional[list[str]] = None,
     ) -> bool:
         """
         Record a user interaction with an email.
@@ -724,7 +832,6 @@ class EmailFeedbackLearner:
         except Exception as e:
             logger.error(f"[EmailFeedback] Consolidation failed: {e}")
             return False
-
 
 __all__ = [
     "EmailPriorityAnalyzer",

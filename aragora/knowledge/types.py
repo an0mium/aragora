@@ -4,12 +4,12 @@ Core types for the Knowledge Base module.
 Defines the data structures for facts, validation status,
 and related concepts used throughout the knowledge system.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class ValidationStatus(Enum):
     """Validation status of a fact in the knowledge base.
@@ -24,7 +24,6 @@ class ValidationStatus(Enum):
     BYZANTINE_AGREED = "byzantine_agreed"  # Byzantine fault-tolerant consensus
     FORMALLY_PROVEN = "formally_proven"  # Verified via formal methods (Z3/Lean)
 
-
 class FactRelationType(Enum):
     """Types of relationships between facts."""
 
@@ -33,7 +32,6 @@ class FactRelationType(Enum):
     SUPERSEDES = "supersedes"  # Fact A replaces/updates Fact B
     IMPLIES = "implies"  # Fact A logically implies Fact B
     RELATED_TO = "related_to"  # General topical relationship
-
 
 @dataclass
 class Fact:
@@ -63,7 +61,7 @@ class Fact:
     statement: str
     confidence: float = 0.5
     evidence_ids: list[str] = field(default_factory=list)
-    consensus_proof_id: Optional[str] = None
+    consensus_proof_id: str | None = None
     source_documents: list[str] = field(default_factory=list)
     workspace_id: str = ""
     validation_status: ValidationStatus = ValidationStatus.UNVERIFIED
@@ -71,7 +69,7 @@ class Fact:
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    superseded_by: Optional[str] = None
+    superseded_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert fact to dictionary for serialization."""
@@ -132,7 +130,6 @@ class Fact:
         """Check if fact is still active (not superseded)."""
         return self.superseded_by is None
 
-
 @dataclass
 class FactRelation:
     """A relationship between two facts.
@@ -181,7 +178,6 @@ class FactRelation:
             ),
         )
 
-
 @dataclass
 class FactFilters:
     """Filters for querying facts.
@@ -189,17 +185,16 @@ class FactFilters:
     Used to narrow down fact searches by various criteria.
     """
 
-    workspace_id: Optional[str] = None
-    topics: Optional[list[str]] = None
+    workspace_id: str | None = None
+    topics: list[str] | None = None
     min_confidence: float = 0.0
-    validation_status: Optional[ValidationStatus] = None
+    validation_status: ValidationStatus | None = None
     include_superseded: bool = False
-    source_documents: Optional[list[str]] = None
-    created_after: Optional[datetime] = None
-    created_before: Optional[datetime] = None
+    source_documents: list[str] | None = None
+    created_after: datetime | None = None
+    created_before: datetime | None = None
     limit: int = 100
     offset: int = 0
-
 
 @dataclass
 class VerificationResult:
@@ -214,7 +209,7 @@ class VerificationResult:
     new_status: ValidationStatus
     confidence: float
     agent_votes: dict[str, bool]  # agent_name -> agreed
-    consensus_proof_id: Optional[str] = None
+    consensus_proof_id: str | None = None
     dissenting_reasons: list[str] = field(default_factory=list)
     verification_time_ms: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -232,7 +227,6 @@ class VerificationResult:
             "verification_time_ms": self.verification_time_ms,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class QueryResult:

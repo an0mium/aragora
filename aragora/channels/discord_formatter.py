@@ -6,10 +6,9 @@ Formats receipts using Discord's embed format for rich message display.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .formatter import ReceiptFormatter, register_formatter
-
 
 @register_formatter
 class DiscordReceiptFormatter(ReceiptFormatter):
@@ -22,8 +21,8 @@ class DiscordReceiptFormatter(ReceiptFormatter):
     def format(
         self,
         receipt: Any,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        options: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Format receipt as Discord embed.
 
@@ -39,7 +38,7 @@ class DiscordReceiptFormatter(ReceiptFormatter):
         confidence: float = float(confidence_raw) if confidence_raw is not None else 0.0
         color = self._get_embed_color(confidence)
 
-        fields: List[Dict[str, Any]] = []
+        fields: list[dict[str, Any]] = []
 
         # Decision field
         decision_text = (

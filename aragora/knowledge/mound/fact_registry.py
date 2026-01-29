@@ -31,14 +31,13 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from aragora.knowledge.types import ValidationStatus
 from aragora.knowledge.mound_core import ProvenanceType
 from aragora.knowledge.mound.verticals import VerticalRegistry
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class RegisteredFact:
@@ -84,13 +83,13 @@ class RegisteredFact:
     derived_from: list[str] = field(default_factory=list)  # Source fact IDs
 
     # Embedding (cached)
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    superseded_at: Optional[datetime] = None
-    superseded_by: Optional[str] = None
+    superseded_at: datetime | None = None
+    superseded_by: str | None = None
 
     @property
     def staleness_days(self) -> float:
@@ -128,7 +127,7 @@ class RegisteredFact:
         """Check if this fact has been superseded by another."""
         return self.superseded_at is not None
 
-    def refresh(self, new_confidence: Optional[float] = None) -> None:
+    def refresh(self, new_confidence: float | None = None) -> None:
         """Mark fact as freshly verified."""
         self.verification_date = datetime.now()
         self.verification_count += 1
@@ -229,7 +228,6 @@ class RegisteredFact:
             superseded_by=data.get("superseded_by"),
         )
 
-
 class FactRegistry:
     """
     Central registry for facts with multi-vertical support.
@@ -248,8 +246,8 @@ class FactRegistry:
 
     def __init__(
         self,
-        vector_store: Optional[Any] = None,  # BaseVectorStore
-        embedding_service: Optional[Any] = None,  # For generating embeddings
+        vector_store: Any | None = None,  # BaseVectorStore
+        embedding_service: Any | None = None,  # For generating embeddings
     ):
         """
         Initialize fact registry.
@@ -276,9 +274,9 @@ class FactRegistry:
         category: str = "general",
         confidence: float = 0.5,
         source_type: ProvenanceType = ProvenanceType.DOCUMENT,
-        source_ids: Optional[list[str]] = None,
+        source_ids: list[str] | None = None,
         workspace_id: str = "",
-        topics: Optional[list[str]] = None,
+        topics: list[str] | None = None,
         check_duplicates: bool = True,
         **kwargs,
     ) -> RegisteredFact:
@@ -368,8 +366,8 @@ class FactRegistry:
     async def query(
         self,
         query: str,
-        verticals: Optional[list[str]] = None,
-        workspace_id: Optional[str] = None,
+        verticals: list[str] | None = None,
+        workspace_id: str | None = None,
         min_confidence: float = 0.3,
         include_stale: bool = False,
         include_superseded: bool = False,
@@ -457,14 +455,14 @@ class FactRegistry:
         facts.sort(key=lambda f: f.current_confidence, reverse=True)
         return facts[:limit]
 
-    async def get_fact(self, fact_id: str) -> Optional[RegisteredFact]:
+    async def get_fact(self, fact_id: str) -> RegisteredFact | None:
         """Get a fact by ID."""
         return self._facts.get(fact_id)
 
     async def refresh_fact(
         self,
         fact_id: str,
-        new_confidence: Optional[float] = None,
+        new_confidence: float | None = None,
     ) -> bool:
         """
         Refresh a fact (mark as verified).
@@ -539,7 +537,7 @@ class FactRegistry:
 
     async def get_stale_facts(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         limit: int = 100,
     ) -> list[RegisteredFact]:
         """Get facts that need reverification."""
@@ -556,7 +554,7 @@ class FactRegistry:
 
     async def get_stats(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """Get registry statistics."""
         facts = list(self._facts.values())
@@ -626,7 +624,7 @@ class FactRegistry:
         vertical_rates = default_rates.get(vertical, default_rates["general"])
         return vertical_rates.get(category, vertical_rates["default"])
 
-    async def _get_embedding(self, text: str) -> Optional[list[float]]:
+    async def _get_embedding(self, text: str) -> list[float] | None:
         """Generate embedding for text."""
         if self._embedding_service:
             try:
@@ -640,8 +638,8 @@ class FactRegistry:
     def _search_memory(
         self,
         query: str,
-        verticals: Optional[list[str]],
-        workspace_id: Optional[str],
+        verticals: list[str] | None,
+        workspace_id: str | None,
         min_confidence: float,
         include_stale: bool,
         include_superseded: bool,
@@ -675,7 +673,7 @@ class FactRegistry:
         results.sort(key=lambda x: (x[1], x[0].current_confidence), reverse=True)
         return [r[0] for r in results[:limit]]
 
-    def _result_to_fact(self, result: Any) -> Optional[RegisteredFact]:
+    def _result_to_fact(self, result: Any) -> RegisteredFact | None:
         """Reconstruct fact from search result."""
         try:
             return RegisteredFact(

@@ -7,6 +7,7 @@ data-driven debugging and optimization of the debate system.
 Generated from nomic loop proposal by codex-engineer with critique fixes
 from gemini-visionary.
 """
+from __future__ import annotations
 
 __all__ = [
     "AgentMetric",
@@ -21,10 +22,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AgentMetric:
@@ -33,14 +33,13 @@ class AgentMetric:
     agent_name: str
     operation: str
     start_time: float
-    end_time: Optional[float] = None
-    duration_ms: Optional[float] = None
+    end_time: float | None = None
+    duration_ms: float | None = None
     success: bool = False
-    error: Optional[str] = None
+    error: str | None = None
     response_length: int = 0
     phase: str = ""
     round_num: int = 0
-
 
 @dataclass
 class AgentStats:
@@ -88,7 +87,6 @@ class AgentStats:
             return 0.0
         return (self.timeout_calls / self.total_calls) * 100
 
-
 class AgentPerformanceMonitor:
     """
     Monitors agent performance for debugging and optimization.
@@ -108,7 +106,7 @@ class AgentPerformanceMonitor:
         insights = monitor.get_performance_insights()
     """
 
-    def __init__(self, session_dir: Optional[Path] = None):
+    def __init__(self, session_dir: Path | None = None):
         """
         Initialize the performance monitor.
 
@@ -159,8 +157,8 @@ class AgentPerformanceMonitor:
         self,
         tracking_id: str,
         success: bool,
-        response: Optional[str] = None,
-        error: Optional[str] = None,
+        response: str | None = None,
+        error: str | None = None,
     ) -> None:
         """
         Record the completion of a tracked agent call.
@@ -316,7 +314,7 @@ class AgentPerformanceMonitor:
 
         return breakdown
 
-    def save(self, filename: str = "performance_metrics.json") -> Optional[Path]:
+    def save(self, filename: str = "performance_metrics.json") -> Path | None:
         """
         Save metrics to a JSON file.
 

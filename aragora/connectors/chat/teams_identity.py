@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.auth.sso import SSOUser
@@ -29,22 +29,21 @@ logger = logging.getLogger(__name__)
 # Provider name for external identity storage
 TEAMS_PROVIDER = "azure_ad"
 
-
 @dataclass
 class TeamsUserInfo:
     """Information about a Teams user."""
 
     aad_object_id: str
     tenant_id: str
-    display_name: Optional[str] = None
-    email: Optional[str] = None
-    user_principal_name: Optional[str] = None
-    given_name: Optional[str] = None
-    surname: Optional[str] = None
-    job_title: Optional[str] = None
-    department: Optional[str] = None
+    display_name: str | None = None
+    email: str | None = None
+    user_principal_name: str | None = None
+    given_name: str | None = None
+    surname: str | None = None
+    job_title: str | None = None
+    department: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "aad_object_id": self.aad_object_id,
@@ -57,7 +56,6 @@ class TeamsUserInfo:
             "job_title": self.job_title,
             "department": self.department,
         }
-
 
 class TeamsUserIdentityBridge:
     """
@@ -155,7 +153,7 @@ class TeamsUserIdentityBridge:
     async def sync_user_from_teams(
         self,
         teams_user: TeamsUserInfo,
-        aragora_user_id: Optional[str] = None,
+        aragora_user_id: str | None = None,
         create_if_missing: bool = True,
     ) -> Optional["SSOUser"]:
         """
@@ -231,7 +229,7 @@ class TeamsUserIdentityBridge:
         self,
         teams_user: TeamsUserInfo,
         create_if_missing: bool,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Find existing user or create new one.
 
         Args:
@@ -292,8 +290,8 @@ class TeamsUserIdentityBridge:
     async def get_user_by_aad_id(
         self,
         aad_object_id: str,
-        tenant_id: Optional[str] = None,
-    ) -> Optional[str]:
+        tenant_id: str | None = None,
+    ) -> str | None:
         """
         Get Aragora user ID by Azure AD object ID.
 
@@ -320,8 +318,8 @@ class TeamsUserIdentityBridge:
         aragora_user_id: str,
         aad_object_id: str,
         tenant_id: str,
-        email: Optional[str] = None,
-        display_name: Optional[str] = None,
+        email: str | None = None,
+        display_name: str | None = None,
     ) -> bool:
         """
         Link a Teams identity to an existing Aragora user.
@@ -381,8 +379,8 @@ class TeamsUserIdentityBridge:
 
     def extract_user_info_from_activity(
         self,
-        activity: Dict[str, Any],
-    ) -> Optional[TeamsUserInfo]:
+        activity: dict[str, Any],
+    ) -> TeamsUserInfo | None:
         """
         Extract Teams user info from a Bot Framework activity.
 
@@ -410,10 +408,8 @@ class TeamsUserIdentityBridge:
             # Email often needs Graph API call
         )
 
-
 # Singleton instance
-_bridge: Optional[TeamsUserIdentityBridge] = None
-
+_bridge: TeamsUserIdentityBridge | None = None
 
 def get_teams_identity_bridge() -> TeamsUserIdentityBridge:
     """Get or create the Teams identity bridge singleton."""

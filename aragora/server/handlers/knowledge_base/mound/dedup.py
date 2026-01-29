@@ -11,7 +11,7 @@ Provides HTTP endpoints for finding and merging duplicate knowledge items:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -28,14 +28,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class DedupHandlerProtocol(Protocol):
     """Protocol for handlers that use DedupOperationsMixin."""
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
-
 
 class DedupOperationsMixin:
     """Mixin providing deduplication API endpoints."""
@@ -161,7 +159,7 @@ class DedupOperationsMixin:
         self,
         workspace_id: str,
         cluster_id: str,
-        primary_node_id: Optional[str] = None,
+        primary_node_id: str | None = None,
         archive: bool = True,
     ) -> HandlerResult:
         """

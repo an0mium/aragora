@@ -27,7 +27,7 @@ import asyncio
 import logging
 import warnings
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.debate.cognitive_limiter import (
     STRESS_BUDGETS,
@@ -58,7 +58,6 @@ logger = logging.getLogger(__name__)
 # Sentinel value for deprecated rlm_backend parameter
 _DEPRECATED_RLM_BACKEND = object()
 
-
 @dataclass
 class RLMCognitiveBudget(CognitiveBudget):
     """Extended budget with RLM compression parameters."""
@@ -70,22 +69,21 @@ class RLMCognitiveBudget(CognitiveBudget):
     summary_level: str = "SUMMARY"  # Default abstraction level for older content
     preserve_first_message: bool = True  # Always keep task description full
 
-
 @dataclass
 class CompressedContext:
     """Context with hierarchical compression applied."""
 
     # Original content (may be compressed)
-    messages: List[Any] = field(default_factory=list)
-    critiques: List[Any] = field(default_factory=list)
+    messages: list[Any] = field(default_factory=list)
+    critiques: list[Any] = field(default_factory=list)
     patterns: str = ""
     extra_context: str = ""
 
     # RLM metadata
     compression_applied: bool = False
-    abstraction_levels: List[str] = field(default_factory=list)
+    abstraction_levels: list[str] = field(default_factory=list)
     full_content_hash: str = ""  # For cache lookup of original
-    rlm_environment_id: Optional[str] = None  # For REPL access
+    rlm_environment_id: str | None = None  # For REPL access
 
     # Stats
     original_chars: int = 0
@@ -97,7 +95,6 @@ class CompressedContext:
         if self.original_chars == 0:
             return 1.0
         return self.compressed_chars / self.original_chars
-
 
 class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
     """
@@ -140,7 +137,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     def __init__(
         self,
-        budget: Optional[RLMCognitiveBudget] = None,
+        budget: RLMCognitiveBudget | None = None,
         compressor: Optional["HierarchicalCompressor"] = None,
         summarize_fn: Optional[Callable[[str, str], str]] = None,
         rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
@@ -175,8 +172,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         # Real RLM integration - use factory for consistent initialization
         self._rlm_model = rlm_model
-        self._aragora_rlm: Optional[Any] = None
-        self._debate_adapter: Optional[Any] = None
+        self._aragora_rlm: Any | None = None
+        self._debate_adapter: Any | None = None
 
         if HAS_RLM_FACTORY and get_rlm is not None:
             try:
@@ -221,7 +218,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
     async def query_with_rlm(
         self,
         query: str,
-        messages: List[Any],
+        messages: list[Any],
         strategy: str = "auto",
     ) -> str:
         """
@@ -269,7 +266,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             logger.error(f"RLM query failed: {e}")
             return self._fallback_search(query, messages)
 
-    def _format_messages_for_rlm(self, messages: List[Any]) -> str:
+    def _format_messages_for_rlm(self, messages: list[Any]) -> str:
         """Format messages for RLM REPL context variable."""
         parts = []
         for i, msg in enumerate(messages):
@@ -280,7 +277,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             parts.append(f"[Round {round_num}] {agent} ({role}): {content}")
         return "\n\n".join(parts)
 
-    def _fallback_search(self, query: str, messages: List[Any]) -> str:
+    def _fallback_search(self, query: str, messages: list[Any]) -> str:
         """Keyword-based search fallback when RLM unavailable."""
         query_terms = query.lower().split()
         relevant = []
@@ -352,10 +349,10 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     async def compress_context_async(
         self,
-        messages: Optional[List[Any]] = None,
-        critiques: Optional[List[Any]] = None,
-        patterns: Optional[str] = None,
-        extra_context: Optional[str] = None,
+        messages: Optional[list[Any]] = None,
+        critiques: Optional[list[Any]] = None,
+        patterns: str | None = None,
+        extra_context: str | None = None,
     ) -> CompressedContext:
         """
         Compress context using RLM hierarchical compression (async).
@@ -442,9 +439,9 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     async def _compress_messages_async(
         self,
-        messages: List[Any],
+        messages: list[Any],
         budget: RLMCognitiveBudget,
-    ) -> tuple[List[Any], List[str]]:
+    ) -> tuple[list[Any], list[str]]:
         """Compress message history hierarchically."""
         if not messages:
             return [], []
@@ -479,7 +476,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     async def _compress_message_section(
         self,
-        messages: List[Any],
+        messages: list[Any],
         target_level: str,
     ) -> Any:
         """Compress a section of messages to target abstraction level."""
@@ -593,9 +590,9 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     async def _compress_critiques_async(
         self,
-        critiques: List[Any],
+        critiques: list[Any],
         budget: RLMCognitiveBudget,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Compress critiques, grouping by severity."""
         if not critiques:
             return []
@@ -623,10 +620,10 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         return result
 
-    def _summarize_critique_group(self, critiques: List[Any], severity: str) -> dict:
+    def _summarize_critique_group(self, critiques: list[Any], severity: str) -> dict:
         """Summarize a group of critiques into a single entry."""
-        all_issues: List[str] = []
-        all_suggestions: List[str] = []
+        all_issues: list[str] = []
+        all_suggestions: list[str] = []
 
         for c in critiques:
             all_issues.extend(getattr(c, "issues", []))
@@ -665,10 +662,10 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     def _calculate_total_chars(
         self,
-        messages: Optional[List[Any]],
-        critiques: Optional[List[Any]],
-        patterns: Optional[str],
-        extra_context: Optional[str],
+        messages: Optional[list[Any]],
+        critiques: Optional[list[Any]],
+        patterns: str | None,
+        extra_context: str | None,
     ) -> int:
         """Calculate total character count across all content."""
         total = 0
@@ -691,10 +688,10 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     def compress_context(
         self,
-        messages: Optional[List[Any]] = None,
-        critiques: Optional[List[Any]] = None,
-        patterns: Optional[str] = None,
-        extra_context: Optional[str] = None,
+        messages: Optional[list[Any]] = None,
+        critiques: Optional[list[Any]] = None,
+        patterns: str | None = None,
+        extra_context: str | None = None,
     ) -> CompressedContext:
         """
         Synchronous wrapper for compress_context_async.
@@ -714,10 +711,10 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     def _compress_context_sync(
         self,
-        messages: Optional[List[Any]] = None,
-        critiques: Optional[List[Any]] = None,
-        patterns: Optional[str] = None,
-        extra_context: Optional[str] = None,
+        messages: Optional[list[Any]] = None,
+        critiques: Optional[list[Any]] = None,
+        patterns: str | None = None,
+        extra_context: str | None = None,
     ) -> CompressedContext:
         """Synchronous compression using rule-based methods only."""
         budget = self.budget
@@ -886,7 +883,6 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         return "No directly relevant information found. Try a more specific query."
 
-
 def create_rlm_limiter(
     stress_level: str = "elevated",
     compressor: Optional["HierarchicalCompressor"] = None,
@@ -932,7 +928,6 @@ def create_rlm_limiter(
     if compressor:
         limiter._compressor = compressor
     return limiter
-
 
 # Export flag for checking RLM availability
 __all__ = [

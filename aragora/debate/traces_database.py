@@ -4,18 +4,18 @@ Database abstraction for the debate traces module.
 Provides thread-safe database access by delegating to DatabaseManager
 with per-operation connections for concurrent access patterns.
 """
+from __future__ import annotations
 
 import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, Optional, Union
+from typing import Generator
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.schema import DatabaseManager
 
 logger = logging.getLogger(__name__)
-
 
 class TracesDatabase:
     """
@@ -37,7 +37,7 @@ class TracesDatabase:
         rows = db.fetch_all("SELECT * FROM traces ORDER BY timestamp DESC")
     """
 
-    def __init__(self, db_path: Union[str, Path], timeout: float = DB_TIMEOUT_SECONDS):
+    def __init__(self, db_path: str | Path, timeout: float = DB_TIMEOUT_SECONDS):
         """Initialize the TracesDatabase wrapper.
 
         Args:
@@ -82,7 +82,7 @@ class TracesDatabase:
                 conn.execute("ROLLBACK")
                 raise
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         """Execute query and fetch single row.
 
         Args:

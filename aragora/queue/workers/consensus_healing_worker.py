@@ -22,13 +22,12 @@ import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
 # Job type constants
 JOB_TYPE_CONSENSUS_HEAL = "consensus_heal"
-
 
 class HealingAction(str, Enum):
     """Types of healing actions."""
@@ -40,7 +39,6 @@ class HealingAction(str, Enum):
     ARCHIVE = "archive"  # Archive as unresolved
     ESCALATE = "escalate"  # Escalate to human review
 
-
 class HealingReason(str, Enum):
     """Reasons for healing intervention."""
 
@@ -51,7 +49,6 @@ class HealingReason(str, Enum):
     ERROR = "error"  # Debate ended in error
     LOW_QUALITY = "low_quality"  # Low quality consensus
 
-
 @dataclass
 class HealingCandidate:
     """A debate candidate for healing."""
@@ -60,13 +57,12 @@ class HealingCandidate:
     task: str
     reason: HealingReason
     created_at: float
-    completed_at: Optional[float]
+    completed_at: float | None
     rounds_completed: int
     agent_count: int
     consensus_probability: float = 0.0
     convergence_trend: str = "unknown"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class HealingResult:
@@ -76,11 +72,11 @@ class HealingResult:
     action: HealingAction
     success: bool
     message: str
-    new_debate_id: Optional[str] = None
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    new_debate_id: str | None = None
+    metrics: dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "debate_id": self.debate_id,
             "action": self.action.value,
@@ -90,7 +86,6 @@ class HealingResult:
             "metrics": self.metrics,
             "timestamp": self.timestamp,
         }
-
 
 @dataclass
 class HealingConfig:
@@ -111,7 +106,6 @@ class HealingConfig:
     notify_on_stuck: bool = True
     archive_after_max_attempts: bool = True
 
-
 class ConsensusHealingWorker:
     """
     Background worker for consensus healing.
@@ -125,8 +119,8 @@ class ConsensusHealingWorker:
 
     def __init__(
         self,
-        worker_id: Optional[str] = None,
-        config: Optional[HealingConfig] = None,
+        worker_id: str | None = None,
+        config: HealingConfig | None = None,
         on_healing_needed: Optional[Callable[[HealingCandidate], None]] = None,
         on_healing_complete: Optional[Callable[[HealingResult], None]] = None,
     ):
@@ -145,8 +139,8 @@ class ConsensusHealingWorker:
         self.on_healing_complete = on_healing_complete
 
         self._running = False
-        self._healing_history: List[HealingResult] = []
-        self._candidates: Dict[str, HealingCandidate] = {}
+        self._healing_history: list[HealingResult] = []
+        self._candidates: dict[str, HealingCandidate] = {}
 
         # Metrics
         self._scans_completed = 0
@@ -197,7 +191,7 @@ class ConsensusHealingWorker:
         except Exception as e:
             logger.error(f"[{self.worker_id}] Error scanning for candidates: {e}")
 
-    async def _find_healing_candidates(self) -> List[HealingCandidate]:
+    async def _find_healing_candidates(self) -> list[HealingCandidate]:
         """Find debates that need consensus healing."""
         candidates = []
         now = time.time()
@@ -247,7 +241,7 @@ class ConsensusHealingWorker:
 
         return candidates
 
-    async def _query_stale_debates(self, memory: Any) -> List[Dict[str, Any]]:
+    async def _query_stale_debates(self, memory: Any) -> list[dict[str, Any]]:
         """Query for debates that might need healing."""
         # This would query the consensus memory for debates without strong consensus
         # For now, return empty list - real implementation would use memory.query()
@@ -266,7 +260,7 @@ class ConsensusHealingWorker:
         except Exception:
             return []
 
-    def _determine_reason(self, debate_info: Dict[str, Any]) -> HealingReason:
+    def _determine_reason(self, debate_info: dict[str, Any]) -> HealingReason:
         """Determine the reason a debate needs healing."""
         consensus_prob = debate_info.get("consensus_probability", 0.0)
         convergence = debate_info.get("convergence_trend", "unknown")
@@ -468,7 +462,7 @@ class ConsensusHealingWorker:
             message="Escalated for human review",
         )
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get healing worker metrics."""
         return {
             "worker_id": self.worker_id,
@@ -486,7 +480,7 @@ class ConsensusHealingWorker:
             "recent_healings": [h.to_dict() for h in self._healing_history[-10:]],
         }
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get worker status."""
         return {
             "worker_id": self.worker_id,
@@ -499,10 +493,8 @@ class ConsensusHealingWorker:
             "metrics": self.get_metrics(),
         }
 
-
 # Global worker instance
-_global_worker: Optional[ConsensusHealingWorker] = None
-
+_global_worker: ConsensusHealingWorker | None = None
 
 def get_consensus_healing_worker() -> ConsensusHealingWorker:
     """Get or create global consensus healing worker."""
@@ -511,20 +503,17 @@ def get_consensus_healing_worker() -> ConsensusHealingWorker:
         _global_worker = ConsensusHealingWorker()
     return _global_worker
 
-
 async def start_consensus_healing() -> ConsensusHealingWorker:
     """Start the global consensus healing worker."""
     worker = get_consensus_healing_worker()
     asyncio.create_task(worker.start())
     return worker
 
-
 async def stop_consensus_healing() -> None:
     """Stop the global consensus healing worker."""
     global _global_worker
     if _global_worker:
         await _global_worker.stop()
-
 
 __all__ = [
     "ConsensusHealingWorker",

@@ -31,6 +31,7 @@ Rationale (from aragora self-debate):
 - Semantic verification step prevents false positives from hallucination
 - Can connect with ProvenanceManager for "verified provenance"
 """
+from __future__ import annotations
 
 __all__ = [
     "FormalProofStatus",
@@ -53,10 +54,9 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
-
 
 class FormalProofStatus(Enum):
     """Status of a formal proof attempt."""
@@ -69,7 +69,6 @@ class FormalProofStatus(Enum):
     BACKEND_UNAVAILABLE = "backend_unavailable"
     NOT_SUPPORTED = "not_supported"  # Claim type not suitable for formal proof
 
-
 class FormalLanguage(Enum):
     """Supported formal proof languages."""
 
@@ -79,7 +78,6 @@ class FormalLanguage(Enum):
     AGDA = "agda"
     Z3_SMT = "z3_smt"  # SMT solver (simpler, more practical)
 
-
 @dataclass
 class FormalProofResult:
     """Result of a formal verification attempt."""
@@ -88,11 +86,11 @@ class FormalProofResult:
     language: FormalLanguage
 
     # The formal statement (if translation succeeded)
-    formal_statement: Optional[str] = None
+    formal_statement: str | None = None
 
     # The proof (if found)
-    proof_text: Optional[str] = None
-    proof_hash: Optional[str] = None  # For verification/caching
+    proof_text: str | None = None
+    proof_hash: str | None = None  # For verification/caching
 
     # Timing
     translation_time_ms: float = 0.0
@@ -148,7 +146,6 @@ class FormalProofResult:
             result["original_claim"] = self.original_claim
         return result
 
-
 @runtime_checkable
 class FormalVerificationBackend(Protocol):
     """
@@ -175,7 +172,7 @@ class FormalVerificationBackend(Protocol):
         """Check if the backend is available (toolchain installed, etc.)."""
         ...
 
-    def can_verify(self, claim: str, claim_type: Optional[str] = None) -> bool:
+    def can_verify(self, claim: str, claim_type: str | None = None) -> bool:
         """
         Check if this backend can attempt to verify the claim.
 
@@ -188,7 +185,7 @@ class FormalVerificationBackend(Protocol):
         """
         ...
 
-    async def translate(self, claim: str, context: str = "") -> Optional[str]:
+    async def translate(self, claim: str, context: str = "") -> str | None:
         """
         Translate a natural language claim to a formal statement.
 
@@ -229,7 +226,6 @@ class FormalVerificationBackend(Protocol):
         """
         ...
 
-
 class TranslationModel(Enum):
     """Available models for NL-to-Lean translation."""
 
@@ -237,7 +233,6 @@ class TranslationModel(Enum):
     CLAUDE = "claude"  # General-purpose, good at reasoning
     OPENAI = "openai"  # GPT-4, solid alternative
     AUTO = "auto"  # Automatically select best available
-
 
 class LeanBackend:
     """
@@ -313,8 +308,8 @@ class LeanBackend:
         self._sandbox_memory_mb = sandbox_memory_mb
         self._translation_model = translation_model
         self._proof_cache: dict[str, FormalProofResult] = {}
-        self._lean_version: Optional[str] = None
-        self._deepseek_translator: Optional[Any] = None
+        self._lean_version: str | None = None
+        self._deepseek_translator: Any | None = None
 
     @property
     def language(self) -> FormalLanguage:
@@ -344,7 +339,7 @@ class LeanBackend:
             pass  # is_available sets version
         return self._lean_version or "unknown"
 
-    def can_verify(self, claim: str, claim_type: Optional[str] = None) -> bool:
+    def can_verify(self, claim: str, claim_type: str | None = None) -> bool:
         """
         Check if this backend can attempt to verify the claim.
 
@@ -369,7 +364,7 @@ class LeanBackend:
 
         return False
 
-    def _get_deepseek_translator(self) -> Optional[Any]:
+    def _get_deepseek_translator(self) -> Any | None:
         """Get DeepSeek-Prover translator instance."""
         if self._deepseek_translator is None:
             try:
@@ -382,7 +377,7 @@ class LeanBackend:
                 pass
         return self._deepseek_translator
 
-    async def translate(self, claim: str, context: str = "") -> Optional[str]:
+    async def translate(self, claim: str, context: str = "") -> str | None:
         """
         Use LLM to translate a natural language claim to a Lean 4 theorem.
 
@@ -849,7 +844,6 @@ Examples of MATCHING:
 
         return proof_result
 
-
 class Z3Backend:
     """
     Z3 SMT solver backend for decidable verification.
@@ -874,7 +868,7 @@ class Z3Backend:
 
     def __init__(
         self,
-        llm_translator: Optional[Any] = None,
+        llm_translator: Any | None = None,
         cache_size: int = 100,
         cache_ttl_seconds: float = 3600.0,
     ):
@@ -888,7 +882,7 @@ class Z3Backend:
             cache_ttl_seconds: Time-to-live for cached results (default: 1 hour)
         """
         self._llm_translator = llm_translator
-        self._z3_version: Optional[str] = None
+        self._z3_version: str | None = None
         self._cache_size = cache_size
         self._cache_ttl = cache_ttl_seconds
         # Cache: hash -> (timestamp, FormalProofResult)
@@ -916,7 +910,7 @@ class Z3Backend:
             pass  # is_available sets the version
         return self._z3_version or "unknown"
 
-    def can_verify(self, claim: str, claim_type: Optional[str] = None) -> bool:
+    def can_verify(self, claim: str, claim_type: str | None = None) -> bool:
         """
         Check if this backend can attempt to verify the claim.
 
@@ -965,7 +959,7 @@ class Z3Backend:
         """Generate cache key from formal statement."""
         return hashlib.sha256(formal_statement.encode()).hexdigest()[:16]
 
-    def _get_cached(self, formal_statement: str) -> Optional[FormalProofResult]:
+    def _get_cached(self, formal_statement: str) -> FormalProofResult | None:
         """Get cached proof result if valid and not expired."""
         import time
 
@@ -1021,7 +1015,7 @@ class Z3Backend:
             logger.debug(f"SMT-LIB2 validation failed: {type(e).__name__}: {e}")
             return False
 
-    def _simple_translate(self, claim: str) -> Optional[str]:
+    def _simple_translate(self, claim: str) -> str | None:
         """
         Pattern-based translation for simple claims.
 
@@ -1062,7 +1056,7 @@ class Z3Backend:
 
         return None
 
-    async def translate(self, claim: str, context: str = "") -> Optional[str]:
+    async def translate(self, claim: str, context: str = "") -> str | None:
         """
         Translate a natural language claim to SMT-LIB2 format.
 
@@ -1238,7 +1232,6 @@ Return ONLY the SMT-LIB2 code, no explanation."""
         result = await self.prove(formal_statement, timeout_seconds=30.0)
         return result.status == FormalProofStatus.PROOF_FOUND
 
-
 class FormalVerificationManager:
     """
     Manages formal verification backends.
@@ -1258,8 +1251,8 @@ class FormalVerificationManager:
         return [b for b in self.backends if b.is_available]
 
     def get_backend_for_claim(
-        self, claim: str, claim_type: Optional[str] = None
-    ) -> Optional[FormalVerificationBackend]:
+        self, claim: str, claim_type: str | None = None
+    ) -> FormalVerificationBackend | None:
         """Find the best backend for a claim."""
         for backend in self.backends:
             if backend.is_available and backend.can_verify(claim, claim_type):
@@ -1269,7 +1262,7 @@ class FormalVerificationManager:
     async def attempt_formal_verification(
         self,
         claim: str,
-        claim_type: Optional[str] = None,
+        claim_type: str | None = None,
         context: str = "",
         timeout_seconds: float = 60.0,
     ) -> FormalProofResult:
@@ -1323,11 +1316,9 @@ class FormalVerificationManager:
             "any_available": any(b.is_available for b in self.backends),
         }
 
-
 # Singleton instance with thread-safe initialization
-_manager: Optional[FormalVerificationManager] = None
+_manager: FormalVerificationManager | None = None
 _manager_lock = threading.Lock()
-
 
 def get_formal_verification_manager() -> FormalVerificationManager:
     """Get the global formal verification manager (thread-safe)."""

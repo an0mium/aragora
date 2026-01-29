@@ -39,7 +39,6 @@ from weaviate.classes.data import DataObject  # noqa: F401
 
 WEAVIATE_AVAILABLE = True
 
-
 @dataclass
 class SearchResult:
     """A single search result from Weaviate."""
@@ -68,13 +67,12 @@ class SearchResult:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class WeaviateConfig:
     """Configuration for Weaviate connection."""
 
     url: str = "http://localhost:8080"
-    api_key: Optional[str] = None
+    api_key: str | None = None
     collection_name: str = "DocumentChunks"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
@@ -91,7 +89,6 @@ class WeaviateConfig:
             embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
         )
 
-
 class WeaviateStore:
     """
     Weaviate vector store for document chunks.
@@ -100,7 +97,7 @@ class WeaviateStore:
     support for hybrid search combining BM25 and vector similarity.
     """
 
-    def __init__(self, config: Optional[WeaviateConfig] = None):
+    def __init__(self, config: WeaviateConfig | None = None):
         """
         Initialize Weaviate store.
 
@@ -108,8 +105,8 @@ class WeaviateStore:
             config: Weaviate connection configuration
         """
         self.config = config or WeaviateConfig.from_env()
-        self._client: Optional[Any] = None
-        self._collection: Optional[Any] = None
+        self._client: Any | None = None
+        self._collection: Any | None = None
         self._connected = False
 
     @property
@@ -300,7 +297,7 @@ class WeaviateStore:
         self,
         embedding: list[float],
         limit: int = 10,
-        document_ids: Optional[list[str]] = None,
+        document_ids: list[str] | None = None,
         min_score: float = 0.0,
     ) -> list[SearchResult]:
         """
@@ -356,7 +353,7 @@ class WeaviateStore:
         self,
         query: str,
         limit: int = 10,
-        document_ids: Optional[list[str]] = None,
+        document_ids: list[str] | None = None,
     ) -> list[SearchResult]:
         """
         Search for chunks using BM25 keyword matching.
@@ -466,7 +463,7 @@ class WeaviateStore:
         results.sort(key=lambda r: r.metadata.get("sequence", 0) if r.metadata else 0)
         return results
 
-    async def count_chunks(self, document_id: Optional[str] = None) -> int:
+    async def count_chunks(self, document_id: str | None = None) -> int:
         """
         Count chunks in the collection.
 
@@ -509,18 +506,15 @@ class WeaviateStore:
         except Exception as e:
             return {"healthy": False, "error": str(e)}
 
-
 # Global store instance (singleton pattern)
-_store: Optional[WeaviateStore] = None
+_store: WeaviateStore | None = None
 
-
-def get_weaviate_store(config: Optional[WeaviateConfig] = None) -> WeaviateStore:
+def get_weaviate_store(config: WeaviateConfig | None = None) -> WeaviateStore:
     """Get or create global Weaviate store instance."""
     global _store
     if _store is None:
         _store = WeaviateStore(config)
     return _store
-
 
 __all__ = [
     "WeaviateStore",

@@ -48,7 +48,6 @@ DOMAIN_CAPABILITY_MAP: dict[str, list[str]] = {
     "general": [],
 }
 
-
 class AgentScorer(Protocol):
     """Protocol for agent scoring systems."""
 
@@ -56,11 +55,10 @@ class AgentScorer(Protocol):
         """Get agent's rating score."""
         ...
 
-
 class CalibrationScorer(Protocol):
     """Protocol for calibration scoring systems."""
 
-    def get_brier_score(self, agent_name: str, domain: Optional[str] = None) -> float:
+    def get_brier_score(self, agent_name: str, domain: str | None = None) -> float:
         """Get agent's Brier score (lower is better).
 
         Args:
@@ -70,7 +68,7 @@ class CalibrationScorer(Protocol):
         ...
 
     def get_brier_scores_batch(
-        self, agent_names: list[str], domain: Optional[str] = None
+        self, agent_names: list[str], domain: str | None = None
     ) -> dict[str, float]:
         """Get Brier scores for multiple agents in a single query.
 
@@ -86,7 +84,6 @@ class CalibrationScorer(Protocol):
         """
         # Default implementation falls back to individual calls
         return {name: self.get_brier_score(name, domain) for name in agent_names}
-
 
 @dataclass
 class TeamSelectionConfig:
@@ -118,7 +115,6 @@ class TeamSelectionConfig:
     cv_filter_unreliable: bool = False  # Filter out unreliable agents entirely
     cv_cache_ttl: int = 60  # CV cache TTL in seconds (1 minute)
 
-
 class TeamSelector:
     """Selects and scores agents for debate participation.
 
@@ -137,17 +133,17 @@ class TeamSelector:
 
     def __init__(
         self,
-        elo_system: Optional[AgentScorer] = None,
-        calibration_tracker: Optional[CalibrationScorer] = None,
+        elo_system: AgentScorer | None = None,
+        calibration_tracker: CalibrationScorer | None = None,
         circuit_breaker: Optional["CircuitBreaker"] = None,
         delegation_strategy: Optional["DelegationStrategy"] = None,
-        knowledge_mound: Optional[Any] = None,
-        ranking_adapter: Optional[Any] = None,
+        knowledge_mound: Any | None = None,
+        ranking_adapter: Any | None = None,
         critique_store: Optional["CritiqueStore"] = None,
         pattern_matcher: Optional["TaskPatternMatcher"] = None,
         cv_builder: Optional["CVBuilder"] = None,
         agent_hierarchy: Optional["AgentHierarchy"] = None,
-        config: Optional[TeamSelectionConfig] = None,
+        config: TeamSelectionConfig | None = None,
     ):
         self.elo_system = elo_system
         self.calibration_tracker = calibration_tracker
@@ -174,8 +170,8 @@ class TeamSelector:
         domain: str = "general",
         task: str = "",
         context: Optional["DebateContext"] = None,
-        required_hierarchy_roles: Optional[set[str]] = None,
-        debate_id: Optional[str] = None,
+        required_hierarchy_roles: set[str] | None = None,
+        debate_id: str | None = None,
     ) -> list["Agent"]:
         """Select and rank agents for debate participation.
 
@@ -355,8 +351,8 @@ class TeamSelector:
     def _filter_by_hierarchy_role(
         self,
         agents: list["Agent"],
-        required_roles: Optional[set[str]] = None,
-        debate_id: Optional[str] = None,
+        required_roles: set[str] | None = None,
+        debate_id: str | None = None,
     ) -> list["Agent"]:
         """Filter agents by Gastown hierarchy role.
 
@@ -490,8 +486,8 @@ class TeamSelector:
         return caps
 
     def _get_agent_hierarchy_role(
-        self, agent: "Agent", debate_id: Optional[str] = None
-    ) -> Optional[str]:
+        self, agent: "Agent", debate_id: str | None = None
+    ) -> str | None:
         """Get the Gastown hierarchy role for an agent.
 
         Checks multiple sources for the hierarchy role:
@@ -527,7 +523,7 @@ class TeamSelector:
 
         return None
 
-    def get_hierarchy_status(self, debate_id: str) -> Optional[dict]:
+    def get_hierarchy_status(self, debate_id: str) -> dict | None:
         """Get the hierarchy status for a debate.
 
         Args:
@@ -940,7 +936,7 @@ class TeamSelector:
     def _compute_cv_score(
         self,
         cv: "AgentCV",
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> float:
         """Compute score bonus from Agent CV.
 
@@ -1006,11 +1002,11 @@ class TeamSelector:
     def _compute_score(
         self,
         agent: "Agent",
-        domain: Optional[str] = None,
+        domain: str | None = None,
         task: str = "",
         context: Optional["DebateContext"] = None,
-        calibration_scores: Optional[dict[str, float]] = None,
-        agent_cvs: Optional[dict[str, "AgentCV"]] = None,
+        calibration_scores: dict[str, float] | None = None,
+        agent_cvs: dict[str, "AgentCV"] | None = None,
     ) -> float:
         """Compute composite score for an agent.
 
@@ -1089,7 +1085,7 @@ class TeamSelector:
     def score_agent(
         self,
         agent: "Agent",
-        domain: Optional[str] = None,
+        domain: str | None = None,
         task: str = "",
         context: Optional["DebateContext"] = None,
     ) -> float:

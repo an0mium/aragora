@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from typing import Optional
 from ...base import HandlerResult, error_response, success_response
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
@@ -26,13 +25,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class DashboardOperationsMixin:
     """Mixin providing dashboard and metrics endpoints for Knowledge Mound."""
 
     async def _check_knowledge_permission(
         self, request: "Request", action: str = "read"
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Check RBAC permission for knowledge operations."""
         permission = f"knowledge.{action}"
         try:

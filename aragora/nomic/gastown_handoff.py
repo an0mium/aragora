@@ -28,6 +28,7 @@ Usage:
     # Recover handoff on agent startup
     contexts = await handoff_protocol.recover_pending(agent_id="claude-001")
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -35,10 +36,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class HandoffStatus(str, Enum):
     """Status of a handoff context."""
@@ -49,7 +49,6 @@ class HandoffStatus(str, Enum):
     EXPIRED = "expired"  # TTL exceeded without pickup
     REJECTED = "rejected"  # Target rejected the handoff
 
-
 class HandoffPriority(int, Enum):
     """Priority levels for handoffs."""
 
@@ -57,7 +56,6 @@ class HandoffPriority(int, Enum):
     NORMAL = 50
     HIGH = 75
     CRITICAL = 100
-
 
 @dataclass
 class BeadHandoffContext:
@@ -70,21 +68,21 @@ class BeadHandoffContext:
 
     id: str
     source_bead_id: str
-    target_bead_id: Optional[str]
+    target_bead_id: str | None
     source_agent_id: str
-    target_agent_id: Optional[str]
+    target_agent_id: str | None
     status: HandoffStatus
     priority: HandoffPriority
     created_at: datetime
-    expires_at: Optional[datetime]
+    expires_at: datetime | None
 
     # Core handoff content
-    findings: List[str] = field(default_factory=list)
-    artifacts: Dict[str, str] = field(default_factory=dict)  # name -> path
-    decisions: List[str] = field(default_factory=list)
-    next_steps: List[str] = field(default_factory=list)
-    open_questions: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    findings: list[str] = field(default_factory=list)
+    artifacts: dict[str, str] = field(default_factory=dict)  # name -> path
+    decisions: list[str] = field(default_factory=list)
+    next_steps: list[str] = field(default_factory=list)
+    open_questions: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     # Context from execution
     execution_summary: str = ""
@@ -93,26 +91,26 @@ class BeadHandoffContext:
     cost_usd: float = 0.0
 
     # Metadata
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Delivery tracking
-    delivered_at: Optional[datetime] = None
-    acknowledged_at: Optional[datetime] = None
+    delivered_at: datetime | None = None
+    acknowledged_at: datetime | None = None
 
     @classmethod
     def create(
         cls,
         source_bead_id: str,
         source_agent_id: str,
-        target_bead_id: Optional[str] = None,
-        target_agent_id: Optional[str] = None,
-        findings: Optional[List[str]] = None,
-        artifacts: Optional[Dict[str, str]] = None,
-        decisions: Optional[List[str]] = None,
-        next_steps: Optional[List[str]] = None,
-        open_questions: Optional[List[str]] = None,
-        warnings: Optional[List[str]] = None,
+        target_bead_id: str | None = None,
+        target_agent_id: str | None = None,
+        findings: Optional[list[str]] = None,
+        artifacts: Optional[dict[str, str]] = None,
+        decisions: Optional[list[str]] = None,
+        next_steps: Optional[list[str]] = None,
+        open_questions: Optional[list[str]] = None,
+        warnings: Optional[list[str]] = None,
         execution_summary: str = "",
         priority: HandoffPriority = HandoffPriority.NORMAL,
         ttl_hours: float = 24.0,
@@ -143,7 +141,7 @@ class BeadHandoffContext:
             execution_summary=execution_summary,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         data = asdict(self)
         # Convert enums to strings
@@ -156,7 +154,7 @@ class BeadHandoffContext:
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BeadHandoffContext":
+    def from_dict(cls, data: dict[str, Any]) -> "BeadHandoffContext":
         """Create from dictionary."""
         data = data.copy()
         data["status"] = HandoffStatus(data["status"])
@@ -221,7 +219,6 @@ class BeadHandoffContext:
 
         return "\n".join(lines)
 
-
 @dataclass
 class MoleculeHandoffContext:
     """
@@ -243,15 +240,15 @@ class MoleculeHandoffContext:
     step_duration_seconds: float = 0.0
 
     # Checkpoint data
-    checkpoint_data: Dict[str, Any] = field(default_factory=dict)
+    checkpoint_data: dict[str, Any] = field(default_factory=dict)
 
     # Accumulated context from prior steps
-    accumulated_findings: List[str] = field(default_factory=list)
-    accumulated_artifacts: Dict[str, str] = field(default_factory=dict)
+    accumulated_findings: list[str] = field(default_factory=list)
+    accumulated_artifacts: dict[str, str] = field(default_factory=dict)
 
     # Control flow
     should_skip_remaining: bool = False
-    skip_reason: Optional[str] = None
+    skip_reason: str | None = None
 
     @classmethod
     def create(
@@ -275,19 +272,18 @@ class MoleculeHandoffContext:
             step_success=step_success,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         data = asdict(self)
         data["created_at"] = self.created_at.isoformat()
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MoleculeHandoffContext":
+    def from_dict(cls, data: dict[str, Any]) -> "MoleculeHandoffContext":
         """Create from dictionary."""
         data = data.copy()
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         return cls(**data)
-
 
 class HandoffStore:
     """
@@ -298,8 +294,8 @@ class HandoffStore:
 
     def __init__(self, storage_path: Path):
         self.storage_path = storage_path
-        self._handoffs: Dict[str, BeadHandoffContext] = {}
-        self._molecule_handoffs: Dict[str, MoleculeHandoffContext] = {}
+        self._handoffs: dict[str, BeadHandoffContext] = {}
+        self._molecule_handoffs: dict[str, MoleculeHandoffContext] = {}
 
     async def initialize(self) -> None:
         """Initialize storage, loading existing handoffs."""
@@ -337,15 +333,15 @@ class HandoffStore:
         self._molecule_handoffs[handoff.id] = handoff
         await self._persist_molecule_handoffs()
 
-    async def get_bead_handoff(self, handoff_id: str) -> Optional[BeadHandoffContext]:
+    async def get_bead_handoff(self, handoff_id: str) -> BeadHandoffContext | None:
         """Get a bead handoff by ID."""
         return self._handoffs.get(handoff_id)
 
-    async def get_molecule_handoff(self, handoff_id: str) -> Optional[MoleculeHandoffContext]:
+    async def get_molecule_handoff(self, handoff_id: str) -> MoleculeHandoffContext | None:
         """Get a molecule handoff by ID."""
         return self._molecule_handoffs.get(handoff_id)
 
-    async def get_pending_for_agent(self, agent_id: str) -> List[BeadHandoffContext]:
+    async def get_pending_for_agent(self, agent_id: str) -> list[BeadHandoffContext]:
         """Get all pending handoffs for an agent."""
         return [
             h
@@ -355,7 +351,7 @@ class HandoffStore:
             and not h.is_expired()
         ]
 
-    async def get_pending_for_bead(self, bead_id: str) -> List[BeadHandoffContext]:
+    async def get_pending_for_bead(self, bead_id: str) -> list[BeadHandoffContext]:
         """Get all pending handoffs for a bead."""
         return [
             h
@@ -402,7 +398,6 @@ class HandoffStore:
             for handoff in self._molecule_handoffs.values():
                 f.write(json.dumps(handoff.to_dict()) + "\n")
 
-
 class HandoffProtocol:
     """
     Protocol for managing handoff lifecycle.
@@ -418,8 +413,8 @@ class HandoffProtocol:
         self,
         source_bead_id: str,
         source_agent_id: str,
-        target_bead_id: Optional[str] = None,
-        target_agent_id: Optional[str] = None,
+        target_bead_id: str | None = None,
+        target_agent_id: str | None = None,
         **kwargs,
     ) -> BeadHandoffContext:
         """Create and store a new bead handoff."""
@@ -455,7 +450,7 @@ class HandoffProtocol:
 
     async def transfer_to_bead(
         self, handoff_id: str, target_bead_id: str
-    ) -> Optional[BeadHandoffContext]:
+    ) -> BeadHandoffContext | None:
         """Transfer a handoff to a specific bead."""
         handoff = await self.store.get_bead_handoff(handoff_id)
         if not handoff:
@@ -467,7 +462,7 @@ class HandoffProtocol:
 
     async def transfer_to_agent(
         self, handoff_id: str, target_agent_id: str
-    ) -> Optional[BeadHandoffContext]:
+    ) -> BeadHandoffContext | None:
         """Transfer a handoff to a specific agent."""
         handoff = await self.store.get_bead_handoff(handoff_id)
         if not handoff:
@@ -477,7 +472,7 @@ class HandoffProtocol:
         await self.store.save_bead_handoff(handoff)
         return handoff
 
-    async def recover_for_agent(self, agent_id: str) -> List[BeadHandoffContext]:
+    async def recover_for_agent(self, agent_id: str) -> list[BeadHandoffContext]:
         """
         Recover all pending handoffs for an agent.
 
@@ -487,7 +482,7 @@ class HandoffProtocol:
         logger.info(f"Recovered {len(handoffs)} pending handoffs for agent {agent_id}")
         return sorted(handoffs, key=lambda h: h.priority.value, reverse=True)
 
-    async def recover_for_bead(self, bead_id: str) -> List[BeadHandoffContext]:
+    async def recover_for_bead(self, bead_id: str) -> list[BeadHandoffContext]:
         """Recover all pending handoffs for a bead."""
         return await self.store.get_pending_for_bead(bead_id)
 
@@ -495,7 +490,7 @@ class HandoffProtocol:
         """Acknowledge receipt of a handoff."""
         await self.store.mark_acknowledged(handoff_id)
 
-    async def merge_contexts(self, handoffs: List[BeadHandoffContext]) -> BeadHandoffContext:
+    async def merge_contexts(self, handoffs: list[BeadHandoffContext]) -> BeadHandoffContext:
         """
         Merge multiple handoff contexts into one.
 
@@ -577,9 +572,8 @@ class HandoffProtocol:
 
         return merged
 
-
 # Convenience functions for common operations
-async def create_handoff_store(path: Optional[Path] = None) -> HandoffStore:
+async def create_handoff_store(path: Path | None = None) -> HandoffStore:
     """Create and initialize a handoff store."""
     if path is None:
         path = Path(".handoffs")
@@ -587,8 +581,7 @@ async def create_handoff_store(path: Optional[Path] = None) -> HandoffStore:
     await store.initialize()
     return store
 
-
-async def create_handoff_protocol(path: Optional[Path] = None) -> HandoffProtocol:
+async def create_handoff_protocol(path: Path | None = None) -> HandoffProtocol:
     """Create a handoff protocol with initialized store."""
     store = await create_handoff_store(path)
     return HandoffProtocol(store)

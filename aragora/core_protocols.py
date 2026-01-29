@@ -13,8 +13,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Optional, Protocol, runtime_checkable
-
+from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class StorageBackend(Protocol):
@@ -32,7 +31,7 @@ class StorageBackend(Protocol):
         """Save a debate result. Returns the slug."""
         ...
 
-    def get(self, slug: str) -> Optional[dict[str, Any]]:
+    def get(self, slug: str) -> dict[str, Any] | None:
         """Get a debate by slug."""
         ...
 
@@ -48,7 +47,6 @@ class StorageBackend(Protocol):
         """Search debates by query."""
         ...
 
-
 @runtime_checkable
 class MemoryBackend(Protocol):
     """Protocol for multi-tier memory backends."""
@@ -57,7 +55,7 @@ class MemoryBackend(Protocol):
         self,
         content: str,
         importance: float = 0.5,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Store a memory item. Returns the memory ID."""
         ...
@@ -66,7 +64,7 @@ class MemoryBackend(Protocol):
         self,
         query: str,
         limit: int = 10,
-        tier: Optional[str] = None,
+        tier: str | None = None,
     ) -> list[dict[str, Any]]:
         """Retrieve memories matching query."""
         ...
@@ -79,7 +77,6 @@ class MemoryBackend(Protocol):
         """Run decay cycle. Returns number of memories affected."""
         ...
 
-
 @runtime_checkable
 class EloBackend(Protocol):
     """Protocol for ELO rating system backends."""
@@ -91,7 +88,7 @@ class EloBackend(Protocol):
     def update_ratings(
         self,
         debate_id: str,
-        winner: Optional[str],
+        winner: str | None,
         participants: list[str],
         scores: dict[str, float],
     ) -> dict[str, float]:
@@ -101,7 +98,7 @@ class EloBackend(Protocol):
     def get_leaderboard(
         self,
         limit: int = 20,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get leaderboard rankings."""
         ...
@@ -113,7 +110,6 @@ class EloBackend(Protocol):
     ) -> list[dict[str, Any]]:
         """Get ELO history for an agent."""
         ...
-
 
 @runtime_checkable
 class EmbeddingBackend(Protocol):
@@ -141,7 +137,6 @@ class EmbeddingBackend(Protocol):
         """Search for similar embeddings. Returns (id, similarity) pairs."""
         ...
 
-
 @runtime_checkable
 class ConsensusBackend(Protocol):
     """Protocol for consensus memory backends."""
@@ -153,12 +148,12 @@ class ConsensusBackend(Protocol):
         confidence: float,
         supporting_agents: list[str],
         evidence: list[str],
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> int:
         """Record a new consensus. Returns consensus ID."""
         ...
 
-    def get_consensus(self, topic: str) -> Optional[dict[str, Any]]:
+    def get_consensus(self, topic: str) -> dict[str, Any] | None:
         """Get the current consensus on a topic."""
         ...
 
@@ -175,7 +170,6 @@ class ConsensusBackend(Protocol):
     def get_dissents(self, consensus_id: int) -> list[dict[str, Any]]:
         """Get all dissents for a consensus."""
         ...
-
 
 @runtime_checkable
 class CritiqueBackend(Protocol):
@@ -195,22 +189,21 @@ class CritiqueBackend(Protocol):
 
     def get_patterns(
         self,
-        agent: Optional[str] = None,
+        agent: str | None = None,
         limit: int = 20,
     ) -> list[dict[str, Any]]:
         """Get critique patterns."""
         ...
 
-    def get_reputation(self, agent: str) -> Optional[dict[str, Any]]:
+    def get_reputation(self, agent: str) -> dict[str, Any] | None:
         """Get reputation scores for an agent."""
         ...
-
 
 @runtime_checkable
 class PersonaBackend(Protocol):
     """Protocol for agent persona backends."""
 
-    def get_persona(self, agent_name: str) -> Optional[dict[str, Any]]:
+    def get_persona(self, agent_name: str) -> dict[str, Any] | None:
         """Get persona for an agent."""
         ...
 
@@ -219,7 +212,7 @@ class PersonaBackend(Protocol):
         agent_name: str,
         traits: list[str],
         expertise: dict[str, float],
-        description: Optional[str] = None,
+        description: str | None = None,
     ) -> None:
         """Save or update an agent persona."""
         ...
@@ -235,7 +228,6 @@ class PersonaBackend(Protocol):
         """Record performance event for learning."""
         ...
 
-
 @runtime_checkable
 class GenesisBackend(Protocol):
     """Protocol for agent genome/evolution backends."""
@@ -246,13 +238,13 @@ class GenesisBackend(Protocol):
         name: str,
         traits: list[str],
         expertise: dict[str, float],
-        parent_genomes: Optional[list[str]] = None,
+        parent_genomes: list[str] | None = None,
         generation: int = 0,
     ) -> None:
         """Save an agent genome."""
         ...
 
-    def get_genome(self, genome_id: str) -> Optional[dict[str, Any]]:
+    def get_genome(self, genome_id: str) -> dict[str, Any] | None:
         """Get a genome by ID."""
         ...
 
@@ -268,25 +260,22 @@ class GenesisBackend(Protocol):
         self,
         event_type: str,
         data: dict[str, Any],
-        parent_event_id: Optional[str] = None,
+        parent_event_id: str | None = None,
     ) -> str:
         """Record a genesis event. Returns event ID."""
         ...
-
 
 # =============================================================================
 # HTTP Handler Protocols
 # =============================================================================
 
-
 @runtime_checkable
 class HTTPHeaders(Protocol):
     """Protocol for HTTP headers dictionary-like interface."""
 
-    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, default: str | None = None) -> str | None:
         """Get a header value."""
         ...
-
 
 @runtime_checkable
 class HTTPRequestHandler(Protocol):
@@ -307,15 +296,14 @@ class HTTPRequestHandler(Protocol):
         """Readable file-like object for request body."""
         ...
 
-
 @runtime_checkable
 class AuthenticatedUser(Protocol):
     """Protocol for authenticated user context."""
 
     user_id: str
-    email: Optional[str]
+    email: str | None
     is_authenticated: bool
-    org_id: Optional[str]
+    org_id: str | None
 
     @property
     def id(self) -> str:
@@ -327,7 +315,6 @@ class AuthenticatedUser(Protocol):
         """Check if user has admin role."""
         ...
 
-
 @runtime_checkable
 class Agent(Protocol):
     """Protocol for debate agent interface."""
@@ -337,7 +324,6 @@ class Agent(Protocol):
     def generate(self, prompt: str, **kwargs: Any) -> str:
         """Generate a response for the given prompt."""
         ...
-
 
 @runtime_checkable
 class AgentRating(Protocol):
@@ -359,7 +345,6 @@ class AgentRating(Protocol):
     def total_debates(self) -> int:
         """Total debates (alias for debates_count)."""
         ...
-
 
 # Type aliases for common return types
 DebateRecord = dict[str, Any]

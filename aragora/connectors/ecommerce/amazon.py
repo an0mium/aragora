@@ -30,13 +30,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 class AmazonMarketplace(str, Enum):
     """Amazon marketplace identifiers."""
@@ -52,7 +51,6 @@ class AmazonMarketplace(str, Enum):
     JP = "A1VC38T7YXB528"
     AU = "A39IBJ37TRP1C6"
 
-
 class AmazonOrderStatus(str, Enum):
     """Amazon order status."""
 
@@ -65,13 +63,11 @@ class AmazonOrderStatus(str, Enum):
     INVOICE_UNCONFIRMED = "InvoiceUnconfirmed"
     PENDING_AVAILABILITY = "PendingAvailability"
 
-
 class FulfillmentChannel(str, Enum):
     """Order fulfillment channel."""
 
     AFN = "AFN"  # Amazon Fulfillment Network (FBA)
     MFN = "MFN"  # Merchant Fulfillment Network
-
 
 class InventoryCondition(str, Enum):
     """Inventory item condition."""
@@ -84,7 +80,6 @@ class InventoryCondition(str, Enum):
     COLLECTIBLE = "CollectibleLikeNew"
     REFURBISHED = "Refurbished"
 
-
 @dataclass
 class AmazonCredentials:
     """Amazon SP-API credentials."""
@@ -94,9 +89,9 @@ class AmazonCredentials:
     client_secret: str
     marketplace_id: str
     seller_id: str
-    aws_access_key: Optional[str] = None
-    aws_secret_key: Optional[str] = None
-    role_arn: Optional[str] = None
+    aws_access_key: str | None = None
+    aws_secret_key: str | None = None
+    role_arn: str | None = None
 
     @classmethod
     def from_env(cls) -> "AmazonCredentials":
@@ -112,22 +107,21 @@ class AmazonCredentials:
             role_arn=os.environ.get("AMAZON_SP_ROLE_ARN"),
         )
 
-
 @dataclass
 class AmazonAddress:
     """Amazon shipping/billing address."""
 
-    name: Optional[str] = None
-    address_line1: Optional[str] = None
-    address_line2: Optional[str] = None
-    address_line3: Optional[str] = None
-    city: Optional[str] = None
-    state_or_region: Optional[str] = None
-    postal_code: Optional[str] = None
-    country_code: Optional[str] = None
-    phone: Optional[str] = None
+    name: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    address_line3: str | None = None
+    city: str | None = None
+    state_or_region: str | None = None
+    postal_code: str | None = None
+    country_code: str | None = None
+    phone: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "addressLine1": self.address_line1,
@@ -140,14 +134,13 @@ class AmazonAddress:
             "phone": self.phone,
         }
 
-
 @dataclass
 class AmazonOrderItem:
     """Amazon order item."""
 
     order_item_id: str
     asin: str
-    seller_sku: Optional[str]
+    seller_sku: str | None
     title: str
     quantity_ordered: int
     quantity_shipped: int
@@ -156,10 +149,10 @@ class AmazonOrderItem:
     shipping_price: Decimal
     shipping_tax: Decimal
     promotion_discount: Decimal
-    condition: Optional[str] = None
+    condition: str | None = None
     is_gift: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "orderItemId": self.order_item_id,
             "asin": self.asin,
@@ -176,13 +169,12 @@ class AmazonOrderItem:
             "isGift": self.is_gift,
         }
 
-
 @dataclass
 class AmazonOrder:
     """Amazon order."""
 
     amazon_order_id: str
-    seller_order_id: Optional[str]
+    seller_order_id: str | None
     purchase_date: datetime
     last_update_date: datetime
     order_status: AmazonOrderStatus
@@ -192,15 +184,15 @@ class AmazonOrder:
     currency_code: str
     number_of_items_shipped: int
     number_of_items_unshipped: int
-    shipping_address: Optional[AmazonAddress] = None
-    buyer_email: Optional[str] = None
-    buyer_name: Optional[str] = None
-    order_items: List[AmazonOrderItem] = field(default_factory=list)
+    shipping_address: AmazonAddress | None = None
+    buyer_email: str | None = None
+    buyer_name: str | None = None
+    order_items: list[AmazonOrderItem] = field(default_factory=list)
     is_prime: bool = False
     is_business_order: bool = False
     is_replacement_order: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "amazonOrderId": self.amazon_order_id,
             "sellerOrderId": self.seller_order_id,
@@ -222,14 +214,13 @@ class AmazonOrder:
             "isReplacementOrder": self.is_replacement_order,
         }
 
-
 @dataclass
 class AmazonInventoryItem:
     """Amazon inventory/FBA item."""
 
     asin: str
     seller_sku: str
-    fnsku: Optional[str]  # FBA SKU
+    fnsku: str | None  # FBA SKU
     product_name: str
     condition: InventoryCondition
     total_quantity: int
@@ -239,7 +230,7 @@ class AmazonInventoryItem:
     unfulfillable_quantity: int = 0  # Damaged/defective
     researching_quantity: int = 0  # Being researched
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "asin": self.asin,
             "sellerSku": self.seller_sku,
@@ -254,24 +245,23 @@ class AmazonInventoryItem:
             "researchingQuantity": self.researching_quantity,
         }
 
-
 @dataclass
 class AmazonProduct:
     """Amazon catalog item."""
 
     asin: str
     title: str
-    brand: Optional[str]
-    manufacturer: Optional[str]
-    product_type: Optional[str]
-    parent_asin: Optional[str]  # For variations
-    item_dimensions: Optional[Dict[str, Any]] = None
-    package_dimensions: Optional[Dict[str, Any]] = None
-    images: List[str] = field(default_factory=list)
-    bullet_points: List[str] = field(default_factory=list)
-    browse_nodes: List[str] = field(default_factory=list)
+    brand: str | None
+    manufacturer: str | None
+    product_type: str | None
+    parent_asin: str | None  # For variations
+    item_dimensions: Optional[dict[str, Any]] = None
+    package_dimensions: Optional[dict[str, Any]] = None
+    images: list[str] = field(default_factory=list)
+    bullet_points: list[str] = field(default_factory=list)
+    browse_nodes: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "asin": self.asin,
             "title": self.title,
@@ -285,7 +275,6 @@ class AmazonProduct:
             "bulletPoints": self.bullet_points,
             "browseNodes": self.browse_nodes,
         }
-
 
 class AmazonConnector(EnterpriseConnector):
     """
@@ -403,9 +392,9 @@ class AmazonConnector(EnterpriseConnector):
 
     async def sync_orders(
         self,
-        since: Optional[datetime] = None,
-        status: Optional[List[AmazonOrderStatus]] = None,
-        fulfillment_channels: Optional[List[FulfillmentChannel]] = None,
+        since: datetime | None = None,
+        status: Optional[list[AmazonOrderStatus]] = None,
+        fulfillment_channels: Optional[list[FulfillmentChannel]] = None,
     ) -> AsyncIterator[AmazonOrder]:
         """Sync orders from Amazon.
 
@@ -438,7 +427,7 @@ class AmazonConnector(EnterpriseConnector):
             orders_api = Orders(credentials=self._sp_credentials, marketplace=self._marketplace)
 
             # Build filter params
-            params: Dict[str, Any] = {}
+            params: dict[str, Any] = {}
             if since:
                 params["LastUpdatedAfter"] = since.isoformat()
             if status:
@@ -462,7 +451,7 @@ class AmazonConnector(EnterpriseConnector):
                 if not next_token:
                     break
 
-    def _parse_sp_api_order(self, data: Dict[str, Any]) -> AmazonOrder:
+    def _parse_sp_api_order(self, data: dict[str, Any]) -> AmazonOrder:
         """Parse SP-API order response into AmazonOrder dataclass."""
         # Parse shipping address
         shipping = data.get("ShippingAddress", {})
@@ -506,7 +495,7 @@ class AmazonConnector(EnterpriseConnector):
             order_items=[],  # Items fetched separately via get_order_items
         )
 
-    async def get_order(self, order_id: str) -> Optional[AmazonOrder]:
+    async def get_order(self, order_id: str) -> AmazonOrder | None:
         """Get a single order by ID.
 
         Args:
@@ -519,7 +508,7 @@ class AmazonConnector(EnterpriseConnector):
         logger.info(f"Getting Amazon order {order_id}")
         return None
 
-    async def get_order_items(self, order_id: str) -> List[AmazonOrderItem]:
+    async def get_order_items(self, order_id: str) -> list[AmazonOrderItem]:
         """Get items for an order.
 
         Args:
@@ -559,8 +548,8 @@ class AmazonConnector(EnterpriseConnector):
 
     async def get_fba_inventory(
         self,
-        skus: Optional[List[str]] = None,
-    ) -> List[AmazonInventoryItem]:
+        skus: Optional[list[str]] = None,
+    ) -> list[AmazonInventoryItem]:
         """Get FBA inventory levels.
 
         Args:
@@ -576,7 +565,7 @@ class AmazonConnector(EnterpriseConnector):
     async def get_inventory_item(
         self,
         seller_sku: str,
-    ) -> Optional[AmazonInventoryItem]:
+    ) -> AmazonInventoryItem | None:
         """Get inventory for a specific SKU.
 
         Args:
@@ -591,9 +580,9 @@ class AmazonConnector(EnterpriseConnector):
     async def create_inbound_shipment(
         self,
         shipment_name: str,
-        items: List[Dict[str, Any]],
+        items: list[dict[str, Any]],
         ship_from_address: AmazonAddress,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Create FBA inbound shipment plan.
 
         Args:
@@ -612,7 +601,7 @@ class AmazonConnector(EnterpriseConnector):
     # Catalog/Products
     # =========================================================================
 
-    async def get_catalog_item(self, asin: str) -> Optional[AmazonProduct]:
+    async def get_catalog_item(self, asin: str) -> AmazonProduct | None:
         """Get product details from catalog.
 
         Args:
@@ -629,7 +618,7 @@ class AmazonConnector(EnterpriseConnector):
         self,
         keywords: str,
         limit: int = 20,
-    ) -> List[AmazonProduct]:
+    ) -> list[AmazonProduct]:
         """Search Amazon catalog.
 
         Args:
@@ -650,9 +639,9 @@ class AmazonConnector(EnterpriseConnector):
     async def request_report(
         self,
         report_type: str,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Optional[str]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> str | None:
         """Request an Amazon report.
 
         Args:
@@ -667,7 +656,7 @@ class AmazonConnector(EnterpriseConnector):
         logger.info(f"Requesting report: {report_type}")
         return None
 
-    async def get_report(self, report_id: str) -> Optional[bytes]:
+    async def get_report(self, report_id: str) -> bytes | None:
         """Download a generated report.
 
         Args:
@@ -687,7 +676,7 @@ class AmazonConnector(EnterpriseConnector):
         self,
         start_date: datetime,
         end_date: datetime,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get sales metrics for date range.
 
         Args:
@@ -728,8 +717,8 @@ class AmazonConnector(EnterpriseConnector):
 
     async def incremental_sync(
         self,
-        state: Optional[SyncState] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        state: SyncState | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Perform incremental sync of Amazon data.
 
         Args:
@@ -752,7 +741,7 @@ class AmazonConnector(EnterpriseConnector):
         """Perform full sync of Amazon data."""
         start_time = datetime.now(timezone.utc)
         items_synced = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             async for _ in self.incremental_sync():
@@ -854,13 +843,11 @@ class AmazonConnector(EnterpriseConnector):
                 },
             )
 
-
 # =========================================================================
 # Mock data for testing
 # =========================================================================
 
-
-def get_mock_orders() -> List[AmazonOrder]:
+def get_mock_orders() -> list[AmazonOrder]:
     """Get mock Amazon orders for testing."""
     now = datetime.now(timezone.utc)
     return [
@@ -895,8 +882,7 @@ def get_mock_orders() -> List[AmazonOrder]:
         ),
     ]
 
-
-def get_mock_inventory() -> List[AmazonInventoryItem]:
+def get_mock_inventory() -> list[AmazonInventoryItem]:
     """Get mock FBA inventory for testing."""
     return [
         AmazonInventoryItem(
@@ -911,7 +897,6 @@ def get_mock_inventory() -> List[AmazonInventoryItem]:
             inbound_quantity=5,
         ),
     ]
-
 
 __all__ = [
     "AmazonConnector",

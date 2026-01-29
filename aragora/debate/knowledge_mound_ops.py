@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 # Type alias for notification callback
 NotifyCallback = Callable[[str, Any], None]
 
-
 class KnowledgeMoundOperations:
     """Operations for integrating Knowledge Mound with debate orchestration.
 
@@ -36,7 +35,7 @@ class KnowledgeMoundOperations:
         knowledge_mound: Optional["KnowledgeMound"] = None,
         enable_retrieval: bool = True,
         enable_ingestion: bool = True,
-        notify_callback: Optional[NotifyCallback] = None,
+        notify_callback: NotifyCallback | None = None,
         metrics: Optional["KMMetrics"] = None,
     ):
         """Initialize Knowledge Mound operations.
@@ -54,7 +53,7 @@ class KnowledgeMoundOperations:
         self._notify_callback = notify_callback
         self._metrics = metrics
 
-    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
+    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> str | None:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
         Queries the unified knowledge superstructure for semantically related

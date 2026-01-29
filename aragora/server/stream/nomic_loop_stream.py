@@ -18,6 +18,7 @@ Usage:
     await server.emit_loop_started(cycles=3, auto_approve=False)
     await server.emit_phase_changed(old_phase="context", new_phase="debate")
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -25,10 +26,9 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class NomicLoopEventType(Enum):
     """Types of Nomic Loop events."""
@@ -69,16 +69,15 @@ class NomicLoopEventType(Enum):
     # Error events
     ERROR = "error"
 
-
 @dataclass
 class NomicLoopEvent:
     """Event emitted by the Nomic Loop."""
 
     event_type: NomicLoopEventType
     timestamp: float = field(default_factory=time.time)
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary for JSON serialization."""
         return {
             "type": self.event_type.value,
@@ -89,7 +88,6 @@ class NomicLoopEvent:
     def to_json(self) -> str:
         """Serialize event to JSON string."""
         return json.dumps(self.to_dict())
-
 
 class NomicLoopStreamServer:
     """
@@ -108,10 +106,10 @@ class NomicLoopStreamServer:
         """
         self.port = port
         self.host = host
-        self._clients: Set[Any] = set()  # websockets.WebSocketServerProtocol
+        self._clients: set[Any] = set()  # websockets.WebSocketServerProtocol
         self._lock = asyncio.Lock()
         self._running = False
-        self._server: Optional[Any] = None  # websockets.WebSocketServer
+        self._server: Any | None = None  # websockets.WebSocketServer
 
     async def start(self):
         """Start the WebSocket server."""
@@ -303,7 +301,7 @@ class NomicLoopStreamServer:
         self,
         phase: str,
         cycle: int,
-        estimated_duration_sec: Optional[int] = None,
+        estimated_duration_sec: int | None = None,
     ):
         """Emit phase started event."""
         await self.broadcast(
@@ -322,7 +320,7 @@ class NomicLoopStreamServer:
         phase: str,
         cycle: int,
         duration_sec: float,
-        result_summary: Optional[str] = None,
+        result_summary: str | None = None,
     ):
         """Emit phase completed event."""
         await self.broadcast(
@@ -449,8 +447,8 @@ class NomicLoopStreamServer:
         status: str,
         running: bool,
         paused: bool,
-        current_phase: Optional[str] = None,
-        current_cycle: Optional[int] = None,
+        current_phase: str | None = None,
+        current_cycle: int | None = None,
         stalled: bool = False,
     ):
         """Emit health update event."""
@@ -511,7 +509,7 @@ class NomicLoopStreamServer:
             )
         )
 
-    async def emit_error(self, error: str, context: Dict[str, Any] = None):
+    async def emit_error(self, error: str, context: dict[str, Any] = None):
         """Emit error event."""
         await self.broadcast(
             NomicLoopEvent(

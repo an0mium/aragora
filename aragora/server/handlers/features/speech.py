@@ -16,7 +16,6 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from ..base import (
     BaseHandler,
@@ -42,7 +41,6 @@ MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 # Supported extensions
 SUPPORTED_EXTENSIONS = {".mp3", ".m4a", ".wav", ".webm", ".mpga", ".mpeg", ".ogg", ".flac"}
 
-
 class SpeechHandler(BaseHandler):
     """Handler for speech-to-text endpoints."""
 
@@ -56,14 +54,14 @@ class SpeechHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests."""
         if path == "/api/v1/speech/providers":
             return self._get_providers()
         return None
 
     @require_permission("speech:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests."""
         # Rate limit check for resource-intensive speech operations
         client_ip = get_client_ip(handler)
@@ -253,9 +251,9 @@ class SpeechHandler(BaseHandler):
         self,
         content: bytes,
         filename: str,
-        language: Optional[str],
-        prompt: Optional[str],
-        provider_name: Optional[str],
+        language: str | None,
+        prompt: str | None,
+        provider_name: str | None,
     ) -> dict:
         """Perform the actual transcription."""
         try:
@@ -308,7 +306,7 @@ class SpeechHandler(BaseHandler):
         handler,
         content_type: str,
         content_length: int,
-    ) -> tuple[Optional[bytes], Optional[str]]:
+    ) -> tuple[bytes | None, str | None]:
         """Parse file content and filename from upload request."""
         if "multipart/form-data" in content_type:
             return self._parse_multipart(handler, content_type, content_length)
@@ -320,7 +318,7 @@ class SpeechHandler(BaseHandler):
         handler,
         content_type: str,
         content_length: int,
-    ) -> tuple[Optional[bytes], Optional[str]]:
+    ) -> tuple[bytes | None, str | None]:
         """Parse multipart form data."""
         # Extract boundary
         boundary = None
@@ -374,7 +372,7 @@ class SpeechHandler(BaseHandler):
         self,
         handler,
         content_length: int,
-    ) -> tuple[Optional[bytes], Optional[str]]:
+    ) -> tuple[bytes | None, str | None]:
         """Parse raw file upload with X-Filename header."""
         filename = handler.headers.get("X-Filename", "audio.mp3")
         filename = os.path.basename(filename)

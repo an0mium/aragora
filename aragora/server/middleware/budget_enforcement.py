@@ -15,15 +15,13 @@ logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-
 class BudgetExceededError(Exception):
     """Raised when an operation would exceed budget limits."""
 
-    def __init__(self, message: str, budget_id: Optional[str] = None, action: Optional[str] = None):
+    def __init__(self, message: str, budget_id: str | None = None, action: str | None = None):
         super().__init__(message)
         self.budget_id = budget_id
         self.action = action
-
 
 class BudgetWarning:
     """Warning about approaching budget limits."""
@@ -33,9 +31,8 @@ class BudgetWarning:
         self.usage_percentage = usage_percentage
         self.action = action
 
-
 def check_budget(
-    estimated_cost_usd: Optional[float] = None,
+    estimated_cost_usd: float | None = None,
     cost_estimator: Optional[Callable[..., float]] = None,
     on_warning: Optional[Callable[[BudgetWarning], bool]] = None,
 ) -> Callable[[F], F]:
@@ -202,14 +199,12 @@ def check_budget(
 
     return decorator
 
-
 def asyncio_iscoroutinefunction(func: Any) -> bool:
     """Check if function is async."""
     import asyncio
     import inspect
 
     return asyncio.iscoroutinefunction(func) or inspect.iscoroutinefunction(func)
-
 
 def record_spend(
     cost_calculator: Optional[Callable[..., float]] = None,
@@ -347,7 +342,6 @@ def record_spend(
 
     return decorator
 
-
 def estimate_debate_cost(
     rounds: int | None = None,
     agents: int = 2,
@@ -373,7 +367,6 @@ def estimate_debate_cost(
     total_tokens = rounds * agents * avg_tokens_per_round * 2  # Input + output
     return (total_tokens / 1000) * cost_per_1k_tokens
 
-
 def estimate_gauntlet_cost(
     probes: int = 10,
     attacks: int = 5,
@@ -395,7 +388,6 @@ def estimate_gauntlet_cost(
     total_tokens = total_operations * avg_tokens_per_operation * 2
     return (total_tokens / 1000) * cost_per_1k_tokens
 
-
 # Pre-built cost estimators for common operations
 def DEBATE_COST_ESTIMATOR(*args: Any, **kwargs: Any) -> float:
     """Estimate cost for debate operations."""
@@ -404,14 +396,12 @@ def DEBATE_COST_ESTIMATOR(*args: Any, **kwargs: Any) -> float:
         agents=len(kwargs.get("agents", [])) or 2,
     )
 
-
 def GAUNTLET_COST_ESTIMATOR(*args: Any, **kwargs: Any) -> float:
     """Estimate cost for gauntlet operations."""
     return estimate_gauntlet_cost(
         probes=kwargs.get("probes", 10),
         attacks=kwargs.get("attacks", 5),
     )
-
 
 __all__ = [
     "BudgetExceededError",

@@ -14,7 +14,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.visualization.mapper import ArgumentCartographer
 
@@ -26,12 +26,11 @@ _MAX_CACHE_ENTRIES = 100
 _CLEANUP_INTERVAL = 60.0  # Minimum seconds between cleanups
 _REDIS_KEY_PREFIX = "aragora:export:"
 
-
 class ExportCacheBackend(ABC):
     """Abstract base class for export cache backends."""
 
     @abstractmethod
-    def get(self, debate_id: str, format_name: str, graph_hash: str) -> Optional[str]:
+    def get(self, debate_id: str, format_name: str, graph_hash: str) -> str | None:
         """Get cached export content."""
         pass
 
@@ -55,7 +54,6 @@ class ExportCacheBackend(ABC):
         """Remove expired entries. Returns count removed."""
         pass
 
-
 class InMemoryCacheBackend(ExportCacheBackend):
     """In-memory export cache with TTL and LRU eviction."""
 
@@ -71,7 +69,7 @@ class InMemoryCacheBackend(ExportCacheBackend):
     def _make_key(self, debate_id: str, format_name: str, graph_hash: str) -> tuple[str, str, str]:
         return (debate_id, format_name, graph_hash)
 
-    def get(self, debate_id: str, format_name: str, graph_hash: str) -> Optional[str]:
+    def get(self, debate_id: str, format_name: str, graph_hash: str) -> str | None:
         key = self._make_key(debate_id, format_name, graph_hash)
         with self._lock:
             if key in self._cache:
@@ -148,7 +146,6 @@ class InMemoryCacheBackend(ExportCacheBackend):
                 "hit_rate": round(hit_rate, 3),
             }
 
-
 class RedisCacheBackend(ExportCacheBackend):
     """Redis-backed export cache for distributed deployments."""
 
@@ -174,7 +171,7 @@ class RedisCacheBackend(ExportCacheBackend):
     def _make_key(self, debate_id: str, format_name: str, graph_hash: str) -> str:
         return f"{_REDIS_KEY_PREFIX}{debate_id}:{format_name}:{graph_hash}"
 
-    def get(self, debate_id: str, format_name: str, graph_hash: str) -> Optional[str]:
+    def get(self, debate_id: str, format_name: str, graph_hash: str) -> str | None:
         try:
             client = self._get_client()
             key = self._make_key(debate_id, format_name, graph_hash)
@@ -248,11 +245,9 @@ class RedisCacheBackend(ExportCacheBackend):
             logger.debug(f"Redis stats failed: {e}")
             return {"backend": "redis", "error": str(e)}
 
-
 # Singleton cache backend
-_cache_backend: Optional[ExportCacheBackend] = None
+_cache_backend: ExportCacheBackend | None = None
 _cache_backend_lock = threading.Lock()
-
 
 def _get_cache_backend() -> ExportCacheBackend:
     """Get or create the cache backend singleton."""
@@ -274,12 +269,10 @@ def _get_cache_backend() -> ExportCacheBackend:
                     _cache_backend = InMemoryCacheBackend()
     return _cache_backend
 
-
 # Legacy compatibility - module-level variables (deprecated)
 _export_cache: dict[tuple[str, str, str], tuple[str, float]] = {}
 _export_cache_lock = threading.Lock()
 _last_cleanup_time = 0.0
-
 
 def _get_graph_hash(cartographer: ArgumentCartographer) -> str:
     """Get a hash of the current graph state for caching."""
@@ -288,16 +281,13 @@ def _get_graph_hash(cartographer: ArgumentCartographer) -> str:
     hash_input = f"{stats['node_count']}:{stats['edge_count']}:{stats['rounds']}:{','.join(sorted(stats['agents']))}"
     return hashlib.sha256(hash_input.encode()).hexdigest()[:16]
 
-
-def _get_cached_export(debate_id: str, format_name: str, graph_hash: str) -> Optional[str]:
+def _get_cached_export(debate_id: str, format_name: str, graph_hash: str) -> str | None:
     """Get cached export if valid. Uses configured backend (Redis or in-memory)."""
     return _get_cache_backend().get(debate_id, format_name, graph_hash)
-
 
 def _cache_export(debate_id: str, format_name: str, graph_hash: str, content: str) -> None:
     """Cache an export. Uses configured backend (Redis or in-memory)."""
     _get_cache_backend().set(debate_id, format_name, graph_hash, content)
-
 
 def cleanup_expired_exports() -> int:
     """
@@ -313,11 +303,9 @@ def cleanup_expired_exports() -> int:
     """
     return _get_cache_backend().cleanup_expired()
 
-
 def clear_export_cache() -> int:
     """Clear the export cache. Returns number of entries cleared."""
     return _get_cache_backend().clear()
-
 
 def get_export_cache_stats() -> dict[str, Any]:
     """
@@ -329,12 +317,11 @@ def get_export_cache_stats() -> dict[str, Any]:
     """
     return _get_cache_backend().get_stats()
 
-
 def save_debate_visualization(
     cartographer: ArgumentCartographer,
     output_dir: Path,
     debate_id: str,
-    formats: Optional[list] = None,
+    formats: list | None = None,
     use_cache: bool = True,
 ) -> dict:
     """
@@ -396,7 +383,6 @@ def save_debate_visualization(
         results["html"] = str(html_path)
 
     return results
-
 
 def generate_standalone_html(cartographer: ArgumentCartographer) -> str:
     """Generate a standalone HTML file with embedded Mermaid diagram."""

@@ -19,7 +19,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -31,11 +31,9 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # FHIR Resource Types
 # =============================================================================
-
 
 class FHIRResourceType(str, Enum):
     """Supported FHIR R4 resource types."""
@@ -63,7 +61,6 @@ class FHIRResourceType(str, Enum):
     DOCUMENT_REFERENCE = "DocumentReference"
     COMPOSITION = "Composition"
 
-
 # =============================================================================
 # PHI Safe Harbor Identifiers (18 HIPAA identifiers)
 # =============================================================================
@@ -89,11 +86,9 @@ PHI_IDENTIFIERS = {
     "unique_identifiers",
 }
 
-
 # =============================================================================
 # PHI Redaction
 # =============================================================================
-
 
 @dataclass
 class RedactionResult:
@@ -102,8 +97,7 @@ class RedactionResult:
     original_hash: str  # SHA-256 of original for audit
     redacted_text: str
     redactions_count: int
-    redaction_types: List[str]
-
+    redaction_types: list[str]
 
 class PHIRedactor:
     """
@@ -187,9 +181,9 @@ class PHIRedactor:
 
     def redact_fhir_resource(
         self,
-        resource: Dict[str, Any],
+        resource: dict[str, Any],
         resource_type: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Redact PHI from a FHIR resource.
 
@@ -237,7 +231,7 @@ class PHIRedactor:
 
         return value
 
-    def _redact_name(self, name: Dict[str, Any]) -> Dict[str, Any]:
+    def _redact_name(self, name: dict[str, Any]) -> dict[str, Any]:
         """Redact a FHIR HumanName."""
         return {
             "use": name.get("use"),
@@ -247,7 +241,7 @@ class PHIRedactor:
             "suffix": name.get("suffix"),  # Keep credentials
         }
 
-    def _redact_telecom(self, telecom: Dict[str, Any]) -> Dict[str, Any]:
+    def _redact_telecom(self, telecom: dict[str, Any]) -> dict[str, Any]:
         """Redact a FHIR ContactPoint."""
         return {
             "system": telecom.get("system"),
@@ -255,7 +249,7 @@ class PHIRedactor:
             "value": "[REDACTED]",
         }
 
-    def _redact_address(self, address: Dict[str, Any]) -> Dict[str, Any]:
+    def _redact_address(self, address: dict[str, Any]) -> dict[str, Any]:
         """Redact a FHIR Address (keep state for geographic analysis)."""
         return {
             "use": address.get("use"),
@@ -269,7 +263,7 @@ class PHIRedactor:
             "country": address.get("country"),
         }
 
-    def _redact_identifier(self, identifier: Dict[str, Any]) -> Dict[str, Any]:
+    def _redact_identifier(self, identifier: dict[str, Any]) -> dict[str, Any]:
         """Redact a FHIR Identifier."""
         return {
             "system": identifier.get("system"),
@@ -292,7 +286,7 @@ class PHIRedactor:
     def _redact_text_fields(self, obj: Any) -> Any:
         """Recursively redact text fields that might contain PHI."""
         if isinstance(obj, dict):
-            result: Dict[str, Any] = {}
+            result: dict[str, Any] = {}
             for key, value in obj.items():
                 if key in {"text", "div", "narrative", "note", "comment"}:
                     if isinstance(value, str):
@@ -311,11 +305,9 @@ class PHIRedactor:
             return [self._redact_text_fields(item) for item in obj]
         return obj
 
-
 # =============================================================================
 # FHIR Audit Logger
 # =============================================================================
-
 
 @dataclass
 class AuditEvent:
@@ -330,10 +322,10 @@ class AuditEvent:
     user_role: str
     organization_id: str
     outcome: str  # 0=success, 4=minor failure, 8=serious failure, 12=major failure
-    reason: Optional[str] = None
-    query_params: Optional[Dict[str, Any]] = None
+    reason: str | None = None
+    query_params: Optional[dict[str, Any]] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "timestamp": self.timestamp.isoformat(),
@@ -347,7 +339,6 @@ class AuditEvent:
             "reason": self.reason,
             "queryParams": self.query_params,
         }
-
 
 class FHIRAuditLogger:
     """
@@ -365,14 +356,14 @@ class FHIRAuditLogger:
         self.organization_id = organization_id
         self.user_id = user_id
         self.user_role = user_role
-        self._events: List[AuditEvent] = []
+        self._events: list[AuditEvent] = []
 
     def log_read(
         self,
         resource_type: str,
         resource_id: str,
         reason: str = "clinical_care",
-        query_params: Optional[Dict[str, Any]] = None,
+        query_params: Optional[dict[str, Any]] = None,
     ) -> AuditEvent:
         """Log a read operation."""
         event = AuditEvent(
@@ -395,7 +386,7 @@ class FHIRAuditLogger:
     def log_search(
         self,
         resource_type: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         results_count: int,
         reason: str = "clinical_care",
     ) -> AuditEvent:
@@ -422,7 +413,7 @@ class FHIRAuditLogger:
 
     def log_export(
         self,
-        resource_types: List[str],
+        resource_types: list[str],
         record_count: int,
         reason: str = "data_sync",
     ) -> AuditEvent:
@@ -449,9 +440,9 @@ class FHIRAuditLogger:
 
     def get_events(
         self,
-        since: Optional[datetime] = None,
-        resource_type: Optional[str] = None,
-    ) -> List[AuditEvent]:
+        since: datetime | None = None,
+        resource_type: str | None = None,
+    ) -> list[AuditEvent]:
         """Get audit events with optional filtering."""
         events = self._events
 
@@ -463,11 +454,9 @@ class FHIRAuditLogger:
 
         return events
 
-
 # =============================================================================
 # FHIR Connector
 # =============================================================================
-
 
 class FHIRConnector(EnterpriseConnector):
     """
@@ -485,12 +474,12 @@ class FHIRConnector(EnterpriseConnector):
         self,
         base_url: str,
         organization_id: str,
-        resource_types: Optional[List[FHIRResourceType]] = None,
-        client_id: Optional[str] = None,
+        resource_types: Optional[list[FHIRResourceType]] = None,
+        client_id: str | None = None,
         enable_phi_redaction: bool = True,
         preserve_year_in_dates: bool = True,
         audit_reason: str = "clinical_decision_support",
-        circuit_breaker: Optional[CircuitBreaker] = None,
+        circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
         **kwargs,
     ):
@@ -519,7 +508,7 @@ class FHIRConnector(EnterpriseConnector):
                 cooldown_seconds=60.0,
             )
         else:
-            self._circuit_breaker: Optional[CircuitBreaker] = None
+            self._circuit_breaker: CircuitBreaker | None = None
 
         # Initialize components
         self._redactor = PHIRedactor(
@@ -535,7 +524,7 @@ class FHIRConnector(EnterpriseConnector):
 
         self._client = None
         self._access_token = None
-        self._token_expires_at: Optional[datetime] = None
+        self._token_expires_at: datetime | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -574,9 +563,9 @@ class FHIRConnector(EnterpriseConnector):
         self,
         method: str,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
         """Make HTTP request with circuit breaker protection."""
         import httpx
 
@@ -678,7 +667,7 @@ class FHIRConnector(EnterpriseConnector):
         except Exception as e:
             logger.warning(f"[{self.name}] Authentication error: {e}")
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers with authentication."""
         headers = {
             "Accept": "application/fhir+json",
@@ -690,7 +679,7 @@ class FHIRConnector(EnterpriseConnector):
 
         return headers
 
-    def _resource_to_content(self, resource: Dict[str, Any]) -> str:
+    def _resource_to_content(self, resource: dict[str, Any]) -> str:
         """Convert FHIR resource to searchable text content."""
         resource_type = resource.get("resourceType", "Unknown")
 
@@ -743,7 +732,7 @@ class FHIRConnector(EnterpriseConnector):
 
         return "\n".join(parts)
 
-    def _format_name(self, name: Dict[str, Any]) -> str:
+    def _format_name(self, name: dict[str, Any]) -> str:
         """Format a FHIR HumanName."""
         parts = []
         if name.get("prefix"):
@@ -913,7 +902,7 @@ class FHIRConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        resource_type: Optional[str] = None,
+        resource_type: str | None = None,
         **kwargs,
     ) -> list:
         """
@@ -1018,13 +1007,13 @@ class FHIRConnector(EnterpriseConnector):
 
     def get_audit_events(
         self,
-        since: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """Get audit events for compliance reporting."""
         events = self._audit_logger.get_events(since=since)
         return [e.to_dict() for e in events]
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle FHIR subscription notification."""
         # FHIR subscriptions send notifications for resource changes
         notification_type = payload.get("type")
@@ -1038,10 +1027,9 @@ class FHIRConnector(EnterpriseConnector):
 
         return False
 
-
 class FHIRError(Exception):
     """FHIR API error."""
 
-    def __init__(self, message: str, status_code: Optional[int] = None):
+    def __init__(self, message: str, status_code: int | None = None):
         super().__init__(message)
         self.status_code = status_code

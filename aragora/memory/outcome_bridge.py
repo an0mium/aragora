@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.outcome_tracker import ConsensusOutcome, OutcomeTracker
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
     from aragora.memory.tier_manager import MemoryTier
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class MemoryUsageRecord:
@@ -45,17 +44,15 @@ class MemoryUsageRecord:
     debate_id: str
     used_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
-
 @dataclass
 class PromotionResult:
     """Result of a memory promotion attempt."""
 
     memory_id: str
     promoted: bool
-    from_tier: Optional[str] = None
-    to_tier: Optional[str] = None
+    from_tier: str | None = None
+    to_tier: str | None = None
     reason: str = ""
-
 
 @dataclass
 class ProcessingResult:
@@ -65,8 +62,7 @@ class ProcessingResult:
     memories_updated: int
     memories_promoted: int
     memories_demoted: int
-    promotions: List[PromotionResult] = field(default_factory=list)
-
+    promotions: list[PromotionResult] = field(default_factory=list)
 
 @dataclass
 class OutcomeMemoryBridge:
@@ -103,9 +99,9 @@ class OutcomeMemoryBridge:
     min_confidence_for_update: float = 0.5  # Minimum confidence to update memory
 
     # Track usage during debates
-    _usage_records: Dict[str, List[MemoryUsageRecord]] = field(default_factory=dict, repr=False)
-    _memory_success_counts: Dict[str, int] = field(default_factory=dict, repr=False)
-    _memory_failure_counts: Dict[str, int] = field(default_factory=dict, repr=False)
+    _usage_records: dict[str, list[MemoryUsageRecord]] = field(default_factory=dict, repr=False)
+    _memory_success_counts: dict[str, int] = field(default_factory=dict, repr=False)
+    _memory_failure_counts: dict[str, int] = field(default_factory=dict, repr=False)
 
     def record_memory_usage(self, memory_id: str, debate_id: str) -> None:
         """Track that a memory item was used in a debate.
@@ -127,7 +123,7 @@ class OutcomeMemoryBridge:
             self._usage_records[debate_id].append(record)
             logger.debug("memory_usage_recorded memory_id=%s debate_id=%s", memory_id, debate_id)
 
-    def get_memories_for_debate(self, debate_id: str) -> List[str]:
+    def get_memories_for_debate(self, debate_id: str) -> list[str]:
         """Get list of memory IDs used in a debate.
 
         Args:
@@ -142,7 +138,7 @@ class OutcomeMemoryBridge:
     def process_outcome(
         self,
         outcome: "ConsensusOutcome",
-        used_memory_ids: Optional[List[str]] = None,
+        used_memory_ids: Optional[list[str]] = None,
     ) -> ProcessingResult:
         """Process a debate outcome to update memory tiers and importance.
 
@@ -307,7 +303,7 @@ class OutcomeMemoryBridge:
         self,
         memory_id: str,
         was_successful: bool,
-    ) -> Optional[PromotionResult]:
+    ) -> PromotionResult | None:
         """Check if a memory should be promoted or demoted.
 
         Args:
@@ -424,7 +420,7 @@ class OutcomeMemoryBridge:
             pass
         return current_tier
 
-    def get_memory_stats(self, memory_id: str) -> Dict[str, Any]:
+    def get_memory_stats(self, memory_id: str) -> dict[str, Any]:
         """Get outcome-related statistics for a memory item.
 
         Args:
@@ -446,7 +442,7 @@ class OutcomeMemoryBridge:
             "promotions_pending": success_count >= self.usage_count_threshold,
         }
 
-    def get_top_memories(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_top_memories(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get memories with highest success rates.
 
         Args:
@@ -469,7 +465,6 @@ class OutcomeMemoryBridge:
         self._memory_failure_counts.clear()
         logger.debug("outcome_bridge tracking data cleared")
 
-
 def create_outcome_bridge(
     outcome_tracker: Optional["OutcomeTracker"] = None,
     continuum_memory: Optional["ContinuumMemory"] = None,
@@ -490,7 +485,6 @@ def create_outcome_bridge(
         continuum_memory=continuum_memory,
         **kwargs,
     )
-
 
 __all__ = [
     "OutcomeMemoryBridge",

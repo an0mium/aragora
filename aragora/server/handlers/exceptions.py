@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 # Import base exceptions from main module
 from aragora.exceptions import (
@@ -45,11 +45,9 @@ from aragora.exceptions import (
 if TYPE_CHECKING:
     pass
 
-
 # =============================================================================
 # Handler-Specific Exceptions
 # =============================================================================
-
 
 class HandlerError(AragoraError):
     """Base exception for handler errors with HTTP status code."""
@@ -60,7 +58,6 @@ class HandlerError(AragoraError):
         super().__init__(message, details)
         if status_code is not None:
             self.status_code = status_code
-
 
 class HandlerValidationError(HandlerError):
     """Request validation failed (400 Bad Request)."""
@@ -73,7 +70,6 @@ class HandlerValidationError(HandlerError):
             details["field"] = field
         super().__init__(message, details=details)
         self.field = field
-
 
 class HandlerNotFoundError(HandlerError):
     """Resource not found (404 Not Found)."""
@@ -88,7 +84,6 @@ class HandlerNotFoundError(HandlerError):
         self.resource_type = resource_type
         self.resource_id = resource_id
 
-
 class HandlerAuthorizationError(HandlerError):
     """User lacks permission (403 Forbidden)."""
 
@@ -102,7 +97,6 @@ class HandlerAuthorizationError(HandlerError):
         self.action = action
         self.resource = resource
 
-
 class HandlerConflictError(HandlerError):
     """Resource conflict (409 Conflict)."""
 
@@ -110,7 +104,6 @@ class HandlerConflictError(HandlerError):
 
     def __init__(self, message: str, resource_type: str | None = None):
         super().__init__(message, details={"resource_type": resource_type})
-
 
 class HandlerRateLimitError(HandlerError):
     """Rate limit exceeded (429 Too Many Requests)."""
@@ -123,7 +116,6 @@ class HandlerRateLimitError(HandlerError):
             details["retry_after"] = retry_after
         super().__init__(message, details=details)
         self.retry_after = retry_after
-
 
 class HandlerExternalServiceError(HandlerError):
     """External service failed (502 Bad Gateway or 503 Service Unavailable)."""
@@ -139,7 +131,6 @@ class HandlerExternalServiceError(HandlerError):
         )
         self.service = service
 
-
 class HandlerDatabaseError(HandlerError):
     """Database operation failed (500 Internal Server Error)."""
 
@@ -152,7 +143,6 @@ class HandlerDatabaseError(HandlerError):
         super().__init__(msg, details={"operation": operation})
         self.operation = operation
 
-
 class HandlerJSONParseError(HandlerValidationError):
     """JSON parsing failed (400 Bad Request)."""
 
@@ -163,7 +153,6 @@ class HandlerJSONParseError(HandlerValidationError):
         super().__init__(msg, field=source, details={"source": source, "reason": reason})
         self.source = source
         self.reason = reason
-
 
 class HandlerTimeoutError(HandlerError):
     """Operation timed out (504 Gateway Timeout)."""
@@ -180,7 +169,6 @@ class HandlerTimeoutError(HandlerError):
         )
         self.operation = operation
         self.timeout_seconds = timeout_seconds
-
 
 class HandlerStreamError(HandlerError):
     """WebSocket or streaming error (500 or custom code)."""
@@ -201,7 +189,6 @@ class HandlerStreamError(HandlerError):
         )
         self.reason = reason
         self.stream_type = stream_type
-
 
 class HandlerOAuthError(HandlerError):
     """OAuth flow error (400 Bad Request by default)."""
@@ -230,14 +217,12 @@ class HandlerOAuthError(HandlerError):
         self.oauth_error = oauth_error
         self.recoverable = recoverable
 
-
 # =============================================================================
 # Exception Classification
 # =============================================================================
 
-
 # Map exception types to (status_code, log_level, should_include_message)
-EXCEPTION_MAP: dict[type, Tuple[int, str, bool]] = {
+EXCEPTION_MAP: dict[type, tuple[int, str, bool]] = {
     # Validation errors - client's fault, include message
     HandlerValidationError: (400, "info", True),
     InputValidationError: (400, "info", True),
@@ -290,8 +275,7 @@ GENERIC_ERROR_MESSAGES: dict[int, str] = {
     504: "Request timeout",
 }
 
-
-def classify_exception(exc: Exception) -> Tuple[int, str, str]:
+def classify_exception(exc: Exception) -> tuple[int, str, str]:
     """
     Classify an exception for HTTP response.
 
@@ -325,13 +309,12 @@ def classify_exception(exc: Exception) -> Tuple[int, str, str]:
     # Unknown exception - log as error, return generic message
     return 500, "error", "Internal server error"
 
-
 def handle_handler_error(
     exc: Exception,
     operation: str,
     logger: logging.Logger,
     include_traceback: bool = False,
-) -> Tuple[int, str]:
+) -> tuple[int, str]:
     """
     Handle an exception in a handler, logging appropriately.
 
@@ -364,25 +347,21 @@ def handle_handler_error(
 
     return status_code, message
 
-
 def is_client_error(exc: Exception) -> bool:
     """Check if exception represents a client error (4xx)."""
     status_code, _, _ = classify_exception(exc)
     return 400 <= status_code < 500
-
 
 def is_server_error(exc: Exception) -> bool:
     """Check if exception represents a server error (5xx)."""
     status_code, _, _ = classify_exception(exc)
     return status_code >= 500
 
-
 def is_retryable_error(exc: Exception) -> bool:
     """Check if exception represents a retryable error."""
     status_code, _, _ = classify_exception(exc)
     # 429, 502, 503, 504 are typically retryable
     return status_code in (429, 502, 503, 504)
-
 
 # =============================================================================
 # Exports

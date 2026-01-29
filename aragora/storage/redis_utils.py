@@ -32,11 +32,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_cached_client: Optional[Any] = None
+_cached_client: Any | None = None
 _initialized = False
 
-
-def get_redis_client(redis_url: Optional[str] = None) -> Optional["RedisClientProtocol"]:
+def get_redis_client(redis_url: str | None = None) -> Optional["RedisClientProtocol"]:
     """
     Get Redis client, preferring cluster mode when configured.
 
@@ -100,13 +99,11 @@ def get_redis_client(redis_url: Optional[str] = None) -> Optional["RedisClientPr
             _initialized = True
         return None
 
-
 def reset_redis_client() -> None:
     """Reset cached Redis client (for testing)."""
     global _cached_client, _initialized
     _cached_client = None
     _initialized = False
-
 
 def is_cluster_mode() -> bool:
     """Check if running in Redis Cluster mode."""
@@ -120,7 +117,6 @@ def is_cluster_mode() -> bool:
     except Exception as e:  # noqa: BLE001 - Cluster check fallback
         logger.debug(f"Redis cluster mode check failed: {e}")
         return False
-
 
 __all__ = [
     "get_redis_client",

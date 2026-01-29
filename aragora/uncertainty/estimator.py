@@ -4,6 +4,7 @@ Uncertainty Estimator.
 Quantifies epistemic uncertainty in agent responses and debate outcomes,
 providing confidence calibration and disagreement analysis.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -11,12 +12,11 @@ import math
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
 from aragora.core import Agent, Message, Vote
-
 
 @dataclass
 class ConfidenceScore:
@@ -27,7 +27,7 @@ class ConfidenceScore:
     reasoning: str = ""
     timestamp: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "agent": self.agent_name,
             "confidence": self.value,
@@ -35,13 +35,12 @@ class ConfidenceScore:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 @dataclass
 class DisagreementCrux:
     """A key point of disagreement between agents."""
 
     description: str
-    divergent_agents: List[str]
+    divergent_agents: list[str]
     evidence_needed: str = ""
     severity: float = 0.5  # 0-1, how critical this disagreement is
     crux_id: str = ""  # Unique identifier for follow-up tracking
@@ -51,7 +50,7 @@ class DisagreementCrux:
             # Generate stable ID from description hash
             self.crux_id = f"crux-{abs(hash(self.description)) % 100000:05d}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.crux_id,
             "description": self.description,
@@ -60,7 +59,6 @@ class DisagreementCrux:
             "severity": self.severity,
         }
 
-
 @dataclass
 class FollowUpSuggestion:
     """A suggested follow-up debate to resolve a crux."""
@@ -68,10 +66,10 @@ class FollowUpSuggestion:
     crux: DisagreementCrux
     suggested_task: str
     priority: float  # 0-1, how important this follow-up is
-    parent_debate_id: Optional[str] = None
-    suggested_agents: List[str] = field(default_factory=list)
+    parent_debate_id: str | None = None
+    suggested_agents: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "crux_id": self.crux.crux_id,
             "crux_description": self.crux.description,
@@ -82,20 +80,19 @@ class FollowUpSuggestion:
             "divergent_agents": self.crux.divergent_agents,
         }
 
-
 @dataclass
 class UncertaintyMetrics:
     """Comprehensive uncertainty quantification for a debate."""
 
     collective_confidence: float = 0.5
-    confidence_interval: Tuple[float, float] = (0.4, 0.6)
+    confidence_interval: tuple[float, float] = (0.4, 0.6)
     disagreement_type: str = (
         "none"  # "factual", "value-based", "definitional", "information-asymmetry"
     )
-    cruxes: List[DisagreementCrux] = field(default_factory=list)
+    cruxes: list[DisagreementCrux] = field(default_factory=list)
     calibration_quality: float = 0.5  # How well agents are calibrated
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "collective_confidence": self.collective_confidence,
             "confidence_interval": self.confidence_interval,
@@ -104,21 +101,20 @@ class UncertaintyMetrics:
             "calibration_quality": self.calibration_quality,
         }
 
-
 class ConfidenceEstimator:
     """Estimates confidence in agent responses and calibrates over time."""
 
     def __init__(self):
-        self.agent_confidences: Dict[str, List[ConfidenceScore]] = {}
-        self.calibration_history: Dict[
-            str, List[Tuple[float, bool]]
+        self.agent_confidences: dict[str, list[ConfidenceScore]] = {}
+        self.calibration_history: dict[
+            str, list[tuple[float, bool]]
         ] = {}  # (confidence, was_correct)
-        self.brier_scores: Dict[str, float] = {}  # Calibration quality metric
+        self.brier_scores: dict[str, float] = {}  # Calibration quality metric
         self.disagreement_analyzer = DisagreementAnalyzer()
 
     async def collect_confidences(
-        self, agents: List[Agent], proposals: Dict[str, str], task: str
-    ) -> Dict[str, ConfidenceScore]:
+        self, agents: list[Agent], proposals: dict[str, str], task: str
+    ) -> dict[str, ConfidenceScore]:
         """Collect confidence scores from all agents."""
         confidence_tasks = []
 
@@ -144,7 +140,7 @@ class ConfidenceEstimator:
         return confidences
 
     async def _get_agent_confidence(
-        self, agent: Agent, proposals: Dict[str, str], task: str
+        self, agent: Agent, proposals: dict[str, str], task: str
     ) -> ConfidenceScore:
         """Get calibrated confidence from an agent."""
         # This would ideally be a new method on Agent, but we'll simulate with existing methods
@@ -206,13 +202,12 @@ class ConfidenceEstimator:
 
     def analyze_disagreement(
         self,
-        messages: List[Message],
-        votes: List[Vote],
-        proposals: Dict[str, str],
+        messages: list[Message],
+        votes: list[Vote],
+        proposals: dict[str, str],
     ) -> UncertaintyMetrics:
         """Analyze disagreement using the shared analyzer."""
         return self.disagreement_analyzer.analyze_disagreement(messages, votes, proposals)
-
 
 class DisagreementAnalyzer:
     """Analyzes why agents disagree in debates."""
@@ -226,7 +221,7 @@ class DisagreementAnalyzer:
         }
 
     def analyze_disagreement(
-        self, messages: List[Message], votes: List[Vote], proposals: Dict[str, str]
+        self, messages: list[Message], votes: list[Vote], proposals: dict[str, str]
     ) -> UncertaintyMetrics:
         """Analyze disagreement patterns in debate messages."""
         metrics = UncertaintyMetrics()
@@ -279,7 +274,7 @@ class DisagreementAnalyzer:
         return metrics
 
     def _classify_disagreement_type(
-        self, messages: List[Message], minority_votes: List[Vote]
+        self, messages: list[Message], minority_votes: list[Vote]
     ) -> str:
         """Classify the type of disagreement."""
         # Analyze messages from dissenting agents
@@ -303,11 +298,11 @@ class DisagreementAnalyzer:
 
     def _find_cruxes(
         self,
-        messages: List[Message],
-        proposals: Dict[str, str],
+        messages: list[Message],
+        proposals: dict[str, str],
         majority_choice: str,
-        minority_votes: List[Vote],
-    ) -> List[DisagreementCrux]:
+        minority_votes: list[Vote],
+    ) -> list[DisagreementCrux]:
         """Find key points of disagreement (cruxes)."""
         cruxes = []
         dissenting_agents = [v.agent for v in minority_votes]
@@ -338,7 +333,7 @@ class DisagreementAnalyzer:
 
         return merged_cruxes[:3]  # Top 3 cruxes
 
-    def _extract_crux_description(self, content: str) -> Optional[str]:
+    def _extract_crux_description(self, content: str) -> str | None:
         """Extract a concise description of a crux from message content."""
         # Simple extraction - look for sentences with disagreement markers
         sentences = content.split(".")
@@ -351,7 +346,7 @@ class DisagreementAnalyzer:
 
         return None
 
-    def _merge_similar_cruxes(self, cruxes: List[DisagreementCrux]) -> List[DisagreementCrux]:
+    def _merge_similar_cruxes(self, cruxes: list[DisagreementCrux]) -> list[DisagreementCrux]:
         """Merge cruxes that describe similar issues."""
         merged: list[DisagreementCrux] = []
 
@@ -392,10 +387,10 @@ class DisagreementAnalyzer:
 
     def suggest_followups(
         self,
-        cruxes: List[DisagreementCrux],
-        parent_debate_id: Optional[str] = None,
-        available_agents: Optional[List[str]] = None,
-    ) -> List[FollowUpSuggestion]:
+        cruxes: list[DisagreementCrux],
+        parent_debate_id: str | None = None,
+        available_agents: Optional[list[str]] = None,
+    ) -> list[FollowUpSuggestion]:
         """
         Generate follow-up debate suggestions from identified cruxes.
 
@@ -456,7 +451,6 @@ class DisagreementAnalyzer:
         else:
             return f"Debate: Should we accept that {description.lower()}?"
 
-
 class UncertaintyAggregator:
     """Aggregates uncertainty from multiple sources."""
 
@@ -468,10 +462,10 @@ class UncertaintyAggregator:
 
     async def compute_uncertainty(
         self,
-        agents: List[Agent],
-        messages: List[Message],
-        votes: List[Vote],
-        proposals: Dict[str, str],
+        agents: list[Agent],
+        messages: list[Message],
+        votes: list[Vote],
+        proposals: dict[str, str],
     ) -> UncertaintyMetrics:
         """Compute comprehensive uncertainty metrics for a debate."""
 

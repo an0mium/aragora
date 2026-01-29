@@ -43,6 +43,7 @@ Usage:
     # Query with RLM (uses TRUE RLM if available, compression as fallback)
     answer = await rlm.query("What consensus was reached?", context)
 """
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -77,7 +78,6 @@ from .knowledge_adapter import KnowledgeMoundAdapter
 from .hierarchy_cache import RLMHierarchyCache
 from .streaming_mixin import RLMStreamingMixin
 
-
 @dataclass
 class RLMBackendConfig:
     """Configuration for RLM backend."""
@@ -85,8 +85,8 @@ class RLMBackendConfig:
     backend: str = "openai"  # openai, anthropic, openrouter, litellm
     model_name: str = "gpt-4o"
     sub_model_name: str = "gpt-4o-mini"
-    fallback_backend: Optional[str] = None
-    fallback_model_name: Optional[str] = None
+    fallback_backend: str | None = None
+    fallback_model_name: str | None = None
 
     # Environment configuration (REPL sandbox type)
     environment_type: str = "local"  # local, docker, modal
@@ -97,7 +97,6 @@ class RLMBackendConfig:
     # Official RLM kwargs
     verbose: bool = False
     persistent: bool = False  # Keep environment alive between calls
-
 
 class AragoraRLM(RLMStreamingMixin):
     """
@@ -122,11 +121,11 @@ class AragoraRLM(RLMStreamingMixin):
 
     def __init__(
         self,
-        backend_config: Optional[RLMBackendConfig] = None,
-        aragora_config: Optional[RLMConfig] = None,
-        agent_registry: Optional[Any] = None,
+        backend_config: RLMBackendConfig | None = None,
+        aragora_config: RLMConfig | None = None,
+        agent_registry: Any | None = None,
         hierarchy_cache: Optional["RLMHierarchyCache"] = None,
-        knowledge_mound: Optional[Any] = None,  # For auto-creating cache
+        knowledge_mound: Any | None = None,  # For auto-creating cache
         enable_caching: bool = True,  # Enable compression caching
     ):
         """
@@ -145,8 +144,8 @@ class AragoraRLM(RLMStreamingMixin):
         self.agent_registry = agent_registry
         self.enable_caching = enable_caching
 
-        self._official_rlm: Optional[Any] = None
-        self._fallback_rlm: Optional[Any] = None
+        self._official_rlm: Any | None = None
+        self._fallback_rlm: Any | None = None
         self._apply_backend_env_overrides()
         # Compressor is ONLY used as fallback when official RLM unavailable
         self._compressor = HierarchicalCompressor(
@@ -220,9 +219,9 @@ class AragoraRLM(RLMStreamingMixin):
         self,
         content: str,
         source_type: str = "text",
-        source_path: Optional[str] = None,
-        source_root: Optional[str] = None,
-        source_manifest: Optional[str] = None,
+        source_path: str | None = None,
+        source_root: str | None = None,
+        source_manifest: str | None = None,
     ) -> RLMContext:
         """
         Build an RLMContext for querying.
@@ -611,7 +610,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
         threshold = getattr(self.aragora_config, "externalize_content_bytes", 0) or 0
         return threshold > 0 and content_bytes >= threshold
 
-    def _ensure_context_file(self, context: RLMContext) -> Optional[str]:
+    def _ensure_context_file(self, context: RLMContext) -> str | None:
         """Ensure context is written to disk and return its path."""
         metadata = getattr(context, "metadata", {}) or {}
         content_path = context.source_path or metadata.get("content_path")
@@ -736,7 +735,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             "structure": "\n".join(structure_parts) if structure_parts else "Flat content only",
         }
 
-    def _get_node_dict(self, context: RLMContext, node_id: str) -> Optional[dict]:
+    def _get_node_dict(self, context: RLMContext, node_id: str) -> dict | None:
         """Get node as dictionary for REPL access."""
         node = context.get_node(node_id)
         if not node:
@@ -842,11 +841,11 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
 
         refinement_history: list[str] = []
         iteration = 0
-        result: Optional[RLMResult] = None
+        result: RLMResult | None = None
 
         while iteration < max_iterations:
             # Generate feedback for iterations > 0
-            feedback: Optional[str] = None
+            feedback: str | None = None
             if iteration > 0 and result:
                 if feedback_generator:
                     feedback = feedback_generator(result)
@@ -896,7 +895,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
         context: RLMContext,
         strategy: str,
         iteration: int,
-        feedback: Optional[str],
+        feedback: str | None,
     ) -> RLMResult:
         """Execute a single query iteration with optional feedback."""
         # Modify query to include feedback context
@@ -944,13 +943,12 @@ Please provide an improved answer based on the feedback."""
     # - query_with_refinement_stream()
     # - compress_stream()
 
-
 # Convenience function
 def create_aragora_rlm(
     backend: str = "openai",
     model: str = "gpt-4o",
     verbose: bool = False,
-    knowledge_mound: Optional[Any] = None,
+    knowledge_mound: Any | None = None,
     enable_caching: bool = True,
 ) -> AragoraRLM:
     """
@@ -975,7 +973,6 @@ def create_aragora_rlm(
         knowledge_mound=knowledge_mound,
         enable_caching=enable_caching,
     )
-
 
 # Re-export extracted classes for backwards compatibility
 __all__ = [

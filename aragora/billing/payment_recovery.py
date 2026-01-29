@@ -29,7 +29,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.billing.models import SubscriptionTier
 from aragora.storage.base_store import SQLiteStore
@@ -39,7 +39,6 @@ logger = logging.getLogger(__name__)
 # Grace period configuration (days after first failure before downgrade)
 PAYMENT_GRACE_DAYS = int(os.getenv("ARAGORA_PAYMENT_GRACE_DAYS", "10"))
 
-
 @dataclass
 class PaymentFailure:
     """Record of a payment failure."""
@@ -47,14 +46,14 @@ class PaymentFailure:
     id: str
     org_id: str
     stripe_customer_id: str
-    stripe_subscription_id: Optional[str]
+    stripe_subscription_id: str | None
     first_failure_at: datetime
     last_failure_at: datetime
     attempt_count: int
-    invoice_id: Optional[str] = None
-    invoice_url: Optional[str] = None
+    invoice_id: str | None = None
+    invoice_url: str | None = None
     status: str = "failing"  # failing, recovered, downgraded
-    grace_ends_at: Optional[datetime] = field(default=None)
+    grace_ends_at: datetime | None = field(default=None)
 
     def __post_init__(self):
         if self.grace_ends_at is None:
@@ -93,7 +92,6 @@ class PaymentFailure:
             "should_downgrade": self.should_downgrade,
         }
 
-
 class PaymentRecoveryStore(SQLiteStore):
     """
     SQLite-backed store for payment failure tracking.
@@ -124,7 +122,7 @@ class PaymentRecoveryStore(SQLiteStore):
         CREATE INDEX IF NOT EXISTS idx_payment_failures_status ON payment_failures(status);
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         if db_path is None:
             data_dir = os.getenv("ARAGORA_DATA_DIR")
             if not data_dir:
@@ -139,9 +137,9 @@ class PaymentRecoveryStore(SQLiteStore):
         self,
         org_id: str,
         stripe_customer_id: str,
-        stripe_subscription_id: Optional[str] = None,
-        invoice_id: Optional[str] = None,
-        invoice_url: Optional[str] = None,
+        stripe_subscription_id: str | None = None,
+        invoice_id: str | None = None,
+        invoice_url: str | None = None,
     ) -> PaymentFailure:
         """
         Record a payment failure or update existing failure record.
@@ -301,7 +299,7 @@ class PaymentRecoveryStore(SQLiteStore):
             )
             return result.rowcount > 0
 
-    def get_active_failure(self, org_id: str) -> Optional[PaymentFailure]:
+    def get_active_failure(self, org_id: str) -> PaymentFailure | None:
         """
         Get active payment failure for an organization.
 
@@ -421,11 +419,9 @@ class PaymentRecoveryStore(SQLiteStore):
                 )
             return results
 
-
 # Global store instance
-_recovery_store: Optional[PaymentRecoveryStore] = None
+_recovery_store: PaymentRecoveryStore | None = None
 _store_lock = threading.Lock()
-
 
 def get_recovery_store() -> PaymentRecoveryStore:
     """Get the global payment recovery store instance."""
@@ -435,7 +431,6 @@ def get_recovery_store() -> PaymentRecoveryStore:
             if _recovery_store is None:
                 _recovery_store = PaymentRecoveryStore()
     return _recovery_store
-
 
 def process_expired_grace_periods(user_store) -> dict[str, Any]:
     """
@@ -506,7 +501,6 @@ def process_expired_grace_periods(user_store) -> dict[str, Any]:
             results["errors"] += 1
 
     return results
-
 
 __all__ = [
     "PaymentFailure",

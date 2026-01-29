@@ -5,10 +5,11 @@ Handles compressing debate context using RLM cognitive load limiter
 for long debates. This module is extracted from debate_rounds.py
 for better modularity.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from aragora.core import Critique
@@ -22,7 +23,6 @@ DEFAULT_CALLBACK_TIMEOUT = 30.0
 # Minimum messages before compression is triggered
 MIN_MESSAGES_FOR_COMPRESSION = 10
 
-
 async def _with_callback_timeout(
     coro,
     timeout: float = DEFAULT_CALLBACK_TIMEOUT,
@@ -34,7 +34,6 @@ async def _with_callback_timeout(
     except asyncio.TimeoutError:
         logger.warning(f"Callback timed out after {timeout}s, using default")
         return default
-
 
 class ContextCompressor:
     """
@@ -56,10 +55,10 @@ class ContextCompressor:
 
     def __init__(
         self,
-        compress_callback: Optional[Callable] = None,
-        hooks: Optional[dict] = None,
-        notify_spectator: Optional[Callable] = None,
-        heartbeat_callback: Optional[Callable] = None,
+        compress_callback: Callable | None = None,
+        hooks: dict | None = None,
+        notify_spectator: Callable | None = None,
+        heartbeat_callback: Callable | None = None,
         timeout: float = DEFAULT_CALLBACK_TIMEOUT,
         min_messages: int = MIN_MESSAGES_FOR_COMPRESSION,
     ):
@@ -86,8 +85,8 @@ class ContextCompressor:
         self,
         ctx: "DebateContext",
         round_num: int,
-        partial_critiques: List["Critique"],
-    ) -> Tuple[int, int]:
+        partial_critiques: list["Critique"],
+    ) -> tuple[int, int]:
         """
         Compress debate context using RLM cognitive load limiter.
 

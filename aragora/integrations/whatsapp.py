@@ -20,6 +20,7 @@ Usage:
     ))
     await whatsapp.send_debate_summary(debate_result)
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -27,7 +28,6 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 import aiohttp
 
@@ -36,13 +36,11 @@ from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
-
 class WhatsAppProvider(Enum):
     """WhatsApp API provider."""
 
     META = "meta"
     TWILIO = "twilio"
-
 
 @dataclass
 class WhatsAppConfig:
@@ -89,14 +87,13 @@ class WhatsAppConfig:
             self.twilio_whatsapp_number = os.environ.get("TWILIO_WHATSAPP_NUMBER", "")
 
     @property
-    def provider(self) -> Optional[WhatsAppProvider]:
+    def provider(self) -> WhatsAppProvider | None:
         """Determine which provider to use based on config."""
         if self.phone_number_id and self.access_token:
             return WhatsAppProvider.META
         elif self.twilio_account_sid and self.twilio_auth_token and self.twilio_whatsapp_number:
             return WhatsAppProvider.TWILIO
         return None
-
 
 class WhatsAppIntegration:
     """
@@ -127,9 +124,9 @@ class WhatsAppIntegration:
     META_API_BASE = "https://graph.facebook.com"
     TWILIO_API_BASE = "https://api.twilio.com/2010-04-01"
 
-    def __init__(self, config: Optional[WhatsAppConfig] = None):
+    def __init__(self, config: WhatsAppConfig | None = None):
         self.config = config or WhatsAppConfig()
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._message_count_minute = 0
         self._message_count_day = 0
         self._last_minute_reset = datetime.now()

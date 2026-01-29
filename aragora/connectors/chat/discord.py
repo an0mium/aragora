@@ -19,7 +19,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,6 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
-
 from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
@@ -70,7 +69,6 @@ DISCORD_PUBLIC_KEY = os.environ.get("DISCORD_PUBLIC_KEY", "")
 # Discord API
 DISCORD_API_BASE = "https://discord.com/api/v10"
 
-
 class DiscordConnector(ChatPlatformConnector):
     """
     Discord connector using Discord API.
@@ -84,9 +82,9 @@ class DiscordConnector(ChatPlatformConnector):
 
     def __init__(
         self,
-        bot_token: Optional[str] = None,
-        application_id: Optional[str] = None,
-        public_key: Optional[str] = None,
+        bot_token: str | None = None,
+        application_id: str | None = None,
+        public_key: str | None = None,
         **config: Any,
     ):
         """
@@ -128,8 +126,8 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
-        thread_id: Optional[str] = None,
+        blocks: list[dict[str, Any] | None] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send message to Discord channel with circuit breaker protection."""
@@ -188,7 +186,7 @@ class DiscordConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Update a Discord message with circuit breaker protection."""
@@ -293,7 +291,7 @@ class DiscordConnector(ChatPlatformConnector):
         channel_id: str,
         user_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send ephemeral message (only works in interaction responses)."""
@@ -306,7 +304,7 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -329,7 +327,7 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -359,7 +357,7 @@ class DiscordConnector(ChatPlatformConnector):
         interaction_id: str,
         interaction_token: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         ephemeral: bool = False,
         response_type: int = 4,  # CHANNEL_MESSAGE_WITH_SOURCE
     ) -> SendMessageResponse:
@@ -409,8 +407,8 @@ class DiscordConnector(ChatPlatformConnector):
         content: bytes,
         filename: str,
         content_type: str = "application/octet-stream",
-        title: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        title: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """Upload file to Discord channel with retry, timeout, and circuit breaker."""
@@ -545,10 +543,10 @@ class DiscordConnector(ChatPlatformConnector):
 
     def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        actions: Optional[list[MessageButton]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str] | None] = None,
+        actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Format content as Discord Embed."""
@@ -576,9 +574,9 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
+        value: str | None = None,
         style: str = "default",
-        url: Optional[str] = None,
+        url: str | None = None,
     ) -> dict[str, Any]:
         """Format a Discord button component."""
         if url:
@@ -761,8 +759,8 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         limit: int = 100,
-        oldest: Optional[str] = None,
-        latest: Optional[str] = None,
+        oldest: str | None = None,
+        latest: str | None = None,
         **kwargs: Any,
     ) -> list[ChatMessage]:
         """
@@ -875,7 +873,7 @@ class DiscordConnector(ChatPlatformConnector):
     async def collect_evidence(
         self,
         channel_id: str,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 100,
         include_threads: bool = True,
         min_relevance: float = 0.0,
@@ -936,7 +934,7 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         **kwargs: Any,
-    ) -> Optional[ChatChannel]:
+    ) -> ChatChannel | None:
         """
         Get information about a Discord channel.
 
@@ -1005,7 +1003,7 @@ class DiscordConnector(ChatPlatformConnector):
         self,
         user_id: str,
         **kwargs: Any,
-    ) -> Optional[ChatUser]:
+    ) -> ChatUser | None:
         """
         Get information about a Discord user.
 

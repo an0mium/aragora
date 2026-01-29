@@ -4,13 +4,13 @@ Nomic Loop Event Definitions.
 Events are the triggers that cause state transitions. Each event
 carries data needed for the transition and can be logged for auditing.
 """
+from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 class EventType(Enum):
     """Types of events that can trigger state transitions."""
@@ -57,7 +57,6 @@ class EventType(Enum):
     GATE_REJECTED = auto()  # Gate rejected
     GATE_SKIPPED = auto()  # Gate skipped (disabled)
 
-
 @dataclass
 class Event:
     """
@@ -74,21 +73,21 @@ class Event:
     event_type: EventType = EventType.START
     timestamp: datetime = field(default_factory=datetime.utcnow)
     source: str = ""  # Who/what generated this event
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
     # Error information (for ERROR events)
-    error_message: Optional[str] = None
-    error_type: Optional[str] = None
+    error_message: str | None = None
+    error_type: str | None = None
     recoverable: bool = True
 
     # Agent information (for agent events)
-    agent_name: Optional[str] = None
-    agent_error: Optional[str] = None
+    agent_name: str | None = None
+    agent_error: str | None = None
 
     # Distributed tracing fields for correlation across services
-    correlation_id: Optional[str] = None  # Links related events across service boundaries
-    trace_id: Optional[str] = None  # OpenTelemetry-style trace identifier
-    span_id: Optional[str] = None  # Current operation span
+    correlation_id: str | None = None  # Links related events across service boundaries
+    trace_id: str | None = None  # OpenTelemetry-style trace identifier
+    span_id: str | None = None  # Current operation span
 
     def __post_init__(self) -> None:
         """Auto-populate tracing fields from current context if not provided."""
@@ -102,7 +101,7 @@ class Event:
             except ImportError:
                 pass
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize event to dictionary."""
         result = {
             "event_id": self.event_id,
@@ -126,7 +125,7 @@ class Event:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Event":
+    def from_dict(cls, data: dict[str, Any]) -> "Event":
         """Deserialize event from dictionary."""
         return cls(
             event_id=data.get("event_id", str(uuid.uuid4())[:8]),
@@ -145,16 +144,14 @@ class Event:
             agent_error=data.get("agent_error"),
         )
 
-
 # Factory functions for common events
-def start_event(trigger: str = "manual", config: Optional[Dict] = None) -> Event:
+def start_event(trigger: str = "manual", config: dict | None = None) -> Event:
     """Create a START event."""
     return Event(
         event_type=EventType.START,
         source=trigger,
         data={"config": config or {}},
     )
-
 
 def stop_event(reason: str = "manual") -> Event:
     """Create a STOP event."""
@@ -164,7 +161,6 @@ def stop_event(reason: str = "manual") -> Event:
         data={"reason": reason},
     )
 
-
 def pause_event(reason: str = "manual") -> Event:
     """Create a PAUSE event."""
     return Event(
@@ -173,7 +169,6 @@ def pause_event(reason: str = "manual") -> Event:
         data={"reason": reason},
     )
 
-
 def resume_event() -> Event:
     """Create a RESUME event."""
     return Event(
@@ -181,10 +176,9 @@ def resume_event() -> Event:
         source="user",
     )
 
-
 def phase_complete_event(
     phase: str,
-    result: Dict[str, Any],
+    result: dict[str, Any],
     duration_seconds: float = 0,
     tokens_used: int = 0,
 ) -> Event:
@@ -207,7 +201,6 @@ def phase_complete_event(
         },
     )
 
-
 def error_event(
     phase: str,
     error: Exception,
@@ -223,7 +216,6 @@ def error_event(
         data={"traceback": getattr(error, "__traceback__", None) is not None},
     )
 
-
 def timeout_event(phase: str, timeout_seconds: int) -> Event:
     """Create a TIMEOUT event."""
     return Event(
@@ -233,7 +225,6 @@ def timeout_event(phase: str, timeout_seconds: int) -> Event:
         recoverable=True,
         data={"timeout_seconds": timeout_seconds},
     )
-
 
 def retry_event(phase: str, attempt: int, max_attempts: int) -> Event:
     """Create a RETRY event."""
@@ -245,7 +236,6 @@ def retry_event(phase: str, attempt: int, max_attempts: int) -> Event:
             "max_attempts": max_attempts,
         },
     )
-
 
 def agent_failed_event(
     agent_name: str,
@@ -261,7 +251,6 @@ def agent_failed_event(
         data={"failure_count": failure_count},
     )
 
-
 def circuit_open_event(agent_name: str, failures: int) -> Event:
     """Create a CIRCUIT_OPEN event."""
     return Event(
@@ -271,8 +260,7 @@ def circuit_open_event(agent_name: str, failures: int) -> Event:
         data={"failures": failures},
     )
 
-
-def rollback_event(reason: str, files_affected: List[str]) -> Event:
+def rollback_event(reason: str, files_affected: list[str]) -> Event:
     """Create a ROLLBACK event."""
     return Event(
         event_type=EventType.ROLLBACK,
@@ -282,7 +270,6 @@ def rollback_event(reason: str, files_affected: List[str]) -> Event:
             "files_affected": files_affected,
         },
     )
-
 
 def checkpoint_loaded_event(checkpoint_path: str, state: str) -> Event:
     """Create a CHECKPOINT_LOADED event."""
@@ -294,7 +281,6 @@ def checkpoint_loaded_event(checkpoint_path: str, state: str) -> Event:
             "state": state,
         },
     )
-
 
 def gate_approved_event(
     gate_type: str,
@@ -314,7 +300,6 @@ def gate_approved_event(
         },
     )
 
-
 def gate_rejected_event(
     gate_type: str,
     reason: str,
@@ -333,7 +318,6 @@ def gate_rejected_event(
         },
     )
 
-
 @dataclass
 class EventLog:
     """
@@ -343,25 +327,25 @@ class EventLog:
     """
 
     cycle_id: str = ""
-    events: List[Event] = field(default_factory=list)
+    events: list[Event] = field(default_factory=list)
 
     def append(self, event: Event) -> None:
         """Add an event to the log."""
         self.events.append(event)
 
-    def get_events_by_type(self, event_type: EventType) -> List[Event]:
+    def get_events_by_type(self, event_type: EventType) -> list[Event]:
         """Get all events of a specific type."""
         return [e for e in self.events if e.event_type == event_type]
 
-    def get_errors(self) -> List[Event]:
+    def get_errors(self) -> list[Event]:
         """Get all error events."""
         return self.get_events_by_type(EventType.ERROR)
 
-    def get_phase_events(self, phase: str) -> List[Event]:
+    def get_phase_events(self, phase: str) -> list[Event]:
         """Get all events from a specific phase."""
         return [e for e in self.events if e.source == phase]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize event log to dictionary."""
         return {
             "cycle_id": self.cycle_id,
@@ -369,13 +353,13 @@ class EventLog:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EventLog":
+    def from_dict(cls, data: dict[str, Any]) -> "EventLog":
         """Deserialize event log from dictionary."""
         log = cls(cycle_id=data.get("cycle_id", ""))
         log.events = [Event.from_dict(e) for e in data.get("events", [])]
         return log
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Get a summary of the event log."""
         return {
             "total_events": len(self.events),

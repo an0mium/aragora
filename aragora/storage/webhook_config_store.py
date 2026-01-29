@@ -31,7 +31,7 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -72,7 +72,6 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
-
 def _encrypt_secret(secret: str) -> str:
     """Encrypt webhook secret before storage.
 
@@ -104,7 +103,6 @@ def _encrypt_secret(secret: str) -> str:
         logger.warning(f"Secret encryption failed, storing unencrypted: {e}")
         return secret
 
-
 def _decrypt_secret(encrypted_secret: str) -> str:
     """Decrypt webhook secret, handling legacy unencrypted data."""
     if not CRYPTO_AVAILABLE or not encrypted_secret:
@@ -123,9 +121,8 @@ def _decrypt_secret(encrypted_secret: str) -> str:
         logger.debug(f"Secret decryption failed (may be legacy unencrypted): {e}")
         return encrypted_secret  # Return as-is if decryption fails
 
-
 # Events that can trigger webhooks
-WEBHOOK_EVENTS: Set[str] = {
+WEBHOOK_EVENTS: set[str] = {
     "debate_start",
     "debate_end",
     "consensus",
@@ -157,32 +154,31 @@ WEBHOOK_EVENTS: Set[str] = {
     "explanation_ready",
 }
 
-
 @dataclass
 class WebhookConfig:
     """Configuration for a registered webhook."""
 
     id: str
     url: str
-    events: List[str]
+    events: list[str]
     secret: str
     active: bool = True
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
     # Optional metadata
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
 
     # Delivery tracking
-    last_delivery_at: Optional[float] = None
-    last_delivery_status: Optional[int] = None
+    last_delivery_at: float | None = None
+    last_delivery_status: int | None = None
     delivery_count: int = 0
     failure_count: int = 0
 
     # Owner (for multi-tenant)
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    user_id: str | None = None
+    workspace_id: str | None = None
 
     def to_dict(self, include_secret: bool = False) -> dict:
         """Convert to dict, optionally excluding secret."""
@@ -230,7 +226,6 @@ class WebhookConfig:
             return event_type in WEBHOOK_EVENTS
         return event_type in self.events
 
-
 class WebhookConfigStoreBackend(ABC):
     """Abstract base for webhook configuration storage backends."""
 
@@ -238,27 +233,27 @@ class WebhookConfigStoreBackend(ABC):
     def register(
         self,
         url: str,
-        events: List[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        events: list[str],
+        name: str | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         """Register a new webhook."""
         pass
 
     @abstractmethod
-    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
+    def get(self, webhook_id: str) -> WebhookConfig | None:
         """Get webhook by ID."""
         pass
 
     @abstractmethod
     def list(
         self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
-    ) -> List[WebhookConfig]:
+    ) -> list[WebhookConfig]:
         """List webhooks with optional filtering."""
         pass
 
@@ -271,12 +266,12 @@ class WebhookConfigStoreBackend(ABC):
     def update(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Optional[WebhookConfig]:
+        url: str | None = None,
+        events: Optional[list[str]] = None,
+        active: bool | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> WebhookConfig | None:
         """Update webhook configuration."""
         pass
 
@@ -291,14 +286,13 @@ class WebhookConfigStoreBackend(ABC):
         pass
 
     @abstractmethod
-    def get_for_event(self, event_type: str) -> List[WebhookConfig]:
+    def get_for_event(self, event_type: str) -> list[WebhookConfig]:
         """Get all active webhooks that should receive the given event."""
         pass
 
     def close(self) -> None:
         """Close connections (optional to implement)."""
         pass
-
 
 class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
     """
@@ -308,17 +302,17 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
     """
 
     def __init__(self) -> None:
-        self._webhooks: Dict[str, WebhookConfig] = {}
+        self._webhooks: dict[str, WebhookConfig] = {}
         self._lock = threading.RLock()
 
     def register(
         self,
         url: str,
-        events: List[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        events: list[str],
+        name: str | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         webhook_id = str(uuid.uuid4())
         secret = secrets.token_urlsafe(32)
@@ -340,16 +334,16 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
         logger.info(f"Registered webhook {webhook_id} for events: {events}")
         return webhook
 
-    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
+    def get(self, webhook_id: str) -> WebhookConfig | None:
         with self._lock:
             return self._webhooks.get(webhook_id)
 
     def list(
         self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
-    ) -> List[WebhookConfig]:
+    ) -> list[WebhookConfig]:
         with self._lock:
             webhooks = list(self._webhooks.values())
 
@@ -373,12 +367,12 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
     def update(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Optional[WebhookConfig]:
+        url: str | None = None,
+        events: Optional[list[str]] = None,
+        active: bool | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> WebhookConfig | None:
         with self._lock:
             webhook = self._webhooks.get(webhook_id)
             if not webhook:
@@ -413,7 +407,7 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
                 if not success:
                     webhook.failure_count += 1
 
-    def get_for_event(self, event_type: str) -> List[WebhookConfig]:
+    def get_for_event(self, event_type: str) -> list[WebhookConfig]:
         with self._lock:
             return [w for w in self._webhooks.values() if w.matches_event(event_type)]
 
@@ -421,7 +415,6 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
         """Clear all entries (for testing)."""
         with self._lock:
             self._webhooks.clear()
-
 
 class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
     """
@@ -502,11 +495,11 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
     def register(
         self,
         url: str,
-        events: List[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        events: list[str],
+        name: str | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         webhook_id = str(uuid.uuid4())
         secret = secrets.token_urlsafe(32)
@@ -554,7 +547,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
         logger.info(f"Registered webhook {webhook_id} for events: {events}")
         return webhook
 
-    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
+    def get(self, webhook_id: str) -> WebhookConfig | None:
         conn = self._get_conn()
         cursor = conn.execute(
             """SELECT id, url, events_json, secret, active, created_at, updated_at,
@@ -570,17 +563,17 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
 
     def list(
         self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
-    ) -> List[WebhookConfig]:
+    ) -> list[WebhookConfig]:
         conn = self._get_conn()
 
         query = """SELECT id, url, events_json, secret, active, created_at, updated_at,
                           name, description, last_delivery_at, last_delivery_status,
                           delivery_count, failure_count, user_id, workspace_id
                    FROM webhook_configs WHERE 1=1"""
-        params: List[Any] = []
+        params: list[Any] = []
 
         if user_id:
             query += " AND user_id = ?"
@@ -608,18 +601,18 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
     def update(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Optional[WebhookConfig]:
+        url: str | None = None,
+        events: Optional[list[str]] = None,
+        active: bool | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> WebhookConfig | None:
         webhook = self.get(webhook_id)
         if not webhook:
             return None
 
-        updates: List[str] = []
-        params: List[Any] = []
+        updates: list[str] = []
+        params: list[Any] = []
 
         if url is not None:
             updates.append("url = ?")
@@ -682,7 +675,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             )
         conn.commit()
 
-    def get_for_event(self, event_type: str) -> List[WebhookConfig]:
+    def get_for_event(self, event_type: str) -> list[WebhookConfig]:
         conn = self._get_conn()
         cursor = conn.execute(
             """SELECT id, url, events_json, secret, active, created_at, updated_at,
@@ -698,7 +691,6 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             self._local.conn.close()
             del self._local.conn
 
-
 class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     """
     Redis-backed webhook config store with SQLite fallback.
@@ -710,14 +702,14 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     REDIS_PREFIX = "aragora:webhook_configs"
     REDIS_TTL = 86400  # 24 hours
 
-    def __init__(self, db_path: Path | str, redis_url: Optional[str] = None):
+    def __init__(self, db_path: Path | str, redis_url: str | None = None):
         self._sqlite = SQLiteWebhookConfigStore(db_path)
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_url = redis_url or os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379")
         self._redis_checked = False
         logger.info("RedisWebhookConfigStore initialized with SQLite fallback")
 
-    def _get_redis(self) -> Optional[Any]:
+    def _get_redis(self) -> Any | None:
         """Get Redis client (lazy initialization)."""
         if self._redis_checked:
             return self._redis
@@ -742,11 +734,11 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     def register(
         self,
         url: str,
-        events: List[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        events: list[str],
+        name: str | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         # Always save to SQLite (durable)
         webhook = self._sqlite.register(
@@ -768,7 +760,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
 
         return webhook
 
-    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
+    def get(self, webhook_id: str) -> WebhookConfig | None:
         redis = self._get_redis()
 
         # Try Redis first
@@ -796,10 +788,10 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
 
     def list(
         self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
-    ) -> List[WebhookConfig]:
+    ) -> list[WebhookConfig]:
         # Always use SQLite for list operations (authoritative)
         return self._sqlite.list(
             user_id=user_id, workspace_id=workspace_id, active_only=active_only
@@ -820,12 +812,12 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     def update(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Optional[WebhookConfig]:
+        url: str | None = None,
+        events: Optional[list[str]] = None,
+        active: bool | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> WebhookConfig | None:
         webhook = self._sqlite.update(
             webhook_id=webhook_id,
             url=url,
@@ -862,14 +854,13 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             except Exception as e:
                 logger.debug(f"Redis cache invalidation failed: {e}")
 
-    def get_for_event(self, event_type: str) -> List[WebhookConfig]:
+    def get_for_event(self, event_type: str) -> list[WebhookConfig]:
         return self._sqlite.get_for_event(event_type)
 
     def close(self) -> None:
         self._sqlite.close()
         if self._redis:
             self._redis.close()
-
 
 class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
     """
@@ -924,11 +915,11 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
     def register(
         self,
         url: str,
-        events: List[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        events: list[str],
+        name: str | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         """Register a new webhook (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -938,11 +929,11 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
     async def register_async(
         self,
         url: str,
-        events: List[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        events: list[str],
+        name: str | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         """Register a new webhook asynchronously."""
         webhook_id = str(uuid.uuid4())
@@ -990,11 +981,11 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         logger.info(f"Registered webhook {webhook_id} for events: {events}")
         return webhook
 
-    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
+    def get(self, webhook_id: str) -> WebhookConfig | None:
         """Get webhook by ID (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.get_async(webhook_id))
 
-    async def get_async(self, webhook_id: str) -> Optional[WebhookConfig]:
+    async def get_async(self, webhook_id: str) -> WebhookConfig | None:
         """Get webhook by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1034,10 +1025,10 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     def list(
         self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
-    ) -> List[WebhookConfig]:
+    ) -> list[WebhookConfig]:
         """List webhooks (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.list_async(user_id, workspace_id, active_only)
@@ -1045,10 +1036,10 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     async def list_async(
         self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
-    ) -> List[WebhookConfig]:
+    ) -> list[WebhookConfig]:
         """List webhooks asynchronously."""
         query = """SELECT id, url, events_json, secret, active,
                           EXTRACT(EPOCH FROM created_at) as created_at,
@@ -1058,7 +1049,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                           last_delivery_status, delivery_count, failure_count,
                           user_id, workspace_id
                    FROM webhook_configs WHERE 1=1"""
-        params: List[Any] = []
+        params: list[Any] = []
         param_idx = 1
 
         if user_id:
@@ -1094,12 +1085,12 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
     def update(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Optional[WebhookConfig]:
+        url: str | None = None,
+        events: Optional[list[str]] = None,
+        active: bool | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> WebhookConfig | None:
         """Update webhook (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.update_async(webhook_id, url, events, active, name, description)
@@ -1108,19 +1099,19 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
     async def update_async(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Optional[WebhookConfig]:
+        url: str | None = None,
+        events: Optional[list[str]] = None,
+        active: bool | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> WebhookConfig | None:
         """Update webhook asynchronously."""
         webhook = await self.get_async(webhook_id)
         if not webhook:
             return None
 
-        updates: List[str] = []
-        params: List[Any] = []
+        updates: list[str] = []
+        params: list[Any] = []
         param_idx = 1
 
         if url is not None:
@@ -1202,11 +1193,11 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                     webhook_id,
                 )
 
-    def get_for_event(self, event_type: str) -> List[WebhookConfig]:
+    def get_for_event(self, event_type: str) -> list[WebhookConfig]:
         """Get webhooks for event (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.get_for_event_async(event_type))
 
-    async def get_for_event_async(self, event_type: str) -> List[WebhookConfig]:
+    async def get_for_event_async(self, event_type: str) -> list[WebhookConfig]:
         """Get webhooks for event asynchronously."""
         webhooks = await self.list_async(active_only=True)
         return [w for w in webhooks if w.matches_event(event_type)]
@@ -1215,13 +1206,11 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 # =============================================================================
 # Global Store Factory
 # =============================================================================
 
-_webhook_config_store: Optional[WebhookConfigStoreBackend] = None
-
+_webhook_config_store: WebhookConfigStoreBackend | None = None
 
 def get_webhook_config_store() -> WebhookConfigStoreBackend:
     """
@@ -1273,7 +1262,6 @@ def get_webhook_config_store() -> WebhookConfigStoreBackend:
 
     return _webhook_config_store
 
-
 def set_webhook_config_store(store: WebhookConfigStoreBackend) -> None:
     """
     Set custom webhook config store.
@@ -1284,12 +1272,10 @@ def set_webhook_config_store(store: WebhookConfigStoreBackend) -> None:
     _webhook_config_store = store
     logger.debug(f"Webhook config store backend set: {type(store).__name__}")
 
-
 def reset_webhook_config_store() -> None:
     """Reset the global webhook config store (for testing)."""
     global _webhook_config_store
     _webhook_config_store = None
-
 
 __all__ = [
     "WebhookConfig",

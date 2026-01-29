@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 from uuid import uuid4
 
 from aragora.debate.consensus import (
@@ -33,7 +33,6 @@ from aragora.debate.consensus import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class VerificationConfig:
@@ -57,7 +56,6 @@ class VerificationConfig:
     include_document_context: bool = True
     max_context_tokens: int = 4000
 
-
 @dataclass
 class VerificationResult:
     """Result of finding verification."""
@@ -66,11 +64,10 @@ class VerificationResult:
     verified: bool
     consensus_proof: ConsensusProof
     original_severity: str
-    verified_severity: Optional[str] = None
+    verified_severity: str | None = None
     severity_changed: bool = False
     verification_notes: list[str] = field(default_factory=list)
     duration_ms: int = 0
-
 
 class FindingVerifier:
     """
@@ -87,8 +84,8 @@ class FindingVerifier:
 
     def __init__(
         self,
-        config: Optional[VerificationConfig] = None,
-        agents: Optional[list[str]] = None,
+        config: VerificationConfig | None = None,
+        agents: list[str] | None = None,
     ):
         """
         Initialize the finding verifier.
@@ -143,7 +140,7 @@ class FindingVerifier:
     async def verify_finding(
         self,
         finding: Any,  # AuditFinding
-        document_context: Optional[str] = None,
+        document_context: str | None = None,
     ) -> VerificationResult:
         """
         Verify a single audit finding through multi-agent consensus.
@@ -245,7 +242,7 @@ class FindingVerifier:
     async def verify_findings_batch(
         self,
         findings: Sequence[Any],  # Sequence[AuditFinding]
-        document_contexts: Optional[dict[str, str]] = None,
+        document_contexts: dict[str, str] | None = None,
         max_concurrent: int = 5,
     ) -> list[VerificationResult]:
         """
@@ -275,7 +272,7 @@ class FindingVerifier:
     def _build_verification_prompt(
         self,
         finding: Any,
-        document_context: Optional[str] = None,
+        document_context: str | None = None,
     ) -> str:
         """Build the prompt for verification debate."""
         prompt_parts = [
@@ -442,7 +439,7 @@ class FindingVerifier:
 
         return vote, confidence, reasoning
 
-    def _extract_alternative(self, response: str) -> Optional[str]:
+    def _extract_alternative(self, response: str) -> str | None:
         """Extract alternative severity suggestion from response."""
         response_lower = response.lower()
 
@@ -520,12 +517,11 @@ class FindingVerifier:
 
         return "\n".join(parts)
 
-
 # Convenience function for quick verification
 async def verify_finding(
     finding: Any,
-    agents: Optional[list[str]] = None,
-    document_context: Optional[str] = None,
+    agents: list[str] | None = None,
+    document_context: str | None = None,
 ) -> VerificationResult:
     """
     Quick verification of a single finding.
@@ -540,7 +536,6 @@ async def verify_finding(
     """
     verifier = FindingVerifier(agents=agents)
     return await verifier.verify_finding(finding, document_context)
-
 
 __all__ = [
     "FindingVerifier",

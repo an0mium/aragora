@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence, Set, Type
+from typing import Any, Optional, Sequence
 
 from aragora.audit.base_auditor import (
     AuditContext,
@@ -46,7 +46,6 @@ from aragora.audit.audit_types import (
 
 logger = logging.getLogger(__name__)
 
-
 class AuditVertical(str, Enum):
     """Enterprise audit verticals."""
 
@@ -64,9 +63,8 @@ class AuditVertical(str, Enum):
     REGULATORY = "regulatory"
     ACADEMIC = "academic"
 
-
 # Mapping of verticals to auditor classes
-VERTICAL_AUDITORS: Dict[AuditVertical, Type[BaseAuditor]] = {
+VERTICAL_AUDITORS: dict[AuditVertical, type[BaseAuditor]] = {
     AuditVertical.SECURITY: SecurityAuditor,  # type: ignore[dict-item]
     AuditVertical.COMPLIANCE: ComplianceAuditor,  # type: ignore[dict-item]
     AuditVertical.QUALITY: QualityAuditor,  # type: ignore[dict-item]
@@ -79,7 +77,6 @@ VERTICAL_AUDITORS: Dict[AuditVertical, Type[BaseAuditor]] = {
     AuditVertical.ACADEMIC: AcademicAuditor,
 }
 
-
 @dataclass
 class AuditProfile:
     """
@@ -90,14 +87,13 @@ class AuditProfile:
 
     name: str
     description: str
-    verticals: List[AuditVertical]
-    priority_order: List[AuditVertical]  # Order for serial execution
+    verticals: list[AuditVertical]
+    priority_order: list[AuditVertical]  # Order for serial execution
     parallel_execution: bool = True
     max_concurrent: int = 5
     confidence_threshold: float = 0.5
     include_low_severity: bool = False
-    custom_config: Dict[str, Any] = field(default_factory=dict)
-
+    custom_config: dict[str, Any] = field(default_factory=dict)
 
 # Pre-defined audit profiles
 AUDIT_PROFILES = {
@@ -212,24 +208,23 @@ AUDIT_PROFILES = {
     ),
 }
 
-
 @dataclass
 class OrchestratorResult:
     """Result from multi-vertical audit orchestration."""
 
     session_id: str
     profile: str
-    verticals_run: List[str]
-    findings: List[AuditFinding]
-    findings_by_vertical: Dict[str, List[AuditFinding]]
-    findings_by_severity: Dict[str, int]
+    verticals_run: list[str]
+    findings: list[AuditFinding]
+    findings_by_vertical: dict[str, list[AuditFinding]]
+    findings_by_severity: dict[str, int]
     total_chunks_processed: int
     duration_ms: float
-    errors: List[str]
+    errors: list[str]
     started_at: datetime
     completed_at: datetime
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "session_id": self.session_id,
@@ -245,7 +240,6 @@ class OrchestratorResult:
             "completed_at": self.completed_at.isoformat(),
         }
 
-
 class AuditOrchestrator:
     """
     Orchestrates multi-vertical audits with hive-mind coordination.
@@ -256,9 +250,9 @@ class AuditOrchestrator:
 
     def __init__(
         self,
-        profile: Optional[str] = None,
-        verticals: Optional[List[AuditVertical]] = None,
-        workspace_id: Optional[str] = None,
+        profile: str | None = None,
+        verticals: Optional[list[AuditVertical]] = None,
+        workspace_id: str | None = None,
         max_concurrent: int = 5,
     ):
         """
@@ -287,12 +281,12 @@ class AuditOrchestrator:
             self._profile = AUDIT_PROFILES["enterprise_full"]
 
         # Initialize auditors
-        self._auditors: Dict[AuditVertical, BaseAuditor] = {}
+        self._auditors: dict[AuditVertical, BaseAuditor] = {}
         self._initialize_auditors()
 
         # Runtime state
-        self._findings: List[AuditFinding] = []
-        self._errors: List[str] = []
+        self._findings: list[AuditFinding] = []
+        self._errors: list[str] = []
 
     def _initialize_auditors(self) -> None:
         """Initialize auditor instances for selected verticals."""
@@ -306,7 +300,7 @@ class AuditOrchestrator:
 
     async def run(
         self,
-        chunks: Sequence[Dict[str, Any]],
+        chunks: Sequence[dict[str, Any]],
         session: AuditSession,
     ) -> OrchestratorResult:
         """
@@ -349,8 +343,8 @@ class AuditOrchestrator:
         duration_ms = (completed_at - started_at).total_seconds() * 1000
 
         # Aggregate by vertical and severity
-        findings_by_vertical: Dict[str, List[AuditFinding]] = {}
-        findings_by_severity: Dict[str, int] = {s.value: 0 for s in FindingSeverity}
+        findings_by_vertical: dict[str, list[AuditFinding]] = {}
+        findings_by_severity: dict[str, int] = {s.value: 0 for s in FindingSeverity}
 
         for finding in self._findings:
             # By vertical (use category prefix or default)
@@ -469,10 +463,10 @@ class AuditOrchestrator:
 
     def _deduplicate_findings(
         self,
-        findings: List[AuditFinding],
-    ) -> List[AuditFinding]:
+        findings: list[AuditFinding],
+    ) -> list[AuditFinding]:
         """Remove duplicate findings across auditors."""
-        seen: Set[tuple] = set()
+        seen: set[tuple] = set()
         unique = []
 
         for finding in findings:
@@ -493,15 +487,15 @@ class AuditOrchestrator:
 
     def _correlate_findings(
         self,
-        findings: List[AuditFinding],
-    ) -> List[AuditFinding]:
+        findings: list[AuditFinding],
+    ) -> list[AuditFinding]:
         """
         Correlate findings across auditors to identify patterns.
 
         Enhances findings with cross-auditor insights.
         """
         # Group by document
-        by_document: Dict[str, List[AuditFinding]] = {}
+        by_document: dict[str, list[AuditFinding]] = {}
         for finding in findings:
             if finding.document_id not in by_document:
                 by_document[finding.document_id] = []
@@ -518,7 +512,7 @@ class AuditOrchestrator:
         return findings
 
     @classmethod
-    def list_profiles(cls) -> List[Dict[str, Any]]:
+    def list_profiles(cls) -> list[dict[str, Any]]:
         """List available audit profiles."""
         return [
             {
@@ -530,7 +524,7 @@ class AuditOrchestrator:
         ]
 
     @classmethod
-    def list_verticals(cls) -> List[Dict[str, Any]]:
+    def list_verticals(cls) -> list[dict[str, Any]]:
         """List available audit verticals."""
         return [
             {
@@ -540,7 +534,6 @@ class AuditOrchestrator:
             }
             for v in AuditVertical
         ]
-
 
 __all__ = [
     "AuditOrchestrator",

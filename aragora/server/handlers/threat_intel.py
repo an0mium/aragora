@@ -23,7 +23,6 @@ All endpoints require authentication.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aiohttp import web
 
@@ -44,8 +43,7 @@ from aragora.services.threat_intelligence import (
 logger = logging.getLogger(__name__)
 
 # Global service instance (lazy initialized)
-_threat_service: Optional[ThreatIntelligenceService] = None
-
+_threat_service: ThreatIntelligenceService | None = None
 
 def get_threat_service() -> ThreatIntelligenceService:
     """Get or create threat intelligence service."""
@@ -53,7 +51,6 @@ def get_threat_service() -> ThreatIntelligenceService:
     if _threat_service is None:
         _threat_service = ThreatIntelligenceService()
     return _threat_service
-
 
 class ThreatIntelHandler(BaseHandler):
     """Handler for threat intelligence endpoints."""
@@ -502,11 +499,9 @@ class ThreatIntelHandler(BaseHandler):
             logger.exception(f"Status check failed: {e}")
             return self.error_response(str(e), status=500)
 
-
 # =========================================================================
 # Route Registration
 # =========================================================================
-
 
 def register_threat_intel_routes(app: web.Application) -> None:
     """Register threat intelligence routes with the application."""
@@ -530,7 +525,6 @@ def register_threat_intel_routes(app: web.Application) -> None:
 
     app.router.add_routes(routes)
     logger.info(f"Registered {len(routes)} threat intelligence routes")
-
 
 # Export handler class
 __all__ = [

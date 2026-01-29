@@ -20,16 +20,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.training.model_registry import ModelMetadata, ModelRegistry
 
 if TYPE_CHECKING:
     from aragora.training.tinker_client import TinkerClient
 
-
 # Keywords for filtering debates by vertical
-VERTICAL_KEYWORDS: Dict[str, List[str]] = {
+VERTICAL_KEYWORDS: dict[str, list[str]] = {
     "legal": [
         "contract",
         "legal",
@@ -163,7 +162,6 @@ VERTICAL_KEYWORDS: Dict[str, List[str]] = {
 
 logger = logging.getLogger(__name__)
 
-
 class Vertical(str, Enum):
     """Enterprise verticals for specialist models."""
 
@@ -176,7 +174,6 @@ class Vertical(str, Enum):
     SOFTWARE = "software"
     GENERAL = "general"
 
-
 class TrainingStatus(str, Enum):
     """Status of a specialist model training job."""
 
@@ -188,16 +185,15 @@ class TrainingStatus(str, Enum):
     FAILED = "failed"
     DEPRECATED = "deprecated"
 
-
 @dataclass
 class SpecialistModelConfig:
     """Configuration for training a specialist model."""
 
     vertical: Vertical
     base_model: str = "llama-3.3-70b"
-    adapter_name: Optional[str] = None  # Auto-generated if not provided
-    org_id: Optional[str] = None  # None for global models
-    workspace_ids: List[str] = field(default_factory=list)  # Training data sources
+    adapter_name: str | None = None  # Auto-generated if not provided
+    org_id: str | None = None  # None for global models
+    workspace_ids: list[str] = field(default_factory=list)  # Training data sources
 
     # Training parameters
     lora_rank: int = 16
@@ -215,7 +211,7 @@ class SpecialistModelConfig:
     eval_split: float = 0.1
     run_gauntlet: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "vertical": self.vertical.value,
@@ -235,7 +231,6 @@ class SpecialistModelConfig:
             "run_gauntlet": self.run_gauntlet,
         }
 
-
 @dataclass
 class SpecialistModel:
     """
@@ -249,39 +244,39 @@ class SpecialistModel:
     base_model: str
     adapter_name: str
     vertical: Vertical
-    org_id: Optional[str]  # None for global models
+    org_id: str | None  # None for global models
     status: TrainingStatus = TrainingStatus.PENDING
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     created_by: str = ""
 
     # Training info
-    training_job_id: Optional[str] = None
-    training_config: Optional[SpecialistModelConfig] = None
+    training_job_id: str | None = None
+    training_config: SpecialistModelConfig | None = None
     training_data_debates: int = 0
     training_data_examples: int = 0
 
     # Performance metrics
-    final_loss: Optional[float] = None
-    elo_rating: Optional[float] = None
-    win_rate: Optional[float] = None
-    calibration_score: Optional[float] = None
+    final_loss: float | None = None
+    elo_rating: float | None = None
+    win_rate: float | None = None
+    calibration_score: float | None = None
 
     # Vertical-specific metrics
-    vertical_accuracy: Optional[float] = None
-    domain_coverage: Dict[str, float] = field(default_factory=dict)
+    vertical_accuracy: float | None = None
+    domain_coverage: dict[str, float] = field(default_factory=dict)
 
     # Model artifacts
-    checkpoint_path: Optional[str] = None
-    hf_model_id: Optional[str] = None
+    checkpoint_path: str | None = None
+    hf_model_id: str | None = None
 
     # Metadata
     version: int = 1
-    supersedes: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
+    supersedes: str | None = None
+    tags: list[str] = field(default_factory=list)
     notes: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -312,7 +307,7 @@ class SpecialistModel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SpecialistModel":
+    def from_dict(cls, data: dict[str, Any]) -> "SpecialistModel":
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -372,7 +367,6 @@ class SpecialistModel:
             notes=self.notes,
         )
 
-
 class SpecialistModelRegistry:
     """
     Registry for managing specialist models by vertical and organization.
@@ -381,7 +375,7 @@ class SpecialistModelRegistry:
     organization scoping.
     """
 
-    def __init__(self, base_registry: Optional[ModelRegistry] = None):
+    def __init__(self, base_registry: ModelRegistry | None = None):
         """
         Initialize specialist model registry.
 
@@ -389,7 +383,7 @@ class SpecialistModelRegistry:
             base_registry: Base model registry to sync with
         """
         self._base_registry = base_registry
-        self._specialists: Dict[str, SpecialistModel] = {}
+        self._specialists: dict[str, SpecialistModel] = {}
 
     def register(self, model: SpecialistModel) -> None:
         """
@@ -406,16 +400,16 @@ class SpecialistModelRegistry:
 
         logger.info(f"Registered specialist model: {model.id} ({model.vertical.value})")
 
-    def get(self, model_id: str) -> Optional[SpecialistModel]:
+    def get(self, model_id: str) -> SpecialistModel | None:
         """Get a specialist model by ID."""
         return self._specialists.get(model_id)
 
     def get_for_vertical(
         self,
         vertical: Vertical,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         include_global: bool = True,
-    ) -> Optional[SpecialistModel]:
+    ) -> SpecialistModel | None:
         """
         Get the best specialist model for a vertical.
 
@@ -456,9 +450,9 @@ class SpecialistModelRegistry:
     def list_for_vertical(
         self,
         vertical: Vertical,
-        org_id: Optional[str] = None,
-        status: Optional[TrainingStatus] = None,
-    ) -> List[SpecialistModel]:
+        org_id: str | None = None,
+        status: TrainingStatus | None = None,
+    ) -> list[SpecialistModel]:
         """
         List all specialist models for a vertical.
 
@@ -493,9 +487,9 @@ class SpecialistModelRegistry:
     def list_for_org(
         self,
         org_id: str,
-        vertical: Optional[Vertical] = None,
-        status: Optional[TrainingStatus] = None,
-    ) -> List[SpecialistModel]:
+        vertical: Vertical | None = None,
+        status: TrainingStatus | None = None,
+    ) -> list[SpecialistModel]:
         """
         List all specialist models for an organization.
 
@@ -566,11 +560,11 @@ class SpecialistModelRegistry:
             notes=notes,
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get registry statistics."""
-        by_vertical: Dict[str, int] = {}
-        by_status: Dict[str, int] = {}
-        by_org: Dict[str, int] = {}
+        by_vertical: dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        by_org: dict[str, int] = {}
 
         for model in self._specialists.values():
             by_vertical[model.vertical.value] = by_vertical.get(model.vertical.value, 0) + 1
@@ -593,7 +587,6 @@ class SpecialistModelRegistry:
             "ready_count": len(ready_models),
             "average_elo": avg_elo,
         }
-
 
 class SpecialistTrainingPipeline:
     """
@@ -795,7 +788,7 @@ class SpecialistTrainingPipeline:
         sft_file = output_dir / "sft_debates.jsonl"
         output_dir / "dpo_debates.jsonl"
 
-        training_data: List[Dict[str, Any]] = []
+        training_data: list[dict[str, Any]] = []
 
         # Load SFT data
         if sft_file.exists():
@@ -941,7 +934,7 @@ class SpecialistTrainingPipeline:
     async def get_training_status(
         self,
         model_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get training status for a model.
 
@@ -966,9 +959,8 @@ class SpecialistTrainingPipeline:
             "checkpoint_path": model.checkpoint_path,
         }
 
-
 # Vertical-specific training configurations
-VERTICAL_DEFAULTS: Dict[Vertical, Dict[str, Any]] = {
+VERTICAL_DEFAULTS: dict[Vertical, dict[str, Any]] = {
     Vertical.LEGAL: {
         "base_model": "llama-3.3-70b",
         "lora_rank": 32,
@@ -1013,10 +1005,9 @@ VERTICAL_DEFAULTS: Dict[Vertical, Dict[str, Any]] = {
     },
 }
 
-
 def get_vertical_config(
     vertical: Vertical,
-    org_id: Optional[str] = None,
+    org_id: str | None = None,
     **overrides: Any,
 ) -> SpecialistModelConfig:
     """
@@ -1041,20 +1032,17 @@ def get_vertical_config(
         **{k: v for k, v in overrides.items() if k not in ["base_model", "lora_rank", "max_steps"]},
     )
 
-
 # Global registry instance
-_specialist_registry: Optional[SpecialistModelRegistry] = None
-
+_specialist_registry: SpecialistModelRegistry | None = None
 
 def get_specialist_registry(
-    base_registry: Optional[ModelRegistry] = None,
+    base_registry: ModelRegistry | None = None,
 ) -> SpecialistModelRegistry:
     """Get or create the global specialist model registry."""
     global _specialist_registry
     if _specialist_registry is None:
         _specialist_registry = SpecialistModelRegistry(base_registry)
     return _specialist_registry
-
 
 __all__ = [
     "Vertical",

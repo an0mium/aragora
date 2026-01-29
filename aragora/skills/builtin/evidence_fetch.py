@@ -8,7 +8,7 @@ for debate support and claim verification.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     Skill,
@@ -19,7 +19,6 @@ from ..base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class EvidenceFetchSkill(Skill):
     """
@@ -73,7 +72,7 @@ class EvidenceFetchSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         """Execute evidence fetch."""
@@ -89,7 +88,7 @@ class EvidenceFetchSkill(Skill):
             )
 
         try:
-            results: Dict[str, Any] = {
+            results: dict[str, Any] = {
                 "claim": claim,
                 "sources_queried": sources,
             }
@@ -130,7 +129,7 @@ class EvidenceFetchSkill(Skill):
             logger.exception(f"Evidence fetch failed: {e}")
             return SkillResult.create_failure(f"Evidence fetch failed: {e}")
 
-    async def _fetch_url(self, url: str) -> Dict[str, Any]:
+    async def _fetch_url(self, url: str) -> dict[str, Any]:
         """Fetch and extract content from a URL."""
         try:
             import httpx
@@ -168,7 +167,7 @@ class EvidenceFetchSkill(Skill):
             class TextExtractor(HTMLParser):
                 def __init__(self):
                     super().__init__()
-                    self.text_parts: List[str] = []
+                    self.text_parts: list[str] = []
                     self.skip_tags = {"script", "style", "nav", "header", "footer"}
                     self.current_skip = False
 
@@ -199,7 +198,7 @@ class EvidenceFetchSkill(Skill):
             text = re.sub(r"<[^>]+>", " ", text)
             return " ".join(text.split())
 
-    def _extract_title(self, html: str) -> Optional[str]:
+    def _extract_title(self, html: str) -> str | None:
         """Extract page title from HTML."""
         import re
 
@@ -210,7 +209,7 @@ class EvidenceFetchSkill(Skill):
         self,
         query: str,
         max_results: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search the web for evidence."""
         try:
             from duckduckgo_search import DDGS
@@ -240,7 +239,7 @@ class EvidenceFetchSkill(Skill):
         self,
         query: str,
         max_results: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search academic papers via Semantic Scholar."""
         try:
             import httpx
@@ -288,7 +287,7 @@ class EvidenceFetchSkill(Skill):
         self,
         query: str,
         max_results: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search recent news articles."""
         try:
             from duckduckgo_search import DDGS
@@ -316,13 +315,12 @@ class EvidenceFetchSkill(Skill):
             logger.warning(f"News search error: {e}")
             return []
 
-    async def _check_facts(self, claim: str) -> List[Dict[str, Any]]:
+    async def _check_facts(self, claim: str) -> list[dict[str, Any]]:
         """Check claim against fact-checking sources."""
         # This is a placeholder for fact-checking integration
         # Could integrate with ClaimBuster, Google Fact Check API, etc.
         logger.debug("Fact checking not implemented yet")
         return []
-
 
 # Skill instance for registration
 SKILLS = [EvidenceFetchSkill()]

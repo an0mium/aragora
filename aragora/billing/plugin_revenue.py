@@ -14,11 +14,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class RevenueEventType(Enum):
     """Types of revenue events."""
@@ -27,7 +26,6 @@ class RevenueEventType(Enum):
     SUBSCRIPTION = "subscription"  # Subscription payment
     USAGE = "usage"  # Per-use charge
     REFUND = "refund"  # Refund
-
 
 @dataclass
 class PluginRevenueEvent:
@@ -77,7 +75,6 @@ class PluginRevenueEvent:
             "created_at": self.created_at.isoformat(),
         }
 
-
 @dataclass
 class DeveloperPayout:
     """Payout record for a plugin developer."""
@@ -91,7 +88,7 @@ class DeveloperPayout:
     period_start: datetime = field(default_factory=datetime.utcnow)
     period_end: datetime = field(default_factory=datetime.utcnow)
     created_at: datetime = field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -107,7 +104,6 @@ class DeveloperPayout:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
-
 @dataclass
 class PluginInstall:
     """Record of a plugin installation."""
@@ -118,9 +114,9 @@ class PluginInstall:
     org_id: str = ""
     user_id: str = ""
     installed_at: datetime = field(default_factory=datetime.utcnow)
-    trial_ends_at: Optional[datetime] = None
+    trial_ends_at: datetime | None = None
     subscription_active: bool = False
-    uninstalled_at: Optional[datetime] = None
+    uninstalled_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -134,7 +130,6 @@ class PluginInstall:
             "subscription_active": self.subscription_active,
             "uninstalled_at": self.uninstalled_at.isoformat() if self.uninstalled_at else None,
         }
-
 
 class PluginRevenueTracker:
     """
@@ -153,7 +148,7 @@ class PluginRevenueTracker:
     # Minimum payout threshold (in cents)
     MIN_PAYOUT_THRESHOLD = 1000  # $10
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize plugin revenue tracker.
 
@@ -307,7 +302,7 @@ class PluginRevenueTracker:
         gross_amount_cents: int,
         developer_share_percent: int = DEFAULT_DEVELOPER_SHARE,
         stripe_payment_id: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> PluginRevenueEvent:
         """
         Record a revenue event for a plugin.
@@ -478,7 +473,7 @@ class PluginRevenueTracker:
         developer_id: str,
         period_start: datetime,
         period_end: datetime,
-    ) -> Optional[DeveloperPayout]:
+    ) -> DeveloperPayout | None:
         """
         Create a payout for a developer.
 
@@ -606,10 +601,8 @@ class PluginRevenueTracker:
                 for row in rows
             ]
 
-
 # Default tracker instance
-_default_tracker: Optional[PluginRevenueTracker] = None
-
+_default_tracker: PluginRevenueTracker | None = None
 
 def get_plugin_revenue_tracker() -> PluginRevenueTracker:
     """Get the default plugin revenue tracker instance."""
@@ -617,7 +610,6 @@ def get_plugin_revenue_tracker() -> PluginRevenueTracker:
     if _default_tracker is None:
         _default_tracker = PluginRevenueTracker()
     return _default_tracker
-
 
 __all__ = [
     "PluginRevenueTracker",

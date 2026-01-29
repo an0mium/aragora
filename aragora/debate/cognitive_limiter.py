@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 # Approximate chars per token (conservative estimate)
 CHARS_PER_TOKEN = 4
-
 
 @dataclass
 class CognitiveBudget:
@@ -51,7 +50,6 @@ class CognitiveBudget:
             max_patterns_chars=int(self.max_patterns_chars * factor),
             reserve_for_response=self.reserve_for_response,  # Keep response reserve
         )
-
 
 # Preset budgets for different stress levels
 STRESS_BUDGETS = {
@@ -81,7 +79,6 @@ STRESS_BUDGETS = {
     ),
 }
 
-
 class CognitiveLoadLimiter:
     """
     Context preprocessor to prevent agent cognitive overload.
@@ -106,7 +103,7 @@ class CognitiveLoadLimiter:
         limiter = CognitiveLoadLimiter.for_stress_level("high")
     """
 
-    def __init__(self, budget: Optional[CognitiveBudget] = None):
+    def __init__(self, budget: CognitiveBudget | None = None):
         """
         Initialize the limiter.
 
@@ -153,8 +150,8 @@ class CognitiveLoadLimiter:
     def limit_messages(
         self,
         messages: list[Any],
-        max_messages: Optional[int] = None,
-        max_chars: Optional[int] = None,
+        max_messages: int | None = None,
+        max_chars: int | None = None,
     ) -> list[Any]:
         """
         Limit message history to fit within budget.
@@ -257,7 +254,7 @@ class CognitiveLoadLimiter:
         self,
         critiques: list[Any],
         max_critiques: int = 5,
-        max_chars_per: Optional[int] = None,
+        max_chars_per: int | None = None,
     ) -> list[Any]:
         """
         Limit and summarize critiques to fit budget.
@@ -331,10 +328,10 @@ class CognitiveLoadLimiter:
 
     def limit_context(
         self,
-        messages: Optional[list] = None,
-        critiques: Optional[list] = None,
-        patterns: Optional[str] = None,
-        extra_context: Optional[str] = None,
+        messages: list | None = None,
+        critiques: list | None = None,
+        patterns: str | None = None,
+        extra_context: str | None = None,
     ) -> dict[str, Any]:
         """
         Limit all context components to fit within total budget.
@@ -411,10 +408,9 @@ class CognitiveLoadLimiter:
             "total_chars_removed": 0,
         }
 
-
 def limit_debate_context(
     messages: list,
-    critiques: Optional[list] = None,
+    critiques: list | None = None,
     stress_level: str = "elevated",
 ) -> dict:
     """

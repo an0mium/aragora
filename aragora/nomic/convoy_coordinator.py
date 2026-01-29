@@ -29,6 +29,7 @@ Usage:
     # Handle agent failure
     await coordinator.handle_agent_failure(agent_id)
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -37,7 +38,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.nomic.beads import BeadStore
@@ -53,7 +54,6 @@ from aragora.nomic.agent_roles import (
 
 logger = logging.getLogger(__name__)
 
-
 class AssignmentStatus(str, Enum):
     """Status of a bead assignment."""
 
@@ -62,7 +62,6 @@ class AssignmentStatus(str, Enum):
     COMPLETED = "completed"  # Work finished
     FAILED = "failed"  # Work failed
     REASSIGNED = "reassigned"  # Moved to another agent
-
 
 class RebalanceReason(str, Enum):
     """Reasons for triggering rebalance."""
@@ -73,7 +72,6 @@ class RebalanceReason(str, Enum):
     PROGRESS_STALLED = "progress_stalled"
     MANUAL = "manual"
     PRIORITY_CHANGE = "priority_change"
-
 
 @dataclass
 class BeadAssignment:
@@ -90,16 +88,16 @@ class BeadAssignment:
     status: AssignmentStatus
     assigned_at: datetime
     updated_at: datetime
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     estimated_duration_minutes: int = 30
-    actual_duration_minutes: Optional[int] = None
+    actual_duration_minutes: int | None = None
     priority: int = 50
-    previous_agents: List[str] = field(default_factory=list)
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    previous_agents: list[str] = field(default_factory=list)
+    error_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -120,7 +118,7 @@ class BeadAssignment:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BeadAssignment":
+    def from_dict(cls, data: dict[str, Any]) -> "BeadAssignment":
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -144,7 +142,6 @@ class BeadAssignment:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class AgentLoad:
     """Tracks current load for an agent."""
@@ -155,7 +152,7 @@ class AgentLoad:
     completed_today: int = 0
     failed_today: int = 0
     avg_completion_minutes: float = 30.0
-    last_heartbeat: Optional[datetime] = None
+    last_heartbeat: datetime | None = None
     is_available: bool = True
 
     @property
@@ -170,7 +167,6 @@ class AgentLoad:
         if self.total_assigned >= max_concurrent:
             return 0.0
         return 1.0 - (self.total_assigned / max_concurrent)
-
 
 @dataclass
 class RebalancePolicy:
@@ -201,7 +197,7 @@ class RebalancePolicy:
         self,
         agent_load: AgentLoad,
         assignment: BeadAssignment,
-    ) -> Optional[RebalanceReason]:
+    ) -> RebalanceReason | None:
         """
         Determine if assignment should be rebalanced.
 
@@ -232,7 +228,6 @@ class RebalancePolicy:
 
         return None
 
-
 class ConvoyCoordinator:
     """
     Coordinates bead distribution within convoys.
@@ -250,8 +245,8 @@ class ConvoyCoordinator:
         hierarchy: AgentHierarchy,
         hook_queue: Optional["HookQueue"] = None,
         bead_store: Optional["BeadStore"] = None,
-        storage_dir: Optional[Path] = None,
-        policy: Optional[RebalancePolicy] = None,
+        storage_dir: Path | None = None,
+        policy: RebalancePolicy | None = None,
     ):
         """
         Initialize the coordinator.
@@ -271,9 +266,9 @@ class ConvoyCoordinator:
         self.storage_dir = storage_dir or Path(".convoys")
         self.policy = policy or RebalancePolicy()
 
-        self._assignments: Dict[str, BeadAssignment] = {}  # assignment_id -> assignment
-        self._bead_assignments: Dict[str, str] = {}  # bead_id -> assignment_id
-        self._agent_loads: Dict[str, AgentLoad] = {}
+        self._assignments: dict[str, BeadAssignment] = {}  # assignment_id -> assignment
+        self._bead_assignments: dict[str, str] = {}  # bead_id -> assignment_id
+        self._agent_loads: dict[str, AgentLoad] = {}
         self._lock = asyncio.Lock()
         self._initialized = False
 
@@ -379,9 +374,9 @@ class ConvoyCoordinator:
     async def distribute_convoy(
         self,
         convoy_id: str,
-        agent_ids: Optional[List[str]] = None,
+        agent_ids: Optional[list[str]] = None,
         strategy: str = "balanced",
-    ) -> List[BeadAssignment]:
+    ) -> list[BeadAssignment]:
         """
         Distribute beads in a convoy to agents.
 
@@ -427,8 +422,8 @@ class ConvoyCoordinator:
     async def _select_distribution_agents(
         self,
         convoy: "Convoy",
-        agent_ids: Optional[List[str]] = None,
-    ) -> List[str]:
+        agent_ids: Optional[list[str]] = None,
+    ) -> list[str]:
         """Select agents for distribution."""
         if agent_ids:
             # Verify agents exist and are available
@@ -468,7 +463,7 @@ class ConvoyCoordinator:
 
         return available
 
-    async def _get_unassigned_beads(self, convoy: "Convoy") -> List[str]:
+    async def _get_unassigned_beads(self, convoy: "Convoy") -> list[str]:
         """Get bead IDs that need assignment."""
         unassigned = []
         for bead_id in convoy.bead_ids:
@@ -490,9 +485,9 @@ class ConvoyCoordinator:
     async def _distribute_balanced(
         self,
         convoy: "Convoy",
-        bead_ids: List[str],
-        agent_ids: List[str],
-    ) -> List[BeadAssignment]:
+        bead_ids: list[str],
+        agent_ids: list[str],
+    ) -> list[BeadAssignment]:
         """Distribute beads evenly across agents considering load."""
         import uuid
 
@@ -556,9 +551,9 @@ class ConvoyCoordinator:
     async def _distribute_round_robin(
         self,
         convoy: "Convoy",
-        bead_ids: List[str],
-        agent_ids: List[str],
-    ) -> List[BeadAssignment]:
+        bead_ids: list[str],
+        agent_ids: list[str],
+    ) -> list[BeadAssignment]:
         """Distribute beads in round-robin fashion."""
         import uuid
 
@@ -593,9 +588,9 @@ class ConvoyCoordinator:
     async def _distribute_by_priority(
         self,
         convoy: "Convoy",
-        bead_ids: List[str],
-        agent_ids: List[str],
-    ) -> List[BeadAssignment]:
+        bead_ids: list[str],
+        agent_ids: list[str],
+    ) -> list[BeadAssignment]:
         """Distribute beads prioritizing high-priority to best agents."""
         import uuid
 
@@ -669,7 +664,7 @@ class ConvoyCoordinator:
         logger.info(f"Spawned Polecat {assignment.agent_id} for bead {bead_id}")
         return assignment.agent_id
 
-    async def check_rebalance(self, convoy_id: Optional[str] = None) -> List[BeadAssignment]:
+    async def check_rebalance(self, convoy_id: str | None = None) -> list[BeadAssignment]:
         """
         Check assignments and rebalance if needed.
 
@@ -713,7 +708,7 @@ class ConvoyCoordinator:
         self,
         assignment: BeadAssignment,
         reason: RebalanceReason,
-    ) -> Optional[BeadAssignment]:
+    ) -> BeadAssignment | None:
         """Reassign a bead to a different agent."""
         import uuid
 
@@ -786,7 +781,7 @@ class ConvoyCoordinator:
         )
         return new_assignment
 
-    async def handle_agent_failure(self, agent_id: str) -> List[BeadAssignment]:
+    async def handle_agent_failure(self, agent_id: str) -> list[BeadAssignment]:
         """
         Handle agent failure by reassigning its beads.
 
@@ -828,8 +823,8 @@ class ConvoyCoordinator:
         self,
         bead_id: str,
         status: AssignmentStatus,
-        error_message: Optional[str] = None,
-    ) -> Optional[BeadAssignment]:
+        error_message: str | None = None,
+    ) -> BeadAssignment | None:
         """
         Update assignment status for a bead.
 
@@ -885,7 +880,7 @@ class ConvoyCoordinator:
             await self._save_assignments()
             return assignment
 
-    async def get_assignment(self, bead_id: str) -> Optional[BeadAssignment]:
+    async def get_assignment(self, bead_id: str) -> BeadAssignment | None:
         """Get current assignment for a bead."""
         assignment_id = self._bead_assignments.get(bead_id)
         if not assignment_id:
@@ -895,23 +890,23 @@ class ConvoyCoordinator:
     async def get_agent_assignments(
         self,
         agent_id: str,
-        status: Optional[AssignmentStatus] = None,
-    ) -> List[BeadAssignment]:
+        status: AssignmentStatus | None = None,
+    ) -> list[BeadAssignment]:
         """Get assignments for an agent."""
         assignments = [a for a in self._assignments.values() if a.agent_id == agent_id]
         if status:
             assignments = [a for a in assignments if a.status == status]
         return assignments
 
-    async def get_convoy_assignments(self, convoy_id: str) -> List[BeadAssignment]:
+    async def get_convoy_assignments(self, convoy_id: str) -> list[BeadAssignment]:
         """Get all assignments for a convoy."""
         return [a for a in self._assignments.values() if a.convoy_id == convoy_id]
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get coordinator statistics."""
         assignments = list(self._assignments.values())
-        by_status: Dict[str, int] = {}
-        by_agent: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        by_agent: dict[str, int] = {}
 
         for assignment in assignments:
             status_key = assignment.status.value
@@ -935,10 +930,8 @@ class ConvoyCoordinator:
             },
         }
 
-
 # Singleton instance
-_default_coordinator: Optional[ConvoyCoordinator] = None
-
+_default_coordinator: ConvoyCoordinator | None = None
 
 async def get_convoy_coordinator(
     convoy_manager: "ConvoyManager",
@@ -955,7 +948,6 @@ async def get_convoy_coordinator(
         )
         await _default_coordinator.initialize()
     return _default_coordinator
-
 
 def reset_convoy_coordinator() -> None:
     """Reset the default coordinator (for testing)."""

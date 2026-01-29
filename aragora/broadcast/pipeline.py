@@ -13,6 +13,7 @@ Usage:
     pipeline = BroadcastPipeline(nomic_dir=Path(".nomic"))
     result = await pipeline.run("debate-123", BroadcastOptions(video_enabled=True))
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class BroadcastOptions:
     """Options for the broadcast pipeline."""
@@ -37,17 +37,16 @@ class BroadcastOptions:
     # Video generation
     video_enabled: bool = False
     video_resolution: tuple[int, int] = (1920, 1080)
-    thumbnail_path: Optional[str] = None
+    thumbnail_path: str | None = None
 
     # RSS/Podcast
     generate_rss_episode: bool = True
 
     # Metadata
-    custom_title: Optional[str] = None
-    custom_description: Optional[str] = None
-    episode_number: Optional[int] = None
-    season_number: Optional[int] = None
-
+    custom_title: str | None = None
+    custom_description: str | None = None
+    episode_number: int | None = None
+    season_number: int | None = None
 
 @dataclass
 class PipelineResult:
@@ -55,14 +54,13 @@ class PipelineResult:
 
     debate_id: str
     success: bool
-    audio_path: Optional[Path] = None
-    video_path: Optional[Path] = None
-    rss_episode_guid: Optional[str] = None
-    duration_seconds: Optional[int] = None
-    error_message: Optional[str] = None
+    audio_path: Path | None = None
+    video_path: Path | None = None
+    rss_episode_guid: str | None = None
+    duration_seconds: int | None = None
+    error_message: str | None = None
     generated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     steps_completed: list[str] = field(default_factory=list)
-
 
 class BroadcastPipeline:
     """
@@ -115,7 +113,7 @@ class BroadcastPipeline:
     async def run(
         self,
         debate_id: str,
-        options: Optional[BroadcastOptions] = None,
+        options: BroadcastOptions | None = None,
     ) -> PipelineResult:
         """
         Run the full broadcast pipeline.
@@ -137,7 +135,7 @@ class BroadcastPipeline:
             return result
 
         # Step 1: Generate audio
-        audio_path: Optional[Path] = None
+        audio_path: Path | None = None
         if options.audio_enabled:
             audio_path = await self._generate_audio(trace, options)
             if audio_path:
@@ -196,7 +194,7 @@ class BroadcastPipeline:
         self,
         trace: "DebateTrace",
         options: BroadcastOptions,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Generate audio from debate trace."""
         try:
             from aragora.broadcast import broadcast_debate
@@ -216,7 +214,7 @@ class BroadcastPipeline:
         audio_path: Path,
         trace: "DebateTrace",
         options: BroadcastOptions,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Generate video from audio and trace."""
         try:
             from aragora.broadcast.video_gen import generate_video
@@ -248,7 +246,7 @@ class BroadcastPipeline:
         audio_path: Path,
         duration_seconds: int,
         options: BroadcastOptions,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Create RSS episode entry."""
         if not self.rss_generator:
             # Try to create a default generator
@@ -317,7 +315,7 @@ class BroadcastPipeline:
 
         return "\n".join(lines)
 
-    def _get_audio_duration(self, audio_path: Path) -> Optional[int]:
+    def _get_audio_duration(self, audio_path: Path) -> int | None:
         """Get audio duration in seconds."""
         try:
             from mutagen.mp3 import MP3
@@ -331,7 +329,7 @@ class BroadcastPipeline:
             logger.debug(f"Failed to get audio duration: {e}")
             return None
 
-    def get_rss_feed(self) -> Optional[str]:
+    def get_rss_feed(self) -> str | None:
         """Get the current RSS feed XML."""
         if not self.rss_generator:
             return None
@@ -341,11 +339,10 @@ class BroadcastPipeline:
             logger.error(f"Failed to generate RSS feed: {e}")
             return None
 
-
 async def run_pipeline(
     debate_id: str,
     nomic_dir: Path,
-    options: Optional[BroadcastOptions] = None,
+    options: BroadcastOptions | None = None,
 ) -> PipelineResult:
     """
     Convenience function to run the broadcast pipeline.

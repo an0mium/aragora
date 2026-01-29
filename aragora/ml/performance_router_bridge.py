@@ -29,14 +29,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.performance_monitor import AgentPerformanceMonitor, AgentStats
     from aragora.ml.agent_router import AgentRouter, TaskType
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SyncResult:
@@ -45,8 +44,7 @@ class SyncResult:
     agents_synced: int
     records_added: int
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    agents_updated: List[str] = field(default_factory=list)
-
+    agents_updated: list[str] = field(default_factory=list)
 
 @dataclass
 class PerformanceRouterBridgeConfig:
@@ -70,7 +68,6 @@ class PerformanceRouterBridgeConfig:
     # Auto-sync interval (number of calls between syncs)
     auto_sync_interval: int = 20
 
-
 @dataclass
 class PerformanceRouterBridge:
     """Bridges AgentPerformanceMonitor telemetry into AgentRouter decisions.
@@ -87,10 +84,10 @@ class PerformanceRouterBridge:
     config: PerformanceRouterBridgeConfig = field(default_factory=PerformanceRouterBridgeConfig)
 
     # Internal state
-    _last_sync_counts: Dict[str, int] = field(default_factory=dict, repr=False)
+    _last_sync_counts: dict[str, int] = field(default_factory=dict, repr=False)
     _call_count_since_sync: int = field(default=0, repr=False)
     _auto_sync_enabled: bool = field(default=False, repr=False)
-    _sync_history: List[SyncResult] = field(default_factory=list, repr=False)
+    _sync_history: list[SyncResult] = field(default_factory=list, repr=False)
 
     def sync_performance(self, force: bool = False) -> SyncResult:
         """Sync current performance telemetry into router.
@@ -291,7 +288,7 @@ class PerformanceRouterBridge:
 
         return min(1.0, max(0.0, score))
 
-    def get_agent_scores(self) -> Dict[str, float]:
+    def get_agent_scores(self) -> dict[str, float]:
         """Get performance scores for all tracked agents.
 
         Returns:
@@ -315,7 +312,7 @@ class PerformanceRouterBridge:
         self._auto_sync_enabled = False
         logger.info("Auto-sync disabled")
 
-    def maybe_auto_sync(self) -> Optional[SyncResult]:
+    def maybe_auto_sync(self) -> SyncResult | None:
         """Check if auto-sync should run and execute if needed.
 
         Call this after each agent call to potentially trigger sync.
@@ -333,7 +330,7 @@ class PerformanceRouterBridge:
 
         return None
 
-    def get_sync_history(self) -> List[SyncResult]:
+    def get_sync_history(self) -> list[SyncResult]:
         """Get history of sync operations.
 
         Returns:
@@ -341,7 +338,7 @@ class PerformanceRouterBridge:
         """
         return list(self._sync_history)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.
 
         Returns:
@@ -354,7 +351,6 @@ class PerformanceRouterBridge:
             "last_sync": (self._sync_history[-1].timestamp if self._sync_history else None),
             "agents_tracked": len(self._last_sync_counts),
         }
-
 
 def create_performance_router_bridge(
     performance_monitor: Optional["AgentPerformanceMonitor"] = None,
@@ -384,7 +380,6 @@ def create_performance_router_bridge(
         bridge.enable_auto_sync()
 
     return bridge
-
 
 __all__ = [
     "PerformanceRouterBridge",

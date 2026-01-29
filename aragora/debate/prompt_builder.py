@@ -4,6 +4,7 @@ Prompt builder for debate agents.
 Extracted from Arena to improve code organization and testability.
 Handles construction of prompts for proposals, revisions, and judgments.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -43,7 +44,6 @@ except ImportError:
     RLMContextAdapter = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
-
 
 class PromptBuilder:
     """Builds prompts for debate agents.
@@ -986,7 +986,7 @@ The system will provide relevant details from the full history."""
         """
         self.trending_topics = topics or []
 
-    def format_trending_for_prompt(self, max_topics: Optional[int] = None) -> str:
+    def format_trending_for_prompt(self, max_topics: int | None = None) -> str:
         """Format trending topics as context for agent prompts.
 
         Returns a formatted string with current trending topics that may
@@ -1056,7 +1056,7 @@ The system will provide relevant details from the full history."""
         self,
         agent: "Agent",
         audience_section: str = "",
-        all_agents: Optional[list["Agent"]] = None,
+        all_agents: list["Agent"] | None = None,
     ) -> str:
         """Build the initial proposal prompt.
 
@@ -1204,7 +1204,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         original: str,
         critiques: list["Critique"],
         audience_section: str = "",
-        all_agents: Optional[list["Agent"]] = None,
+        all_agents: list["Agent"] | None = None,
         round_number: int = 0,
     ) -> str:
         """Build the revision prompt including critiques.

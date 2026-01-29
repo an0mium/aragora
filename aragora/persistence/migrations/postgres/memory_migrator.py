@@ -44,7 +44,6 @@ except ImportError:
     Pool = Any
     ASYNCPG_AVAILABLE = False
 
-
 @dataclass
 class MigrationStats:
     """Statistics from a data migration."""
@@ -58,7 +57,6 @@ class MigrationStats:
     def success(self) -> bool:
         return len(self.errors) == 0
 
-
 @dataclass
 class MigrationReport:
     """Complete migration report."""
@@ -66,7 +64,7 @@ class MigrationReport:
     source_path: str
     target_dsn: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     tables: list[MigrationStats] = field(default_factory=list)
 
     @property
@@ -84,7 +82,6 @@ class MigrationReport:
     @property
     def success(self) -> bool:
         return all(t.success for t in self.tables)
-
 
 class MemoryMigrator:
     """
@@ -614,7 +611,6 @@ class MemoryMigrator:
             await self._pool.close()
             self._pool = None
 
-
 def print_report(report: MigrationReport) -> None:
     """Print migration report to console."""
     print("\n" + "=" * 60)
@@ -648,7 +644,6 @@ def print_report(report: MigrationReport) -> None:
     print(f"  Total errors:        {report.total_errors}")
     print(f"  Status:              {'SUCCESS' if report.success else 'FAILED'}")
     print("=" * 60 + "\n")
-
 
 async def main():
     """CLI entry point."""
@@ -731,7 +726,6 @@ async def main():
 
     finally:
         await migrator.close()
-
 
 if __name__ == "__main__":
     asyncio.run(main())

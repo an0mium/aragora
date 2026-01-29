@@ -40,10 +40,9 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
-
 
 class DegradedErrorCode(str, Enum):
     """Error codes for degraded mode."""
@@ -56,7 +55,6 @@ class DegradedErrorCode(str, Enum):
     BACKEND_CONNECTIVITY = "BACKEND_CONNECTIVITY"
     STARTUP_FAILED = "STARTUP_FAILED"
     UNKNOWN = "UNKNOWN"
-
 
 @dataclass
 class DegradedState:
@@ -81,7 +79,6 @@ class DegradedState:
             "uptime_degraded_seconds": time.time() - self.timestamp if self.is_degraded else 0,
         }
 
-
 # Global degraded state with thread-safe access
 _degraded_state = DegradedState()
 _degraded_lock = threading.Lock()
@@ -101,7 +98,6 @@ ALWAYS_ALLOWED_PATHS = frozenset(
     }
 )
 
-
 def is_degraded() -> bool:
     """Check if the server is in degraded mode.
 
@@ -110,7 +106,6 @@ def is_degraded() -> bool:
     """
     with _degraded_lock:
         return _degraded_state.is_degraded
-
 
 def get_degraded_state() -> DegradedState:
     """Get the current degraded state.
@@ -128,7 +123,6 @@ def get_degraded_state() -> DegradedState:
             recovery_hint=_degraded_state.recovery_hint,
         )
 
-
 def get_degraded_reason() -> str:
     """Get the reason for degraded mode.
 
@@ -138,11 +132,10 @@ def get_degraded_reason() -> str:
     with _degraded_lock:
         return _degraded_state.reason
 
-
 def set_degraded(
     reason: str,
     error_code: str | DegradedErrorCode = DegradedErrorCode.UNKNOWN,
-    details: Optional[dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
     recovery_hint: str = "",
 ) -> None:
     """Set the server to degraded mode.
@@ -179,7 +172,6 @@ def set_degraded(
         if recovery_hint or _degraded_state.recovery_hint:
             logger.info(f"[DEGRADED MODE] Recovery hint: {_degraded_state.recovery_hint}")
 
-
 def clear_degraded() -> None:
     """Clear degraded mode and return to normal operation.
 
@@ -194,7 +186,6 @@ def clear_degraded() -> None:
 
     if was_degraded:
         logger.info("[DEGRADED MODE] Server recovered, returning to normal operation")
-
 
 def _get_default_recovery_hint(error_code: DegradedErrorCode) -> str:
     """Get default recovery hint for an error code."""
@@ -229,7 +220,6 @@ def _get_default_recovery_hint(error_code: DegradedErrorCode) -> str:
     }
     return hints.get(error_code, "Check server logs for detailed error information.")
 
-
 def check_path_allowed(path: str) -> bool:
     """Check if a path is allowed in degraded mode.
 
@@ -251,7 +241,6 @@ def check_path_allowed(path: str) -> bool:
         return True
 
     return False
-
 
 class DegradedModeMiddleware:
     """HTTP middleware that returns 503 when the server is degraded.
@@ -276,7 +265,7 @@ class DegradedModeMiddleware:
     def __init__(
         self,
         retry_after_seconds: int = 30,
-        custom_allowed_paths: Optional[set[str]] = None,
+        custom_allowed_paths: set[str] | None = None,
     ):
         """Initialize the middleware.
 
@@ -335,7 +324,6 @@ class DegradedModeMiddleware:
             "X-Aragora-Degraded": "true",
         }
 
-
 def get_health_status() -> dict[str, Any]:
     """Get health status including degraded mode information.
 
@@ -362,10 +350,8 @@ def get_health_status() -> dict[str, Any]:
         "message": "Server operating normally",
     }
 
-
 # Callback for recovery monitoring
 _recovery_callbacks: list[Callable[[], bool]] = []
-
 
 def register_recovery_callback(callback: Callable[[], bool]) -> None:
     """Register a callback to check if the server can recover.
@@ -377,7 +363,6 @@ def register_recovery_callback(callback: Callable[[], bool]) -> None:
         callback: Function that returns True if recovery is possible
     """
     _recovery_callbacks.append(callback)
-
 
 async def attempt_recovery() -> bool:
     """Attempt to recover from degraded mode.
@@ -400,7 +385,6 @@ async def attempt_recovery() -> bool:
             logger.debug(f"Recovery callback failed: {e}")
 
     return False
-
 
 __all__ = [
     "DegradedErrorCode",

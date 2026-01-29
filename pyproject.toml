@@ -149,6 +149,7 @@ persistence = [
 postgres = [
     "asyncpg>=0.29.0,<1.0",
     "alembic>=1.13.0,<2.0",  # Database migrations
+    "nest_asyncio>=1.5,<2.0",  # Allow nested event loops for sync store wrappers
 ]
 documents = [
     "pypdf>=6.6,<7.0",  # CVE fixes require 6.6+
@@ -292,6 +293,7 @@ all = [
     "sentence-transformers>=3.0.0,<6.0",
     "networkx>=3.0,<4.0",
     "alembic>=1.13.0,<2.0",
+    "nest_asyncio>=1.5,<2.0",
     "opentelemetry-api>=1.20.0,<2.0",
     "opentelemetry-sdk>=1.20.0,<2.0",
     "opentelemetry-exporter-otlp>=1.20.0,<2.0",
@@ -332,7 +334,7 @@ target-version = ["py310", "py311", "py312"]
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "T201", "BLE001"]  # T201 = print, BLE001 = blind except
+select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007"]  # T201 = print, BLE001 = blind except, UP006/UP007 = modern typing
 ignore = ["E402", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -387,7 +389,7 @@ markers = [
     "privacy: marks tests for privacy workflows (GDPR/CCPA/consent)",
 ]
 # Automatically rerun flaky tests up to 3 times
-addopts = "--reruns 2 --reruns-delay 1 --only-rerun AssertionError"
+addopts = "--import-mode=importlib --reruns 2 --reruns-delay 1 --only-rerun AssertionError"
 # Parallel test execution: pip install pytest-xdist && pytest -n auto
 # To run serial-only tests: pytest -m serial -n0
 

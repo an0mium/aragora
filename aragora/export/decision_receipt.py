@@ -19,13 +19,12 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.core_types import DebateResult
     from aragora.export.audit_trail import AuditTrail
     from aragora.gauntlet import OrchestratorResult as GauntletResult  # Full orchestrator result
-
 
 @dataclass
 class ReceiptFinding:
@@ -36,10 +35,9 @@ class ReceiptFinding:
     category: str
     title: str
     description: str
-    mitigation: Optional[str] = None
+    mitigation: str | None = None
     source: str = ""
     verified: bool = False
-
 
 @dataclass
 class ReceiptDissent:
@@ -49,8 +47,7 @@ class ReceiptDissent:
     type: str
     severity: float
     reasons: list[str]
-    alternative: Optional[str] = None
-
+    alternative: str | None = None
 
 @dataclass
 class ReceiptVerification:
@@ -59,8 +56,7 @@ class ReceiptVerification:
     claim: str
     verified: bool
     method: str
-    proof_hash: Optional[str] = None
-
+    proof_hash: str | None = None
 
 @dataclass
 class DecisionReceipt:
@@ -138,7 +134,7 @@ class DecisionReceipt:
     duration_seconds: float = 0.0
 
     # Cross-reference to audit trail (bidirectional link)
-    audit_trail_id: Optional[str] = None
+    audit_trail_id: str | None = None
 
     # Integrity
     checksum: str = ""
@@ -146,7 +142,7 @@ class DecisionReceipt:
     # Cost/usage data (optional, populated if cost tracking enabled)
     cost_usd: float = 0.0
     tokens_used: int = 0
-    budget_limit_usd: Optional[float] = None
+    budget_limit_usd: float | None = None
 
     def __post_init__(self):
         if not self.checksum:
@@ -898,7 +894,7 @@ class DecisionReceipt:
             **data,
         )
 
-    def sign(self, backend: Optional[Any] = None) -> "SignedDecisionReceipt":
+    def sign(self, backend: Any | None = None) -> "SignedDecisionReceipt":
         """
         Sign this receipt cryptographically for tamper-evidence.
 
@@ -936,7 +932,7 @@ class DecisionReceipt:
         cls,
         result: "DebateResult",
         include_cost: bool = True,
-        cost_data: Optional[dict[str, Any]] = None,
+        cost_data: dict[str, Any] | None = None,
     ) -> "DecisionReceipt":
         """
         Generate a DecisionReceipt from a standard DebateResult.
@@ -1072,7 +1068,6 @@ class DecisionReceipt:
             budget_limit_usd=budget_limit_usd,
         )
 
-
 class DecisionReceiptGenerator:
     """
     Generates Decision Receipts from Gauntlet results.
@@ -1182,7 +1177,6 @@ class DecisionReceiptGenerator:
             duration_seconds=result.duration_seconds,
         )
 
-
 def generate_decision_receipt(result: "GauntletResult") -> DecisionReceipt:
     """
     Convenience function to generate a DecisionReceipt.
@@ -1199,7 +1193,6 @@ def generate_decision_receipt(result: "GauntletResult") -> DecisionReceipt:
         receipt.save(Path("./receipts/decision.html"), format="html")
     """
     return DecisionReceiptGenerator.from_gauntlet_result(result)
-
 
 def link_receipt_to_trail(
     receipt: DecisionReceipt,
@@ -1238,7 +1231,6 @@ def link_receipt_to_trail(
 
     return receipt, trail
 
-
 @dataclass
 class SignedDecisionReceipt:
     """
@@ -1264,7 +1256,7 @@ class SignedDecisionReceipt:
     signature_key_id: str
     signed_at: str  # ISO timestamp
 
-    def verify(self, backend: Optional[Any] = None) -> bool:
+    def verify(self, backend: Any | None = None) -> bool:
         """
         Verify the signature is valid.
 

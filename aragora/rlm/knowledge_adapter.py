@@ -4,14 +4,14 @@ Knowledge Mound adapter for RLM.
 Extracted from bridge.py for maintainability.
 Provides KnowledgeMoundAdapter for integrating Knowledge Mound with RLM.
 """
+from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from .types import AbstractionLevel, AbstractionNode, RLMContext
 
 logger = logging.getLogger(__name__)
-
 
 class KnowledgeMoundAdapter:
     """
@@ -32,7 +32,7 @@ class KnowledgeMoundAdapter:
     async def to_rlm_context(
         self,
         workspace_id: str,
-        query: Optional[str] = None,
+        query: str | None = None,
         max_nodes: int = 100,
     ) -> RLMContext:
         """
@@ -123,7 +123,7 @@ class KnowledgeMoundAdapter:
                 for n in nodes
             ]
 
-        async def get_mound_node(node_id: str) -> Optional[dict]:
+        async def get_mound_node(node_id: str) -> dict | None:
             node = await self.mound.get_node(node_id)
             if not node:
                 return None
@@ -139,6 +139,5 @@ class KnowledgeMoundAdapter:
             "search_mound": search_mound,
             "get_mound_node": get_mound_node,
         }
-
 
 __all__ = ["KnowledgeMoundAdapter"]

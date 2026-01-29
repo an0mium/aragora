@@ -32,7 +32,7 @@ import time
 import defusedxml.ElementTree as ET  # Safe XML parsing to prevent XXE attacks
 import zlib
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import quote, urlencode
 
 from .sso import (
@@ -56,13 +56,11 @@ except ImportError:
     HAS_SAML_LIB = False
     logger.debug("python3-saml not installed - SAML authentication unavailable")
 
-
 class SAMLError(SSOError):
     """SAML-specific error."""
 
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    def __init__(self, message: str, details: dict | None = None):
         super().__init__(message, "SAML_ERROR", details)
-
 
 @dataclass
 class SAMLConfig(SSOConfig):
@@ -89,7 +87,7 @@ class SAMLConfig(SSOConfig):
     want_assertions_encrypted: bool = False
 
     # Attribute mapping (SAML attribute -> user field)
-    attribute_mapping: Dict[str, str] = field(
+    attribute_mapping: dict[str, str] = field(
         default_factory=lambda: {
             # Common SAML attributes
             "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": "email",
@@ -117,7 +115,7 @@ class SAMLConfig(SSOConfig):
         if not self.provider_type:
             self.provider_type = SSOProviderType.SAML
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate SAML configuration."""
         errors = super().validate()
 
@@ -134,7 +132,6 @@ class SAMLConfig(SSOConfig):
             errors.append("sp_private_key required when authn_request_signed is True")
 
         return errors
-
 
 class SAMLProvider(SSOProvider):
     """
@@ -189,9 +186,9 @@ class SAMLProvider(SSOProvider):
 
     async def get_authorization_url(
         self,
-        state: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        relay_state: Optional[str] = None,
+        state: str | None = None,
+        redirect_uri: str | None = None,
+        relay_state: str | None = None,
         **kwargs,
     ) -> str:
         """
@@ -214,9 +211,9 @@ class SAMLProvider(SSOProvider):
 
     async def _get_url_simple(
         self,
-        state: Optional[str],
-        redirect_uri: Optional[str],
-        relay_state: Optional[str],
+        state: str | None,
+        redirect_uri: str | None,
+        relay_state: str | None,
     ) -> str:
         """Generate AuthnRequest without external library."""
         # Generate request ID
@@ -264,9 +261,9 @@ class SAMLProvider(SSOProvider):
 
     async def _get_url_with_library(
         self,
-        state: Optional[str],
-        redirect_uri: Optional[str],
-        relay_state: Optional[str],
+        state: str | None,
+        redirect_uri: str | None,
+        relay_state: str | None,
     ) -> str:
         """Generate AuthnRequest using python3-saml library."""
         if not HAS_SAML_LIB:
@@ -290,9 +287,9 @@ class SAMLProvider(SSOProvider):
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        saml_response: Optional[str] = None,
-        relay_state: Optional[str] = None,
+        code: str | None = None,
+        saml_response: str | None = None,
+        relay_state: str | None = None,
         **kwargs,
     ) -> SSOUser:
         """
@@ -326,7 +323,7 @@ class SAMLProvider(SSOProvider):
     async def _authenticate_simple(
         self,
         saml_response: str,
-        relay_state: Optional[str],
+        relay_state: str | None,
     ) -> SSOUser:
         """
         Parse SAML response without external library.
@@ -365,7 +362,7 @@ class SAMLProvider(SSOProvider):
             user_id = name_id.text
 
             # Extract attributes
-            attributes: Dict[str, List[str]] = {}
+            attributes: dict[str, list[str]] = {}
             attr_statements = root.findall(".//saml:AttributeStatement/saml:Attribute", namespaces)
 
             for attr in attr_statements:
@@ -416,7 +413,7 @@ class SAMLProvider(SSOProvider):
     async def _authenticate_with_library(
         self,
         saml_response: str,
-        relay_state: Optional[str],
+        relay_state: str | None,
     ) -> SSOUser:
         """Authenticate using python3-saml library."""
         if not HAS_SAML_LIB:
@@ -476,9 +473,9 @@ class SAMLProvider(SSOProvider):
 
         return user
 
-    def _map_attributes(self, attributes: Dict[str, List[str]]) -> Dict[str, Any]:
+    def _map_attributes(self, attributes: dict[str, list[str]]) -> dict[str, Any]:
         """Map SAML attributes to user fields."""
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
 
         for saml_attr, user_field in self.config.attribute_mapping.items():
             if saml_attr in attributes:
@@ -492,7 +489,7 @@ class SAMLProvider(SSOProvider):
 
         return result
 
-    def _get_onelogin_settings(self, acs_url: Optional[str] = None) -> Dict[str, Any]:
+    def _get_onelogin_settings(self, acs_url: str | None = None) -> dict[str, Any]:
         """Get settings dict for python3-saml."""
         return {
             "strict": True,
@@ -585,7 +582,6 @@ class SAMLProvider(SSOProvider):
             index="0"/>
     </md:SPSSODescriptor>
 </md:EntityDescriptor>"""
-
 
 __all__ = [
     "SAMLError",

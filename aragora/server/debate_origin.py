@@ -34,7 +34,7 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.control_plane.leader import (
     is_distributed_state_required,
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # In-memory store with optional Redis backend
-_origin_store: Dict[str, "DebateOrigin"] = {}
+_origin_store: dict[str, "DebateOrigin"] = {}
 
 # TTL for origin records (24 hours)
 ORIGIN_TTL_SECONDS = int(os.environ.get("DEBATE_ORIGIN_TTL", 86400))
@@ -60,11 +60,10 @@ USE_DOCK_ROUTING = os.environ.get("DEBATE_ORIGIN_USE_DOCKS", "1").lower() not in
     "no",
 )
 
-
 class SQLiteOriginStore:
     """SQLite-backed debate origin store for durability without Redis."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         if db_path is None:
             data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
             db_path = str(Path(data_dir) / "debate_origins.db")
@@ -148,7 +147,6 @@ class SQLiteOriginStore:
         conn.commit()
         conn.close()
         return count
-
 
 class PostgresOriginStore:
     """PostgreSQL-backed debate origin store for multi-instance deployments."""
@@ -251,11 +249,9 @@ class PostgresOriginStore:
             count = int(result.split()[-1]) if result else 0
             return count
 
-
 # Lazy-loaded stores
-_sqlite_store: Optional[SQLiteOriginStore] = None
-_postgres_store: Optional[PostgresOriginStore] = None
-
+_sqlite_store: SQLiteOriginStore | None = None
+_postgres_store: PostgresOriginStore | None = None
 
 def _get_sqlite_store() -> SQLiteOriginStore:
     """Get or create the SQLite origin store."""
@@ -264,8 +260,7 @@ def _get_sqlite_store() -> SQLiteOriginStore:
         _sqlite_store = SQLiteOriginStore()
     return _sqlite_store
 
-
-async def _get_postgres_store() -> Optional[PostgresOriginStore]:
+async def _get_postgres_store() -> PostgresOriginStore | None:
     """Get or create the PostgreSQL origin store if configured."""
     global _postgres_store
     if _postgres_store is not None:
@@ -288,8 +283,7 @@ async def _get_postgres_store() -> Optional[PostgresOriginStore]:
         logger.warning(f"PostgreSQL origin store not available: {e}")
         return None
 
-
-def _get_postgres_store_sync() -> Optional[PostgresOriginStore]:
+def _get_postgres_store_sync() -> PostgresOriginStore | None:
     """Synchronous wrapper for getting PostgreSQL store."""
     try:
         loop = asyncio.get_event_loop()
@@ -301,7 +295,6 @@ def _get_postgres_store_sync() -> Optional[PostgresOriginStore]:
         # No event loop
         return None
 
-
 @dataclass
 class DebateOrigin:
     """Origin information for a debate."""
@@ -311,20 +304,20 @@ class DebateOrigin:
     channel_id: str  # Chat ID, channel ID, thread ID, etc.
     user_id: str  # User who initiated the debate
     created_at: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Optional threading info
-    thread_id: Optional[str] = None
-    message_id: Optional[str] = None
+    thread_id: str | None = None
+    message_id: str | None = None
 
     # Session tracking for multi-channel support
-    session_id: Optional[str] = None
+    session_id: str | None = None
 
     # Result routing
     result_sent: bool = False
-    result_sent_at: Optional[float] = None
+    result_sent_at: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "debate_id": self.debate_id,
             "platform": self.platform,
@@ -340,7 +333,7 @@ class DebateOrigin:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DebateOrigin":
+    def from_dict(cls, data: dict[str, Any]) -> "DebateOrigin":
         return cls(
             debate_id=data["debate_id"],
             platform=data["platform"],
@@ -355,12 +348,11 @@ class DebateOrigin:
             result_sent_at=data.get("result_sent_at"),
         )
 
-
 async def _create_and_link_session(
     manager,
     platform: str,
     user_id: str,
-    metadata: Optional[Dict[str, Any]],
+    metadata: Optional[dict[str, Any]],
     debate_id: str,
 ) -> None:
     """Helper to create and link session in async context."""
@@ -370,16 +362,15 @@ async def _create_and_link_session(
     except Exception as e:
         logger.debug(f"Async session creation failed: {e}")
 
-
 def register_debate_origin(
     debate_id: str,
     platform: str,
     channel_id: str,
     user_id: str,
-    thread_id: Optional[str] = None,
-    message_id: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    session_id: Optional[str] = None,
+    thread_id: str | None = None,
+    message_id: str | None = None,
+    metadata: Optional[dict[str, Any]] = None,
+    session_id: str | None = None,
     create_session: bool = False,
 ) -> DebateOrigin:
     """Register the origin of a debate for result routing.
@@ -505,8 +496,7 @@ def register_debate_origin(
     )
     return origin
 
-
-def get_debate_origin(debate_id: str) -> Optional[DebateOrigin]:
+def get_debate_origin(debate_id: str) -> DebateOrigin | None:
     """Get the origin of a debate.
 
     Args:
@@ -553,7 +543,6 @@ def get_debate_origin(debate_id: str) -> Optional[DebateOrigin]:
 
     return None
 
-
 def mark_result_sent(debate_id: str) -> None:
     """Mark that the result has been sent for a debate."""
     origin = get_debate_origin(debate_id)
@@ -586,13 +575,12 @@ def mark_result_sent(debate_id: str) -> None:
             # Catch all Redis errors (including redis.exceptions.ConnectionError)
             logger.debug(f"Redis update skipped: {e}")
 
-
 async def route_debate_result(
     debate_id: str,
-    result: Dict[str, Any],
+    result: dict[str, Any],
     include_voice: bool = False,
-    receipt: Optional[Any] = None,
-    receipt_url: Optional[str] = None,
+    receipt: Any | None = None,
+    receipt_url: str | None = None,
 ) -> bool:
     """Route a debate result back to its originating channel.
 
@@ -602,7 +590,7 @@ async def route_debate_result(
             - consensus_reached: bool
             - final_answer: str
             - confidence: float
-            - participants: List[str]
+            - participants: list[str]
         include_voice: Whether to include TTS voice message (default: False)
 
     Returns:
@@ -694,7 +682,6 @@ async def route_debate_result(
         logger.error(f"Failed to route result for {debate_id}: {e}")
         return False
 
-
 async def post_receipt_to_channel(
     origin: DebateOrigin,
     receipt: Any,
@@ -758,7 +745,6 @@ async def post_receipt_to_channel(
         logger.error(f"Receipt post error for {platform}: {e}")
         return False
 
-
 def _format_receipt_summary(receipt: Any, url: str) -> str:
     """Create compact receipt summary for chat platforms.
 
@@ -789,7 +775,6 @@ def _format_receipt_summary(receipt: Any, url: str) -> str:
 • Confidence: {receipt.confidence:.0%}
 • Findings: {receipt.critical_count} critical, {receipt.high_count} high{cost_line}
 • [View Full Receipt]({url})"""
-
 
 async def _send_slack_receipt(origin: DebateOrigin, summary: str, receipt_url: str) -> bool:
     """Post receipt to Slack with button to view full receipt."""
@@ -839,7 +824,6 @@ async def _send_slack_receipt(origin: DebateOrigin, summary: str, receipt_url: s
     except Exception as e:
         logger.error(f"Slack receipt post error: {e}")
         return False
-
 
 async def _send_teams_receipt(origin: DebateOrigin, summary: str, receipt_url: str) -> bool:
     """Post receipt to Teams with link button."""
@@ -891,7 +875,6 @@ async def _send_teams_receipt(origin: DebateOrigin, summary: str, receipt_url: s
         logger.error(f"Teams receipt post error: {e}")
         return False
 
-
 async def _send_telegram_receipt(origin: DebateOrigin, summary: str) -> bool:
     """Post receipt summary to Telegram."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -921,7 +904,6 @@ async def _send_telegram_receipt(origin: DebateOrigin, summary: str) -> bool:
     except Exception as e:
         logger.error(f"Telegram receipt post error: {e}")
         return False
-
 
 async def _send_discord_receipt(origin: DebateOrigin, summary: str) -> bool:
     """Post receipt summary to Discord."""
@@ -953,7 +935,6 @@ async def _send_discord_receipt(origin: DebateOrigin, summary: str) -> bool:
         logger.error(f"Discord receipt post error: {e}")
         return False
 
-
 async def _send_google_chat_receipt(origin: DebateOrigin, summary: str) -> bool:
     """Post receipt summary to Google Chat."""
     try:
@@ -983,11 +964,9 @@ async def _send_google_chat_receipt(origin: DebateOrigin, summary: str) -> bool:
         logger.error(f"Google Chat receipt post error: {e}")
         return False
 
-
 # Platform-specific result senders
 
-
-async def _send_telegram_result(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_telegram_result(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send result to Telegram."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token:
@@ -1024,8 +1003,7 @@ async def _send_telegram_result(origin: DebateOrigin, result: Dict[str, Any]) ->
         logger.error(f"Telegram result send error: {e}")
         return False
 
-
-async def _send_whatsapp_result(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_whatsapp_result(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send result to WhatsApp."""
     token = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
     phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
@@ -1066,8 +1044,7 @@ async def _send_whatsapp_result(origin: DebateOrigin, result: Dict[str, Any]) ->
         logger.error(f"WhatsApp result send error: {e}")
         return False
 
-
-async def _send_slack_result(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send result to Slack."""
     token = os.environ.get("SLACK_BOT_TOKEN", "")
     if not token:
@@ -1113,8 +1090,7 @@ async def _send_slack_result(origin: DebateOrigin, result: Dict[str, Any]) -> bo
         logger.error(f"Slack result send error: {e}")
         return False
 
-
-async def _send_discord_result(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_discord_result(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send result to Discord."""
     token = os.environ.get("DISCORD_BOT_TOKEN", "")
     if not token:
@@ -1151,8 +1127,7 @@ async def _send_discord_result(origin: DebateOrigin, result: Dict[str, Any]) -> 
         logger.error(f"Discord result send error: {e}")
         return False
 
-
-async def _send_teams_result(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_teams_result(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send result to Microsoft Teams."""
     # Teams uses webhook URLs stored in metadata
     webhook_url = origin.metadata.get("webhook_url")
@@ -1202,8 +1177,7 @@ async def _send_teams_result(origin: DebateOrigin, result: Dict[str, Any]) -> bo
         logger.error(f"Teams result send error: {e}")
         return False
 
-
-async def _send_email_result(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_email_result(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send result via email."""
     # Use existing email notification system
     try:
@@ -1232,8 +1206,7 @@ async def _send_email_result(origin: DebateOrigin, result: Dict[str, Any]) -> bo
         logger.error(f"Email result send error: {e}")
         return False
 
-
-async def _send_google_chat_result(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_google_chat_result(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send result to Google Chat."""
     try:
         from aragora.server.handlers.bots.google_chat import get_google_chat_connector
@@ -1341,11 +1314,9 @@ async def _send_google_chat_result(origin: DebateOrigin, result: Dict[str, Any])
         logger.error(f"Google Chat result send error: {e}")
         return False
 
-
 # TTS Voice Message Functions
 
-
-async def _synthesize_voice(result: Dict[str, Any], origin: DebateOrigin) -> Optional[str]:
+async def _synthesize_voice(result: dict[str, Any], origin: DebateOrigin) -> str | None:
     """Synthesize voice message from debate result using TTS.
 
     Returns path to audio file or None if TTS fails.
@@ -1381,8 +1352,7 @@ async def _synthesize_voice(result: Dict[str, Any], origin: DebateOrigin) -> Opt
         logger.warning(f"TTS synthesis failed: {e}")
         return None
 
-
-async def _send_telegram_voice(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_telegram_voice(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send voice message to Telegram."""
     audio_path = await _synthesize_voice(result, origin)
     if not audio_path:
@@ -1425,8 +1395,7 @@ async def _send_telegram_voice(origin: DebateOrigin, result: Dict[str, Any]) -> 
         except OSError as e:
             logger.debug(f"Failed to cleanup temp file: {e}")
 
-
-async def _send_whatsapp_voice(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_whatsapp_voice(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send voice message to WhatsApp."""
     audio_path = await _synthesize_voice(result, origin)
     if not audio_path:
@@ -1493,8 +1462,7 @@ async def _send_whatsapp_voice(origin: DebateOrigin, result: Dict[str, Any]) -> 
         except OSError as e:
             logger.debug(f"Failed to cleanup temp file: {e}")
 
-
-async def _send_discord_voice(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+async def _send_discord_voice(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send voice message to Discord (as audio attachment)."""
     audio_path = await _synthesize_voice(result, origin)
     if not audio_path:
@@ -1537,9 +1505,8 @@ async def _send_discord_voice(origin: DebateOrigin, result: Dict[str, Any]) -> b
         except OSError as e:
             logger.debug(f"Failed to cleanup temp file: {e}")
 
-
 def _format_result_message(
-    result: Dict[str, Any],
+    result: dict[str, Any],
     origin: DebateOrigin,
     markdown: bool = True,
     html: bool = False,
@@ -1596,7 +1563,6 @@ Agents: {", ".join(participants[:5])}
 Conclusion:
 {answer}
 """
-
 
 def format_error_for_chat(error: str, debate_id: str) -> str:
     """Map technical errors to user-friendly messages for chat platforms.
@@ -1656,7 +1622,6 @@ def format_error_for_chat(error: str, debate_id: str) -> str:
         f"We encountered an issue processing your request. Please try again.\n\n"
         f"_Debate ID: {debate_id}_"
     )
-
 
 async def send_error_to_channel(
     origin: DebateOrigin,
@@ -1720,7 +1685,6 @@ async def send_error_to_channel(
         logger.error(f"Failed to send error to {platform}: {e}")
         return False
 
-
 async def _send_slack_error(origin: DebateOrigin, message: str) -> bool:
     """Send error message to Slack."""
     token = os.environ.get("SLACK_BOT_TOKEN", "")
@@ -1751,7 +1715,6 @@ async def _send_slack_error(origin: DebateOrigin, message: str) -> bool:
     except Exception as e:
         logger.error(f"Slack error send failed: {e}")
         return False
-
 
 async def _send_teams_error(origin: DebateOrigin, message: str) -> bool:
     """Send error message to Teams."""
@@ -1793,7 +1756,6 @@ async def _send_teams_error(origin: DebateOrigin, message: str) -> bool:
         logger.error(f"Teams error send failed: {e}")
         return False
 
-
 async def _send_telegram_error(origin: DebateOrigin, message: str) -> bool:
     """Send error message to Telegram."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -1820,7 +1782,6 @@ async def _send_telegram_error(origin: DebateOrigin, message: str) -> bool:
     except Exception as e:
         logger.error(f"Telegram error send failed: {e}")
         return False
-
 
 async def _send_discord_error(origin: DebateOrigin, message: str) -> bool:
     """Send error message to Discord."""
@@ -1849,9 +1810,7 @@ async def _send_discord_error(origin: DebateOrigin, message: str) -> bool:
         logger.error(f"Discord error send failed: {e}")
         return False
 
-
 # Redis backend functions
-
 
 def _store_origin_redis(origin: DebateOrigin) -> None:
     """Store origin in Redis."""
@@ -1869,8 +1828,7 @@ def _store_origin_redis(origin: DebateOrigin) -> None:
         logger.debug(f"Redis store failed: {e}")
         raise
 
-
-def _load_origin_redis(debate_id: str) -> Optional[DebateOrigin]:
+def _load_origin_redis(debate_id: str) -> DebateOrigin | None:
     """Load origin from Redis."""
     import json
 
@@ -1889,9 +1847,7 @@ def _load_origin_redis(debate_id: str) -> Optional[DebateOrigin]:
         logger.debug(f"Redis load failed: {e}")
         raise
 
-
 # Cleanup function for TTL
-
 
 def cleanup_expired_origins() -> int:
     """Remove expired origin records from in-memory store and persistent storage.
@@ -1943,7 +1899,6 @@ def cleanup_expired_origins() -> int:
 
     return total_cleaned
 
-
 async def get_sessions_for_debate(debate_id: str) -> list:
     """Get all sessions linked to a debate for multi-channel routing.
 
@@ -1964,10 +1919,9 @@ async def get_sessions_for_debate(debate_id: str) -> list:
         logger.debug(f"Session lookup failed: {e}")
         return []
 
-
 async def route_result_to_all_sessions(
     debate_id: str,
-    result: Dict[str, Any],
+    result: dict[str, Any],
     include_voice: bool = False,
 ) -> int:
     """Route debate result to all sessions linked to the debate.
@@ -2038,7 +1992,6 @@ async def route_result_to_all_sessions(
         logger.debug(f"Multi-session routing failed: {e}")
 
     return success_count
-
 
 __all__ = [
     "DebateOrigin",

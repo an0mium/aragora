@@ -14,12 +14,11 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ScheduledDebateRecord:
@@ -31,10 +30,10 @@ class ScheduledDebateRecord:
     platform: str
     category: str
     volume: int
-    debate_id: Optional[str]
+    debate_id: str | None
     created_at: float
-    consensus_reached: Optional[bool]
-    confidence: Optional[float]
+    consensus_reached: bool | None
+    confidence: float | None
     rounds_used: int
     scheduler_run_id: str
 
@@ -42,7 +41,6 @@ class ScheduledDebateRecord:
     def hours_ago(self) -> float:
         """Hours since this debate was created."""
         return (time.time() - self.created_at) / 3600
-
 
 class ScheduledDebateStore(SQLiteStore):
     """
@@ -91,7 +89,7 @@ class ScheduledDebateStore(SQLiteStore):
         ON scheduled_debates(category);
     """
 
-    def __init__(self, db_path: Union[str, Path], **kwargs):
+    def __init__(self, db_path: str | Path, **kwargs):
         """Initialize the scheduled debate store."""
         super().__init__(db_path, **kwargs)
         logger.info(f"ScheduledDebateStore initialized: {db_path}")
@@ -143,7 +141,7 @@ class ScheduledDebateStore(SQLiteStore):
 
         logger.debug(f"Recorded scheduled debate: {record.topic_text[:50]}...")
 
-    def get_recent_topics(self, hours: int = 24) -> List[ScheduledDebateRecord]:
+    def get_recent_topics(self, hours: int = 24) -> list[ScheduledDebateRecord]:
         """
         Get topics debated within the last N hours.
 
@@ -197,9 +195,9 @@ class ScheduledDebateStore(SQLiteStore):
         self,
         limit: int = 50,
         offset: int = 0,
-        platform: Optional[str] = None,
-        category: Optional[str] = None,
-    ) -> List[ScheduledDebateRecord]:
+        platform: str | None = None,
+        category: str | None = None,
+    ) -> list[ScheduledDebateRecord]:
         """
         Get historical scheduled debates.
 
@@ -236,14 +234,14 @@ class ScheduledDebateStore(SQLiteStore):
         row = self.fetch_one("SELECT COUNT(*) FROM scheduled_debates")
         return row[0] if row else 0
 
-    def get_analytics(self) -> Dict[str, Any]:
+    def get_analytics(self) -> dict[str, Any]:
         """
         Get analytics on scheduled debates.
 
         Returns:
             Dict with counts by platform, category, consensus rates, etc.
         """
-        analytics: Dict[str, Any] = {}
+        analytics: dict[str, Any] = {}
 
         # Total count
         analytics["total"] = self.count_total()
@@ -351,7 +349,7 @@ class ScheduledDebateStore(SQLiteStore):
 
         return updated
 
-    def get_pending_outcomes(self, limit: int = 100) -> List[ScheduledDebateRecord]:
+    def get_pending_outcomes(self, limit: int = 100) -> list[ScheduledDebateRecord]:
         """
         Get debates that have a debate_id but no outcome recorded.
 
@@ -416,6 +414,5 @@ class ScheduledDebateStore(SQLiteStore):
             rounds_used=row[10] or 0,
             scheduler_run_id=row[11] or "",
         )
-
 
 __all__ = ["ScheduledDebateStore", "ScheduledDebateRecord"]

@@ -40,10 +40,9 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Types and Enums
@@ -116,20 +115,20 @@ class KeyRotationJob:
 
     id: str
     key_id: str
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
     provider: str = "local"
     scheduled_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     status: RotationStatus = RotationStatus.PENDING
-    old_version: Optional[int] = None
-    new_version: Optional[int] = None
+    old_version: int | None = None
+    new_version: int | None = None
     records_re_encrypted: int = 0
-    error: Optional[str] = None
+    error: str | None = None
     retries: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -157,9 +156,9 @@ class KeyInfo:
     provider: str
     version: int
     created_at: datetime
-    last_rotated_at: Optional[datetime] = None
-    next_rotation_at: Optional[datetime] = None
-    tenant_id: Optional[str] = None
+    last_rotated_at: datetime | None = None
+    next_rotation_at: datetime | None = None
+    tenant_id: str | None = None
     is_active: bool = True
 
 
@@ -171,16 +170,16 @@ class SchedulerStats:
     total_rotations: int = 0
     successful_rotations: int = 0
     failed_rotations: int = 0
-    last_rotation_at: Optional[datetime] = None
-    last_rotation_status: Optional[str] = None
-    next_check_at: Optional[datetime] = None
+    last_rotation_at: datetime | None = None
+    last_rotation_status: str | None = None
+    next_check_at: datetime | None = None
     keys_tracked: int = 0
     keys_expiring_soon: int = 0
     uptime_seconds: float = 0.0
 
 
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 
 class KeyRotationScheduler:
@@ -193,8 +192,8 @@ class KeyRotationScheduler:
 
     def __init__(
         self,
-        config: Optional[KeyRotationConfig] = None,
-        event_callback: Optional[EventCallback] = None,
+        config: KeyRotationConfig | None = None,
+        event_callback: EventCallback | None = None,
     ):
         """
         Initialize the key rotation scheduler.
@@ -207,10 +206,10 @@ class KeyRotationScheduler:
         self._event_callback = event_callback
 
         self._status = SchedulerStatus.STOPPED
-        self._started_at: Optional[datetime] = None
-        self._task: Optional[asyncio.Task] = None
-        self._job_history: List[KeyRotationJob] = []
-        self._tracked_keys: Dict[str, KeyInfo] = {}
+        self._started_at: datetime | None = None
+        self._task: asyncio.Task | None = None
+        self._job_history: list[KeyRotationJob] = []
+        self._tracked_keys: dict[str, KeyInfo] = {}
         self._stats = SchedulerStats(status=SchedulerStatus.STOPPED)
         self._lock = asyncio.Lock()
 
@@ -228,7 +227,7 @@ class KeyRotationScheduler:
         """Set the event callback for notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -342,8 +341,8 @@ class KeyRotationScheduler:
 
     async def rotate_now(
         self,
-        key_id: Optional[str] = None,
-        tenant_id: Optional[str] = None,
+        key_id: str | None = None,
+        tenant_id: str | None = None,
     ) -> KeyRotationJob:
         """
         Trigger an immediate key rotation.
@@ -365,7 +364,7 @@ class KeyRotationScheduler:
         await self._execute_rotation(job)
         return job
 
-    async def rotate_all_due(self) -> List[KeyRotationJob]:
+    async def rotate_all_due(self) -> list[KeyRotationJob]:
         """
         Rotate all keys that are due for rotation.
 
@@ -608,11 +607,11 @@ class KeyRotationScheduler:
             ).total_seconds()
         return self._stats
 
-    def get_job_history(self, limit: int = 100) -> List[KeyRotationJob]:
+    def get_job_history(self, limit: int = 100) -> list[KeyRotationJob]:
         """Get recent rotation job history."""
         return self._job_history[-limit:]
 
-    def get_tracked_keys(self) -> List[KeyInfo]:
+    def get_tracked_keys(self) -> list[KeyInfo]:
         """Get all tracked keys."""
         return list(self._tracked_keys.values())
 
@@ -621,23 +620,23 @@ class KeyRotationScheduler:
 # Global Instance
 # =============================================================================
 
-_key_rotation_scheduler: Optional[KeyRotationScheduler] = None
+_key_rotation_scheduler: KeyRotationScheduler | None = None
 
 
-def get_key_rotation_scheduler() -> Optional[KeyRotationScheduler]:
+def get_key_rotation_scheduler() -> KeyRotationScheduler | None:
     """Get the global key rotation scheduler instance."""
     return _key_rotation_scheduler
 
 
-def set_key_rotation_scheduler(scheduler: Optional[KeyRotationScheduler]) -> None:
+def set_key_rotation_scheduler(scheduler: KeyRotationScheduler | None) -> None:
     """Set the global key rotation scheduler instance."""
     global _key_rotation_scheduler
     _key_rotation_scheduler = scheduler
 
 
 async def start_key_rotation_scheduler(
-    config: Optional[KeyRotationConfig] = None,
-    event_callback: Optional[EventCallback] = None,
+    config: KeyRotationConfig | None = None,
+    event_callback: EventCallback | None = None,
 ) -> KeyRotationScheduler:
     """
     Start the global key rotation scheduler.

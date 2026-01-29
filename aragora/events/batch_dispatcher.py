@@ -23,6 +23,7 @@ Usage:
     # High-priority events can bypass batching
     dispatcher.queue_event("slo_violation", data, priority=True)
 """
+from __future__ import annotations
 
 import logging
 import os
@@ -30,10 +31,9 @@ import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Configuration
@@ -53,27 +53,24 @@ PRIORITY_EVENT_TYPES = frozenset(
     ).split(",")
 )
 
-
 # =============================================================================
 # Batch Data Structures
 # =============================================================================
-
 
 @dataclass
 class BatchedEvent:
     """A single event in a batch."""
 
     event_type: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
     timestamp: float = field(default_factory=time.time)
-
 
 @dataclass
 class EventBatch:
     """A batch of events to be delivered together."""
 
     event_type: str
-    events: List[BatchedEvent] = field(default_factory=list)
+    events: list[BatchedEvent] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
 
     def add(self, event: BatchedEvent) -> None:
@@ -88,7 +85,7 @@ class EventBatch:
         """Check if batch window has expired."""
         return time.time() - self.created_at >= window
 
-    def to_payload(self) -> Dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Convert batch to webhook payload."""
         return {
             "event": f"{self.event_type}_batch",
@@ -106,7 +103,7 @@ class EventBatch:
             "summary": self._generate_summary(),
         }
 
-    def _generate_summary(self) -> Dict[str, Any]:
+    def _generate_summary(self) -> dict[str, Any]:
         """Generate summary statistics for the batch."""
         if not self.events:
             return {}
@@ -129,11 +126,9 @@ class EventBatch:
             "last_event_at": self.events[-1].timestamp,
         }
 
-
 # =============================================================================
 # Batch Dispatcher
 # =============================================================================
-
 
 class BatchWebhookDispatcher:
     """
@@ -157,11 +152,11 @@ class BatchWebhookDispatcher:
         self.priority_events = priority_events
 
         # Event batches by type
-        self._batches: Dict[str, EventBatch] = {}
+        self._batches: dict[str, EventBatch] = {}
         self._lock = threading.Lock()
 
         # Delivery callback
-        self._deliver_callback: Optional[Callable[[str, Dict], None]] = None
+        self._deliver_callback: Optional[Callable[[str, dict], None]] = None
 
         # Background flush thread
         self._shutdown = False
@@ -177,7 +172,7 @@ class BatchWebhookDispatcher:
         self._batches_sent = 0
         self._priority_sent = 0
 
-    def set_delivery_callback(self, callback: Callable[[str, Dict], None]) -> None:
+    def set_delivery_callback(self, callback: Callable[[str, dict], None]) -> None:
         """
         Set the callback for delivering batched events.
 
@@ -189,7 +184,7 @@ class BatchWebhookDispatcher:
     def queue_event(
         self,
         event_type: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         priority: bool = False,
     ) -> None:
         """
@@ -303,7 +298,7 @@ class BatchWebhookDispatcher:
             for event_type in list(self._batches.keys()):
                 self._flush_batch(event_type)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get dispatcher statistics."""
         with self._lock:
             pending_events = sum(len(b.events) for b in self._batches.values())
@@ -333,13 +328,11 @@ class BatchWebhookDispatcher:
         self._flush_thread.join(timeout=5.0)
         logger.info("Batch webhook dispatcher shutdown")
 
-
 # =============================================================================
 # Global Dispatcher
 # =============================================================================
 
-_batch_dispatcher: Optional[BatchWebhookDispatcher] = None
-
+_batch_dispatcher: BatchWebhookDispatcher | None = None
 
 def get_batch_dispatcher() -> BatchWebhookDispatcher:
     """Get or create the global batch dispatcher."""
@@ -362,10 +355,9 @@ def get_batch_dispatcher() -> BatchWebhookDispatcher:
 
     return _batch_dispatcher
 
-
 def queue_batched_event(
     event_type: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     priority: bool = False,
 ) -> None:
     """
@@ -381,7 +373,6 @@ def queue_batched_event(
     dispatcher = get_batch_dispatcher()
     dispatcher.queue_event(event_type, data, priority)
 
-
 def shutdown_batch_dispatcher(flush: bool = True) -> None:
     """Shutdown the global batch dispatcher."""
     global _batch_dispatcher
@@ -389,7 +380,6 @@ def shutdown_batch_dispatcher(flush: bool = True) -> None:
     if _batch_dispatcher is not None:
         _batch_dispatcher.shutdown(flush=flush)
         _batch_dispatcher = None
-
 
 # =============================================================================
 # Exports

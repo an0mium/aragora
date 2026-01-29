@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -42,7 +42,6 @@ CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class("aragora.memory.store
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 
-
 class CritiqueHandler(BaseHandler):
     """Handler for critique pattern and reputation endpoints."""
 
@@ -63,7 +62,7 @@ class CritiqueHandler(BaseHandler):
         return False
 
     @require_permission("critiques:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route critique requests to appropriate methods."""
         path = strip_version_prefix(path)
         # Rate limit check
@@ -95,7 +94,7 @@ class CritiqueHandler(BaseHandler):
 
         return None
 
-    def _extract_agent_name(self, path: str) -> Optional[str]:
+    def _extract_agent_name(self, path: str) -> str | None:
         """Extract and validate agent name from path."""
         # Pattern: /api/agent/{name}/reputation
         # Parts: ["", "api", "agent", "{name}", "reputation"]
@@ -111,7 +110,7 @@ class CritiqueHandler(BaseHandler):
         return None
 
     def _get_critique_patterns(
-        self, nomic_dir: Optional[Path], limit: int, min_success: float
+        self, nomic_dir: Path | None, limit: int, min_success: float
     ) -> HandlerResult:
         """Get high-impact critique patterns for learning."""
         if not CRITIQUE_STORE_AVAILABLE:
@@ -144,7 +143,7 @@ class CritiqueHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "critique_patterns"), 500)
 
-    def _get_archive_stats(self, nomic_dir: Optional[Path]) -> HandlerResult:
+    def _get_archive_stats(self, nomic_dir: Path | None) -> HandlerResult:
         """Get archive statistics from critique store."""
         if not CRITIQUE_STORE_AVAILABLE:
             return error_response("Critique store not available", 503)
@@ -160,7 +159,7 @@ class CritiqueHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "archive_stats"), 500)
 
-    def _get_all_reputations(self, nomic_dir: Optional[Path]) -> HandlerResult:
+    def _get_all_reputations(self, nomic_dir: Path | None) -> HandlerResult:
         """Get all agent reputations ranked by score."""
         if not CRITIQUE_STORE_AVAILABLE:
             return error_response("Critique store not available", 503)
@@ -191,7 +190,7 @@ class CritiqueHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "reputations"), 500)
 
-    def _get_agent_reputation(self, nomic_dir: Optional[Path], agent: str) -> HandlerResult:
+    def _get_agent_reputation(self, nomic_dir: Path | None, agent: str) -> HandlerResult:
         """Get reputation for a specific agent."""
         if not CRITIQUE_STORE_AVAILABLE:
             return error_response("Critique store not available", 503)

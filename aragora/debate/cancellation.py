@@ -45,7 +45,6 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-
 class CancellationReason(Enum):
     """Standard reasons for cancellation."""
 
@@ -56,7 +55,6 @@ class CancellationReason(Enum):
     ERROR = "error"
     SHUTDOWN = "shutdown"
 
-
 class DebateCancelled(Exception):
     """Exception raised when a debate is cancelled."""
 
@@ -64,13 +62,12 @@ class DebateCancelled(Exception):
         self,
         reason: str,
         reason_type: CancellationReason = CancellationReason.USER_REQUESTED,
-        partial_result: Optional[Any] = None,
+        partial_result: Any | None = None,
     ):
         self.reason = reason
         self.reason_type = reason_type
         self.partial_result = partial_result
         super().__init__(f"Debate cancelled: {reason}")
-
 
 @dataclass
 class CancellationToken:
@@ -86,9 +83,9 @@ class CancellationToken:
     """
 
     _cancelled: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
-    _reason: Optional[str] = field(default=None, repr=False)
+    _reason: str | None = field(default=None, repr=False)
     _reason_type: CancellationReason = field(default=CancellationReason.USER_REQUESTED, repr=False)
-    _cancelled_at: Optional[datetime] = field(default=None, repr=False)
+    _cancelled_at: datetime | None = field(default=None, repr=False)
     _callbacks: list[Callable[["CancellationToken"], None]] = field(
         default_factory=list, repr=False
     )
@@ -138,7 +135,7 @@ class CancellationToken:
         return self._cancelled.is_set()
 
     @property
-    def reason(self) -> Optional[str]:
+    def reason(self) -> str | None:
         """Get the cancellation reason, if cancelled."""
         return self._reason
 
@@ -148,11 +145,11 @@ class CancellationToken:
         return self._reason_type
 
     @property
-    def cancelled_at(self) -> Optional[datetime]:
+    def cancelled_at(self) -> datetime | None:
         """Get the timestamp when cancellation was requested."""
         return self._cancelled_at
 
-    async def wait_for_cancellation(self, timeout: Optional[float] = None) -> str:
+    async def wait_for_cancellation(self, timeout: float | None = None) -> str:
         """
         Wait asynchronously until cancellation is requested.
 
@@ -241,8 +238,7 @@ class CancellationToken:
         """Allow using token in boolean context: if token: ..."""
         return not self.is_cancelled
 
-
-def create_linked_token(parent: Optional[CancellationToken] = None) -> CancellationToken:
+def create_linked_token(parent: CancellationToken | None = None) -> CancellationToken:
     """
     Create a cancellation token, optionally linked to a parent.
 
@@ -256,7 +252,6 @@ def create_linked_token(parent: Optional[CancellationToken] = None) -> Cancellat
     if parent is not None:
         parent.link_child(token)
     return token
-
 
 class CancellationScope:
     """
@@ -273,8 +268,8 @@ class CancellationScope:
 
     def __init__(
         self,
-        parent: Optional[CancellationToken] = None,
-        timeout: Optional[float] = None,
+        parent: CancellationToken | None = None,
+        timeout: float | None = None,
     ):
         """
         Initialize cancellation scope.
@@ -285,8 +280,8 @@ class CancellationScope:
         """
         self._parent = parent
         self._timeout = timeout
-        self._token: Optional[CancellationToken] = None
-        self._timeout_handle: Optional[asyncio.TimerHandle] = None
+        self._token: CancellationToken | None = None
+        self._timeout_handle: asyncio.TimerHandle | None = None
 
     async def __aenter__(self) -> CancellationToken:
         """Enter the scope, creating a child token."""
@@ -322,6 +317,6 @@ class CancellationScope:
         return False
 
     @property
-    def token(self) -> Optional[CancellationToken]:
+    def token(self) -> CancellationToken | None:
         """Get the scoped token (only valid inside the context)."""
         return self._token

@@ -8,13 +8,12 @@ speech-to-text transcription.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from .base import ChatPlatformConnector
 from .models import VoiceMessage
 
 logger = logging.getLogger(__name__)
-
 
 class VoiceBridge:
     """
@@ -41,7 +40,7 @@ class VoiceBridge:
         self.max_file_size = max_file_size
         self.default_language = default_language
         self.config = config
-        self._whisper: Optional[Any] = None
+        self._whisper: Any | None = None
 
     def _get_whisper(self):
         """Lazy-load WhisperConnector."""
@@ -58,8 +57,8 @@ class VoiceBridge:
     async def transcribe_voice_message(
         self,
         voice_message: VoiceMessage,
-        connector: Optional[ChatPlatformConnector] = None,
-        language: Optional[str] = None,
+        connector: ChatPlatformConnector | None = None,
+        language: str | None = None,
     ) -> str:
         """
         Transcribe a voice message.
@@ -118,7 +117,7 @@ class VoiceBridge:
         self,
         content: bytes,
         filename: str = "audio.ogg",
-        language: Optional[str] = None,
+        language: str | None = None,
     ) -> str:
         """
         Transcribe raw audio content.
@@ -147,9 +146,9 @@ class VoiceBridge:
         self,
         connector: ChatPlatformConnector,
         file_id: str,
-        file_url: Optional[str] = None,
-        filename: Optional[str] = None,
-        language: Optional[str] = None,
+        file_url: str | None = None,
+        filename: str | None = None,
+        language: str | None = None,
     ) -> str:
         """
         Download and transcribe audio from a chat platform.
@@ -184,10 +183,8 @@ class VoiceBridge:
             language=language,
         )
 
-
 # Singleton instance
-_voice_bridge: Optional[VoiceBridge] = None
-
+_voice_bridge: VoiceBridge | None = None
 
 def get_voice_bridge(**config: Any) -> VoiceBridge:
     """Get or create the VoiceBridge singleton."""

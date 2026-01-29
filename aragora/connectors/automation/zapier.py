@@ -37,7 +37,7 @@ import hashlib
 import hmac
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 from aragora.connectors.automation.base import (
     AutomationConnector,
@@ -46,7 +46,6 @@ from aragora.connectors.automation.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class ZapierConnector(AutomationConnector):
     """
@@ -59,12 +58,12 @@ class ZapierConnector(AutomationConnector):
     PLATFORM_NAME = "zapier"
 
     # Zapier supports all event types
-    SUPPORTED_EVENTS: Set[AutomationEventType] = set(AutomationEventType)
+    SUPPORTED_EVENTS: set[AutomationEventType] = set(AutomationEventType)
 
     # Zapier has specific payload requirements
     MAX_PAYLOAD_SIZE = 6 * 1024 * 1024  # 6MB limit
 
-    def __init__(self, http_client: Optional[Any] = None):
+    def __init__(self, http_client: Any | None = None):
         """Initialize Zapier connector."""
         super().__init__(http_client)
         logger.info("[Zapier] Connector initialized")
@@ -72,9 +71,9 @@ class ZapierConnector(AutomationConnector):
     async def format_payload(
         self,
         event_type: AutomationEventType,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         subscription: WebhookSubscription,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Format event payload for Zapier.
 
@@ -110,9 +109,9 @@ class ZapierConnector(AutomationConnector):
 
     def _flatten_for_zapier(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         prefix: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Flatten nested dictionaries for Zapier field mapping.
 
@@ -215,7 +214,7 @@ class ZapierConnector(AutomationConnector):
     async def get_sample_data(
         self,
         event_type: AutomationEventType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get sample data for Zapier trigger setup.
 
@@ -227,7 +226,7 @@ class ZapierConnector(AutomationConnector):
         Returns:
             Sample event payload
         """
-        samples: Dict[AutomationEventType, Dict[str, Any]] = {
+        samples: dict[AutomationEventType, dict[str, Any]] = {
             AutomationEventType.DEBATE_COMPLETED: {
                 "debate_id": "deb_sample123",
                 "task": "Should we adopt microservices?",
@@ -264,7 +263,7 @@ class ZapierConnector(AutomationConnector):
             },
         }
 
-        default: Dict[str, Any] = {
+        default: dict[str, Any] = {
             "event_type": event_type.value,
             "sample": True,
             "message": f"Sample payload for {event_type.value}",

@@ -22,17 +22,15 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class EmailProvider(str, Enum):
     """Supported email providers."""
 
     GMAIL = "gmail"
     OUTLOOK = "outlook"
-
 
 class ActionType(str, Enum):
     """Types of email actions."""
@@ -58,7 +56,6 @@ class ActionType(str, Enum):
     BATCH_TRASH = "batch_trash"
     BATCH_MODIFY = "batch_modify"
 
-
 class ActionStatus(str, Enum):
     """Status of an action."""
 
@@ -66,7 +63,6 @@ class ActionStatus(str, Enum):
     SUCCESS = "success"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class ActionLog:
@@ -76,14 +72,14 @@ class ActionLog:
     user_id: str
     action_type: ActionType
     provider: EmailProvider
-    message_ids: List[str]
+    message_ids: list[str]
     status: ActionStatus
     timestamp: datetime
-    details: Dict[str, Any] = field(default_factory=dict)
-    error_message: Optional[str] = None
-    duration_ms: Optional[float] = None
+    details: dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
+    duration_ms: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "userId": self.user_id,
@@ -97,20 +93,18 @@ class ActionLog:
             "durationMs": self.duration_ms,
         }
 
-
 @dataclass
 class SendEmailRequest:
     """Request to send an email."""
 
-    to: List[str]
+    to: list[str]
     subject: str
     body: str
-    cc: Optional[List[str]] = None
-    bcc: Optional[List[str]] = None
-    reply_to: Optional[str] = None
-    html_body: Optional[str] = None
-    attachments: Optional[List[Dict[str, Any]]] = None
-
+    cc: Optional[list[str]] = None
+    bcc: Optional[list[str]] = None
+    reply_to: str | None = None
+    html_body: str | None = None
+    attachments: Optional[list[dict[str, Any]]] = None
 
 @dataclass
 class SnoozeRequest:
@@ -120,18 +114,17 @@ class SnoozeRequest:
     snooze_until: datetime
     restore_to_inbox: bool = True
 
-
 @dataclass
 class ActionResult:
     """Result of an email action."""
 
     success: bool
     action_type: ActionType
-    message_ids: List[str]
-    details: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    message_ids: list[str]
+    details: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
             "actionType": self.action_type.value,
@@ -139,7 +132,6 @@ class ActionResult:
             "details": self.details,
             "error": self.error,
         }
-
 
 class EmailActionsService:
     """
@@ -186,9 +178,9 @@ class EmailActionsService:
 
     def __init__(self):
         """Initialize the email actions service."""
-        self._action_logs: List[ActionLog] = []
-        self._snoozed_messages: Dict[str, SnoozeRequest] = {}
-        self._connectors: Dict[str, Any] = {}
+        self._action_logs: list[ActionLog] = []
+        self._snoozed_messages: dict[str, SnoozeRequest] = {}
+        self._connectors: dict[str, Any] = {}
         self._action_counter = 0
         self._lock = asyncio.Lock()
 
@@ -201,7 +193,7 @@ class EmailActionsService:
 
     async def _get_connector(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
     ) -> Any:
         """Get or create a connector for the provider.
@@ -233,12 +225,12 @@ class EmailActionsService:
         self,
         user_id: str,
         action_type: ActionType,
-        provider: Union[str, EmailProvider],
-        message_ids: List[str],
+        provider: str | EmailProvider,
+        message_ids: list[str],
         status: ActionStatus,
-        details: Optional[Dict[str, Any]] = None,
-        error_message: Optional[str] = None,
-        duration_ms: Optional[float] = None,
+        details: Optional[dict[str, Any]] = None,
+        error_message: str | None = None,
+        duration_ms: float | None = None,
     ) -> ActionLog:
         """Log an action for audit trail."""
         provider_enum = EmailProvider(provider) if isinstance(provider, str) else provider
@@ -275,7 +267,7 @@ class EmailActionsService:
 
     async def send(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
         request: SendEmailRequest,
     ) -> ActionResult:
@@ -349,12 +341,12 @@ class EmailActionsService:
 
     async def reply(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
         message_id: str,
         body: str,
-        cc: Optional[List[str]] = None,
-        html_body: Optional[str] = None,
+        cc: Optional[list[str]] = None,
+        html_body: str | None = None,
     ) -> ActionResult:
         """Reply to an email.
 
@@ -429,7 +421,7 @@ class EmailActionsService:
 
     async def archive(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
         message_id: str,
     ) -> ActionResult:
@@ -489,7 +481,7 @@ class EmailActionsService:
 
     async def trash(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
         message_id: str,
     ) -> ActionResult:
@@ -553,7 +545,7 @@ class EmailActionsService:
 
     async def snooze(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
         message_id: str,
         snooze_until: datetime,
@@ -627,7 +619,7 @@ class EmailActionsService:
 
     async def mark_read(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
         message_id: str,
     ) -> ActionResult:
@@ -678,7 +670,7 @@ class EmailActionsService:
 
     async def star(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
         message_id: str,
     ) -> ActionResult:
@@ -729,7 +721,7 @@ class EmailActionsService:
 
     async def move_to_folder(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
         message_id: str,
         folder: str,
@@ -786,9 +778,9 @@ class EmailActionsService:
 
     async def batch_archive(
         self,
-        provider: Union[str, EmailProvider],
+        provider: str | EmailProvider,
         user_id: str,
-        message_ids: List[str],
+        message_ids: list[str],
     ) -> ActionResult:
         """Archive multiple messages."""
         start_time = datetime.now(timezone.utc)
@@ -842,12 +834,12 @@ class EmailActionsService:
 
     async def get_action_logs(
         self,
-        user_id: Optional[str] = None,
-        action_type: Optional[ActionType] = None,
-        provider: Optional[EmailProvider] = None,
-        since: Optional[datetime] = None,
+        user_id: str | None = None,
+        action_type: ActionType | None = None,
+        provider: EmailProvider | None = None,
+        since: datetime | None = None,
         limit: int = 100,
-    ) -> List[ActionLog]:
+    ) -> list[ActionLog]:
         """Get action logs with optional filtering.
 
         Args:
@@ -882,7 +874,7 @@ class EmailActionsService:
         user_id: str,
         start_date: datetime,
         end_date: datetime,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Export action logs for compliance.
 
         Args:
@@ -904,10 +896,8 @@ class EmailActionsService:
 
         return [log.to_dict() for log in logs]
 
-
 # Global service instance
-_email_actions_service: Optional[EmailActionsService] = None
-
+_email_actions_service: EmailActionsService | None = None
 
 def get_email_actions_service() -> EmailActionsService:
     """Get or create the email actions service singleton."""
@@ -915,7 +905,6 @@ def get_email_actions_service() -> EmailActionsService:
     if _email_actions_service is None:
         _email_actions_service = EmailActionsService()
     return _email_actions_service
-
 
 __all__ = [
     "EmailActionsService",

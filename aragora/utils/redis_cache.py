@@ -15,18 +15,18 @@ Usage:
     cache.set("key", {"data": "value"})
     result = cache.get("key")
 """
+from __future__ import annotations
 
 import json
 import logging
 import threading
 import time
 from collections import OrderedDict
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
-
 
 class RedisTTLCache(Generic[T]):
     """
@@ -72,10 +72,10 @@ class RedisTTLCache(Generic[T]):
         self._redis_misses = 0
 
         # Redis client (lazy initialized)
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_checked = False
 
-    def _get_redis(self) -> Optional[Any]:
+    def _get_redis(self) -> Any | None:
         """Get Redis client (lazy initialization)."""
         if self._redis_checked:
             return self._redis
@@ -98,7 +98,7 @@ class RedisTTLCache(Generic[T]):
         """Build Redis key with prefix."""
         return f"aragora:{self._prefix}:{key}"
 
-    def get(self, key: str) -> Optional[T]:
+    def get(self, key: str) -> T | None:
         """Get a value from cache.
 
         Tries Redis first, falls back to in-memory cache.
@@ -248,7 +248,6 @@ class RedisTTLCache(Generic[T]):
         """Return count of in-memory entries."""
         return len(self._memory_cache)
 
-
 def HybridTTLCache(
     prefix: str = "cache",
     ttl_seconds: float = 300.0,
@@ -273,7 +272,6 @@ def HybridTTLCache(
         ttl_seconds=ttl_seconds,
         maxsize=maxsize,
     )
-
 
 __all__ = [
     "RedisTTLCache",

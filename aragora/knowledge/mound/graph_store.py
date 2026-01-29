@@ -39,13 +39,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal, Optional
 
 from aragora.knowledge.mound.types import RelationshipType
 from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class GraphLink:
@@ -56,11 +55,10 @@ class GraphLink:
     target_id: str
     relationship: RelationshipType
     confidence: float
-    created_by: Optional[str]
+    created_by: str | None
     created_at: datetime
     tenant_id: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class LineageNode:
@@ -68,24 +66,22 @@ class LineageNode:
 
     id: str
     current_id: str
-    predecessor_id: Optional[str]
-    supersession_reason: Optional[str]
-    debate_id: Optional[str]
+    predecessor_id: str | None
+    supersession_reason: str | None
+    debate_id: str | None
     created_at: datetime
     tenant_id: str
-
 
 @dataclass
 class GraphTraversalResult:
     """Result of traversing the knowledge graph."""
 
-    nodes: List[str]  # Knowledge Mound IDs
-    edges: List[GraphLink]
+    nodes: list[str]  # Knowledge Mound IDs
+    edges: list[GraphLink]
     root_id: str
     depth: int
     total_nodes: int
     total_edges: int
-
 
 class KnowledgeGraphStore(SQLiteStore):
     """
@@ -171,7 +167,7 @@ class KnowledgeGraphStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Union[str, Path],
+        db_path: str | Path,
         default_tenant_id: str = "default",
     ):
         """
@@ -193,11 +189,11 @@ class KnowledgeGraphStore(SQLiteStore):
         self,
         source_id: str,
         target_id: str,
-        relationship: Union[RelationshipType, str],
+        relationship: RelationshipType | str,
         confidence: float = 1.0,
-        created_by: Optional[str] = None,
-        tenant_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        created_by: str | None = None,
+        tenant_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Add a relationship between two knowledge items.
@@ -234,9 +230,9 @@ class KnowledgeGraphStore(SQLiteStore):
         target_id: str,
         relationship: str,
         confidence: float,
-        created_by: Optional[str],
+        created_by: str | None,
         tenant_id: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> str:
         """Synchronous link insertion."""
         import json
@@ -284,10 +280,10 @@ class KnowledgeGraphStore(SQLiteStore):
     async def get_links(
         self,
         node_id: str,
-        relationship_types: Optional[List[RelationshipType]] = None,
+        relationship_types: Optional[list[RelationshipType]] = None,
         direction: Literal["outgoing", "incoming", "both"] = "both",
-        tenant_id: Optional[str] = None,
-    ) -> List[GraphLink]:
+        tenant_id: str | None = None,
+    ) -> list[GraphLink]:
         """
         Get relationships for a knowledge item.
 
@@ -310,10 +306,10 @@ class KnowledgeGraphStore(SQLiteStore):
     def _sync_get_links(
         self,
         node_id: str,
-        relationship_types: Optional[List[str]],
+        relationship_types: Optional[list[str]],
         direction: str,
         tenant_id: str,
-    ) -> List[GraphLink]:
+    ) -> list[GraphLink]:
         """Synchronous link retrieval."""
         import json
 
@@ -402,8 +398,8 @@ class KnowledgeGraphStore(SQLiteStore):
     async def find_contradictions(
         self,
         node_id: str,
-        tenant_id: Optional[str] = None,
-    ) -> List[str]:
+        tenant_id: str | None = None,
+    ) -> list[str]:
         """
         Find items that contradict a given knowledge item.
 
@@ -417,7 +413,7 @@ class KnowledgeGraphStore(SQLiteStore):
         tenant_id = tenant_id or self._default_tenant_id
         return await asyncio.to_thread(self._sync_find_contradictions, node_id, tenant_id)
 
-    def _sync_find_contradictions(self, node_id: str, tenant_id: str) -> List[str]:
+    def _sync_find_contradictions(self, node_id: str, tenant_id: str) -> list[str]:
         """Synchronous contradiction lookup."""
         rows = self.fetch_all(
             """
@@ -447,10 +443,10 @@ class KnowledgeGraphStore(SQLiteStore):
     async def add_lineage(
         self,
         current_id: str,
-        predecessor_id: Optional[str] = None,
-        supersession_reason: Optional[str] = None,
-        debate_id: Optional[str] = None,
-        tenant_id: Optional[str] = None,
+        predecessor_id: str | None = None,
+        supersession_reason: str | None = None,
+        debate_id: str | None = None,
+        tenant_id: str | None = None,
     ) -> str:
         """
         Track belief evolution by recording supersession.
@@ -479,9 +475,9 @@ class KnowledgeGraphStore(SQLiteStore):
     def _sync_add_lineage(
         self,
         current_id: str,
-        predecessor_id: Optional[str],
-        supersession_reason: Optional[str],
-        debate_id: Optional[str],
+        predecessor_id: str | None,
+        supersession_reason: str | None,
+        debate_id: str | None,
         tenant_id: str,
     ) -> str:
         """Synchronous lineage insertion."""
@@ -535,8 +531,8 @@ class KnowledgeGraphStore(SQLiteStore):
         self,
         item_id: str,
         direction: Literal["predecessors", "successors", "both"] = "both",
-        tenant_id: Optional[str] = None,
-    ) -> List[LineageNode]:
+        tenant_id: str | None = None,
+    ) -> list[LineageNode]:
         """
         Get belief evolution history.
 
@@ -556,7 +552,7 @@ class KnowledgeGraphStore(SQLiteStore):
         item_id: str,
         direction: str,
         tenant_id: str,
-    ) -> List[LineageNode]:
+    ) -> list[LineageNode]:
         """Synchronous lineage traversal."""
         results = []
         visited = set()
@@ -634,8 +630,8 @@ class KnowledgeGraphStore(SQLiteStore):
     async def get_lineage_chain(
         self,
         item_id: str,
-        tenant_id: Optional[str] = None,
-    ) -> List[str]:
+        tenant_id: str | None = None,
+    ) -> list[str]:
         """
         Get the full lineage chain as a list of IDs from oldest to newest.
 
@@ -672,10 +668,10 @@ class KnowledgeGraphStore(SQLiteStore):
     async def traverse(
         self,
         start_id: str,
-        relationship_types: Optional[List[RelationshipType]] = None,
+        relationship_types: Optional[list[RelationshipType]] = None,
         max_depth: int = 3,
         direction: Literal["outgoing", "incoming", "both"] = "both",
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> GraphTraversalResult:
         """
         Traverse the knowledge graph using BFS.
@@ -705,7 +701,7 @@ class KnowledgeGraphStore(SQLiteStore):
     def _sync_traverse(
         self,
         start_id: str,
-        relationship_types: Optional[List[str]],
+        relationship_types: Optional[list[str]],
         max_depth: int,
         direction: str,
         tenant_id: str,
@@ -752,7 +748,7 @@ class KnowledgeGraphStore(SQLiteStore):
     # Statistics
     # =========================================================================
 
-    async def get_stats(self, tenant_id: Optional[str] = None) -> dict:
+    async def get_stats(self, tenant_id: str | None = None) -> dict:
         """Get statistics about the knowledge graph."""
         return await asyncio.to_thread(self._sync_get_stats, tenant_id or self._default_tenant_id)
 
@@ -799,7 +795,6 @@ class KnowledgeGraphStore(SQLiteStore):
             "hub_nodes": [{"node_id": r[0], "connections": r[1]} for r in hub_nodes],
             "tenant_id": tenant_id,
         }
-
 
 __all__ = [
     "KnowledgeGraphStore",

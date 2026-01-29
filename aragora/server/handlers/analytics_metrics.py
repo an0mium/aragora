@@ -27,7 +27,7 @@ import logging
 import re
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.config import CACHE_TTL_ANALYTICS
 from aragora.server.versioning.compat import strip_version_prefix
@@ -56,8 +56,7 @@ VALID_GRANULARITIES = {"daily", "weekly", "monthly"}
 # Valid time ranges for trend queries
 VALID_TIME_RANGES = {"7d", "14d", "30d", "90d", "180d", "365d", "all"}
 
-
-def _parse_time_range(time_range: str) -> Optional[datetime]:
+def _parse_time_range(time_range: str) -> datetime | None:
     """Parse time range string into a start datetime.
 
     Args:
@@ -76,12 +75,11 @@ def _parse_time_range(time_range: str) -> Optional[datetime]:
     days = int(match.group(1))
     return datetime.now(timezone.utc) - timedelta(days=days)
 
-
 def _group_by_time(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     timestamp_key: str,
     granularity: str,
-) -> Dict[str, List[Dict[str, Any]]]:
+) -> dict[str, list[dict[str, Any]]]:
     """Group items by time bucket based on granularity.
 
     Args:
@@ -92,7 +90,7 @@ def _group_by_time(
     Returns:
         Dict mapping bucket key to list of items
     """
-    groups: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     for item in items:
         ts = item.get(timestamp_key)
@@ -122,7 +120,6 @@ def _group_by_time(
         groups[key].append(item)
 
     return dict(groups)
-
 
 class AnalyticsMetricsHandler(SecureHandler):
     """Handler for analytics metrics dashboard endpoints.
@@ -159,7 +156,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests to appropriate methods with RBAC."""
         normalized = strip_version_prefix(path)
 
@@ -544,7 +541,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         # Extract topics and count
         topic_counts: Counter = Counter()
-        topic_consensus: Dict[str, List[bool]] = defaultdict(list)
+        topic_consensus: dict[str, list[bool]] = defaultdict(list)
         total_debates = 0
 
         for debate in debates:
@@ -674,7 +671,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         # Count outcomes
         outcomes = {"consensus": 0, "majority": 0, "dissent": 0, "no_resolution": 0}
-        confidence_buckets: Dict[str, List[bool]] = {
+        confidence_buckets: dict[str, list[bool]] = {
             "high": [],
             "medium": [],
             "low": [],
@@ -1098,7 +1095,7 @@ class AnalyticsMetricsHandler(SecureHandler):
             agent_names = [a.agent_name for a in leaderboard]
 
         # Get ELO history for each agent
-        trends: Dict[str, List[Dict[str, Any]]] = {}
+        trends: dict[str, list[dict[str, Any]]] = {}
 
         for agent_name in agent_names[:10]:  # Limit to 10 agents
             try:
@@ -1132,7 +1129,7 @@ class AnalyticsMetricsHandler(SecureHandler):
                         continue
 
                 # Group by period (take latest ELO for each period)
-                period_data: Dict[str, Dict[str, Any]] = {}
+                period_data: dict[str, dict[str, Any]] = {}
                 for dp in data_points:
                     period = str(dp["period"])
                     if (
@@ -1469,6 +1466,5 @@ class AnalyticsMetricsHandler(SecureHandler):
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
-
 
 __all__ = ["AnalyticsMetricsHandler"]

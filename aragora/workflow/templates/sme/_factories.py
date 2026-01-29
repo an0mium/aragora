@@ -16,7 +16,7 @@ These templates are designed for small and medium enterprises with:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.workflow.types import (
     StepDefinition,
@@ -24,10 +24,9 @@ from aragora.workflow.types import (
     WorkflowDefinition,
 )
 
-
 def create_invoice_workflow(
     customer_id: str,
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     tax_rate: float = 0.0,
     due_days: int = 30,
     send_email: bool = False,
@@ -129,13 +128,12 @@ def create_invoice_workflow(
         entry_step="validate",
     )
 
-
 def create_followup_workflow(
     followup_type: str = "check_in",
     days_since_contact: int = 30,
     channel: str = "email",
     auto_send: bool = False,
-    customer_id: Optional[str] = None,
+    customer_id: str | None = None,
 ) -> WorkflowDefinition:
     """Create a customer follow-up workflow.
 
@@ -245,12 +243,11 @@ def create_followup_workflow(
         entry_step="identify",
     )
 
-
 def create_inventory_alert_workflow(
     alert_threshold: int = 20,
     auto_reorder: bool = False,
-    notification_channels: Optional[List[str]] = None,
-    categories: Optional[List[str]] = None,
+    notification_channels: Optional[list[str]] = None,
+    categories: Optional[list[str]] = None,
 ) -> WorkflowDefinition:
     """Create an inventory monitoring and alert workflow.
 
@@ -358,13 +355,12 @@ def create_inventory_alert_workflow(
         entry_step="fetch",
     )
 
-
 def create_report_workflow(
     report_type: str,
     frequency: str = "weekly",
     date_range: str = "last_week",
     format: str = "pdf",
-    recipients: Optional[List[str]] = None,
+    recipients: Optional[list[str]] = None,
     include_charts: bool = True,
     include_comparison: bool = True,
 ) -> WorkflowDefinition:
@@ -489,9 +485,7 @@ def create_report_workflow(
         entry_step="fetch",
     )
 
-
 # Convenience functions for common patterns
-
 
 def quick_invoice(
     customer: str,
@@ -516,8 +510,7 @@ def quick_invoice(
         send_email=send,
     )
 
-
-def weekly_sales_report(recipients: List[str]) -> WorkflowDefinition:
+def weekly_sales_report(recipients: list[str]) -> WorkflowDefinition:
     """Create a weekly sales report workflow.
 
     Args:
@@ -534,9 +527,8 @@ def weekly_sales_report(recipients: List[str]) -> WorkflowDefinition:
         recipients=recipients,
     )
 
-
 def daily_inventory_check(
-    slack_channel: Optional[str] = None,
+    slack_channel: str | None = None,
 ) -> WorkflowDefinition:
     """Create a daily inventory check workflow.
 
@@ -556,7 +548,6 @@ def daily_inventory_check(
         notification_channels=channels,
     )
 
-
 def renewal_followup_campaign() -> WorkflowDefinition:
     """Create a renewal follow-up campaign workflow.
 
@@ -570,16 +561,14 @@ def renewal_followup_campaign() -> WorkflowDefinition:
         auto_send=False,
     )
 
-
 # =============================================================================
 # SME Decision Templates
 # =============================================================================
 
-
 def create_vendor_evaluation_workflow(
     vendor_name: str,
-    evaluation_criteria: Optional[List[str]] = None,
-    budget_range: Optional[str] = None,
+    evaluation_criteria: Optional[list[str]] = None,
+    budget_range: str | None = None,
     timeline: str = "30 days",
     require_approval: bool = True,
 ) -> WorkflowDefinition:
@@ -694,11 +683,10 @@ def create_vendor_evaluation_workflow(
         entry_step="gather",
     )
 
-
 def create_hiring_decision_workflow(
     position: str,
     candidate_name: str,
-    interview_notes: Optional[str] = None,
+    interview_notes: str | None = None,
     team_size: int = 5,
     urgency: str = "normal",
 ) -> WorkflowDefinition:
@@ -805,13 +793,12 @@ def create_hiring_decision_workflow(
         entry_step="analyze",
     )
 
-
 def create_budget_allocation_workflow(
     department: str,
     total_budget: float,
-    categories: Optional[List[str]] = None,
-    fiscal_year: Optional[str] = None,
-    constraints: Optional[List[str]] = None,
+    categories: Optional[list[str]] = None,
+    fiscal_year: str | None = None,
+    constraints: Optional[list[str]] = None,
 ) -> WorkflowDefinition:
     """Create a budget allocation workflow.
 
@@ -930,14 +917,13 @@ def create_budget_allocation_workflow(
         entry_step="analyze",
     )
 
-
 def create_performance_review_workflow(
     employee_name: str,
     role: str,
     review_period: str = "Q4 2024",
-    self_assessment: Optional[str] = None,
-    manager_notes: Optional[str] = None,
-    goals_met: Optional[List[str]] = None,
+    self_assessment: str | None = None,
+    manager_notes: str | None = None,
+    goals_met: Optional[list[str]] = None,
 ) -> WorkflowDefinition:
     """Create a performance review workflow.
 
@@ -1057,13 +1043,12 @@ def create_performance_review_workflow(
         entry_step="context",
     )
 
-
 def create_feature_prioritization_workflow(
-    features: List[str],
-    constraints: Optional[List[str]] = None,
-    team_capacity: Optional[str] = None,
+    features: list[str],
+    constraints: Optional[list[str]] = None,
+    team_capacity: str | None = None,
     timeline: str = "next quarter",
-    scoring_criteria: Optional[List[str]] = None,
+    scoring_criteria: Optional[list[str]] = None,
 ) -> WorkflowDefinition:
     """Create a feature prioritization workflow.
 
@@ -1169,13 +1154,12 @@ def create_feature_prioritization_workflow(
         entry_step="analyze",
     )
 
-
 def create_sprint_planning_workflow(
     sprint_name: str,
-    backlog_items: List[str],
+    backlog_items: list[str],
     team_size: int = 5,
     sprint_duration: str = "2 weeks",
-    velocity: Optional[int] = None,
+    velocity: int | None = None,
 ) -> WorkflowDefinition:
     """Create a sprint planning workflow.
 
@@ -1283,12 +1267,11 @@ def create_sprint_planning_workflow(
         entry_step="capacity",
     )
 
-
 def create_tool_selection_workflow(
     category: str,
-    candidates: List[str],
-    requirements: Optional[List[str]] = None,
-    budget: Optional[str] = None,
+    candidates: list[str],
+    requirements: Optional[list[str]] = None,
+    budget: str | None = None,
     team_size: int = 10,
 ) -> WorkflowDefinition:
     """Create a tool selection workflow.
@@ -1409,13 +1392,12 @@ def create_tool_selection_workflow(
         entry_step="research",
     )
 
-
 def create_contract_review_workflow(
     contract_type: str,
     counterparty: str,
-    contract_value: Optional[str] = None,
-    key_terms: Optional[List[str]] = None,
-    concerns: Optional[List[str]] = None,
+    contract_value: str | None = None,
+    key_terms: Optional[list[str]] = None,
+    concerns: Optional[list[str]] = None,
 ) -> WorkflowDefinition:
     """Create a contract review workflow.
 
@@ -1534,11 +1516,10 @@ def create_contract_review_workflow(
         entry_step="parse",
     )
 
-
 def create_remote_work_policy_workflow(
     company_size: int = 50,
-    current_policy: Optional[str] = None,
-    concerns: Optional[List[str]] = None,
+    current_policy: str | None = None,
+    concerns: Optional[list[str]] = None,
     industry: str = "tech",
 ) -> WorkflowDefinition:
     """Create a remote work policy review workflow.
@@ -1643,11 +1624,10 @@ def create_remote_work_policy_workflow(
         entry_step="benchmark",
     )
 
-
 def create_business_decision_workflow(
     decision_topic: str,
-    context: Optional[str] = None,
-    stakeholders: Optional[List[str]] = None,
+    context: str | None = None,
+    stakeholders: Optional[list[str]] = None,
     urgency: str = "normal",
     impact_level: str = "medium",
 ) -> WorkflowDefinition:
@@ -1762,7 +1742,6 @@ def create_business_decision_workflow(
         ],
         entry_step="frame",
     )
-
 
 __all__ = [
     # Main factory functions

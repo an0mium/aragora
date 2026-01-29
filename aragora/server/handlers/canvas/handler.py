@@ -29,7 +29,7 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.handlers.secure import (
     SecureHandler,
@@ -53,7 +53,6 @@ CANVAS_NODE_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/nodes/([a-zA
 CANVAS_EDGES_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/edges$")
 CANVAS_EDGE_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/edges/([a-zA-Z0-9_-]+)$")
 CANVAS_ACTION_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/action$")
-
 
 class CanvasHandler(SecureHandler):
     """Handler for Live Canvas REST API endpoints.
@@ -90,7 +89,7 @@ class CanvasHandler(SecureHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle requests with RBAC enforcement."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -142,7 +141,7 @@ class CanvasHandler(SecureHandler):
         # Route to appropriate handler
         return self._route_request(path, method, query_params, body, user_id, workspace_id)
 
-    def _get_required_permission(self, path: str, method: str) -> Optional[str]:
+    def _get_required_permission(self, path: str, method: str) -> str | None:
         """Determine required permission based on path and method."""
         # Action endpoints
         if CANVAS_ACTION_PATTERN.match(path):
@@ -166,7 +165,7 @@ class CanvasHandler(SecureHandler):
         # Read operations (GET)
         return "canvas.read"
 
-    def _get_request_body(self, handler: Any) -> Dict[str, Any]:
+    def _get_request_body(self, handler: Any) -> dict[str, Any]:
         """Extract JSON body from request."""
         try:
             if hasattr(handler, "request") and hasattr(handler.request, "body"):
@@ -181,11 +180,11 @@ class CanvasHandler(SecureHandler):
         self,
         path: str,
         method: str,
-        query_params: Dict[str, Any],
-        body: Dict[str, Any],
-        user_id: Optional[str],
-        workspace_id: Optional[str],
-    ) -> Optional[HandlerResult]:
+        query_params: dict[str, Any],
+        body: dict[str, Any],
+        user_id: str | None,
+        workspace_id: str | None,
+    ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
         # List/Create canvases
         if path == "/api/v1/canvas":
@@ -278,9 +277,9 @@ class CanvasHandler(SecureHandler):
 
     def _list_canvases(
         self,
-        query_params: Dict[str, Any],
-        user_id: Optional[str],
-        workspace_id: Optional[str],
+        query_params: dict[str, Any],
+        user_id: str | None,
+        workspace_id: str | None,
     ) -> HandlerResult:
         """List canvases."""
         try:
@@ -302,9 +301,9 @@ class CanvasHandler(SecureHandler):
 
     def _create_canvas(
         self,
-        body: Dict[str, Any],
-        user_id: Optional[str],
-        workspace_id: Optional[str],
+        body: dict[str, Any],
+        user_id: str | None,
+        workspace_id: str | None,
     ) -> HandlerResult:
         """Create a new canvas."""
         try:
@@ -329,7 +328,7 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to create canvas: {e}")
             return error_response(f"Failed to create canvas: {e}", 500)
 
-    def _get_canvas(self, canvas_id: str, user_id: Optional[str]) -> HandlerResult:
+    def _get_canvas(self, canvas_id: str, user_id: str | None) -> HandlerResult:
         """Get a canvas by ID."""
         try:
             manager = self._get_canvas_manager()
@@ -346,8 +345,8 @@ class CanvasHandler(SecureHandler):
     def _update_canvas(
         self,
         canvas_id: str,
-        body: Dict[str, Any],
-        user_id: Optional[str],
+        body: dict[str, Any],
+        user_id: str | None,
     ) -> HandlerResult:
         """Update a canvas."""
         try:
@@ -373,7 +372,7 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to update canvas: {e}")
             return error_response(f"Failed to update canvas: {e}", 500)
 
-    def _delete_canvas(self, canvas_id: str, user_id: Optional[str]) -> HandlerResult:
+    def _delete_canvas(self, canvas_id: str, user_id: str | None) -> HandlerResult:
         """Delete a canvas."""
         try:
             manager = self._get_canvas_manager()
@@ -394,8 +393,8 @@ class CanvasHandler(SecureHandler):
     def _add_node(
         self,
         canvas_id: str,
-        body: Dict[str, Any],
-        user_id: Optional[str],
+        body: dict[str, Any],
+        user_id: str | None,
     ) -> HandlerResult:
         """Add a node to the canvas."""
         try:
@@ -443,8 +442,8 @@ class CanvasHandler(SecureHandler):
         self,
         canvas_id: str,
         node_id: str,
-        body: Dict[str, Any],
-        user_id: Optional[str],
+        body: dict[str, Any],
+        user_id: str | None,
     ) -> HandlerResult:
         """Update a node."""
         try:
@@ -453,7 +452,7 @@ class CanvasHandler(SecureHandler):
             manager = self._get_canvas_manager()
 
             # Parse updates
-            updates: Dict[str, Any] = {}
+            updates: dict[str, Any] = {}
             if "position" in body:
                 pos_data = body["position"]
                 updates["position"] = Position(
@@ -486,7 +485,7 @@ class CanvasHandler(SecureHandler):
         self,
         canvas_id: str,
         node_id: str,
-        user_id: Optional[str],
+        user_id: str | None,
     ) -> HandlerResult:
         """Delete a node."""
         try:
@@ -508,8 +507,8 @@ class CanvasHandler(SecureHandler):
     def _add_edge(
         self,
         canvas_id: str,
-        body: Dict[str, Any],
-        user_id: Optional[str],
+        body: dict[str, Any],
+        user_id: str | None,
     ) -> HandlerResult:
         """Add an edge to the canvas."""
         try:
@@ -557,7 +556,7 @@ class CanvasHandler(SecureHandler):
         self,
         canvas_id: str,
         edge_id: str,
-        user_id: Optional[str],
+        user_id: str | None,
     ) -> HandlerResult:
         """Delete an edge."""
         try:
@@ -579,8 +578,8 @@ class CanvasHandler(SecureHandler):
     def _execute_action(
         self,
         canvas_id: str,
-        body: Dict[str, Any],
-        user_id: Optional[str],
+        body: dict[str, Any],
+        user_id: str | None,
     ) -> HandlerResult:
         """Execute an action on the canvas."""
         try:

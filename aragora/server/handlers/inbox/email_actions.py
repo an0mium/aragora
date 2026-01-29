@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     error_response,
@@ -45,9 +45,8 @@ from aragora.server.handlers.utils.responses import HandlerResult
 logger = logging.getLogger(__name__)
 
 # Thread-safe service instance
-_email_actions_service: Optional[Any] = None
+_email_actions_service: Any | None = None
 _email_actions_service_lock = threading.Lock()
-
 
 def get_email_actions_service_instance():
     """Get or create email actions service (thread-safe)."""
@@ -62,11 +61,9 @@ def get_email_actions_service_instance():
             _email_actions_service = get_email_actions_service()
         return _email_actions_service
 
-
 # =============================================================================
 # Send / Reply Handlers
 # =============================================================================
-
 
 @require_permission("email:create")
 async def handle_send_email(
@@ -128,7 +125,6 @@ async def handle_send_email(
         logger.exception("Failed to send email")
         return error_response(f"Send failed: {str(e)}", status=500)
 
-
 @require_permission("email:create")
 async def handle_reply_email(
     data: dict[str, Any],
@@ -178,11 +174,9 @@ async def handle_reply_email(
         logger.exception("Failed to reply to email")
         return error_response(f"Reply failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Archive / Trash Handlers
 # =============================================================================
-
 
 @require_permission("email:update")
 async def handle_archive_message(
@@ -230,7 +224,6 @@ async def handle_archive_message(
         logger.exception("Failed to archive message")
         return error_response(f"Archive failed: {str(e)}", status=500)
 
-
 @require_permission("email:delete")
 async def handle_trash_message(
     data: dict[str, Any],
@@ -277,7 +270,6 @@ async def handle_trash_message(
         logger.exception("Failed to trash message")
         return error_response(f"Trash failed: {str(e)}", status=500)
 
-
 @require_permission("email:update")
 async def handle_restore_message(
     data: dict[str, Any],
@@ -318,11 +310,9 @@ async def handle_restore_message(
         logger.exception("Failed to restore message")
         return error_response(f"Restore failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Snooze Handlers
 # =============================================================================
-
 
 @require_permission("email:update")
 async def handle_snooze_message(
@@ -400,11 +390,9 @@ async def handle_snooze_message(
         logger.exception("Failed to snooze message")
         return error_response(f"Snooze failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Read / Star Handlers
 # =============================================================================
-
 
 @require_permission("email:update")
 async def handle_mark_read(
@@ -451,7 +439,6 @@ async def handle_mark_read(
         logger.exception("Failed to mark message as read")
         return error_response(f"Mark read failed: {str(e)}", status=500)
 
-
 @require_permission("email:update")
 async def handle_mark_unread(
     data: dict[str, Any],
@@ -491,7 +478,6 @@ async def handle_mark_unread(
     except Exception as e:
         logger.exception("Failed to mark message as unread")
         return error_response(f"Mark unread failed: {str(e)}", status=500)
-
 
 @require_permission("email:update")
 async def handle_star_message(
@@ -538,7 +524,6 @@ async def handle_star_message(
         logger.exception("Failed to star message")
         return error_response(f"Star failed: {str(e)}", status=500)
 
-
 @require_permission("email:update")
 async def handle_unstar_message(
     data: dict[str, Any],
@@ -579,11 +564,9 @@ async def handle_unstar_message(
         logger.exception("Failed to unstar message")
         return error_response(f"Unstar failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Folder / Label Handlers
 # =============================================================================
-
 
 @require_permission("email:update")
 async def handle_move_to_folder(
@@ -638,7 +621,6 @@ async def handle_move_to_folder(
         logger.exception("Failed to move message")
         return error_response(f"Move failed: {str(e)}", status=500)
 
-
 @require_permission("email:update")
 async def handle_add_label(
     data: dict[str, Any],
@@ -684,7 +666,6 @@ async def handle_add_label(
     except Exception as e:
         logger.exception("Failed to add labels")
         return error_response(f"Add labels failed: {str(e)}", status=500)
-
 
 @require_permission("email:update")
 async def handle_remove_label(
@@ -732,11 +713,9 @@ async def handle_remove_label(
         logger.exception("Failed to remove labels")
         return error_response(f"Remove labels failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Batch Operations
 # =============================================================================
-
 
 @require_permission("email:update")
 async def handle_batch_archive(
@@ -785,7 +764,6 @@ async def handle_batch_archive(
         logger.exception("Failed to batch archive")
         return error_response(f"Batch archive failed: {str(e)}", status=500)
 
-
 @require_permission("email:delete")
 async def handle_batch_trash(
     data: dict[str, Any],
@@ -827,7 +805,6 @@ async def handle_batch_trash(
     except Exception as e:
         logger.exception("Failed to batch trash")
         return error_response(f"Batch trash failed: {str(e)}", status=500)
-
 
 @require_permission("email:update")
 async def handle_batch_modify(
@@ -888,11 +865,9 @@ async def handle_batch_modify(
         logger.exception("Failed to batch modify")
         return error_response(f"Batch modify failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Action Logs
 # =============================================================================
-
 
 @require_permission("email:read")
 async def handle_get_action_logs(
@@ -961,7 +936,6 @@ async def handle_get_action_logs(
         logger.exception("Failed to get action logs")
         return error_response(f"Get logs failed: {str(e)}", status=500)
 
-
 @require_permission("admin:audit")
 async def handle_export_action_logs(
     data: dict[str, Any],
@@ -1019,11 +993,9 @@ async def handle_export_action_logs(
         logger.exception("Failed to export action logs")
         return error_response(f"Export failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
-
 
 def get_email_actions_handlers() -> dict[str, Any]:
     """Get all email actions handlers for registration."""
@@ -1054,7 +1026,6 @@ def get_email_actions_handlers() -> dict[str, Any]:
         "get_action_logs": handle_get_action_logs,
         "export_action_logs": handle_export_action_logs,
     }
-
 
 __all__ = [
     # Send / Reply

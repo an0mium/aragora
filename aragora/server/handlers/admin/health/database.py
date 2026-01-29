@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 def database_schema_health(handler) -> HandlerResult:
     """Check health of consolidated database schema.
@@ -56,7 +55,6 @@ def database_schema_health(handler) -> HandlerResult:
             status=500,
         )
 
-
 def database_stores_health(handler) -> HandlerResult:
     """Check health of all database stores.
 
@@ -71,7 +69,7 @@ def database_stores_health(handler) -> HandlerResult:
     This endpoint helps diagnose which specific stores are
     initialized, connected, and functioning.
     """
-    stores: Dict[str, Dict[str, Any]] = {}
+    stores: dict[str, dict[str, Any]] = {}
     all_healthy = True
     start_time = time.time()
 

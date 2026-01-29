@@ -42,7 +42,7 @@ import struct
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,6 @@ except ImportError:
     CRYPTO_AVAILABLE = False
     logger.warning("cryptography library not available - encryption disabled")
 
-
 # Encryption enforcement configuration
 # When True, encryption failures raise exceptions instead of returning plaintext
 ENCRYPTION_REQUIRED = os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in (
@@ -66,7 +65,6 @@ ENCRYPTION_REQUIRED = os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() 
     "1",
     "yes",
 )
-
 
 class EncryptionError(Exception):
     """Raised when encryption/decryption fails and ENCRYPTION_REQUIRED is True."""
@@ -79,7 +77,6 @@ class EncryptionError(Exception):
             f"Encryption {operation} failed for {store or 'unknown'}: {reason}. "
             f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
         )
-
 
 def is_encryption_required() -> bool:
     """Check if encryption is required (fail-fast mode).
@@ -98,19 +95,16 @@ def is_encryption_required() -> bool:
         return True
     return False
 
-
 class EncryptionAlgorithm(str, Enum):
     """Supported encryption algorithms."""
 
     AES_256_GCM = "aes-256-gcm"
-
 
 class KeyDerivationFunction(str, Enum):
     """Key derivation functions."""
 
     PBKDF2_SHA256 = "pbkdf2-sha256"
     HKDF_SHA256 = "hkdf-sha256"
-
 
 @dataclass
 class EncryptionKey:
@@ -121,7 +115,7 @@ class EncryptionKey:
     algorithm: EncryptionAlgorithm
     version: int
     created_at: datetime
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     is_active: bool = True
 
     @property
@@ -142,7 +136,6 @@ class EncryptionKey:
             "is_active": self.is_active,
             "is_expired": self.is_expired,
         }
-
 
 @dataclass
 class EncryptedData:
@@ -221,7 +214,6 @@ class EncryptedData:
         """Deserialize from base64 string."""
         return cls.from_bytes(base64.b64decode(data))
 
-
 @dataclass
 class EncryptionConfig:
     """Configuration for encryption service."""
@@ -243,7 +235,6 @@ class EncryptionConfig:
     auto_rotate: bool = True
     rotation_overlap_days: int = 7  # Keep old keys active for overlap
 
-
 class EncryptionService:
     """
     Application-level encryption service.
@@ -254,8 +245,8 @@ class EncryptionService:
 
     def __init__(
         self,
-        config: Optional[EncryptionConfig] = None,
-        master_key: Optional[bytes] = None,
+        config: EncryptionConfig | None = None,
+        master_key: bytes | None = None,
     ):
         """
         Initialize encryption service.
@@ -269,7 +260,7 @@ class EncryptionService:
 
         self.config = config or EncryptionConfig()
         self._keys: dict[str, EncryptionKey] = {}
-        self._active_key_id: Optional[str] = None
+        self._active_key_id: str | None = None
 
         # Initialize with master key if provided
         if master_key:
@@ -293,8 +284,8 @@ class EncryptionService:
 
     def generate_key(
         self,
-        key_id: Optional[str] = None,
-        ttl_days: Optional[int] = None,
+        key_id: str | None = None,
+        ttl_days: int | None = None,
     ) -> EncryptionKey:
         """
         Generate a new encryption key.
@@ -339,7 +330,7 @@ class EncryptionService:
     def derive_key_from_password(
         self,
         password: str,
-        salt: Optional[bytes] = None,
+        salt: bytes | None = None,
         key_id: str = "derived",
     ) -> tuple[EncryptionKey, bytes]:
         """
@@ -382,9 +373,9 @@ class EncryptionService:
 
     def encrypt(
         self,
-        plaintext: Union[str, bytes],
-        associated_data: Optional[Union[str, bytes]] = None,
-        key_id: Optional[str] = None,
+        plaintext: str | bytes,
+        associated_data: Optional[str | bytes] = None,
+        key_id: str | None = None,
     ) -> EncryptedData:
         """
         Encrypt data using AES-256-GCM.
@@ -422,8 +413,8 @@ class EncryptionService:
 
     def decrypt(
         self,
-        encrypted: Union[EncryptedData, str, bytes],
-        associated_data: Optional[Union[str, bytes]] = None,
+        encrypted: EncryptedData | str | bytes,
+        associated_data: Optional[str | bytes] = None,
     ) -> bytes:
         """
         Decrypt data.
@@ -461,16 +452,16 @@ class EncryptionService:
 
     def decrypt_string(
         self,
-        encrypted: Union[EncryptedData, str, bytes],
-        associated_data: Optional[Union[str, bytes]] = None,
+        encrypted: EncryptedData | str | bytes,
+        associated_data: Optional[str | bytes] = None,
     ) -> str:
         """Decrypt and return as string."""
         return self.decrypt(encrypted, associated_data).decode("utf-8")
 
     def decrypt_value(
         self,
-        encrypted: Union[EncryptedData, str, bytes],
-        associated_data: Optional[Union[str, bytes]] = None,
+        encrypted: EncryptedData | str | bytes,
+        associated_data: Optional[str | bytes] = None,
     ) -> str:
         """Decrypt a stored value (alias for decrypt_string).
 
@@ -490,7 +481,7 @@ class EncryptionService:
         self,
         record: dict[str, Any],
         sensitive_fields: list[str],
-        associated_data: Optional[str] = None,
+        associated_data: str | None = None,
     ) -> dict[str, Any]:
         """
         Encrypt specific fields in a record.
@@ -523,7 +514,7 @@ class EncryptionService:
         self,
         record: dict[str, Any],
         sensitive_fields: list[str],
-        associated_data: Optional[str] = None,
+        associated_data: str | None = None,
     ) -> dict[str, Any]:
         """
         Decrypt specific fields in a record.
@@ -553,7 +544,7 @@ class EncryptionService:
 
         return result
 
-    def rotate_key(self, key_id: Optional[str] = None) -> EncryptionKey:
+    def rotate_key(self, key_id: str | None = None) -> EncryptionKey:
         """
         Rotate an encryption key.
 
@@ -588,9 +579,9 @@ class EncryptionService:
 
     def re_encrypt(
         self,
-        encrypted: Union[EncryptedData, str, bytes],
-        associated_data: Optional[Union[str, bytes]] = None,
-        new_key_id: Optional[str] = None,
+        encrypted: EncryptedData | str | bytes,
+        associated_data: Optional[str | bytes] = None,
+        new_key_id: str | None = None,
     ) -> EncryptedData:
         """
         Re-encrypt data with a new key.
@@ -609,7 +600,7 @@ class EncryptionService:
         return self.encrypt(plaintext, associated_data, new_key_id)
 
     def _get_key(
-        self, key_id: Optional[str] = None, version: Optional[int] = None
+        self, key_id: str | None = None, version: int | None = None
     ) -> EncryptionKey:
         """Get a key by ID or the active key."""
         if key_id is None:
@@ -640,11 +631,11 @@ class EncryptionService:
         """List all keys (without key material)."""
         return [key.to_dict() for key in self._keys.values()]
 
-    def get_active_key_id(self) -> Optional[str]:
+    def get_active_key_id(self) -> str | None:
         """Get the active key ID."""
         return self._active_key_id
 
-    def get_active_key(self) -> Optional[EncryptionKey]:
+    def get_active_key(self) -> EncryptionKey | None:
         """Get the active encryption key (with metadata, for rotation checks).
 
         Returns:
@@ -654,10 +645,8 @@ class EncryptionService:
             return None
         return self._keys.get(self._active_key_id)
 
-
 # Singleton service instance
-_encryption_service: Optional[EncryptionService] = None
-
+_encryption_service: EncryptionService | None = None
 
 def get_encryption_service() -> EncryptionService:
     """Get the global encryption service instance."""
@@ -682,16 +671,14 @@ def get_encryption_service() -> EncryptionService:
 
     return _encryption_service
 
-
 def init_encryption_service(
-    master_key: Optional[bytes] = None,
-    config: Optional[EncryptionConfig] = None,
+    master_key: bytes | None = None,
+    config: EncryptionConfig | None = None,
 ) -> EncryptionService:
     """Initialize the global encryption service."""
     global _encryption_service
     _encryption_service = EncryptionService(config=config, master_key=master_key)
     return _encryption_service
-
 
 __all__ = [
     "EncryptionService",

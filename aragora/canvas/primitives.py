@@ -32,11 +32,11 @@ Usage:
         label="Processing...",
     )
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 class ButtonVariant(str, Enum):
     """Visual variants for buttons."""
@@ -48,7 +48,6 @@ class ButtonVariant(str, Enum):
     DANGER = "danger"
     GHOST = "ghost"
 
-
 class AlertSeverity(str, Enum):
     """Alert severity levels."""
 
@@ -56,7 +55,6 @@ class AlertSeverity(str, Enum):
     SUCCESS = "success"
     WARNING = "warning"
     ERROR = "error"
-
 
 class ChartType(str, Enum):
     """Types of charts."""
@@ -66,7 +64,6 @@ class ChartType(str, Enum):
     PIE = "pie"
     SCATTER = "scatter"
     AREA = "area"
-
 
 @dataclass
 class ButtonPrimitive:
@@ -82,11 +79,11 @@ class ButtonPrimitive:
     variant: ButtonVariant = ButtonVariant.PRIMARY
     disabled: bool = False
     loading: bool = False
-    icon: Optional[str] = None
-    tooltip: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    icon: str | None = None
+    tooltip: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": "button",
             "label": self.label,
@@ -99,7 +96,6 @@ class ButtonPrimitive:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class FormField:
     """A single field in a form."""
@@ -109,11 +105,11 @@ class FormField:
     label: str
     required: bool = False
     default_value: Any = None
-    placeholder: Optional[str] = None
-    options: List[Dict[str, str]] = field(default_factory=list)  # For select
-    validation: Optional[str] = None  # Regex pattern
+    placeholder: str | None = None
+    options: list[dict[str, str]] = field(default_factory=list)  # For select
+    validation: str | None = None  # Regex pattern
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "type": self.field_type,
@@ -125,7 +121,6 @@ class FormField:
             "validation": self.validation,
         }
 
-
 @dataclass
 class FormPrimitive:
     """
@@ -134,15 +129,15 @@ class FormPrimitive:
     Enables agents to collect structured input from users.
     """
 
-    fields: List[FormField]
+    fields: list[FormField]
     submit_action: str
     submit_label: str = "Submit"
-    cancel_label: Optional[str] = "Cancel"
-    title: Optional[str] = None
-    description: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    cancel_label: str | None = "Cancel"
+    title: str | None = None
+    description: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": "form",
             "fields": [f.to_dict() for f in self.fields],
@@ -154,7 +149,6 @@ class FormPrimitive:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class SelectOption:
     """An option in a select control."""
@@ -162,7 +156,6 @@ class SelectOption:
     value: str
     label: str
     disabled: bool = False
-
 
 @dataclass
 class SelectPrimitive:
@@ -172,16 +165,16 @@ class SelectPrimitive:
     Allows users to choose from a list of options.
     """
 
-    options: List[SelectOption]
+    options: list[SelectOption]
     action: str
-    label: Optional[str] = None
-    selected_value: Optional[str] = None
+    label: str | None = None
+    selected_value: str | None = None
     placeholder: str = "Select..."
     multiple: bool = False
     searchable: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": "select",
             "options": [
@@ -196,24 +189,21 @@ class SelectPrimitive:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ChartDataPoint:
     """A data point in a chart."""
 
     x: Any  # X-axis value
     y: float  # Y-axis value
-    label: Optional[str] = None
-
+    label: str | None = None
 
 @dataclass
 class ChartSeries:
     """A series of data points in a chart."""
 
     name: str
-    data: List[ChartDataPoint]
-    color: Optional[str] = None
-
+    data: list[ChartDataPoint]
+    color: str | None = None
 
 @dataclass
 class ChartPrimitive:
@@ -224,16 +214,16 @@ class ChartPrimitive:
     """
 
     chart_type: ChartType
-    series: List[ChartSeries]
-    title: Optional[str] = None
-    x_axis_label: Optional[str] = None
-    y_axis_label: Optional[str] = None
+    series: list[ChartSeries]
+    title: str | None = None
+    x_axis_label: str | None = None
+    y_axis_label: str | None = None
     width: int = 400
     height: int = 300
     show_legend: bool = True
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": "chart",
             "chart_type": self.chart_type.value,
@@ -254,7 +244,6 @@ class ChartPrimitive:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ProgressPrimitive:
     """
@@ -265,11 +254,11 @@ class ProgressPrimitive:
 
     value: float  # Current progress (0-100)
     max_value: float = 100.0
-    label: Optional[str] = None
+    label: str | None = None
     show_percentage: bool = True
     animated: bool = True
-    color: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    color: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def percentage(self) -> float:
@@ -278,7 +267,7 @@ class ProgressPrimitive:
             return 0.0
         return min(100.0, (self.value / self.max_value) * 100)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": "progress",
             "value": self.value,
@@ -291,7 +280,6 @@ class ProgressPrimitive:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class AlertPrimitive:
     """
@@ -302,13 +290,13 @@ class AlertPrimitive:
 
     message: str
     severity: AlertSeverity = AlertSeverity.INFO
-    title: Optional[str] = None
+    title: str | None = None
     dismissible: bool = True
-    auto_dismiss_seconds: Optional[int] = None
-    action: Optional[str] = None  # Action for dismiss callback
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    auto_dismiss_seconds: int | None = None
+    action: str | None = None  # Action for dismiss callback
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": "alert",
             "message": self.message,
@@ -320,7 +308,6 @@ class AlertPrimitive:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class CardPrimitive:
     """
@@ -331,12 +318,12 @@ class CardPrimitive:
 
     title: str
     content: str
-    subtitle: Optional[str] = None
-    image_url: Optional[str] = None
-    actions: List[ButtonPrimitive] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    subtitle: str | None = None
+    image_url: str | None = None
+    actions: list[ButtonPrimitive] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": "card",
             "title": self.title,
@@ -347,7 +334,6 @@ class CardPrimitive:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class TableColumn:
     """A column in a table."""
@@ -355,8 +341,7 @@ class TableColumn:
     key: str
     header: str
     sortable: bool = False
-    width: Optional[int] = None
-
+    width: int | None = None
 
 @dataclass
 class TablePrimitive:
@@ -366,16 +351,16 @@ class TablePrimitive:
     Shows structured data in a tabular format.
     """
 
-    columns: List[TableColumn]
-    rows: List[Dict[str, Any]]
-    title: Optional[str] = None
+    columns: list[TableColumn]
+    rows: list[dict[str, Any]]
+    title: str | None = None
     sortable: bool = True
     paginated: bool = False
     page_size: int = 10
     selectable: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": "table",
             "columns": [
@@ -395,7 +380,6 @@ class TablePrimitive:
             "selectable": self.selectable,
             "metadata": self.metadata,
         }
-
 
 # Export all primitives
 __all__ = [

@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -51,7 +51,6 @@ PersonaSynthesizer, GROUNDED_AVAILABLE = try_import_class(
 PositionTracker, POSITION_TRACKER_AVAILABLE = try_import_class(
     "aragora.agents.truth_grounding", "PositionTracker"
 )
-
 
 class PersonaHandler(BaseHandler):
     """Handler for persona-related endpoints."""
@@ -87,7 +86,7 @@ class PersonaHandler(BaseHandler):
         return False
 
     @require_permission("persona:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route persona requests to appropriate methods."""
         path = strip_version_prefix(path)
         # Rate limit check
@@ -360,7 +359,7 @@ class PersonaHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("persona:create")
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle POST requests for persona endpoints."""
         path = strip_version_prefix(path)
         client_ip = get_client_ip(handler)
@@ -430,7 +429,7 @@ class PersonaHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("persona:update")
-    def handle_put(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_put(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle PUT requests for persona endpoints."""
         path = strip_version_prefix(path)
         client_ip = get_client_ip(handler)
@@ -499,7 +498,7 @@ class PersonaHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("persona:delete")
-    def handle_delete(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_delete(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle DELETE requests for persona endpoints."""
         path = strip_version_prefix(path)
         client_ip = get_client_ip(handler)

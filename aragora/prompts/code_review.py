@@ -7,11 +7,9 @@ rather than style nits or false positives.
 
 from __future__ import annotations
 
-from typing import Optional
 
 # Maximum diff size before truncation (50KB)
 MAX_DIFF_SIZE = 50000
-
 
 SECURITY_PROMPT = """
 **Security Review Focus**
@@ -85,8 +83,7 @@ Rate each finding:
 # Combined default prompt
 DEFAULT_FOCUS_AREAS = ["security", "performance", "quality"]
 
-
-def get_focus_prompts(focus_areas: Optional[list[str]] = None) -> str:
+def get_focus_prompts(focus_areas: list[str] | None = None) -> str:
     """Get combined focus prompts for specified areas.
 
     Args:
@@ -108,11 +105,10 @@ def get_focus_prompts(focus_areas: Optional[list[str]] = None) -> str:
 
     return "\n\n".join(prompts)
 
-
 def build_review_prompt(
     diff: str,
-    focus_areas: Optional[list[str]] = None,
-    additional_context: Optional[str] = None,
+    focus_areas: list[str] | None = None,
+    additional_context: str | None = None,
 ) -> str:
     """Build a complete code review prompt.
 
@@ -167,7 +163,6 @@ For each issue found, provide:
 
 Begin your review:"""
 
-
 # Agent role-specific prompts
 SECURITY_REVIEWER_ROLE = """
 You are a senior security engineer specializing in application security.
@@ -186,7 +181,6 @@ You are a senior software architect specializing in code quality and maintainabi
 Your expertise includes design patterns, error handling, and testing strategies.
 Focus primarily on quality issues but note security and performance concerns.
 """
-
 
 def get_role_prompt(role: str) -> str:
     """Get role-specific system prompt for an agent.

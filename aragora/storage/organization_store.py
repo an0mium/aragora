@@ -38,7 +38,6 @@ from aragora.storage.backends import (
 
 logger = logging.getLogger(__name__)
 
-
 class OrganizationStore:
     """
     Database-backed storage for organizations and invitations.
@@ -71,8 +70,8 @@ class OrganizationStore:
         get_connection: Optional[Callable[[], sqlite3.Connection]] = None,
         update_user: Optional[Callable[..., bool]] = None,
         row_to_user: Optional[Callable[[sqlite3.Row], User]] = None,
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        backend: str | None = None,
+        database_url: str | None = None,
     ):
         """
         Initialize OrganizationStore.
@@ -94,7 +93,7 @@ class OrganizationStore:
         # Backend selection is now handled by get_organization_store() using resolve_database_config().
         # This __init__ just accepts explicit parameters from the factory function.
         self.backend_type = backend or "sqlite"
-        self._backend: Optional[DatabaseBackend] = None
+        self._backend: DatabaseBackend | None = None
 
         # Only create backend if not using external connection
         if get_connection is None:
@@ -153,7 +152,7 @@ class OrganizationStore:
         self,
         name: str,
         owner_id: str,
-        slug: Optional[str] = None,
+        slug: str | None = None,
         tier: SubscriptionTier = SubscriptionTier.FREE,
     ) -> Organization:
         """
@@ -240,7 +239,7 @@ class OrganizationStore:
         logger.info(f"organization_created id={org.id} name={name} owner={owner_id}")
         return org
 
-    def get_organization_by_id(self, org_id: str) -> Optional[Organization]:
+    def get_organization_by_id(self, org_id: str) -> Organization | None:
         """Get organization by ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -258,7 +257,7 @@ class OrganizationStore:
                 return self._row_to_org(row)
         return None
 
-    def get_organization_by_slug(self, slug: str) -> Optional[Organization]:
+    def get_organization_by_slug(self, slug: str) -> Organization | None:
         """Get organization by slug."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -278,7 +277,7 @@ class OrganizationStore:
 
     def get_organization_by_stripe_customer(
         self, stripe_customer_id: str
-    ) -> Optional[Organization]:
+    ) -> Organization | None:
         """Get organization by Stripe customer ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -299,7 +298,7 @@ class OrganizationStore:
                 return self._row_to_org(row)
         return None
 
-    def get_organization_by_subscription(self, subscription_id: str) -> Optional[Organization]:
+    def get_organization_by_subscription(self, subscription_id: str) -> Organization | None:
         """Get organization by Stripe subscription ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -499,7 +498,7 @@ class OrganizationStore:
             )
             return cursor.rowcount > 0
 
-    def get_invitation_by_id(self, invitation_id: str) -> Optional[OrganizationInvitation]:
+    def get_invitation_by_id(self, invitation_id: str) -> OrganizationInvitation | None:
         """Get invitation by ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -520,7 +519,7 @@ class OrganizationStore:
                 return self._row_to_invitation(row)
         return None
 
-    def get_invitation_by_token(self, token: str) -> Optional[OrganizationInvitation]:
+    def get_invitation_by_token(self, token: str) -> OrganizationInvitation | None:
         """Get invitation by token."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -543,7 +542,7 @@ class OrganizationStore:
 
     def get_invitation_by_email(
         self, email: str, org_id: str, status: str = "pending"
-    ) -> Optional[OrganizationInvitation]:
+    ) -> OrganizationInvitation | None:
         """Get invitation by email and org."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -614,8 +613,8 @@ class OrganizationStore:
         self,
         invitation_id: str,
         status: str,
-        accepted_by: Optional[str] = None,
-        accepted_at: Optional[datetime] = None,
+        accepted_by: str | None = None,
+        accepted_at: datetime | None = None,
     ) -> bool:
         """Update invitation status."""
         if self._backend is not None:
@@ -780,19 +779,17 @@ class OrganizationStore:
             self._local.connection.close()
             del self._local.connection
 
-
 # =============================================================================
 # Singleton Instance
 # =============================================================================
 
-_organization_store: Optional[OrganizationStore] = None
+_organization_store: OrganizationStore | None = None
 _store_lock = threading.Lock()
-
 
 def get_organization_store(
     db_path: str = "organizations.db",
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    backend: str | None = None,
+    database_url: str | None = None,
 ) -> OrganizationStore:
     """
     Get the singleton organization store instance.
@@ -857,7 +854,6 @@ def get_organization_store(
                         "Configure Supabase or PostgreSQL.",
                     )
     return _organization_store
-
 
 def reset_organization_store() -> None:
     """Reset the singleton store (for testing)."""

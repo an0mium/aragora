@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -39,7 +39,6 @@ logger = logging.getLogger(__name__)
 
 # Cache TTL for OpenAPI spec (rarely changes)
 CACHE_TTL_OPENAPI = 3600
-
 
 class DocsHandler(BaseHandler):
     """Handler for API documentation endpoints."""
@@ -60,7 +59,7 @@ class DocsHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("docs:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route documentation endpoint requests."""
         if path in ("/api/v1/openapi", "/api/v1/openapi.json"):
             return self._get_openapi_spec("json")

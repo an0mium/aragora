@@ -19,11 +19,11 @@ Usage:
             self.id = id
 
         @lazy_property
-        async def posts(self) -> List[Post]:
+        async def posts(self) -> list[Post]:
             return await db.posts.find({"user_id": self.id})
 
         @lazy_property(prefetch_key="posts")
-        async def recent_posts(self) -> List[Post]:
+        async def recent_posts(self) -> list[Post]:
             return await db.posts.find(
                 {"user_id": self.id},
                 limit=5,
@@ -56,13 +56,9 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Dict,
     Generic,
-    List,
     Optional,
-    Tuple,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -77,7 +73,6 @@ _n_plus_one_detections_counter: Optional["Counter"] = None
 _prefetch_operations_counter: Optional["Counter"] = None
 _auto_prefetch_counter: Optional["Counter"] = None
 _load_duration_histogram: Optional["Histogram"] = None
-
 
 def _init_metrics() -> None:
     """Initialize Prometheus metrics lazily."""
@@ -116,10 +111,8 @@ def _init_metrics() -> None:
         logger.debug("prometheus_client not available, metrics disabled")
         _metrics_initialized = True  # Don't retry
 
-
 T = TypeVar("T")
 R = TypeVar("R")
-
 
 @dataclass
 class LazyLoadStats:
@@ -128,7 +121,7 @@ class LazyLoadStats:
     total_loads: int = 0
     n_plus_one_detections: int = 0
     prefetch_hits: int = 0
-    load_times_ms: List[float] = field(default_factory=list)
+    load_times_ms: list[float] = field(default_factory=list)
 
     @property
     def avg_load_time_ms(self) -> float:
@@ -136,7 +129,6 @@ class LazyLoadStats:
         if not self.load_times_ms:
             return 0.0
         return sum(self.load_times_ms) / len(self.load_times_ms)
-
 
 # Global stats
 _lazy_load_stats = LazyLoadStats()
@@ -151,15 +143,14 @@ N_PLUS_ONE_AUTO_PREFETCH = os.environ.get("N_PLUS_ONE_AUTO_PREFETCH", "true").lo
 )
 
 # N+1 detection state
-_n_plus_one_tracker: Dict[str, List[float]] = defaultdict(list)
+_n_plus_one_tracker: dict[str, list[float]] = defaultdict(list)
 _n_plus_one_lock = threading.Lock()
 
 # Auto-prefetch batching state: tracks pending loads for N+1 detected properties
 # Maps property_name -> (objects waiting for load, timestamp of first request)
-_auto_prefetch_pending: Dict[str, Tuple[List[Any], float]] = {}
+_auto_prefetch_pending: dict[str, tuple[list[Any], float]] = {}
 _auto_prefetch_lock = threading.Lock()
 AUTO_PREFETCH_BATCH_DELAY_MS = 10  # Wait this long to collect batch
-
 
 def _detect_n_plus_one(property_name: str) -> bool:
     """
@@ -189,15 +180,13 @@ def _detect_n_plus_one(property_name: str) -> bool:
 
     return False
 
-
-def get_n_plus_one_config() -> Dict[str, Any]:
+def get_n_plus_one_config() -> dict[str, Any]:
     """Get current N+1 detection configuration."""
     return {
         "threshold": N_PLUS_ONE_THRESHOLD,
         "window_ms": N_PLUS_ONE_WINDOW_MS,
         "auto_prefetch_enabled": N_PLUS_ONE_AUTO_PREFETCH,
     }
-
 
 class AutoPrefetchBatcher:
     """
@@ -209,8 +198,8 @@ class AutoPrefetchBatcher:
 
     def __init__(self):
         """Initialize the auto-prefetch batcher."""
-        self._pending: Dict[str, List[Tuple[Any, "LazyValue[Any]"]]] = defaultdict(list)
-        self._batch_futures: Dict[str, asyncio.Future[None]] = {}
+        self._pending: dict[str, list[tuple[Any, "LazyValue[Any]"]]] = defaultdict(list)
+        self._batch_futures: dict[str, asyncio.Future[None]] = {}
         self._lock = asyncio.Lock()
 
     async def add_to_batch(
@@ -296,10 +285,8 @@ class AutoPrefetchBatcher:
             if future and not future.done():
                 future.set_exception(e)
 
-
 # Global auto-prefetch batcher
 _auto_prefetch_batcher = AutoPrefetchBatcher()
-
 
 class LazyValue(Generic[T]):
     """
@@ -316,7 +303,7 @@ class LazyValue(Generic[T]):
         """Initialize lazy value."""
         self._loader = loader
         self._property_name = property_name
-        self._value: Optional[T] = None
+        self._value: T | None = None
         self._loaded = False
         self._loading = False
         self._load_future: Optional[asyncio.Future[T]] = None
@@ -380,7 +367,6 @@ class LazyValue(Generic[T]):
         self._value = value
         self._loaded = True
 
-
 class LazyDescriptor(Generic[T]):
     """
     Descriptor for lazy property access.
@@ -391,7 +377,7 @@ class LazyDescriptor(Generic[T]):
     def __init__(
         self,
         func: Callable[[Any], Awaitable[T]],
-        prefetch_key: Optional[str] = None,
+        prefetch_key: str | None = None,
     ):
         """Initialize descriptor."""
         self._func = func
@@ -400,7 +386,7 @@ class LazyDescriptor(Generic[T]):
         self._cache: weakref.WeakKeyDictionary[Any, LazyValue[T]] = weakref.WeakKeyDictionary()
         functools.update_wrapper(self, func)  # type: ignore[arg-type]
 
-    def __get__(self, obj: Any, objtype: Any = None) -> Union[LazyValue[T], "LazyDescriptor[T]"]:
+    def __get__(self, obj: Any, objtype: Any = None) -> LazyValue[T] | "LazyDescriptor[T]":
         """Get LazyValue for the object."""
         if obj is None:
             return self
@@ -431,34 +417,31 @@ class LazyDescriptor(Generic[T]):
         """Get the prefetch key for this property."""
         return self._prefetch_key
 
-
 @overload
 def lazy_property(func: Callable[[Any], Awaitable[T]]) -> LazyDescriptor[T]: ...
-
 
 @overload
 def lazy_property(
     *,
-    prefetch_key: Optional[str] = None,
+    prefetch_key: str | None = None,
 ) -> Callable[[Callable[[Any], Awaitable[T]]], LazyDescriptor[T]]: ...
-
 
 def lazy_property(
     func: Optional[Callable[[Any], Awaitable[T]]] = None,
     *,
-    prefetch_key: Optional[str] = None,
-) -> Union[LazyDescriptor[T], Callable[[Callable[[Any], Awaitable[T]]], LazyDescriptor[T]]]:
+    prefetch_key: str | None = None,
+) -> LazyDescriptor[T] | Callable[[Callable[[Any], Awaitable[T]]], LazyDescriptor[T]]:
     """
     Decorator for lazy loading properties.
 
     Can be used with or without arguments:
 
         @lazy_property
-        async def posts(self) -> List[Post]:
+        async def posts(self) -> list[Post]:
             ...
 
         @lazy_property(prefetch_key="user_posts")
-        async def posts(self) -> List[Post]:
+        async def posts(self) -> list[Post]:
             ...
 
     Args:
@@ -476,7 +459,6 @@ def lazy_property(
 
     return decorator
 
-
 class LazyLoader:
     """
     Utility class for bulk lazy loading operations.
@@ -486,12 +468,12 @@ class LazyLoader:
 
     def __init__(self):
         """Initialize LazyLoader."""
-        self._prefetch_fns: Dict[str, Callable[[List[Any]], Awaitable[Dict[Any, Any]]]] = {}
+        self._prefetch_fns: dict[str, Callable[[list[Any]], Awaitable[dict[Any, Any]]]] = {}
 
     def register_prefetch(
         self,
         key: str,
-        fn: Callable[[List[Any]], Awaitable[Dict[Any, Any]]],
+        fn: Callable[[list[Any]], Awaitable[dict[Any, Any]]],
     ) -> None:
         """
         Register a prefetch function for a property.
@@ -505,7 +487,7 @@ class LazyLoader:
 
     async def prefetch(
         self,
-        objects: List[Any],
+        objects: list[Any],
         *property_names: str,
     ) -> None:
         """
@@ -566,12 +548,10 @@ class LazyLoader:
                 ]
                 await asyncio.gather(*[lv.get() for lv in lazy_values])
 
-
 # Global lazy loader instance
 _lazy_loader = LazyLoader()
 
-
-async def prefetch(objects: List[Any], *property_names: str) -> None:
+async def prefetch(objects: list[Any], *property_names: str) -> None:
     """
     Prefetch lazy properties for multiple objects.
 
@@ -588,10 +568,9 @@ async def prefetch(objects: List[Any], *property_names: str) -> None:
     """
     await _lazy_loader.prefetch(objects, *property_names)
 
-
 def register_prefetch(
     key: str,
-    fn: Callable[[List[Any]], Awaitable[Dict[Any, Any]]],
+    fn: Callable[[list[Any]], Awaitable[dict[Any, Any]]],
 ) -> None:
     """
     Register a prefetch function.
@@ -602,8 +581,7 @@ def register_prefetch(
     """
     _lazy_loader.register_prefetch(key, fn)
 
-
-def get_lazy_load_stats() -> Dict[str, Any]:
+def get_lazy_load_stats() -> dict[str, Any]:
     """Get lazy loading statistics including N+1 detection config."""
     return {
         "total_loads": _lazy_load_stats.total_loads,
@@ -613,12 +591,10 @@ def get_lazy_load_stats() -> Dict[str, Any]:
         "config": get_n_plus_one_config(),
     }
 
-
 def reset_lazy_load_stats() -> None:
     """Reset lazy loading statistics."""
     global _lazy_load_stats
     _lazy_load_stats = LazyLoadStats()
-
 
 __all__ = [
     "lazy_property",

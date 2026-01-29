@@ -42,7 +42,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.models import EmailMessage
@@ -52,7 +52,6 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CostConfig:
@@ -86,7 +85,6 @@ class CostConfig:
     skip_tier_3_confidence: float = 0.75  # Skip tier 3 if tier 2 is this confident
     force_tier_1_for_bulk: bool = True  # Only use tier 1 for bulk emails
 
-
 @dataclass
 class UsageStats:
     """Usage statistics for cost tracking."""
@@ -118,7 +116,7 @@ class UsageStats:
     day_start: datetime = field(default_factory=datetime.now)
     month_start: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_requests": self.total_requests,
@@ -140,7 +138,6 @@ class UsageStats:
             "avg_processing_time_ms": round(self.avg_processing_time_ms, 2),
         }
 
-
 @dataclass
 class CacheEntry:
     """Cached prioritization result."""
@@ -149,7 +146,6 @@ class CacheEntry:
     timestamp: datetime
     email_hash: str
     confidence: float
-
 
 class CostOptimizedPrioritizer:
     """
@@ -162,7 +158,7 @@ class CostOptimizedPrioritizer:
     def __init__(
         self,
         prioritizer: "EmailPrioritizer",
-        config: Optional[CostConfig] = None,
+        config: CostConfig | None = None,
     ):
         """
         Initialize cost optimizer.
@@ -175,7 +171,7 @@ class CostOptimizedPrioritizer:
         self.config = config or CostConfig()
 
         # Cache
-        self._cache: Dict[str, CacheEntry] = {}
+        self._cache: dict[str, CacheEntry] = {}
         self._cache_lock = asyncio.Lock()
 
         # Usage tracking
@@ -183,14 +179,14 @@ class CostOptimizedPrioritizer:
         self._stats_lock = asyncio.Lock()
 
         # Rate limiting
-        self._request_timestamps: List[datetime] = []
-        self._tier_3_timestamps: List[datetime] = []
+        self._request_timestamps: list[datetime] = []
+        self._tier_3_timestamps: list[datetime] = []
         self._rate_lock = asyncio.Lock()
 
         # Batch queue
-        self._batch_queue: List[Tuple["EmailMessage", asyncio.Future]] = []
+        self._batch_queue: list[tuple["EmailMessage", asyncio.Future]] = []
         self._batch_lock = asyncio.Lock()
-        self._batch_task: Optional[asyncio.Task] = None
+        self._batch_task: asyncio.Task | None = None
 
     def _compute_email_hash(self, email: "EmailMessage") -> str:
         """Compute a hash for caching purposes."""
@@ -386,7 +382,7 @@ class CostOptimizedPrioritizer:
     async def score_email(
         self,
         email: "EmailMessage",
-        force_tier: Optional[int] = None,
+        force_tier: int | None = None,
         skip_cache: bool = False,
     ) -> "EmailPriorityResult":
         """
@@ -484,9 +480,9 @@ class CostOptimizedPrioritizer:
 
     async def batch_score_emails(
         self,
-        emails: List["EmailMessage"],
+        emails: list["EmailMessage"],
         max_concurrent: int = 5,
-    ) -> List["EmailPriorityResult"]:
+    ) -> list["EmailPriorityResult"]:
         """
         Score multiple emails with batch optimization.
 
@@ -498,8 +494,8 @@ class CostOptimizedPrioritizer:
             List of EmailPriorityResult in same order as input
         """
         # Check cache for all emails first
-        results: List[Optional["EmailPriorityResult"]] = [None] * len(emails)
-        uncached_indices: List[int] = []
+        results: list[Optional["EmailPriorityResult"]] = [None] * len(emails)
+        uncached_indices: list[int] = []
 
         for i, email in enumerate(emails):
             cached = await self._get_cached_result(email)
@@ -514,7 +510,7 @@ class CostOptimizedPrioritizer:
         # Score uncached emails with concurrency limit
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def score_with_limit(index: int) -> Tuple[int, "EmailPriorityResult"]:
+        async def score_with_limit(index: int) -> tuple[int, "EmailPriorityResult"]:
             async with semaphore:
                 result = await self.score_email(emails[index], skip_cache=True)
                 return index, result
@@ -531,7 +527,7 @@ class CostOptimizedPrioritizer:
         """Get current usage statistics."""
         return self._stats
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return {
             "size": len(self._cache),
@@ -559,8 +555,8 @@ class CostOptimizedPrioritizer:
     async def get_cost_projection(
         self,
         emails_per_day: int,
-        tier_distribution: Optional[Dict[int, float]] = None,
-    ) -> Dict[str, Any]:
+        tier_distribution: Optional[dict[int, float]] = None,
+    ) -> dict[str, Any]:
         """
         Project costs based on expected volume.
 
@@ -596,12 +592,11 @@ class CostOptimizedPrioritizer:
             "within_monthly_budget": daily_cost * 30 <= self.config.monthly_budget_usd,
         }
 
-
 # Factory function
 async def create_cost_optimized_prioritizer(
-    gmail_connector: Optional[Any] = None,
-    knowledge_mound: Optional[Any] = None,
-    config: Optional[CostConfig] = None,
+    gmail_connector: Any | None = None,
+    knowledge_mound: Any | None = None,
+    config: CostConfig | None = None,
 ) -> CostOptimizedPrioritizer:
     """
     Create a cost-optimized prioritizer.

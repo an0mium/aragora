@@ -11,7 +11,6 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.server.versioning.compat import strip_version_prefix
@@ -44,7 +43,6 @@ try:
 except ImportError:
     pass
 
-
 class EvolutionHandler(BaseHandler):
     """Handler for prompt evolution endpoints."""
 
@@ -73,7 +71,7 @@ class EvolutionHandler(BaseHandler):
         return False
 
     # TODO: RBAC should be handled at middleware level, not handler decorator
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route evolution requests to appropriate methods."""
         normalized = strip_version_prefix(path)
         if not normalized.startswith("/api/evolution/"):
@@ -141,7 +139,7 @@ class EvolutionHandler(BaseHandler):
             logger.error(f"Error getting evolution history for {agent}: {e}", exc_info=True)
             return error_response("Failed to get evolution history", 500)
 
-    def _get_patterns(self, pattern_type: Optional[str], limit: int) -> HandlerResult:
+    def _get_patterns(self, pattern_type: str | None, limit: int) -> HandlerResult:
         """Get top evolution patterns across all agents."""
         if not EVOLUTION_AVAILABLE or not PromptEvolver:
             return error_response("Prompt evolution not available", 503)
@@ -167,7 +165,7 @@ class EvolutionHandler(BaseHandler):
             logger.error(f"Error getting evolution patterns: {e}", exc_info=True)
             return error_response("Failed to get evolution patterns", 500)
 
-    def _get_prompt_version(self, agent: str, version: Optional[int]) -> HandlerResult:
+    def _get_prompt_version(self, agent: str, version: int | None) -> HandlerResult:
         """Get a specific prompt version for an agent."""
         if not EVOLUTION_AVAILABLE or not PromptEvolver:
             return error_response("Prompt evolution not available", 503)

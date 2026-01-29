@@ -23,13 +23,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from aragora.documents.models import DocumentChunk, MODEL_TOKEN_LIMITS
 from aragora.documents.chunking.token_counter import TokenCounter, get_token_counter
 
 logger = logging.getLogger(__name__)
-
 
 class ContextStrategy(str, Enum):
     """Strategy for building model context."""
@@ -39,7 +38,6 @@ class ContextStrategy(str, Enum):
     HYBRID = "hybrid"  # Full context + RAG augmentation
     CHUNKED = "chunked"  # Process in sequential chunks
     AUTO = "auto"  # Automatically select best strategy
-
 
 @dataclass
 class ContextWindow:
@@ -72,7 +70,6 @@ class ContextWindow:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ContextConfig:
     """Configuration for context building."""
@@ -81,10 +78,10 @@ class ContextConfig:
     model: str = "gpt-4-turbo"
 
     # Maximum tokens to use (None = use model's limit)
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
 
     # Strategy override (None = auto-select)
-    strategy: Optional[ContextStrategy] = None
+    strategy: ContextStrategy | None = None
 
     # RAG settings
     rag_top_k: int = 20
@@ -99,7 +96,6 @@ class ContextConfig:
 
     # Chunk ordering
     preserve_document_order: bool = True
-
 
 class ContextManager:
     """
@@ -130,8 +126,8 @@ class ContextManager:
 
     def __init__(
         self,
-        token_counter: Optional[TokenCounter] = None,
-        hybrid_searcher: Optional[Any] = None,  # HybridSearcher
+        token_counter: TokenCounter | None = None,
+        hybrid_searcher: Any | None = None,  # HybridSearcher
     ):
         """
         Initialize context manager.
@@ -147,7 +143,7 @@ class ContextManager:
         self,
         total_tokens: int,
         model: str,
-        config: Optional[ContextConfig] = None,
+        config: ContextConfig | None = None,
     ) -> ContextStrategy:
         """
         Select optimal context strategy based on document size and model.
@@ -224,8 +220,8 @@ class ContextManager:
     async def build_context(
         self,
         chunks: list[DocumentChunk],
-        query: Optional[str] = None,
-        config: Optional[ContextConfig] = None,
+        query: str | None = None,
+        config: ContextConfig | None = None,
     ) -> ContextWindow:
         """
         Build context window from document chunks.
@@ -302,7 +298,7 @@ class ContextManager:
     async def _build_rag_context(
         self,
         chunks: list[DocumentChunk],
-        query: Optional[str],
+        query: str | None,
         config: ContextConfig,
     ) -> ContextWindow:
         """Build context using RAG retrieval."""
@@ -375,7 +371,7 @@ class ContextManager:
     async def _build_hybrid_context(
         self,
         chunks: list[DocumentChunk],
-        query: Optional[str],
+        query: str | None,
         config: ContextConfig,
     ) -> ContextWindow:
         """Build context with full document + RAG augmentation."""
@@ -570,10 +566,8 @@ class ContextManager:
             "model": model,
         }
 
-
 # Global instance
-_manager: Optional[ContextManager] = None
-
+_manager: ContextManager | None = None
 
 def get_context_manager() -> ContextManager:
     """Get or create global context manager instance."""
@@ -581,7 +575,6 @@ def get_context_manager() -> ContextManager:
     if _manager is None:
         _manager = ContextManager()
     return _manager
-
 
 __all__ = [
     "ContextManager",

@@ -25,13 +25,12 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 class QuerySource(str, Enum):
     """Available query sources (adapters)."""
@@ -47,7 +46,6 @@ class QuerySource(str, Enum):
     CRITIQUE = "critique"
     ALL = "all"
 
-
 @dataclass
 class FederatedResult:
     """A single result from a federated query."""
@@ -55,7 +53,7 @@ class FederatedResult:
     source: QuerySource
     item: Any  # The actual item from the adapter
     relevance_score: float = 0.0
-    adapter_metadata: Dict[str, Any] = field(default_factory=dict)
+    adapter_metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def content(self) -> str:
@@ -75,7 +73,7 @@ class FederatedResult:
             return self.item.get("id", "")
         return ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "source": self.source.value,
@@ -85,21 +83,20 @@ class FederatedResult:
             "adapter_metadata": self.adapter_metadata,
         }
 
-
 @dataclass
 class FederatedQueryResult:
     """Result of a federated query across adapters."""
 
     query: str
-    results: List[FederatedResult] = field(default_factory=list)
+    results: list[FederatedResult] = field(default_factory=list)
     total_count: int = 0
-    sources_queried: List[QuerySource] = field(default_factory=list)
-    sources_succeeded: List[QuerySource] = field(default_factory=list)
-    sources_failed: List[QuerySource] = field(default_factory=list)
+    sources_queried: list[QuerySource] = field(default_factory=list)
+    sources_succeeded: list[QuerySource] = field(default_factory=list)
+    sources_failed: list[QuerySource] = field(default_factory=list)
     execution_time_ms: float = 0
-    errors: Dict[str, str] = field(default_factory=dict)
+    errors: dict[str, str] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "query": self.query,
@@ -112,7 +109,6 @@ class FederatedQueryResult:
             "errors": self.errors,
         }
 
-
 @dataclass
 class AdapterRegistration:
     """Registration info for an adapter."""
@@ -122,12 +118,10 @@ class AdapterRegistration:
     search_method: str
     enabled: bool = True
     weight: float = 1.0  # Weight for ranking results
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 # Type for custom relevance scoring functions
 RelevanceScorer = Callable[[Any, str], float]
-
 
 class EmbeddingRelevanceScorer:
     """
@@ -154,10 +148,10 @@ class EmbeddingRelevanceScorer:
         """
         self._provider = None
         self._initialized = False
-        self._cache: Dict[str, List[float]] = {}
+        self._cache: dict[str, list[float]] = {}
         self._cache_size = cache_size
-        self._query_embedding: Optional[List[float]] = None
-        self._current_query: Optional[str] = None
+        self._query_embedding: Optional[list[float]] = None
+        self._current_query: str | None = None
 
     async def initialize(self) -> bool:
         """
@@ -197,7 +191,7 @@ class EmbeddingRelevanceScorer:
 
         return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()[:16]
 
-    async def _get_embedding(self, text: str) -> Optional[List[float]]:
+    async def _get_embedding(self, text: str) -> Optional[list[float]]:
         """Get embedding for text, using cache if available."""
         if not self._provider:
             return None
@@ -317,7 +311,6 @@ class EmbeddingRelevanceScorer:
             logger.debug(f"Cosine similarity failed: {e}")
             return self._keyword_score(item, query)
 
-
 class FederatedQueryAggregator:
     """
     Aggregates queries across multiple KM adapters.
@@ -336,7 +329,7 @@ class FederatedQueryAggregator:
         timeout_seconds: float = 10.0,
         default_limit: int = 20,
         deduplicate: bool = True,
-        relevance_scorer: Optional[RelevanceScorer] = None,
+        relevance_scorer: RelevanceScorer | None = None,
     ):
         """
         Initialize the aggregator.
@@ -355,7 +348,7 @@ class FederatedQueryAggregator:
         self._relevance_scorer = relevance_scorer or self._default_scorer
 
         # Registered adapters
-        self._adapters: Dict[QuerySource, AdapterRegistration] = {}
+        self._adapters: dict[QuerySource, AdapterRegistration] = {}
 
         # Query statistics
         self._total_queries = 0
@@ -436,8 +429,8 @@ class FederatedQueryAggregator:
     async def query(
         self,
         query: str,
-        sources: Optional[List[QuerySource | str]] = None,
-        limit: Optional[int] = None,
+        sources: Optional[list[QuerySource | str]] = None,
+        limit: int | None = None,
         min_relevance: float = 0.0,
         **kwargs,
     ) -> FederatedQueryResult:
@@ -544,16 +537,16 @@ class FederatedQueryAggregator:
     async def _query_parallel(
         self,
         query: str,
-        sources: List[QuerySource],
+        sources: list[QuerySource],
         limit: int,
         **kwargs,
-    ) -> Dict[QuerySource, Tuple[List[Any], Optional[str]]]:
+    ) -> dict[QuerySource, tuple[list[Any], str | None]]:
         """Query adapters in parallel."""
-        tasks: Dict[QuerySource, asyncio.Task[List[Any]]] = {}
+        tasks: dict[QuerySource, asyncio.Task[list[Any]]] = {}
         for source in sources:
             tasks[source] = asyncio.create_task(self._query_single(source, query, limit, **kwargs))
 
-        results: Dict[QuerySource, Tuple[List[Any], Optional[str]]] = {}
+        results: dict[QuerySource, tuple[list[Any], str | None]] = {}
         for source, task in tasks.items():
             try:
                 items = await asyncio.wait_for(task, timeout=self._timeout_seconds)
@@ -572,12 +565,12 @@ class FederatedQueryAggregator:
     async def _query_sequential(
         self,
         query: str,
-        sources: List[QuerySource],
+        sources: list[QuerySource],
         limit: int,
         **kwargs,
-    ) -> Dict[QuerySource, Tuple[List[Any], Optional[str]]]:
+    ) -> dict[QuerySource, tuple[list[Any], str | None]]:
         """Query adapters sequentially."""
-        results: Dict[QuerySource, Tuple[List[Any], Optional[str]]] = {}
+        results: dict[QuerySource, tuple[list[Any], str | None]] = {}
         for source in sources:
             try:
                 items = await self._query_single(source, query, limit, **kwargs)
@@ -599,7 +592,7 @@ class FederatedQueryAggregator:
         query: str,
         limit: int,
         **kwargs,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Query a single adapter."""
         registration = self._adapters[source]
         adapter = registration.adapter
@@ -644,14 +637,14 @@ class FederatedQueryAggregator:
 
     def _deduplicate_results(
         self,
-        results: List[FederatedResult],
-    ) -> List[FederatedResult]:
+        results: list[FederatedResult],
+    ) -> list[FederatedResult]:
         """
         Remove duplicate results based on content hash.
 
         Keeps the result with the highest relevance score.
         """
-        seen: Dict[str, FederatedResult] = {}
+        seen: dict[str, FederatedResult] = {}
 
         for result in results:
             content_hash = self._hash_content(result.content)
@@ -671,7 +664,7 @@ class FederatedQueryAggregator:
         normalized = " ".join(content.lower().split())
         return hashlib.md5(normalized.encode(), usedforsecurity=False).hexdigest()[:16]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get aggregator statistics."""
         return {
             "total_queries": self._total_queries,
@@ -689,10 +682,9 @@ class FederatedQueryAggregator:
             },
         }
 
-    def get_registered_sources(self) -> List[str]:
+    def get_registered_sources(self) -> list[str]:
         """Get list of registered source names."""
         return [s.value for s in self._adapters.keys()]
-
 
 __all__ = [
     "FederatedQueryAggregator",

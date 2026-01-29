@@ -9,9 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 import yaml
-
 
 class ComplianceLevel(str, Enum):
     """Compliance strictness levels."""
@@ -20,7 +19,6 @@ class ComplianceLevel(str, Enum):
     WARNING = "warning"  # Warn on violations
     ENFORCED = "enforced"  # Block on violations
 
-
 @dataclass
 class ToolConfig:
     """Configuration for a domain tool."""
@@ -28,11 +26,11 @@ class ToolConfig:
     name: str
     description: str
     enabled: bool = True
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
     requires_auth: bool = False
-    connector_type: Optional[str] = None  # e.g., "github", "pubmed"
+    connector_type: str | None = None  # e.g., "github", "pubmed"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -44,7 +42,7 @@ class ToolConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ToolConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ToolConfig:
         """Create from dictionary."""
         return cls(
             name=data["name"],
@@ -55,7 +53,6 @@ class ToolConfig:
             connector_type=data.get("connector_type"),
         )
 
-
 @dataclass
 class ComplianceConfig:
     """Configuration for compliance checking."""
@@ -63,10 +60,10 @@ class ComplianceConfig:
     framework: str  # e.g., "OWASP", "HIPAA", "SOX"
     version: str = "latest"
     level: ComplianceLevel = ComplianceLevel.WARNING
-    rules: List[str] = field(default_factory=list)  # Specific rules to check
-    exemptions: List[str] = field(default_factory=list)  # Rules to skip
+    rules: list[str] = field(default_factory=list)  # Specific rules to check
+    exemptions: list[str] = field(default_factory=list)  # Rules to skip
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "framework": self.framework,
@@ -77,7 +74,7 @@ class ComplianceConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComplianceConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ComplianceConfig:
         """Create from dictionary."""
         return cls(
             framework=data["framework"],
@@ -86,7 +83,6 @@ class ComplianceConfig:
             rules=data.get("rules", []),
             exemptions=data.get("exemptions", []),
         )
-
 
 @dataclass
 class ModelConfig:
@@ -97,18 +93,18 @@ class ModelConfig:
     primary_provider: str = "anthropic"
 
     # Specialist model (optional, HuggingFace)
-    specialist_model: Optional[str] = None
-    specialist_quantization: Optional[str] = None  # "8bit", "4bit"
+    specialist_model: str | None = None
+    specialist_quantization: str | None = None  # "8bit", "4bit"
 
     # Fine-tuning
-    finetuned_adapter: Optional[str] = None  # LoRA adapter path
+    finetuned_adapter: str | None = None  # LoRA adapter path
 
     # Generation parameters
     temperature: float = 0.7
     top_p: float = 0.9
     max_tokens: int = 4096
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "primary_model": self.primary_model,
@@ -122,7 +118,7 @@ class ModelConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ModelConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
         """Create from dictionary."""
         return cls(
             primary_model=data.get("primary_model", "claude-sonnet-4"),
@@ -134,7 +130,6 @@ class ModelConfig:
             top_p=data.get("top_p", 0.9),
             max_tokens=data.get("max_tokens", 4096),
         )
-
 
 @dataclass
 class VerticalConfig:
@@ -151,27 +146,27 @@ class VerticalConfig:
     description: str
 
     # Domain
-    domain_keywords: List[str] = field(default_factory=list)
-    expertise_areas: List[str] = field(default_factory=list)
+    domain_keywords: list[str] = field(default_factory=list)
+    expertise_areas: list[str] = field(default_factory=list)
 
     # System prompt template (Jinja2)
     system_prompt_template: str = ""
 
     # Tools
-    tools: List[ToolConfig] = field(default_factory=list)
+    tools: list[ToolConfig] = field(default_factory=list)
 
     # Compliance
-    compliance_frameworks: List[ComplianceConfig] = field(default_factory=list)
+    compliance_frameworks: list[ComplianceConfig] = field(default_factory=list)
 
     # Model
     model_config: ModelConfig = field(default_factory=ModelConfig)
 
     # Metadata
     version: str = "1.0.0"
-    author: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
+    author: str | None = None
+    tags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "vertical_id": self.vertical_id,
@@ -189,7 +184,7 @@ class VerticalConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> VerticalConfig:
+    def from_dict(cls, data: dict[str, Any]) -> VerticalConfig:
         """Create from dictionary."""
         return cls(
             vertical_id=data["vertical_id"],
@@ -220,14 +215,14 @@ class VerticalConfig:
         with open(yaml_path, "w") as f:
             yaml.safe_dump(self.to_dict(), f, default_flow_style=False)
 
-    def get_enabled_tools(self) -> List[ToolConfig]:
+    def get_enabled_tools(self) -> list[ToolConfig]:
         """Get list of enabled tools."""
         return [t for t in self.tools if t.enabled]
 
     def get_compliance_frameworks(
         self,
-        level: Optional[ComplianceLevel] = None,
-    ) -> List[ComplianceConfig]:
+        level: ComplianceLevel | None = None,
+    ) -> list[ComplianceConfig]:
         """Get compliance frameworks, optionally filtered by level."""
         if level is None:
             return self.compliance_frameworks

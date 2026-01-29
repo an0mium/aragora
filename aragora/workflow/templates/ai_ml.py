@@ -4,9 +4,9 @@ AI/ML Workflow Templates.
 Templates for model deployment, bias audits, ML pipelines, and AI governance.
 """
 
-from typing import Any, Dict
+from typing import Any
 
-MODEL_DEPLOYMENT_TEMPLATE: Dict[str, Any] = {
+MODEL_DEPLOYMENT_TEMPLATE: dict[str, Any] = {
     "name": "ML Model Deployment Review",
     "description": "Comprehensive review for ML model production deployment",
     "category": "ai_ml",
@@ -159,7 +159,7 @@ MODEL_DEPLOYMENT_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-AI_GOVERNANCE_TEMPLATE: Dict[str, Any] = {
+AI_GOVERNANCE_TEMPLATE: dict[str, Any] = {
     "name": "AI Governance Assessment",
     "description": "EU AI Act and responsible AI governance compliance audit",
     "category": "ai_ml",
@@ -300,7 +300,7 @@ AI_GOVERNANCE_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-PROMPT_ENGINEERING_TEMPLATE: Dict[str, Any] = {
+PROMPT_ENGINEERING_TEMPLATE: dict[str, Any] = {
     "name": "Prompt Engineering Review",
     "description": "Review and optimize prompts for LLM applications",
     "category": "ai_ml",

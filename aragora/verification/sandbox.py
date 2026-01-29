@@ -13,6 +13,7 @@ Usage:
     result = await sandbox.execute_lean(lean_code)
     result = await sandbox.execute_z3(smtlib_code)
 """
+from __future__ import annotations
 
 __all__ = [
     "SandboxStatus",
@@ -39,10 +40,8 @@ import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 class SandboxStatus(Enum):
     """Status of sandbox execution."""
@@ -53,7 +52,6 @@ class SandboxStatus(Enum):
     EXECUTION_ERROR = "execution_error"
     SETUP_FAILED = "setup_failed"
     KILLED = "killed"
-
 
 @dataclass
 class SandboxResult:
@@ -71,7 +69,6 @@ class SandboxResult:
     def is_success(self) -> bool:
         return self.status == SandboxStatus.SUCCESS and self.exit_code == 0
 
-
 @dataclass
 class SandboxConfig:
     """Configuration for sandbox execution."""
@@ -81,8 +78,7 @@ class SandboxConfig:
     max_output_bytes: int = 1024 * 1024  # 1MB
     cleanup_on_exit: bool = True
     allow_network: bool = False
-    working_dir: Optional[Path] = None
-
+    working_dir: Path | None = None
 
 class ProofSandbox:
     """
@@ -200,9 +196,9 @@ class ProofSandbox:
     async def _run_subprocess(
         self,
         cmd: list[str],
-        cwd: Optional[Path] = None,
-        env: Optional[dict] = None,
-        stdin_data: Optional[str] = None,
+        cwd: Path | None = None,
+        env: dict | None = None,
+        stdin_data: str | None = None,
     ) -> SandboxResult:
         """
         Run a subprocess with resource limits and timeout.
@@ -312,7 +308,7 @@ class ProofSandbox:
     async def execute_lean(
         self,
         lean_code: str,
-        project_dir: Optional[Path] = None,
+        project_dir: Path | None = None,
     ) -> SandboxResult:
         """
         Execute Lean 4 code in a sandboxed environment.
@@ -432,7 +428,6 @@ class ProofSandbox:
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Unknown language: {language}. Supported: z3, lean",
             )
-
 
 # Convenience function
 async def run_sandboxed(

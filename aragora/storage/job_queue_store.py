@@ -29,13 +29,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
-
 
 class JobStatus(str, Enum):
     """Status of a job in the queue."""
@@ -47,29 +46,28 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
     RETRYING = "retrying"
 
-
 @dataclass
 class QueuedJob:
     """A job in the durable queue."""
 
     id: str
     job_type: str  # "gauntlet", "workflow", "debate", etc.
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     status: JobStatus = JobStatus.PENDING
     priority: int = 0
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    started_at: float | None = None
+    completed_at: float | None = None
     attempts: int = 0
     max_attempts: int = 3
-    worker_id: Optional[str] = None
-    error: Optional[str] = None
-    result: Optional[Dict[str, Any]] = None
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    worker_id: str | None = None
+    error: str | None = None
+    result: Optional[dict[str, Any]] = None
+    user_id: str | None = None
+    workspace_id: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -91,7 +89,7 @@ class QueuedJob:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "QueuedJob":
+    def from_dict(cls, data: dict[str, Any]) -> "QueuedJob":
         """Create from dictionary."""
         status = data.get("status", "pending")
         if isinstance(status, str):
@@ -137,7 +135,6 @@ class QueuedJob:
             workspace_id=row[15],
         )
 
-
 class JobStoreBackend(ABC):
     """Abstract base for job queue storage backends."""
 
@@ -150,8 +147,8 @@ class JobStoreBackend(ABC):
     async def dequeue(
         self,
         worker_id: str,
-        job_types: Optional[List[str]] = None,
-    ) -> Optional[QueuedJob]:
+        job_types: Optional[list[str]] = None,
+    ) -> QueuedJob | None:
         """
         Get the next available job and mark it as processing.
 
@@ -165,7 +162,7 @@ class JobStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def get(self, job_id: str) -> Optional[QueuedJob]:
+    async def get(self, job_id: str) -> QueuedJob | None:
         """Get a job by ID."""
         pass
 
@@ -178,7 +175,7 @@ class JobStoreBackend(ABC):
     async def complete(
         self,
         job_id: str,
-        result: Optional[Dict[str, Any]] = None,
+        result: Optional[dict[str, Any]] = None,
     ) -> None:
         """Mark a job as completed."""
         pass
@@ -213,22 +210,21 @@ class JobStoreBackend(ABC):
     @abstractmethod
     async def list_jobs(
         self,
-        status: Optional[JobStatus] = None,
-        job_type: Optional[str] = None,
+        status: JobStatus | None = None,
+        job_type: str | None = None,
         limit: int = 100,
-    ) -> List[QueuedJob]:
+    ) -> list[QueuedJob]:
         """List jobs with optional filtering."""
         pass
 
     @abstractmethod
-    async def get_stats(self) -> Dict[str, int]:
+    async def get_stats(self) -> dict[str, int]:
         """Get queue statistics."""
         pass
 
     async def close(self) -> None:
         """Close connections."""
         pass
-
 
 class SQLiteJobStore(JobStoreBackend):
     """
@@ -338,8 +334,8 @@ class SQLiteJobStore(JobStoreBackend):
     async def dequeue(
         self,
         worker_id: str,
-        job_types: Optional[List[str]] = None,
-    ) -> Optional[QueuedJob]:
+        job_types: Optional[list[str]] = None,
+    ) -> QueuedJob | None:
         """Get the next available job and mark it as processing."""
         conn = self._get_conn()
 
@@ -397,7 +393,7 @@ class SQLiteJobStore(JobStoreBackend):
         logger.debug(f"Worker {worker_id} claimed job {job.id}")
         return job
 
-    async def get(self, job_id: str) -> Optional[QueuedJob]:
+    async def get(self, job_id: str) -> QueuedJob | None:
         """Get a job by ID."""
         conn = self._get_conn()
         cursor = conn.execute(
@@ -439,7 +435,7 @@ class SQLiteJobStore(JobStoreBackend):
     async def complete(
         self,
         job_id: str,
-        result: Optional[Dict[str, Any]] = None,
+        result: Optional[dict[str, Any]] = None,
     ) -> None:
         """Mark a job as completed."""
         conn = self._get_conn()
@@ -526,14 +522,14 @@ class SQLiteJobStore(JobStoreBackend):
 
     async def list_jobs(
         self,
-        status: Optional[JobStatus] = None,
-        job_type: Optional[str] = None,
+        status: JobStatus | None = None,
+        job_type: str | None = None,
         limit: int = 100,
-    ) -> List[QueuedJob]:
+    ) -> list[QueuedJob]:
         """List jobs with optional filtering."""
         conn = self._get_conn()
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if status:
             conditions.append("status = ?")
@@ -556,7 +552,7 @@ class SQLiteJobStore(JobStoreBackend):
         )
         return [QueuedJob.from_row(row) for row in cursor.fetchall()]
 
-    async def get_stats(self) -> Dict[str, int]:
+    async def get_stats(self) -> dict[str, int]:
         """Get queue statistics."""
         conn = self._get_conn()
         cursor = conn.execute("""SELECT status, COUNT(*) FROM job_queue GROUP BY status""")
@@ -569,7 +565,6 @@ class SQLiteJobStore(JobStoreBackend):
         if hasattr(self._local, "conn"):
             self._local.conn.close()
             del self._local.conn
-
 
 class PostgresJobQueueStore(JobStoreBackend):
     """
@@ -665,8 +660,8 @@ class PostgresJobQueueStore(JobStoreBackend):
     async def dequeue(
         self,
         worker_id: str,
-        job_types: Optional[List[str]] = None,
-    ) -> Optional[QueuedJob]:
+        job_types: Optional[list[str]] = None,
+    ) -> QueuedJob | None:
         """Get the next available job and mark it as processing."""
         time.time()
 
@@ -745,7 +740,7 @@ class PostgresJobQueueStore(JobStoreBackend):
             workspace_id=row["workspace_id"],
         )
 
-    async def get(self, job_id: str) -> Optional[QueuedJob]:
+    async def get(self, job_id: str) -> QueuedJob | None:
         """Get a job by ID."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -789,7 +784,7 @@ class PostgresJobQueueStore(JobStoreBackend):
     async def complete(
         self,
         job_id: str,
-        result: Optional[Dict[str, Any]] = None,
+        result: Optional[dict[str, Any]] = None,
     ) -> None:
         """Mark a job as completed."""
         async with self._pool.acquire() as conn:
@@ -874,10 +869,10 @@ class PostgresJobQueueStore(JobStoreBackend):
 
     async def list_jobs(
         self,
-        status: Optional[JobStatus] = None,
-        job_type: Optional[str] = None,
+        status: JobStatus | None = None,
+        job_type: str | None = None,
         limit: int = 100,
-    ) -> List[QueuedJob]:
+    ) -> list[QueuedJob]:
         """List jobs with optional filtering."""
         query = """SELECT id, job_type, payload_json, status, priority,
                           EXTRACT(EPOCH FROM created_at) as created_at,
@@ -887,7 +882,7 @@ class PostgresJobQueueStore(JobStoreBackend):
                           attempts, max_attempts, worker_id, error, result_json,
                           user_id, workspace_id
                    FROM job_queue WHERE 1=1"""
-        params: List[Any] = []
+        params: list[Any] = []
         param_idx = 1
 
         if status:
@@ -906,7 +901,7 @@ class PostgresJobQueueStore(JobStoreBackend):
             rows = await conn.fetch(query, *params)
             return [self._row_to_job(row) for row in rows]
 
-    async def get_stats(self) -> Dict[str, int]:
+    async def get_stats(self) -> dict[str, int]:
         """Get queue statistics."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
@@ -920,10 +915,8 @@ class PostgresJobQueueStore(JobStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 # Global store singleton
-_job_store: Optional[JobStoreBackend] = None
-
+_job_store: JobStoreBackend | None = None
 
 def get_job_store() -> JobStoreBackend:
     """
@@ -956,18 +949,15 @@ def get_job_store() -> JobStoreBackend:
 
     return _job_store
 
-
 def set_job_store(store: JobStoreBackend) -> None:
     """Set custom job store (for testing)."""
     global _job_store
     _job_store = store
 
-
 def reset_job_store() -> None:
     """Reset the global job store (for testing)."""
     global _job_store
     _job_store = None
-
 
 __all__ = [
     "JobStatus",

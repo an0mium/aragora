@@ -16,13 +16,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.audit.exploration.session import Insight
 from aragora.memory import MemoryTier
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class StoredInsight:
@@ -37,7 +36,7 @@ class StoredInsight:
     updated_at: datetime = field(default_factory=datetime.utcnow)
     session_ids: list[str] = field(default_factory=list)
     document_ids: list[str] = field(default_factory=list)
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage."""
@@ -52,7 +51,6 @@ class StoredInsight:
             "session_ids": self.session_ids,
             "document_ids": self.document_ids,
         }
-
 
 class ExplorationMemory:
     """Multi-tier memory for exploration learning.
@@ -72,7 +70,7 @@ class ExplorationMemory:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
+        db_path: Path | None = None,
         enable_embeddings: bool = True,
     ):
         """Initialize exploration memory.
@@ -129,8 +127,8 @@ class ExplorationMemory:
         insight: Insight,
         tier: MemoryTier = MemoryTier.FAST,
         importance: float = 0.5,
-        session_id: Optional[str] = None,
-        document_ids: Optional[list[str]] = None,
+        session_id: str | None = None,
+        document_ids: list[str] | None = None,
     ) -> StoredInsight:
         """Store an insight in memory.
 
@@ -198,8 +196,8 @@ class ExplorationMemory:
     async def retrieve_relevant(
         self,
         query: str,
-        document_ids: Optional[list[str]] = None,
-        tiers: Optional[list[MemoryTier]] = None,
+        document_ids: list[str] | None = None,
+        tiers: list[MemoryTier] | None = None,
         limit: int = 10,
         min_similarity: float = 0.5,
     ) -> list[StoredInsight]:
@@ -264,7 +262,7 @@ class ExplorationMemory:
         self,
         insight_id: str,
         target_tier: MemoryTier,
-    ) -> Optional[StoredInsight]:
+    ) -> StoredInsight | None:
         """Promote an insight to a slower (more persistent) tier.
 
         Insights that are validated multiple times get promoted from

@@ -10,7 +10,7 @@ Handles:
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from aragora.server.handlers.oauth_providers.base import (
     OAuthProvider,
@@ -29,7 +29,6 @@ MICROSOFT_AUTH_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2
 MICROSOFT_TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 MICROSOFT_USERINFO_URL = "https://graph.microsoft.com/v1.0/me"
 MICROSOFT_LOGOUT_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout"
-
 
 class MicrosoftOAuthProvider(OAuthProvider):
     """
@@ -77,8 +76,8 @@ class MicrosoftOAuthProvider(OAuthProvider):
     def get_authorization_url(
         self,
         state: str,
-        redirect_uri: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        redirect_uri: str | None = None,
+        scopes: Optional[list[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -121,7 +120,7 @@ class MicrosoftOAuthProvider(OAuthProvider):
     def exchange_code(
         self,
         code: str,
-        redirect_uri: Optional[str] = None,
+        redirect_uri: str | None = None,
     ) -> OAuthTokens:
         """
         Exchange authorization code for tokens.
@@ -195,7 +194,7 @@ class MicrosoftOAuthProvider(OAuthProvider):
 
         return self._request_tokens(token_url, data)
 
-    def get_logout_url(self, post_logout_redirect_uri: Optional[str] = None) -> str:
+    def get_logout_url(self, post_logout_redirect_uri: str | None = None) -> str:
         """
         Get the Microsoft logout URL.
 
@@ -215,7 +214,7 @@ class MicrosoftOAuthProvider(OAuthProvider):
 
         return logout_url
 
-    def get_user_photo(self, access_token: str) -> Optional[bytes]:
+    def get_user_photo(self, access_token: str) -> bytes | None:
         """
         Get user's profile photo from Microsoft Graph.
 
@@ -237,6 +236,5 @@ class MicrosoftOAuthProvider(OAuthProvider):
         except Exception as e:
             logger.warning(f"[{self.PROVIDER_NAME}] Failed to fetch photo: {e}")
             return None
-
 
 __all__ = ["MicrosoftOAuthProvider"]

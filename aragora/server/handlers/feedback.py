@@ -23,7 +23,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.config import resolve_db_path
 from aragora.rbac.checker import get_permission_checker
@@ -37,8 +37,7 @@ from aragora.server.handlers.base import (
 
 logger = logging.getLogger(__name__)
 
-
-def _check_permission(ctx: ServerContext, permission: str) -> Optional[HandlerResult]:
+def _check_permission(ctx: ServerContext, permission: str) -> HandlerResult | None:
     """
     Check if the current user has the required permission.
 
@@ -75,7 +74,6 @@ def _check_permission(ctx: ServerContext, permission: str) -> Optional[HandlerRe
 
     return None
 
-
 class FeedbackType(str, Enum):
     """Types of feedback."""
 
@@ -85,24 +83,23 @@ class FeedbackType(str, Enum):
     GENERAL = "general"
     DEBATE_QUALITY = "debate_quality"
 
-
 @dataclass
 class FeedbackEntry:
     """A feedback submission."""
 
     id: str
-    user_id: Optional[str]
+    user_id: str | None
     feedback_type: FeedbackType
-    score: Optional[int]  # For NPS: 0-10
-    comment: Optional[str]
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    score: int | None  # For NPS: 0-10
+    comment: str | None
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: str = ""
 
     def __post_init__(self):
         if not self.created_at:
             self.created_at = datetime.now(timezone.utc).isoformat()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -113,11 +110,10 @@ class FeedbackEntry:
             "created_at": self.created_at,
         }
 
-
 class FeedbackStore:
     """SQLite store for user feedback."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         self.db_path = db_path or resolve_db_path("feedback.db")
         self._init_db()
 
@@ -163,7 +159,7 @@ class FeedbackStore:
                 ),
             )
 
-    def get_nps_summary(self, days: int = 30) -> Dict[str, Any]:
+    def get_nps_summary(self, days: int = 30) -> dict[str, Any]:
         """Get NPS summary for the last N days."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -198,10 +194,8 @@ class FeedbackStore:
             "period_days": days,
         }
 
-
 # Global store instance
-_feedback_store: Optional[FeedbackStore] = None
-
+_feedback_store: FeedbackStore | None = None
 
 def get_feedback_store() -> FeedbackStore:
     """Get or create the feedback store."""
@@ -209,7 +203,6 @@ def get_feedback_store() -> FeedbackStore:
     if _feedback_store is None:
         _feedback_store = FeedbackStore()
     return _feedback_store
-
 
 async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
     """
@@ -265,7 +258,6 @@ async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
     except Exception as e:
         logger.error(f"Error submitting NPS feedback: {e}")
         return error_response(str(e), status=500)
-
 
 async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
     """
@@ -329,7 +321,6 @@ async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
         logger.error(f"Error submitting feedback: {e}")
         return error_response(str(e), status=500)
 
-
 async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
     """
     Get NPS summary (admin only).
@@ -360,7 +351,6 @@ async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
         logger.error(f"Error getting NPS summary: {e}")
         return error_response(str(e), status=500)
 
-
 async def handle_get_feedback_prompts(ctx: ServerContext) -> HandlerResult:
     """
     Get active feedback prompts for the user.
@@ -390,7 +380,6 @@ async def handle_get_feedback_prompts(ctx: ServerContext) -> HandlerResult:
     )
 
     return json_response({"prompts": prompts})
-
 
 # Route definitions for registration
 FEEDBACK_ROUTES = [

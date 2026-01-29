@@ -11,8 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
-
+from typing import Any, Optional
 
 class JobStatus(Enum):
     """Status of a job in the queue."""
@@ -23,7 +22,6 @@ class JobStatus(Enum):
     FAILED = "failed"  # Job failed after all retries
     CANCELLED = "cancelled"  # Job was cancelled
     RETRYING = "retrying"  # Job is waiting to be retried
-
 
 @dataclass
 class Job:
@@ -45,20 +43,20 @@ class Job:
         metadata: Additional metadata for tracking
     """
 
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     status: JobStatus = JobStatus.PENDING
     created_at: float = field(default_factory=lambda: datetime.now().timestamp())
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    started_at: float | None = None
+    completed_at: float | None = None
     attempts: int = 0
     max_attempts: int = 3
-    error: Optional[str] = None
-    worker_id: Optional[str] = None
+    error: str | None = None
+    worker_id: str | None = None
     priority: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert job to dictionary for serialization."""
         return {
             "id": self.id,
@@ -76,7 +74,7 @@ class Job:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Job":
+    def from_dict(cls, data: dict[str, Any]) -> "Job":
         """Create job from dictionary."""
         return cls(
             id=data["id"],
@@ -100,7 +98,7 @@ class Job:
         self.worker_id = worker_id
         self.attempts += 1
 
-    def mark_completed(self, result: Optional[Dict[str, Any]] = None) -> None:
+    def mark_completed(self, result: Optional[dict[str, Any]] = None) -> None:
         """Mark job as completed."""
         self.status = JobStatus.COMPLETED
         self.completed_at = datetime.now().timestamp()
@@ -122,7 +120,6 @@ class Job:
         """Check if job should be retried."""
         return self.attempts < self.max_attempts
 
-
 class JobQueue(ABC):
     """
     Abstract base class for job queues.
@@ -136,7 +133,7 @@ class JobQueue(ABC):
         self,
         job: Job,
         priority: int = 0,
-        queue_name: Optional[str] = None,
+        queue_name: str | None = None,
         delay_seconds: float = 0,
     ) -> str:
         """
@@ -158,8 +155,8 @@ class JobQueue(ABC):
         self,
         worker_id: str,
         timeout_ms: int = 5000,
-        queue_name: Optional[str] = None,
-    ) -> Optional[Job]:
+        queue_name: str | None = None,
+    ) -> Job | None:
         """
         Get the next job from the queue.
 
@@ -201,7 +198,7 @@ class JobQueue(ABC):
         pass
 
     @abstractmethod
-    async def get_status(self, job_id: str) -> Optional[Job]:
+    async def get_status(self, job_id: str) -> Job | None:
         """
         Get the current status of a job.
 
@@ -227,7 +224,7 @@ class JobQueue(ABC):
         pass
 
     @abstractmethod
-    async def get_queue_stats(self) -> Dict[str, int]:
+    async def get_queue_stats(self) -> dict[str, int]:
         """
         Get queue statistics.
 
@@ -257,7 +254,7 @@ class JobQueue(ABC):
     async def complete(
         self,
         job_id: str,
-        result: Optional[Dict[str, Any]] = None,
+        result: Optional[dict[str, Any]] = None,
         status: Optional["JobStatus"] = None,
     ) -> bool:
         """

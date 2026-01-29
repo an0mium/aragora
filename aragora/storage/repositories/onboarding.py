@@ -12,12 +12,11 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Dict, Optional
+from typing import Any, Callable, ContextManager, Optional
 
 from aragora.persistence.db_config import DatabaseType
 
 logger = logging.getLogger(__name__)
-
 
 class OnboardingRepository:
     """
@@ -29,7 +28,7 @@ class OnboardingRepository:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
+        db_path: Path | None = None,
         transaction_fn: Optional[Callable[[], ContextManager[sqlite3.Cursor]]] = None,
     ) -> None:
         """
@@ -81,17 +80,17 @@ class OnboardingRepository:
         conn.row_factory = sqlite3.Row
         return conn
 
-    def _flow_key(self, user_id: str, org_id: Optional[str]) -> str:
+    def _flow_key(self, user_id: str, org_id: str | None) -> str:
         """Generate flow key for lookup."""
         return f"{user_id}:{org_id or 'personal'}"
 
     def create_flow(
         self,
         user_id: str,
-        org_id: Optional[str],
+        org_id: str | None,
         current_step: str,
-        use_case: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        use_case: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Create a new onboarding flow.
@@ -136,7 +135,7 @@ class OnboardingRepository:
         logger.debug(f"Created onboarding flow {flow_id} for user {user_id}")
         return flow_id
 
-    def get_flow(self, user_id: str, org_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    def get_flow(self, user_id: str, org_id: str | None) -> Optional[dict[str, Any]]:
         """
         Get onboarding flow for user/org.
 
@@ -163,7 +162,7 @@ class OnboardingRepository:
 
         return self._row_to_flow(row)
 
-    def get_flow_by_id(self, flow_id: str) -> Optional[Dict[str, Any]]:
+    def get_flow_by_id(self, flow_id: str) -> Optional[dict[str, Any]]:
         """
         Get onboarding flow by ID.
 
@@ -187,7 +186,7 @@ class OnboardingRepository:
     def update_flow(
         self,
         flow_id: str,
-        updates: Dict[str, Any],
+        updates: dict[str, Any],
     ) -> bool:
         """
         Update an existing onboarding flow.
@@ -250,7 +249,7 @@ class OnboardingRepository:
             {"completed_at": datetime.now(timezone.utc).isoformat()},
         )
 
-    def _row_to_flow(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _row_to_flow(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert database row to flow dict."""
         return {
             "id": row["id"],
@@ -270,9 +269,9 @@ class OnboardingRepository:
 
     def get_analytics(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> dict[str, Any]:
         """
         Get onboarding analytics.
 
@@ -334,10 +333,8 @@ class OnboardingRepository:
             "step_distribution": step_counts,
         }
 
-
 # Global repository instance
-_onboarding_repo: Optional[OnboardingRepository] = None
-
+_onboarding_repo: OnboardingRepository | None = None
 
 def get_onboarding_repository() -> OnboardingRepository:
     """Get or create the global onboarding repository."""

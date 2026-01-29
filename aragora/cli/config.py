@@ -3,10 +3,11 @@ Aragora config command - Manage configuration settings.
 
 View and modify Aragora configuration from the command line.
 """
+from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -20,8 +21,7 @@ ENV_KEYS = [
     "OPENROUTER_API_KEY",
 ]
 
-
-def find_config() -> Optional[Path]:
+def find_config() -> Path | None:
     """Find the nearest .aragora.yaml config file."""
     current = Path.cwd()
     while current != current.parent:
@@ -31,8 +31,7 @@ def find_config() -> Optional[Path]:
         current = current.parent
     return None
 
-
-def load_config(config_path: Optional[Path] = None) -> dict:
+def load_config(config_path: Path | None = None) -> dict:
     """Load configuration from file."""
     if config_path is None:
         config_path = find_config()
@@ -47,8 +46,7 @@ def load_config(config_path: Optional[Path] = None) -> dict:
         print(f"Warning: Could not load config: {e}")
         return {}
 
-
-def save_config(config: dict, config_path: Optional[Path] = None) -> bool:
+def save_config(config: dict, config_path: Path | None = None) -> bool:
     """Save configuration to file."""
     if config_path is None:
         config_path = find_config()
@@ -64,7 +62,6 @@ def save_config(config: dict, config_path: Optional[Path] = None) -> bool:
         print(f"Error saving config: {e}")
         return False
 
-
 def get_nested(config: dict, key: str) -> Any:
     """Get a nested config value using dot notation (e.g., 'debate.rounds')."""
     keys = key.split(".")
@@ -76,7 +73,6 @@ def get_nested(config: dict, key: str) -> Any:
             return None
     return value
 
-
 def set_nested(config: dict, key: str, value: Any) -> None:
     """Set a nested config value using dot notation."""
     keys = key.split(".")
@@ -86,7 +82,6 @@ def set_nested(config: dict, key: str, value: Any) -> None:
             current[k] = {}
         current = current[k]
     current[keys[-1]] = value
-
 
 def cmd_config(args) -> None:
     """Handle 'config' command."""
@@ -104,7 +99,6 @@ def cmd_config(args) -> None:
         _show_path()
     else:
         _show_config(args)
-
 
 def _show_config(args) -> None:
     """Show all configuration."""
@@ -127,7 +121,6 @@ def _show_config(args) -> None:
     # Pretty print the config
     print(yaml.dump(config, default_flow_style=False, sort_keys=False))
 
-
 def _get_config(args) -> None:
     """Get a specific configuration value."""
     key = getattr(args, "key", None)
@@ -143,7 +136,6 @@ def _get_config(args) -> None:
         print(f"{key}: (not set)")
     else:
         print(f"{key}: {value}")
-
 
 def _set_config(args) -> None:
     """Set a configuration value."""
@@ -179,7 +171,6 @@ def _set_config(args) -> None:
     else:
         print("Failed to save configuration")
 
-
 def _show_env() -> None:
     """Show environment variable status."""
     print("\nAPI Key Environment Variables:")
@@ -198,7 +189,6 @@ def _show_env() -> None:
             print(f"  {key}: (not set)")
 
     print()
-
 
 def _show_path() -> None:
     """Show config file path."""

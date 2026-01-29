@@ -16,7 +16,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.verticals.base import (
     BaseVerticalKnowledge,
@@ -27,7 +27,6 @@ from aragora.knowledge.mound.verticals.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ClausePattern:
@@ -40,7 +39,6 @@ class ClausePattern:
     description: str
     flags: int = re.IGNORECASE | re.MULTILINE
 
-
 @dataclass
 class CompliancePattern:
     """Pattern for detecting compliance-related terms."""
@@ -49,7 +47,6 @@ class CompliancePattern:
     pattern: str
     framework: str  # GDPR, HIPAA, SOX, etc.
     description: str
-
 
 class LegalKnowledge(BaseVerticalKnowledge):
     """
@@ -267,7 +264,7 @@ class LegalKnowledge(BaseVerticalKnowledge):
     async def extract_facts(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list[VerticalFact]:
         """Extract legal facts from document content."""
         facts = []
@@ -352,7 +349,7 @@ class LegalKnowledge(BaseVerticalKnowledge):
     async def validate_fact(
         self,
         fact: VerticalFact,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> tuple[bool, float]:
         """
         Validate a legal fact.

@@ -21,7 +21,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -32,7 +32,6 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ConfluenceSpace:
     """A Confluence space."""
@@ -42,8 +41,7 @@ class ConfluenceSpace:
     name: str
     type: str  # global, personal
     status: str
-    homepage_id: Optional[str] = None
-
+    homepage_id: str | None = None
 
 @dataclass
 class ConfluencePage:
@@ -57,12 +55,11 @@ class ConfluencePage:
     version: int = 1
     url: str = ""
     created_by: str = ""
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
     updated_by: str = ""
-    updated_at: Optional[datetime] = None
-    parent_id: Optional[str] = None
-    labels: List[str] = field(default_factory=list)
-
+    updated_at: datetime | None = None
+    parent_id: str | None = None
+    labels: list[str] = field(default_factory=list)
 
 class ConfluenceConnector(EnterpriseConnector):
     """
@@ -92,11 +89,11 @@ class ConfluenceConnector(EnterpriseConnector):
     def __init__(
         self,
         base_url: str,
-        spaces: Optional[List[str]] = None,
+        spaces: Optional[list[str]] = None,
         include_archived: bool = False,
         include_attachments: bool = True,
         include_comments: bool = True,
-        exclude_labels: Optional[List[str]] = None,
+        exclude_labels: Optional[list[str]] = None,
         **kwargs,
     ):
         """
@@ -132,7 +129,7 @@ class ConfluenceConnector(EnterpriseConnector):
         self.is_cloud = "atlassian.net" in self.base_url
 
         # Cache
-        self._spaces_cache: Dict[str, ConfluenceSpace] = {}
+        self._spaces_cache: dict[str, ConfluenceSpace] = {}
 
     @property
     def source_type(self) -> SourceType:
@@ -142,7 +139,7 @@ class ConfluenceConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"Confluence ({self.base_url})"
 
-    async def _get_auth_header(self) -> Dict[str, str]:
+    async def _get_auth_header(self) -> dict[str, str]:
         """Get authentication header."""
         if self.is_cloud:
             email = await self.credentials.get_credential("CONFLUENCE_EMAIL")
@@ -170,9 +167,9 @@ class ConfluenceConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make a request to Confluence REST API."""
         import httpx
 
@@ -193,7 +190,7 @@ class ConfluenceConnector(EnterpriseConnector):
             response.raise_for_status()
             return response.json() if response.content else {}
 
-    async def _get_spaces(self) -> List[ConfluenceSpace]:
+    async def _get_spaces(self) -> list[ConfluenceSpace]:
         """Get all accessible spaces."""
         spaces = []
         start = 0
@@ -239,7 +236,7 @@ class ConfluenceConnector(EnterpriseConnector):
     async def _get_pages(
         self,
         space_key: str,
-        modified_since: Optional[datetime] = None,
+        modified_since: datetime | None = None,
     ) -> AsyncIterator[ConfluencePage]:
         """Get pages from a space."""
         start = 0
@@ -321,7 +318,7 @@ class ConfluenceConnector(EnterpriseConnector):
                 break
             start += limit
 
-    async def _get_page_comments(self, page_id: str) -> List[Dict[str, Any]]:
+    async def _get_page_comments(self, page_id: str) -> list[dict[str, Any]]:
         """Get comments for a page."""
         if not self.include_comments:
             return []
@@ -456,7 +453,7 @@ class ConfluenceConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        space_key: Optional[str] = None,
+        space_key: str | None = None,
         **kwargs,
     ) -> list:
         """Search Confluence content via CQL."""
@@ -501,7 +498,7 @@ class ConfluenceConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific Confluence page."""
         from aragora.connectors.base import Evidence
 
@@ -542,7 +539,7 @@ class ConfluenceConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle Confluence webhook notification."""
         event = payload.get("webhookEvent", "")
         page = payload.get("page", {})
@@ -555,6 +552,5 @@ class ConfluenceConnector(EnterpriseConnector):
             return True
 
         return False
-
 
 __all__ = ["ConfluenceConnector", "ConfluenceSpace", "ConfluencePage"]

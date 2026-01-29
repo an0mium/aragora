@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable, Coroutine, Dict, Optional, Tuple, TypeVar
+from typing import Any, Callable, Coroutine, Optional, TypeVar
 
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
@@ -38,7 +38,6 @@ T = TypeVar("T")
 
 # Default RBAC permission for bot status endpoints
 DEFAULT_BOTS_READ_PERMISSION = "bots.read"
-
 
 class BotHandlerMixin:
     """Mixin providing shared patterns for bot integration handlers.
@@ -62,7 +61,7 @@ class BotHandlerMixin:
     async def handle_status_request(
         self,
         handler: Any,
-        extra_status: Optional[Dict[str, Any]] = None,
+        extra_status: Optional[dict[str, Any]] = None,
     ) -> HandlerResult:
         """Handle RBAC-protected status endpoint request.
 
@@ -87,7 +86,7 @@ class BotHandlerMixin:
         return self._build_status_response(extra_status)
 
     def _build_status_response(
-        self, extra_status: Optional[Dict[str, Any]] = None
+        self, extra_status: Optional[dict[str, Any]] = None
     ) -> HandlerResult:
         """Build the status response JSON.
 
@@ -153,7 +152,7 @@ class BotHandlerMixin:
 
         return await operation(*args, auth_context=auth_context, **kwargs)
 
-    def handle_rate_limit_exceeded(self, limit_info: Optional[str] = None) -> HandlerResult:
+    def handle_rate_limit_exceeded(self, limit_info: str | None = None) -> HandlerResult:
         """Return a rate limit exceeded response.
 
         Args:
@@ -217,7 +216,7 @@ class BotHandlerMixin:
 
     def _parse_json_body(
         self, body: bytes, context: str = "webhook", allow_empty: bool = False
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[HandlerResult]]:
+    ) -> tuple[Optional[dict[str, Any]], HandlerResult | None]:
         """Parse JSON from request body with standardized error handling.
 
         Args:
@@ -288,7 +287,7 @@ class BotHandlerMixin:
             return json_response({"ok": False, "error": error_msg})
         return error_response(f"Internal error: {error_msg}", 500)
 
-    def _audit_webhook_auth_failure(self, method: str, reason: Optional[str] = None) -> None:
+    def _audit_webhook_auth_failure(self, method: str, reason: str | None = None) -> None:
         """Audit a webhook authentication failure.
 
         Args:
@@ -307,7 +306,6 @@ class BotHandlerMixin:
             )
         except ImportError:
             pass  # Audit not available
-
 
 __all__ = [
     "BotHandlerMixin",

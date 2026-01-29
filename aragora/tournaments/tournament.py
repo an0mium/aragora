@@ -18,13 +18,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 from aragora.core import Agent, DebateResult, Environment
 from aragora.ranking.elo import EloSystem
 from aragora.tournaments.database import TournamentDatabase
-
 
 class TournamentFormat(Enum):
     """Tournament format types."""
@@ -33,7 +32,6 @@ class TournamentFormat(Enum):
     SINGLE_ELIMINATION = "single_elimination"  # Bracket style
     SWISS = "swiss"  # Swiss-system pairing
     FREE_FOR_ALL = "free_for_all"  # All agents in every debate
-
 
 @dataclass
 class TournamentTask:
@@ -45,7 +43,6 @@ class TournamentTask:
     difficulty: float = 0.5  # 0-1
     time_limit: int = 300  # seconds
 
-
 @dataclass
 class TournamentMatch:
     """A single match in the tournament."""
@@ -54,16 +51,15 @@ class TournamentMatch:
     round_num: int
     participants: list[str]
     task: TournamentTask
-    result: Optional[DebateResult] = None
+    result: DebateResult | None = None
     scores: dict[str, float] = field(default_factory=dict)
-    winner: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    winner: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
 
     @property
     def is_complete(self) -> bool:
         return self.result is not None
-
 
 @dataclass
 class TournamentStanding:
@@ -81,7 +77,6 @@ class TournamentStanding:
     def win_rate(self) -> float:
         return self.wins / self.matches_played if self.matches_played > 0 else 0.0
 
-
 @dataclass
 class TournamentResult:
     """Final result of a tournament."""
@@ -96,7 +91,6 @@ class TournamentResult:
     started_at: str
     completed_at: str
 
-
 class Tournament:
     """
     Manages a tournament competition between agents.
@@ -110,7 +104,7 @@ class Tournament:
         agents: list[Agent],
         tasks: list[TournamentTask],
         format: TournamentFormat = TournamentFormat.ROUND_ROBIN,
-        elo_system: Optional[EloSystem] = None,
+        elo_system: EloSystem | None = None,
         db_path: str = "aragora_tournaments.db",
     ):
         self.tournament_id = str(uuid.uuid4())[:8]
@@ -128,8 +122,8 @@ class Tournament:
             name: TournamentStanding(agent_name=name) for name in self.agent_names
         }
         self.current_round = 0
-        self.started_at: Optional[str] = None
-        self.completed_at: Optional[str] = None
+        self.started_at: str | None = None
+        self.completed_at: str | None = None
 
     def generate_matches(self) -> list[TournamentMatch]:
         """Generate match schedule based on tournament format."""
@@ -498,7 +492,6 @@ class Tournament:
             reverse=True,
         )
 
-
 def create_default_tasks() -> list[TournamentTask]:
     """Create a default set of tournament tasks."""
     return [
@@ -534,7 +527,6 @@ def create_default_tasks() -> list[TournamentTask]:
         ),
     ]
 
-
 class TournamentManager:
     """
     Read-only manager for accessing tournament data from database.
@@ -547,7 +539,7 @@ class TournamentManager:
         self.db_path = Path(db_path)
         self.db = TournamentDatabase(db_path)
 
-    def get_tournament(self) -> Optional[dict]:
+    def get_tournament(self) -> dict | None:
         """Get the tournament metadata."""
         if not self.db_path.exists():
             return None
@@ -615,7 +607,7 @@ class TournamentManager:
         except (sqlite3.Error, json.JSONDecodeError, Exception):
             return []
 
-    def get_matches(self, limit: Optional[int] = None) -> list[dict]:
+    def get_matches(self, limit: int | None = None) -> list[dict]:
         """Get tournament matches."""
         if not self.db_path.exists():
             return []

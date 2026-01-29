@@ -19,7 +19,7 @@ import json
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 from aragora.workflow.types import (
@@ -51,7 +51,6 @@ from aragora.observability import get_logger, create_span, add_span_attributes
 
 logger = get_logger(__name__)
 
-
 class WorkflowEngine:
     """
     Executes workflows defined by WorkflowDefinition.
@@ -79,24 +78,24 @@ class WorkflowEngine:
 
     def __init__(
         self,
-        config: Optional[WorkflowConfig] = None,
-        step_registry: Optional[Dict[str, Type[WorkflowStep]]] = None,
-        checkpoint_store: Optional[CheckpointStore] = None,
+        config: WorkflowConfig | None = None,
+        step_registry: Optional[dict[str, type[WorkflowStep]]] = None,
+        checkpoint_store: CheckpointStore | None = None,
     ):
         self._config = config or WorkflowConfig()
 
         # Step type registry
-        self._step_types: Dict[str, Type[WorkflowStep]] = step_registry or {}
+        self._step_types: dict[str, type[WorkflowStep]] = step_registry or {}
         self._register_default_step_types()
 
         # Step instance cache
-        self._step_instances: Dict[str, WorkflowStep] = {}
+        self._step_instances: dict[str, WorkflowStep] = {}
 
         # Execution state
-        self._current_step: Optional[str] = None
+        self._current_step: str | None = None
         self._should_terminate: bool = False
-        self._termination_reason: Optional[str] = None
-        self._results: List[StepResult] = []
+        self._termination_reason: str | None = None
+        self._results: list[StepResult] = []
 
         # Checkpoint storage - use provided store or fall back to file-based
         self._checkpoint_store: CheckpointStore = checkpoint_store or get_checkpoint_store()
@@ -140,7 +139,7 @@ class WorkflowEngine:
         except ImportError as e:
             logger.debug(f"Some Phase 2 step types not available: {e}")
 
-    def register_step_type(self, type_name: str, step_class: Type[WorkflowStep]) -> None:
+    def register_step_type(self, type_name: str, step_class: type[WorkflowStep]) -> None:
         """
         Register a custom step type.
 
@@ -182,7 +181,7 @@ class WorkflowEngine:
                     threshold_pct=int(threshold * 100),
                 )
 
-    def get_checkpoint_cache_stats(self) -> Dict[str, Any]:
+    def get_checkpoint_cache_stats(self) -> dict[str, Any]:
         """Get statistics about the checkpoint cache."""
         return self._checkpoints_cache.stats
 
@@ -193,8 +192,8 @@ class WorkflowEngine:
     async def execute(
         self,
         definition: WorkflowDefinition,
-        inputs: Optional[Dict[str, Any]] = None,
-        workflow_id: Optional[str] = None,
+        inputs: Optional[dict[str, Any]] = None,
+        workflow_id: str | None = None,
     ) -> WorkflowResult:
         """
         Execute a workflow from the beginning.
@@ -604,7 +603,7 @@ class WorkflowEngine:
                     retry_count=retry_count,
                 )
 
-    def _get_step_instance(self, step_def: StepDefinition) -> Optional[WorkflowStep]:
+    def _get_step_instance(self, step_def: StepDefinition) -> WorkflowStep | None:
         """Get or create a step instance."""
         cache_key = f"{step_def.id}:{step_def.step_type}"
 
@@ -630,7 +629,7 @@ class WorkflowEngine:
         definition: WorkflowDefinition,
         current_step_id: str,
         context: WorkflowContext,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Determine the next step based on transitions and step output."""
         step_def = definition.get_step(current_step_id)
         if not step_def:
@@ -717,7 +716,7 @@ class WorkflowEngine:
 
         return checkpoint
 
-    async def get_checkpoint(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
+    async def get_checkpoint(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
         """Get a checkpoint by ID."""
         # Check cache first
         cached = self._checkpoints_cache.get(checkpoint_id)
@@ -734,7 +733,7 @@ class WorkflowEngine:
             logger.warning(f"Failed to load checkpoint {checkpoint_id}: {e}")
             return None
 
-    async def get_latest_checkpoint(self, workflow_id: str) -> Optional[WorkflowCheckpoint]:
+    async def get_latest_checkpoint(self, workflow_id: str) -> WorkflowCheckpoint | None:
         """Get the most recent checkpoint for a workflow."""
         try:
             return await self._checkpoint_store.load_latest(workflow_id)
@@ -742,7 +741,7 @@ class WorkflowEngine:
             logger.warning(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
 
-    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+    async def list_checkpoints(self, workflow_id: str) -> list[str]:
         """List all checkpoint IDs for a workflow."""
         try:
             return await self._checkpoint_store.list_checkpoints(workflow_id)
@@ -771,12 +770,12 @@ class WorkflowEngine:
         self._termination_reason = reason
         logger.info(f"Workflow termination requested: {reason}")
 
-    def check_termination(self) -> tuple[bool, Optional[str]]:
+    def check_termination(self) -> tuple[bool, str | None]:
         """Check if termination has been requested."""
         return self._should_terminate, self._termination_reason
 
     @property
-    def current_step(self) -> Optional[str]:
+    def current_step(self) -> str | None:
         """Get currently executing step ID."""
         return self._current_step
 
@@ -784,7 +783,7 @@ class WorkflowEngine:
     # Metrics
     # =========================================================================
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get execution metrics."""
         total_duration = sum(r.duration_ms for r in self._results)
         completed = sum(1 for r in self._results if r.status == StepStatus.COMPLETED)
@@ -803,12 +802,10 @@ class WorkflowEngine:
             "termination_reason": self._termination_reason,
         }
 
-
 # Singleton instance
-_workflow_engine_instance: Optional[WorkflowEngine] = None
+_workflow_engine_instance: WorkflowEngine | None = None
 
-
-def get_workflow_engine(config: Optional[WorkflowConfig] = None) -> WorkflowEngine:
+def get_workflow_engine(config: WorkflowConfig | None = None) -> WorkflowEngine:
     """
     Get or create the global WorkflowEngine singleton.
 
@@ -828,7 +825,6 @@ def get_workflow_engine(config: Optional[WorkflowConfig] = None) -> WorkflowEngi
         _workflow_engine_instance = WorkflowEngine(config=config)
 
     return _workflow_engine_instance
-
 
 def reset_workflow_engine() -> None:
     """Reset the global WorkflowEngine singleton (for testing)."""

@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
@@ -40,14 +40,12 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
-
 class PayrollStatus(str, Enum):
     """Payroll run status."""
 
     UNPROCESSED = "unprocessed"
     PROCESSED = "processed"
     CANCELLED = "cancelled"
-
 
 class EmploymentType(str, Enum):
     """Employee type."""
@@ -56,13 +54,11 @@ class EmploymentType(str, Enum):
     PART_TIME = "part_time"
     CONTRACTOR = "contractor"
 
-
 class PayType(str, Enum):
     """Compensation type."""
 
     HOURLY = "hourly"
     SALARY = "salary"
-
 
 @dataclass
 class GustoCredentials:
@@ -73,7 +69,7 @@ class GustoCredentials:
     company_id: str
     company_name: str
     token_type: str = "Bearer"
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     scope: str = ""
 
     @property
@@ -82,7 +78,6 @@ class GustoCredentials:
         if not self.expires_at:
             return True
         return datetime.now(timezone.utc) >= self.expires_at
-
 
 @dataclass
 class Employee(ConnectorDataclass):
@@ -97,21 +92,20 @@ class Employee(ConnectorDataclass):
     email: str
     employment_type: EmploymentType = EmploymentType.FULL_TIME
     pay_type: PayType = PayType.SALARY
-    department: Optional[str] = None
-    job_title: Optional[str] = None
-    hire_date: Optional[date] = None
-    termination_date: Optional[date] = None
+    department: str | None = None
+    job_title: str | None = None
+    hire_date: date | None = None
+    termination_date: date | None = None
     is_active: bool = True
 
     # Compensation
-    hourly_rate: Optional[Decimal] = None
-    annual_salary: Optional[Decimal] = None
+    hourly_rate: Decimal | None = None
+    annual_salary: Decimal | None = None
 
-    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=False) -> dict[str, Any]:
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         result["full_name"] = f"{self.first_name} {self.last_name}"
         return result
-
 
 @dataclass
 class PayrollItem(ConnectorDataclass):
@@ -190,12 +184,11 @@ class PayrollItem(ConnectorDataclass):
             + self.employer_health
         )
 
-    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=False) -> dict[str, Any]:
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         result["net_pay"] = float(self.net_pay)
         result["total_employer_cost"] = float(self.total_employer_cost)
         return result
-
 
 @dataclass
 class PayrollRun(ConnectorDataclass):
@@ -220,10 +213,10 @@ class PayrollRun(ConnectorDataclass):
     total_reimbursements: Decimal = Decimal("0")
 
     # Individual entries
-    payroll_items: List[PayrollItem] = field(default_factory=list)
+    payroll_items: list[PayrollItem] = field(default_factory=list)
 
     # Metadata
-    processed_at: Optional[datetime] = None
+    processed_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
@@ -231,12 +224,11 @@ class PayrollRun(ConnectorDataclass):
         """Total cost to employer."""
         return self.total_gross_pay + self.total_employer_taxes
 
-    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=False) -> dict[str, Any]:
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         result["total_employer_cost"] = float(self.total_employer_cost)
         result["employee_count"] = len(self.payroll_items)
         return result
-
 
 @dataclass
 class JournalEntry:
@@ -244,7 +236,7 @@ class JournalEntry:
 
     date: date
     memo: str
-    lines: List[Dict[str, Any]] = field(default_factory=list)
+    lines: list[dict[str, Any]] = field(default_factory=list)
 
     def add_debit(
         self,
@@ -289,7 +281,7 @@ class JournalEntry:
         total_credits = sum(line["credit"] for line in self.lines)
         return abs(total_debits - total_credits) < 0.01
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "date": self.date.isoformat(),
             "memo": self.memo,
@@ -298,7 +290,6 @@ class JournalEntry:
             "total_debits": sum(line["debit"] for line in self.lines),
             "total_credits": sum(line["credit"] for line in self.lines),
         }
-
 
 class GustoConnector:
     """
@@ -326,10 +317,10 @@ class GustoConnector:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        circuit_breaker: Optional[CircuitBreaker] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        redirect_uri: str | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
     ):
         """
@@ -346,7 +337,7 @@ class GustoConnector:
         self.client_secret = client_secret or os.getenv("GUSTO_CLIENT_SECRET")
         self.redirect_uri = redirect_uri or os.getenv("GUSTO_REDIRECT_URI")
 
-        self._credentials: Optional[GustoCredentials] = None
+        self._credentials: GustoCredentials | None = None
         self._account_mappings = dict(self.DEFAULT_ACCOUNTS)
 
         # Circuit breaker for API resilience
@@ -371,7 +362,7 @@ class GustoConnector:
         """Check if connector has valid credentials."""
         return self._credentials is not None and not self._credentials.is_expired
 
-    def get_authorization_url(self, state: Optional[str] = None) -> str:
+    def get_authorization_url(self, state: str | None = None) -> str:
         """Get OAuth authorization URL."""
         import urllib.parse
 
@@ -477,8 +468,8 @@ class GustoConnector:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        access_token: Optional[str] = None,
+        data: Optional[dict[str, Any]] = None,
+        access_token: str | None = None,
     ) -> Any:
         """Make authenticated API request with circuit breaker protection."""
         import asyncio
@@ -573,7 +564,7 @@ class GustoConnector:
                 connector_name="gusto",
             ) from e
 
-    async def _get_current_company(self, access_token: str) -> Dict[str, Any]:
+    async def _get_current_company(self, access_token: str) -> dict[str, Any]:
         """Get current user's company."""
         response = await self._request(
             "GET",
@@ -594,7 +585,7 @@ class GustoConnector:
     async def list_employees(
         self,
         active_only: bool = True,
-    ) -> List[Employee]:
+    ) -> list[Employee]:
         """List all employees."""
         if not self._credentials:
             raise ConnectorAuthError("Not authenticated", connector_name="gusto")
@@ -644,10 +635,10 @@ class GustoConnector:
 
     async def list_payrolls(
         self,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         processed_only: bool = True,
-    ) -> List[PayrollRun]:
+    ) -> list[PayrollRun]:
         """List payroll runs."""
         if not self._credentials:
             raise ConnectorAuthError("Not authenticated", connector_name="gusto")
@@ -700,7 +691,7 @@ class GustoConnector:
 
         return payrolls
 
-    async def get_payroll(self, payroll_id: str) -> Optional[PayrollRun]:
+    async def get_payroll(self, payroll_id: str) -> PayrollRun | None:
         """Get detailed payroll run with employee items."""
         if not self._credentials:
             raise ConnectorAuthError("Not authenticated", connector_name="gusto")
@@ -806,7 +797,7 @@ class GustoConnector:
     def generate_journal_entry(
         self,
         payroll: PayrollRun,
-        account_mappings: Optional[Dict[str, Tuple[str, str]]] = None,
+        account_mappings: Optional[dict[str, tuple[str, str]]] = None,
     ) -> JournalEntry:
         """
         Generate QBO journal entry from payroll run.
@@ -926,13 +917,11 @@ class GustoConnector:
         """Set a custom account mapping."""
         self._account_mappings[mapping_key] = (account_id, account_name)
 
-
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
 
-
-def get_mock_employees() -> List[Employee]:
+def get_mock_employees() -> list[Employee]:
     """Generate mock employee data."""
     return [
         Employee(
@@ -972,7 +961,6 @@ def get_mock_employees() -> List[Employee]:
             hourly_rate=Decimal("35"),
         ),
     ]
-
 
 def get_mock_payroll_run() -> PayrollRun:
     """Generate mock payroll run."""
@@ -1023,7 +1011,6 @@ def get_mock_payroll_run() -> PayrollRun:
         ],
         processed_at=datetime.now(timezone.utc) - timedelta(days=2),
     )
-
 
 __all__ = [
     "GustoConnector",

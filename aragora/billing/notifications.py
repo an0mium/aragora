@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -42,15 +42,13 @@ SMTP_FROM = os.environ.get("ARAGORA_SMTP_FROM", "billing@aragora.ai")
 # Webhook for external notification systems (Slack, etc.)
 NOTIFICATION_WEBHOOK = os.environ.get("ARAGORA_NOTIFICATION_WEBHOOK", "")
 
-
 @dataclass
 class NotificationResult:
     """Result of sending a notification."""
 
     success: bool
     method: str  # "email", "webhook", "log"
-    error: Optional[str] = None
-
+    error: str | None = None
 
 class BillingNotifier:
     """
@@ -64,12 +62,12 @@ class BillingNotifier:
 
     def __init__(
         self,
-        smtp_host: Optional[str] = None,
-        smtp_port: Optional[int] = None,
-        smtp_user: Optional[str] = None,
-        smtp_password: Optional[str] = None,
-        smtp_from: Optional[str] = None,
-        webhook_url: Optional[str] = None,
+        smtp_host: str | None = None,
+        smtp_port: int | None = None,
+        smtp_user: str | None = None,
+        smtp_password: str | None = None,
+        smtp_from: str | None = None,
+        webhook_url: str | None = None,
     ):
         self.smtp_host = smtp_host or SMTP_HOST
         self.smtp_port = smtp_port or SMTP_PORT
@@ -87,7 +85,7 @@ class BillingNotifier:
         to_email: str,
         subject: str,
         html_body: str,
-        text_body: Optional[str] = None,
+        text_body: str | None = None,
     ) -> NotificationResult:
         """Send email via SMTP."""
         if not self._is_smtp_configured():
@@ -155,7 +153,7 @@ class BillingNotifier:
         org_name: str,
         email: str,
         attempt_count: int = 1,
-        invoice_url: Optional[str] = None,
+        invoice_url: str | None = None,
         days_until_downgrade: int = 7,
     ) -> NotificationResult:
         """
@@ -398,7 +396,7 @@ Questions? Contact us at support@aragora.ai
         org_id: str,
         org_name: str,
         email: str,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> NotificationResult:
         """
         Send subscription cancellation confirmation.
@@ -493,7 +491,7 @@ We'd love to hear your feedback. What could we have done better?
         org_name: str,
         email: str,
         previous_tier: "SubscriptionTier",
-        invoice_url: Optional[str] = None,
+        invoice_url: str | None = None,
     ) -> NotificationResult:
         """
         Send subscription downgrade notification due to payment failure.
@@ -600,7 +598,7 @@ Need help? Contact support@aragora.ai
         current_spend: str,
         budget_limit: str,
         percent_used: float,
-        org_name: Optional[str] = None,
+        org_name: str | None = None,
     ) -> NotificationResult:
         """
         Send budget alert notification.
@@ -1002,10 +1000,8 @@ Start a debate: https://aragora.ai/dashboard/debates/new
         )
         return NotificationResult(success=True, method="log")
 
-
 # Default notifier instance
-_default_notifier: Optional[BillingNotifier] = None
-
+_default_notifier: BillingNotifier | None = None
 
 def get_billing_notifier() -> BillingNotifier:
     """Get the default billing notifier instance."""
@@ -1013,7 +1009,6 @@ def get_billing_notifier() -> BillingNotifier:
     if _default_notifier is None:
         _default_notifier = BillingNotifier()
     return _default_notifier
-
 
 __all__ = [
     "BillingNotifier",

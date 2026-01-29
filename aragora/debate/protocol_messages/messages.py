@@ -14,8 +14,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
-
+from typing import Any, Union
 
 class ProtocolMessageType(Enum):
     """Enumeration of all protocol message types in the debate lifecycle."""
@@ -59,20 +58,18 @@ class ProtocolMessageType(Enum):
     RECOVERY_INITIATED = "recovery_initiated"
     RECOVERY_COMPLETED = "recovery_completed"
 
-
 @dataclass
 class ProtocolPayload:
     """Base payload for protocol messages."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert payload to dictionary."""
         return {k: v for k, v in self.__dict__.items() if v is not None}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ProtocolPayload":
+    def from_dict(cls, data: dict[str, Any]) -> "ProtocolPayload":
         """Create payload from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
-
 
 @dataclass
 class ProposalPayload(ProtocolPayload):
@@ -82,10 +79,9 @@ class ProposalPayload(ProtocolPayload):
     content: str
     model: str
     round_number: int
-    token_count: Optional[int] = None
-    latency_ms: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    token_count: int | None = None
+    latency_ms: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class CritiquePayload(ProtocolPayload):
@@ -97,11 +93,10 @@ class CritiquePayload(ProtocolPayload):
     model: str
     round_number: int
     critique_type: str = "standard"  # standard, rebuttal, counter
-    severity: Optional[str] = None  # minor, moderate, major
-    addressed_issues: List[str] = field(default_factory=list)
-    token_count: Optional[int] = None
-    latency_ms: Optional[float] = None
-
+    severity: str | None = None  # minor, moderate, major
+    addressed_issues: list[str] = field(default_factory=list)
+    token_count: int | None = None
+    latency_ms: float | None = None
 
 @dataclass
 class VotePayload(ProtocolPayload):
@@ -111,24 +106,22 @@ class VotePayload(ProtocolPayload):
     proposal_id: str
     vote_type: str  # support, oppose, abstain
     confidence: float  # 0.0 to 1.0
-    rationale: Optional[str] = None
-    weighted_score: Optional[float] = None
+    rationale: str | None = None
+    weighted_score: float | None = None
     is_human: bool = False
-
 
 @dataclass
 class ConsensusPayload(ProtocolPayload):
     """Payload for consensus-related messages."""
 
     consensus_id: str
-    winning_proposal_id: Optional[str]
+    winning_proposal_id: str | None
     final_answer: str
     confidence: float
-    vote_distribution: Dict[str, int] = field(default_factory=dict)
+    vote_distribution: dict[str, int] = field(default_factory=dict)
     rounds_taken: int = 0
-    convergence_score: Optional[float] = None
-    dissent_summary: Optional[str] = None
-
+    convergence_score: float | None = None
+    dissent_summary: str | None = None
 
 @dataclass
 class RoundPayload(ProtocolPayload):
@@ -139,9 +132,8 @@ class RoundPayload(ProtocolPayload):
     proposal_count: int = 0
     critique_count: int = 0
     vote_count: int = 0
-    duration_ms: Optional[float] = None
-    convergence_delta: Optional[float] = None
-
+    duration_ms: float | None = None
+    convergence_delta: float | None = None
 
 @dataclass
 class AgentEventPayload(ProtocolPayload):
@@ -151,9 +143,8 @@ class AgentEventPayload(ProtocolPayload):
     agent_name: str
     model: str
     role: str  # proposer, critic, voter, judge
-    reason: Optional[str] = None  # For failures/replacements
-    replacement_id: Optional[str] = None
-
+    reason: str | None = None  # For failures/replacements
+    replacement_id: str | None = None
 
 # Union type for all payloads
 PayloadType = Union[
@@ -165,7 +156,6 @@ PayloadType = Union[
     AgentEventPayload,
     ProtocolPayload,
 ]
-
 
 @dataclass
 class ProtocolMessage:
@@ -182,18 +172,18 @@ class ProtocolMessage:
 
     message_type: ProtocolMessageType
     debate_id: str
-    agent_id: Optional[str] = None
-    round_number: Optional[int] = None
-    payload: Optional[PayloadType] = None
+    agent_id: str | None = None
+    round_number: int | None = None
+    payload: PayloadType | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     message_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    correlation_id: Optional[str] = None
-    parent_message_id: Optional[str] = None  # For chaining (e.g., critique -> proposal)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    correlation_id: str | None = None
+    parent_message_id: str | None = None  # For chaining (e.g., critique -> proposal)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert message to dictionary for serialization."""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "message_id": self.message_id,
             "message_type": self.message_type.value,
             "debate_id": self.debate_id,
@@ -222,7 +212,7 @@ class ProtocolMessage:
         return json.dumps(self.to_dict(), default=str)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ProtocolMessage":
+    def from_dict(cls, data: dict[str, Any]) -> "ProtocolMessage":
         """Create message from dictionary."""
         message_type = ProtocolMessageType(data["message_type"])
         timestamp = data.get("timestamp")
@@ -252,9 +242,7 @@ class ProtocolMessage:
             f")"
         )
 
-
 # Factory functions for common message types
-
 
 def proposal_message(
     debate_id: str,
@@ -279,7 +267,6 @@ def proposal_message(
             **kwargs,
         ),
     )
-
 
 def critique_message(
     debate_id: str,
@@ -308,7 +295,6 @@ def critique_message(
         ),
     )
 
-
 def vote_message(
     debate_id: str,
     agent_id: str,
@@ -333,11 +319,10 @@ def vote_message(
         ),
     )
 
-
 def consensus_message(
     debate_id: str,
     consensus_id: str,
-    winning_proposal_id: Optional[str],
+    winning_proposal_id: str | None,
     final_answer: str,
     confidence: float,
     rounds_taken: int,
@@ -356,7 +341,6 @@ def consensus_message(
             **kwargs,
         ),
     )
-
 
 def round_message(
     debate_id: str,
@@ -378,7 +362,6 @@ def round_message(
             **kwargs,
         ),
     )
-
 
 def agent_event_message(
     debate_id: str,

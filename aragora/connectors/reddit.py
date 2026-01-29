@@ -9,11 +9,11 @@ Provides access to Reddit via the public JSON API:
 The Reddit JSON API is free and requires no authentication for read-only access.
 Simply append .json to any Reddit URL.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
@@ -28,7 +28,6 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
-
 # Reddit JSON API endpoints
 REDDIT_SEARCH_URL = "https://www.reddit.com/search.json"
 REDDIT_SUBREDDIT_URL = "https://www.reddit.com/r/{subreddit}.json"
@@ -36,7 +35,6 @@ REDDIT_POST_URL = "https://www.reddit.com/comments/{post_id}.json"
 
 # User-Agent required by Reddit API guidelines
 REDDIT_USER_AGENT = "aragora-connector/1.0 (evidence collection for AI debate)"
-
 
 class RedditConnector(BaseConnector):
     """
@@ -57,7 +55,7 @@ class RedditConnector(BaseConnector):
 
     def __init__(
         self,
-        provenance: Optional[ProvenanceManager] = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.6,
         timeout: int = 30,
         rate_limit_delay: float = 2.0,  # Reddit requires >= 1 second between requests
@@ -144,7 +142,7 @@ class RedditConnector(BaseConnector):
         self,
         query: str,
         limit: int = 25,
-        subreddit: Optional[str] = None,
+        subreddit: str | None = None,
         sort: str = "relevance",
         time_filter: str = "all",
         **kwargs,
@@ -215,7 +213,7 @@ class RedditConnector(BaseConnector):
             logger.debug(f"Reddit search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a specific Reddit post by ID.
 
@@ -277,7 +275,7 @@ class RedditConnector(BaseConnector):
 
         return results
 
-    def _parse_post(self, post: dict) -> Optional[Evidence]:
+    def _parse_post(self, post: dict) -> Evidence | None:
         """Parse a single Reddit post into Evidence."""
         post_id = post.get("id")
         if not post_id:
@@ -368,7 +366,7 @@ class RedditConnector(BaseConnector):
             },
         )
 
-    def _parse_post_detail(self, data: list) -> Optional[Evidence]:
+    def _parse_post_detail(self, data: list) -> Evidence | None:
         """Parse a full post response (includes comments) into Evidence."""
         if not data or len(data) < 1:
             return None
@@ -497,6 +495,5 @@ class RedditConnector(BaseConnector):
             List of Evidence objects
         """
         return await self.get_subreddit(subreddit, sort="new", limit=limit)
-
 
 __all__ = ["RedditConnector"]

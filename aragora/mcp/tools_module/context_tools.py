@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def fetch_channel_context_tool(
     channel_id: str,
@@ -20,7 +19,7 @@ async def fetch_channel_context_tool(
     message_limit: int = 50,
     include_participants: bool = True,
     include_topics: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetch context from a chat channel.
 
@@ -81,13 +80,12 @@ async def fetch_channel_context_tool(
             "platform": platform,
         }
 
-
 async def fetch_debate_context_tool(
     debate_id: str,
     include_history: bool = True,
     include_consensus: bool = True,
     include_metrics: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetch context for an active or completed debate.
 
@@ -151,14 +149,13 @@ async def fetch_debate_context_tool(
             "debate_id": debate_id,
         }
 
-
 async def analyze_conversation_tool(
-    messages: List[Dict[str, Any]],
+    messages: list[dict[str, Any]],
     analyze_sentiment: bool = True,
     analyze_activity: bool = True,
     extract_questions: bool = True,
     extract_decisions: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyze a conversation for patterns and insights.
 
@@ -210,12 +207,11 @@ async def analyze_conversation_tool(
 
     return result
 
-
 async def get_thread_context_tool(
     thread_id: str,
     platform: str = "slack",
     include_parent: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetch context for a specific thread.
 
@@ -253,13 +249,12 @@ async def get_thread_context_tool(
         logger.error(f"Failed to fetch thread context: {e}")
         return {"error": str(e), "thread_id": thread_id}
 
-
 async def get_user_context_tool(
     user_id: str,
     platform: str = "slack",
     include_recent_messages: bool = True,
     message_limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetch context for a specific user.
 
@@ -299,11 +294,9 @@ async def get_user_context_tool(
         logger.error(f"Failed to fetch user context: {e}")
         return {"error": str(e), "user_id": user_id}
 
-
 # Helper functions
 
-
-async def _get_chat_connector(platform: str) -> Optional[Any]:
+async def _get_chat_connector(platform: str) -> Any | None:
     """Get the chat connector for a platform."""
     try:
         if platform == "slack":
@@ -329,20 +322,18 @@ async def _get_chat_connector(platform: str) -> Optional[Any]:
         logger.warning(f"Could not import connector for {platform}: {e}")
         return None
 
-
 async def _fetch_channel_messages(
     connector: Any,
     channel_id: str,
     limit: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Fetch messages from a channel."""
     if hasattr(connector, "get_channel_messages"):
         result = await connector.get_channel_messages(channel_id, limit=limit)
         return list(result) if result else []
     return []
 
-
-async def _extract_topics(messages: List[Dict[str, Any]]) -> List[str]:
+async def _extract_topics(messages: list[dict[str, Any]]) -> list[str]:
     """Extract topics from messages using keyword extraction."""
     # Simple keyword extraction - could be enhanced with NLP
     from collections import Counter
@@ -422,8 +413,7 @@ async def _extract_topics(messages: List[Dict[str, Any]]) -> List[str]:
     counter = Counter(words)
     return [word for word, _ in counter.most_common(10)]
 
-
-def _analyze_activity(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _analyze_activity(messages: list[dict[str, Any]]) -> dict[str, Any]:
     """Analyze activity patterns in messages."""
     if not messages:
         return {"total_messages": 0}
@@ -441,7 +431,7 @@ def _analyze_activity(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
             except Exception:
                 pass
 
-    activity: Dict[str, Any] = {
+    activity: dict[str, Any] = {
         "total_messages": len(messages),
         "unique_authors": len(set(msg.get("author", "") for msg in messages)),
     }
@@ -461,8 +451,7 @@ def _analyze_activity(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     return activity
 
-
-async def _analyze_sentiment(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
+async def _analyze_sentiment(messages: list[dict[str, Any]]) -> dict[str, Any]:
     """Simple sentiment analysis."""
     # Simple keyword-based sentiment (could be enhanced with ML)
     positive_words = {
@@ -539,8 +528,7 @@ async def _analyze_sentiment(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
         ),
     }
 
-
-def _extract_questions(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _extract_questions(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract questions from messages."""
     questions = []
 
@@ -581,8 +569,7 @@ def _extract_questions(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     return questions
 
-
-def _extract_decisions(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _extract_decisions(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract decisions and conclusions from messages."""
     decisions = []
 

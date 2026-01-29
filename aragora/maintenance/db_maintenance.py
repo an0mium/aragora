@@ -7,13 +7,13 @@ Provides automated maintenance to keep databases performant:
 - WAL checkpoint: Flush write-ahead log (on startup)
 - Data retention: Clean up old records (configurable)
 """
+from __future__ import annotations
 
 import logging
 import sqlite3
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -74,14 +74,13 @@ ALLOWED_TIMESTAMP_COLUMNS = frozenset(
     }
 )
 
-
 class DatabaseMaintenance:
     """Automated maintenance for Aragora SQLite databases."""
 
     def __init__(self, db_dir: Path | str = DEFAULT_DB_DIR):
         self.db_dir = Path(db_dir)
-        self._last_vacuum: Optional[datetime] = None
-        self._last_analyze: Optional[datetime] = None
+        self._last_vacuum: datetime | None = None
+        self._last_analyze: datetime | None = None
 
     def get_databases(self) -> list[Path]:
         """Get list of all database files that exist."""
@@ -194,7 +193,7 @@ class DatabaseMaintenance:
     def cleanup_old_data(
         self,
         days: int = 90,
-        tables: Optional[dict[str, str]] = None,
+        tables: dict[str, str] | None = None,
     ) -> dict[str, int]:
         """Clean up records older than specified days.
 
@@ -285,7 +284,6 @@ class DatabaseMaintenance:
             "databases": [db.name for db in databases],
         }
 
-
 def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
     """Run startup maintenance tasks.
 
@@ -341,7 +339,6 @@ def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
 
     logger.info("[maintenance] Startup maintenance complete")
     return results
-
 
 def schedule_maintenance(
     db_dir: Path | str = DEFAULT_DB_DIR,

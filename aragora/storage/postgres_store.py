@@ -39,6 +39,7 @@ Usage:
         # Slow down or queue requests
         pass
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -47,7 +48,7 @@ import time
 from abc import ABC
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Callable, Optional, Type
+from typing import Any, AsyncGenerator, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +72,8 @@ try:
     from aragora.resilience import get_circuit_breaker as _get_circuit_breaker
 
     RESILIENCE_AVAILABLE = True
-    CircuitBreaker: Optional[Type[Any]] = _CircuitBreaker
-    CircuitOpenError: Type[Exception] = _CircuitOpenError
+    CircuitBreaker: Optional[type[Any]] = _CircuitBreaker
+    CircuitOpenError: type[Exception] = _CircuitOpenError
     get_circuit_breaker: Optional[Callable[..., Any]] = _get_circuit_breaker
 except ImportError:
     RESILIENCE_AVAILABLE = False
@@ -80,7 +81,6 @@ except ImportError:
     CircuitOpenError = Exception
     get_circuit_breaker = None
     logger.debug("resilience module not available, circuit breaker disabled")
-
 
 # Global pool singleton
 _pool: Optional["Pool"] = None
@@ -102,7 +102,6 @@ POOL_BACKPRESSURE_THRESHOLD = 0.8  # Trigger backpressure at 80% utilization
 POOL_CIRCUIT_BREAKER_THRESHOLD = 5  # Failures before opening circuit
 POOL_CIRCUIT_BREAKER_COOLDOWN = 30.0  # Seconds before retry
 
-
 @dataclass
 class PoolMetrics:
     """Metrics for connection pool health monitoring."""
@@ -122,7 +121,6 @@ class PoolMetrics:
     avg_wait_time_ms: float
     max_wait_time_ms: float
 
-
 class PoolExhaustedError(Exception):
     """Raised when the connection pool is exhausted and timeout occurs."""
 
@@ -134,8 +132,7 @@ class PoolExhaustedError(Exception):
             f"(utilization: {utilization:.1%})"
         )
 
-
-def get_pool_metrics() -> Optional[PoolMetrics]:
+def get_pool_metrics() -> PoolMetrics | None:
     """
     Get current connection pool metrics for monitoring.
 
@@ -190,7 +187,6 @@ def get_pool_metrics() -> Optional[PoolMetrics]:
         max_wait_time_ms=_pool_metrics["max_wait_time"] * 1000,
     )
 
-
 def is_pool_healthy() -> bool:
     """
     Quick health check for the connection pool.
@@ -202,7 +198,6 @@ def is_pool_healthy() -> bool:
     if metrics is None:
         return False
     return not metrics.backpressure and metrics.circuit_breaker_status == "closed"
-
 
 def reset_pool_metrics() -> None:
     """Reset pool metrics (for testing)."""
@@ -217,9 +212,8 @@ def reset_pool_metrics() -> None:
         "max_wait_time": 0.0,
     }
 
-
 async def get_postgres_pool(
-    dsn: Optional[str] = None,
+    dsn: str | None = None,
     min_size: int = 5,
     max_size: int = 20,
     command_timeout: float = 60.0,
@@ -295,7 +289,6 @@ async def get_postgres_pool(
     )
     return _pool
 
-
 async def get_postgres_pool_from_settings() -> "Pool":
     """
     Get or create PostgreSQL connection pool using centralized settings.
@@ -336,7 +329,6 @@ async def get_postgres_pool_from_settings() -> "Pool":
         pool_recycle=db_settings.pool_recycle,
     )
 
-
 async def close_postgres_pool() -> None:
     """Close the global PostgreSQL connection pool."""
     global _pool
@@ -344,7 +336,6 @@ async def close_postgres_pool() -> None:
         await _pool.close()
         _pool = None
         logger.info("PostgreSQL pool closed")
-
 
 @asynccontextmanager
 async def acquire_connection_resilient(
@@ -395,7 +386,7 @@ async def acquire_connection_resilient(
             cooldown = circuit_breaker.cooldown_remaining()
             raise CircuitOpenError("postgres_pool", cooldown)
 
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
     start_time = time.time()
 
     for attempt in range(retries):
@@ -460,7 +451,6 @@ async def acquire_connection_resilient(
     if last_error:
         raise last_error
     raise PoolExhaustedError(timeout=timeout, utilization=1.0)
-
 
 class PostgresStore(ABC):
     """
@@ -668,7 +658,7 @@ class PostgresStore(ABC):
         self,
         sql: str,
         *args: Any,
-    ) -> Optional[Any]:  # Returns asyncpg.Record when available
+    ) -> Any | None:  # Returns asyncpg.Record when available
         """
         Execute query and fetch single row.
 
@@ -829,7 +819,6 @@ class PostgresStore(ABC):
             # Table may not exist yet, or connection issue
             logger.debug(f"Could not fetch schema version: {e}")
             return 0
-
 
 __all__ = [
     "PostgresStore",

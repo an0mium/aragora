@@ -40,10 +40,9 @@ import logging
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SenderStats:
@@ -55,13 +54,13 @@ class SenderStats:
     emails_replied: int = 0
     emails_archived: int = 0
     emails_deleted: int = 0
-    avg_response_time_minutes: Optional[float] = None
-    last_email_date: Optional[datetime] = None
-    first_email_date: Optional[datetime] = None
+    avg_response_time_minutes: float | None = None
+    last_email_date: datetime | None = None
+    first_email_date: datetime | None = None
     is_vip: bool = False
     is_blocked: bool = False
     custom_priority_boost: float = 0.0
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     @property
     def open_rate(self) -> float:
@@ -98,7 +97,6 @@ class SenderStats:
 
         return min(1.0, engagement + self.custom_priority_boost)
 
-
 @dataclass
 class SenderReputation:
     """Computed reputation for a sender."""
@@ -110,9 +108,9 @@ class SenderReputation:
     is_vip: bool
     is_blocked: bool
     category: str  # "vip", "important", "normal", "low_priority", "blocked"
-    reasons: List[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "sender_email": self.sender_email,
@@ -125,7 +123,6 @@ class SenderReputation:
             "reasons": self.reasons,
         }
 
-
 class SenderHistoryService:
     """
     Service for tracking and persisting sender history.
@@ -135,7 +132,7 @@ class SenderHistoryService:
 
     def __init__(
         self,
-        db_path: Optional[str] = None,
+        db_path: str | None = None,
         cache_ttl_seconds: int = 300,
     ):
         """
@@ -147,15 +144,15 @@ class SenderHistoryService:
         """
         self.db_path = db_path or ":memory:"
         self.cache_ttl = cache_ttl_seconds
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
         self._lock = asyncio.Lock()
 
         # In-memory cache for fast lookups
-        self._reputation_cache: Dict[str, Tuple[datetime, SenderReputation]] = {}
+        self._reputation_cache: dict[str, tuple[datetime, SenderReputation]] = {}
 
         # Domain-level cache for faster bulk processing
         # Stores aggregate domain stats: {user:domain -> (timestamp, avg_reputation, sender_count)}
-        self._domain_cache: Dict[str, Tuple[datetime, float, int]] = {}
+        self._domain_cache: dict[str, tuple[datetime, float, int]] = {}
 
     async def initialize(self) -> None:
         """Initialize database schema."""
@@ -239,9 +236,9 @@ class SenderHistoryService:
         user_id: str,
         sender_email: str,
         action: str,
-        email_id: Optional[str] = None,
-        response_time_minutes: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        email_id: str | None = None,
+        response_time_minutes: int | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Record an interaction with a sender.
@@ -363,7 +360,7 @@ class SenderHistoryService:
         self,
         user_id: str,
         sender_email: str,
-    ) -> Optional[SenderStats]:
+    ) -> SenderStats | None:
         """
         Get statistics for a sender.
 
@@ -572,7 +569,7 @@ class SenderHistoryService:
         self,
         user_id: str,
         domain: str,
-    ) -> Optional[Tuple[float, int]]:
+    ) -> Optional[tuple[float, int]]:
         """
         Get aggregate reputation for a domain.
 
@@ -628,8 +625,8 @@ class SenderHistoryService:
     async def get_batch_reputations(
         self,
         user_id: str,
-        sender_emails: List[str],
-    ) -> Dict[str, SenderReputation]:
+        sender_emails: list[str],
+    ) -> dict[str, SenderReputation]:
         """
         Get reputations for multiple senders efficiently.
 
@@ -642,8 +639,8 @@ class SenderHistoryService:
         Returns:
             Dict mapping email addresses to SenderReputation objects
         """
-        results: Dict[str, SenderReputation] = {}
-        uncached_emails: List[str] = []
+        results: dict[str, SenderReputation] = {}
+        uncached_emails: list[str] = []
 
         # Check cache first
         for email in sender_emails:
@@ -736,7 +733,7 @@ class SenderHistoryService:
             cache_key = f"{user_id}:{sender_email.lower()}"
             self._reputation_cache.pop(cache_key, None)
 
-    async def get_vip_senders(self, user_id: str) -> List[str]:
+    async def get_vip_senders(self, user_id: str) -> list[str]:
         """
         Get list of VIP senders for a user.
 
@@ -802,7 +799,7 @@ class SenderHistoryService:
             row = cursor.fetchone()
             return bool(row["is_blocked"]) if row else False
 
-    async def get_blocked_senders(self, user_id: str) -> List[str]:
+    async def get_blocked_senders(self, user_id: str) -> list[str]:
         """
         Get list of blocked senders for a user.
 
@@ -835,8 +832,8 @@ class SenderHistoryService:
         email_id: str,
         sender_email: str,
         predicted_priority: str,
-        actual_priority: Optional[str] = None,
-        is_correct: Optional[bool] = None,
+        actual_priority: str | None = None,
+        is_correct: bool | None = None,
         feedback_type: str = "explicit",
     ) -> None:
         """
@@ -878,7 +875,7 @@ class SenderHistoryService:
         self,
         user_id: str,
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get prediction accuracy statistics for a user.
 
@@ -929,7 +926,7 @@ class SenderHistoryService:
         user_id: str,
         limit: int = 20,
         order_by: str = "engagement",
-    ) -> List[SenderStats]:
+    ) -> list[SenderStats]:
         """
         Get top senders by various criteria.
 
@@ -1004,10 +1001,9 @@ class SenderHistoryService:
 
             return results
 
-
 # Convenience function for creating service
 async def create_sender_history_service(
-    db_path: Optional[str] = None,
+    db_path: str | None = None,
 ) -> SenderHistoryService:
     """
     Create and initialize a sender history service.

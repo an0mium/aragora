@@ -5,6 +5,7 @@ Endpoints:
 - GET /api/reviews/{id} - Get a specific review by ID
 - GET /api/reviews - List recent reviews
 """
+from __future__ import annotations
 
 __all__ = [
     "ReviewsHandler",
@@ -14,7 +15,7 @@ __all__ = [
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
@@ -29,7 +30,6 @@ _reviews_limiter = RateLimiter(requests_per_minute=30)
 
 # Reviews are stored at ~/.aragora/reviews/
 REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
-
 
 class ReviewsHandler(BaseHandler):
     """Handler for serving shareable code reviews."""
@@ -49,7 +49,7 @@ class ReviewsHandler(BaseHandler):
     @require_permission("reviews:read")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle the request."""
         # Rate limit check
         client_ip = get_client_ip(handler)

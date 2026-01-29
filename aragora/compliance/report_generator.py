@@ -15,16 +15,16 @@ Supports multiple compliance frameworks:
 - ISO 27001 (Information Security Management)
 - Custom templates
 """
+from __future__ import annotations
 
 import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from aragora.core import DebateResult
-
 
 class ComplianceFramework(Enum):
     """Supported compliance frameworks."""
@@ -36,7 +36,6 @@ class ComplianceFramework(Enum):
     CUSTOM = "custom"
     GENERAL = "general"
 
-
 class ReportFormat(Enum):
     """Report output formats."""
 
@@ -44,7 +43,6 @@ class ReportFormat(Enum):
     HTML = "html"
     MARKDOWN = "markdown"
     PDF = "pdf"
-
 
 @dataclass
 class ReportSection:
@@ -55,7 +53,6 @@ class ReportSection:
     data: dict[str, Any] = field(default_factory=dict)
     subsections: list["ReportSection"] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class ComplianceReport:
@@ -94,7 +91,6 @@ class ComplianceReport:
             "metadata": section.metadata,
         }
 
-
 class ComplianceReportGenerator:
     """
     Generates compliance reports for debates.
@@ -112,7 +108,7 @@ class ComplianceReportGenerator:
     def __init__(
         self,
         organization: str = "Aragora",
-        templates: Optional[dict[str, Any]] = None,
+        templates: dict[str, Any] | None = None,
     ):
         self.organization = organization
         self.templates = templates or {}
@@ -125,8 +121,8 @@ class ComplianceReportGenerator:
         include_evidence: bool = True,
         include_chain: bool = True,
         include_full_transcript: bool = False,
-        requester: Optional[str] = None,
-        additional_context: Optional[dict[str, Any]] = None,
+        requester: str | None = None,
+        additional_context: dict[str, Any] | None = None,
     ) -> ComplianceReport:
         """Generate a compliance report for a debate.
 
@@ -492,7 +488,7 @@ curl -X GET /api/debates/{debate_id}/provenance/verify
         self,
         debate_id: str,
         result: DebateResult,
-        requester: Optional[str],
+        requester: str | None,
         framework: ComplianceFramework,
     ) -> dict[str, Any]:
         """Build attestation block."""
@@ -583,7 +579,6 @@ curl -X GET /api/debates/{debate_id}/provenance/verify
 
         return lines
 
-
 # Convenience functions
 def generate_soc2_report(
     debate_result: DebateResult,
@@ -598,7 +593,6 @@ def generate_soc2_report(
         framework=ComplianceFramework.SOC2,
     )
 
-
 def generate_gdpr_report(
     debate_result: DebateResult,
     debate_id: str,
@@ -611,7 +605,6 @@ def generate_gdpr_report(
         debate_id=debate_id,
         framework=ComplianceFramework.GDPR,
     )
-
 
 __all__ = [
     "ComplianceFramework",

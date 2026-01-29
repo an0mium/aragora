@@ -10,10 +10,9 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.gateway.server import GatewayConfig, LocalGateway
-
 
 @dataclass
 class GatewaySession:
@@ -25,9 +24,8 @@ class GatewaySession:
     status: str = "active"  # active, paused, ended
     created_at: float = field(default_factory=time.time)
     last_seen: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    end_reason: Optional[str] = None
-
+    metadata: dict[str, Any] = field(default_factory=dict)
+    end_reason: str | None = None
 
 class GatewayProtocolAdapter:
     """
@@ -39,7 +37,7 @@ class GatewayProtocolAdapter:
 
     def __init__(self, gateway: LocalGateway):
         self._gateway = gateway
-        self._sessions: Dict[str, GatewaySession] = {}
+        self._sessions: dict[str, GatewaySession] = {}
 
     def get_config(self) -> GatewayConfig:
         """Return the active gateway configuration."""
@@ -49,7 +47,7 @@ class GatewayProtocolAdapter:
         self,
         user_id: str,
         device_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> GatewaySession:
         """Create a new session."""
         session_id = f"sess-{uuid.uuid4().hex[:12]}"
@@ -64,7 +62,7 @@ class GatewayProtocolAdapter:
 
     async def close_session(
         self, session_id: str, reason: str = "ended"
-    ) -> Optional[GatewaySession]:
+    ) -> GatewaySession | None:
         """End a session and record a reason."""
         session = self._sessions.get(session_id)
         if not session:
@@ -78,7 +76,7 @@ class GatewayProtocolAdapter:
         self,
         session_id: str,
         status: str = "active",
-    ) -> Optional[GatewaySession]:
+    ) -> GatewaySession | None:
         """Update presence for a session."""
         session = self._sessions.get(session_id)
         if not session:
@@ -87,15 +85,15 @@ class GatewayProtocolAdapter:
         session.last_seen = time.time()
         return session
 
-    async def get_session(self, session_id: str) -> Optional[GatewaySession]:
+    async def get_session(self, session_id: str) -> GatewaySession | None:
         """Get a session by ID."""
         return self._sessions.get(session_id)
 
     async def list_sessions(
         self,
-        user_id: Optional[str] = None,
-        device_id: Optional[str] = None,
-        status: Optional[str] = None,
+        user_id: str | None = None,
+        device_id: str | None = None,
+        status: str | None = None,
     ) -> list[GatewaySession]:
         """List sessions with optional filters."""
         sessions = list(self._sessions.values())
@@ -107,7 +105,7 @@ class GatewayProtocolAdapter:
             sessions = [s for s in sessions if s.status == status]
         return sessions
 
-    async def get_config_for_session(self, session_id: str) -> Optional[GatewayConfig]:
+    async def get_config_for_session(self, session_id: str) -> GatewayConfig | None:
         """Return gateway config scoped to a session.
 
         Validates the session exists and is not ended before returning
@@ -118,7 +116,7 @@ class GatewayProtocolAdapter:
             return None
         return self.get_config()
 
-    async def resume_session(self, session_id: str, device_id: str) -> Optional[GatewaySession]:
+    async def resume_session(self, session_id: str, device_id: str) -> GatewaySession | None:
         """Resume a paused session from the same device.
 
         Restores the session to ``active`` status and refreshes

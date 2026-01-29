@@ -71,6 +71,16 @@ def mock_storage(sample_debate):
     """Mock debate storage."""
     storage = MagicMock()
     storage.get_debate.return_value = sample_debate
+
+    # Mock get_debates_batch to return a dict mapping debate_id -> debate data
+    def mock_get_debates_batch(debate_ids):
+        result = {}
+        for did in debate_ids:
+            # Use get_debate's return value for consistency
+            result[did] = storage.get_debate.return_value
+        return result
+
+    storage.get_debates_batch = mock_get_debates_batch
     return storage
 
 
@@ -326,7 +336,8 @@ class TestProcessBatchExport:
     @pytest.mark.asyncio
     async def test_process_export_debate_not_found(self, export_handler, mock_storage):
         """Test processing when debate not found."""
-        mock_storage.get_debate.return_value = None
+        # Override get_debates_batch to return None for missing debate
+        mock_storage.get_debates_batch = lambda ids: {did: None for did in ids}
 
         items = [BatchExportItem(debate_id="missing-debate", format="json")]
         job = BatchExportJob(job_id="not_found_job", items=items)
@@ -357,12 +368,13 @@ class TestProcessBatchExport:
     @pytest.mark.asyncio
     async def test_process_export_multiple_items(self, export_handler, mock_storage):
         """Test processing multiple items."""
-        # First debate found, second not found
-        mock_storage.get_debate.side_effect = [
-            {"id": "d1", "topic": "Test 1"},
-            None,
-            {"id": "d3", "topic": "Test 3"},
-        ]
+        # First debate found, second not found, third found
+        debates_data = {
+            "d1": {"id": "d1", "topic": "Test 1"},
+            "d2": None,
+            "d3": {"id": "d3", "topic": "Test 3"},
+        }
+        mock_storage.get_debates_batch = lambda ids: {did: debates_data.get(did) for did in ids}
 
         items = [
             BatchExportItem(debate_id="d1", format="json"),
@@ -399,6 +411,71 @@ class TestProcessBatchExport:
         assert "started" in event_types
         assert "progress" in event_types
         assert "completed" in event_types
+
+    @pytest.mark.asyncio
+    async def test_process_export_uses_batch_fetch(self, export_handler, mock_storage):
+        """Test that batch export uses batch fetching for efficiency."""
+        # Track calls to verify batch fetch is used
+        batch_called = []
+        individual_called = []
+
+        def mock_batch(ids):
+            batch_called.append(ids)
+            return {did: {"id": did, "topic": f"Topic {did}"} for did in ids}
+
+        def mock_individual(did):
+            individual_called.append(did)
+            return {"id": did, "topic": f"Topic {did}"}
+
+        mock_storage.get_debates_batch = mock_batch
+        mock_storage.get_debate = mock_individual
+
+        items = [
+            BatchExportItem(debate_id="d1", format="json"),
+            BatchExportItem(debate_id="d2", format="json"),
+            BatchExportItem(debate_id="d3", format="json"),
+        ]
+        job = BatchExportJob(job_id="batch_test", items=items)
+        _batch_export_jobs["batch_test"] = job
+        _batch_export_events["batch_test"] = asyncio.Queue()
+
+        await export_handler._process_batch_export(job)
+
+        # Batch should be called once with all IDs
+        assert len(batch_called) == 1
+        assert set(batch_called[0]) == {"d1", "d2", "d3"}
+        # Individual get_debate should NOT be called
+        assert len(individual_called) == 0
+        # All items should be processed successfully
+        assert job.success_count == 3
+
+    @pytest.mark.asyncio
+    async def test_process_export_fallback_without_batch(self, export_handler, mock_storage):
+        """Test fallback to individual queries when batch not available."""
+        # Remove batch method to test fallback
+        del mock_storage.get_debates_batch
+
+        individual_called = []
+
+        def mock_individual(did):
+            individual_called.append(did)
+            return {"id": did, "topic": f"Topic {did}"}
+
+        mock_storage.get_debate = mock_individual
+
+        items = [
+            BatchExportItem(debate_id="d1", format="json"),
+            BatchExportItem(debate_id="d2", format="json"),
+        ]
+        job = BatchExportJob(job_id="fallback_test", items=items)
+        _batch_export_jobs["fallback_test"] = job
+        _batch_export_events["fallback_test"] = asyncio.Queue()
+
+        await export_handler._process_batch_export(job)
+
+        # Individual get_debate should be called for each item
+        assert set(individual_called) == {"d1", "d2"}
+        assert job.success_count == 2
 
 
 # =============================================================================

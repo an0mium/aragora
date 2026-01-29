@@ -79,7 +79,7 @@ async def init_postgres_pool() -> dict[str, Any]:
 
         if pool:
             info = get_pool_info()
-            logger.info(
+            logger.warning(
                 f"[startup/db] PostgreSQL pool initialized "
                 f"(backend: {backend.value}, size: {info.get('pool_size', 'unknown')})"
             )

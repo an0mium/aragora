@@ -15,10 +15,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class IndustryBenchmark(str, Enum):
     """Industry benchmarks for decision-making costs."""
@@ -29,9 +28,8 @@ class IndustryBenchmark(str, Enum):
     SME = "sme"
     CONSULTING = "consulting"
 
-
 # Industry benchmark data (avg cost per decision in USD)
-BENCHMARK_COSTS: Dict[IndustryBenchmark, Dict[str, Any]] = {
+BENCHMARK_COSTS: dict[IndustryBenchmark, dict[str, Any]] = {
     IndustryBenchmark.TECH_STARTUP: {
         "avg_decision_cost_usd": Decimal("150"),
         "avg_hours_per_decision": 2.0,
@@ -57,7 +55,6 @@ BENCHMARK_COSTS: Dict[IndustryBenchmark, Dict[str, Any]] = {
         "hourly_rate_usd": Decimal("200"),
     },
 }
-
 
 @dataclass
 class ROIMetrics:
@@ -99,7 +96,7 @@ class ROIMetrics:
     benchmark_cost_usd: Decimal = Decimal("0")
     vs_benchmark_savings_pct: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         return {
             "period_start": self.period_start.isoformat(),
@@ -138,7 +135,6 @@ class ROIMetrics:
             },
         }
 
-
 @dataclass
 class DebateROIInput:
     """Input data for a single debate's ROI calculation."""
@@ -152,7 +148,6 @@ class DebateROIInput:
     round_count: int = 0
     completed: bool = False
 
-
 class ROICalculator:
     """
     Calculates ROI metrics for Aragora usage.
@@ -164,8 +159,8 @@ class ROICalculator:
     def __init__(
         self,
         benchmark: IndustryBenchmark = IndustryBenchmark.SME,
-        hourly_rate_override: Optional[Decimal] = None,
-        hours_per_decision_override: Optional[float] = None,
+        hourly_rate_override: Decimal | None = None,
+        hours_per_decision_override: float | None = None,
     ):
         """
         Initialize ROI calculator.
@@ -188,7 +183,7 @@ class ROICalculator:
     def calculate_single_debate_roi(
         self,
         debate: DebateROIInput,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculate ROI for a single debate.
 
@@ -234,9 +229,9 @@ class ROICalculator:
 
     def calculate_period_roi(
         self,
-        debates: List[DebateROIInput],
-        period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None,
+        debates: list[DebateROIInput],
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
         subscription_cost_usd: Decimal = Decimal("0"),
     ) -> ROIMetrics:
         """
@@ -355,7 +350,7 @@ class ROICalculator:
         projected_debates_per_month: int,
         current_cost_per_debate: Decimal = Decimal("0.50"),
         subscription_cost_usd: Decimal = Decimal("0"),
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Estimate future savings based on projected usage.
 
@@ -411,7 +406,7 @@ class ROICalculator:
             },
         }
 
-    def get_benchmark_comparison(self) -> Dict[str, Any]:
+    def get_benchmark_comparison(self) -> dict[str, Any]:
         """
         Get benchmark comparison data for all industry types.
 
@@ -433,10 +428,8 @@ class ROICalculator:
             "current_selection": self._benchmark.value,
         }
 
-
 # Global calculator instance with SME defaults
-_roi_calculator: Optional[ROICalculator] = None
-
+_roi_calculator: ROICalculator | None = None
 
 def get_roi_calculator(
     benchmark: IndustryBenchmark = IndustryBenchmark.SME,
@@ -446,7 +439,6 @@ def get_roi_calculator(
     if _roi_calculator is None or _roi_calculator._benchmark != benchmark:
         _roi_calculator = ROICalculator(benchmark=benchmark)
     return _roi_calculator
-
 
 __all__ = [
     "ROICalculator",

@@ -29,7 +29,7 @@ from collections import OrderedDict
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
@@ -72,18 +72,15 @@ else:
             """No-op timeout context manager for Python < 3.11."""
             yield
 
-
 class CheckpointValidationError(Exception):
     """Raised when checkpoint validation fails."""
 
     pass
 
-
 class ConnectionTimeoutError(Exception):
     """Raised when database connection times out."""
 
     pass
-
 
 class LRUCheckpointCache:
     """
@@ -99,7 +96,7 @@ class LRUCheckpointCache:
         self._hits = 0
         self._misses = 0
 
-    def get(self, key: str) -> Optional[WorkflowCheckpoint]:
+    def get(self, key: str) -> WorkflowCheckpoint | None:
         """Get checkpoint from cache, updating LRU order."""
         if key in self._cache:
             # Move to end (most recently used)
@@ -137,7 +134,7 @@ class LRUCheckpointCache:
         return len(self._cache)
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Cache statistics."""
         total = self._hits + self._misses
         hit_rate = (self._hits / total) if total > 0 else 0.0
@@ -149,9 +146,8 @@ class LRUCheckpointCache:
             "hit_rate": hit_rate,
         }
 
-
 # Optional Redis import - graceful degradation
-_get_redis_client: Optional[_RedisClientGetter] = None
+_get_redis_client: _RedisClientGetter | None = None
 REDIS_AVAILABLE = False
 
 try:
@@ -163,7 +159,7 @@ except ImportError:
     logger.debug("Redis not available for checkpoint store")
 
 # Optional asyncpg import - graceful degradation
-_asyncpg_module: Optional[Any] = None
+_asyncpg_module: Any | None = None
 ASYNCPG_AVAILABLE = False
 
 try:
@@ -174,7 +170,6 @@ try:
 except ImportError:
     logger.debug("asyncpg not available for checkpoint store")
 
-
 class CheckpointStore(Protocol):
     """Protocol for checkpoint storage backends."""
 
@@ -182,22 +177,21 @@ class CheckpointStore(Protocol):
         """Save a checkpoint and return its ID."""
         ...
 
-    async def load(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
+    async def load(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
         """Load a checkpoint by ID."""
         ...
 
-    async def load_latest(self, workflow_id: str) -> Optional[WorkflowCheckpoint]:
+    async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
         """Load the most recent checkpoint for a workflow."""
         ...
 
-    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+    async def list_checkpoints(self, workflow_id: str) -> list[str]:
         """List all checkpoint IDs for a workflow."""
         ...
 
     async def delete(self, checkpoint_id: str) -> bool:
         """Delete a checkpoint."""
         ...
-
 
 class CachingCheckpointStore:
     """
@@ -237,7 +231,7 @@ class CachingCheckpointStore:
         self._cache.put(checkpoint_id, checkpoint)
         return checkpoint_id
 
-    async def load(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
+    async def load(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
         """Load checkpoint from cache or store."""
         # Check cache first
         cached = self._cache.get(checkpoint_id)
@@ -250,7 +244,7 @@ class CachingCheckpointStore:
             self._cache.put(checkpoint_id, checkpoint)
         return checkpoint
 
-    async def load_latest(self, workflow_id: str) -> Optional[WorkflowCheckpoint]:
+    async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
         """Load latest checkpoint for workflow (always hits backend)."""
         # Always go to backend for latest since we don't track recency
         checkpoint = await self._store.load_latest(workflow_id)
@@ -258,7 +252,7 @@ class CachingCheckpointStore:
             self._cache.put(checkpoint.id, checkpoint)
         return checkpoint
 
-    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+    async def list_checkpoints(self, workflow_id: str) -> list[str]:
         """List checkpoint IDs for workflow (always hits backend)."""
         return await self._store.list_checkpoints(workflow_id)
 
@@ -272,7 +266,7 @@ class CachingCheckpointStore:
         self._cache.clear()
 
     @property
-    def cache_stats(self) -> Dict[str, Any]:
+    def cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return self._cache.stats
 
@@ -280,7 +274,6 @@ class CachingCheckpointStore:
     def backend_store(self) -> CheckpointStore:
         """Get the underlying backend store."""
         return self._store
-
 
 class RedisCheckpointStore:
     """
@@ -513,7 +506,7 @@ class RedisCheckpointStore:
             logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
 
-    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+    async def list_checkpoints(self, workflow_id: str) -> list[str]:
         """
         List all checkpoint IDs for a workflow.
 
@@ -565,7 +558,7 @@ class RedisCheckpointStore:
             logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
 
-    def _checkpoint_to_dict(self, checkpoint: "WorkflowCheckpoint") -> Dict[str, Any]:
+    def _checkpoint_to_dict(self, checkpoint: "WorkflowCheckpoint") -> dict[str, Any]:
         """Convert checkpoint to dictionary."""
         if hasattr(checkpoint, "to_dict"):
             return checkpoint.to_dict()
@@ -588,7 +581,7 @@ class RedisCheckpointStore:
                 "checksum": getattr(checkpoint, "checksum", ""),
             }
 
-    def _dict_to_checkpoint(self, data: Dict[str, Any]) -> "WorkflowCheckpoint":
+    def _dict_to_checkpoint(self, data: dict[str, Any]) -> "WorkflowCheckpoint":
         """Convert dictionary to WorkflowCheckpoint."""
         created_at = data.get("created_at", "")
         if isinstance(created_at, str) and created_at:
@@ -610,7 +603,6 @@ class RedisCheckpointStore:
             created_at=created_at,
             checksum=data.get("checksum", ""),
         )
-
 
 class PostgresCheckpointStore:
     """
@@ -848,7 +840,7 @@ class PostgresCheckpointStore:
             logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
 
-    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+    async def list_checkpoints(self, workflow_id: str) -> list[str]:
         """
         List all checkpoint IDs for a workflow.
 
@@ -937,7 +929,7 @@ class PostgresCheckpointStore:
             logger.error(f"Failed to cleanup checkpoints for {workflow_id}: {e}")
             return 0
 
-    def _checkpoint_to_dict(self, checkpoint: "WorkflowCheckpoint") -> Dict[str, Any]:
+    def _checkpoint_to_dict(self, checkpoint: "WorkflowCheckpoint") -> dict[str, Any]:
         """Convert checkpoint to dictionary."""
         if hasattr(checkpoint, "to_dict"):
             return checkpoint.to_dict()
@@ -995,7 +987,6 @@ class PostgresCheckpointStore:
         checksum_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(checksum_str.encode()).hexdigest()[:16]
 
-
 class KnowledgeMoundCheckpointStore:
     """
     Stores workflow checkpoints in KnowledgeMound.
@@ -1029,7 +1020,7 @@ class KnowledgeMoundCheckpointStore:
     def __init__(
         self,
         mound: "KnowledgeMound",
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ):
         """
         Initialize checkpoint store with KnowledgeMound backend.
@@ -1107,7 +1098,7 @@ class KnowledgeMoundCheckpointStore:
             logger.error(f"Failed to save checkpoint to KnowledgeMound: {e}")
             raise
 
-    async def load(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
+    async def load(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
         """
         Load a checkpoint by its node ID.
 
@@ -1135,7 +1126,7 @@ class KnowledgeMoundCheckpointStore:
             logger.error(f"Failed to load checkpoint {checkpoint_id}: {e}")
             return None
 
-    async def load_latest(self, workflow_id: str) -> Optional[WorkflowCheckpoint]:
+    async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
         """
         Load the most recent checkpoint for a workflow.
 
@@ -1149,7 +1140,7 @@ class KnowledgeMoundCheckpointStore:
             # Query for checkpoints with this workflow ID
             # Duck-typed mound interface - query_by_provenance may not exist on all impls
             query_method: Callable[..., Any] = getattr(self.mound, "query_by_provenance")
-            nodes: List[Any] = await query_method(
+            nodes: list[Any] = await query_method(
                 source_type="workflow_engine",
                 source_id=workflow_id,
                 node_type="workflow_checkpoint",
@@ -1168,7 +1159,7 @@ class KnowledgeMoundCheckpointStore:
             logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
 
-    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+    async def list_checkpoints(self, workflow_id: str) -> list[str]:
         """
         List all checkpoint IDs for a workflow.
 
@@ -1181,7 +1172,7 @@ class KnowledgeMoundCheckpointStore:
         try:
             # Duck-typed mound interface
             query_method: Callable[..., Any] = getattr(self.mound, "query_by_provenance")
-            nodes: List[Any] = await query_method(
+            nodes: list[Any] = await query_method(
                 source_type="workflow_engine",
                 source_id=workflow_id,
                 node_type="workflow_checkpoint",
@@ -1212,7 +1203,7 @@ class KnowledgeMoundCheckpointStore:
             logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
 
-    def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> Dict[str, Any]:
+    def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> dict[str, Any]:
         """Convert checkpoint to dictionary for serialization."""
         if hasattr(checkpoint, "to_dict"):
             return checkpoint.to_dict()
@@ -1236,7 +1227,7 @@ class KnowledgeMoundCheckpointStore:
                 "checksum": getattr(checkpoint, "checksum", ""),
             }
 
-    def _dict_to_checkpoint(self, data: Dict[str, Any]) -> WorkflowCheckpoint:
+    def _dict_to_checkpoint(self, data: dict[str, Any]) -> WorkflowCheckpoint:
         """Convert dictionary back to WorkflowCheckpoint."""
         from datetime import datetime
 
@@ -1260,7 +1251,6 @@ class KnowledgeMoundCheckpointStore:
             created_at=created_at,
             checksum=data.get("checksum", ""),
         )
-
 
 class FileCheckpointStore:
     """
@@ -1296,7 +1286,7 @@ class FileCheckpointStore:
         logger.info(f"Saved checkpoint to file: {file_path}")
         return checkpoint_id
 
-    async def load(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
+    async def load(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
         """Load a checkpoint from a file."""
         file_path = self.checkpoint_dir / f"{checkpoint_id}.json"
         if not file_path.exists():
@@ -1305,7 +1295,7 @@ class FileCheckpointStore:
         data = json.loads(file_path.read_text())
         return self._dict_to_checkpoint(data)
 
-    async def load_latest(self, workflow_id: str) -> Optional[WorkflowCheckpoint]:
+    async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
         """Load the most recent checkpoint for a workflow."""
         matching_files = sorted(
             self.checkpoint_dir.glob(f"{workflow_id}_*.json"),
@@ -1317,7 +1307,7 @@ class FileCheckpointStore:
         data = json.loads(matching_files[0].read_text())
         return self._dict_to_checkpoint(data)
 
-    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+    async def list_checkpoints(self, workflow_id: str) -> list[str]:
         """List all checkpoint IDs for a workflow."""
         return [f.stem for f in self.checkpoint_dir.glob(f"{workflow_id}_*.json")]
 
@@ -1329,7 +1319,7 @@ class FileCheckpointStore:
             return True
         return False
 
-    def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> Dict[str, Any]:
+    def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> dict[str, Any]:
         """Convert checkpoint to dictionary."""
         if hasattr(checkpoint, "to_dict"):
             return checkpoint.to_dict()
@@ -1353,7 +1343,7 @@ class FileCheckpointStore:
                 "checksum": getattr(checkpoint, "checksum", ""),
             }
 
-    def _dict_to_checkpoint(self, data: Dict[str, Any]) -> WorkflowCheckpoint:
+    def _dict_to_checkpoint(self, data: dict[str, Any]) -> WorkflowCheckpoint:
         """Convert dictionary to WorkflowCheckpoint."""
         from datetime import datetime
 
@@ -1378,10 +1368,8 @@ class FileCheckpointStore:
             checksum=data.get("checksum", ""),
         )
 
-
 # Module-level default KnowledgeMound for checkpoint storage
 _default_mound: Optional["KnowledgeMound"] = None
-
 
 def set_default_knowledge_mound(mound: "KnowledgeMound") -> None:
     """
@@ -1406,11 +1394,9 @@ def set_default_knowledge_mound(mound: "KnowledgeMound") -> None:
     _default_mound = mound
     logger.info("Set default KnowledgeMound for workflow checkpoints")
 
-
 def get_default_knowledge_mound() -> Optional["KnowledgeMound"]:
     """Get the default KnowledgeMound for checkpoint storage."""
     return _default_mound
-
 
 def get_checkpoint_store(
     mound: Optional["KnowledgeMound"] = None,
@@ -1541,7 +1527,6 @@ def get_checkpoint_store(
 
     logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
     return _maybe_wrap_with_cache(FileCheckpointStore(fallback_dir))
-
 
 async def get_checkpoint_store_async(
     mound: Optional["KnowledgeMound"] = None,

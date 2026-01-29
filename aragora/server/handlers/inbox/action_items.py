@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -35,18 +35,17 @@ from aragora.rbac.models import AuthorizationContext
 logger = logging.getLogger(__name__)
 
 # Thread-safe service instances
-_action_extractor: Optional[Any] = None
+_action_extractor: Any | None = None
 _action_extractor_lock = threading.Lock()
-_meeting_detector: Optional[Any] = None
+_meeting_detector: Any | None = None
 _meeting_detector_lock = threading.Lock()
-
 
 def _check_inbox_permission(
     user_id: str,
     action: str = "read",
-    org_id: Optional[str] = None,
-    roles: Optional[set] = None,
-) -> Optional[HandlerResult]:
+    org_id: str | None = None,
+    roles: set | None = None,
+) -> HandlerResult | None:
     """Check RBAC permission for inbox operations."""
     permission = f"inbox.{action}"
     try:
@@ -66,11 +65,9 @@ def _check_inbox_permission(
         logger.error(f"RBAC check failed: {e}")
         return error_response("Authorization check failed", status=500)
 
-
 # In-memory action item storage (replace with DB in production)
-_action_items: Dict[str, Dict[str, Any]] = {}
+_action_items: dict[str, dict[str, Any]] = {}
 _action_items_lock = threading.Lock()
-
 
 def get_action_extractor():
     """Get or create action item extractor (thread-safe)."""
@@ -85,7 +82,6 @@ def get_action_extractor():
             _action_extractor = ActionItemExtractor()
         return _action_extractor
 
-
 def get_meeting_detector():
     """Get or create meeting detector (thread-safe)."""
     global _meeting_detector
@@ -99,14 +95,12 @@ def get_meeting_detector():
             _meeting_detector = MeetingDetector()
         return _meeting_detector
 
-
 # =============================================================================
 # Action Item Extraction Handlers
 # =============================================================================
 
-
 async def handle_extract_action_items(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -170,9 +164,8 @@ async def handle_extract_action_items(
         logger.exception("Failed to extract action items")
         return error_response(f"Extraction failed: {str(e)}", status=500)
 
-
 async def handle_list_pending_actions(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -270,9 +263,8 @@ async def handle_list_pending_actions(
         logger.exception("Failed to list pending actions")
         return error_response(f"List failed: {str(e)}", status=500)
 
-
 async def handle_complete_action(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     action_id: str = "",
     user_id: str = "default",
 ) -> HandlerResult:
@@ -321,9 +313,8 @@ async def handle_complete_action(
         logger.exception("Failed to complete action")
         return error_response(f"Complete failed: {str(e)}", status=500)
 
-
 async def handle_update_action_status(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     action_id: str = "",
     user_id: str = "default",
 ) -> HandlerResult:
@@ -395,9 +386,8 @@ async def handle_update_action_status(
         logger.exception("Failed to update action status")
         return error_response(f"Update failed: {str(e)}", status=500)
 
-
 async def handle_get_due_soon(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -472,9 +462,8 @@ async def handle_get_due_soon(
         logger.exception("Failed to get due soon items")
         return error_response(f"Query failed: {str(e)}", status=500)
 
-
 async def handle_batch_extract(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -567,14 +556,12 @@ async def handle_batch_extract(
         logger.exception("Failed batch extraction")
         return error_response(f"Batch extraction failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Meeting Detection Handlers
 # =============================================================================
 
-
 async def handle_detect_meeting(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -627,9 +614,8 @@ async def handle_detect_meeting(
         logger.exception("Failed to detect meeting")
         return error_response(f"Detection failed: {str(e)}", status=500)
 
-
 async def handle_auto_snooze_meeting(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -726,13 +712,11 @@ async def handle_auto_snooze_meeting(
         logger.exception("Failed to auto-snooze meeting")
         return error_response(f"Auto-snooze failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-
-def get_action_items_handlers() -> Dict[str, Any]:
+def get_action_items_handlers() -> dict[str, Any]:
     """Get all action items handlers for registration."""
     return {
         "extract_action_items": handle_extract_action_items,
@@ -744,7 +728,6 @@ def get_action_items_handlers() -> Dict[str, Any]:
         "detect_meeting": handle_detect_meeting,
         "auto_snooze_meeting": handle_auto_snooze_meeting,
     }
-
 
 __all__ = [
     "handle_extract_action_items",

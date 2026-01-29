@@ -24,7 +24,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 # =============================================================================
 # Schema Definition Language (SDL)
@@ -629,11 +629,9 @@ type Subscription {
 }
 '''
 
-
 # =============================================================================
 # Schema Parsing and Validation
 # =============================================================================
-
 
 class OperationType(Enum):
     """GraphQL operation types."""
@@ -642,48 +640,43 @@ class OperationType(Enum):
     MUTATION = "mutation"
     SUBSCRIPTION = "subscription"
 
-
 @dataclass
 class Field:
     """Represents a field selection in a GraphQL query."""
 
     name: str
-    alias: Optional[str] = None
-    arguments: Dict[str, Any] = field(default_factory=dict)
-    selections: List["Field"] = field(default_factory=list)
-    directives: List[str] = field(default_factory=list)
-
+    alias: str | None = None
+    arguments: dict[str, Any] = field(default_factory=dict)
+    selections: list["Field"] = field(default_factory=list)
+    directives: list[str] = field(default_factory=list)
 
 @dataclass
 class Operation:
     """Represents a parsed GraphQL operation."""
 
     type: OperationType
-    name: Optional[str]
-    variables: Dict[str, Any]
-    selections: List[Field]
-
+    name: str | None
+    variables: dict[str, Any]
+    selections: list[Field]
 
 @dataclass
 class ParsedQuery:
     """Result of parsing a GraphQL query."""
 
-    operations: List[Operation]
-    fragments: Dict[str, List[Field]]
-    errors: List[str] = field(default_factory=list)
-
+    operations: list[Operation]
+    fragments: dict[str, list[Field]]
+    errors: list[str] = field(default_factory=list)
 
 @dataclass
 class ValidationResult:
     """Result of validating a GraphQL query."""
 
     valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 # Type definitions extracted from SDL
-QUERY_FIELDS: Set[str] = {
+QUERY_FIELDS: set[str] = {
     "debate",
     "debates",
     "searchDebates",
@@ -696,7 +689,7 @@ QUERY_FIELDS: Set[str] = {
     "stats",
 }
 
-MUTATION_FIELDS: Set[str] = {
+MUTATION_FIELDS: set[str] = {
     "startDebate",
     "submitVote",
     "cancelDebate",
@@ -706,13 +699,13 @@ MUTATION_FIELDS: Set[str] = {
     "unregisterAgent",
 }
 
-SUBSCRIPTION_FIELDS: Set[str] = {
+SUBSCRIPTION_FIELDS: set[str] = {
     "debateUpdates",
     "taskUpdates",
 }
 
 # Object types and their fields
-OBJECT_TYPES: Dict[str, Set[str]] = {
+OBJECT_TYPES: dict[str, set[str]] = {
     "Debate": {
         "id",
         "topic",
@@ -793,7 +786,7 @@ OBJECT_TYPES: Dict[str, Set[str]] = {
 }
 
 # Input types and their fields
-INPUT_TYPES: Dict[str, Set[str]] = {
+INPUT_TYPES: dict[str, set[str]] = {
     "StartDebateInput": {"question", "agents", "rounds", "consensus", "autoSelect", "tags"},
     "VoteInput": {"agentId", "reason", "confidence"},
     "SubmitTaskInput": {
@@ -808,14 +801,13 @@ INPUT_TYPES: Dict[str, Set[str]] = {
 }
 
 # Enum values
-ENUM_VALUES: Dict[str, Set[str]] = {
+ENUM_VALUES: dict[str, set[str]] = {
     "DebateStatus": {"PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"},
     "AgentStatus": {"AVAILABLE", "BUSY", "OFFLINE", "DEGRADED"},
     "TaskStatus": {"PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"},
     "Priority": {"LOW", "NORMAL", "HIGH", "URGENT"},
     "HealthStatus": {"HEALTHY", "DEGRADED", "UNHEALTHY"},
 }
-
 
 class GraphQLParser:
     """Lightweight GraphQL query parser.
@@ -826,7 +818,7 @@ class GraphQLParser:
     """
 
     def __init__(self) -> None:
-        self._errors: List[str] = []
+        self._errors: list[str] = []
 
     def parse(self, query: str) -> ParsedQuery:
         """Parse a GraphQL query string.
@@ -838,8 +830,8 @@ class GraphQLParser:
             ParsedQuery with operations, fragments, and any errors
         """
         self._errors = []
-        operations: List[Operation] = []
-        fragments: Dict[str, List[Field]] = {}
+        operations: list[Operation] = []
+        fragments: dict[str, list[Field]] = {}
 
         # Remove comments
         query = re.sub(r"#[^\n]*", "", query)
@@ -918,9 +910,9 @@ class GraphQLParser:
 
         return query[start + 1 : end].strip()
 
-    def _parse_variables(self, variables_str: str) -> Dict[str, Any]:
+    def _parse_variables(self, variables_str: str) -> dict[str, Any]:
         """Parse variable definitions."""
-        variables: Dict[str, Any] = {}
+        variables: dict[str, Any] = {}
 
         if not variables_str:
             return variables
@@ -937,9 +929,9 @@ class GraphQLParser:
 
         return variables
 
-    def _parse_selections(self, body: str) -> List[Field]:
+    def _parse_selections(self, body: str) -> list[Field]:
         """Parse field selections from a query body."""
-        selections: List[Field] = []
+        selections: list[Field] = []
 
         # Tokenize the body
         i = 0
@@ -966,19 +958,19 @@ class GraphQLParser:
                 name = field_match.group(2)
 
             # Parse arguments
-            arguments: Dict[str, Any] = {}
+            arguments: dict[str, Any] = {}
             if field_match.group(3):
                 arguments = self._parse_arguments(field_match.group(3))
 
             # Parse directive
-            directives: List[str] = []
+            directives: list[str] = []
             if field_match.group(4):
                 directives.append(field_match.group(4))
 
             i += field_match.end()
 
             # Check for nested selections
-            sub_selections: List[Field] = []
+            sub_selections: list[Field] = []
             while i < len(body) and body[i].isspace():
                 i += 1
 
@@ -1007,9 +999,9 @@ class GraphQLParser:
 
         return selections
 
-    def _parse_arguments(self, args_str: str) -> Dict[str, Any]:
+    def _parse_arguments(self, args_str: str) -> dict[str, Any]:
         """Parse field arguments."""
-        arguments: Dict[str, Any] = {}
+        arguments: dict[str, Any] = {}
 
         if not args_str:
             return arguments
@@ -1048,9 +1040,9 @@ class GraphQLParser:
 
         return arguments
 
-    def _parse_array(self, array_str: str) -> List[Any]:
+    def _parse_array(self, array_str: str) -> list[Any]:
         """Parse an array value."""
-        values: List[Any] = []
+        values: list[Any] = []
 
         # Simple array parsing
         val_pattern = r'"([^"]*)"|(\d+(?:\.\d+)?)|(\w+)'
@@ -1065,7 +1057,6 @@ class GraphQLParser:
 
         return values
 
-
 class GraphQLValidator:
     """Validates GraphQL queries against the schema."""
 
@@ -1078,8 +1069,8 @@ class GraphQLValidator:
         Returns:
             ValidationResult with validation status and any errors
         """
-        errors: List[str] = list(parsed.errors)
-        warnings: List[str] = []
+        errors: list[str] = list(parsed.errors)
+        warnings: list[str] = []
 
         for operation in parsed.operations:
             # Validate operation type fields
@@ -1106,7 +1097,7 @@ class GraphQLValidator:
             warnings=warnings,
         )
 
-    def _get_root_fields(self, op_type: OperationType) -> Set[str]:
+    def _get_root_fields(self, op_type: OperationType) -> set[str]:
         """Get valid root fields for an operation type."""
         if op_type == OperationType.QUERY:
             return QUERY_FIELDS
@@ -1116,7 +1107,7 @@ class GraphQLValidator:
             return SUBSCRIPTION_FIELDS
         return set()
 
-    def _get_return_type(self, op_type: OperationType, field_name: str) -> Optional[str]:
+    def _get_return_type(self, op_type: OperationType, field_name: str) -> str | None:
         """Get the return type for a root field."""
         # Map of field -> return type
         type_map = {
@@ -1147,10 +1138,10 @@ class GraphQLValidator:
 
     def _validate_selections(
         self,
-        selections: List[Field],
-        type_name: Optional[str],
-        errors: List[str],
-        warnings: List[str],
+        selections: list[Field],
+        type_name: str | None,
+        errors: list[str],
+        warnings: list[str],
     ) -> None:
         """Validate field selections against a type."""
         if not type_name or type_name not in OBJECT_TYPES:
@@ -1175,7 +1166,7 @@ class GraphQLValidator:
                         warnings,
                     )
 
-    def _get_nested_type(self, parent_type: str, field_name: str) -> Optional[str]:
+    def _get_nested_type(self, parent_type: str, field_name: str) -> str | None:
         """Get the type of a nested field."""
         # Map of parent_type.field -> nested_type
         nested_types = {
@@ -1192,7 +1183,6 @@ class GraphQLValidator:
             "SystemHealth.components": "ComponentHealth",
         }
         return nested_types.get(f"{parent_type}.{field_name}")
-
 
 def parse_and_validate_query(query: str) -> ParsedQuery:
     """Parse and validate a GraphQL query.
@@ -1213,7 +1203,6 @@ def parse_and_validate_query(query: str) -> ParsedQuery:
     parsed.errors.extend(validation.errors)
 
     return parsed
-
 
 # Export the schema for documentation
 SCHEMA = SCHEMA_SDL

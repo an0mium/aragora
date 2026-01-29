@@ -12,10 +12,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class Platform(Enum):
     """Supported chat platforms."""
@@ -25,18 +24,17 @@ class Platform(Enum):
     TEAMS = "teams"
     ZOOM = "zoom"
 
-
 @dataclass
 class BotUser:
     """Represents a user on any platform."""
 
     id: str
     username: str
-    display_name: Optional[str] = None
-    email: Optional[str] = None
+    display_name: str | None = None
+    email: str | None = None
     is_bot: bool = False
     platform: Platform = Platform.SLACK
-    raw_data: Dict[str, Any] = field(default_factory=dict)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
     @property
     def mention(self) -> str:
@@ -51,19 +49,17 @@ class BotUser:
             return f"@{self.username}"
         return f"@{self.username}"
 
-
 @dataclass
 class BotChannel:
     """Represents a channel/conversation on any platform."""
 
     id: str
-    name: Optional[str] = None
+    name: str | None = None
     is_private: bool = False
     is_dm: bool = False
     platform: Platform = Platform.SLACK
-    thread_id: Optional[str] = None  # For threaded conversations
-    raw_data: Dict[str, Any] = field(default_factory=dict)
-
+    thread_id: str | None = None  # For threaded conversations
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class BotMessage:
@@ -75,14 +71,13 @@ class BotMessage:
     channel: BotChannel
     timestamp: datetime
     platform: Platform
-    thread_id: Optional[str] = None
-    attachments: List[Dict[str, Any]] = field(default_factory=list)
-    raw_data: Dict[str, Any] = field(default_factory=dict)
+    thread_id: str | None = None
+    attachments: list[dict[str, Any]] = field(default_factory=list)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_threaded(self) -> bool:
         return self.thread_id is not None
-
 
 @dataclass
 class CommandContext:
@@ -92,9 +87,9 @@ class CommandContext:
     user: BotUser
     channel: BotChannel
     platform: Platform
-    args: List[str] = field(default_factory=list)
+    args: list[str] = field(default_factory=list)
     raw_args: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def user_id(self) -> str:
@@ -105,25 +100,24 @@ class CommandContext:
         return self.channel.id
 
     @property
-    def thread_id(self) -> Optional[str]:
+    def thread_id(self) -> str | None:
         return self.message.thread_id or self.channel.thread_id
-
 
 @dataclass
 class CommandResult:
     """Result from a command execution."""
 
     success: bool
-    message: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    attachments: List[Dict[str, Any]] = field(default_factory=list)
+    message: str | None = None
+    data: Optional[dict[str, Any]] = None
+    error: str | None = None
+    attachments: list[dict[str, Any]] = field(default_factory=list)
     ephemeral: bool = False  # Only visible to the user who triggered
 
     # Platform-specific formatting
-    slack_blocks: Optional[List[Dict[str, Any]]] = None
-    discord_embed: Optional[Dict[str, Any]] = None
-    teams_card: Optional[Dict[str, Any]] = None
+    slack_blocks: Optional[list[dict[str, Any]]] = None
+    discord_embed: Optional[dict[str, Any]] = None
+    teams_card: Optional[dict[str, Any]] = None
 
     @classmethod
     def ok(cls, message: str, **kwargs: Any) -> "CommandResult":
@@ -135,7 +129,6 @@ class CommandResult:
         """Create a failed result."""
         return cls(success=False, error=error, **kwargs)
 
-
 @dataclass
 class BotConfig:
     """Configuration for a bot instance.
@@ -146,9 +139,9 @@ class BotConfig:
 
     platform: Platform
     token: str
-    app_id: Optional[str] = None
-    client_secret: Optional[str] = None
-    signing_secret: Optional[str] = None  # For webhook verification
+    app_id: str | None = None
+    client_secret: str | None = None
+    signing_secret: str | None = None  # For webhook verification
     api_base: str = ""  # Required in production, defaults to localhost only in dev
     ws_url: str = ""  # Required in production, defaults to localhost only in dev
 
@@ -164,7 +157,6 @@ class BotConfig:
     # Metadata
     bot_name: str = "Aragora"
     bot_username: str = "aragora"
-
 
 class BaseBotClient(ABC):
     """Abstract base class for platform-specific bot clients."""
@@ -229,9 +221,9 @@ class BaseBotClient(ABC):
         self,
         channel_id: str,
         text: str,
-        thread_id: Optional[str] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None,
-    ) -> Optional[str]:
+        thread_id: str | None = None,
+        attachments: Optional[list[dict[str, Any]]] = None,
+    ) -> str | None:
         """Send a message to a channel. Returns message ID if successful."""
         pass
 
@@ -261,7 +253,7 @@ class BaseBotClient(ABC):
         channel_id: str,
         message_id: str,
         text: str,
-        attachments: Optional[List[Dict[str, Any]]] = None,
+        attachments: Optional[list[dict[str, Any]]] = None,
     ) -> bool:
         """Update an existing message."""
         pass
@@ -270,7 +262,7 @@ class BaseBotClient(ABC):
         self,
         ctx: CommandContext,
         result: CommandResult,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Send a command result to the appropriate channel."""
         if result.ephemeral:
             await self.send_ephemeral(
@@ -297,7 +289,6 @@ class BaseBotClient(ABC):
             thread_id=ctx.thread_id,
             attachments=attachments,
         )
-
 
 class BotEventHandler(ABC):
     """Abstract base class for handling platform events."""
@@ -326,10 +317,9 @@ class BotEventHandler(ABC):
         """Handle a parsed command."""
         pass
 
-    async def on_error(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
+    async def on_error(self, error: Exception, context: Optional[dict[str, Any]] = None) -> None:
         """Handle errors during event processing."""
         logger.error(f"Bot error: {error}", exc_info=True, extra={"context": context})
-
 
 class DefaultBotEventHandler(BotEventHandler):
     """Default implementation of BotEventHandler with routing logic.
@@ -342,13 +332,13 @@ class DefaultBotEventHandler(BotEventHandler):
         self,
         client: BaseBotClient,
         command_prefix: str = "/",
-        debate_keywords: Optional[List[str]] = None,
+        debate_keywords: Optional[list[str]] = None,
     ):
         super().__init__(client)
         self.command_prefix = command_prefix
         self.debate_keywords = debate_keywords or ["debate", "discuss", "argue"]
-        self._active_debates: Dict[str, str] = {}  # channel_id -> debate_id
-        self._registry: Optional[Any] = None
+        self._active_debates: dict[str, str] = {}  # channel_id -> debate_id
+        self._registry: Any | None = None
 
     def set_command_registry(self, registry: Any) -> None:
         """Set the command registry for command execution."""
@@ -428,7 +418,7 @@ class DefaultBotEventHandler(BotEventHandler):
                 thread_id=ctx.thread_id,
             )
 
-    def _parse_command(self, message: BotMessage) -> Optional[CommandContext]:
+    def _parse_command(self, message: BotMessage) -> CommandContext | None:
         """Parse a message into a CommandContext if it's a command."""
         text = message.text.strip()
 
@@ -527,13 +517,13 @@ class DefaultBotEventHandler(BotEventHandler):
         self._active_debates[channel_id] = debate_id
         logger.info(f"Started debate {debate_id} in channel {channel_id}")
 
-    def end_debate(self, channel_id: str) -> Optional[str]:
+    def end_debate(self, channel_id: str) -> str | None:
         """End a debate in a channel. Returns the debate ID if found."""
         debate_id = self._active_debates.pop(channel_id, None)
         if debate_id:
             logger.info(f"Ended debate {debate_id} in channel {channel_id}")
         return debate_id
 
-    def get_active_debate(self, channel_id: str) -> Optional[str]:
+    def get_active_debate(self, channel_id: str) -> str | None:
         """Get the active debate ID for a channel, if any."""
         return self._active_debates.get(channel_id)

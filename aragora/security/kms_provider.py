@@ -29,7 +29,6 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +38,9 @@ class KmsKeyMetadata:
     """Metadata about a KMS key."""
 
     key_id: str
-    key_arn: Optional[str] = None
-    version: Optional[str] = None
-    created_at: Optional[str] = None
+    key_arn: str | None = None
+    version: str | None = None
+    created_at: str | None = None
     algorithm: str = "AES-256"
     provider: str = "unknown"
 
@@ -115,7 +114,7 @@ class AwsKmsProvider(KmsProvider):
     - ARAGORA_AWS_KMS_KEY_ID: Default key ID/ARN
     """
 
-    def __init__(self, region: Optional[str] = None, key_id: Optional[str] = None):
+    def __init__(self, region: str | None = None, key_id: str | None = None):
         self.region = region or os.environ.get("AWS_REGION", "us-east-1")
         self.default_key_id = key_id or os.environ.get("ARAGORA_AWS_KMS_KEY_ID")
         self._client = None
@@ -204,8 +203,8 @@ class AzureKeyVaultProvider(KmsProvider):
 
     def __init__(
         self,
-        vault_url: Optional[str] = None,
-        key_name: Optional[str] = None,
+        vault_url: str | None = None,
+        key_name: str | None = None,
     ):
         self.vault_url = vault_url or os.environ.get("AZURE_KEY_VAULT_URL")
         self.default_key_name = key_name or os.environ.get(
@@ -322,10 +321,10 @@ class GcpKmsProvider(KmsProvider):
 
     def __init__(
         self,
-        project: Optional[str] = None,
-        location: Optional[str] = None,
-        keyring: Optional[str] = None,
-        key_name: Optional[str] = None,
+        project: str | None = None,
+        location: str | None = None,
+        keyring: str | None = None,
+        key_name: str | None = None,
     ):
         self.project = project or os.environ.get("GOOGLE_CLOUD_PROJECT")
         self.location = location or os.environ.get("ARAGORA_GCP_KMS_LOCATION", "global")
@@ -347,7 +346,7 @@ class GcpKmsProvider(KmsProvider):
                 )
         return self._client
 
-    def _get_key_name(self, key_id: Optional[str] = None) -> str:
+    def _get_key_name(self, key_id: str | None = None) -> str:
         """Build full key resource name."""
         key = key_id or self.default_key
         return (
@@ -430,11 +429,11 @@ class HashiCorpVaultProvider(KmsProvider):
 
     def __init__(
         self,
-        addr: Optional[str] = None,
-        token: Optional[str] = None,
-        namespace: Optional[str] = None,
-        transit_path: Optional[str] = None,
-        key_name: Optional[str] = None,
+        addr: str | None = None,
+        token: str | None = None,
+        namespace: str | None = None,
+        transit_path: str | None = None,
+        key_name: str | None = None,
     ):
         self.addr = addr or os.environ.get("VAULT_ADDR")
         self.token = token or os.environ.get("VAULT_TOKEN")
@@ -579,7 +578,7 @@ class LocalKmsProvider(KmsProvider):
     NOT for production use.
     """
 
-    def __init__(self, master_key: Optional[bytes] = None):
+    def __init__(self, master_key: bytes | None = None):
         self._master_key = master_key
         if self._master_key is None:
             key_hex = os.environ.get("ARAGORA_ENCRYPTION_KEY")
@@ -634,7 +633,7 @@ class LocalKmsProvider(KmsProvider):
 # Provider Factory
 # =============================================================================
 
-_kms_provider: Optional[KmsProvider] = None
+_kms_provider: KmsProvider | None = None
 
 
 def detect_cloud_provider() -> str:

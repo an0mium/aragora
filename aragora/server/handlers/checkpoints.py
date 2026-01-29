@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.debate.checkpoint import (
     CheckpointManager,
@@ -42,7 +42,6 @@ logger = logging.getLogger(__name__)
 # Rate limiter for checkpoint endpoints (30 requests per minute)
 _checkpoint_limiter = RateLimiter(requests_per_minute=30)
 
-
 class CheckpointHandler(BaseHandler):
     """Handler for checkpoint management endpoints."""
 
@@ -51,9 +50,9 @@ class CheckpointHandler(BaseHandler):
         "/api/v1/checkpoints/resumable",
     ]
 
-    def __init__(self, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, context: Optional[dict[str, Any]] = None):
         super().__init__(context)  # type: ignore[arg-type]
-        self._checkpoint_manager: Optional[CheckpointManager] = None
+        self._checkpoint_manager: CheckpointManager | None = None
 
     def _get_checkpoint_manager(self) -> CheckpointManager:
         """Get or create checkpoint manager instance."""
@@ -77,9 +76,9 @@ class CheckpointHandler(BaseHandler):
     async def handle(  # type: ignore[override]
         self,
         path: str,
-        query_params: Dict[str, str],
+        query_params: dict[str, str],
         handler: Any,
-        body: Optional[bytes] = None,
+        body: bytes | None = None,
     ) -> HandlerResult:
         """Route checkpoint requests to appropriate method."""
         # Rate limit check
@@ -149,7 +148,7 @@ class CheckpointHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    async def list_checkpoints(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def list_checkpoints(self, query_params: dict[str, str]) -> HandlerResult:
         """
         GET /api/checkpoints
 
@@ -222,7 +221,7 @@ class CheckpointHandler(BaseHandler):
 
         return json_response({"checkpoint": checkpoint_dict})
 
-    async def resume_checkpoint(self, checkpoint_id: str, body: Optional[bytes]) -> HandlerResult:
+    async def resume_checkpoint(self, checkpoint_id: str, body: bytes | None) -> HandlerResult:
         """
         POST /api/checkpoints/{id}/resume
 
@@ -297,7 +296,7 @@ class CheckpointHandler(BaseHandler):
         else:
             return error_response("Failed to delete checkpoint", 500)
 
-    async def add_intervention(self, checkpoint_id: str, body: Optional[bytes]) -> HandlerResult:
+    async def add_intervention(self, checkpoint_id: str, body: bytes | None) -> HandlerResult:
         """
         POST /api/checkpoints/{id}/intervention
 
@@ -334,7 +333,7 @@ class CheckpointHandler(BaseHandler):
             return error_response(f"Checkpoint not found: {checkpoint_id}", 404)
 
     async def list_debate_checkpoints(
-        self, debate_id: str, query_params: Dict[str, str]
+        self, debate_id: str, query_params: dict[str, str]
     ) -> HandlerResult:
         """
         GET /api/debates/{id}/checkpoints
@@ -356,7 +355,7 @@ class CheckpointHandler(BaseHandler):
             }
         )
 
-    async def create_checkpoint(self, debate_id: str, body: Optional[bytes]) -> HandlerResult:
+    async def create_checkpoint(self, debate_id: str, body: bytes | None) -> HandlerResult:
         """
         POST /api/debates/{id}/checkpoint
 
@@ -376,7 +375,7 @@ class CheckpointHandler(BaseHandler):
             status=501,
         )
 
-    async def pause_debate(self, debate_id: str, body: Optional[bytes]) -> HandlerResult:
+    async def pause_debate(self, debate_id: str, body: bytes | None) -> HandlerResult:
         """
         POST /api/debates/{id}/checkpoint/pause
 

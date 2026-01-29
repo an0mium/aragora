@@ -13,7 +13,7 @@ Routes:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +37,11 @@ except ImportError:
 CLOUD_READ_PERMISSION = "cloud:read"
 CLOUD_WRITE_PERMISSION = "cloud:write"
 
-
 # Supported providers
 PROVIDERS = ["google_drive", "onedrive", "dropbox", "s3"]
 
 # In-memory token storage (use Redis/DB in production)
-_tokens: Dict[str, Dict[str, str]] = {}
-
+_tokens: dict[str, dict[str, str]] = {}
 
 def get_provider_connector(provider: str):
     """Get connector instance for a provider."""
@@ -65,8 +63,7 @@ def get_provider_connector(provider: str):
         return S3Connector()  # type: ignore[call-arg]
     return None
 
-
-def get_provider_status(provider: str) -> Dict[str, Any]:
+def get_provider_status(provider: str) -> dict[str, Any]:
     """Get connection status for a provider."""
     connector = get_provider_connector(provider)
     if not connector:
@@ -81,13 +78,11 @@ def get_provider_status(provider: str) -> Dict[str, Any]:
         "account_name": _tokens.get(provider, {}).get("account_name"),
     }
 
-
-def get_all_provider_status() -> Dict[str, Dict[str, Any]]:
+def get_all_provider_status() -> dict[str, dict[str, Any]]:
     """Get status for all providers."""
     return {p: get_provider_status(p) for p in PROVIDERS}
 
-
-async def get_auth_url(provider: str, redirect_uri: str, state: str = "") -> Optional[str]:
+async def get_auth_url(provider: str, redirect_uri: str, state: str = "") -> str | None:
     """Generate OAuth authorization URL for a provider."""
     connector = get_provider_connector(provider)
     if not connector:
@@ -97,7 +92,6 @@ async def get_auth_url(provider: str, redirect_uri: str, state: str = "") -> Opt
         return connector.get_oauth_url(redirect_uri, state)
 
     return None
-
 
 async def handle_auth_callback(
     provider: str,
@@ -137,12 +131,11 @@ async def handle_auth_callback(
 
     return False
 
-
 async def list_files(
     provider: str,
     path: str = "/",
     page_size: int = 100,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List files in a folder."""
     connector = get_provider_connector(provider)
     if not connector:
@@ -190,8 +183,7 @@ async def list_files(
 
     return files
 
-
-async def download_file(provider: str, file_id: str) -> Optional[bytes]:
+async def download_file(provider: str, file_id: str) -> bytes | None:
     """Download file content."""
     connector = get_provider_connector(provider)
     if not connector:
@@ -209,7 +201,6 @@ async def download_file(provider: str, file_id: str) -> Optional[bytes]:
         logger.error(f"Failed to download file from {provider}: {e}")
 
     return None
-
 
 # HTTP Handler
 if HANDLER_BASE_AVAILABLE:
@@ -237,9 +228,9 @@ if HANDLER_BASE_AVAILABLE:
         async def handle(  # type: ignore[override]
             self,
             path: str,
-            query_params: Dict[str, Any],
+            query_params: dict[str, Any],
             handler: Any,
-        ) -> Optional[HandlerResult]:
+        ) -> HandlerResult | None:
             """Route cloud storage requests."""
             # RBAC: Require authentication and cloud:read permission
             try:
@@ -284,9 +275,9 @@ if HANDLER_BASE_AVAILABLE:
         async def handle_post(  # type: ignore[override]
             self,
             path: str,
-            body: Dict[str, Any],
+            body: dict[str, Any],
             handler: Any,
-        ) -> Optional[HandlerResult]:
+        ) -> HandlerResult | None:
             """Handle POST requests."""
             # RBAC: Require authentication and cloud:write permission
             try:
@@ -316,7 +307,7 @@ if HANDLER_BASE_AVAILABLE:
         async def _get_auth_url(
             self,
             provider: str,
-            query_params: Dict[str, Any],
+            query_params: dict[str, Any],
         ) -> HandlerResult:
             """Generate OAuth authorization URL."""
             redirect_uri = query_params.get("redirect_uri", "http://localhost:3000/auth/callback")
@@ -332,7 +323,7 @@ if HANDLER_BASE_AVAILABLE:
         async def _handle_auth_callback(
             self,
             provider: str,
-            body: Dict[str, Any],
+            body: dict[str, Any],
         ) -> HandlerResult:
             """Handle OAuth callback."""
             code = body.get("code")
@@ -350,7 +341,7 @@ if HANDLER_BASE_AVAILABLE:
         async def _list_files(
             self,
             provider: str,
-            query_params: Dict[str, Any],
+            query_params: dict[str, Any],
         ) -> HandlerResult:
             """List files in a folder."""
             path = query_params.get("path", "/")
@@ -363,7 +354,7 @@ if HANDLER_BASE_AVAILABLE:
         async def _download_file(
             self,
             provider: str,
-            body: Dict[str, Any],
+            body: dict[str, Any],
         ) -> HandlerResult:
             """Download a file."""
             import base64

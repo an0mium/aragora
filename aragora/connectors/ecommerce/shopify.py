@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.connectors.exceptions import ConnectorAPIError
@@ -35,13 +35,11 @@ from aragora.connectors.model_base import ConnectorDataclass
 
 logger = logging.getLogger(__name__)
 
-
 class ShopifyEnvironment(str, Enum):
     """Shopify environment."""
 
     DEVELOPMENT = "development"
     PRODUCTION = "production"
-
 
 class OrderStatus(str, Enum):
     """Order fulfillment status."""
@@ -53,7 +51,6 @@ class OrderStatus(str, Enum):
     CANCELLED = "cancelled"
     REFUNDED = "refunded"
 
-
 class PaymentStatus(str, Enum):
     """Order payment status."""
 
@@ -64,13 +61,11 @@ class PaymentStatus(str, Enum):
     VOIDED = "voided"
     AUTHORIZED = "authorized"
 
-
 class InventoryPolicy(str, Enum):
     """Inventory tracking policy."""
 
     DENY = "deny"  # Don't allow overselling
     CONTINUE = "continue"  # Allow overselling
-
 
 @dataclass
 class ShopifyCredentials:
@@ -90,7 +85,6 @@ class ShopifyCredentials:
             api_version=os.environ.get("SHOPIFY_API_VERSION", "2024-01"),
         )
 
-
 @dataclass
 class ShopifyAddress(ConnectorDataclass):
     """Shipping or billing address."""
@@ -103,22 +97,21 @@ class ShopifyAddress(ConnectorDataclass):
     }
     _include_none = True
 
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    company: Optional[str] = None
-    address1: Optional[str] = None
-    address2: Optional[str] = None
-    city: Optional[str] = None
-    province: Optional[str] = None
-    province_code: Optional[str] = None
-    country: Optional[str] = None
-    country_code: Optional[str] = None
-    zip: Optional[str] = None
-    phone: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    company: str | None = None
+    address1: str | None = None
+    address2: str | None = None
+    city: str | None = None
+    province: str | None = None
+    province_code: str | None = None
+    country: str | None = None
+    country_code: str | None = None
+    zip: str | None = None
+    phone: str | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class ShopifyLineItem(ConnectorDataclass):
@@ -133,21 +126,20 @@ class ShopifyLineItem(ConnectorDataclass):
     _include_none = True
 
     id: str
-    product_id: Optional[str]
-    variant_id: Optional[str]
+    product_id: str | None
+    variant_id: str | None
     title: str
     quantity: int
     price: Decimal
-    sku: Optional[str] = None
-    vendor: Optional[str] = None
+    sku: str | None = None
+    vendor: str | None = None
     grams: int = 0
     taxable: bool = True
-    fulfillment_status: Optional[str] = None
+    fulfillment_status: str | None = None
     requires_shipping: bool = True
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class ShopifyOrder(ConnectorDataclass):
@@ -175,7 +167,7 @@ class ShopifyOrder(ConnectorDataclass):
     id: str
     order_number: int
     name: str  # e.g., "#1001"
-    email: Optional[str]
+    email: str | None
     created_at: datetime
     updated_at: datetime
     total_price: Decimal
@@ -184,19 +176,18 @@ class ShopifyOrder(ConnectorDataclass):
     total_discounts: Decimal
     currency: str
     financial_status: PaymentStatus
-    fulfillment_status: Optional[OrderStatus]
-    line_items: List[ShopifyLineItem] = field(default_factory=list)
-    shipping_address: Optional[ShopifyAddress] = None
-    billing_address: Optional[ShopifyAddress] = None
-    customer_id: Optional[str] = None
-    note: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
-    cancelled_at: Optional[datetime] = None
-    closed_at: Optional[datetime] = None
+    fulfillment_status: OrderStatus | None
+    line_items: list[ShopifyLineItem] = field(default_factory=list)
+    shipping_address: ShopifyAddress | None = None
+    billing_address: ShopifyAddress | None = None
+    customer_id: str | None = None
+    note: str | None = None
+    tags: list[str] = field(default_factory=list)
+    cancelled_at: datetime | None = None
+    closed_at: datetime | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class ShopifyProduct(ConnectorDataclass):
@@ -213,20 +204,19 @@ class ShopifyProduct(ConnectorDataclass):
     id: str
     title: str
     handle: str
-    vendor: Optional[str]
-    product_type: Optional[str]
+    vendor: str | None
+    product_type: str | None
     status: str  # active, archived, draft
     created_at: datetime
     updated_at: datetime
-    published_at: Optional[datetime]
-    description: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
-    variants: List["ShopifyVariant"] = field(default_factory=list)
-    images: List[str] = field(default_factory=list)  # Image URLs
+    published_at: datetime | None
+    description: str | None = None
+    tags: list[str] = field(default_factory=list)
+    variants: list["ShopifyVariant"] = field(default_factory=list)
+    images: list[str] = field(default_factory=list)  # Image URLs
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class ShopifyVariant(ConnectorDataclass):
@@ -245,20 +235,19 @@ class ShopifyVariant(ConnectorDataclass):
     product_id: str
     title: str
     price: Decimal
-    sku: Optional[str]
+    sku: str | None
     inventory_quantity: int = 0
     inventory_policy: InventoryPolicy = InventoryPolicy.DENY
-    compare_at_price: Optional[Decimal] = None
+    compare_at_price: Decimal | None = None
     weight: float = 0.0
     weight_unit: str = "kg"
-    barcode: Optional[str] = None
-    option1: Optional[str] = None
-    option2: Optional[str] = None
-    option3: Optional[str] = None
+    barcode: str | None = None
+    option1: str | None = None
+    option2: str | None = None
+    option3: str | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class ShopifyCustomer(ConnectorDataclass):
@@ -278,10 +267,10 @@ class ShopifyCustomer(ConnectorDataclass):
     _include_none = True
 
     id: str
-    email: Optional[str]
-    first_name: Optional[str]
-    last_name: Optional[str]
-    phone: Optional[str]
+    email: str | None
+    first_name: str | None
+    last_name: str | None
+    phone: str | None
     created_at: datetime
     updated_at: datetime
     orders_count: int = 0
@@ -289,8 +278,8 @@ class ShopifyCustomer(ConnectorDataclass):
     verified_email: bool = False
     accepts_marketing: bool = False
     tax_exempt: bool = False
-    tags: List[str] = field(default_factory=list)
-    note: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    note: str | None = None
 
     @property
     def full_name(self) -> str:
@@ -298,11 +287,10 @@ class ShopifyCustomer(ConnectorDataclass):
         parts = [p for p in [self.first_name, self.last_name] if p]
         return " ".join(parts) or "Unknown"
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         result["fullName"] = self.full_name
         return result
-
 
 @dataclass
 class ShopifyInventoryLevel(ConnectorDataclass):
@@ -320,9 +308,8 @@ class ShopifyInventoryLevel(ConnectorDataclass):
     available: int
     updated_at: datetime
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 class ShopifyConnector(EnterpriseConnector):
     """
@@ -408,8 +395,8 @@ class ShopifyConnector(EnterpriseConnector):
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
         return_headers: bool = False,
     ) -> Any:
         """Make an API request to Shopify.
@@ -441,7 +428,7 @@ class ShopifyConnector(EnterpriseConnector):
                 return data, dict(resp.headers)
             return data
 
-    def _parse_link_header(self, link_header: Optional[str]) -> Optional[str]:
+    def _parse_link_header(self, link_header: str | None) -> str | None:
         """Parse the Link header to extract next page_info.
 
         Shopify uses cursor-based pagination with Link headers:
@@ -477,7 +464,7 @@ class ShopifyConnector(EnterpriseConnector):
 
     async def sync_orders(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         status: str = "any",
         limit: int = 250,
     ) -> AsyncIterator[ShopifyOrder]:
@@ -491,7 +478,7 @@ class ShopifyConnector(EnterpriseConnector):
         Yields:
             ShopifyOrder objects
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "status": status,
             "limit": limit,
         }
@@ -521,7 +508,7 @@ class ShopifyConnector(EnterpriseConnector):
             if not page_info:
                 break
 
-    def _parse_order(self, data: Dict[str, Any]) -> ShopifyOrder:
+    def _parse_order(self, data: dict[str, Any]) -> ShopifyOrder:
         """Parse order data from API response."""
         line_items = [
             ShopifyLineItem(
@@ -578,7 +565,7 @@ class ShopifyConnector(EnterpriseConnector):
             ),
         )
 
-    def _parse_address(self, data: Dict[str, Any]) -> ShopifyAddress:
+    def _parse_address(self, data: dict[str, Any]) -> ShopifyAddress:
         """Parse address data."""
         return ShopifyAddress(
             first_name=data.get("first_name"),
@@ -595,7 +582,7 @@ class ShopifyConnector(EnterpriseConnector):
             phone=data.get("phone"),
         )
 
-    async def get_order(self, order_id: str) -> Optional[ShopifyOrder]:
+    async def get_order(self, order_id: str) -> ShopifyOrder | None:
         """Get a single order by ID.
 
         Args:
@@ -614,8 +601,8 @@ class ShopifyConnector(EnterpriseConnector):
     async def fulfill_order(
         self,
         order_id: str,
-        tracking_number: Optional[str] = None,
-        tracking_company: Optional[str] = None,
+        tracking_number: str | None = None,
+        tracking_company: str | None = None,
         notify_customer: bool = True,
     ) -> bool:
         """Mark an order as fulfilled.
@@ -630,7 +617,7 @@ class ShopifyConnector(EnterpriseConnector):
             True if successful
         """
         try:
-            fulfillment_data: Dict[str, Any] = {
+            fulfillment_data: dict[str, Any] = {
                 "fulfillment": {
                     "notify_customer": notify_customer,
                 }
@@ -656,7 +643,7 @@ class ShopifyConnector(EnterpriseConnector):
 
     async def sync_products(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         status: str = "active",
         limit: int = 250,
     ) -> AsyncIterator[ShopifyProduct]:
@@ -670,7 +657,7 @@ class ShopifyConnector(EnterpriseConnector):
         Yields:
             ShopifyProduct objects
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "status": status,
             "limit": limit,
         }
@@ -682,7 +669,7 @@ class ShopifyConnector(EnterpriseConnector):
         for product_data in data.get("products", []):
             yield self._parse_product(product_data)
 
-    def _parse_product(self, data: Dict[str, Any]) -> ShopifyProduct:
+    def _parse_product(self, data: dict[str, Any]) -> ShopifyProduct:
         """Parse product data from API response."""
         variants = [
             ShopifyVariant(
@@ -728,7 +715,7 @@ class ShopifyConnector(EnterpriseConnector):
             images=images,
         )
 
-    async def get_product(self, product_id: str) -> Optional[ShopifyProduct]:
+    async def get_product(self, product_id: str) -> ShopifyProduct | None:
         """Get a single product by ID."""
         try:
             data = await self._request("GET", f"/products/{product_id}.json")
@@ -771,7 +758,7 @@ class ShopifyConnector(EnterpriseConnector):
     async def get_low_stock_variants(
         self,
         threshold: int = 5,
-    ) -> List[ShopifyVariant]:
+    ) -> list[ShopifyVariant]:
         """Get variants with low stock.
 
         Args:
@@ -793,7 +780,7 @@ class ShopifyConnector(EnterpriseConnector):
 
     async def sync_customers(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 250,
     ) -> AsyncIterator[ShopifyCustomer]:
         """Sync customers from Shopify.
@@ -805,7 +792,7 @@ class ShopifyConnector(EnterpriseConnector):
         Yields:
             ShopifyCustomer objects
         """
-        params: Dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if since:
             params["updated_at_min"] = since.isoformat()
 
@@ -814,7 +801,7 @@ class ShopifyConnector(EnterpriseConnector):
         for customer_data in data.get("customers", []):
             yield self._parse_customer(customer_data)
 
-    def _parse_customer(self, data: Dict[str, Any]) -> ShopifyCustomer:
+    def _parse_customer(self, data: dict[str, Any]) -> ShopifyCustomer:
         """Parse customer data from API response."""
         return ShopifyCustomer(
             id=str(data["id"]),
@@ -833,7 +820,7 @@ class ShopifyConnector(EnterpriseConnector):
             note=data.get("note"),
         )
 
-    async def get_customer(self, customer_id: str) -> Optional[ShopifyCustomer]:
+    async def get_customer(self, customer_id: str) -> ShopifyCustomer | None:
         """Get a single customer by ID."""
         try:
             data = await self._request("GET", f"/customers/{customer_id}.json")
@@ -848,9 +835,9 @@ class ShopifyConnector(EnterpriseConnector):
 
     async def get_order_stats(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get order statistics.
 
         Args:
@@ -894,8 +881,8 @@ class ShopifyConnector(EnterpriseConnector):
 
     async def incremental_sync(
         self,
-        state: Optional[SyncState] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        state: SyncState | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Perform incremental sync of all Shopify data.
 
         Args:
@@ -922,7 +909,7 @@ class ShopifyConnector(EnterpriseConnector):
         """Perform full sync of all Shopify data."""
         start_time = datetime.now(timezone.utc)
         items_synced = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             async for _ in self.incremental_sync():
@@ -1059,13 +1046,11 @@ class ShopifyConnector(EnterpriseConnector):
                 },
             )
 
-
 # =========================================================================
 # Mock data for testing
 # =========================================================================
 
-
-def get_mock_orders() -> List[ShopifyOrder]:
+def get_mock_orders() -> list[ShopifyOrder]:
     """Get mock Shopify orders for testing."""
     now = datetime.now(timezone.utc)
     return [
@@ -1098,8 +1083,7 @@ def get_mock_orders() -> List[ShopifyOrder]:
         ),
     ]
 
-
-def get_mock_products() -> List[ShopifyProduct]:
+def get_mock_products() -> list[ShopifyProduct]:
     """Get mock Shopify products for testing."""
     now = datetime.now(timezone.utc)
     return [
@@ -1126,7 +1110,6 @@ def get_mock_products() -> List[ShopifyProduct]:
             ],
         ),
     ]
-
 
 __all__ = [
     "ShopifyConnector",

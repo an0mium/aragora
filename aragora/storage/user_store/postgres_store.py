@@ -13,7 +13,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone, timedelta
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
 
 logger = logging.getLogger(__name__)
-
 
 class PostgresUserStore:
     """
@@ -207,7 +206,7 @@ class PostgresUserStore:
         password_hash: str,
         password_salt: str,
         name: str = "",
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         role: str = "member",
     ) -> User:
         """Create a new user (sync wrapper)."""
@@ -221,7 +220,7 @@ class PostgresUserStore:
         password_hash: str,
         password_salt: str,
         name: str = "",
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         role: str = "member",
     ) -> User:
         """Create a new user asynchronously."""
@@ -258,11 +257,11 @@ class PostgresUserStore:
             updated_at=now,
         )
 
-    def get_user_by_id(self, user_id: str) -> Optional[User]:
+    def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_user_by_id_async(user_id))
 
-    async def get_user_by_id_async(self, user_id: str) -> Optional[User]:
+    async def get_user_by_id_async(self, user_id: str) -> User | None:
         """Get user by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -301,11 +300,11 @@ class PostgresUserStore:
             )
             return {row["id"]: self._row_to_user(row) for row in rows}
 
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> User | None:
         """Get user by email (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_user_by_email_async(email))
 
-    async def get_user_by_email_async(self, email: str) -> Optional[User]:
+    async def get_user_by_email_async(self, email: str) -> User | None:
         """Get user by email asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -322,11 +321,11 @@ class PostgresUserStore:
                 return self._row_to_user(row)
             return None
 
-    def get_user_by_api_key(self, api_key: str) -> Optional[User]:
+    def get_user_by_api_key(self, api_key: str) -> User | None:
         """Get user by API key (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_user_by_api_key_async(api_key))
 
-    async def get_user_by_api_key_async(self, api_key: str) -> Optional[User]:
+    async def get_user_by_api_key_async(self, api_key: str) -> User | None:
         """Get user by API key asynchronously."""
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         async with self._pool.acquire() as conn:
@@ -401,11 +400,11 @@ class PostgresUserStore:
             result = await conn.execute("DELETE FROM users WHERE id = $1", user_id)
             return result != "DELETE 0"
 
-    def get_user_preferences(self, user_id: str) -> Optional[dict]:
+    def get_user_preferences(self, user_id: str) -> dict | None:
         """Get user preferences (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_user_preferences_async(user_id))
 
-    async def get_user_preferences_async(self, user_id: str) -> Optional[dict]:
+    async def get_user_preferences_async(self, user_id: str) -> dict | None:
         """Get user preferences asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow("SELECT preferences FROM users WHERE id = $1", user_id)
@@ -474,7 +473,7 @@ class PostgresUserStore:
         self,
         name: str,
         owner_id: str,
-        slug: Optional[str] = None,
+        slug: str | None = None,
         tier: SubscriptionTier = SubscriptionTier.FREE,
     ) -> Organization:
         """Create a new organization (sync wrapper)."""
@@ -486,7 +485,7 @@ class PostgresUserStore:
         self,
         name: str,
         owner_id: str,
-        slug: Optional[str] = None,
+        slug: str | None = None,
         tier: SubscriptionTier = SubscriptionTier.FREE,
     ) -> Organization:
         """Create a new organization asynchronously."""
@@ -526,13 +525,13 @@ class PostgresUserStore:
             updated_at=now,
         )
 
-    def get_organization_by_id(self, org_id: str) -> Optional[Organization]:
+    def get_organization_by_id(self, org_id: str) -> Organization | None:
         """Get organization by ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_organization_by_id_async(org_id)
         )
 
-    async def get_organization_by_id_async(self, org_id: str) -> Optional[Organization]:
+    async def get_organization_by_id_async(self, org_id: str) -> Organization | None:
         """Get organization by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -546,13 +545,13 @@ class PostgresUserStore:
                 return self._row_to_org(row)
             return None
 
-    def get_organization_by_slug(self, slug: str) -> Optional[Organization]:
+    def get_organization_by_slug(self, slug: str) -> Organization | None:
         """Get organization by slug (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_organization_by_slug_async(slug)
         )
 
-    async def get_organization_by_slug_async(self, slug: str) -> Optional[Organization]:
+    async def get_organization_by_slug_async(self, slug: str) -> Organization | None:
         """Get organization by slug asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -568,7 +567,7 @@ class PostgresUserStore:
 
     def get_organization_by_stripe_customer(
         self, stripe_customer_id: str
-    ) -> Optional[Organization]:
+    ) -> Organization | None:
         """Get organization by Stripe customer ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_organization_by_stripe_customer_async(stripe_customer_id)
@@ -576,7 +575,7 @@ class PostgresUserStore:
 
     async def get_organization_by_stripe_customer_async(
         self, stripe_customer_id: str
-    ) -> Optional[Organization]:
+    ) -> Organization | None:
         """Get organization by Stripe customer ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -590,7 +589,7 @@ class PostgresUserStore:
                 return self._row_to_org(row)
             return None
 
-    def get_organization_by_subscription(self, subscription_id: str) -> Optional[Organization]:
+    def get_organization_by_subscription(self, subscription_id: str) -> Organization | None:
         """Get organization by Stripe subscription ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_organization_by_subscription_async(subscription_id)
@@ -598,7 +597,7 @@ class PostgresUserStore:
 
     async def get_organization_by_subscription_async(
         self, subscription_id: str
-    ) -> Optional[Organization]:
+    ) -> Organization | None:
         """Get organization by Stripe subscription ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -712,13 +711,13 @@ class PostgresUserStore:
             )
             return [self._row_to_user(row) for row in rows]
 
-    def get_org_members_eager(self, org_id: str) -> tuple[Optional[Organization], list[User]]:
+    def get_org_members_eager(self, org_id: str) -> tuple[Organization | None, list[User]]:
         """Get organization and all its members (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_org_members_eager_async(org_id))
 
     async def get_org_members_eager_async(
         self, org_id: str
-    ) -> tuple[Optional[Organization], list[User]]:
+    ) -> tuple[Organization | None, list[User]]:
         """Get organization and all its members asynchronously."""
         org = await self.get_organization_by_id_async(org_id)
         if not org:
@@ -793,7 +792,7 @@ class PostgresUserStore:
         org_id: str,
         event_type: str,
         count: int = 1,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """Record a usage event for analytics (sync wrapper)."""
         asyncio.get_event_loop().run_until_complete(
@@ -805,7 +804,7 @@ class PostgresUserStore:
         org_id: str,
         event_type: str,
         count: int = 1,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """Record a usage event asynchronously."""
         async with self._pool.acquire() as conn:
@@ -870,7 +869,7 @@ class PostgresUserStore:
         user_id: str,
         provider: str,
         provider_user_id: str,
-        email: Optional[str] = None,
+        email: str | None = None,
     ) -> bool:
         """Link an OAuth provider to a user account (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -882,7 +881,7 @@ class PostgresUserStore:
         user_id: str,
         provider: str,
         provider_user_id: str,
-        email: Optional[str] = None,
+        email: str | None = None,
     ) -> bool:
         """Link an OAuth provider asynchronously."""
         async with self._pool.acquire() as conn:
@@ -918,13 +917,13 @@ class PostgresUserStore:
             )
             return result != "DELETE 0"
 
-    def get_user_by_oauth(self, provider: str, provider_user_id: str) -> Optional[User]:
+    def get_user_by_oauth(self, provider: str, provider_user_id: str) -> User | None:
         """Get user by OAuth provider ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_user_by_oauth_async(provider, provider_user_id)
         )
 
-    async def get_user_by_oauth_async(self, provider: str, provider_user_id: str) -> Optional[User]:
+    async def get_user_by_oauth_async(self, provider: str, provider_user_id: str) -> User | None:
         """Get user by OAuth provider ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -967,14 +966,14 @@ class PostgresUserStore:
         self,
         action: str,
         resource_type: str,
-        resource_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        old_value: Optional[dict] = None,
-        new_value: Optional[dict] = None,
-        metadata: Optional[dict] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        resource_id: str | None = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
+        old_value: dict | None = None,
+        new_value: dict | None = None,
+        metadata: dict | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> int:
         """Log an audit event (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -996,14 +995,14 @@ class PostgresUserStore:
         self,
         action: str,
         resource_type: str,
-        resource_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        old_value: Optional[dict] = None,
-        new_value: Optional[dict] = None,
-        metadata: Optional[dict] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        resource_id: str | None = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
+        old_value: dict | None = None,
+        new_value: dict | None = None,
+        metadata: dict | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> int:
         """Log an audit event asynchronously."""
         async with self._pool.acquire() as conn:
@@ -1029,12 +1028,12 @@ class PostgresUserStore:
 
     def get_audit_log(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
@@ -1047,12 +1046,12 @@ class PostgresUserStore:
 
     async def get_audit_log_async(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
@@ -1111,10 +1110,10 @@ class PostgresUserStore:
 
     def get_audit_log_count(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
     ) -> int:
         """Get count of audit log entries (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -1123,10 +1122,10 @@ class PostgresUserStore:
 
     async def get_audit_log_count_async(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
     ) -> int:
         """Get count of audit log entries asynchronously."""
         query = "SELECT COUNT(*) FROM audit_log WHERE 1=1"
@@ -1185,7 +1184,7 @@ class PostgresUserStore:
                 logger.debug(f"Failed to create invitation for {invitation.email}: {e}")
                 return False
 
-    def get_invitation_by_id(self, invitation_id: str) -> Optional[OrganizationInvitation]:
+    def get_invitation_by_id(self, invitation_id: str) -> OrganizationInvitation | None:
         """Get invitation by ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_invitation_by_id_async(invitation_id)
@@ -1193,7 +1192,7 @@ class PostgresUserStore:
 
     async def get_invitation_by_id_async(
         self, invitation_id: str
-    ) -> Optional[OrganizationInvitation]:
+    ) -> OrganizationInvitation | None:
         """Get invitation by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1204,13 +1203,13 @@ class PostgresUserStore:
                 return self._row_to_invitation(row)
             return None
 
-    def get_invitation_by_token(self, token: str) -> Optional[OrganizationInvitation]:
+    def get_invitation_by_token(self, token: str) -> OrganizationInvitation | None:
         """Get invitation by token (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_invitation_by_token_async(token)
         )
 
-    async def get_invitation_by_token_async(self, token: str) -> Optional[OrganizationInvitation]:
+    async def get_invitation_by_token_async(self, token: str) -> OrganizationInvitation | None:
         """Get invitation by token asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1221,7 +1220,7 @@ class PostgresUserStore:
                 return self._row_to_invitation(row)
             return None
 
-    def get_invitation_by_email(self, org_id: str, email: str) -> Optional[OrganizationInvitation]:
+    def get_invitation_by_email(self, org_id: str, email: str) -> OrganizationInvitation | None:
         """Get pending invitation by org and email (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_invitation_by_email_async(org_id, email)
@@ -1229,7 +1228,7 @@ class PostgresUserStore:
 
     async def get_invitation_by_email_async(
         self, org_id: str, email: str
-    ) -> Optional[OrganizationInvitation]:
+    ) -> OrganizationInvitation | None:
         """Get pending invitation asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1279,7 +1278,7 @@ class PostgresUserStore:
         self,
         invitation_id: str,
         status: str,
-        accepted_at: Optional[datetime] = None,
+        accepted_at: datetime | None = None,
     ) -> bool:
         """Update invitation status (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -1290,7 +1289,7 @@ class PostgresUserStore:
         self,
         invitation_id: str,
         status: str,
-        accepted_at: Optional[datetime] = None,
+        accepted_at: datetime | None = None,
     ) -> bool:
         """Update invitation status asynchronously."""
         async with self._pool.acquire() as conn:
@@ -1355,11 +1354,11 @@ class PostgresUserStore:
     # Account Lockout Methods
     # =========================================================================
 
-    def is_account_locked(self, email: str) -> tuple[bool, Optional[datetime], int]:
+    def is_account_locked(self, email: str) -> tuple[bool, datetime | None, int]:
         """Check if an account is currently locked (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.is_account_locked_async(email))
 
-    async def is_account_locked_async(self, email: str) -> tuple[bool, Optional[datetime], int]:
+    async def is_account_locked_async(self, email: str) -> tuple[bool, datetime | None, int]:
         """Check if an account is currently locked asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1376,11 +1375,11 @@ class PostgresUserStore:
                 return True, lockout_until, attempts
             return False, None, attempts
 
-    def record_failed_login(self, email: str) -> tuple[int, Optional[datetime]]:
+    def record_failed_login(self, email: str) -> tuple[int, datetime | None]:
         """Record a failed login attempt (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.record_failed_login_async(email))
 
-    async def record_failed_login_async(self, email: str) -> tuple[int, Optional[datetime]]:
+    async def record_failed_login_async(self, email: str) -> tuple[int, datetime | None]:
         """Record a failed login attempt asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1470,7 +1469,7 @@ class PostgresUserStore:
         self,
         limit: int = 50,
         offset: int = 0,
-        tier_filter: Optional[str] = None,
+        tier_filter: str | None = None,
     ) -> tuple[list[Organization], int]:
         """List all organizations with pagination (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -1481,7 +1480,7 @@ class PostgresUserStore:
         self,
         limit: int = 50,
         offset: int = 0,
-        tier_filter: Optional[str] = None,
+        tier_filter: str | None = None,
     ) -> tuple[list[Organization], int]:
         """List all organizations asynchronously."""
         async with self._pool.acquire() as conn:
@@ -1512,8 +1511,8 @@ class PostgresUserStore:
         self,
         limit: int = 50,
         offset: int = 0,
-        org_id_filter: Optional[str] = None,
-        role_filter: Optional[str] = None,
+        org_id_filter: str | None = None,
+        role_filter: str | None = None,
         active_only: bool = False,
     ) -> tuple[list[User], int]:
         """List all users with pagination (sync wrapper)."""
@@ -1525,8 +1524,8 @@ class PostgresUserStore:
         self,
         limit: int = 50,
         offset: int = 0,
-        org_id_filter: Optional[str] = None,
-        role_filter: Optional[str] = None,
+        org_id_filter: str | None = None,
+        role_filter: str | None = None,
         active_only: bool = False,
     ) -> tuple[list[User], int]:
         """List all users asynchronously."""

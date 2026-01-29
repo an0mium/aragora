@@ -31,14 +31,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.control_plane.scheduler import TaskScheduler
     from aragora.knowledge.mound.facade import KnowledgeMound
 
 logger = logging.getLogger(__name__)
-
 
 class RevalidationScheduler:
     """
@@ -142,7 +141,7 @@ class RevalidationScheduler:
             # Wait for next check interval
             await asyncio.sleep(self._check_interval)
 
-    async def check_and_schedule_revalidations(self) -> List[str]:
+    async def check_and_schedule_revalidations(self) -> list[str]:
         """
         Check for stale knowledge and schedule revalidations.
 
@@ -197,7 +196,7 @@ class RevalidationScheduler:
             logger.exception(f"Unexpected revalidation scheduling error: {e}")
             return []
 
-    async def _create_revalidation_task(self, stale_item: Any) -> Optional[str]:
+    async def _create_revalidation_task(self, stale_item: Any) -> str | None:
         """
         Create a revalidation task for a stale knowledge item.
 
@@ -308,7 +307,6 @@ class RevalidationScheduler:
             "pending_revalidations": len(self._pending_revalidations),
         }
 
-
 # Task handler for processing revalidation tasks
 async def handle_revalidation_task(
     task_payload: dict[str, Any],
@@ -373,7 +371,6 @@ async def handle_revalidation_task(
     except Exception as e:
         logger.exception(f"Unexpected revalidation failure for {node_id}: {e}")
         return {"success": False, "error": str(e)}
-
 
 async def _revalidate_via_debate(
     node_id: str,
@@ -486,7 +483,6 @@ async def _revalidate_via_debate(
             "error": str(e),
         }
 
-
 async def _revalidate_via_evidence(
     node_id: str,
     payload: dict[str, Any],
@@ -535,7 +531,6 @@ async def _revalidate_via_evidence(
             "success": False,
             "error": f"Unexpected evidence collection error: {e}",
         }
-
 
 async def _flag_for_expert_review(
     node_id: str,

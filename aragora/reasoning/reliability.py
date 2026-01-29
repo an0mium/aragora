@@ -9,17 +9,16 @@ Analyzes:
 
 Outputs reliability metrics that integrate with the provenance system.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from aragora.reasoning.provenance import (
     ProvenanceManager,
     SourceType,
 )
-
 
 class ReliabilityLevel(Enum):
     """Qualitative reliability levels."""
@@ -30,7 +29,6 @@ class ReliabilityLevel(Enum):
     LOW = "low"  # >= 0.3
     VERY_LOW = "very_low"  # < 0.3
     SPECULATIVE = "speculative"  # No evidence
-
 
 @dataclass
 class ClaimReliability:
@@ -77,7 +75,6 @@ class ClaimReliability:
             "verified_by": self.verified_by,
         }
 
-
 @dataclass
 class EvidenceReliability:
     """Reliability assessment for evidence."""
@@ -106,7 +103,6 @@ class EvidenceReliability:
             "chain_verified": self.chain_verified,
             "content_verified": self.content_verified,
         }
-
 
 class ReliabilityScorer:
     """
@@ -141,7 +137,7 @@ class ReliabilityScorer:
     def __init__(
         self,
         provenance: ProvenanceManager,
-        verification_results: Optional[dict] = None,
+        verification_results: dict | None = None,
     ):
         self.provenance = provenance
         self.chain = provenance.chain
@@ -392,12 +388,11 @@ class ReliabilityScorer:
             "warnings": [w for r in results.values() for w in r.warnings],
         }
 
-
 def compute_claim_reliability(
     claim_id: str,
     claim_text: str,
     provenance: ProvenanceManager,
-    verification_results: Optional[dict] = None,
+    verification_results: dict | None = None,
 ) -> ClaimReliability:
     """Convenience function to compute single claim reliability."""
     scorer = ReliabilityScorer(provenance, verification_results)

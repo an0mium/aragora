@@ -23,7 +23,7 @@ import os
 import secrets
 import threading
 import time
-from typing import Any, Dict
+from typing import Any
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -35,16 +35,15 @@ from aragora.server.handlers.utils.decorators import require_permission
 logger = logging.getLogger(__name__)
 
 # Thread-safe SSO provider instances
-_sso_providers: Dict[str, Any] = {}
+_sso_providers: dict[str, Any] = {}
 _sso_providers_lock = threading.Lock()
 
 # Session store for state -> session data
-_auth_sessions: Dict[str, Dict[str, Any]] = {}
+_auth_sessions: dict[str, dict[str, Any]] = {}
 _auth_sessions_lock = threading.Lock()
 
 # Session TTL (10 minutes)
 AUTH_SESSION_TTL = 600
-
 
 def _get_sso_provider(provider_type: str = "oidc"):
     """Get or create SSO provider for type."""
@@ -126,7 +125,6 @@ def _get_sso_provider(provider_type: str = "oidc"):
             logger.warning(f"Failed to initialize SSO provider {provider_type}: {e}")
             return None
 
-
 def _cleanup_expired_sessions():
     """Remove expired auth sessions."""
     now = time.time()
@@ -140,15 +138,13 @@ def _cleanup_expired_sessions():
         for state in expired:
             del _auth_sessions[state]
 
-
 # =============================================================================
 # SSO Login Flow
 # =============================================================================
 
-
 # NOTE: SSO login is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_sso_login(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -201,10 +197,9 @@ async def handle_sso_login(
         logger.exception("SSO login initiation failed")
         return error_response(f"SSO login failed: {str(e)}", status=500)
 
-
 # NOTE: SSO callback is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_sso_callback(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -277,10 +272,9 @@ async def handle_sso_callback(
         logger.exception("SSO callback failed")
         return error_response(f"SSO authentication failed: {str(e)}", status=401)
 
-
 @require_permission("auth:read")
 async def handle_sso_refresh(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -329,10 +323,9 @@ async def handle_sso_refresh(
         logger.exception("SSO refresh failed")
         return error_response(f"Token refresh failed: {str(e)}", status=401)
 
-
 @require_permission("auth:read")
 async def handle_sso_logout(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -372,15 +365,13 @@ async def handle_sso_logout(
         logger.exception("SSO logout failed")
         return error_response(f"Logout failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Provider Configuration
 # =============================================================================
 
-
 # NOTE: List providers is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_list_providers(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -436,10 +427,9 @@ async def handle_list_providers(
         logger.exception("Failed to list providers")
         return error_response(f"List providers failed: {str(e)}", status=500)
 
-
 @require_permission("admin:system")
 async def handle_get_sso_config(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -453,7 +443,7 @@ async def handle_get_sso_config(
         provider_type = data.get("provider", "oidc")
 
         # Return public configuration (no secrets)
-        config: Dict[str, Any] = {
+        config: dict[str, Any] = {
             "provider": provider_type,
             "enabled": False,
         }
@@ -499,13 +489,11 @@ async def handle_get_sso_config(
         logger.exception("Failed to get SSO config")
         return error_response(f"Get config failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-
-def get_sso_handlers() -> Dict[str, Any]:
+def get_sso_handlers() -> dict[str, Any]:
     """Get all SSO handlers for registration."""
     return {
         "sso_login": handle_sso_login,
@@ -515,7 +503,6 @@ def get_sso_handlers() -> Dict[str, Any]:
         "sso_list_providers": handle_list_providers,
         "sso_get_config": handle_get_sso_config,
     }
-
 
 __all__ = [
     "handle_sso_login",

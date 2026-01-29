@@ -21,10 +21,9 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class BrowserAction(str, Enum):
     """Available browser actions."""
@@ -52,7 +51,6 @@ class BrowserAction(str, Enum):
     GO_FORWARD = "go_forward"
     CLOSE = "close"
 
-
 @dataclass
 class PageState:
     """Current state of a browser page."""
@@ -64,7 +62,7 @@ class PageState:
     load_time_ms: float = 0.0
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "url": self.url,
             "title": self.title,
@@ -74,20 +72,19 @@ class PageState:
             "timestamp": self.timestamp,
         }
 
-
 @dataclass
 class ActionResult:
     """Result of a browser action."""
 
     success: bool
     action: str
-    selector: Optional[str] = None
+    selector: str | None = None
     value: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     duration_ms: float = 0.0
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         result = {
             "success": self.success,
             "action": self.action,
@@ -101,7 +98,6 @@ class ActionResult:
         if self.error:
             result["error"] = self.error
         return result
-
 
 class PlaywrightConnector:
     """
@@ -128,13 +124,13 @@ class PlaywrightConnector:
         self,
         headless: bool = True,
         browser_type: str = "chromium",
-        allowed_domains: Optional[Set[str]] = None,
-        blocked_domains: Optional[Set[str]] = None,
+        allowed_domains: Optional[set[str]] = None,
+        blocked_domains: Optional[set[str]] = None,
         timeout_ms: int = 30000,
         viewport_width: int = 1280,
         viewport_height: int = 720,
-        user_agent: Optional[str] = None,
-        proxy: Optional[Dict[str, str]] = None,
+        user_agent: str | None = None,
+        proxy: Optional[dict[str, str]] = None,
         ignore_https_errors: bool = False,
     ):
         """
@@ -205,7 +201,7 @@ class PlaywrightConnector:
             browser_launcher = self._playwright.chromium
 
         # Launch browser with proxy if configured
-        launch_options: Dict[str, Any] = {
+        launch_options: dict[str, Any] = {
             "headless": self.headless,
         }
         if self.proxy:
@@ -281,7 +277,7 @@ class PlaywrightConnector:
         self,
         url: str,
         wait_until: str = "load",
-        timeout_ms: Optional[int] = None,
+        timeout_ms: int | None = None,
     ) -> PageState:
         """
         Navigate to a URL.
@@ -324,7 +320,7 @@ class PlaywrightConnector:
     async def click(
         self,
         selector: str,
-        timeout_ms: Optional[int] = None,
+        timeout_ms: int | None = None,
         force: bool = False,
     ) -> ActionResult:
         """
@@ -369,7 +365,7 @@ class PlaywrightConnector:
         self,
         selector: str,
         value: str,
-        timeout_ms: Optional[int] = None,
+        timeout_ms: int | None = None,
     ) -> ActionResult:
         """
         Fill a text input field.
@@ -414,7 +410,7 @@ class PlaywrightConnector:
         self,
         selector: str,
         value: str,
-        timeout_ms: Optional[int] = None,
+        timeout_ms: int | None = None,
     ) -> ActionResult:
         """
         Select an option from a dropdown.
@@ -457,9 +453,9 @@ class PlaywrightConnector:
 
     async def screenshot(
         self,
-        path: Optional[str] = None,
+        path: str | None = None,
         full_page: bool = False,
-        selector: Optional[str] = None,
+        selector: str | None = None,
     ) -> bytes:
         """
         Capture a screenshot.
@@ -492,7 +488,7 @@ class PlaywrightConnector:
     async def get_text(
         self,
         selector: str,
-        timeout_ms: Optional[int] = None,
+        timeout_ms: int | None = None,
     ) -> str:
         """
         Get text content of an element.
@@ -516,8 +512,8 @@ class PlaywrightConnector:
         self,
         selector: str,
         attribute: str,
-        timeout_ms: Optional[int] = None,
-    ) -> Optional[str]:
+        timeout_ms: int | None = None,
+    ) -> str | None:
         """
         Get attribute value of an element.
 
@@ -542,7 +538,7 @@ class PlaywrightConnector:
         self,
         selector: str,
         state: str = "visible",
-        timeout_ms: Optional[int] = None,
+        timeout_ms: int | None = None,
     ) -> bool:
         """
         Wait for an element to reach a state.
@@ -590,9 +586,9 @@ class PlaywrightConnector:
 
     async def extract_data(
         self,
-        selectors: Dict[str, str],
-        timeout_ms: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        selectors: dict[str, str],
+        timeout_ms: int | None = None,
+    ) -> dict[str, Any]:
         """
         Extract data from multiple elements.
 
@@ -619,7 +615,7 @@ class PlaywrightConnector:
 
         return result
 
-    async def get_cookies(self) -> List[Dict[str, Any]]:
+    async def get_cookies(self) -> list[dict[str, Any]]:
         """Get all cookies for the current context."""
         await self._ensure_initialized()
         cookies = await self._context.cookies()
@@ -629,7 +625,7 @@ class PlaywrightConnector:
         self,
         name: str,
         value: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         path: str = "/",
         secure: bool = False,
         http_only: bool = False,
@@ -697,7 +693,7 @@ class PlaywrightConnector:
             title=await self._page.title(),
         )
 
-    async def get_html(self, selector: Optional[str] = None) -> str:
+    async def get_html(self, selector: str | None = None) -> str:
         """
         Get HTML content.
 

@@ -12,7 +12,6 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Optional
 
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.rbac.decorators import require_permission
@@ -47,14 +46,12 @@ CapabilityProber = _prober_imports.get("CapabilityProber")
 _agent_imports, AGENT_AVAILABLE = try_import("aragora.agents.base", "create_agent")
 create_agent = _agent_imports.get("create_agent")
 
-
 def _safe_int(value, default: int = 0) -> int:
     """Safely convert value to int, returning default on failure."""
     try:
         return int(value)
     except (ValueError, TypeError):
         return default
-
 
 class ProbesHandler(BaseHandler):
     """Handler for capability probing endpoints."""
@@ -75,7 +72,7 @@ class ProbesHandler(BaseHandler):
         return False
 
     @require_permission("probes:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Route GET requests."""
         if path == "/api/v1/probes/reports":
             return self._list_probe_reports(handler, query_params)
@@ -84,7 +81,7 @@ class ProbesHandler(BaseHandler):
             return self._get_probe_report(handler, report_id)
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/probes/capability":
             return self._run_capability_probe(handler)
@@ -304,7 +301,7 @@ class ProbesHandler(BaseHandler):
             }
         )
 
-    def _get_probe_hooks(self, handler) -> Optional[dict]:
+    def _get_probe_hooks(self, handler) -> dict | None:
         """Get stream hooks for real-time probe updates if available."""
         try:
             server = getattr(handler, "server", None)

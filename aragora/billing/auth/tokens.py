@@ -17,7 +17,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from .config import (
     ALLOWED_ALGORITHMS,
@@ -32,11 +32,9 @@ from .config import (
 
 logger = logging.getLogger(__name__)
 
-
 def _base64url_encode(data: bytes) -> str:
     """Base64 URL-safe encode without padding."""
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("utf-8")
-
 
 def _base64url_decode(data: str) -> bytes:
     """Base64 URL-safe decode with padding restoration."""
@@ -45,14 +43,13 @@ def _base64url_decode(data: str) -> bytes:
         data += "=" * padding
     return base64.urlsafe_b64decode(data)
 
-
 @dataclass
 class JWTPayload:
     """JWT token payload."""
 
     sub: str  # Subject (user ID)
     email: str
-    org_id: Optional[str]
+    org_id: str | None
     role: str
     iat: int  # Issued at (Unix timestamp)
     exp: int  # Expiration (Unix timestamp)
@@ -96,7 +93,6 @@ class JWTPayload:
         """Alias for sub (subject = user ID)."""
         return self.sub
 
-
 def _encode_jwt(payload: JWTPayload) -> str:
     """
     Encode a JWT token.
@@ -125,8 +121,7 @@ def _encode_jwt(payload: JWTPayload) -> str:
 
     return f"{header_b64}.{payload_b64}.{signature_b64}"
 
-
-def decode_jwt(token: str) -> Optional[JWTPayload]:
+def decode_jwt(token: str) -> JWTPayload | None:
     """
     Decode and validate a JWT token.
 
@@ -235,13 +230,12 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         logger.warning(f"jwt_decode_failed: unexpected error - {type(e).__name__}")
         return None
 
-
 def create_access_token(
     user_id: str,
     email: str,
-    org_id: Optional[str] = None,
+    org_id: str | None = None,
     role: str = "member",
-    expiry_hours: Optional[int] = None,
+    expiry_hours: int | None = None,
     token_version: int = 1,
 ) -> str:
     """
@@ -286,10 +280,9 @@ def create_access_token(
 
     return _encode_jwt(payload)
 
-
 def create_refresh_token(
     user_id: str,
-    expiry_days: Optional[int] = None,
+    expiry_days: int | None = None,
     token_version: int = 1,
 ) -> str:
     """
@@ -331,12 +324,11 @@ def create_refresh_token(
 
     return _encode_jwt(payload)
 
-
 def validate_access_token(
     token: str,
     use_persistent_blacklist: bool = True,
-    user_store: Optional[Any] = None,
-) -> Optional[JWTPayload]:
+    user_store: Any | None = None,
+) -> JWTPayload | None:
     """
     Validate an access token.
 
@@ -398,12 +390,11 @@ def validate_access_token(
 
     return payload
 
-
 def validate_refresh_token(
     token: str,
     use_persistent_blacklist: bool = True,
-    user_store: Optional[Any] = None,
-) -> Optional[JWTPayload]:
+    user_store: Any | None = None,
+) -> JWTPayload | None:
     """
     Validate a refresh token.
 
@@ -465,7 +456,6 @@ def validate_refresh_token(
 
     return payload
 
-
 class TokenPair:
     """Access and refresh token pair."""
 
@@ -484,11 +474,10 @@ class TokenPair:
             "expires_in": self.expires_in,
         }
 
-
 def create_token_pair(
     user_id: str,
     email: str,
-    org_id: Optional[str] = None,
+    org_id: str | None = None,
     role: str = "member",
     token_version: int = 1,
 ) -> TokenPair:
@@ -509,10 +498,8 @@ def create_token_pair(
     refresh = create_refresh_token(user_id, token_version=token_version)
     return TokenPair(access, refresh)
 
-
 # MFA Pending Token (short-lived token for MFA flow)
 MFA_PENDING_TOKEN_EXPIRY_MINUTES = 5  # Short-lived for security
-
 
 def create_mfa_pending_token(user_id: str, email: str) -> str:
     """
@@ -543,8 +530,7 @@ def create_mfa_pending_token(user_id: str, email: str) -> str:
 
     return _encode_jwt(payload)
 
-
-def validate_mfa_pending_token(token: str) -> Optional[JWTPayload]:
+def validate_mfa_pending_token(token: str) -> JWTPayload | None:
     """
     Validate an MFA pending token.
 
@@ -571,7 +557,6 @@ def validate_mfa_pending_token(token: str) -> Optional[JWTPayload]:
         return None
 
     return payload
-
 
 __all__ = [
     "JWTPayload",

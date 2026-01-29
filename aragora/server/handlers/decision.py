@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded router instance
 _decision_router = None
 
-
 def _get_decision_router():
     """Get or create the decision router singleton."""
     global _decision_router
@@ -46,10 +45,8 @@ def _get_decision_router():
             logger.warning(f"DecisionRouter not available: {e}")
     return _decision_router
 
-
 # Lazy-loaded result store instance
 _decision_result_store = None
-
 
 def _get_result_store():
     """Get the decision result store for persistence."""
@@ -63,12 +60,10 @@ def _get_result_store():
             logger.warning(f"DecisionResultStore not available, using in-memory: {e}")
     return _decision_result_store
 
-
 # Fallback in-memory cache (used only if persistent store fails)
-_decision_results_fallback: Dict[str, Dict[str, Any]] = {}
+_decision_results_fallback: dict[str, dict[str, Any]] = {}
 
-
-def _save_result(request_id: str, data: Dict[str, Any]) -> None:
+def _save_result(request_id: str, data: dict[str, Any]) -> None:
     """Save a decision result to persistent store with fallback."""
     store = _get_result_store()
     if store:
@@ -80,8 +75,7 @@ def _save_result(request_id: str, data: Dict[str, Any]) -> None:
     # Fallback to in-memory
     _decision_results_fallback[request_id] = data
 
-
-def _get_result(request_id: str) -> Optional[Dict[str, Any]]:
+def _get_result(request_id: str) -> Optional[dict[str, Any]]:
     """Get a decision result from persistent store with fallback."""
     store = _get_result_store()
     if store:
@@ -93,7 +87,6 @@ def _get_result(request_id: str) -> Optional[Dict[str, Any]]:
             logger.warning(f"Failed to retrieve from store: {e}")
     # Fallback to in-memory
     return _decision_results_fallback.get(request_id)
-
 
 class DecisionHandler(BaseHandler):
     """
@@ -117,7 +110,7 @@ class DecisionHandler(BaseHandler):
         return False
 
     @require_permission("decisions:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/decisions":
             # List recent decisions (optional)
@@ -136,7 +129,7 @@ class DecisionHandler(BaseHandler):
 
     async def handle_post(
         self, path: str, query_params: dict, handler=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/decisions":
             _, perm_error = self.require_permission_or_error(handler, "decisions:create")
@@ -558,6 +551,5 @@ class DecisionHandler(BaseHandler):
                 },
             )
             return error_response(f"Decision retry failed: {e}", 500)
-
 
 __all__ = ["DecisionHandler"]

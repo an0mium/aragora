@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 from aragora.workflow.step import BaseStep, WorkflowContext
@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 # Lazy-loaded governance store for persistence
 _governance_store = None
-
 
 def _get_governance_store():
     """Get or create the governance store for approval persistence."""
@@ -39,7 +38,6 @@ def _get_governance_store():
             logger.debug(f"Governance store not available: {e}")
     return _governance_store
 
-
 class ApprovalStatus(Enum):
     """Status of a human approval request."""
 
@@ -48,7 +46,6 @@ class ApprovalStatus(Enum):
     REJECTED = "rejected"
     ESCALATED = "escalated"
     TIMEOUT = "timeout"
-
 
 @dataclass
 class ChecklistItem:
@@ -60,7 +57,6 @@ class ChecklistItem:
     checked: bool = False
     notes: str = ""
 
-
 @dataclass
 class ApprovalRequest:
     """A human approval request."""
@@ -70,16 +66,16 @@ class ApprovalRequest:
     step_id: str
     title: str
     description: str
-    checklist: List[ChecklistItem]
+    checklist: list[ChecklistItem]
     status: ApprovalStatus = ApprovalStatus.PENDING
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    responded_at: Optional[datetime] = None
-    responder_id: Optional[str] = None
+    responded_at: datetime | None = None
+    responder_id: str | None = None
     responder_notes: str = ""
     timeout_seconds: float = 3600.0
-    escalation_emails: List[str] = field(default_factory=list)
+    escalation_emails: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -106,11 +102,9 @@ class ApprovalRequest:
             "escalation_emails": self.escalation_emails,
         }
 
-
 # In-memory store for approval requests (backed by GovernanceStore for persistence)
-_pending_approvals: Dict[str, ApprovalRequest] = {}
+_pending_approvals: dict[str, ApprovalRequest] = {}
 _approvals_recovered: bool = False
-
 
 def recover_pending_approvals() -> int:
     """
@@ -189,19 +183,16 @@ def recover_pending_approvals() -> int:
 
     return recovered
 
-
 def reset_approval_recovery() -> None:
     """Reset recovery state (for testing)."""
     global _approvals_recovered
     _approvals_recovered = False
-
 
 def clear_pending_approvals() -> int:
     """Clear all pending approvals from memory (for testing). Returns count cleared."""
     count = len(_pending_approvals)
     _pending_approvals.clear()
     return count
-
 
 class HumanCheckpointStep(BaseStep):
     """
@@ -210,9 +201,9 @@ class HumanCheckpointStep(BaseStep):
     Config options:
         title: str - Title of the approval request
         description: str - Detailed description for the approver
-        checklist: List[dict] - Checklist items [{label, required}]
+        checklist: list[dict] - Checklist items [{label, required}]
         timeout_seconds: float - Timeout before escalation (default 3600)
-        escalation_emails: List[str] - Emails to notify on timeout
+        escalation_emails: list[str] - Emails to notify on timeout
         auto_approve_if: str - Python expression for auto-approval
         require_all_checklist: bool - Require all checklist items (default True)
 
@@ -235,7 +226,7 @@ class HumanCheckpointStep(BaseStep):
     # Callback for notifying about new approval requests
     on_approval_requested: Optional[Callable[[ApprovalRequest], None]] = None
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -353,7 +344,7 @@ class HumanCheckpointStep(BaseStep):
                 "escalated_to": request.escalation_emails,
             }
 
-    async def _wait_for_approval(self, request: ApprovalRequest) -> Dict[str, Any]:
+    async def _wait_for_approval(self, request: ApprovalRequest) -> dict[str, Any]:
         """Wait for the approval request to be resolved.
 
         Polls both in-memory cache and GovernanceStore to detect approvals
@@ -456,7 +447,7 @@ class HumanCheckpointStep(BaseStep):
         except Exception as e:
             logger.warning(f"Failed to send escalation notification: {e}")
 
-    def _build_description(self, config: Dict[str, Any], context: WorkflowContext) -> str:
+    def _build_description(self, config: dict[str, Any], context: WorkflowContext) -> str:
         """Build the approval request description."""
         base_description = config.get("description", "")
 
@@ -490,7 +481,7 @@ class HumanCheckpointStep(BaseStep):
     async def _send_approval_notification(
         self,
         request: ApprovalRequest,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         context: WorkflowContext,
     ) -> None:
         """Send notification for new approval request via Slack/Email."""
@@ -515,7 +506,7 @@ class HumanCheckpointStep(BaseStep):
         except Exception as e:
             logger.warning(f"Failed to send approval notification: {e}")
 
-    def _build_action_url(self, request: ApprovalRequest) -> Optional[str]:
+    def _build_action_url(self, request: ApprovalRequest) -> str | None:
         """Build the URL for viewing/responding to an approval request."""
         import os
 
@@ -524,16 +515,14 @@ class HumanCheckpointStep(BaseStep):
             return f"{base_url}/workflows/{request.workflow_id}/approvals/{request.id}"
         return None
 
-
 # Helper functions for external approval resolution
-
 
 def resolve_approval(
     request_id: str,
     status: ApprovalStatus,
     responder_id: str,
     notes: str = "",
-    checklist_updates: Optional[Dict[str, bool]] = None,
+    checklist_updates: Optional[dict[str, bool]] = None,
 ) -> bool:
     """
     Resolve an approval request from external code.
@@ -584,7 +573,6 @@ def resolve_approval(
 
     return True
 
-
 def _send_resolution_notification_background(request: ApprovalRequest) -> None:
     """Send resolution notification in background (fire-and-forget)."""
     import asyncio
@@ -620,8 +608,7 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
         except Exception as e:
             logger.warning(f"Unexpected error sending resolution notification: {e}")
 
-
-def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalRequest]:
+def get_pending_approvals(workflow_id: str | None = None) -> list[ApprovalRequest]:
     """Get all pending approval requests, optionally filtered by workflow.
 
     Automatically recovers approvals from GovernanceStore on first call
@@ -638,8 +625,7 @@ def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalReq
         approvals = [a for a in approvals if a.workflow_id == workflow_id]
     return approvals
 
-
-def get_approval_request(request_id: str) -> Optional[ApprovalRequest]:
+def get_approval_request(request_id: str) -> ApprovalRequest | None:
     """Get an approval request by ID.
 
     Automatically recovers approvals from GovernanceStore on first call

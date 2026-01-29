@@ -16,13 +16,12 @@ import logging
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 class HealthStatus(Enum):
     """System health status levels."""
@@ -32,7 +31,6 @@ class HealthStatus(Enum):
     STRESSED = "stressed"  # Performance impacted
     CRITICAL = "critical"  # Major failures occurring
     RECOVERING = "recovering"  # Coming back from failure
-
 
 class AgentStatus(Enum):
     """Individual agent status."""
@@ -45,7 +43,6 @@ class AgentStatus(Enum):
     RECOVERED = "recovered"
     CIRCUIT_OPEN = "circuit_open"
 
-
 @dataclass
 class HealthEvent:
     """A health event to broadcast."""
@@ -56,7 +53,7 @@ class HealthEvent:
     component: str
     message: str
     details: dict
-    audience_message: Optional[str] = None  # Human-friendly message
+    audience_message: str | None = None  # Human-friendly message
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -67,7 +64,6 @@ class HealthEvent:
             "type": "health_event",
             "data": self.to_dict(),
         }
-
 
 @dataclass
 class AgentHealthState:
@@ -91,7 +87,6 @@ class AgentHealthState:
             "avg_response_ms": round(self.avg_response_ms, 2),
             "circuit_open": self.circuit_open,
         }
-
 
 class TransparentImmuneSystem:
     """
@@ -126,7 +121,7 @@ class TransparentImmuneSystem:
         self.agent_states: dict[str, AgentHealthState] = {}
         self.system_status = HealthStatus.HEALTHY
         self.event_history: list[HealthEvent] = []
-        self.broadcast_callback: Optional[Callable] = None
+        self.broadcast_callback: Callable | None = None
         self.start_time = time.time()
 
         # Metrics
@@ -280,7 +275,7 @@ class TransparentImmuneSystem:
         self,
         agent_name: str,
         timeout_seconds: float,
-        context: Optional[dict] = None,
+        context: dict | None = None,
     ) -> None:
         """Called when an agent times out."""
         state = self._get_agent_state(agent_name)
@@ -342,7 +337,7 @@ class TransparentImmuneSystem:
         self,
         agent_name: str,
         recovery_method: str,
-        details: Optional[dict] = None,
+        details: dict | None = None,
     ) -> None:
         """Called when an agent recovers from failure."""
         state = self._get_agent_state(agent_name)
@@ -413,8 +408,8 @@ class TransparentImmuneSystem:
         self,
         event_type: str,
         message: str,
-        details: Optional[dict] = None,
-        audience_message: Optional[str] = None,
+        details: dict | None = None,
+        audience_message: str | None = None,
     ) -> None:
         """Broadcast a general system event."""
         self._broadcast(
@@ -445,10 +440,8 @@ class TransparentImmuneSystem:
         """Get recent health events."""
         return [e.to_dict() for e in self.event_history[-limit:]]
 
-
 # Global instance for easy access
-_immune_system: Optional[TransparentImmuneSystem] = None
-
+_immune_system: TransparentImmuneSystem | None = None
 
 def get_immune_system() -> TransparentImmuneSystem:
     """Get the global immune system instance."""
@@ -456,7 +449,6 @@ def get_immune_system() -> TransparentImmuneSystem:
     if _immune_system is None:
         _immune_system = TransparentImmuneSystem()
     return _immune_system
-
 
 def reset_immune_system() -> None:
     """Reset the global immune system (for testing)."""

@@ -8,13 +8,12 @@ multiple handlers/workers can reuse consistent behavior.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 _decision_result_store = None
-_decision_results_fallback: Dict[str, Dict[str, Any]] = {}
-
+_decision_results_fallback: dict[str, dict[str, Any]] = {}
 
 def _get_result_store():
     """Get the decision result store for persistence."""
@@ -28,8 +27,7 @@ def _get_result_store():
             logger.warning(f"DecisionResultStore not available, using in-memory: {e}")
     return _decision_result_store
 
-
-def save_decision_result(request_id: str, data: Dict[str, Any]) -> None:
+def save_decision_result(request_id: str, data: dict[str, Any]) -> None:
     """Save a decision result to persistent store with fallback."""
     store = _get_result_store()
     if store:
@@ -40,8 +38,7 @@ def save_decision_result(request_id: str, data: Dict[str, Any]) -> None:
             logger.warning(f"Failed to persist result, using fallback: {e}")
     _decision_results_fallback[request_id] = data
 
-
-def get_decision_result(request_id: str) -> Optional[Dict[str, Any]]:
+def get_decision_result(request_id: str) -> Optional[dict[str, Any]]:
     """Get a decision result from persistent store with fallback."""
     store = _get_result_store()
     if store:
@@ -53,8 +50,7 @@ def get_decision_result(request_id: str) -> Optional[Dict[str, Any]]:
             logger.warning(f"Failed to retrieve from store: {e}")
     return _decision_results_fallback.get(request_id)
 
-
-def get_decision_status(request_id: str) -> Dict[str, Any]:
+def get_decision_status(request_id: str) -> dict[str, Any]:
     """Get decision status for polling with fallback."""
     store = _get_result_store()
     if store:
@@ -74,7 +70,6 @@ def get_decision_status(request_id: str) -> Dict[str, Any]:
         "request_id": request_id,
         "status": "not_found",
     }
-
 
 __all__ = [
     "save_decision_result",

@@ -34,10 +34,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class RotationReason(str, Enum):
     """Reasons for token rotation."""
@@ -49,7 +48,6 @@ class RotationReason(str, Enum):
     ADMIN_REQUEST = "admin_request"
     SECURITY_POLICY = "security_policy"
 
-
 @dataclass
 class TokenUsageRecord:
     """Record of a token's usage."""
@@ -59,16 +57,16 @@ class TokenUsageRecord:
     first_used: float  # Unix timestamp
     last_used: float  # Unix timestamp
     use_count: int = 0
-    ip_addresses: Set[str] = field(default_factory=set)
-    user_agents: Set[str] = field(default_factory=set)
-    locations: Set[str] = field(default_factory=set)  # Geo locations if available
-    suspicious_flags: List[str] = field(default_factory=list)
+    ip_addresses: set[str] = field(default_factory=set)
+    user_agents: set[str] = field(default_factory=set)
+    locations: set[str] = field(default_factory=set)  # Geo locations if available
+    suspicious_flags: list[str] = field(default_factory=list)
 
     def add_usage(
         self,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        location: Optional[str] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        location: str | None = None,
     ) -> None:
         """Record a usage event."""
         self.use_count += 1
@@ -82,7 +80,6 @@ class TokenUsageRecord:
             self.user_agents.add(ua_hash)
         if location:
             self.locations.add(location)
-
 
 @dataclass
 class RotationPolicy:
@@ -142,18 +139,17 @@ class RotationPolicy:
             ip_change_requires_rotation=False,
         )
 
-
 @dataclass
 class RotationCheckResult:
     """Result of checking if rotation is required."""
 
     requires_rotation: bool
-    reason: Optional[RotationReason] = None
+    reason: RotationReason | None = None
     details: str = ""
     is_suspicious: bool = False
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "requires_rotation": self.requires_rotation,
@@ -162,7 +158,6 @@ class RotationCheckResult:
             "is_suspicious": self.is_suspicious,
             "recommendations": self.recommendations,
         }
-
 
 class TokenRotationManager:
     """
@@ -173,9 +168,9 @@ class TokenRotationManager:
 
     def __init__(
         self,
-        policy: Optional[RotationPolicy] = None,
+        policy: RotationPolicy | None = None,
         on_rotation_required: Optional[Callable[[str, str, RotationReason], None]] = None,
-        on_suspicious_activity: Optional[Callable[[str, str, List[str]], None]] = None,
+        on_suspicious_activity: Optional[Callable[[str, str, list[str]], None]] = None,
     ):
         """Initialize the rotation manager.
 
@@ -189,14 +184,14 @@ class TokenRotationManager:
         self.on_suspicious_activity = on_suspicious_activity
 
         # Token usage tracking: token_jti -> TokenUsageRecord
-        self._usage: Dict[str, TokenUsageRecord] = {}
+        self._usage: dict[str, TokenUsageRecord] = {}
         self._lock = threading.Lock()
 
         # Failed validation tracking: token_jti -> count
-        self._failed_validations: Dict[str, int] = {}
+        self._failed_validations: dict[str, int] = {}
 
         # Recent usage times for rate limiting: token_jti -> list of timestamps
-        self._recent_uses: Dict[str, List[float]] = {}
+        self._recent_uses: dict[str, list[float]] = {}
 
         # Cleanup tracking
         self._last_cleanup = time.time()
@@ -206,9 +201,9 @@ class TokenRotationManager:
         self,
         user_id: str,
         token_jti: str,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        location: Optional[str] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        location: str | None = None,
     ) -> RotationCheckResult:
         """Record token usage and check if rotation is needed.
 
@@ -305,7 +300,7 @@ class TokenRotationManager:
         self,
         user_id: str,
         token_jti: str,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> bool:
         """Check if token usage is suspicious.
 
@@ -343,7 +338,7 @@ class TokenRotationManager:
 
             return False
 
-    def get_usage_stats(self, token_jti: str) -> Optional[Dict[str, Any]]:
+    def get_usage_stats(self, token_jti: str) -> Optional[dict[str, Any]]:
         """Get usage statistics for a token.
 
         Args:
@@ -383,12 +378,12 @@ class TokenRotationManager:
     def _check_rotation(
         self,
         record: TokenUsageRecord,
-        current_ip: Optional[str],
-        previous_ips: Set[str],
+        current_ip: str | None,
+        previous_ips: set[str],
     ) -> RotationCheckResult:
         """Check if rotation is required based on policy."""
         now = time.time()
-        recommendations: List[str] = []
+        recommendations: list[str] = []
 
         # Check max uses
         if self.policy.max_uses > 0 and record.use_count >= self.policy.max_uses:
@@ -490,14 +485,12 @@ class TokenRotationManager:
         if to_remove:
             logger.debug(f"Cleaned up {len(to_remove)} stale token records")
 
-
 # Singleton instance
-_rotation_manager: Optional[TokenRotationManager] = None
+_rotation_manager: TokenRotationManager | None = None
 _manager_lock = threading.Lock()
 
-
 def get_rotation_manager(
-    policy: Optional[RotationPolicy] = None,
+    policy: RotationPolicy | None = None,
 ) -> TokenRotationManager:
     """Get the global token rotation manager."""
     global _rotation_manager
@@ -516,13 +509,11 @@ def get_rotation_manager(
                 _rotation_manager = TokenRotationManager(policy=policy)
     return _rotation_manager
 
-
 def reset_rotation_manager() -> None:
     """Reset the rotation manager (for testing)."""
     global _rotation_manager
     with _manager_lock:
         _rotation_manager = None
-
 
 __all__ = [
     "RotationReason",

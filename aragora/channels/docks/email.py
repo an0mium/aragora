@@ -14,7 +14,7 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
 
@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = ["EmailDock"]
-
 
 class EmailDock(ChannelDock):
     """
@@ -37,7 +36,7 @@ class EmailDock(ChannelDock):
     PLATFORM = "email"
     CAPABILITIES = ChannelCapability.RICH_TEXT | ChannelCapability.FILES
 
-    def __init__(self, config: Optional[dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize Email dock.
 
@@ -200,7 +199,7 @@ class EmailDock(ChannelDock):
         self,
         channel_id: str,
         result: dict[str, Any],
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """Send a debate result via email with rich formatting."""

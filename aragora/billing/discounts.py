@@ -31,11 +31,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class DiscountType(str, Enum):
     """Types of discounts."""
@@ -44,7 +43,6 @@ class DiscountType(str, Enum):
     FIXED_AMOUNT = "fixed_amount"  # Fixed dollar amount off
     VOLUME = "volume"  # Volume-based discount tiers
 
-
 class DiscountCodeStatus(str, Enum):
     """Status of a discount code."""
 
@@ -52,7 +50,6 @@ class DiscountCodeStatus(str, Enum):
     EXPIRED = "expired"
     EXHAUSTED = "exhausted"  # Max uses reached
     DISABLED = "disabled"
-
 
 @dataclass
 class DiscountCode:
@@ -69,14 +66,14 @@ class DiscountCode:
 
     # Validity constraints
     valid_from: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
-    max_uses: Optional[int] = None  # None = unlimited
+    expires_at: datetime | None = None
+    max_uses: int | None = None  # None = unlimited
     max_uses_per_org: int = 1  # How many times one org can use it
     min_purchase_cents: int = 0  # Minimum purchase to apply
 
     # Targeting
-    eligible_tiers: List[str] = field(default_factory=list)  # Empty = all tiers
-    eligible_org_ids: List[str] = field(default_factory=list)  # Empty = all orgs
+    eligible_tiers: list[str] = field(default_factory=list)  # Empty = all tiers
+    eligible_org_ids: list[str] = field(default_factory=list)  # Empty = all orgs
 
     # Status tracking
     status: DiscountCodeStatus = DiscountCodeStatus.ACTIVE
@@ -84,9 +81,9 @@ class DiscountCode:
     total_discount_cents: int = 0  # Total discount given
 
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = None
+    created_by: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -130,7 +127,6 @@ class DiscountCode:
 
         return True
 
-
 @dataclass
 class DiscountUsage:
     """Record of discount code usage."""
@@ -138,7 +134,7 @@ class DiscountUsage:
     id: str = field(default_factory=lambda: f"duse_{uuid4().hex[:12]}")
     code_id: str = ""
     org_id: str = ""
-    user_id: Optional[str] = None
+    user_id: str | None = None
 
     # Applied discount
     original_amount_cents: int = 0
@@ -146,12 +142,12 @@ class DiscountUsage:
     final_amount_cents: int = 0
 
     # Context
-    invoice_id: Optional[str] = None
-    subscription_id: Optional[str] = None
+    invoice_id: str | None = None
+    subscription_id: str | None = None
 
     applied_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -166,7 +162,6 @@ class DiscountUsage:
             "applied_at": self.applied_at.isoformat(),
         }
 
-
 @dataclass
 class VolumeTier:
     """A volume discount tier."""
@@ -174,13 +169,12 @@ class VolumeTier:
     min_spend_cents: int  # Minimum cumulative spend to qualify
     discount_percent: float  # Discount percentage for this tier
 
-
 @dataclass
 class VolumeDiscount:
     """Volume discount configuration for an organization."""
 
     org_id: str
-    tiers: List[VolumeTier] = field(default_factory=list)
+    tiers: list[VolumeTier] = field(default_factory=list)
     cumulative_spend_cents: int = 0
     current_discount_percent: float = 0.0
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -195,7 +189,7 @@ class VolumeDiscount:
         self.current_discount_percent = discount
         return discount
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "org_id": self.org_id,
@@ -208,20 +202,19 @@ class VolumeDiscount:
             "updated_at": self.updated_at.isoformat(),
         }
 
-
 @dataclass
 class ApplyCodeResult:
     """Result of attempting to apply a discount code."""
 
     valid: bool
-    code: Optional[str] = None
-    discount_type: Optional[DiscountType] = None
+    code: str | None = None
+    discount_type: DiscountType | None = None
     discount_percent: float = 0.0
     discount_amount_cents: int = 0
     message: str = ""
-    error_code: Optional[str] = None
+    error_code: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "valid": self.valid,
@@ -232,7 +225,6 @@ class ApplyCodeResult:
             "message": self.message,
             "error_code": self.error_code,
         }
-
 
 class DiscountManager:
     """
@@ -253,7 +245,7 @@ class DiscountManager:
         VolumeTier(min_spend_cents=500000_00, discount_percent=20.0),  # $500k+ = 20%
     ]
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize discount manager.
 
@@ -338,13 +330,13 @@ class DiscountManager:
         discount_percent: float = 0.0,
         discount_amount_cents: int = 0,
         description: str = "",
-        expires_at: Optional[datetime] = None,
-        max_uses: Optional[int] = None,
+        expires_at: datetime | None = None,
+        max_uses: int | None = None,
         max_uses_per_org: int = 1,
         min_purchase_cents: int = 0,
-        eligible_tiers: Optional[List[str]] = None,
-        eligible_org_ids: Optional[List[str]] = None,
-        created_by: Optional[str] = None,
+        eligible_tiers: Optional[list[str]] = None,
+        eligible_org_ids: Optional[list[str]] = None,
+        created_by: str | None = None,
     ) -> DiscountCode:
         """
         Create a new discount code.
@@ -436,7 +428,7 @@ class DiscountManager:
         )
         return discount_code
 
-    async def get_code(self, code: str) -> Optional[DiscountCode]:
+    async def get_code(self, code: str) -> DiscountCode | None:
         """Get a discount code by code string."""
         conn = self._get_conn()
         cursor = conn.execute(
@@ -453,7 +445,7 @@ class DiscountManager:
         code: str,
         org_id: str,
         purchase_amount_cents: int = 0,
-        tier: Optional[str] = None,
+        tier: str | None = None,
     ) -> ApplyCodeResult:
         """
         Validate a discount code for an organization.
@@ -588,10 +580,10 @@ class DiscountManager:
         code: str,
         org_id: str,
         purchase_amount_cents: int,
-        user_id: Optional[str] = None,
-        invoice_id: Optional[str] = None,
-        subscription_id: Optional[str] = None,
-        tier: Optional[str] = None,
+        user_id: str | None = None,
+        invoice_id: str | None = None,
+        subscription_id: str | None = None,
+        tier: str | None = None,
     ) -> ApplyCodeResult:
         """
         Validate and apply a discount code.
@@ -774,10 +766,10 @@ class DiscountManager:
 
     async def list_codes(
         self,
-        status: Optional[DiscountCodeStatus] = None,
+        status: DiscountCodeStatus | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[DiscountCode]:
+    ) -> list[DiscountCode]:
         """List discount codes with optional status filter."""
         conn = self._get_conn()
 
@@ -817,7 +809,7 @@ class DiscountManager:
         self,
         code_id: str,
         limit: int = 100,
-    ) -> List[DiscountUsage]:
+    ) -> list[DiscountUsage]:
         """Get usage history for a discount code."""
         conn = self._get_conn()
         cursor = conn.execute(
@@ -885,13 +877,11 @@ class DiscountManager:
             created_by=row["created_by"],
         )
 
-
 # Global discount manager instance
-_discount_manager: Optional[DiscountManager] = None
+_discount_manager: DiscountManager | None = None
 _discount_manager_lock = threading.Lock()
 
-
-def get_discount_manager(db_path: Optional[str] = None) -> DiscountManager:
+def get_discount_manager(db_path: str | None = None) -> DiscountManager:
     """
     Get or create the global discount manager.
 
@@ -907,13 +897,11 @@ def get_discount_manager(db_path: Optional[str] = None) -> DiscountManager:
             _discount_manager = DiscountManager(db_path)
         return _discount_manager
 
-
 def reset_discount_manager() -> None:
     """Reset the global discount manager (for testing)."""
     global _discount_manager
     with _discount_manager_lock:
         _discount_manager = None
-
 
 __all__ = [
     "DiscountType",

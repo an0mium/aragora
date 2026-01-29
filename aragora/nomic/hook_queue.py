@@ -32,6 +32,7 @@ Usage:
         if bead:
             await process_bead(bead)
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -41,12 +42,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.nomic.beads import Bead, BeadStatus, BeadStore
 
 logger = logging.getLogger(__name__)
-
 
 class HookEntryStatus(str, Enum):
     """Status of a hook entry."""
@@ -56,7 +56,6 @@ class HookEntryStatus(str, Enum):
     COMPLETED = "completed"  # Successfully processed
     FAILED = "failed"  # Processing failed
     SKIPPED = "skipped"  # Skipped (e.g., bead no longer exists)
-
 
 @dataclass
 class HookEntry:
@@ -74,12 +73,12 @@ class HookEntry:
     status: HookEntryStatus
     created_at: datetime
     updated_at: datetime
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     attempt_count: int = 0
     max_attempts: int = 3
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def create(
@@ -102,7 +101,7 @@ class HookEntry:
             max_attempts=max_attempts,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -121,7 +120,7 @@ class HookEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HookEntry":
+    def from_dict(cls, data: dict[str, Any]) -> "HookEntry":
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -147,7 +146,6 @@ class HookEntry:
         """Check if entry can be retried based on attempt count."""
         return self.attempt_count < self.max_attempts
 
-
 class HookQueue:
     """
     Per-agent work queue implementing the GUPP principle.
@@ -165,7 +163,7 @@ class HookQueue:
         self,
         agent_id: str,
         bead_store: BeadStore,
-        hooks_dir: Optional[Path] = None,
+        hooks_dir: Path | None = None,
     ):
         """
         Initialize a hook queue for an agent.
@@ -180,7 +178,7 @@ class HookQueue:
         self.hooks_dir = hooks_dir or bead_store.bead_dir / "hooks"
         self.hook_file = self.hooks_dir / f"{agent_id}.jsonl"
         self._lock = asyncio.Lock()
-        self._entries: Dict[str, HookEntry] = {}
+        self._entries: dict[str, HookEntry] = {}
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -277,7 +275,7 @@ class HookQueue:
             logger.debug(f"Pushed bead {bead_id} to hook for {self.agent_id}")
             return entry
 
-    async def pop(self) -> Optional[Bead]:
+    async def pop(self) -> Bead | None:
         """
         Pop the highest priority bead from the hook.
 
@@ -322,7 +320,7 @@ class HookQueue:
             bead = await self.bead_store.get(entry.bead_id)
             return bead
 
-    async def peek(self) -> Optional[Bead]:
+    async def peek(self) -> Bead | None:
         """
         Peek at the next bead without removing it from the queue.
 
@@ -405,7 +403,7 @@ class HookQueue:
         """Check if there is work in the hook."""
         return any(e.status == HookEntryStatus.QUEUED for e in self._entries.values())
 
-    async def recover_on_startup(self) -> List[Bead]:
+    async def recover_on_startup(self) -> list[Bead]:
         """
         GUPP: Return all incomplete work on this agent's hook.
 
@@ -440,10 +438,10 @@ class HookQueue:
             logger.info(f"GUPP recovery for {self.agent_id}: {len(beads)} beads to process")
             return beads
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get statistics about this hook queue."""
         entries = list(self._entries.values())
-        by_status: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
         for entry in entries:
             by_status[entry.status.value] = by_status.get(entry.status.value, 0) + 1
 
@@ -478,7 +476,6 @@ class HookQueue:
 
             return len(to_remove)
 
-
 class HookQueueRegistry:
     """
     Registry for managing multiple agent hook queues.
@@ -487,7 +484,7 @@ class HookQueueRegistry:
     coordinated recovery on system startup.
     """
 
-    def __init__(self, bead_store: BeadStore, hooks_dir: Optional[Path] = None):
+    def __init__(self, bead_store: BeadStore, hooks_dir: Path | None = None):
         """
         Initialize the registry.
 
@@ -497,7 +494,7 @@ class HookQueueRegistry:
         """
         self.bead_store = bead_store
         self.hooks_dir = hooks_dir or bead_store.bead_dir / "hooks"
-        self._queues: Dict[str, HookQueue] = {}
+        self._queues: dict[str, HookQueue] = {}
         self._lock = asyncio.Lock()
 
     async def get_queue(self, agent_id: str) -> HookQueue:
@@ -522,7 +519,7 @@ class HookQueueRegistry:
 
             return self._queues[agent_id]
 
-    async def recover_all(self) -> Dict[str, List[Bead]]:
+    async def recover_all(self) -> dict[str, list[Bead]]:
         """
         Perform GUPP recovery for all known agents.
 
@@ -545,7 +542,7 @@ class HookQueueRegistry:
         logger.info(f"GUPP recovery complete: {len(results)} agents, {total_beads} beads")
         return results
 
-    async def get_all_statistics(self) -> Dict[str, Any]:
+    async def get_all_statistics(self) -> dict[str, Any]:
         """Get statistics for all hook queues."""
         stats = {}
         for agent_id, queue in self._queues.items():
@@ -556,10 +553,8 @@ class HookQueueRegistry:
             "queues": stats,
         }
 
-
 # Singleton registry
-_default_registry: Optional[HookQueueRegistry] = None
-
+_default_registry: HookQueueRegistry | None = None
 
 async def get_hook_queue_registry(bead_store: BeadStore) -> HookQueueRegistry:
     """Get the default hook queue registry."""
@@ -567,7 +562,6 @@ async def get_hook_queue_registry(bead_store: BeadStore) -> HookQueueRegistry:
     if _default_registry is None:
         _default_registry = HookQueueRegistry(bead_store)
     return _default_registry
-
 
 def reset_hook_queue_registry() -> None:
     """Reset the default registry (for testing)."""

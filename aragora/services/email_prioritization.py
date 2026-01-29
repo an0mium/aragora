@@ -40,7 +40,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -50,7 +50,6 @@ if TYPE_CHECKING:
     from aragora.services.threat_intelligence import ThreatIntelligenceService
 
 logger = logging.getLogger(__name__)
-
 
 class EmailPriority(Enum):
     """Email priority levels."""
@@ -62,14 +61,12 @@ class EmailPriority(Enum):
     DEFER = 5  # Archive or auto-file
     BLOCKED = 6  # Sender is blocked, auto-archive/delete
 
-
 class ScoringTier(Enum):
     """Which scoring tier was used."""
 
     TIER_1_RULES = "tier_1_rules"
     TIER_2_LIGHTWEIGHT = "tier_2_lightweight"
     TIER_3_DEBATE = "tier_3_debate"
-
 
 @dataclass
 class SenderProfile:
@@ -82,10 +79,10 @@ class SenderProfile:
     is_blocked: bool = False
     response_rate: float = 0.0  # How often user responds to this sender
     avg_response_time_hours: float = 24.0  # Average response time
-    last_interaction: Optional[datetime] = None
+    last_interaction: datetime | None = None
     total_emails_received: int = 0
     total_emails_responded: int = 0
-    tags: Set[str] = field(default_factory=set)
+    tags: set[str] = field(default_factory=set)
 
     @property
     def reputation_score(self) -> float:
@@ -111,7 +108,6 @@ class SenderProfile:
 
         return max(0.0, min(1.0, score))
 
-
 @dataclass
 class EmailPriorityResult:
     """Result of email prioritization."""
@@ -130,7 +126,7 @@ class EmailPriorityResult:
 
     # Spam classification (from SpamClassifier)
     spam_score: float = 0.0  # 0.0 (not spam) to 1.0 (definitely spam)
-    spam_category: Optional[str] = None  # "ham", "spam", "phishing", "promotional", "suspicious"
+    spam_category: str | None = None  # "ham", "spam", "phishing", "promotional", "suspicious"
     is_spam: bool = False
 
     # Cross-channel signals
@@ -139,15 +135,15 @@ class EmailPriorityResult:
     drive_activity_boost: float = 0.0
 
     # Debate metadata (if Tier 3 was used)
-    debate_id: Optional[str] = None
-    agent_dissent: Optional[Dict[str, Any]] = None
+    debate_id: str | None = None
+    agent_dissent: Optional[dict[str, Any]] = None
 
     # Recommended actions
-    suggested_labels: List[str] = field(default_factory=list)
-    suggested_response: Optional[str] = None
+    suggested_labels: list[str] = field(default_factory=list)
+    suggested_response: str | None = None
     auto_archive: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "email_id": self.email_id,
@@ -177,7 +173,6 @@ class EmailPriorityResult:
             "auto_archive": self.auto_archive,
         }
 
-
 @dataclass
 class EmailPrioritizationConfig:
     """Configuration for email prioritization."""
@@ -187,13 +182,13 @@ class EmailPrioritizationConfig:
     tier_2_confidence_threshold: float = 0.6  # Below this, escalate to Tier 3
 
     # VIP settings
-    vip_domains: Set[str] = field(default_factory=set)
-    vip_addresses: Set[str] = field(default_factory=set)
-    internal_domains: Set[str] = field(default_factory=set)
+    vip_domains: set[str] = field(default_factory=set)
+    vip_addresses: set[str] = field(default_factory=set)
+    internal_domains: set[str] = field(default_factory=set)
 
     # Auto-archive patterns
-    auto_archive_senders: Set[str] = field(default_factory=set)
-    newsletter_patterns: List[str] = field(
+    auto_archive_senders: set[str] = field(default_factory=set)
+    newsletter_patterns: list[str] = field(
         default_factory=lambda: [
             r"unsubscribe",
             r"email preferences",
@@ -204,7 +199,7 @@ class EmailPrioritizationConfig:
     )
 
     # Urgency keywords
-    urgent_keywords: List[str] = field(
+    urgent_keywords: list[str] = field(
         default_factory=lambda: [
             "urgent",
             "asap",
@@ -228,7 +223,6 @@ class EmailPrioritizationConfig:
     debate_agent_count: int = 3
     debate_timeout_seconds: float = 30.0
 
-
 # Urgency detection patterns
 DEADLINE_PATTERNS = [
     r"by\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)",
@@ -238,7 +232,6 @@ DEADLINE_PATTERNS = [
     r"need\s+by\s+",
     r"respond\s+by\s+",
 ]
-
 
 class EmailPrioritizer:
     """
@@ -254,9 +247,9 @@ class EmailPrioritizer:
         self,
         gmail_connector: Optional["GmailConnector"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
-        config: Optional[EmailPrioritizationConfig] = None,
+        config: EmailPrioritizationConfig | None = None,
         sender_history_service: Optional["SenderHistoryService"] = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         threat_intel_service: Optional["ThreatIntelligenceService"] = None,
     ):
         """
@@ -278,7 +271,7 @@ class EmailPrioritizer:
         self.threat_intel = threat_intel_service
 
         # Sender profile cache
-        self._sender_profiles: Dict[str, SenderProfile] = {}
+        self._sender_profiles: dict[str, SenderProfile] = {}
 
         # Compile patterns
         self._newsletter_patterns = [
@@ -292,7 +285,7 @@ class EmailPrioritizer:
     async def score_email(
         self,
         email: "EmailMessage",
-        force_tier: Optional[ScoringTier] = None,
+        force_tier: ScoringTier | None = None,
     ) -> EmailPriorityResult:
         """
         Score a single email for priority.
@@ -338,9 +331,9 @@ class EmailPrioritizer:
 
     async def rank_inbox(
         self,
-        emails: List["EmailMessage"],
-        limit: Optional[int] = None,
-    ) -> List[EmailPriorityResult]:
+        emails: list["EmailMessage"],
+        limit: int | None = None,
+    ) -> list[EmailPriorityResult]:
         """
         Rank a list of emails by priority.
 
@@ -418,7 +411,7 @@ class EmailPrioritizer:
         self._sender_profiles[email_address] = profile
         return profile
 
-    async def _load_sender_history(self, email_address: str) -> Optional[Dict[str, Any]]:
+    async def _load_sender_history(self, email_address: str) -> Optional[dict[str, Any]]:
         """Load sender interaction history from Knowledge Mound."""
         if not self.mound:
             return None
@@ -436,7 +429,7 @@ class EmailPrioritizer:
 
         return None
 
-    async def _check_email_threats(self, email: "EmailMessage") -> Optional[Dict[str, Any]]:
+    async def _check_email_threats(self, email: "EmailMessage") -> Optional[dict[str, Any]]:
         """
         Check email content for threats using threat intelligence.
 
@@ -834,7 +827,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
         action: str,
         email: Optional["EmailMessage"] = None,
         user_id: str = "default",
-        response_time_minutes: Optional[int] = None,
+        response_time_minutes: int | None = None,
     ) -> None:
         """
         Record user action for learning.
@@ -925,14 +918,13 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
             except Exception as e:
                 logger.debug(f"Failed to update sender profile: {e}")
 
-
 # Convenience function for quick access
 async def prioritize_inbox(
     gmail_connector: "GmailConnector",
     knowledge_mound: Optional["KnowledgeMound"] = None,
-    config: Optional[EmailPrioritizationConfig] = None,
+    config: EmailPrioritizationConfig | None = None,
     limit: int = 50,
-) -> List[EmailPriorityResult]:
+) -> list[EmailPriorityResult]:
     """
     Quick function to prioritize an inbox.
 

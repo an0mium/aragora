@@ -14,10 +14,11 @@ Arena._run_inner() method, handling post-consensus processing:
 - Belief network analysis
 - Recording finalization
 """
+from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -27,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 # Lazy import for uncertainty estimation
 _uncertainty_estimator = None
-
 
 def get_uncertainty_estimator():
     """Lazy-load the uncertainty estimator to avoid circular imports."""
@@ -40,7 +40,6 @@ def get_uncertainty_estimator():
         except ImportError:
             logger.debug("Uncertainty estimator not available")
     return _uncertainty_estimator
-
 
 class AnalyticsPhase:
     """
@@ -66,15 +65,15 @@ class AnalyticsPhase:
         insight_store: Any = None,
         recorder: Any = None,
         event_emitter: Any = None,
-        hooks: Optional[dict] = None,
-        loop_id: Optional[str] = None,
+        hooks: dict | None = None,
+        loop_id: str | None = None,
         # Callbacks for orchestrator methods
-        notify_spectator: Optional[Callable] = None,
-        update_agent_relationships: Optional[Callable] = None,
-        generate_disagreement_report: Optional[Callable] = None,
-        create_grounded_verdict: Optional[Callable] = None,
-        verify_claims_formally: Optional[Callable] = None,
-        format_conclusion: Optional[Callable] = None,
+        notify_spectator: Callable | None = None,
+        update_agent_relationships: Callable | None = None,
+        generate_disagreement_report: Callable | None = None,
+        create_grounded_verdict: Callable | None = None,
+        verify_claims_formally: Callable | None = None,
+        format_conclusion: Callable | None = None,
     ):
         """
         Initialize the analytics phase.

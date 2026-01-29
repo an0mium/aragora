@@ -35,7 +35,6 @@ __all__ = [
     "get_channel_router",
 ]
 
-
 class ChannelRouter:
     """
     Routes messages to chat platforms through the dock system.
@@ -100,8 +99,8 @@ class ChannelRouter:
         platform: str,
         channel_id: str,
         result: dict[str, Any],
-        thread_id: Optional[str] = None,
-        message_id: Optional[str] = None,
+        thread_id: str | None = None,
+        message_id: str | None = None,
         include_voice: bool = False,
         **kwargs: Any,
     ) -> SendResult:
@@ -163,7 +162,7 @@ class ChannelRouter:
         channel_id: str,
         receipt: Any,
         receipt_url: str,
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -206,9 +205,9 @@ class ChannelRouter:
         platform: str,
         channel_id: str,
         error_message: str,
-        debate_id: Optional[str] = None,
-        thread_id: Optional[str] = None,
-        message_id: Optional[str] = None,
+        debate_id: str | None = None,
+        thread_id: str | None = None,
+        message_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -258,7 +257,7 @@ class ChannelRouter:
         platform: str,
         channel_id: str,
         audio_data: bytes,
-        text: Optional[str] = None,
+        text: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -373,7 +372,7 @@ class ChannelRouter:
     def _format_error_for_chat(
         self,
         error: str,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> str:
         """Convert technical errors to user-friendly messages."""
         error_map = {
@@ -416,7 +415,7 @@ class ChannelRouter:
         channel_id: str,
         result: dict[str, Any],
         **kwargs: Any,
-    ) -> Optional[SendResult]:
+    ) -> SendResult | None:
         """Send TTS voice version of result if supported."""
         if not dock.supports(ChannelCapability.VOICE):
             return None
@@ -453,10 +452,8 @@ class ChannelRouter:
 
         return None
 
-
 # Global router singleton
-_channel_router: Optional[ChannelRouter] = None
-
+_channel_router: ChannelRouter | None = None
 
 def get_channel_router() -> ChannelRouter:
     """

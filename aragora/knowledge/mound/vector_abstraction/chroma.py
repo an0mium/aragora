@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import uuid as uuid_lib
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.vector_abstraction.base import (
     BaseVectorStore,
@@ -33,7 +33,6 @@ try:
 except ImportError:
     CHROMA_AVAILABLE = False
     logger.debug("chromadb not available - install with: pip install chromadb")
-
 
 class ChromaVectorStore(BaseVectorStore):
     """
@@ -63,7 +62,7 @@ class ChromaVectorStore(BaseVectorStore):
         config.backend = VectorBackend.CHROMA
         super().__init__(config)
 
-        self._client: Optional[chromadb.ClientAPI] = None
+        self._client: chromadb.ClientAPI | None = None
         self._collections: dict[str, Any] = {}
 
     # -------------------------------------------------------------------------
@@ -121,7 +120,7 @@ class ChromaVectorStore(BaseVectorStore):
     async def create_collection(
         self,
         name: str,
-        schema: Optional[dict[str, Any]] = None,
+        schema: dict[str, Any] | None = None,
     ) -> None:
         """Create a new collection."""
         if not self._client:
@@ -185,8 +184,8 @@ class ChromaVectorStore(BaseVectorStore):
         id: str,
         embedding: list[float],
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> str:
         """Insert or update a vector."""
         collection = self._get_collection()
@@ -212,7 +211,7 @@ class ChromaVectorStore(BaseVectorStore):
     async def upsert_batch(
         self,
         items: Sequence[dict[str, Any]],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[str]:
         """Batch upsert multiple vectors."""
         collection = self._get_collection()
@@ -246,7 +245,7 @@ class ChromaVectorStore(BaseVectorStore):
     async def delete(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """Delete vectors by ID."""
         collection = self._get_collection()
@@ -257,7 +256,7 @@ class ChromaVectorStore(BaseVectorStore):
     async def delete_by_filter(
         self,
         filters: dict[str, Any],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """Delete vectors matching filter criteria."""
         collection = self._get_collection()
@@ -281,8 +280,8 @@ class ChromaVectorStore(BaseVectorStore):
         self,
         embedding: list[float],
         limit: int = 10,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
         min_score: float = 0.0,
     ) -> list[VectorSearchResult]:
         """Search for similar vectors."""
@@ -334,8 +333,8 @@ class ChromaVectorStore(BaseVectorStore):
         embedding: list[float],
         limit: int = 10,
         alpha: float = 0.5,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """
         Hybrid search combining vector and text matching.
@@ -388,8 +387,8 @@ class ChromaVectorStore(BaseVectorStore):
     async def get_by_id(
         self,
         id: str,
-        namespace: Optional[str] = None,
-    ) -> Optional[VectorSearchResult]:
+        namespace: str | None = None,
+    ) -> VectorSearchResult | None:
         """Get a specific vector by ID."""
         collection = self._get_collection()
 
@@ -416,7 +415,7 @@ class ChromaVectorStore(BaseVectorStore):
     async def get_by_ids(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """Get multiple vectors by ID."""
         collection = self._get_collection()
@@ -443,8 +442,8 @@ class ChromaVectorStore(BaseVectorStore):
 
     async def count(
         self,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> int:
         """Count vectors matching optional filters."""
         collection = self._get_collection()
@@ -495,9 +494,9 @@ class ChromaVectorStore(BaseVectorStore):
 
     def _build_filter(
         self,
-        filters: Optional[dict[str, Any]],
-        namespace: Optional[str],
-    ) -> Optional[dict[str, Any]]:
+        filters: dict[str, Any] | None,
+        namespace: str | None,
+    ) -> dict[str, Any] | None:
         """Build Chroma filter from dict."""
         conditions = []
 

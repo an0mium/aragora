@@ -13,13 +13,14 @@ Usage:
     ))
     await teams.post_debate_summary(debate_result)
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
@@ -33,9 +34,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
-
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TeamsConfig:
@@ -64,7 +63,6 @@ class TeamsConfig:
             self.webhook_url = os.environ.get("TEAMS_WEBHOOK_URL", "")
         if not self.webhook_url:
             logger.warning("Teams webhook URL not configured")
-
 
 @dataclass
 class AdaptiveCard:
@@ -106,7 +104,6 @@ class AdaptiveCard:
             ],
         }
 
-
 class TeamsIntegration:
     """
     Microsoft Teams integration for posting debate events.
@@ -128,9 +125,9 @@ class TeamsIntegration:
         await teams.send_error_alert(debate_id, error="...")
     """
 
-    def __init__(self, config: Optional[TeamsConfig] = None):
+    def __init__(self, config: TeamsConfig | None = None):
         self.config = config or TeamsConfig()
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._message_count = 0
         self._last_reset = datetime.now()
 
@@ -187,7 +184,7 @@ class TeamsIntegration:
         payload = card.to_payload()
         headers = build_trace_headers()
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(max_retries):
             try:
@@ -351,7 +348,7 @@ class TeamsIntegration:
         debate_id: str,
         answer: str,
         confidence: float,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
     ) -> bool:
         """Send a consensus reached alert.
 
@@ -423,7 +420,7 @@ class TeamsIntegration:
         self,
         debate_id: str,
         error: str,
-        phase: Optional[str] = None,
+        phase: str | None = None,
     ) -> bool:
         """Send an error notification.
 
@@ -477,7 +474,7 @@ class TeamsIntegration:
     async def send_leaderboard_update(
         self,
         rankings: list[dict[str, Any]],
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> bool:
         """Send a leaderboard update.
 

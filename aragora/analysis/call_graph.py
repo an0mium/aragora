@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 try:
     import networkx as nx
@@ -31,7 +31,6 @@ from aragora.analysis.code_intelligence import (
     SymbolKind,
 )
 
-
 class EdgeType(str, Enum):
     """Type of relationship between nodes."""
 
@@ -41,7 +40,6 @@ class EdgeType(str, Enum):
     USES = "uses"  # Symbol uses another (field access, etc.)
     CONTAINS = "contains"  # File contains symbol
 
-
 @dataclass
 class GraphNode:
     """A node in the call/dependency graph."""
@@ -50,8 +48,8 @@ class GraphNode:
     kind: SymbolKind
     name: str
     qualified_name: str
-    location: Optional[SourceLocation] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    location: SourceLocation | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -61,7 +59,6 @@ class GraphNode:
             return self.id == other.id
         return False
 
-
 @dataclass
 class GraphEdge:
     """An edge in the call/dependency graph."""
@@ -69,9 +66,8 @@ class GraphEdge:
     source: str  # Source node ID
     target: str  # Target node ID
     edge_type: EdgeType
-    location: Optional[SourceLocation] = None  # Where the reference occurs
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    location: SourceLocation | None = None  # Where the reference occurs
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class CallSite:
@@ -80,39 +76,35 @@ class CallSite:
     caller: str  # Qualified name of caller
     callee: str  # Name being called (may be unresolved)
     location: SourceLocation
-    arguments: List[str] = field(default_factory=list)
+    arguments: list[str] = field(default_factory=list)
     is_method_call: bool = False
-    receiver: Optional[str] = None  # For method calls, the receiver expression
-
+    receiver: str | None = None  # For method calls, the receiver expression
 
 @dataclass
 class DeadCodeResult:
     """Result of dead code analysis."""
 
-    unreachable_functions: List[GraphNode]
-    unreachable_classes: List[GraphNode]
-    unused_imports: List[ImportInfo]
+    unreachable_functions: list[GraphNode]
+    unreachable_classes: list[GraphNode]
+    unused_imports: list[ImportInfo]
     total_dead_lines: int = 0
-
 
 @dataclass
 class ImpactResult:
     """Result of impact analysis."""
 
     changed_node: str
-    directly_affected: List[str]  # Nodes that directly depend on changed node
-    transitively_affected: List[str]  # All nodes affected (transitive closure)
-    affected_files: Set[str]
-
+    directly_affected: list[str]  # Nodes that directly depend on changed node
+    transitively_affected: list[str]  # All nodes affected (transitive closure)
+    affected_files: set[str]
 
 @dataclass
 class CircularDependency:
     """A circular dependency in the codebase."""
 
-    cycle: List[str]  # Node IDs forming the cycle
+    cycle: list[str]  # Node IDs forming the cycle
     edge_type: EdgeType
-    locations: List[SourceLocation]
-
+    locations: list[SourceLocation]
 
 class CallGraph:
     """
@@ -130,10 +122,10 @@ class CallGraph:
                 "Install with: pip install 'aragora[code-intel]'"
             )
         self._graph: nx.DiGraph = nx.DiGraph()
-        self._nodes: Dict[str, GraphNode] = {}
-        self._edges: List[GraphEdge] = []
-        self._file_to_nodes: Dict[str, Set[str]] = {}
-        self._entry_points: Set[str] = set()
+        self._nodes: dict[str, GraphNode] = {}
+        self._edges: list[GraphEdge] = []
+        self._file_to_nodes: dict[str, set[str]] = {}
+        self._entry_points: set[str] = set()
 
     @property
     def node_count(self) -> int:
@@ -169,11 +161,11 @@ class CallGraph:
             edge_type=edge.edge_type.value,
         )
 
-    def get_node(self, node_id: str) -> Optional[GraphNode]:
+    def get_node(self, node_id: str) -> GraphNode | None:
         """Get a node by ID."""
         return self._nodes.get(node_id)
 
-    def get_callers(self, node_id: str) -> List[GraphNode]:
+    def get_callers(self, node_id: str) -> list[GraphNode]:
         """Get all functions that call this node."""
         if node_id not in self._graph:
             return []
@@ -186,7 +178,7 @@ class CallGraph:
                     callers.append(node)
         return callers
 
-    def get_callees(self, node_id: str) -> List[GraphNode]:
+    def get_callees(self, node_id: str) -> list[GraphNode]:
         """Get all functions called by this node."""
         if node_id not in self._graph:
             return []
@@ -199,7 +191,7 @@ class CallGraph:
                     callees.append(node)
         return callees
 
-    def get_dependents(self, node_id: str, transitive: bool = False) -> List[str]:
+    def get_dependents(self, node_id: str, transitive: bool = False) -> list[str]:
         """Get nodes that depend on this node."""
         if node_id not in self._graph:
             return []
@@ -209,7 +201,7 @@ class CallGraph:
         else:
             return list(self._graph.predecessors(node_id))
 
-    def get_dependencies(self, node_id: str, transitive: bool = False) -> List[str]:
+    def get_dependencies(self, node_id: str, transitive: bool = False) -> list[str]:
         """Get nodes that this node depends on."""
         if node_id not in self._graph:
             return []
@@ -238,15 +230,15 @@ class CallGraph:
             self._auto_detect_entry_points()
 
         # Find all reachable nodes from entry points
-        reachable: Set[str] = set()
+        reachable: set[str] = set()
         for entry in self._entry_points:
             if entry in self._graph:
                 reachable.add(entry)
                 reachable.update(nx.descendants(self._graph, entry))
 
         # Find unreachable nodes
-        unreachable_functions: List[GraphNode] = []
-        unreachable_classes: List[GraphNode] = []
+        unreachable_functions: list[GraphNode] = []
+        unreachable_classes: list[GraphNode] = []
 
         for node_id, node in self._nodes.items():
             if node_id not in reachable:
@@ -291,8 +283,8 @@ class CallGraph:
                 self._entry_points.add(node_id)
 
     def find_circular_dependencies(
-        self, edge_type: Optional[EdgeType] = None
-    ) -> List[CircularDependency]:
+        self, edge_type: EdgeType | None = None
+    ) -> list[CircularDependency]:
         """Find circular dependencies in the graph."""
         # Filter graph by edge type if specified
         if edge_type:
@@ -338,7 +330,7 @@ class CallGraph:
         transitively_affected = list(nx.ancestors(self._graph, changed_node))
 
         # Collect affected files
-        affected_files: Set[str] = set()
+        affected_files: set[str] = set()
         for node_id in transitively_affected + [changed_node]:
             node = self._nodes.get(node_id)
             if node and node.location:
@@ -351,7 +343,7 @@ class CallGraph:
             affected_files=affected_files,
         )
 
-    def get_hotspots(self, top_n: int = 10) -> List[Tuple[GraphNode, int]]:
+    def get_hotspots(self, top_n: int = 10) -> list[tuple[GraphNode, int]]:
         """
         Find hotspots - nodes with high in-degree (many callers).
 
@@ -368,9 +360,9 @@ class CallGraph:
 
         return hotspots
 
-    def get_complexity_metrics(self) -> Dict[str, Any]:
+    def get_complexity_metrics(self) -> dict[str, Any]:
         """Get graph complexity metrics."""
-        metrics: Dict[str, Any] = {
+        metrics: dict[str, Any] = {
             "nodes": self.node_count,
             "edges": self.edge_count,
             "density": 0.0,
@@ -399,7 +391,7 @@ class CallGraph:
 
         return metrics
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize graph to dictionary."""
         return {
             "nodes": [
@@ -431,7 +423,6 @@ class CallGraph:
             "metrics": self.get_complexity_metrics(),
         }
 
-
 class CallGraphBuilder:
     """
     Builds call graphs from CodeIntelligence analysis results.
@@ -440,15 +431,15 @@ class CallGraphBuilder:
     and build the complete call graph.
     """
 
-    def __init__(self, code_intel: Optional[CodeIntelligence] = None):
+    def __init__(self, code_intel: CodeIntelligence | None = None):
         self.code_intel = code_intel or CodeIntelligence()
-        self._symbol_table: Dict[str, GraphNode] = {}
-        self._import_map: Dict[str, Dict[str, str]] = {}  # file -> {alias: qualified_name}
+        self._symbol_table: dict[str, GraphNode] = {}
+        self._import_map: dict[str, dict[str, str]] = {}  # file -> {alias: qualified_name}
 
     def build_from_directory(
         self,
         directory: str,
-        exclude_patterns: Optional[List[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
     ) -> CallGraph:
         """
         Build call graph from a directory of source files.
@@ -477,7 +468,7 @@ class CallGraphBuilder:
 
         return graph
 
-    def build_from_files(self, file_paths: List[str]) -> CallGraph:
+    def build_from_files(self, file_paths: list[str]) -> CallGraph:
         """Build call graph from specific files."""
         graph = CallGraph()
         analyses = []
@@ -651,9 +642,9 @@ class CallGraphBuilder:
                     )
                 )
 
-    def _extract_call_sites(self, analysis: FileAnalysis) -> List[CallSite]:
+    def _extract_call_sites(self, analysis: FileAnalysis) -> list[CallSite]:
         """Extract call sites from file analysis."""
-        call_sites: List[CallSite] = []
+        call_sites: list[CallSite] = []
         file_path = analysis.file_path
         module_name = self._path_to_module(file_path)
 
@@ -666,7 +657,7 @@ class CallGraphBuilder:
             return call_sites
 
         # For each function/method, find calls within it
-        all_funcs: List[Tuple[str, FunctionInfo]] = []
+        all_funcs: list[tuple[str, FunctionInfo]] = []
 
         for func in analysis.functions:
             all_funcs.append((f"{module_name}.{func.name}", func))
@@ -734,7 +725,7 @@ class CallGraphBuilder:
 
         return call_sites
 
-    def _resolve_symbol(self, name: str, file_path: str) -> Optional[str]:
+    def _resolve_symbol(self, name: str, file_path: str) -> str | None:
         """
         Resolve a symbol name to its qualified name.
 
@@ -794,7 +785,6 @@ class CallGraphBuilder:
 
         return module
 
-
 class ImportGraph:
     """
     Specialized graph for module import relationships.
@@ -809,12 +799,12 @@ class ImportGraph:
         self._graph: nx.DiGraph = nx.DiGraph()
 
     def add_import(
-        self, importer: str, imported: str, location: Optional[SourceLocation] = None
+        self, importer: str, imported: str, location: SourceLocation | None = None
     ) -> None:
         """Add an import relationship."""
         self._graph.add_edge(importer, imported, location=location)
 
-    def find_circular_imports(self) -> List[List[str]]:
+    def find_circular_imports(self) -> list[list[str]]:
         """Find all circular import chains."""
         try:
             cycles = list(nx.simple_cycles(self._graph))
@@ -823,14 +813,14 @@ class ImportGraph:
         except nx.NetworkXError:
             return []
 
-    def get_import_order(self) -> List[str]:
+    def get_import_order(self) -> list[str]:
         """Get topological order for imports (if acyclic)."""
         try:
             return list(nx.topological_sort(self._graph))
         except nx.NetworkXUnfeasible:
             return []  # Has cycles
 
-    def get_module_dependencies(self, module: str, transitive: bool = False) -> List[str]:
+    def get_module_dependencies(self, module: str, transitive: bool = False) -> list[str]:
         """Get modules that a module imports."""
         if module not in self._graph:
             return []
@@ -838,7 +828,7 @@ class ImportGraph:
             return list(nx.descendants(self._graph, module))
         return list(self._graph.successors(module))
 
-    def get_module_dependents(self, module: str, transitive: bool = False) -> List[str]:
+    def get_module_dependents(self, module: str, transitive: bool = False) -> list[str]:
         """Get modules that import a module."""
         if module not in self._graph:
             return []
@@ -847,7 +837,7 @@ class ImportGraph:
         return list(self._graph.predecessors(module))
 
     @classmethod
-    def from_analyses(cls, analyses: List[FileAnalysis]) -> "ImportGraph":
+    def from_analyses(cls, analyses: list[FileAnalysis]) -> "ImportGraph":
         """Build import graph from file analyses."""
         graph = cls()
 
@@ -869,11 +859,10 @@ class ImportGraph:
 
         return graph
 
-
 def analyze_codebase_dependencies(
     directory: str,
-    exclude_patterns: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    exclude_patterns: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """
     High-level function to analyze codebase dependencies.
 

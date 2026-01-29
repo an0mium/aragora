@@ -7,6 +7,7 @@ Enriches evidence snippets with additional metadata including:
 - Confidence scoring
 - Temporal context
 """
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -14,11 +15,10 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
-
 
 class SourceType(str, Enum):
     """Classification of evidence source types."""
@@ -34,24 +34,23 @@ class SourceType(str, Enum):
     LOCAL = "local"  # Local files
     UNKNOWN = "unknown"  # Unclassified
 
-
 @dataclass
 class Provenance:
     """Provenance information for evidence."""
 
-    author: Optional[str] = None
-    organization: Optional[str] = None
-    publication_date: Optional[datetime] = None
-    last_modified: Optional[datetime] = None
-    url: Optional[str] = None
-    doi: Optional[str] = None  # Digital Object Identifier
-    isbn: Optional[str] = None
-    version: Optional[str] = None
-    license: Optional[str] = None
-    citation_count: Optional[int] = None
+    author: str | None = None
+    organization: str | None = None
+    publication_date: datetime | None = None
+    last_modified: datetime | None = None
+    url: str | None = None
+    doi: str | None = None  # Digital Object Identifier
+    isbn: str | None = None
+    version: str | None = None
+    license: str | None = None
+    citation_count: int | None = None
     peer_reviewed: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "author": self.author,
@@ -70,7 +69,7 @@ class Provenance:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Provenance":
+    def from_dict(cls, data: dict[str, Any]) -> "Provenance":
         """Create from dictionary."""
         pub_date = data.get("publication_date")
         last_mod = data.get("last_modified")
@@ -89,7 +88,6 @@ class Provenance:
             peer_reviewed=data.get("peer_reviewed", False),
         )
 
-
 @dataclass
 class EnrichedMetadata:
     """Enriched metadata for evidence snippets."""
@@ -103,11 +101,11 @@ class EnrichedMetadata:
     has_citations: bool = False
     has_code: bool = False
     has_data: bool = False
-    topics: List[str] = field(default_factory=list)
-    entities: List[str] = field(default_factory=list)  # Named entities
+    topics: list[str] = field(default_factory=list)
+    entities: list[str] = field(default_factory=list)  # Named entities
     content_hash: str = ""  # For deduplication
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "source_type": self.source_type.value,
@@ -125,7 +123,7 @@ class EnrichedMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EnrichedMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> "EnrichedMetadata":
         """Create from dictionary."""
         return cls(
             source_type=SourceType(data.get("source_type", "unknown")),
@@ -145,7 +143,6 @@ class EnrichedMetadata:
             entities=data.get("entities", []),
             content_hash=data.get("content_hash", ""),
         )
-
 
 class MetadataEnricher:
     """Enriches evidence with additional metadata."""
@@ -257,9 +254,9 @@ class MetadataEnricher:
     def enrich(
         self,
         content: str,
-        url: Optional[str] = None,
-        source: Optional[str] = None,
-        existing_metadata: Optional[Dict[str, Any]] = None,
+        url: str | None = None,
+        source: str | None = None,
+        existing_metadata: Optional[dict[str, Any]] = None,
     ) -> EnrichedMetadata:
         """Enrich content with metadata.
 
@@ -306,8 +303,8 @@ class MetadataEnricher:
 
     def _classify_source_type(
         self,
-        url: Optional[str],
-        source: Optional[str],
+        url: str | None,
+        source: str | None,
         content: str,
     ) -> SourceType:
         """Classify the source type based on URL, source name, and content."""
@@ -351,8 +348,8 @@ class MetadataEnricher:
 
     def _extract_provenance(
         self,
-        url: Optional[str],
-        existing_metadata: Optional[Dict[str, Any]],
+        url: str | None,
+        existing_metadata: Optional[dict[str, Any]],
     ) -> Provenance:
         """Extract provenance information."""
         provenance = Provenance(url=url)
@@ -395,7 +392,7 @@ class MetadataEnricher:
 
         return provenance
 
-    def _parse_date(self, value: Any) -> Optional[datetime]:
+    def _parse_date(self, value: Any) -> datetime | None:
         """Parse a date from various formats."""
         if isinstance(value, datetime):
             return value
@@ -480,7 +477,7 @@ class MetadataEnricher:
         # Clamp to [0, 1]
         return max(0.0, min(1.0, score))
 
-    def _extract_topics(self, content: str) -> List[str]:
+    def _extract_topics(self, content: str) -> list[str]:
         """Extract topic keywords from content."""
         # Simple keyword extraction - find capitalized phrases and technical terms
         topics = []
@@ -499,7 +496,7 @@ class MetadataEnricher:
         # Deduplicate
         return list(dict.fromkeys(topics))[:10]
 
-    def _extract_entities(self, content: str) -> List[str]:
+    def _extract_entities(self, content: str) -> list[str]:
         """Extract named entities from content."""
         entities = []
 
@@ -519,7 +516,7 @@ class MetadataEnricher:
     def _merge_existing_metadata(
         self,
         metadata: EnrichedMetadata,
-        existing: Dict[str, Any],
+        existing: dict[str, Any],
     ) -> None:
         """Merge existing metadata into enriched metadata."""
         # Don't overwrite computed values, but add missing information
@@ -536,10 +533,9 @@ class MetadataEnricher:
             if isinstance(existing_entities, list):
                 metadata.entities = list(dict.fromkeys(existing_entities + metadata.entities))[:10]
 
-
 def enrich_evidence_snippet(
     snippet: Any,  # EvidenceSnippet
-    enricher: Optional[MetadataEnricher] = None,
+    enricher: MetadataEnricher | None = None,
 ) -> EnrichedMetadata:
     """Convenience function to enrich an EvidenceSnippet.
 

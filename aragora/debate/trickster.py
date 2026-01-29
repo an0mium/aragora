@@ -42,7 +42,6 @@ from aragora.debate.roles import ROLE_PROMPTS, CognitiveRole, RoleAssignment
 
 logger = logging.getLogger(__name__)
 
-
 def _get_evidence_linker_class():
     """Lazy import of EvidenceClaimLinker to avoid scipy/numpy import failures.
 
@@ -57,7 +56,6 @@ def _get_evidence_linker_class():
         logger.debug(f"EvidenceClaimLinker not available: {e}")
         return None
 
-
 class InterventionType(Enum):
     """Types of trickster interventions."""
 
@@ -68,7 +66,6 @@ class InterventionType(Enum):
     NOVELTY_CHALLENGE = "novelty_challenge"  # Challenge agents to seek fresh perspectives
     EVIDENCE_GAP = "evidence_gap"  # Challenge agents on unsupported claims
     ECHO_CHAMBER = "echo_chamber"  # Challenge agents to seek independent sources
-
 
 @dataclass
 class TricksterIntervention:
@@ -81,7 +78,6 @@ class TricksterIntervention:
     evidence_gaps: dict[str, list[str]]  # agent -> list of gaps
     priority: float  # 0-1, higher = more urgent
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class TricksterConfig:
@@ -115,7 +111,6 @@ class TricksterConfig:
         if self.sensitivity != 0.5:  # Only adjust if sensitivity was changed from default
             self.hollow_detection_threshold = 0.8 - (self.sensitivity * 0.6)
 
-
 @dataclass
 class TricksterState:
     """Internal state tracking for the trickster."""
@@ -125,7 +120,6 @@ class TricksterState:
     last_intervention_round: int = -10
     hollow_alerts: list[HollowConsensusAlert] = field(default_factory=list)
     total_interventions: int = 0
-
 
 class EvidencePoweredTrickster:
     """
@@ -152,10 +146,10 @@ class EvidencePoweredTrickster:
 
     def __init__(
         self,
-        config: Optional[TricksterConfig] = None,
+        config: TricksterConfig | None = None,
         on_intervention: Optional[Callable[[TricksterIntervention], None]] = None,
         on_alert: Optional[Callable[[HollowConsensusAlert], None]] = None,
-        linker: Optional[Any] = None,
+        linker: Any | None = None,
     ):
         """
         Initialize the trickster.
@@ -191,7 +185,7 @@ class EvidencePoweredTrickster:
         responses: dict[str, str],
         convergence_similarity: float,
         round_num: int,
-    ) -> Optional[TricksterIntervention]:
+    ) -> TricksterIntervention | None:
         """
         Check evidence quality and potentially intervene.
 
@@ -217,7 +211,7 @@ class EvidencePoweredTrickster:
             self.on_alert(alert)
 
         # NEW: Cross-proposal analysis for converging responses
-        cross_analysis: Optional[CrossProposalAnalysis] = None
+        cross_analysis: CrossProposalAnalysis | None = None
         if convergence_similarity > 0.6:
             cross_analysis = self._cross_analyzer.analyze(responses)
 
@@ -300,7 +294,7 @@ class EvidencePoweredTrickster:
         self,
         cross_analysis: CrossProposalAnalysis,
         round_num: int,
-    ) -> Optional[TricksterIntervention]:
+    ) -> TricksterIntervention | None:
         """Create intervention for evidence gaps."""
         if not cross_analysis.evidence_gaps:
             return None
@@ -359,7 +353,7 @@ class EvidencePoweredTrickster:
         self,
         cross_analysis: CrossProposalAnalysis,
         round_num: int,
-    ) -> Optional[TricksterIntervention]:
+    ) -> TricksterIntervention | None:
         """Create intervention for echo chamber detection."""
         if cross_analysis.redundancy_score <= 0.7:
             return None
@@ -413,7 +407,7 @@ class EvidencePoweredTrickster:
         alert: HollowConsensusAlert,
         quality_scores: dict[str, EvidenceQualityScore],
         round_num: int,
-        cross_analysis: Optional[CrossProposalAnalysis] = None,
+        cross_analysis: CrossProposalAnalysis | None = None,
     ) -> TricksterIntervention:
         """Create an appropriate intervention based on the alert."""
         # Identify lowest quality agents
@@ -563,7 +557,7 @@ class EvidencePoweredTrickster:
         low_novelty_agents: list[str],
         novelty_scores: dict[str, float],
         round_num: int,
-    ) -> Optional[TricksterIntervention]:
+    ) -> TricksterIntervention | None:
         """
         Create a novelty challenge intervention for agents with stale proposals.
 
@@ -696,7 +690,6 @@ class EvidencePoweredTrickster:
         """Reset trickster state for a new debate."""
         self._state = TricksterState()
 
-
 def create_trickster_for_debate(
     min_quality: float = 0.4,
     enable_breakpoints: bool = True,
@@ -716,7 +709,6 @@ def create_trickster_for_debate(
         enable_breakpoints=enable_breakpoints,
     )
     return EvidencePoweredTrickster(config=config)
-
 
 __all__ = [
     "InterventionType",

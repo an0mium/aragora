@@ -4,9 +4,9 @@ DevOps Workflow Templates.
 Templates for CI/CD pipelines, infrastructure review, and incident response.
 """
 
-from typing import Any, Dict
+from typing import Any
 
-CICD_PIPELINE_REVIEW_TEMPLATE: Dict[str, Any] = {
+CICD_PIPELINE_REVIEW_TEMPLATE: dict[str, Any] = {
     "name": "CI/CD Pipeline Review",
     "description": "Comprehensive CI/CD pipeline security and reliability review",
     "category": "devops",
@@ -157,7 +157,7 @@ CICD_PIPELINE_REVIEW_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-INCIDENT_RESPONSE_TEMPLATE: Dict[str, Any] = {
+INCIDENT_RESPONSE_TEMPLATE: dict[str, Any] = {
     "name": "Incident Response Workflow",
     "description": "Structured incident response with multi-agent analysis",
     "category": "devops",
@@ -340,7 +340,7 @@ INCIDENT_RESPONSE_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-INFRASTRUCTURE_AUDIT_TEMPLATE: Dict[str, Any] = {
+INFRASTRUCTURE_AUDIT_TEMPLATE: dict[str, Any] = {
     "name": "Infrastructure Security Audit",
     "description": "Cloud infrastructure security and compliance audit",
     "category": "devops",
@@ -461,7 +461,7 @@ INFRASTRUCTURE_AUDIT_TEMPLATE: Dict[str, Any] = {
 # PagerDuty Incident Management Workflow
 # =============================================================================
 
-PAGERDUTY_INCIDENT_WORKFLOW_TEMPLATE: Dict[str, Any] = {
+PAGERDUTY_INCIDENT_WORKFLOW_TEMPLATE: dict[str, Any] = {
     "name": "PagerDuty Incident Management",
     "description": "End-to-end incident management with PagerDuty integration",
     "category": "devops",

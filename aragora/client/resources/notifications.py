@@ -12,13 +12,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class NotificationChannel:
@@ -26,9 +25,8 @@ class NotificationChannel:
 
     type: str  # email, slack, teams, webhook
     enabled: bool = True
-    target: Optional[str] = None  # email address, webhook URL, etc.
-    settings: Dict[str, Any] = field(default_factory=dict)
-
+    target: str | None = None  # email address, webhook URL, etc.
+    settings: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class NotificationPreference:
@@ -36,9 +34,8 @@ class NotificationPreference:
 
     event_type: str
     enabled: bool = True
-    channels: List[str] = field(default_factory=list)
+    channels: list[str] = field(default_factory=list)
     frequency: str = "immediate"  # immediate, digest, daily, weekly
-
 
 @dataclass
 class Notification:
@@ -50,11 +47,10 @@ class Notification:
     message: str
     status: str  # pending, sent, delivered, failed, read
     priority: str  # low, normal, high, urgent
-    created_at: Optional[datetime] = None
-    sent_at: Optional[datetime] = None
-    read_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    created_at: datetime | None = None
+    sent_at: datetime | None = None
+    read_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class NotificationStats:
@@ -67,7 +63,6 @@ class NotificationStats:
     delivery_rate: float = 0.0
     read_rate: float = 0.0
 
-
 class NotificationsAPI:
     """API interface for notification management."""
 
@@ -78,7 +73,7 @@ class NotificationsAPI:
     # Preferences
     # =========================================================================
 
-    def get_preferences(self) -> List[NotificationPreference]:
+    def get_preferences(self) -> list[NotificationPreference]:
         """
         Get notification preferences for the current user.
 
@@ -89,7 +84,7 @@ class NotificationsAPI:
         prefs = response.get("preferences", [])
         return [self._parse_preference(p) for p in prefs]
 
-    async def get_preferences_async(self) -> List[NotificationPreference]:
+    async def get_preferences_async(self) -> list[NotificationPreference]:
         """Async version of get_preferences()."""
         response = await self._client._get_async("/api/v1/notifications/preferences")
         prefs = response.get("preferences", [])
@@ -98,9 +93,9 @@ class NotificationsAPI:
     def update_preference(
         self,
         event_type: str,
-        enabled: Optional[bool] = None,
-        channels: Optional[List[str]] = None,
-        frequency: Optional[str] = None,
+        enabled: bool | None = None,
+        channels: Optional[list[str]] = None,
+        frequency: str | None = None,
     ) -> NotificationPreference:
         """
         Update a notification preference.
@@ -114,7 +109,7 @@ class NotificationsAPI:
         Returns:
             Updated NotificationPreference object.
         """
-        body: Dict[str, Any] = {"event_type": event_type}
+        body: dict[str, Any] = {"event_type": event_type}
         if enabled is not None:
             body["enabled"] = enabled
         if channels is not None:
@@ -128,12 +123,12 @@ class NotificationsAPI:
     async def update_preference_async(
         self,
         event_type: str,
-        enabled: Optional[bool] = None,
-        channels: Optional[List[str]] = None,
-        frequency: Optional[str] = None,
+        enabled: bool | None = None,
+        channels: Optional[list[str]] = None,
+        frequency: str | None = None,
     ) -> NotificationPreference:
         """Async version of update_preference()."""
-        body: Dict[str, Any] = {"event_type": event_type}
+        body: dict[str, Any] = {"event_type": event_type}
         if enabled is not None:
             body["enabled"] = enabled
         if channels is not None:
@@ -144,7 +139,7 @@ class NotificationsAPI:
         response = await self._client._patch_async("/api/v1/notifications/preferences", body)
         return self._parse_preference(response.get("preference", response))
 
-    def mute_all(self, duration_hours: Optional[int] = None) -> bool:
+    def mute_all(self, duration_hours: int | None = None) -> bool:
         """
         Mute all notifications.
 
@@ -154,16 +149,16 @@ class NotificationsAPI:
         Returns:
             True if successful.
         """
-        body: Dict[str, Any] = {"action": "mute"}
+        body: dict[str, Any] = {"action": "mute"}
         if duration_hours:
             body["duration_hours"] = duration_hours
 
         self._client._post("/api/v1/notifications/preferences/mute", body)
         return True
 
-    async def mute_all_async(self, duration_hours: Optional[int] = None) -> bool:
+    async def mute_all_async(self, duration_hours: int | None = None) -> bool:
         """Async version of mute_all()."""
-        body: Dict[str, Any] = {"action": "mute"}
+        body: dict[str, Any] = {"action": "mute"}
         if duration_hours:
             body["duration_hours"] = duration_hours
 
@@ -191,7 +186,7 @@ class NotificationsAPI:
     # Channels
     # =========================================================================
 
-    def list_channels(self) -> List[NotificationChannel]:
+    def list_channels(self) -> list[NotificationChannel]:
         """
         List configured notification channels.
 
@@ -202,7 +197,7 @@ class NotificationsAPI:
         channels = response.get("channels", [])
         return [self._parse_channel(c) for c in channels]
 
-    async def list_channels_async(self) -> List[NotificationChannel]:
+    async def list_channels_async(self) -> list[NotificationChannel]:
         """Async version of list_channels()."""
         response = await self._client._get_async("/api/v1/notifications/channels")
         channels = response.get("channels", [])
@@ -212,8 +207,8 @@ class NotificationsAPI:
         self,
         channel_type: str,
         enabled: bool = True,
-        target: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
+        target: str | None = None,
+        settings: Optional[dict[str, Any]] = None,
     ) -> NotificationChannel:
         """
         Configure a notification channel.
@@ -227,7 +222,7 @@ class NotificationsAPI:
         Returns:
             Configured NotificationChannel object.
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "type": channel_type,
             "enabled": enabled,
         }
@@ -243,11 +238,11 @@ class NotificationsAPI:
         self,
         channel_type: str,
         enabled: bool = True,
-        target: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
+        target: str | None = None,
+        settings: Optional[dict[str, Any]] = None,
     ) -> NotificationChannel:
         """Async version of configure_channel()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "type": channel_type,
             "enabled": enabled,
         }
@@ -285,11 +280,11 @@ class NotificationsAPI:
 
     def list(
         self,
-        status: Optional[str] = None,
-        type_filter: Optional[str] = None,
+        status: str | None = None,
+        type_filter: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[Notification], int]:
+    ) -> tuple[list[Notification], int]:
         """
         List notifications.
 
@@ -302,7 +297,7 @@ class NotificationsAPI:
         Returns:
             Tuple of (list of Notification objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         if type_filter:
@@ -314,13 +309,13 @@ class NotificationsAPI:
 
     async def list_async(
         self,
-        status: Optional[str] = None,
-        type_filter: Optional[str] = None,
+        status: str | None = None,
+        type_filter: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[Notification], int]:
+    ) -> tuple[list[Notification], int]:
         """Async version of list()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         if type_filter:
@@ -382,7 +377,7 @@ class NotificationsAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_preference(self, data: Dict[str, Any]) -> NotificationPreference:
+    def _parse_preference(self, data: dict[str, Any]) -> NotificationPreference:
         """Parse preference data into NotificationPreference object."""
         return NotificationPreference(
             event_type=data.get("event_type", ""),
@@ -391,7 +386,7 @@ class NotificationsAPI:
             frequency=data.get("frequency", "immediate"),
         )
 
-    def _parse_channel(self, data: Dict[str, Any]) -> NotificationChannel:
+    def _parse_channel(self, data: dict[str, Any]) -> NotificationChannel:
         """Parse channel data into NotificationChannel object."""
         return NotificationChannel(
             type=data.get("type", ""),
@@ -400,7 +395,7 @@ class NotificationsAPI:
             settings=data.get("settings", {}),
         )
 
-    def _parse_notification(self, data: Dict[str, Any]) -> Notification:
+    def _parse_notification(self, data: dict[str, Any]) -> Notification:
         """Parse notification data into Notification object."""
         created_at = None
         sent_at = None
@@ -437,7 +432,7 @@ class NotificationsAPI:
             metadata=data.get("metadata", {}),
         )
 
-    def _parse_stats(self, data: Dict[str, Any]) -> NotificationStats:
+    def _parse_stats(self, data: dict[str, Any]) -> NotificationStats:
         """Parse stats data into NotificationStats object."""
         return NotificationStats(
             total_sent=data.get("total_sent", 0),
@@ -447,7 +442,6 @@ class NotificationsAPI:
             delivery_rate=data.get("delivery_rate", 0.0),
             read_rate=data.get("read_rate", 0.0),
         )
-
 
 __all__ = [
     "NotificationsAPI",

@@ -33,7 +33,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Callable, Coroutine
 
 from aragora.server.redis_config import get_redis_client, is_redis_available
 
@@ -42,15 +42,13 @@ logger = logging.getLogger(__name__)
 # Type alias for event handlers
 EventHandler = Callable[["PubSubEvent"], Coroutine[Any, Any, None]]
 
-
 @dataclass
 class PubSubEvent:
     """Event received from pub/sub channel."""
 
     channel: str
     data: dict[str, Any]
-    pattern: Optional[str] = None
-
+    pattern: str | None = None
 
 @dataclass
 class RedisPubSub:
@@ -66,7 +64,7 @@ class RedisPubSub:
     # Internal state
     _pubsub: Any = field(default=None, repr=False)
     _handlers: dict[str, list[EventHandler]] = field(default_factory=dict, repr=False)
-    _listener_task: Optional[asyncio.Task] = field(default=None, repr=False)
+    _listener_task: asyncio.Task | None = field(default=None, repr=False)
     _running: bool = field(default=False, repr=False)
 
     @property
@@ -303,10 +301,8 @@ class RedisPubSub:
             {"type": event_type, "debate_id": debate_id, **data},
         )
 
-
 # Module-level singleton
-_pubsub: Optional[RedisPubSub] = None
-
+_pubsub: RedisPubSub | None = None
 
 def get_pubsub() -> RedisPubSub:
     """Get shared RedisPubSub instance.
@@ -319,12 +315,10 @@ def get_pubsub() -> RedisPubSub:
         _pubsub = RedisPubSub()
     return _pubsub
 
-
 def reset_pubsub() -> None:
     """Reset pub/sub state for testing."""
     global _pubsub
     _pubsub = None
-
 
 __all__ = [
     "PubSubEvent",

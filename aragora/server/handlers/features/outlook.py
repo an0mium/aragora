@@ -29,7 +29,7 @@ import asyncio
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from aragora.server.handlers.base import (
@@ -42,31 +42,27 @@ from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
 # Store connector instances per user/workspace
-_outlook_connectors: Dict[str, Any] = {}  # key: f"{workspace_id}:{user_id}"
-_oauth_states: Dict[str, Dict[str, Any]] = {}  # state -> {workspace_id, user_id, redirect_uri}
+_outlook_connectors: dict[str, Any] = {}  # key: f"{workspace_id}:{user_id}"
+_oauth_states: dict[str, dict[str, Any]] = {}  # state -> {workspace_id, user_id, redirect_uri}
 _storage_lock = threading.Lock()
-
 
 # =============================================================================
 # Handler Functions
 # =============================================================================
 
-
 def _get_connector_key(workspace_id: str, user_id: str) -> str:
     """Generate unique key for connector storage."""
     return f"{workspace_id}:{user_id}"
 
-
 async def _get_or_create_connector(
     workspace_id: str,
     user_id: str,
-    folders: Optional[List[str]] = None,
+    folders: Optional[list[str]] = None,
 ) -> Any:
     """Get existing connector or create new one."""
     key = _get_connector_key(workspace_id, user_id)
@@ -95,12 +91,11 @@ async def _get_or_create_connector(
         logger.error("OutlookConnector not available")
         return None
 
-
 async def handle_get_oauth_url(
     workspace_id: str,
     user_id: str,
     redirect_uri: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get OAuth authorization URL for Outlook.
 
@@ -140,12 +135,11 @@ async def handle_get_oauth_url(
         logger.exception(f"Failed to get OAuth URL: {e}")
         return {"success": False, "error": str(e)}
 
-
 async def handle_oauth_callback(
     code: str,
     state: str,
-    redirect_uri: Optional[str] = None,
-) -> Dict[str, Any]:
+    redirect_uri: str | None = None,
+) -> dict[str, Any]:
     """
     Handle OAuth callback.
 
@@ -202,12 +196,11 @@ async def handle_oauth_callback(
         logger.exception(f"OAuth callback failed: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:read")
 async def handle_list_folders(
     workspace_id: str,
     user_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List mail folders.
 
@@ -240,16 +233,15 @@ async def handle_list_folders(
         logger.exception(f"Failed to list folders: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:read")
 async def handle_list_messages(
     workspace_id: str,
     user_id: str,
-    folder_id: Optional[str] = None,
+    folder_id: str | None = None,
     max_results: int = 50,
-    page_token: Optional[str] = None,
-    filter_query: Optional[str] = None,
-) -> Dict[str, Any]:
+    page_token: str | None = None,
+    filter_query: str | None = None,
+) -> dict[str, Any]:
     """
     List messages.
 
@@ -309,14 +301,13 @@ async def handle_list_messages(
         logger.exception(f"Failed to list messages: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:read")
 async def handle_get_message(
     workspace_id: str,
     user_id: str,
     message_id: str,
     include_attachments: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get message details.
 
@@ -365,14 +356,13 @@ async def handle_get_message(
         logger.exception(f"Failed to get message: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:read")
 async def handle_get_conversation(
     workspace_id: str,
     user_id: str,
     conversation_id: str,
     max_messages: int = 50,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get conversation thread.
 
@@ -416,18 +406,17 @@ async def handle_get_conversation(
         logger.exception(f"Failed to get conversation: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:write")
 async def handle_send_message(
     workspace_id: str,
     user_id: str,
-    to_addresses: List[str],
+    to_addresses: list[str],
     subject: str,
     body: str,
     body_type: str = "text",
-    cc_addresses: Optional[List[str]] = None,
-    bcc_addresses: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    cc_addresses: Optional[list[str]] = None,
+    bcc_addresses: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """
     Send a new email.
 
@@ -466,7 +455,6 @@ async def handle_send_message(
         logger.exception(f"Failed to send message: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:write")
 async def handle_reply_message(
     workspace_id: str,
@@ -475,8 +463,8 @@ async def handle_reply_message(
     body: str,
     body_type: str = "text",
     reply_all: bool = False,
-    cc_addresses: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    cc_addresses: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """
     Reply to a message.
 
@@ -512,15 +500,14 @@ async def handle_reply_message(
         logger.exception(f"Failed to reply to message: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:read")
 async def handle_search_messages(
     workspace_id: str,
     user_id: str,
     query: str,
     max_results: int = 25,
-    folder_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    folder_id: str | None = None,
+) -> dict[str, Any]:
     """
     Search messages.
 
@@ -553,14 +540,13 @@ async def handle_search_messages(
         logger.exception(f"Failed to search messages: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:write")
 async def handle_mark_read(
     workspace_id: str,
     user_id: str,
     message_id: str,
     is_read: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Mark message as read or unread.
 
@@ -596,14 +582,13 @@ async def handle_mark_read(
         logger.exception(f"Failed to mark message: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:write")
 async def handle_move_message(
     workspace_id: str,
     user_id: str,
     message_id: str,
     destination_folder_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Move message to a different folder.
 
@@ -639,14 +624,13 @@ async def handle_move_message(
         logger.exception(f"Failed to move message: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:delete")
 async def handle_delete_message(
     workspace_id: str,
     user_id: str,
     message_id: str,
     permanent: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete a message.
 
@@ -692,12 +676,11 @@ async def handle_delete_message(
         logger.exception(f"Failed to delete message: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("connectors:read")
 async def handle_get_status(
     workspace_id: str,
     user_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get Outlook connection status.
 
@@ -739,11 +722,9 @@ async def handle_get_status(
         logger.exception(f"Failed to get status: {e}")
         return {"success": False, "error": str(e)}
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class OutlookHandler(BaseHandler):
     """
@@ -768,7 +749,7 @@ class OutlookHandler(BaseHandler):
         "/api/v1/outlook/conversations/",
     ]
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)  # type: ignore[arg-type]
 
@@ -782,12 +763,12 @@ class OutlookHandler(BaseHandler):
         return False
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Outlook endpoint requests."""
         return None
 
-    async def handle_get_oauth_url(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_oauth_url(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/oauth/url"""
         redirect_uri = params.get("redirect_uri")
         if not redirect_uri:
@@ -804,7 +785,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_oauth_callback(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_oauth_callback(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/oauth/callback"""
         code = data.get("code")
         state = data.get("state")
@@ -823,7 +804,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_folders(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_folders(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/folders"""
         result = await handle_list_folders(
             workspace_id=params.get("workspace_id", "default"),
@@ -835,7 +816,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_messages(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_messages(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/messages"""
         result = await handle_list_messages(
             workspace_id=params.get("workspace_id", "default"),
@@ -851,7 +832,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_message(self, params: Dict[str, Any], message_id: str) -> HandlerResult:
+    async def handle_get_message(self, params: dict[str, Any], message_id: str) -> HandlerResult:
         """GET /api/v1/outlook/messages/{message_id}"""
         result = await handle_get_message(
             workspace_id=params.get("workspace_id", "default"),
@@ -866,7 +847,7 @@ class OutlookHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 404)
 
     async def handle_get_conversation(
-        self, params: Dict[str, Any], conversation_id: str
+        self, params: dict[str, Any], conversation_id: str
     ) -> HandlerResult:
         """GET /api/v1/outlook/conversations/{conversation_id}"""
         result = await handle_get_conversation(
@@ -881,7 +862,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
-    async def handle_post_send(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_send(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/send"""
         to = data.get("to")
         subject = data.get("subject")
@@ -906,7 +887,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_reply(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_reply(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/reply"""
         message_id = data.get("message_id")
         body = data.get("body")
@@ -929,7 +910,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_search(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_search(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/search"""
         query = params.get("q")
         if not query:
@@ -948,7 +929,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_status(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_status(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/status"""
         result = await handle_get_status(
             workspace_id=params.get("workspace_id", "default"),
@@ -960,7 +941,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_mark_read(self, data: Dict[str, Any], message_id: str) -> HandlerResult:
+    async def handle_post_mark_read(self, data: dict[str, Any], message_id: str) -> HandlerResult:
         """POST /api/v1/outlook/messages/{message_id}/read"""
         result = await handle_mark_read(
             workspace_id=data.get("workspace_id", "default"),
@@ -974,7 +955,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_move(self, data: Dict[str, Any], message_id: str) -> HandlerResult:
+    async def handle_post_move(self, data: dict[str, Any], message_id: str) -> HandlerResult:
         """POST /api/v1/outlook/messages/{message_id}/move"""
         destination = data.get("destination_folder_id")
         if not destination:
@@ -992,7 +973,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_delete_message(self, params: Dict[str, Any], message_id: str) -> HandlerResult:
+    async def handle_delete_message(self, params: dict[str, Any], message_id: str) -> HandlerResult:
         """DELETE /api/v1/outlook/messages/{message_id}"""
         result = await handle_delete_message(
             workspace_id=params.get("workspace_id", "default"),
@@ -1012,7 +993,6 @@ class OutlookHandler(BaseHandler):
         if auth_ctx and hasattr(auth_ctx, "user_id"):
             return auth_ctx.user_id
         return "default"
-
 
 __all__ = [
     "OutlookHandler",

@@ -17,11 +17,10 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
-
 
 class SpamCategory(Enum):
     """Category of spam/unwanted email."""
@@ -34,7 +33,6 @@ class SpamCategory(Enum):
     BULK = "bulk"  # Mass mailings
     LEGITIMATE = "legitimate"  # Not spam
 
-
 class RiskLevel(Enum):
     """Risk level of email."""
 
@@ -43,7 +41,6 @@ class RiskLevel(Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 @dataclass
 class SpamSignal:
@@ -58,19 +55,17 @@ class SpamSignal:
         """Get weighted score."""
         return self.score * self.weight
 
-
 @dataclass
 class LinkAnalysis:
     """Analysis of a URL in the email."""
 
     url: str
-    display_text: Optional[str]
+    display_text: str | None
     domain: str
     is_shortened: bool
     is_suspicious: bool
-    redirect_chain: List[str] = field(default_factory=list)
-    risk_factors: List[str] = field(default_factory=list)
-
+    redirect_chain: list[str] = field(default_factory=list)
+    risk_factors: list[str] = field(default_factory=list)
 
 @dataclass
 class SpamAnalysis:
@@ -82,12 +77,12 @@ class SpamAnalysis:
     risk_level: RiskLevel
     category: SpamCategory
     confidence: float  # 0.0 to 1.0
-    signals: List[SpamSignal] = field(default_factory=list)
-    reasons: List[str] = field(default_factory=list)
-    links_analyzed: List[LinkAnalysis] = field(default_factory=list)
+    signals: list[SpamSignal] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
+    links_analyzed: list[LinkAnalysis] = field(default_factory=list)
     analyzed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "email_id": self.email_id,
@@ -104,7 +99,6 @@ class SpamAnalysis:
             "analyzed_at": self.analyzed_at.isoformat(),
         }
 
-
 @dataclass
 class PhishingAnalysis:
     """Phishing-specific analysis result."""
@@ -113,13 +107,13 @@ class PhishingAnalysis:
     is_phishing: bool
     phishing_score: float  # 0.0 to 1.0
     confidence: float
-    indicators: List[str] = field(default_factory=list)
-    targeted_brand: Optional[str] = None
+    indicators: list[str] = field(default_factory=list)
+    targeted_brand: str | None = None
     credential_harvesting_detected: bool = False
     login_page_mimicry: bool = False
-    suspicious_links: List[LinkAnalysis] = field(default_factory=list)
+    suspicious_links: list[LinkAnalysis] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "email_id": self.email_id,
@@ -133,21 +127,19 @@ class PhishingAnalysis:
             "suspicious_links": len(self.suspicious_links),
         }
 
-
 @dataclass
 class EmailContent:
     """Email content for analysis."""
 
     email_id: str
     sender: str
-    sender_name: Optional[str] = None
+    sender_name: str | None = None
     subject: str = ""
     body_text: str = ""
-    body_html: Optional[str] = None
-    headers: Dict[str, str] = field(default_factory=dict)
-    attachments: List[Dict[str, Any]] = field(default_factory=list)
-    received_at: Optional[datetime] = None
-
+    body_html: str | None = None
+    headers: dict[str, str] = field(default_factory=dict)
+    attachments: list[dict[str, Any]] = field(default_factory=list)
+    received_at: datetime | None = None
 
 class SpamDetector:
     """
@@ -244,8 +236,8 @@ class SpamDetector:
         self,
         spam_threshold: float = 0.7,
         phishing_threshold: float = 0.6,
-        user_whitelist: Optional[Set[str]] = None,
-        user_blacklist: Optional[Set[str]] = None,
+        user_whitelist: Optional[set[str]] = None,
+        user_blacklist: Optional[set[str]] = None,
     ):
         """
         Initialize the spam detector.
@@ -271,7 +263,7 @@ class SpamDetector:
         Returns:
             SpamAnalysis with spam classification
         """
-        signals: List[SpamSignal] = []
+        signals: list[SpamSignal] = []
 
         # Check whitelist/blacklist first
         sender_lower = email.sender.lower()
@@ -356,9 +348,9 @@ class SpamDetector:
         Returns:
             PhishingAnalysis with phishing classification
         """
-        indicators: List[str] = []
-        suspicious_links: List[LinkAnalysis] = []
-        targeted_brand: Optional[str] = None
+        indicators: list[str] = []
+        suspicious_links: list[LinkAnalysis] = []
+        targeted_brand: str | None = None
         phishing_score = 0.0
 
         # Check for brand impersonation
@@ -498,10 +490,10 @@ class SpamDetector:
             details="Suspicious sender" if score > 0.3 else "",
         )
 
-    def _analyze_links(self, email: EmailContent) -> Tuple[SpamSignal, List[LinkAnalysis]]:
+    def _analyze_links(self, email: EmailContent) -> tuple[SpamSignal, list[LinkAnalysis]]:
         """Analyze URLs in the email."""
         urls = self._extract_urls(email)
-        link_analyses: List[LinkAnalysis] = []
+        link_analyses: list[LinkAnalysis] = []
         score = 0.0
 
         for url, display_text in urls:
@@ -524,7 +516,7 @@ class SpamDetector:
             link_analyses,
         )
 
-    def _analyze_single_link(self, url: str, display_text: Optional[str]) -> LinkAnalysis:
+    def _analyze_single_link(self, url: str, display_text: str | None) -> LinkAnalysis:
         """Analyze a single URL."""
         try:
             parsed = urlparse(url)
@@ -534,7 +526,7 @@ class SpamDetector:
             domain = ""
 
         is_shortened = domain in self.URL_SHORTENERS
-        risk_factors: List[str] = []
+        risk_factors: list[str] = []
         is_suspicious = False
 
         # Check for URL shorteners
@@ -639,9 +631,9 @@ class SpamDetector:
             details="High urgency language" if score > 0.3 else "",
         )
 
-    def _extract_urls(self, email: EmailContent) -> List[Tuple[str, Optional[str]]]:
+    def _extract_urls(self, email: EmailContent) -> list[tuple[str, str | None]]:
         """Extract URLs from email content."""
-        urls: List[Tuple[str, Optional[str]]] = []
+        urls: list[tuple[str, str | None]] = []
 
         # Extract from HTML
         if email.body_html:
@@ -661,7 +653,7 @@ class SpamDetector:
 
     def _determine_category(
         self,
-        signals: List[SpamSignal],
+        signals: list[SpamSignal],
         email: EmailContent,
     ) -> SpamCategory:
         """Determine the spam category."""
@@ -693,7 +685,7 @@ class SpamDetector:
     def _determine_risk_level(
         self,
         spam_score: float,
-        signals: List[SpamSignal],
+        signals: list[SpamSignal],
     ) -> RiskLevel:
         """Determine risk level based on score and signals."""
         if spam_score < 0.2:

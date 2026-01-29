@@ -14,18 +14,18 @@ Usage:
     db = MyDatabase("/path/to/my.db")
     row = db.fetch_one("SELECT * FROM my_table WHERE id = ?", ("123",))
 """
+from __future__ import annotations
 
 import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, Optional, Union
+from typing import Generator
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.schema import DatabaseManager
 
 logger = logging.getLogger(__name__)
-
 
 class BaseDatabase:
     """
@@ -60,7 +60,7 @@ class BaseDatabase:
         rows = db.fetch_all("SELECT * FROM table ORDER BY created DESC")
     """
 
-    def __init__(self, db_path: Union[str, Path], timeout: float = DB_TIMEOUT_SECONDS):
+    def __init__(self, db_path: str | Path, timeout: float = DB_TIMEOUT_SECONDS):
         """Initialize the database wrapper.
 
         Args:
@@ -110,7 +110,7 @@ class BaseDatabase:
                 conn.execute("ROLLBACK")
                 raise
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         """Execute query and fetch single row.
 
         Args:
@@ -160,6 +160,5 @@ class BaseDatabase:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.db_path!r})"
-
 
 __all__ = ["BaseDatabase"]

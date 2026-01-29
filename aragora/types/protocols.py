@@ -13,7 +13,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Coroutine, Optional, Protocol, runtime_checkable
+from typing import Any, Callable, Coroutine, Protocol, runtime_checkable
 
 # Type alias for event data
 EventData = dict[str, Any]
@@ -21,7 +21,6 @@ EventData = dict[str, Any]
 # Handler type aliases
 EventHandlerProtocol = Callable[[Any], Coroutine[Any, Any, None]]
 SyncEventHandlerProtocol = Callable[[Any], None]
-
 
 @runtime_checkable
 class EventEmitterProtocol(Protocol):
@@ -67,7 +66,7 @@ class EventEmitterProtocol(Protocol):
         self,
         event_type: str,
         debate_id: str = "",
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
         **data: Any,
     ) -> None:
         """Emit an event asynchronously."""
@@ -77,12 +76,11 @@ class EventEmitterProtocol(Protocol):
         self,
         event_type: str,
         debate_id: str = "",
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
         **data: Any,
     ) -> None:
         """Emit an event synchronously."""
         ...
-
 
 @runtime_checkable
 class StorageProtocol(Protocol):
@@ -92,11 +90,11 @@ class StorageProtocol(Protocol):
     Defines the interface for persistent storage operations.
     """
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get a value by key."""
         ...
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Set a value with optional TTL."""
         ...
 
@@ -108,7 +106,6 @@ class StorageProtocol(Protocol):
         """Check if a key exists."""
         ...
 
-
 @runtime_checkable
 class CacheProtocol(Protocol):
     """
@@ -117,11 +114,11 @@ class CacheProtocol(Protocol):
     Defines the interface for cache operations with TTL support.
     """
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get a cached value."""
         ...
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Set a cached value with optional TTL."""
         ...
 
@@ -132,7 +129,6 @@ class CacheProtocol(Protocol):
     def clear(self) -> None:
         """Clear all cached values."""
         ...
-
 
 @runtime_checkable
 class AgentProtocol(Protocol):
@@ -155,11 +151,10 @@ class AgentProtocol(Protocol):
     async def generate(
         self,
         prompt: str,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> str:
         """Generate a response to a prompt."""
         ...
-
 
 @runtime_checkable
 class MemoryProtocol(Protocol):
@@ -172,7 +167,7 @@ class MemoryProtocol(Protocol):
     async def store(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Store content in memory, returns memory ID."""
         ...

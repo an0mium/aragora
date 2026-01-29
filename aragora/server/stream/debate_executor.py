@@ -9,12 +9,13 @@ Key components:
 - _fetch_trending_topic_async: Fetch trending topics for debate seeding
 - _execute_debate_thread: Run a debate in a background thread
 """
+from __future__ import annotations
 
 import logging
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Union, cast
 
 if TYPE_CHECKING:
     from typing import Literal
@@ -66,7 +67,6 @@ _OPENROUTER_FALLBACK_MODELS = {
 }
 _OPENROUTER_GENERIC_FALLBACK_MODEL = "openai/gpt-4o-mini"
 
-
 def _missing_required_env_vars(env_vars: str) -> list[str]:
     """Return missing required env vars for a provider spec."""
     if not env_vars:
@@ -86,7 +86,6 @@ def _missing_required_env_vars(env_vars: str) -> list[str]:
             return []
     return candidates
 
-
 def _openrouter_key_available() -> bool:
     """Return True if OpenRouter key is configured via secrets or env."""
     try:
@@ -99,7 +98,6 @@ def _openrouter_key_available() -> bool:
         pass
     env_value = os.getenv("OPENROUTER_API_KEY")
     return bool(env_value and env_value.strip())
-
 
 # Check if debate orchestrator is available
 # Type aliases for optional debate components
@@ -125,8 +123,7 @@ except ImportError:
     create_agent = None
     Environment = None
 
-
-def parse_debate_request(data: dict) -> tuple[Optional[dict], Optional[str]]:
+def parse_debate_request(data: dict) -> tuple[dict | None, str | None]:
     """Parse and validate debate request data.
 
     Args:
@@ -180,8 +177,7 @@ def parse_debate_request(data: dict) -> tuple[Optional[dict], Optional[str]]:
         "trending_category": data.get("trending_category", None),
     }, None
 
-
-async def fetch_trending_topic_async(category: Optional[str] = None) -> Optional[Any]:
+async def fetch_trending_topic_async(category: str | None = None) -> Any | None:
     """Fetch a trending topic for the debate.
 
     Args:
@@ -219,14 +215,13 @@ async def fetch_trending_topic_async(category: Optional[str] = None) -> Optional
         logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
         return None
 
-
 def execute_debate_thread(
     debate_id: str,
     question: str,
     agents_str: str,
     rounds: int,
     consensus: str,
-    trending_topic: Optional[Any],
+    trending_topic: Any | None,
     emitter: "SyncEventEmitter",
     user_id: str = "",
     org_id: str = "",
@@ -548,7 +543,6 @@ def execute_debate_thread(
                 data={"error": safe_msg, "debate_id": debate_id},
             )
         )
-
 
 __all__ = [
     "DEBATE_AVAILABLE",

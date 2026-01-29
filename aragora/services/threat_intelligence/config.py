@@ -5,18 +5,17 @@ Threat intelligence configuration and protocols.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Protocol
-
+from typing import Any, Protocol
 
 @dataclass
 class ThreatIntelConfig:
     """Configuration for threat intelligence service."""
 
     # API Keys
-    virustotal_api_key: Optional[str] = None
-    abuseipdb_api_key: Optional[str] = None
-    phishtank_api_key: Optional[str] = None
-    urlhaus_api_key: Optional[str] = None  # URLhaus doesn't require API key but supports it
+    virustotal_api_key: str | None = None
+    abuseipdb_api_key: str | None = None
+    phishtank_api_key: str | None = None
+    urlhaus_api_key: str | None = None  # URLhaus doesn't require API key but supports it
 
     # Rate limiting (requests per minute)
     virustotal_rate_limit: int = 4  # Free tier: 4/min
@@ -32,7 +31,7 @@ class ThreatIntelConfig:
     cache_db_path: str = "threat_intel_cache.db"
 
     # Redis cache backend (optional)
-    redis_url: Optional[str] = None  # e.g., "redis://localhost:6379/0"
+    redis_url: str | None = None  # e.g., "redis://localhost:6379/0"
     use_redis_cache: bool = False  # Enable Redis backend
 
     # Thresholds
@@ -41,7 +40,7 @@ class ThreatIntelConfig:
     urlhaus_tags_threshold: int = 1  # Number of malware tags to consider malicious
 
     # Source reliability weights for aggregate scoring (0-1)
-    source_weights: Dict[str, float] = field(
+    source_weights: dict[str, float] = field(
         default_factory=lambda: {
             "virustotal": 0.9,  # Highly reliable, multiple engines
             "abuseipdb": 0.8,  # Community-driven, reliable for IPs
@@ -66,10 +65,9 @@ class ThreatIntelConfig:
     enable_caching: bool = True
     enable_event_emission: bool = True  # Emit events for high-risk findings
 
-
 class ThreatEventHandler(Protocol):
     """Protocol for threat event handlers."""
 
-    def __call__(self, event_type: str, data: Dict[str, Any]) -> None:
+    def __call__(self, event_type: str, data: dict[str, Any]) -> None:
         """Handle a threat event."""
         ...

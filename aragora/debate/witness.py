@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 from aragora.debate.protocol_messages import (
     ProtocolMessage,
@@ -27,7 +27,6 @@ from aragora.debate.protocol_messages import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class ProgressStatus(str, Enum):
     """Status of agent progress in a debate round."""
@@ -38,7 +37,6 @@ class ProgressStatus(str, Enum):
     REPEATED = "repeated"  # Repeating previous content
     FAILED = "failed"  # Agent failed to respond
 
-
 class StallReason(str, Enum):
     """Reason for a detected stall."""
 
@@ -47,7 +45,6 @@ class StallReason(str, Enum):
     CIRCULAR_ARGUMENTS = "circular_arguments"  # Arguments forming a cycle
     NO_PROGRESS = "no_progress"  # Round not advancing
     AGENT_FAILURE = "agent_failure"  # Agent threw an error
-
 
 @dataclass
 class AgentProgress:
@@ -59,13 +56,13 @@ class AgentProgress:
     critiques_submitted: int = 0
     revisions_submitted: int = 0
     votes_cast: int = 0
-    last_activity: Optional[datetime] = None
+    last_activity: datetime | None = None
     current_round: int = 0
     status: ProgressStatus = ProgressStatus.HEALTHY
-    stall_reason: Optional[StallReason] = None
+    stall_reason: StallReason | None = None
     failure_count: int = 0
     recovery_count: int = 0
-    content_hashes: List[str] = field(default_factory=list)  # For repetition detection
+    content_hashes: list[str] = field(default_factory=list)  # For repetition detection
 
     def record_activity(self, activity_type: str) -> None:
         """Record an activity for this agent."""
@@ -80,12 +77,11 @@ class AgentProgress:
         elif activity_type == "vote":
             self.votes_cast += 1
 
-    def time_since_activity(self) -> Optional[float]:
+    def time_since_activity(self) -> float | None:
         """Get seconds since last activity."""
         if not self.last_activity:
             return None
         return (datetime.now(timezone.utc) - self.last_activity).total_seconds()
-
 
 @dataclass
 class RoundProgress:
@@ -94,7 +90,7 @@ class RoundProgress:
     round_number: int
     debate_id: str
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     proposals_expected: int = 0
     proposals_received: int = 0
     critiques_expected: int = 0
@@ -109,12 +105,11 @@ class RoundProgress:
         return self.completed_at is not None
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Get round duration in seconds."""
         if not self.completed_at:
             return None
         return (self.completed_at - self.started_at).total_seconds()
-
 
 @dataclass
 class WitnessConfig:
@@ -137,20 +132,18 @@ class WitnessConfig:
     emit_protocol_messages: bool = True
     check_interval_seconds: float = 5.0
 
-
 @dataclass
 class StallEvent:
     """Event representing a detected stall."""
 
     debate_id: str
-    agent_id: Optional[str]
+    agent_id: str | None
     round_number: int
     reason: StallReason
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     resolved: bool = False
-    resolution: Optional[str] = None
-
+    resolution: str | None = None
 
 class DebateWitness:
     """
@@ -186,7 +179,7 @@ class DebateWitness:
     def __init__(
         self,
         debate_id: str,
-        config: Optional[WitnessConfig] = None,
+        config: WitnessConfig | None = None,
         on_stall: Optional[Callable[[StallEvent], None]] = None,
         on_progress: Optional[Callable[[AgentProgress], None]] = None,
     ):
@@ -205,13 +198,13 @@ class DebateWitness:
         self.on_progress = on_progress
 
         # State tracking
-        self._agents: Dict[str, AgentProgress] = {}
-        self._rounds: Dict[int, RoundProgress] = {}
+        self._agents: dict[str, AgentProgress] = {}
+        self._rounds: dict[int, RoundProgress] = {}
         self._current_round: int = 0
-        self._stall_events: List[StallEvent] = []
-        self._message_log: List[ProtocolMessage] = []
+        self._stall_events: list[StallEvent] = []
+        self._message_log: list[ProtocolMessage] = []
         self._started_at: datetime = datetime.now(timezone.utc)
-        self._monitoring_task: Optional[asyncio.Task] = None
+        self._monitoring_task: asyncio.Task | None = None
         self._running: bool = False
         self._lock = asyncio.Lock()
 
@@ -249,7 +242,7 @@ class DebateWitness:
         logger.debug(f"Witness started round {round_number}")
         return self._rounds[round_number]
 
-    def complete_round(self, round_number: int) -> Optional[RoundProgress]:
+    def complete_round(self, round_number: int) -> RoundProgress | None:
         """Mark a round as complete."""
         if round_number in self._rounds:
             self._rounds[round_number].completed_at = datetime.now(timezone.utc)
@@ -348,7 +341,7 @@ class DebateWitness:
         normalized = " ".join(content.lower().split())
         return hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
-    def detect_stalls(self) -> List[StallEvent]:
+    def detect_stalls(self) -> list[StallEvent]:
         """
         Detect stalls across all agents and rounds.
 
@@ -379,7 +372,7 @@ class DebateWitness:
 
         return new_stalls
 
-    def _check_agent_stall(self, agent: AgentProgress, now: datetime) -> Optional[StallEvent]:
+    def _check_agent_stall(self, agent: AgentProgress, now: datetime) -> StallEvent | None:
         """Check if an agent has stalled."""
         time_since = agent.time_since_activity()
 
@@ -407,7 +400,7 @@ class DebateWitness:
 
         return None
 
-    def _check_round_stall(self, now: datetime) -> Optional[StallEvent]:
+    def _check_round_stall(self, now: datetime) -> StallEvent | None:
         """Check if the current round has stalled."""
         round_progress = self._rounds.get(self._current_round)
         if not round_progress or round_progress.is_complete:
@@ -447,7 +440,7 @@ class DebateWitness:
 
         return None
 
-    def check_content_repetition(self, agent_id: str, new_content: str) -> Tuple[bool, float]:
+    def check_content_repetition(self, agent_id: str, new_content: str) -> tuple[bool, float]:
         """
         Check if content is repeated from previous submissions.
 
@@ -521,15 +514,15 @@ class DebateWitness:
                 logger.error(f"Witness monitoring error: {e}")
                 await asyncio.sleep(1)
 
-    def get_agent_progress(self, agent_id: str) -> Optional[AgentProgress]:
+    def get_agent_progress(self, agent_id: str) -> AgentProgress | None:
         """Get progress for a specific agent."""
         return self._agents.get(agent_id)
 
-    def get_round_progress(self, round_number: int) -> Optional[RoundProgress]:
+    def get_round_progress(self, round_number: int) -> RoundProgress | None:
         """Get progress for a specific round."""
         return self._rounds.get(round_number)
 
-    def get_progress_summary(self) -> Dict[str, Any]:
+    def get_progress_summary(self) -> dict[str, Any]:
         """
         Get a summary of debate progress.
 
@@ -571,7 +564,7 @@ class DebateWitness:
             },
         }
 
-    def get_stall_history(self, include_resolved: bool = True) -> List[Dict[str, Any]]:
+    def get_stall_history(self, include_resolved: bool = True) -> list[dict[str, Any]]:
         """Get history of stall events."""
         events = self._stall_events
         if not include_resolved:
@@ -591,7 +584,7 @@ class DebateWitness:
             for s in events
         ]
 
-    def resolve_stall(self, agent_id: Optional[str], resolution: str) -> int:
+    def resolve_stall(self, agent_id: str | None, resolution: str) -> int:
         """
         Mark stalls as resolved.
 
@@ -619,19 +612,16 @@ class DebateWitness:
 
         return resolved_count
 
-
 # Global witness registry
-_witnesses: Dict[str, DebateWitness] = {}
+_witnesses: dict[str, DebateWitness] = {}
 _witnesses_lock = asyncio.Lock()
 
-
-async def get_witness(debate_id: str, config: Optional[WitnessConfig] = None) -> DebateWitness:
+async def get_witness(debate_id: str, config: WitnessConfig | None = None) -> DebateWitness:
     """Get or create a witness for a debate."""
     async with _witnesses_lock:
         if debate_id not in _witnesses:
             _witnesses[debate_id] = DebateWitness(debate_id, config)
         return _witnesses[debate_id]
-
 
 async def remove_witness(debate_id: str) -> bool:
     """Remove a witness when debate is complete."""
@@ -642,7 +632,6 @@ async def remove_witness(debate_id: str) -> bool:
             del _witnesses[debate_id]
             return True
         return False
-
 
 def reset_witnesses() -> None:
     """Reset all witnesses (for testing)."""

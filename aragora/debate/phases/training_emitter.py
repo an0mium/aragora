@@ -7,6 +7,7 @@ This module extracts training data generation from FeedbackPhase:
 
 Used for Tinker integration and model fine-tuning pipelines.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -16,7 +17,6 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
-
 
 class TrainingEmitter:
     """Handles training data generation and export.
@@ -31,7 +31,7 @@ class TrainingEmitter:
         training_exporter: Optional[Callable[..., Any]] = None,
         event_emitter: Any = None,
         insight_store: Any = None,
-        loop_id: Optional[str] = None,
+        loop_id: str | None = None,
         # Thresholds
         sft_confidence_threshold: float = 0.8,
         min_response_length: int = 50,
@@ -171,7 +171,7 @@ class TrainingEmitter:
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.debug("[training] Data emission failed: %s", e)
 
-    def build_sft_record(self, ctx: "DebateContext") -> Optional[dict[str, Any]]:
+    def build_sft_record(self, ctx: "DebateContext") -> dict[str, Any] | None:
         """Build SFT (Supervised Fine-Tuning) record from winning debate.
 
         Args:
@@ -330,6 +330,5 @@ class TrainingEmitter:
             )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug("Training event emission error: %s", e)
-
 
 __all__ = ["TrainingEmitter"]

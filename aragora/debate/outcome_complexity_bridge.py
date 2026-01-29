@@ -33,13 +33,12 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.outcome_tracker import OutcomeTracker, ConsensusOutcome
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ComplexityStats:
@@ -73,7 +72,6 @@ class ComplexityStats:
             return float("inf")
         return self.total_time_to_failure / failed
 
-
 @dataclass
 class TimeoutAdjustment:
     """Result of timeout factor adjustment."""
@@ -83,7 +81,6 @@ class TimeoutAdjustment:
     complexity: str
     reason: str
     confidence: float = 0.0
-
 
 @dataclass
 class OutcomeComplexityBridgeConfig:
@@ -110,7 +107,6 @@ class OutcomeComplexityBridgeConfig:
     # Weight for time_to_failure in adjustment
     time_to_failure_weight: float = 0.3
 
-
 @dataclass
 class OutcomeComplexityBridge:
     """Bridges OutcomeTracker outcomes to ComplexityGovernor timeout factors.
@@ -126,13 +122,13 @@ class OutcomeComplexityBridge:
     config: OutcomeComplexityBridgeConfig = field(default_factory=OutcomeComplexityBridgeConfig)
 
     # Internal state - stats per complexity level
-    _complexity_stats: Dict[str, ComplexityStats] = field(
+    _complexity_stats: dict[str, ComplexityStats] = field(
         default_factory=lambda: defaultdict(ComplexityStats), repr=False
     )
     # Current timeout factor adjustments
-    _factor_adjustments: Dict[str, float] = field(default_factory=dict, repr=False)
+    _factor_adjustments: dict[str, float] = field(default_factory=dict, repr=False)
     # Task signal patterns that predict failure
-    _failure_signals: Dict[str, int] = field(default_factory=lambda: defaultdict(int), repr=False)
+    _failure_signals: dict[str, int] = field(default_factory=lambda: defaultdict(int), repr=False)
 
     def __post_init__(self) -> None:
         """Initialize from outcome tracker history if available."""
@@ -227,8 +223,8 @@ class OutcomeComplexityBridge:
         complexity: str,
         succeeded: bool,
         timeout: bool = False,
-        time_to_failure: Optional[float] = None,
-        task_text: Optional[str] = None,
+        time_to_failure: float | None = None,
+        task_text: str | None = None,
     ) -> None:
         """Record an outcome for a complexity level.
 
@@ -262,7 +258,7 @@ class OutcomeComplexityBridge:
             f"timeout={timeout}"
         )
 
-    def _maybe_recalibrate(self, complexity: str) -> Optional[TimeoutAdjustment]:
+    def _maybe_recalibrate(self, complexity: str) -> TimeoutAdjustment | None:
         """Check if timeout factor should be adjusted.
 
         Args:
@@ -329,7 +325,7 @@ class OutcomeComplexityBridge:
         return None
 
     def get_adaptive_timeout_factor(
-        self, task: str, base_complexity: Optional[str] = None
+        self, task: str, base_complexity: str | None = None
     ) -> float:
         """Get adaptive timeout factor for a task.
 
@@ -403,7 +399,7 @@ class OutcomeComplexityBridge:
 
         return min(0.5, boost)  # Cap total signal boost
 
-    def get_complexity_stats(self, complexity: str) -> Optional[ComplexityStats]:
+    def get_complexity_stats(self, complexity: str) -> ComplexityStats | None:
         """Get statistics for a complexity level.
 
         Args:
@@ -416,7 +412,7 @@ class OutcomeComplexityBridge:
             return None
         return self._complexity_stats[complexity]
 
-    def get_all_stats(self) -> Dict[str, ComplexityStats]:
+    def get_all_stats(self) -> dict[str, ComplexityStats]:
         """Get statistics for all complexity levels.
 
         Returns:
@@ -424,7 +420,7 @@ class OutcomeComplexityBridge:
         """
         return dict(self._complexity_stats)
 
-    def get_factor_adjustments(self) -> Dict[str, float]:
+    def get_factor_adjustments(self) -> dict[str, float]:
         """Get current timeout factor adjustments.
 
         Returns:
@@ -432,7 +428,7 @@ class OutcomeComplexityBridge:
         """
         return dict(self._factor_adjustments)
 
-    def get_failure_signals(self) -> Dict[str, int]:
+    def get_failure_signals(self) -> dict[str, int]:
         """Get failure-correlated signals and their counts.
 
         Returns:
@@ -440,7 +436,7 @@ class OutcomeComplexityBridge:
         """
         return dict(self._failure_signals)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.
 
         Returns:
@@ -454,7 +450,6 @@ class OutcomeComplexityBridge:
             "factor_adjustments_active": len(self._factor_adjustments),
             "failure_signals_tracked": len(self._failure_signals),
         }
-
 
 def create_outcome_complexity_bridge(
     outcome_tracker: Optional["OutcomeTracker"] = None,
@@ -474,7 +469,6 @@ def create_outcome_complexity_bridge(
         outcome_tracker=outcome_tracker,
         config=config,
     )
-
 
 __all__ = [
     "OutcomeComplexityBridge",

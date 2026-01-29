@@ -30,7 +30,7 @@ import threading
 import time
 from collections import OrderedDict
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +38,12 @@ logger = logging.getLogger(__name__)
 CacheMetricFunc = Callable[[str], None]
 
 # Lazy import to avoid circular dependency
-_record_cache_hit: Optional[CacheMetricFunc] = None
-_record_cache_miss: Optional[CacheMetricFunc] = None
-
+_record_cache_hit: CacheMetricFunc | None = None
+_record_cache_miss: CacheMetricFunc | None = None
 
 def _noop_metric(x: str) -> None:
     """No-op metric function for when metrics are unavailable."""
     pass
-
 
 def _get_metrics() -> tuple[CacheMetricFunc, CacheMetricFunc]:
     """Lazy load metrics functions."""
@@ -61,11 +59,9 @@ def _get_metrics() -> tuple[CacheMetricFunc, CacheMetricFunc]:
             _record_cache_miss = _noop_metric
     return _record_cache_hit, _record_cache_miss
 
-
 # Cache configuration from environment
 CACHE_MAX_ENTRIES = int(os.environ.get("ARAGORA_CACHE_MAX_ENTRIES", "1000"))
 CACHE_EVICT_PERCENT = float(os.environ.get("ARAGORA_CACHE_EVICT_PERCENT", "0.1"))
-
 
 class BoundedTTLCache:
     """
@@ -189,13 +185,11 @@ class BoundedTTLCache:
                 "hit_rate": self._hits / total if total > 0 else 0.0,
             }
 
-
 # Global bounded cache instance
 _cache = BoundedTTLCache()
 
 # Track registration status
 _handler_cache_registered = False
-
 
 def _register_handler_cache() -> None:
     """Register handler cache with ServiceRegistry for observability."""
@@ -214,12 +208,10 @@ def _register_handler_cache() -> None:
     except ImportError:
         pass  # Services module not available
 
-
 def get_handler_cache() -> BoundedTTLCache:
     """Get the global handler cache, registering with ServiceRegistry if available."""
     _register_handler_cache()
     return _cache
-
 
 def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool = True):
     """
@@ -265,7 +257,6 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
 
     return decorator
 
-
 def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool = True):
     """
     Async decorator for caching coroutine results with TTL expiry.
@@ -310,14 +301,12 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
 
     return decorator
 
-
 def clear_cache(key_prefix: str | None = None) -> int:
     """Clear cached entries, optionally filtered by prefix.
 
     Returns number of entries cleared.
     """
     return _cache.clear(key_prefix)
-
 
 def invalidates_cache(*events: str):
     """
@@ -374,7 +363,6 @@ def invalidates_cache(*events: str):
 
     return decorator
 
-
 def _invalidate_events(events: tuple[str, ...], func_name: str) -> int:
     """Helper to invalidate cache for multiple events."""
     total_cleared = 0
@@ -385,11 +373,9 @@ def _invalidate_events(events: tuple[str, ...], func_name: str) -> int:
         logger.debug(f"@invalidates_cache({events}): {func_name} cleared {total_cleared} entries")
     return total_cleared
 
-
 def get_cache_stats() -> dict:
     """Get cache statistics for monitoring."""
     return _cache.stats
-
 
 # =============================================================================
 # Event-Driven Cache Invalidation
@@ -446,7 +432,6 @@ CACHE_INVALIDATION_MAP: dict[str, list[str]] = {
     ],
 }
 
-
 def invalidate_on_event(event_name: str) -> int:
     """Invalidate cache entries associated with an event.
 
@@ -468,7 +453,6 @@ def invalidate_on_event(event_name: str) -> int:
     if total_cleared > 0:
         logger.info(f"Cache invalidated: event={event_name}, entries_cleared={total_cleared}")
     return total_cleared
-
 
 def invalidate_cache(data_source: str) -> int:
     """Invalidate cache entries associated with a data source.
@@ -501,11 +485,9 @@ def invalidate_cache(data_source: str) -> int:
         logger.debug(f"Cache invalidation: cleared {cleared} entries with prefix '{data_source}'")
     return cleared
 
-
 def invalidate_leaderboard_cache() -> int:
     """Convenience function to invalidate all leaderboard-related caches."""
     return invalidate_on_event("elo_updated")
-
 
 def invalidate_agent_cache(agent_name: str | None = None) -> int:
     """Invalidate agent-related cache entries.
@@ -519,7 +501,6 @@ def invalidate_agent_cache(agent_name: str | None = None) -> int:
         return _cache.invalidate_containing(agent_name)
     else:
         return invalidate_on_event("agent_updated")
-
 
 def invalidate_debate_cache(debate_id: str | None = None) -> int:
     """Invalidate debate-related cache entries.

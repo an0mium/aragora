@@ -18,7 +18,7 @@ import os
 import secrets
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from aragora.server.handlers.social.sharing import ShareSettings
 
 logger = logging.getLogger(__name__)
-
 
 class ShareLinkStore(SQLiteStore):
     """
@@ -87,10 +86,10 @@ class ShareLinkStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Union[str, Path] = "share_links.db",
+        db_path: str | Path = "share_links.db",
         cleanup_interval: int = 300,
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        backend: str | None = None,
+        database_url: str | None = None,
         **kwargs,
     ):
         """
@@ -114,7 +113,7 @@ class ShareLinkStore(SQLiteStore):
             backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
 
         self.backend_type = backend
-        self._backend: Optional[DatabaseBackend] = None
+        self._backend: DatabaseBackend | None = None
 
         if backend == "postgresql":
             if not actual_url:
@@ -565,6 +564,5 @@ class ShareLinkStore(SQLiteStore):
         if self._backend is not None:
             self._backend.close()
             self._backend = None
-
 
 __all__ = ["ShareLinkStore"]

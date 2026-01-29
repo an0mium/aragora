@@ -4,13 +4,13 @@ Selection Plugin Protocols - Interfaces for custom selection algorithms.
 Protocols define the contracts that selection plugins must implement.
 Uses Python's Protocol (structural subtyping) for flexibility.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.routing.selection import AgentProfile, TaskRequirements, TeamComposition
-
 
 @dataclass
 class SelectionContext:
@@ -28,11 +28,11 @@ class SelectionContext:
     bench: list[str] = field(default_factory=list)
 
     # System integrations (optional)
-    elo_system: Optional[Any] = None
-    calibration_tracker: Optional[Any] = None
-    probe_filter: Optional[Any] = None
-    persona_manager: Optional[Any] = None
-    performance_monitor: Optional[Any] = None
+    elo_system: Any | None = None
+    calibration_tracker: Any | None = None
+    probe_filter: Any | None = None
+    persona_manager: Any | None = None
+    performance_monitor: Any | None = None
 
     # Cached insights
     performance_insights: dict = field(default_factory=dict)
@@ -42,7 +42,6 @@ class SelectionContext:
 
     # Plugin-specific config
     config: dict = field(default_factory=dict)
-
 
 @runtime_checkable
 class ScorerProtocol(Protocol):
@@ -85,7 +84,6 @@ class ScorerProtocol(Protocol):
         """Human-readable description of the scoring algorithm."""
         ...
 
-
 @runtime_checkable
 class TeamSelectorProtocol(Protocol):
     """
@@ -127,7 +125,6 @@ class TeamSelectorProtocol(Protocol):
         """Human-readable description of the selection algorithm."""
         ...
 
-
 @runtime_checkable
 class RoleAssignerProtocol(Protocol):
     """
@@ -145,7 +142,7 @@ class RoleAssignerProtocol(Protocol):
         team: list["AgentProfile"],
         requirements: "TaskRequirements",
         context: SelectionContext,
-        phase: Optional[str] = None,
+        phase: str | None = None,
     ) -> dict[str, str]:
         """
         Assign roles to team members.
@@ -171,7 +168,6 @@ class RoleAssignerProtocol(Protocol):
         """Human-readable description of the role assignment algorithm."""
         ...
 
-
 @runtime_checkable
 class SelectionPipelineProtocol(Protocol):
     """
@@ -185,7 +181,7 @@ class SelectionPipelineProtocol(Protocol):
         self,
         requirements: "TaskRequirements",
         context: SelectionContext,
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
     ) -> "TeamComposition":
         """
         Run the complete selection pipeline.

@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 import httpx
 
@@ -33,12 +33,10 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 # Monday.com API constants
 MONDAY_API_URL = "https://api.monday.com/v2"
 MONDAY_AUTH_URL = "https://auth.monday.com/oauth2/authorize"
 MONDAY_TOKEN_URL = "https://auth.monday.com/oauth2/token"
-
 
 class ColumnType(str, Enum):
     """Monday.com column types."""
@@ -61,7 +59,6 @@ class ColumnType(str, Enum):
     COLOR_PICKER = "color-picker"
     TAGS = "tags"
 
-
 class BoardKind(str, Enum):
     """Monday.com board kinds."""
 
@@ -69,16 +66,14 @@ class BoardKind(str, Enum):
     PRIVATE = "private"
     SHARE = "share"
 
-
 @dataclass
 class MondayCredentials:
     """Monday.com API credentials."""
 
     api_token: str
-    refresh_token: Optional[str] = None
+    refresh_token: str | None = None
     token_type: str = "bearer"
-    expires_at: Optional[datetime] = None
-
+    expires_at: datetime | None = None
 
 @dataclass
 class MondayWorkspace:
@@ -90,7 +85,7 @@ class MondayWorkspace:
     description: str = ""
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> MondayWorkspace:
+    def from_api(cls, data: dict[str, Any]) -> MondayWorkspace:
         """Create from API response."""
         return cls(
             id=int(data["id"]),
@@ -99,7 +94,7 @@ class MondayWorkspace:
             description=data.get("description", ""),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -107,27 +102,26 @@ class MondayWorkspace:
             "description": self.description,
         }
 
-
 @dataclass
 class MondayBoard:
     """A Monday.com board."""
 
     id: int
     name: str
-    workspace_id: Optional[int] = None
+    workspace_id: int | None = None
     workspace_name: str = ""
     description: str = ""
     board_kind: str = "public"  # public, private, share
     state: str = "active"  # active, archived, deleted, all
     item_count: int = 0
     permissions: str = "everyone"
-    owner_id: Optional[int] = None
+    owner_id: int | None = None
     url: str = ""
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> MondayBoard:
+    def from_api(cls, data: dict[str, Any]) -> MondayBoard:
         """Create from API response."""
         workspace = data.get("workspace") or {}
         owner = data.get("owner") or {}
@@ -148,7 +142,7 @@ class MondayBoard:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -165,7 +159,6 @@ class MondayBoard:
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
-
 @dataclass
 class MondayColumn:
     """A Monday.com board column."""
@@ -175,10 +168,10 @@ class MondayColumn:
     column_type: str
     settings_str: str = ""
     archived: bool = False
-    width: Optional[int] = None
+    width: int | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> MondayColumn:
+    def from_api(cls, data: dict[str, Any]) -> MondayColumn:
         """Create from API response."""
         return cls(
             id=data["id"],
@@ -189,7 +182,7 @@ class MondayColumn:
             width=data.get("width"),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "title": self.title,
@@ -198,7 +191,6 @@ class MondayColumn:
             "archived": self.archived,
             "width": self.width,
         }
-
 
 @dataclass
 class MondayGroup:
@@ -212,7 +204,7 @@ class MondayGroup:
     position: str = ""
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> MondayGroup:
+    def from_api(cls, data: dict[str, Any]) -> MondayGroup:
         """Create from API response."""
         return cls(
             id=data["id"],
@@ -223,7 +215,7 @@ class MondayGroup:
             position=data.get("position", ""),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "title": self.title,
@@ -233,7 +225,6 @@ class MondayGroup:
             "position": self.position,
         }
 
-
 @dataclass
 class MondayColumnValue:
     """A column value for an item."""
@@ -241,10 +232,10 @@ class MondayColumnValue:
     id: str
     column_type: str
     text: str = ""
-    value: Optional[str] = None  # JSON string
+    value: str | None = None  # JSON string
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> MondayColumnValue:
+    def from_api(cls, data: dict[str, Any]) -> MondayColumnValue:
         """Create from API response."""
         return cls(
             id=data["id"],
@@ -253,14 +244,13 @@ class MondayColumnValue:
             value=data.get("value"),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "column_type": self.column_type,
             "text": self.text,
             "value": self.value,
         }
-
 
 @dataclass
 class MondayItem:
@@ -273,16 +263,16 @@ class MondayItem:
     group_id: str = ""
     group_title: str = ""
     state: str = "active"  # active, archived, deleted
-    creator_id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    creator_id: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     url: str = ""
-    column_values: List[MondayColumnValue] = field(default_factory=list)
-    subitems: List[MondayItem] = field(default_factory=list)
-    parent_item_id: Optional[int] = None
+    column_values: list[MondayColumnValue] = field(default_factory=list)
+    subitems: list[MondayItem] = field(default_factory=list)
+    parent_item_id: int | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any], board_id: int = 0) -> MondayItem:
+    def from_api(cls, data: dict[str, Any], board_id: int = 0) -> MondayItem:
         """Create from API response."""
         board = data.get("board") or {}
         group = data.get("group") or {}
@@ -310,7 +300,7 @@ class MondayItem:
             parent_item_id=int(parent["id"]) if parent.get("id") else None,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -328,13 +318,12 @@ class MondayItem:
             "parent_item_id": self.parent_item_id,
         }
 
-    def get_column_value(self, column_id: str) -> Optional[str]:
+    def get_column_value(self, column_id: str) -> str | None:
         """Get text value for a column."""
         for cv in self.column_values:
             if cv.id == column_id:
                 return cv.text
         return None
-
 
 @dataclass
 class MondayUpdate:
@@ -344,13 +333,13 @@ class MondayUpdate:
     item_id: int
     body: str
     text_body: str = ""
-    creator_id: Optional[int] = None
+    creator_id: int | None = None
     creator_name: str = ""
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> MondayUpdate:
+    def from_api(cls, data: dict[str, Any]) -> MondayUpdate:
         """Create from API response."""
         creator = data.get("creator") or {}
         return cls(
@@ -364,7 +353,7 @@ class MondayUpdate:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "item_id": self.item_id,
@@ -376,8 +365,7 @@ class MondayUpdate:
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
-
-def _parse_datetime(dt_str: Optional[str]) -> Optional[datetime]:
+def _parse_datetime(dt_str: str | None) -> datetime | None:
     """Parse Monday.com datetime string."""
     if not dt_str:
         return None
@@ -388,7 +376,6 @@ def _parse_datetime(dt_str: Optional[str]) -> Optional[datetime]:
         return datetime.fromisoformat(dt_str)
     except (ValueError, TypeError):
         return None
-
 
 class MondayConnector(EnterpriseConnector):
     """
@@ -429,8 +416,8 @@ class MondayConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        workspace_ids: Optional[List[int]] = None,
-        board_ids: Optional[List[int]] = None,
+        workspace_ids: Optional[list[int]] = None,
+        board_ids: Optional[list[int]] = None,
         max_results: int = 100,
         **kwargs,
     ):
@@ -449,11 +436,11 @@ class MondayConnector(EnterpriseConnector):
         self.max_results = max_results
 
         # Credentials
-        self._api_token: Optional[str] = None
-        self._credentials: Optional[MondayCredentials] = None
+        self._api_token: str | None = None
+        self._credentials: MondayCredentials | None = None
 
         # HTTP client
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -496,8 +483,8 @@ class MondayConnector(EnterpriseConnector):
 
     async def authenticate(
         self,
-        api_token: Optional[str] = None,
-        oauth_token: Optional[str] = None,
+        api_token: str | None = None,
+        oauth_token: str | None = None,
     ) -> bool:
         """
         Authenticate with Monday.com.
@@ -537,8 +524,8 @@ class MondayConnector(EnterpriseConnector):
     async def _graphql_request(
         self,
         query: str,
-        variables: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        variables: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Execute a GraphQL request."""
         token = await self._get_token()
         client = await self._get_client()
@@ -549,7 +536,7 @@ class MondayConnector(EnterpriseConnector):
             "API-Version": "2024-01",
         }
 
-        payload: Dict[str, Any] = {"query": query}
+        payload: dict[str, Any] = {"query": query}
         if variables:
             payload["variables"] = variables
 
@@ -573,7 +560,7 @@ class MondayConnector(EnterpriseConnector):
     # Workspace Operations
     # =========================================================================
 
-    async def list_workspaces(self) -> List[MondayWorkspace]:
+    async def list_workspaces(self) -> list[MondayWorkspace]:
         """List all accessible workspaces."""
         query = """
         query {
@@ -597,10 +584,10 @@ class MondayConnector(EnterpriseConnector):
 
     async def list_boards(
         self,
-        workspace_id: Optional[int] = None,
-        limit: Optional[int] = None,
+        workspace_id: int | None = None,
+        limit: int | None = None,
         state: str = "active",
-    ) -> List[MondayBoard]:
+    ) -> list[MondayBoard]:
         """
         List boards.
 
@@ -648,7 +635,7 @@ class MondayConnector(EnterpriseConnector):
 
         return boards
 
-    async def get_board(self, board_id: int) -> Optional[MondayBoard]:
+    async def get_board(self, board_id: int) -> MondayBoard | None:
         """Get a single board by ID."""
         query = f"""
         query {{
@@ -681,7 +668,7 @@ class MondayConnector(EnterpriseConnector):
             return MondayBoard.from_api(boards[0])
         return None
 
-    async def get_board_columns(self, board_id: int) -> List[MondayColumn]:
+    async def get_board_columns(self, board_id: int) -> list[MondayColumn]:
         """Get columns for a board."""
         query = f"""
         query {{
@@ -708,7 +695,7 @@ class MondayConnector(EnterpriseConnector):
 
         return columns
 
-    async def get_board_groups(self, board_id: int) -> List[MondayGroup]:
+    async def get_board_groups(self, board_id: int) -> list[MondayGroup]:
         """Get groups (sections) for a board."""
         query = f"""
         query {{
@@ -742,10 +729,10 @@ class MondayConnector(EnterpriseConnector):
     async def list_items(
         self,
         board_id: int,
-        group_id: Optional[str] = None,
-        limit: Optional[int] = None,
-        cursor: Optional[str] = None,
-    ) -> tuple[List[MondayItem], Optional[str]]:
+        group_id: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> tuple[list[MondayItem], str | None]:
         """
         List items from a board.
 
@@ -821,7 +808,7 @@ class MondayConnector(EnterpriseConnector):
 
         return items, next_cursor
 
-    async def get_item(self, item_id: int) -> Optional[MondayItem]:
+    async def get_item(self, item_id: int) -> MondayItem | None:
         """Get a single item by ID."""
         query = f"""
         query {{
@@ -880,8 +867,8 @@ class MondayConnector(EnterpriseConnector):
         self,
         board_id: int,
         item_name: str,
-        group_id: Optional[str] = None,
-        column_values: Optional[Dict[str, Any]] = None,
+        group_id: str | None = None,
+        column_values: Optional[dict[str, Any]] = None,
     ) -> MondayItem:
         """
         Create a new item.
@@ -938,8 +925,8 @@ class MondayConnector(EnterpriseConnector):
     async def update_item(
         self,
         item_id: int,
-        column_values: Dict[str, Any],
-        board_id: Optional[int] = None,
+        column_values: dict[str, Any],
+        board_id: int | None = None,
     ) -> MondayItem:
         """
         Update an item's column values.
@@ -1057,7 +1044,7 @@ class MondayConnector(EnterpriseConnector):
         self,
         parent_item_id: int,
         subitem_name: str,
-        column_values: Optional[Dict[str, Any]] = None,
+        column_values: Optional[dict[str, Any]] = None,
     ) -> MondayItem:
         """Create a subitem under a parent item."""
         import json
@@ -1107,7 +1094,7 @@ class MondayConnector(EnterpriseConnector):
         self,
         item_id: int,
         limit: int = 25,
-    ) -> List[MondayUpdate]:
+    ) -> list[MondayUpdate]:
         """Get updates (comments) for an item."""
         query = f"""
         query {{
@@ -1181,9 +1168,9 @@ class MondayConnector(EnterpriseConnector):
     async def search_items(
         self,
         query_text: str,
-        board_ids: Optional[List[int]] = None,
+        board_ids: Optional[list[int]] = None,
         limit: int = 25,
-    ) -> List[MondayItem]:
+    ) -> list[MondayItem]:
         """
         Search for items across boards.
 
@@ -1253,7 +1240,7 @@ class MondayConnector(EnterpriseConnector):
             board_ids = [b.id for b in boards]
 
         for board_id in board_ids:
-            cursor: Optional[str] = None
+            cursor: str | None = None
 
             while True:
                 items, cursor = await self.list_items(
@@ -1310,7 +1297,6 @@ class MondayConnector(EnterpriseConnector):
         if self._client and not self._client.is_closed:
             await self._client.aclose()
             self._client = None
-
 
 __all__ = [
     "MondayConnector",

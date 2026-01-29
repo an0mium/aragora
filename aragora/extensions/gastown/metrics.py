@@ -8,7 +8,6 @@ aragora.nomic.metrics directly.
 
 from __future__ import annotations
 
-from typing import Any, Dict
 
 # These metrics functions are placeholders - the actual implementations
 # may be added to aragora.nomic.metrics later

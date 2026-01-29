@@ -21,7 +21,7 @@ Configuration:
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -30,7 +30,6 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
-
 
 class HiveMindPattern(WorkflowPattern):
     """
@@ -54,7 +53,7 @@ class HiveMindPattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         task: str = "",
         consensus_mode: str = "synthesis",  # weighted, majority, synthesis
         consensus_threshold: float = 0.7,

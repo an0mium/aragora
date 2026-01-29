@@ -15,13 +15,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 from uuid import uuid4
 
 from .models import Organization
 
 logger = logging.getLogger(__name__)
-
 
 class MembershipRole(str, Enum):
     """Roles within an organization."""
@@ -32,7 +31,6 @@ class MembershipRole(str, Enum):
     VIEWER = "viewer"  # Read-only access
     BILLING = "billing"  # Can manage billing only
 
-
 class MembershipStatus(str, Enum):
     """Status of an organization membership."""
 
@@ -41,9 +39,8 @@ class MembershipStatus(str, Enum):
     SUSPENDED = "suspended"
     EXPIRED = "expired"
 
-
 # Role permissions mapping
-ROLE_PERMISSIONS: Dict[MembershipRole, Set[str]] = {
+ROLE_PERMISSIONS: dict[MembershipRole, set[str]] = {
     MembershipRole.OWNER: {
         "org.delete",
         "org.update",
@@ -84,7 +81,6 @@ ROLE_PERMISSIONS: Dict[MembershipRole, Set[str]] = {
     },
 }
 
-
 @dataclass
 class OrganizationMembership:
     """
@@ -101,19 +97,19 @@ class OrganizationMembership:
     is_primary: bool = False  # User's primary organization
     joined_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    invited_by: Optional[str] = None
-    invitation_token: Optional[str] = None  # For pending invitations
+    invited_by: str | None = None
+    invitation_token: str | None = None  # For pending invitations
 
     # Custom permissions (additions to role)
-    custom_permissions: List[str] = field(default_factory=list)
+    custom_permissions: list[str] = field(default_factory=list)
 
     # Metadata
-    display_name: Optional[str] = None  # Name to display in this org
-    department: Optional[str] = None
-    title: Optional[str] = None
+    display_name: str | None = None  # Name to display in this org
+    department: str | None = None
+    title: str | None = None
 
     @property
-    def permissions(self) -> Set[str]:
+    def permissions(self) -> set[str]:
         """Get all permissions for this membership."""
         base_permissions = ROLE_PERMISSIONS.get(self.role, set())
         return base_permissions | set(self.custom_permissions)
@@ -136,7 +132,7 @@ class OrganizationMembership:
         """Check if membership has admin or owner role."""
         return self.role in (MembershipRole.OWNER, MembershipRole.ADMIN)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -155,7 +151,7 @@ class OrganizationMembership:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OrganizationMembership":
+    def from_dict(cls, data: dict[str, Any]) -> "OrganizationMembership":
         """Create from dictionary."""
         membership = cls(
             id=data.get("id", str(uuid4())),
@@ -181,7 +177,6 @@ class OrganizationMembership:
 
         return membership
 
-
 @dataclass
 class OrgContext:
     """Current organization context for a user session."""
@@ -191,7 +186,6 @@ class OrgContext:
     membership: OrganizationMembership
     organization: Organization
     switch_count: int = 0  # Number of org switches in session
-
 
 class MultiOrgManager:
     """
@@ -230,7 +224,7 @@ class MultiOrgManager:
 
     def __init__(
         self,
-        db_path: Optional[str] = None,
+        db_path: str | None = None,
         max_orgs_per_user: int = 10,
     ):
         """
@@ -243,9 +237,9 @@ class MultiOrgManager:
         self.db_path = db_path or ":memory:"
         self.max_orgs_per_user = max_orgs_per_user
         self._lock = threading.Lock()
-        self._contexts: Dict[str, OrgContext] = {}  # user_id -> current context
+        self._contexts: dict[str, OrgContext] = {}  # user_id -> current context
         # For in-memory databases, we need to keep a persistent connection
-        self._persistent_conn: Optional[sqlite3.Connection] = None
+        self._persistent_conn: sqlite3.Connection | None = None
         if self.db_path == ":memory:":
             self._persistent_conn = sqlite3.connect(":memory:", check_same_thread=False)
         self._init_db()
@@ -309,13 +303,13 @@ class MultiOrgManager:
         user_id: str,
         org_id: str,
         role: MembershipRole = MembershipRole.MEMBER,
-        invited_by: Optional[str] = None,
+        invited_by: str | None = None,
         is_primary: bool = False,
         status: MembershipStatus = MembershipStatus.ACTIVE,
-        invitation_token: Optional[str] = None,
-        display_name: Optional[str] = None,
-        department: Optional[str] = None,
-        title: Optional[str] = None,
+        invitation_token: str | None = None,
+        display_name: str | None = None,
+        department: str | None = None,
+        title: str | None = None,
     ) -> OrganizationMembership:
         """
         Add a user to an organization.
@@ -380,7 +374,7 @@ class MultiOrgManager:
         self,
         user_id: str,
         org_id: str,
-        removed_by: Optional[str] = None,
+        removed_by: str | None = None,
     ) -> bool:
         """
         Remove a user from an organization.
@@ -423,7 +417,7 @@ class MultiOrgManager:
         user_id: str,
         org_id: str,
         new_role: MembershipRole,
-        updated_by: Optional[str] = None,
+        updated_by: str | None = None,
     ) -> OrganizationMembership:
         """
         Update a member's role.
@@ -458,7 +452,7 @@ class MultiOrgManager:
         self,
         user_id: str,
         org_id: str,
-    ) -> Optional[OrganizationMembership]:
+    ) -> OrganizationMembership | None:
         """Get membership for user in organization."""
         with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
@@ -478,7 +472,7 @@ class MultiOrgManager:
         self,
         user_id: str,
         include_pending: bool = False,
-    ) -> List[OrganizationMembership]:
+    ) -> list[OrganizationMembership]:
         """Get all organization memberships for a user."""
         with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
@@ -507,8 +501,8 @@ class MultiOrgManager:
     async def get_org_members(
         self,
         org_id: str,
-        role_filter: Optional[MembershipRole] = None,
-    ) -> List[OrganizationMembership]:
+        role_filter: MembershipRole | None = None,
+    ) -> list[OrganizationMembership]:
         """Get all members of an organization."""
         with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
@@ -561,7 +555,7 @@ class MultiOrgManager:
     async def get_primary_org(
         self,
         user_id: str,
-    ) -> Optional[OrganizationMembership]:
+    ) -> OrganizationMembership | None:
         """Get user's primary organization membership."""
         with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
@@ -581,7 +575,7 @@ class MultiOrgManager:
         self,
         user_id: str,
         org_id: str,
-        organization: Optional[Organization] = None,
+        organization: Organization | None = None,
     ) -> OrgContext:
         """
         Switch user's current organization context.
@@ -626,7 +620,7 @@ class MultiOrgManager:
     async def get_current_context(
         self,
         user_id: str,
-    ) -> Optional[OrgContext]:
+    ) -> OrgContext | None:
         """Get user's current organization context."""
         return self._contexts.get(user_id)
 
@@ -656,7 +650,7 @@ class MultiOrgManager:
         self,
         user_id: str,
         org_id: str,
-    ) -> Set[str]:
+    ) -> set[str]:
         """Get all permissions for user in organization."""
         membership = await self.get_membership(user_id, org_id)
         if not membership:
@@ -704,7 +698,7 @@ class MultiOrgManager:
         logger.info(f"User {user_id} accepted invitation to org {membership.org_id}")
         return membership
 
-    async def get_member_count(self, org_id: str) -> Dict[str, int]:
+    async def get_member_count(self, org_id: str) -> dict[str, int]:
         """Get member counts by role for organization."""
         with self._get_conn() as conn:
             cursor = conn.execute(
@@ -722,7 +716,7 @@ class MultiOrgManager:
                 counts["total"] += row[1]
             return counts
 
-    async def get_cross_org_stats(self, user_id: str) -> Dict[str, Any]:
+    async def get_cross_org_stats(self, user_id: str) -> dict[str, Any]:
         """Get statistics about user's cross-organization activity."""
         memberships = await self.get_user_memberships(user_id)
 
@@ -733,7 +727,7 @@ class MultiOrgManager:
                 "primary_org_id": None,
             }
 
-        roles: Dict[str, int] = {}
+        roles: dict[str, int] = {}
         primary_org_id = None
 
         for m in memberships:
@@ -835,18 +829,15 @@ class MultiOrgManager:
             title=row["title"],
         )
 
-
 # Global manager instance
-_manager: Optional[MultiOrgManager] = None
+_manager: MultiOrgManager | None = None
 
-
-def get_multi_org_manager(db_path: Optional[str] = None) -> MultiOrgManager:
+def get_multi_org_manager(db_path: str | None = None) -> MultiOrgManager:
     """Get or create global multi-org manager."""
     global _manager
     if _manager is None:
         _manager = MultiOrgManager(db_path=db_path)
     return _manager
-
 
 __all__ = [
     "MembershipRole",

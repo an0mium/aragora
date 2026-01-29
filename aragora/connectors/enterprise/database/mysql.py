@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -47,7 +47,6 @@ import re
 
 _SAFE_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
 
-
 def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> str:
     """
     Validate a SQL identifier to prevent SQL injection.
@@ -73,7 +72,6 @@ def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> 
         )
     return name
 
-
 class MySQLConnector(EnterpriseConnector):
     """
     MySQL connector for enterprise data sync.
@@ -90,10 +88,10 @@ class MySQLConnector(EnterpriseConnector):
         host: str = "localhost",
         port: int = 3306,
         database: str = "mysql",
-        tables: Optional[List[str]] = None,
-        timestamp_column: Optional[str] = None,
+        tables: Optional[list[str]] = None,
+        timestamp_column: str | None = None,
         primary_key_column: str = "id",
-        content_columns: Optional[List[str]] = None,
+        content_columns: Optional[list[str]] = None,
         enable_binlog_cdc: bool = False,
         server_id: int = 100,  # For binlog replication
         pool_size: int = 5,
@@ -118,8 +116,8 @@ class MySQLConnector(EnterpriseConnector):
         self._cdc_task: Optional[asyncio.Task[None]] = None
 
         # CDC support
-        self._cdc_manager: Optional[CDCStreamManager] = None
-        self._change_handlers: List[ChangeEventHandler] = []
+        self._cdc_manager: CDCStreamManager | None = None
+        self._change_handlers: list[ChangeEventHandler] = []
 
     @property
     def cdc_manager(self) -> CDCStreamManager:
@@ -177,7 +175,7 @@ class MySQLConnector(EnterpriseConnector):
             logger.error("aiomysql not installed. Run: pip install aiomysql")
             raise
 
-    async def _discover_tables(self) -> List[str]:
+    async def _discover_tables(self) -> list[str]:
         """Discover tables in the database."""
         pool = await self._get_pool()
 
@@ -196,7 +194,7 @@ class MySQLConnector(EnterpriseConnector):
                 rows = await cursor.fetchall()
                 return [row[0] for row in rows]
 
-    async def _get_table_columns(self, table: str) -> List[Dict[str, Any]]:
+    async def _get_table_columns(self, table: str) -> list[dict[str, Any]]:
         """Get column information for a table."""
         pool = await self._get_pool()
 
@@ -221,7 +219,7 @@ class MySQLConnector(EnterpriseConnector):
                     for row in rows
                 ]
 
-    def _find_timestamp_column(self, columns: List[Dict[str, Any]]) -> Optional[str]:
+    def _find_timestamp_column(self, columns: list[dict[str, Any]]) -> str | None:
         """Find a suitable timestamp column for incremental sync."""
         if self.timestamp_column:
             return self.timestamp_column
@@ -232,7 +230,7 @@ class MySQLConnector(EnterpriseConnector):
                 return candidate
         return None
 
-    def _row_to_content(self, row: Dict[str, Any], columns: Optional[List[str]] = None) -> str:
+    def _row_to_content(self, row: dict[str, Any], columns: Optional[list[str]] = None) -> str:
         """Convert a row to text content for indexing."""
         if columns:
             filtered = {k: v for k, v in row.items() if k in columns}
@@ -250,7 +248,7 @@ class MySQLConnector(EnterpriseConnector):
 
         return "\n".join(parts)
 
-    async def sync_items(self, state: Optional[SyncState] = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
+    async def sync_items(self, state: SyncState | None = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync items from MySQL tables.
 
@@ -320,7 +318,7 @@ class MySQLConnector(EnterpriseConnector):
         import aiomysql
 
         pool = await self._get_pool()
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         tables = self.tables or await self._discover_tables()
 
@@ -507,7 +505,7 @@ class MySQLConnector(EnterpriseConnector):
             await self._pool.wait_closed()
             self._pool = None
 
-    async def health_check(self) -> Dict[str, Any]:  # type: ignore[override]
+    async def health_check(self) -> dict[str, Any]:  # type: ignore[override]
         """Check MySQL connection health."""
         try:
             pool = await self._get_pool()

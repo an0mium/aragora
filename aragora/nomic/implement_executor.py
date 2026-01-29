@@ -40,7 +40,6 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ImplementationBead:
     """An atomic implementation task derived from a design spec."""
@@ -51,22 +50,20 @@ class ImplementationBead:
     file_path: str
     change_type: str  # "create", "modify", "delete"
     dependencies: list[str] = field(default_factory=list)
-    assigned_agent: Optional[str] = None
-    reviewer_agent: Optional[str] = None
+    assigned_agent: str | None = None
+    reviewer_agent: str | None = None
     status: str = "pending"
-    result: Optional[str] = None
-    review_result: Optional[str] = None
-
+    result: str | None = None
+    review_result: str | None = None
 
 @dataclass
 class BeadTaskResult:
     """Result compatible with ImplementPhase's execute_plan() interface."""
 
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     task_id: str = ""
     files_modified: list[str] = field(default_factory=list)
-
 
 @dataclass
 class ConvoyResult:
@@ -81,12 +78,10 @@ class ConvoyResult:
     duration_seconds: float = 0.0
     errors: list[str] = field(default_factory=list)
 
-
 def _generate_bead_id(title: str) -> str:
     """Generate a short bead ID from title."""
     h = hashlib.sha256(f"{time.time()}-{title}".encode()).hexdigest()[:6]
     return f"impl-{h}"
-
 
 class ConvoyImplementExecutor:
     """
@@ -116,7 +111,7 @@ class ConvoyImplementExecutor:
         self,
         design: str,
         improvement: str,
-        protected_files: Optional[list[str]] = None,
+        protected_files: list[str] | None = None,
     ) -> ConvoyResult:
         """
         Execute an implementation using convoy-based multi-agent coding.
@@ -390,7 +385,7 @@ class ConvoyImplementExecutor:
         self,
         design: str,
         improvement: str,
-        protected_files: Optional[list[str]] = None,
+        protected_files: list[str] | None = None,
     ) -> ConvoyResult:
         """
         Execute using the full Gastown convoy infrastructure (if available).
@@ -419,7 +414,7 @@ class ConvoyImplementExecutor:
         self,
         tasks: list,
         completed: set[str],
-        on_task_complete: Optional[Callable] = None,
+        on_task_complete: Callable | None = None,
         stop_on_failure: bool = False,
     ) -> list[BeadTaskResult]:
         """

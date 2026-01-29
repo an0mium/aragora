@@ -12,9 +12,9 @@ These workflows provide comprehensive PR reviews using multiple
 specialized agents with consensus-based recommendations.
 """
 
-from typing import Dict, Any
+from typing import Any
 
-PR_REVIEW_TEMPLATE: Dict[str, Any] = {
+PR_REVIEW_TEMPLATE: dict[str, Any] = {
     "name": "Pull Request Review",
     "description": "Comprehensive multi-agent PR review workflow",
     "category": "development",
@@ -330,8 +330,7 @@ PR_REVIEW_TEMPLATE: Dict[str, Any] = {
     },
 }
 
-
-QUICK_PR_REVIEW_TEMPLATE: Dict[str, Any] = {
+QUICK_PR_REVIEW_TEMPLATE: dict[str, Any] = {
     "name": "Quick PR Review",
     "description": "Fast PR review for small changes",
     "category": "development",
@@ -377,8 +376,7 @@ QUICK_PR_REVIEW_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-
-PR_SECURITY_REVIEW_TEMPLATE: Dict[str, Any] = {
+PR_SECURITY_REVIEW_TEMPLATE: dict[str, Any] = {
     "name": "PR Security Review",
     "description": "Security-focused PR review",
     "category": "security",

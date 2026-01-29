@@ -22,7 +22,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 
 from .emitter import AudienceInbox, SyncEventEmitter, TokenBucket
 from .state_manager import LoopInstance
@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 # Token revalidation interval for long-lived WebSocket connections (5 minutes)
 WS_TOKEN_REVALIDATION_INTERVAL = 300.0
-
 
 @dataclass
 class ServerConfig:
@@ -55,7 +54,6 @@ class ServerConfig:
     # Client tracking
     max_client_ids: int = 10000  # Max tracked clients
 
-
 class ServerBase:
     """
     Base class providing common server functionality.
@@ -74,8 +72,8 @@ class ServerBase:
 
     def __init__(
         self,
-        emitter: Optional[SyncEventEmitter] = None,
-        config: Optional[ServerConfig] = None,
+        emitter: SyncEventEmitter | None = None,
+        config: ServerConfig | None = None,
     ):
         """
         Initialize the server base.
@@ -87,32 +85,32 @@ class ServerBase:
         self._config = config or ServerConfig()
 
         # WebSocket clients and event emitter
-        self.clients: Set[Any] = set()
+        self.clients: set[Any] = set()
         self._emitter = emitter or SyncEventEmitter()
         self._running = False
 
         # Audience participation - Lock hierarchy level 1 (acquire first)
         self.audience_inbox = AudienceInbox()
-        self._rate_limiters: Dict[str, TokenBucket] = {}
-        self._rate_limiter_last_access: Dict[str, float] = {}
+        self._rate_limiters: dict[str, TokenBucket] = {}
+        self._rate_limiter_last_access: dict[str, float] = {}
         self._rate_limiters_lock = threading.Lock()  # Lock #1 in hierarchy
         self._rate_limiter_cleanup_counter = 0
 
         # Debate state caching - Lock hierarchy level 2
-        self.debate_states: Dict[str, dict] = {}
+        self.debate_states: dict[str, dict] = {}
         self._debate_states_lock = threading.Lock()  # Lock #2 in hierarchy
-        self._debate_states_last_access: Dict[str, float] = {}
+        self._debate_states_last_access: dict[str, float] = {}
 
         # Multi-loop tracking - Lock hierarchy level 3
-        self.active_loops: Dict[str, LoopInstance] = {}
+        self.active_loops: dict[str, LoopInstance] = {}
         self._active_loops_lock = threading.Lock()  # Lock #3 in hierarchy
-        self._active_loops_last_access: Dict[str, float] = {}
+        self._active_loops_last_access: dict[str, float] = {}
 
         # Secure client ID mapping with LRU eviction
         self._client_ids: OrderedDict[int, str] = OrderedDict()
 
         # WebSocket authentication tracking - Lock hierarchy level 4 (acquire last)
-        self._ws_auth_states: Dict[int, Dict[str, Any]] = {}  # ws_id -> auth state
+        self._ws_auth_states: dict[int, dict[str, Any]] = {}  # ws_id -> auth state
         self._ws_auth_lock = threading.Lock()  # Lock #4 in hierarchy
 
         # Subscribe to emitter to maintain debate states
@@ -187,7 +185,7 @@ class ServerBase:
     # Debate State Caching
     # =========================================================================
 
-    def get_debate_state(self, loop_id: str) -> Optional[dict]:
+    def get_debate_state(self, loop_id: str) -> dict | None:
         """Get cached debate state for a loop."""
         with self._debate_states_lock:
             self._debate_states_last_access[loop_id] = time.time()
@@ -205,7 +203,7 @@ class ServerBase:
             self.debate_states[loop_id] = state
             self._debate_states_last_access[loop_id] = now
 
-    def _evict_oldest_debate_state_unsafe(self) -> Optional[str]:
+    def _evict_oldest_debate_state_unsafe(self) -> str | None:
         """
         Evict the oldest debate state. Must be called with _debate_states_lock held.
 
@@ -324,7 +322,7 @@ class ServerBase:
     # Active Loops Tracking
     # =========================================================================
 
-    def get_active_loop(self, loop_id: str) -> Optional[LoopInstance]:
+    def get_active_loop(self, loop_id: str) -> LoopInstance | None:
         """Get an active loop instance."""
         with self._active_loops_lock:
             self._active_loops_last_access[loop_id] = time.time()
@@ -342,13 +340,13 @@ class ServerBase:
             self.active_loops[loop_id] = instance
             self._active_loops_last_access[loop_id] = now
 
-    def remove_active_loop(self, loop_id: str) -> Optional[LoopInstance]:
+    def remove_active_loop(self, loop_id: str) -> LoopInstance | None:
         """Remove an active loop instance."""
         with self._active_loops_lock:
             self._active_loops_last_access.pop(loop_id, None)
             return self.active_loops.pop(loop_id, None)
 
-    def _evict_oldest_loop_unsafe(self) -> Optional[str]:
+    def _evict_oldest_loop_unsafe(self) -> str | None:
         """
         Evict the oldest active loop. Must be called with _active_loops_lock held.
 
@@ -385,7 +383,7 @@ class ServerBase:
     # Client ID Management
     # =========================================================================
 
-    def get_client_id(self, ws_id: int) -> Optional[str]:
+    def get_client_id(self, ws_id: int) -> str | None:
         """Get the secure client ID for a WebSocket connection."""
         return self._client_ids.get(ws_id)
 
@@ -399,7 +397,7 @@ class ServerBase:
         # Move to end (most recently used)
         self._client_ids.move_to_end(ws_id)
 
-    def remove_client_id(self, ws_id: int) -> Optional[str]:
+    def remove_client_id(self, ws_id: int) -> str | None:
         """Remove and return the client ID for a WebSocket connection."""
         return self._client_ids.pop(ws_id, None)
 
@@ -411,7 +409,7 @@ class ServerBase:
         self,
         ws_id: int,
         authenticated: bool,
-        token: Optional[str] = None,
+        token: str | None = None,
         ip_address: str = "",
     ) -> None:
         """Set authentication state for a WebSocket connection.
@@ -431,7 +429,7 @@ class ServerBase:
                 "created_at": time.time(),
             }
 
-    def get_ws_auth_state(self, ws_id: int) -> Optional[Dict[str, Any]]:
+    def get_ws_auth_state(self, ws_id: int) -> Optional[dict[str, Any]]:
         """Get authentication state for a WebSocket connection."""
         with self._ws_auth_lock:
             return self._ws_auth_states.get(ws_id)
@@ -484,12 +482,12 @@ class ServerBase:
                 return True
         return False
 
-    def remove_ws_auth_state(self, ws_id: int) -> Optional[Dict[str, Any]]:
+    def remove_ws_auth_state(self, ws_id: int) -> Optional[dict[str, Any]]:
         """Remove authentication state for a WebSocket connection."""
         with self._ws_auth_lock:
             return self._ws_auth_states.pop(ws_id, None)
 
-    def get_ws_token(self, ws_id: int) -> Optional[str]:
+    def get_ws_token(self, ws_id: int) -> str | None:
         """Get the stored token for a WebSocket connection."""
         with self._ws_auth_lock:
             state = self._ws_auth_states.get(ws_id)
@@ -515,7 +513,7 @@ class ServerBase:
 
             return len(stale_keys)
 
-    def cleanup_all(self) -> Dict[str, int]:
+    def cleanup_all(self) -> dict[str, int]:
         """
         Run all cleanup operations. Thread-safe.
 
@@ -528,7 +526,7 @@ class ServerBase:
             "auth_states": self.cleanup_ws_auth_states(),
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get server statistics."""
         with self._rate_limiters_lock:
             rate_limiter_count = len(self._rate_limiters)

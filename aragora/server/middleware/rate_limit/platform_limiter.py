@@ -11,7 +11,6 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Optional
 
 from .bucket import TokenBucket
 
@@ -46,7 +45,6 @@ PLATFORM_RATE_LIMITS: dict[str, dict[str, int]] = {
     "google_chat": {"rpm": 15, "burst": 5, "daily": 0},
 }
 
-
 @dataclass
 class PlatformRateLimitResult:
     """Extended rate limit result with platform-specific info."""
@@ -55,10 +53,10 @@ class PlatformRateLimitResult:
     remaining: int
     limit: int
     reset_at: float
-    retry_after: Optional[float] = None
+    retry_after: float | None = None
     platform: str = ""
-    daily_remaining: Optional[int] = None
-    daily_reset_at: Optional[float] = None
+    daily_remaining: int | None = None
+    daily_reset_at: float | None = None
 
     def to_headers(self) -> dict[str, str]:
         """Convert to HTTP headers."""
@@ -73,7 +71,6 @@ class PlatformRateLimitResult:
             headers["X-RateLimit-Daily-Remaining"] = str(self.daily_remaining)
         return headers
 
-
 @dataclass
 class PlatformRateLimiter:
     """Rate limiter configured for a specific chat platform.
@@ -87,8 +84,8 @@ class PlatformRateLimiter:
     daily_limit: int = 0
 
     # Internal state
-    _buckets: Dict[str, TokenBucket] = field(default_factory=dict, repr=False)
-    _daily_counts: Dict[str, tuple[int, float]] = field(
+    _buckets: dict[str, TokenBucket] = field(default_factory=dict, repr=False)
+    _daily_counts: dict[str, tuple[int, float]] = field(
         default_factory=dict, repr=False
     )  # key -> (count, reset_at)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
@@ -205,17 +202,15 @@ class PlatformRateLimiter:
                 return count
             return 0
 
-
 # Global platform limiter registry
 _platform_limiters: dict[str, PlatformRateLimiter] = {}
 _platform_limiters_lock = threading.Lock()
 
-
 def get_platform_rate_limiter(
     platform: str,
-    requests_per_minute: Optional[int] = None,
-    burst_size: Optional[int] = None,
-    daily_limit: Optional[int] = None,
+    requests_per_minute: int | None = None,
+    burst_size: int | None = None,
+    daily_limit: int | None = None,
 ) -> PlatformRateLimiter:
     """Get or create a platform-specific rate limiter.
 
@@ -256,7 +251,6 @@ def get_platform_rate_limiter(
             )
         return _platform_limiters[platform]
 
-
 def check_platform_rate_limit(platform: str, key: str) -> PlatformRateLimitResult:
     """Check rate limit for a platform+key combination.
 
@@ -272,7 +266,6 @@ def check_platform_rate_limit(platform: str, key: str) -> PlatformRateLimitResul
     limiter = get_platform_rate_limiter(platform)
     return limiter.check(key)
 
-
 def reset_platform_rate_limiters() -> int:
     """Reset all platform rate limiters (for testing).
 
@@ -283,7 +276,6 @@ def reset_platform_rate_limiters() -> int:
         count = len(_platform_limiters)
         _platform_limiters.clear()
         return count
-
 
 __all__ = [
     "PLATFORM_RATE_LIMITS",

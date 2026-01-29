@@ -35,10 +35,9 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class ValidationVoteType(Enum):
     """Types of validation votes."""
@@ -58,7 +57,6 @@ class ValidationVoteType(Enum):
     REQUEST_INFO = "request_info"
     """Request more information before voting."""
 
-
 class ValidationConsensusStrategy(Enum):
     """Strategies for determining validation consensus."""
 
@@ -76,7 +74,6 @@ class ValidationConsensusStrategy(Enum):
 
     QUORUM = "quorum"
     """Minimum number of accept votes required."""
-
 
 class ValidationState(Enum):
     """States of a validation request."""
@@ -102,7 +99,6 @@ class ValidationState(Enum):
     CANCELLED = "cancelled"
     """Validation was cancelled."""
 
-
 @dataclass
 class ValidationVote:
     """A vote from a validator."""
@@ -119,7 +115,7 @@ class ValidationVote:
     reasoning: str = ""
     """Explanation for the vote."""
 
-    alternative: Optional[str] = None
+    alternative: str | None = None
     """Alternative proposal if vote_type is PROPOSE_ALTERNATIVE."""
 
     weight: float = 1.0
@@ -128,10 +124,10 @@ class ValidationVote:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When the vote was cast."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional vote metadata."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "validator_id": self.validator_id,
@@ -144,7 +140,6 @@ class ValidationVote:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ValidationRequest:
     """A request for multi-party validation."""
@@ -155,13 +150,13 @@ class ValidationRequest:
     item_id: str
     """ID of the knowledge item being validated."""
 
-    contradiction_id: Optional[str] = None
+    contradiction_id: str | None = None
     """ID of the contradiction being resolved (if applicable)."""
 
     proposer_id: str = ""
     """ID of the user/agent who initiated the request."""
 
-    validators: List[str] = field(default_factory=list)
+    validators: list[str] = field(default_factory=list)
     """List of validator IDs assigned to this request."""
 
     required_votes: int = 2
@@ -170,16 +165,16 @@ class ValidationRequest:
     strategy: ValidationConsensusStrategy = ValidationConsensusStrategy.MAJORITY
     """Strategy for determining consensus."""
 
-    deadline: Optional[datetime] = None
+    deadline: datetime | None = None
     """Deadline for voting (None = no deadline)."""
 
-    votes: List[ValidationVote] = field(default_factory=list)
+    votes: list[ValidationVote] = field(default_factory=list)
     """Votes received so far."""
 
     state: ValidationState = ValidationState.PENDING
     """Current state of the request."""
 
-    context: Dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
     """Additional context for validators."""
 
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -188,10 +183,10 @@ class ValidationRequest:
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When the request was last updated."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional request metadata."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "request_id": self.request_id,
@@ -238,7 +233,6 @@ class ValidationRequest:
             return False
         return datetime.now(timezone.utc) > self.deadline
 
-
 @dataclass
 class ValidationResult:
     """Result of a completed validation."""
@@ -270,19 +264,19 @@ class ValidationResult:
     weighted_score: float = 0.0
     """Weighted voting score."""
 
-    alternatives_proposed: List[str] = field(default_factory=list)
+    alternatives_proposed: list[str] = field(default_factory=list)
     """Alternative resolutions proposed."""
 
-    votes: List[ValidationVote] = field(default_factory=list)
+    votes: list[ValidationVote] = field(default_factory=list)
     """All votes cast."""
 
     resolved_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When the validation was resolved."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional result metadata."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "request_id": self.request_id,
@@ -300,7 +294,6 @@ class ValidationResult:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class EscalationResult:
     """Result of escalating a deadlocked validation."""
@@ -317,13 +310,13 @@ class EscalationResult:
     reason: str
     """Reason for escalation."""
 
-    original_votes: List[ValidationVote]
+    original_votes: list[ValidationVote]
     """Votes received before escalation."""
 
     escalated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When the escalation occurred."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "request_id": self.request_id,
@@ -333,7 +326,6 @@ class EscalationResult:
             "original_votes": [v.to_dict() for v in self.original_votes],
             "escalated_at": self.escalated_at.isoformat(),
         }
-
 
 @dataclass
 class ValidatorConfig:
@@ -363,10 +355,8 @@ class ValidatorConfig:
     allow_vote_change: bool = False
     """Whether validators can change their votes."""
 
-
 # Type alias for notification callbacks
-NotificationCallback = Callable[[str, str, Dict[str, Any]], None]
-
+NotificationCallback = Callable[[str, str, dict[str, Any]], None]
 
 class MultiPartyValidator:
     """Orchestrates multi-party validation workflows.
@@ -375,17 +365,17 @@ class MultiPartyValidator:
     creation, vote collection, consensus checking, and resolution.
     """
 
-    def __init__(self, config: Optional[ValidatorConfig] = None):
+    def __init__(self, config: ValidatorConfig | None = None):
         """Initialize the multi-party validator.
 
         Args:
             config: Optional configuration. Uses defaults if not provided.
         """
         self.config = config or ValidatorConfig()
-        self._requests: Dict[str, ValidationRequest] = {}
-        self._results: Dict[str, ValidationResult] = {}
-        self._escalations: Dict[str, EscalationResult] = {}
-        self._notification_callback: Optional[NotificationCallback] = None
+        self._requests: dict[str, ValidationRequest] = {}
+        self._results: dict[str, ValidationResult] = {}
+        self._escalations: dict[str, EscalationResult] = {}
+        self._notification_callback: NotificationCallback | None = None
 
     def set_notification_callback(self, callback: NotificationCallback) -> None:
         """Set callback for sending notifications.
@@ -398,13 +388,13 @@ class MultiPartyValidator:
     async def create_validation_request(
         self,
         item_id: str,
-        validators: List[str],
-        quorum: Optional[int] = None,
-        strategy: Optional[ValidationConsensusStrategy] = None,
-        deadline_hours: Optional[int] = None,
-        contradiction_id: Optional[str] = None,
+        validators: list[str],
+        quorum: int | None = None,
+        strategy: ValidationConsensusStrategy | None = None,
+        deadline_hours: int | None = None,
+        contradiction_id: str | None = None,
         proposer_id: str = "",
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> ValidationRequest:
         """Create a new validation request.
 
@@ -461,7 +451,7 @@ class MultiPartyValidator:
         vote_type: ValidationVoteType,
         confidence: float = 0.8,
         reasoning: str = "",
-        alternative: Optional[str] = None,
+        alternative: str | None = None,
         weight: float = 1.0,
     ) -> bool:
         """Submit a vote for a validation request.
@@ -531,7 +521,7 @@ class MultiPartyValidator:
 
         return True
 
-    async def check_consensus(self, request_id: str) -> Optional[ValidationResult]:
+    async def check_consensus(self, request_id: str) -> ValidationResult | None:
         """Check if consensus has been reached.
 
         Args:
@@ -568,7 +558,7 @@ class MultiPartyValidator:
 
         return result
 
-    def _count_votes(self, votes: List[ValidationVote]) -> Dict[str, Any]:
+    def _count_votes(self, votes: list[ValidationVote]) -> dict[str, Any]:
         """Count votes by type.
 
         Args:
@@ -609,8 +599,8 @@ class MultiPartyValidator:
     def _evaluate_consensus(
         self,
         request: ValidationRequest,
-        vote_counts: Dict[str, Any],
-    ) -> Optional[ValidationResult]:
+        vote_counts: dict[str, Any],
+    ) -> ValidationResult | None:
         """Evaluate if consensus is reached based on strategy.
 
         Args:
@@ -691,7 +681,7 @@ class MultiPartyValidator:
     def _create_deadlock_result(
         self,
         request: ValidationRequest,
-        vote_counts: Dict[str, Any],
+        vote_counts: dict[str, Any],
     ) -> ValidationResult:
         """Create result for a deadlocked validation.
 
@@ -762,7 +752,7 @@ class MultiPartyValidator:
         self,
         request: ValidationRequest,
         reason: str,
-        escalate_to: Optional[str] = None,
+        escalate_to: str | None = None,
     ) -> EscalationResult:
         """Create an escalation for a request.
 
@@ -794,9 +784,9 @@ class MultiPartyValidator:
     async def escalate_deadlock(
         self,
         request_id: str,
-        reason: Optional[str] = None,
-        escalate_to: Optional[str] = None,
-    ) -> Optional[EscalationResult]:
+        reason: str | None = None,
+        escalate_to: str | None = None,
+    ) -> EscalationResult | None:
         """Manually escalate a deadlocked validation.
 
         Args:
@@ -827,7 +817,7 @@ class MultiPartyValidator:
         resolver_id: str,
         verdict: ValidationVoteType,
         reasoning: str = "",
-    ) -> Optional[ValidationResult]:
+    ) -> ValidationResult | None:
         """Resolve an escalated validation.
 
         Args:
@@ -919,7 +909,7 @@ class MultiPartyValidator:
         self,
         request: ValidationRequest,
         event_type: str,
-        result: Optional[ValidationResult] = None,
+        result: ValidationResult | None = None,
     ) -> None:
         """Notify the proposer of an event.
 
@@ -944,7 +934,7 @@ class MultiPartyValidator:
         except Exception as e:
             logger.warning(f"Failed to notify proposer {request.proposer_id}: {e}")
 
-    def get_request(self, request_id: str) -> Optional[ValidationRequest]:
+    def get_request(self, request_id: str) -> ValidationRequest | None:
         """Get a validation request by ID.
 
         Args:
@@ -955,7 +945,7 @@ class MultiPartyValidator:
         """
         return self._requests.get(request_id)
 
-    def get_result(self, request_id: str) -> Optional[ValidationResult]:
+    def get_result(self, request_id: str) -> ValidationResult | None:
         """Get a validation result by request ID.
 
         Args:
@@ -966,7 +956,7 @@ class MultiPartyValidator:
         """
         return self._results.get(request_id)
 
-    def get_pending_for_validator(self, validator_id: str) -> List[ValidationRequest]:
+    def get_pending_for_validator(self, validator_id: str) -> list[ValidationRequest]:
         """Get pending validation requests for a validator.
 
         Args:
@@ -983,7 +973,7 @@ class MultiPartyValidator:
             and not any(v.validator_id == validator_id for v in r.votes)
         ]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get validation statistics.
 
         Returns:
@@ -1016,21 +1006,19 @@ class MultiPartyValidator:
             "by_outcome": self._stats_by_outcome(),
         }
 
-    def _stats_by_outcome(self) -> Dict[str, int]:
+    def _stats_by_outcome(self) -> dict[str, int]:
         """Get counts by outcome."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for r in self._results.values():
             outcome = r.outcome
             counts[outcome] = counts.get(outcome, 0) + 1
         return counts
 
-
 # Singleton instance
-_multi_party_validator: Optional[MultiPartyValidator] = None
-
+_multi_party_validator: MultiPartyValidator | None = None
 
 def get_multi_party_validator(
-    config: Optional[ValidatorConfig] = None,
+    config: ValidatorConfig | None = None,
 ) -> MultiPartyValidator:
     """Get or create the singleton multi-party validator.
 
@@ -1044,7 +1032,6 @@ def get_multi_party_validator(
     if _multi_party_validator is None:
         _multi_party_validator = MultiPartyValidator(config)
     return _multi_party_validator
-
 
 __all__ = [
     # Enums

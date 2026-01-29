@@ -28,7 +28,6 @@ from typing import (
     Any,
     AsyncIterator,
     Callable,
-    Optional,
     Protocol,
     TypeVar,
     runtime_checkable,
@@ -36,7 +35,6 @@ from typing import (
 
 # Generic type for memory entry payloads
 T = TypeVar("T")
-
 
 @dataclass
 class MemoryEntry:
@@ -57,11 +55,10 @@ class MemoryEntry:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Embeddings for semantic search (optional)
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
     # TTL support
-    expires_at: Optional[datetime] = None
-
+    expires_at: datetime | None = None
 
 @dataclass
 class MemoryQueryResult:
@@ -70,8 +67,7 @@ class MemoryQueryResult:
     entries: list[MemoryEntry]
     total_count: int
     has_more: bool
-    cursor: Optional[str] = None
-
+    cursor: str | None = None
 
 @dataclass
 class BackendHealth:
@@ -79,9 +75,8 @@ class BackendHealth:
 
     healthy: bool
     latency_ms: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
-
 
 @runtime_checkable
 class MemoryBackend(Protocol):
@@ -129,7 +124,7 @@ class MemoryBackend(Protocol):
         ...
 
     @abstractmethod
-    async def get(self, entry_id: str) -> Optional[MemoryEntry]:
+    async def get(self, entry_id: str) -> MemoryEntry | None:
         """
         Retrieve a memory entry by ID.
 
@@ -174,8 +169,8 @@ class MemoryBackend(Protocol):
     @abstractmethod
     async def query(
         self,
-        tier: Optional[str] = None,
-        min_weight: Optional[float] = None,
+        tier: str | None = None,
+        min_weight: float | None = None,
         limit: int = 100,
         offset: int = 0,
         order_by: str = "created_at",
@@ -203,7 +198,7 @@ class MemoryBackend(Protocol):
         query_embedding: list[float],
         limit: int = 10,
         min_similarity: float = 0.7,
-        tier: Optional[str] = None,
+        tier: str | None = None,
     ) -> list[tuple[MemoryEntry, float]]:
         """
         Search for similar entries using vector similarity.
@@ -324,7 +319,6 @@ class MemoryBackend(Protocol):
         """
         ...
 
-
 @runtime_checkable
 class MemoryBackendSync(Protocol):
     """
@@ -337,7 +331,7 @@ class MemoryBackendSync(Protocol):
         """Store a memory entry synchronously."""
         ...
 
-    def get_sync(self, entry_id: str) -> Optional[MemoryEntry]:
+    def get_sync(self, entry_id: str) -> MemoryEntry | None:
         """Retrieve a memory entry by ID synchronously."""
         ...
 
@@ -351,14 +345,13 @@ class MemoryBackendSync(Protocol):
 
     def query_sync(
         self,
-        tier: Optional[str] = None,
-        min_weight: Optional[float] = None,
+        tier: str | None = None,
+        min_weight: float | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> MemoryQueryResult:
         """Query memory entries synchronously."""
         ...
-
 
 @runtime_checkable
 class StreamingMemoryBackend(Protocol):
@@ -371,7 +364,7 @@ class StreamingMemoryBackend(Protocol):
 
     async def stream_entries(
         self,
-        tier: Optional[str] = None,
+        tier: str | None = None,
         batch_size: int = 100,
     ) -> AsyncIterator[list[MemoryEntry]]:
         """
@@ -385,7 +378,6 @@ class StreamingMemoryBackend(Protocol):
             Batches of memory entries
         """
         ...
-
 
 @runtime_checkable
 class TransactionalMemoryBackend(Protocol):
@@ -415,15 +407,14 @@ class TransactionalMemoryBackend(Protocol):
         """Delete an entry within a transaction."""
         ...
 
-
 class MemoryBackendError(Exception):
     """Base exception for memory backend errors."""
 
     def __init__(
         self,
         message: str,
-        backend: Optional[str] = None,
-        operation: Optional[str] = None,
+        backend: str | None = None,
+        operation: str | None = None,
         recoverable: bool = True,
     ):
         super().__init__(message)
@@ -431,13 +422,11 @@ class MemoryBackendError(Exception):
         self.operation = operation
         self.recoverable = recoverable
 
-
 class MemoryBackendConnectionError(MemoryBackendError):
     """Connection to backend failed."""
 
-    def __init__(self, message: str, backend: Optional[str] = None):
+    def __init__(self, message: str, backend: str | None = None):
         super().__init__(message, backend=backend, operation="connect", recoverable=True)
-
 
 class MemoryBackendTimeoutError(MemoryBackendError):
     """Operation timed out."""
@@ -445,23 +434,20 @@ class MemoryBackendTimeoutError(MemoryBackendError):
     def __init__(
         self,
         message: str,
-        backend: Optional[str] = None,
-        operation: Optional[str] = None,
+        backend: str | None = None,
+        operation: str | None = None,
     ):
         super().__init__(message, backend=backend, operation=operation, recoverable=True)
-
 
 class MemoryBackendCapacityError(MemoryBackendError):
     """Backend capacity exceeded."""
 
-    def __init__(self, message: str, backend: Optional[str] = None):
+    def __init__(self, message: str, backend: str | None = None):
         super().__init__(message, backend=backend, operation="store", recoverable=False)
-
 
 # Type aliases for convenience
 MemoryBackendFactory = Callable[[], MemoryBackend]
 MemoryEntryTransform = Callable[[MemoryEntry], MemoryEntry]
-
 
 __all__ = [
     # Core types

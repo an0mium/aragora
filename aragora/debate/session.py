@@ -62,7 +62,6 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-
 class DebateSessionState(Enum):
     """Session lifecycle states."""
 
@@ -72,7 +71,6 @@ class DebateSessionState(Enum):
     COMPLETED = "completed"  # Finished successfully
     FAILED = "failed"  # Error state
     CANCELLED = "cancelled"  # User cancelled
-
 
 class SessionEventType(Enum):
     """Types of session lifecycle events."""
@@ -87,7 +85,6 @@ class SessionEventType(Enum):
     STATE_CHANGED = "state_changed"
     CHECKPOINT_CREATED = "checkpoint_created"
 
-
 @dataclass
 class SessionEvent:
     """Event emitted during session lifecycle."""
@@ -96,9 +93,8 @@ class SessionEvent:
     session_id: str
     timestamp: str
     data: dict = field(default_factory=dict)
-    previous_state: Optional[DebateSessionState] = None
-    new_state: Optional[DebateSessionState] = None
-
+    previous_state: DebateSessionState | None = None
+    new_state: DebateSessionState | None = None
 
 @dataclass
 class DebateSession:
@@ -116,23 +112,23 @@ class DebateSession:
 
     # Timing
     created_at: datetime = field(default_factory=datetime.utcnow)
-    started_at: Optional[datetime] = None
-    paused_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    paused_at: datetime | None = None
+    completed_at: datetime | None = None
 
     # State
     current_round: int = 0
     total_rounds: int = 0
-    checkpoint_id: Optional[str] = None
+    checkpoint_id: str | None = None
     result: Optional["DebateResult"] = None
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     # Cancellation
     cancellation_token: CancellationToken = field(default_factory=CancellationToken)
 
     # Internal
     _arena: Any = field(default=None, repr=False)
-    _task: Optional[asyncio.Task] = field(default=None, repr=False)
+    _task: asyncio.Task | None = field(default=None, repr=False)
     _event_handlers: list[Callable[[SessionEvent], None]] = field(default_factory=list, repr=False)
     _checkpoint_manager: Optional["CheckpointManager"] = field(default=None, repr=False)
     _pause_event: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
@@ -145,7 +141,7 @@ class DebateSession:
         agents: list["Agent"],
         protocol: "DebateProtocol",
         checkpoint_manager: Optional["CheckpointManager"] = None,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ) -> "DebateSession":
         """
         Create a new debate session.
@@ -225,9 +221,9 @@ class DebateSession:
     def _emit_event(
         self,
         event_type: SessionEventType,
-        data: Optional[dict] = None,
-        previous_state: Optional[DebateSessionState] = None,
-        new_state: Optional[DebateSessionState] = None,
+        data: dict | None = None,
+        previous_state: DebateSessionState | None = None,
+        new_state: DebateSessionState | None = None,
     ) -> None:
         """Emit a session event to all handlers."""
         event = SessionEvent(
@@ -379,7 +375,7 @@ class DebateSession:
             )
             logger.error(f"session_failed id={self.id} error={e}")
 
-    async def pause(self, reason: str = "User requested pause") -> Optional[str]:
+    async def pause(self, reason: str = "User requested pause") -> str | None:
         """
         Pause the session and create a checkpoint.
 
@@ -433,7 +429,7 @@ class DebateSession:
 
         return checkpoint_id
 
-    async def resume(self, checkpoint_id: Optional[str] = None) -> None:
+    async def resume(self, checkpoint_id: str | None = None) -> None:
         """
         Resume a paused session.
 
@@ -500,7 +496,7 @@ class DebateSession:
         logger.info(f"session_cancelled id={self.id} reason={reason}")
 
     async def wait_for_completion(
-        self, timeout: Optional[float] = None
+        self, timeout: float | None = None
     ) -> Optional["DebateResult"]:
         """
         Wait for the session to complete.
@@ -542,7 +538,7 @@ class DebateSession:
         return self.state == DebateSessionState.RUNNING
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Get session duration in seconds."""
         if self.started_at is None:
             return None
@@ -567,7 +563,6 @@ class DebateSession:
             "duration_seconds": self.duration_seconds,
             "error_message": self.error_message,
         }
-
 
 class SessionManager:
     """
@@ -625,13 +620,13 @@ class SessionManager:
             self._sessions[session.id] = session
             return session
 
-    async def get_session(self, session_id: str) -> Optional[DebateSession]:
+    async def get_session(self, session_id: str) -> DebateSession | None:
         """Get a session by ID."""
         return self._sessions.get(session_id)
 
     async def list_sessions(
         self,
-        state: Optional[DebateSessionState] = None,
+        state: DebateSessionState | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """

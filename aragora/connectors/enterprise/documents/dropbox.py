@@ -16,7 +16,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Optional
 from urllib.parse import urlencode
 
 from aragora.connectors.enterprise.base import (
@@ -34,9 +34,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 # Supported file extensions for indexing
-SUPPORTED_EXTENSIONS: Set[str] = {
+SUPPORTED_EXTENSIONS: set[str] = {
     ".txt",
     ".md",
     ".json",
@@ -68,7 +67,6 @@ SUPPORTED_EXTENSIONS: Set[str] = {
     ".php",
 }
 
-
 @dataclass
 class DropboxFile:
     """A Dropbox file."""
@@ -78,11 +76,10 @@ class DropboxFile:
     path_lower: str
     path_display: str
     size: int = 0
-    content_hash: Optional[str] = None
-    modified_time: Optional[datetime] = None
+    content_hash: str | None = None
+    modified_time: datetime | None = None
     is_downloadable: bool = True
-    shared_folder_id: Optional[str] = None
-
+    shared_folder_id: str | None = None
 
 @dataclass
 class DropboxFolder:
@@ -92,8 +89,7 @@ class DropboxFolder:
     name: str
     path_lower: str
     path_display: str
-    shared_folder_id: Optional[str] = None
-
+    shared_folder_id: str | None = None
 
 class DropboxConnector(EnterpriseConnector):
     """
@@ -135,13 +131,13 @@ class DropboxConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        app_key: Optional[str] = None,
-        app_secret: Optional[str] = None,
-        access_token: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        app_key: str | None = None,
+        app_secret: str | None = None,
+        access_token: str | None = None,
+        refresh_token: str | None = None,
         root_path: str = "",
-        include_patterns: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        include_patterns: Optional[list[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
     ):
         """
         Initialize Dropbox connector.
@@ -165,8 +161,8 @@ class DropboxConnector(EnterpriseConnector):
         self.include_patterns = include_patterns or ["*"]
         self.exclude_patterns = exclude_patterns or []
 
-        self._session: Optional[Any] = None
-        self._token_expires: Optional[datetime] = None
+        self._session: Any | None = None
+        self._token_expires: datetime | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -196,9 +192,9 @@ class DropboxConnector(EnterpriseConnector):
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        code: str | None = None,
+        redirect_uri: str | None = None,
+        refresh_token: str | None = None,
     ) -> bool:
         """
         Authenticate with Dropbox.
@@ -300,9 +296,9 @@ class DropboxConnector(EnterpriseConnector):
     async def _api_request(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[dict[str, Any]] = None,
         is_content: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make an authenticated API request."""
         await self._ensure_valid_token()
         session = await self._get_session()
@@ -345,7 +341,7 @@ class DropboxConnector(EnterpriseConnector):
                     )
             return await resp.json()
 
-    async def get_account_info(self) -> Dict[str, Any]:
+    async def get_account_info(self) -> dict[str, Any]:
         """Get current account info."""
         return await self._api_request("/users/get_current_account")
 
@@ -522,7 +518,7 @@ class DropboxConnector(EnterpriseConnector):
         self,
         query: str,
         max_results: int = 50,
-        file_extensions: Optional[List[str]] = None,
+        file_extensions: Optional[list[str]] = None,
     ) -> AsyncIterator[DropboxFile]:
         """
         Search for files.
@@ -535,7 +531,7 @@ class DropboxConnector(EnterpriseConnector):
         Yields:
             Matching DropboxFile objects
         """
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "query": query,
             "options": {
                 "max_results": min(max_results, 100),
@@ -564,7 +560,7 @@ class DropboxConnector(EnterpriseConnector):
 
     async def sync_items(  # type: ignore[override]
         self,
-        state: Optional[SyncState] = None,
+        state: SyncState | None = None,
     ) -> AsyncIterator[SyncItem]:
         """
         Incremental sync using cursor.
@@ -638,7 +634,7 @@ class DropboxConnector(EnterpriseConnector):
                 metadata={"cursor": final_cursor},
             )
 
-    def _parse_datetime(self, dt_str: Optional[str]) -> Optional[datetime]:
+    def _parse_datetime(self, dt_str: str | None) -> datetime | None:
         """Parse ISO datetime string."""
         if not dt_str:
             return None

@@ -36,7 +36,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class UnifiedRecoveryState:
     """
@@ -52,13 +51,13 @@ class UnifiedRecoveryState:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Molecule state
-    molecule_state: Optional[dict[str, Any]] = None
+    molecule_state: dict[str, Any] | None = None
     pending_molecules: int = 0
     completed_molecules: int = 0
     failed_molecules: int = 0
 
     # Checkpoint state
-    checkpoint_id: Optional[str] = None
+    checkpoint_id: str | None = None
     checkpoint_messages: list[dict] = field(default_factory=list)
     checkpoint_critiques: list[dict] = field(default_factory=list)
     checkpoint_votes: list[dict] = field(default_factory=list)
@@ -103,7 +102,6 @@ class UnifiedRecoveryState:
             channel_history=data.get("channel_history", []),
         )
 
-
 class CheckpointBridge:
     """
     Bridge between molecule tracking and checkpoint persistence.
@@ -143,10 +141,10 @@ class CheckpointBridge:
         debate_id: str,
         current_round: int,
         phase: str,
-        messages: Optional[list[dict]] = None,
-        critiques: Optional[list[dict]] = None,
-        votes: Optional[list[dict]] = None,
-        channel_history: Optional[list[dict]] = None,
+        messages: list[dict] | None = None,
+        critiques: list[dict] | None = None,
+        votes: list[dict] | None = None,
+        channel_history: list[dict] | None = None,
     ) -> UnifiedRecoveryState:
         """
         Save unified state combining molecules and checkpoint data.
@@ -238,8 +236,8 @@ class CheckpointBridge:
     async def restore_checkpoint(
         self,
         debate_id: str,
-        checkpoint_id: Optional[str] = None,
-    ) -> Optional[UnifiedRecoveryState]:
+        checkpoint_id: str | None = None,
+    ) -> UnifiedRecoveryState | None:
         """
         Restore unified state from molecules and/or checkpoints.
 
@@ -371,7 +369,6 @@ class CheckpointBridge:
 
         return summary
 
-
 # Factory function
 def create_checkpoint_bridge(
     molecule_orchestrator: Optional["MoleculeOrchestrator"] = None,
@@ -388,7 +385,6 @@ def create_checkpoint_bridge(
         CheckpointBridge instance
     """
     return CheckpointBridge(molecule_orchestrator, checkpoint_manager)
-
 
 __all__ = [
     "CheckpointBridge",

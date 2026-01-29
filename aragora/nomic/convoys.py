@@ -26,6 +26,7 @@ Usage:
     # Track progress
     status = await manager.get_convoy_progress(convoy.id)
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -35,12 +36,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from aragora.nomic.beads import Bead, BeadPriority, BeadStatus, BeadStore, BeadType
 
 logger = logging.getLogger(__name__)
-
 
 class ConvoyStatus(str, Enum):
     """Lifecycle status of a convoy."""
@@ -52,7 +52,6 @@ class ConvoyStatus(str, Enum):
     CANCELLED = "cancelled"  # Convoy cancelled
     PARTIAL = "partial"  # Some beads completed, some failed
 
-
 class ConvoyPriority(int, Enum):
     """Priority levels for convoys."""
 
@@ -60,7 +59,6 @@ class ConvoyPriority(int, Enum):
     NORMAL = 50
     HIGH = 75
     URGENT = 100
-
 
 @dataclass
 class ConvoyProgress:
@@ -78,7 +76,6 @@ class ConvoyProgress:
         """Check if convoy is complete (all beads finished)."""
         return self.pending_beads == 0 and self.running_beads == 0
 
-
 @dataclass
 class Convoy:
     """
@@ -91,32 +88,32 @@ class Convoy:
     id: str
     title: str
     description: str
-    bead_ids: List[str]  # Beads in this convoy
+    bead_ids: list[str]  # Beads in this convoy
     status: ConvoyStatus
     created_at: datetime
     updated_at: datetime
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    assigned_to: List[str] = field(default_factory=list)  # agent_ids
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    assigned_to: list[str] = field(default_factory=list)  # agent_ids
     priority: ConvoyPriority = ConvoyPriority.NORMAL
-    dependencies: List[str] = field(default_factory=list)  # Convoy IDs
-    parent_id: Optional[str] = None  # For nested convoys
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    error_message: Optional[str] = None
+    dependencies: list[str] = field(default_factory=list)  # Convoy IDs
+    parent_id: str | None = None  # For nested convoys
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
 
     @classmethod
     def create(
         cls,
         title: str,
-        bead_ids: List[str],
+        bead_ids: list[str],
         description: str = "",
         priority: ConvoyPriority = ConvoyPriority.NORMAL,
-        dependencies: Optional[List[str]] = None,
-        parent_id: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        convoy_id: Optional[str] = None,
+        dependencies: Optional[list[str]] = None,
+        parent_id: str | None = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        convoy_id: str | None = None,
     ) -> "Convoy":
         """Create a new convoy with optional custom ID and timestamps."""
         now = datetime.now(timezone.utc)
@@ -135,7 +132,7 @@ class Convoy:
             metadata=metadata or {},
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize convoy to dictionary."""
         return {
             "id": self.id,
@@ -157,7 +154,7 @@ class Convoy:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Convoy":
+    def from_dict(cls, data: dict[str, Any]) -> "Convoy":
         """Deserialize convoy from dictionary."""
         return cls(
             id=data["id"],
@@ -182,10 +179,9 @@ class Convoy:
             error_message=data.get("error_message"),
         )
 
-    def can_start(self, completed_convoy_ids: Set[str]) -> bool:
+    def can_start(self, completed_convoy_ids: set[str]) -> bool:
         """Check if this convoy can start (all dependencies completed)."""
         return all(dep_id in completed_convoy_ids for dep_id in self.dependencies)
-
 
 class ConvoyManager:
     """
@@ -198,7 +194,7 @@ class ConvoyManager:
     def __init__(
         self,
         bead_store: BeadStore,
-        convoy_dir: Optional[Path] = None,
+        convoy_dir: Path | None = None,
     ):
         """
         Initialize the convoy manager.
@@ -211,7 +207,7 @@ class ConvoyManager:
         self.convoy_dir = convoy_dir or bead_store.bead_dir
         self.convoy_file = self.convoy_dir / "convoys.jsonl"
         self._lock = asyncio.Lock()
-        self._convoys: Dict[str, Convoy] = {}
+        self._convoys: dict[str, Convoy] = {}
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -261,13 +257,13 @@ class ConvoyManager:
     async def create_convoy(
         self,
         title: str,
-        bead_ids: List[str],
+        bead_ids: list[str],
         description: str = "",
         priority: ConvoyPriority = ConvoyPriority.NORMAL,
-        dependencies: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        convoy_id: Optional[str] = None,
+        dependencies: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        convoy_id: str | None = None,
     ) -> Convoy:
         """
         Create a new convoy from existing beads.
@@ -311,9 +307,9 @@ class ConvoyManager:
     async def create_convoy_from_subtasks(
         self,
         title: str,
-        subtasks: List[Dict[str, Any]],
+        subtasks: list[dict[str, Any]],
         priority: ConvoyPriority = ConvoyPriority.NORMAL,
-        convoy_id: Optional[str] = None,
+        convoy_id: str | None = None,
     ) -> Convoy:
         """
         Create a convoy by first creating beads from subtask definitions.
@@ -328,7 +324,7 @@ class ConvoyManager:
         """
         async with self._lock:
             bead_ids = []
-            subtask_id_map: Dict[str, str] = {}  # subtask_id -> bead_id
+            subtask_id_map: dict[str, str] = {}  # subtask_id -> bead_id
 
             # First pass: create beads without dependencies
             for subtask in subtasks:
@@ -370,7 +366,7 @@ class ConvoyManager:
             logger.info(f"Created convoy from subtasks: {convoy.id} with {len(bead_ids)} beads")
             return convoy
 
-    async def get_convoy(self, convoy_id: str) -> Optional[Convoy]:
+    async def get_convoy(self, convoy_id: str) -> Convoy | None:
         """Get a convoy by ID."""
         return self._convoys.get(convoy_id)
 
@@ -378,15 +374,15 @@ class ConvoyManager:
         self,
         convoy_id: str,
         *,
-        status: Optional[ConvoyStatus] = None,
-        metadata_updates: Optional[Dict[str, Any]] = None,
-        assigned_to: Optional[List[str]] = None,
-        bead_ids: Optional[List[str]] = None,
-        started_at: Optional[datetime] = None,
-        completed_at: Optional[datetime] = None,
-        error_message: Optional[str] = None,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
+        status: ConvoyStatus | None = None,
+        metadata_updates: Optional[dict[str, Any]] = None,
+        assigned_to: Optional[list[str]] = None,
+        bead_ids: Optional[list[str]] = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        error_message: str | None = None,
+        title: str | None = None,
+        description: str | None = None,
     ) -> Convoy:
         """
         Update convoy fields and persist changes.
@@ -425,7 +421,7 @@ class ConvoyManager:
     async def assign_convoy(
         self,
         convoy_id: str,
-        agent_ids: List[str],
+        agent_ids: list[str],
     ) -> bool:
         """
         Assign a convoy to agents.
@@ -532,9 +528,9 @@ class ConvoyManager:
 
     async def list_convoys(
         self,
-        status: Optional[ConvoyStatus] = None,
-        agent_id: Optional[str] = None,
-    ) -> List[Convoy]:
+        status: ConvoyStatus | None = None,
+        agent_id: str | None = None,
+    ) -> list[Convoy]:
         """
         List convoys with optional filtering.
 
@@ -555,7 +551,7 @@ class ConvoyManager:
 
         return convoys
 
-    async def list_pending_runnable(self) -> List[Convoy]:
+    async def list_pending_runnable(self) -> list[Convoy]:
         """List pending convoys that can be started (dependencies met)."""
         completed_ids = {c.id for c in self._convoys.values() if c.status == ConvoyStatus.COMPLETED}
         return [
@@ -564,10 +560,10 @@ class ConvoyManager:
             if c.status == ConvoyStatus.PENDING and c.can_start(completed_ids)
         ]
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get statistics about convoys."""
         convoys = list(self._convoys.values())
-        by_status: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
         total_beads = 0
 
         for convoy in convoys:
@@ -581,10 +577,8 @@ class ConvoyManager:
             "avg_beads_per_convoy": total_beads / len(convoys) if convoys else 0,
         }
 
-
 # Singleton instance
-_default_manager: Optional[ConvoyManager] = None
-
+_default_manager: ConvoyManager | None = None
 
 async def get_convoy_manager(bead_store: BeadStore) -> ConvoyManager:
     """Get the default convoy manager instance."""
@@ -593,7 +587,6 @@ async def get_convoy_manager(bead_store: BeadStore) -> ConvoyManager:
         _default_manager = ConvoyManager(bead_store)
         await _default_manager.initialize()
     return _default_manager
-
 
 def reset_convoy_manager() -> None:
     """Reset the default manager (for testing)."""

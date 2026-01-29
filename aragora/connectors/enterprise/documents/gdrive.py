@@ -17,7 +17,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -28,9 +28,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 # Google Workspace MIME types and their export formats
-GOOGLE_WORKSPACE_MIMES: Dict[str, str] = {
+GOOGLE_WORKSPACE_MIMES: dict[str, str] = {
     "application/vnd.google-apps.document": "text/plain",
     "application/vnd.google-apps.spreadsheet": "text/csv",
     "application/vnd.google-apps.presentation": "text/plain",
@@ -38,7 +37,7 @@ GOOGLE_WORKSPACE_MIMES: Dict[str, str] = {
 }
 
 # Supported file types for indexing
-SUPPORTED_MIMES: Set[str] = {
+SUPPORTED_MIMES: set[str] = {
     "text/plain",
     "text/html",
     "text/markdown",
@@ -53,7 +52,6 @@ SUPPORTED_MIMES: Set[str] = {
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
-
 @dataclass
 class DriveFile:
     """A Google Drive file."""
@@ -62,15 +60,14 @@ class DriveFile:
     name: str
     mime_type: str
     size: int = 0
-    created_time: Optional[datetime] = None
-    modified_time: Optional[datetime] = None
+    created_time: datetime | None = None
+    modified_time: datetime | None = None
     web_view_link: str = ""
-    parents: List[str] = field(default_factory=list)
-    owners: List[str] = field(default_factory=list)
+    parents: list[str] = field(default_factory=list)
+    owners: list[str] = field(default_factory=list)
     shared: bool = False
-    drive_id: Optional[str] = None  # For Shared Drives
-    md5_checksum: Optional[str] = None  # Content hash for change detection
-
+    drive_id: str | None = None  # For Shared Drives
+    md5_checksum: str | None = None  # Content hash for change detection
 
 @dataclass
 class DriveFolder:
@@ -78,9 +75,8 @@ class DriveFolder:
 
     id: str
     name: str
-    parent_id: Optional[str] = None
-    drive_id: Optional[str] = None
-
+    parent_id: str | None = None
+    drive_id: str | None = None
 
 class GoogleDriveConnector(EnterpriseConnector):
     """
@@ -108,12 +104,12 @@ class GoogleDriveConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        folder_ids: Optional[List[str]] = None,
+        folder_ids: Optional[list[str]] = None,
         include_shared_drives: bool = True,
         include_trashed: bool = False,
         export_google_docs: bool = True,
         max_file_size_mb: int = 100,
-        exclude_patterns: Optional[List[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
         **kwargs,
     ):
         """
@@ -137,9 +133,9 @@ class GoogleDriveConnector(EnterpriseConnector):
         self.exclude_patterns = set(exclude_patterns or [])
 
         # Cache for folder paths
-        self._folder_cache: Dict[str, DriveFolder] = {}
-        self._access_token: Optional[str] = None
-        self._token_expiry: Optional[datetime] = None
+        self._folder_cache: dict[str, DriveFolder] = {}
+        self._access_token: str | None = None
+        self._token_expiry: datetime | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -195,9 +191,9 @@ class GoogleDriveConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make a request to Google Drive API."""
         import httpx
 
@@ -221,7 +217,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             response.raise_for_status()
             return response.json() if response.content else {}
 
-    async def _download_file(self, file_id: str, mime_type: Optional[str] = None) -> bytes:
+    async def _download_file(self, file_id: str, mime_type: str | None = None) -> bytes:
         """Download file content."""
         import httpx
 
@@ -250,10 +246,10 @@ class GoogleDriveConnector(EnterpriseConnector):
 
     async def _list_files(
         self,
-        folder_id: Optional[str] = None,
-        page_token: Optional[str] = None,
-        modified_after: Optional[datetime] = None,
-    ) -> tuple[List[DriveFile], Optional[str]]:
+        folder_id: str | None = None,
+        page_token: str | None = None,
+        modified_after: datetime | None = None,
+    ) -> tuple[list[DriveFile], str | None]:
         """List files in a folder or entire drive."""
         query_parts = []
 
@@ -277,7 +273,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
         query = " and ".join(query_parts) if query_parts else None
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "pageSize": 100,
             "fields": "nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,parents,owners,shared,driveId,md5Checksum)",
         }
@@ -329,7 +325,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
         return files, data.get("nextPageToken")
 
-    async def _list_shared_drives(self) -> List[Dict[str, Any]]:
+    async def _list_shared_drives(self) -> list[dict[str, Any]]:
         """List all accessible Shared Drives."""
         if not self.include_shared_drives:
             return []
@@ -338,7 +334,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         page_token = None
 
         while True:
-            params: Dict[str, Any] = {"pageSize": 100}
+            params: dict[str, Any] = {"pageSize": 100}
             if page_token:
                 params["pageToken"] = page_token
 
@@ -355,13 +351,13 @@ class GoogleDriveConnector(EnterpriseConnector):
     async def _get_changes(
         self,
         start_page_token: str,
-    ) -> tuple[List[DriveFile], str]:
+    ) -> tuple[list[DriveFile], str]:
         """Get changes since a token for incremental sync."""
         files = []
         page_token = start_page_token
 
         while page_token:
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "pageToken": page_token,
                 "pageSize": 100,
                 "fields": "nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,parents,owners,shared,driveId,md5Checksum))",
@@ -424,7 +420,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
     async def _get_start_page_token(self) -> str:
         """Get the starting page token for changes tracking."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if self.include_shared_drives:
             params["supportsAllDrives"] = True
 
@@ -549,7 +545,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         state.cursor = await self._get_start_page_token()
 
         # Determine folders to sync
-        folders_to_process: List[Optional[str]] = []
+        folders_to_process: list[str | None] = []
 
         if self.folder_ids:
             folders_to_process = list(self.folder_ids)
@@ -617,7 +613,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        folder_id: Optional[str] = None,
+        folder_id: str | None = None,
         **kwargs,
     ) -> list:
         """Search Google Drive files."""
@@ -632,7 +628,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         if not self.include_trashed:
             q_parts.append("trashed = false")
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "q": " and ".join(q_parts),
             "pageSize": limit,
             "fields": "files(id,name,mimeType,webViewLink,modifiedTime)",
@@ -668,7 +664,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific Google Drive file."""
         from aragora.connectors.base import Evidence
 
@@ -679,7 +675,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             file_id = evidence_id
 
         try:
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "fields": "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,owners",
             }
 
@@ -719,7 +715,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle Google Drive push notification webhook."""
         resource_state = payload.get("resourceState", "")
         resource_id = payload.get("resourceId", "")
@@ -732,6 +728,5 @@ class GoogleDriveConnector(EnterpriseConnector):
             return True
 
         return False
-
 
 __all__ = ["GoogleDriveConnector", "DriveFile", "DriveFolder"]

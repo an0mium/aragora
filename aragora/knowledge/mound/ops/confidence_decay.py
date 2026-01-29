@@ -18,13 +18,12 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
 
 logger = logging.getLogger(__name__)
-
 
 class DecayModel(str, Enum):
     """Models for confidence decay calculation."""
@@ -33,7 +32,6 @@ class DecayModel(str, Enum):
     LINEAR = "linear"  # Constant decay rate
     STEP = "step"  # Discrete confidence levels
     CUSTOM = "custom"  # User-defined decay function
-
 
 class ConfidenceEvent(str, Enum):
     """Events that affect confidence."""
@@ -47,7 +45,6 @@ class ConfidenceEvent(str, Enum):
     UPDATED = "updated"
     DECAYED = "decayed"
 
-
 @dataclass
 class ConfidenceAdjustment:
     """Record of a confidence adjustment."""
@@ -59,9 +56,9 @@ class ConfidenceAdjustment:
     new_confidence: float
     reason: str
     adjusted_at: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -73,7 +70,6 @@ class ConfidenceAdjustment:
             "adjusted_at": self.adjusted_at.isoformat(),
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class DecayConfig:
@@ -101,7 +97,7 @@ class DecayConfig:
     decay_interval_hours: int = 24  # How often to run decay
 
     # Domain-specific half-lives (optional overrides)
-    domain_half_lives: Dict[str, float] = field(
+    domain_half_lives: dict[str, float] = field(
         default_factory=lambda: {
             "technology": 30.0,  # Tech knowledge decays faster
             "science": 180.0,  # Scientific knowledge more stable
@@ -109,7 +105,6 @@ class DecayConfig:
             "news": 7.0,  # News decays very fast
         }
     )
-
 
 @dataclass
 class DecayReport:
@@ -120,11 +115,11 @@ class DecayReport:
     items_decayed: int
     items_boosted: int
     average_confidence_change: float
-    adjustments: List[ConfidenceAdjustment]
+    adjustments: list[ConfidenceAdjustment]
     processed_at: datetime = field(default_factory=datetime.now)
     duration_ms: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "workspace_id": self.workspace_id,
@@ -137,22 +132,21 @@ class DecayReport:
             "duration_ms": self.duration_ms,
         }
 
-
 class ConfidenceDecayManager:
     """Manages confidence decay for knowledge items."""
 
-    def __init__(self, config: Optional[DecayConfig] = None):
+    def __init__(self, config: DecayConfig | None = None):
         """Initialize the decay manager."""
         self.config = config or DecayConfig()
-        self._adjustments: List[ConfidenceAdjustment] = []
-        self._last_decay_run: Dict[str, datetime] = {}
+        self._adjustments: list[ConfidenceAdjustment] = []
+        self._last_decay_run: dict[str, datetime] = {}
         self._lock = asyncio.Lock()
 
     def calculate_decay(
         self,
         current_confidence: float,
         age_days: float,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> float:
         """Calculate decayed confidence based on age.
 
@@ -276,7 +270,7 @@ class ConfidenceDecayManager:
         )
         items = result.items if hasattr(result, "items") else []
 
-        adjustments: List[ConfidenceAdjustment] = []
+        adjustments: list[ConfidenceAdjustment] = []
         items_decayed = 0
         items_boosted = 0
         total_change = 0.0
@@ -368,7 +362,7 @@ class ConfidenceDecayManager:
         item_id: str,
         event: ConfidenceEvent,
         reason: str = "",
-    ) -> Optional[ConfidenceAdjustment]:
+    ) -> ConfidenceAdjustment | None:
         """Record a confidence-affecting event.
 
         Args:
@@ -420,10 +414,10 @@ class ConfidenceDecayManager:
 
     async def get_adjustment_history(
         self,
-        item_id: Optional[str] = None,
-        event_type: Optional[ConfidenceEvent] = None,
+        item_id: str | None = None,
+        event_type: ConfidenceEvent | None = None,
         limit: int = 100,
-    ) -> List[ConfidenceAdjustment]:
+    ) -> list[ConfidenceAdjustment]:
         """Get confidence adjustment history.
 
         Args:
@@ -445,9 +439,9 @@ class ConfidenceDecayManager:
 
             return results[-limit:]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get decay manager statistics."""
-        by_event: Dict[str, int] = {}
+        by_event: dict[str, int] = {}
         total_positive = 0
         total_negative = 0
 
@@ -467,11 +461,10 @@ class ConfidenceDecayManager:
             "last_decay_runs": {k: v.isoformat() for k, v in self._last_decay_run.items()},
         }
 
-
 class ConfidenceDecayMixin:
     """Mixin for confidence decay operations on KnowledgeMound."""
 
-    _decay_manager: Optional[ConfidenceDecayManager] = None
+    _decay_manager: ConfidenceDecayManager | None = None
 
     def _get_decay_manager(self) -> ConfidenceDecayManager:
         """Get or create decay manager."""
@@ -501,7 +494,7 @@ class ConfidenceDecayMixin:
         item_id: str,
         event: ConfidenceEvent,
         reason: str = "",
-    ) -> Optional[ConfidenceAdjustment]:
+    ) -> ConfidenceAdjustment | None:
         """Record a confidence-affecting event.
 
         Args:
@@ -517,23 +510,21 @@ class ConfidenceDecayMixin:
 
     async def get_confidence_history(
         self,
-        item_id: Optional[str] = None,
-        event_type: Optional[ConfidenceEvent] = None,
+        item_id: str | None = None,
+        event_type: ConfidenceEvent | None = None,
         limit: int = 100,
-    ) -> List[ConfidenceAdjustment]:
+    ) -> list[ConfidenceAdjustment]:
         """Get confidence adjustment history."""
         manager = self._get_decay_manager()
         return await manager.get_adjustment_history(item_id, event_type, limit)
 
-    def get_decay_stats(self) -> Dict[str, Any]:
+    def get_decay_stats(self) -> dict[str, Any]:
         """Get confidence decay statistics."""
         manager = self._get_decay_manager()
         return manager.get_stats()
 
-
 # Singleton instance
-_decay_manager: Optional[ConfidenceDecayManager] = None
-
+_decay_manager: ConfidenceDecayManager | None = None
 
 def get_decay_manager() -> ConfidenceDecayManager:
     """Get the global confidence decay manager instance."""

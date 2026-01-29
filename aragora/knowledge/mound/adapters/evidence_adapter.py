@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.types import IngestionRequest
 
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -44,37 +44,32 @@ try:
 except ImportError:
     SLO_AVAILABLE = False
 
-
 class EvidenceAdapterError(Exception):
     """Base exception for evidence adapter errors."""
 
     pass
-
 
 class EvidenceStoreUnavailableError(EvidenceAdapterError):
     """Raised when evidence store is not configured."""
 
     pass
 
-
 class EvidenceNotFoundError(EvidenceAdapterError):
     """Raised when evidence item is not found."""
 
     pass
 
-
 @dataclass
 class EvidenceSearchResult:
     """Wrapper for evidence search results with adapter metadata."""
 
-    evidence: Dict[str, Any]
+    evidence: dict[str, Any]
     relevance_score: float = 0.0
-    matched_topics: List[str] = None
+    matched_topics: list[str] = None
 
     def __post_init__(self) -> None:
         if self.matched_topics is None:
             self.matched_topics = []
-
 
 class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
@@ -110,14 +105,14 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     source_type = "evidence"
 
     # FusionMixin abstract method implementations
-    def _get_fusion_sources(self) -> List[str]:
+    def _get_fusion_sources(self) -> list[str]:
         """Return list of source adapters this adapter can fuse data from."""
         return ["consensus", "elo", "belief", "continuum", "insights"]
 
     def _extract_fusible_data(
         self,
-        km_item: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        km_item: dict[str, Any],
+    ) -> Optional[dict[str, Any]]:
         """Extract fusible data from a KM item.
 
         Args:
@@ -143,7 +138,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply a fusion result to an evidence record.
 
@@ -189,7 +184,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self,
         store: Optional["EvidenceStore"] = None,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
     ):
         """
@@ -219,7 +214,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self._event_callback = callback
 
     # SemanticSearchMixin required methods
-    def _get_record_by_id(self, record_id: str) -> Optional[Any]:
+    def _get_record_by_id(self, record_id: str) -> Any | None:
         """Get an evidence record by ID (required by SemanticSearchMixin)."""
         if not self._store:
             return None
@@ -227,7 +222,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             record_id = record_id[len(self.ID_PREFIX) :]
         return self._store.get_evidence(record_id)
 
-    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> Dict[str, Any]:
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> dict[str, Any]:
         """Convert an evidence record to dict (required by SemanticSearchMixin)."""
         if isinstance(record, dict):
             result = dict(record)
@@ -250,7 +245,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             return source_id[len(self.ID_PREFIX) :]
         return source_id
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured.
 
         Args:
@@ -268,7 +263,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         operation: str,
         success: bool,
         latency: float,
-        extra_labels: Optional[Dict[str, str]] = None,
+        extra_labels: Optional[dict[str, str]] = None,
     ) -> None:
         """Record Prometheus metric for adapter operation.
 
@@ -317,8 +312,8 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         query: str,
         limit: int = 10,
         min_reliability: float = 0.0,
-        source: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        source: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Search evidence by topic query.
 
@@ -376,7 +371,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         content: str,
         limit: int = 5,
         min_similarity: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find similar evidence for deduplication.
 
@@ -432,7 +427,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             logger.error(f"Similar evidence search failed: {e}")
             raise EvidenceAdapterError(f"Similar search failed: {e}") from e
 
-    def get(self, evidence_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, evidence_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific evidence item by ID.
 
@@ -458,7 +453,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             logger.error(f"Failed to get evidence {evidence_id}: {e}")
             raise EvidenceAdapterError(f"Failed to get evidence: {e}") from e
 
-    def to_knowledge_item(self, evidence: Dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, evidence: dict[str, Any]) -> "KnowledgeItem":
         """
         Convert evidence dict to a KnowledgeItem.
 
@@ -520,7 +515,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
                 )
 
         # Build metadata
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "source": evidence.get("source", "unknown"),
             "title": evidence.get("title", ""),
             "url": evidence.get("url", ""),
@@ -563,8 +558,8 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     def from_ingestion_request(
         self,
         request: "IngestionRequest",
-        evidence_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        evidence_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Convert an IngestionRequest to EvidenceStore save_evidence() parameters.
 
@@ -608,8 +603,8 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         snippet: str,
         url: str = "",
         reliability_score: float = 0.5,
-        metadata: Optional[Dict[str, Any]] = None,
-        debate_id: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        debate_id: str | None = None,
     ) -> str:
         """
         Store evidence with optional KM sync.
@@ -711,7 +706,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     async def update_reliability_from_km(
         self,
         evidence_id: str,
-        km_validation: Dict[str, Any],
+        km_validation: dict[str, Any],
     ) -> None:
         """
         Update evidence reliability based on KM validation feedback.
@@ -768,7 +763,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             logger.error(f"Failed to update reliability for evidence {evidence_id}: {e}")
             raise EvidenceAdapterError(f"Reliability update failed: {e}") from e
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about the evidence store.
 
         Returns:
@@ -794,7 +789,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self,
         debate_id: str,
         min_relevance: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get all evidence associated with a debate.
 
@@ -820,7 +815,6 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         except Exception as e:
             logger.error(f"Failed to get debate evidence for {debate_id}: {e}")
             raise EvidenceAdapterError(f"Debate evidence retrieval failed: {e}") from e
-
 
 __all__ = [
     "EvidenceAdapter",

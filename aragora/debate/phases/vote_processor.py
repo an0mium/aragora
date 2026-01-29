@@ -7,6 +7,7 @@ This module extracts vote-related operations from ConsensusPhase:
 - Calibration adjustments
 - User vote integration
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -26,7 +27,6 @@ logger = logging.getLogger(__name__)
 # Default timeout for collecting all votes (prevents N*agent_timeout runaway)
 DEFAULT_VOTE_COLLECTION_TIMEOUT = 180.0
 
-
 class VoteProcessor:
     """Handles vote collection, processing, and aggregation.
 
@@ -43,9 +43,9 @@ class VoteProcessor:
         position_tracker: Any = None,
         calibration_tracker: Any = None,
         recorder: Any = None,
-        agent_weights: Optional[dict[str, float]] = None,
-        hooks: Optional[dict[str, Callable[..., Any]]] = None,
-        user_votes: Optional[list[dict[str, Any]]] = None,
+        agent_weights: dict[str, float] | None = None,
+        hooks: dict[str, Callable[..., Any] | None] = None,
+        user_votes: list[dict[str, Any] | None] = None,
         protocol: Any = None,
         # Callbacks
         vote_with_agent: Optional[Callable[..., Any]] = None,
@@ -526,6 +526,5 @@ class VoteProcessor:
                 return name
 
         return choice
-
 
 __all__ = ["VoteProcessor", "DEFAULT_VOTE_COLLECTION_TIMEOUT"]

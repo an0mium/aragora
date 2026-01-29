@@ -46,12 +46,11 @@ import random
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.control_plane.registry import AgentInfo, AgentRegistry
 
 logger = logging.getLogger(__name__)
-
 
 class LoadBalanceStrategy(str, Enum):
     """Strategy for selecting agents from the federated pool."""
@@ -62,14 +61,12 @@ class LoadBalanceStrategy(str, Enum):
     RANDOM = "random"
     PREFER_LOCAL = "prefer_local"
 
-
 class FederationMode(str, Enum):
     """Mode of agent federation."""
 
     DISABLED = "disabled"  # Only use local agents
     READONLY = "readonly"  # Discover but don't execute remotely
     FULL = "full"  # Full federation with remote execution
-
 
 @dataclass
 class FederatedAgentConfig:
@@ -85,7 +82,6 @@ class FederatedAgentConfig:
     health_check_interval: float = 10.0  # Seconds between health checks
     max_concurrent_remotes: int = 10  # Max concurrent remote agent calls
 
-
 @dataclass
 class FederatedAgent:
     """
@@ -97,10 +93,10 @@ class FederatedAgent:
     info: AgentInfo
     instance_id: str  # Aragora instance this agent belongs to
     is_local: bool = True
-    remote_endpoint: Optional[str] = None
+    remote_endpoint: str | None = None
     estimated_latency_ms: float = 0.0
-    last_success_at: Optional[float] = None
-    last_failure_at: Optional[float] = None
+    last_success_at: float | None = None
+    last_failure_at: float | None = None
     consecutive_failures: int = 0
 
     @property
@@ -130,7 +126,6 @@ class FederatedAgent:
         self.last_failure_at = time.time()
         self.consecutive_failures += 1
 
-
 class FederatedAgentPool:
     """
     Pool of agents federated across multiple Aragora instances.
@@ -142,9 +137,9 @@ class FederatedAgentPool:
     def __init__(
         self,
         local_registry: AgentRegistry,
-        event_bus: Optional[Any] = None,
-        config: Optional[FederatedAgentConfig] = None,
-        instance_id: Optional[str] = None,
+        event_bus: Any | None = None,
+        config: FederatedAgentConfig | None = None,
+        instance_id: str | None = None,
     ):
         """
         Initialize the federated agent pool.
@@ -161,15 +156,15 @@ class FederatedAgentPool:
         self._instance_id = instance_id or self._generate_instance_id()
 
         # Federated agent cache
-        self._agents: Dict[str, FederatedAgent] = {}
-        self._remote_instances: Dict[str, Dict[str, Any]] = {}
+        self._agents: dict[str, FederatedAgent] = {}
+        self._remote_instances: dict[str, dict[str, Any]] = {}
 
         # Round-robin state
-        self._rr_index: Dict[str, int] = {}
+        self._rr_index: dict[str, int] = {}
 
         # Background tasks
-        self._discovery_task: Optional[asyncio.Task] = None
-        self._health_task: Optional[asyncio.Task] = None
+        self._discovery_task: asyncio.Task | None = None
+        self._health_task: asyncio.Task | None = None
 
         self._connected = False
 
@@ -381,12 +376,12 @@ class FederatedAgentPool:
 
     def find_agents(
         self,
-        capability: Optional[str] = None,
-        capabilities: Optional[List[str]] = None,
+        capability: str | None = None,
+        capabilities: Optional[list[str]] = None,
         min_count: int = 1,
         include_remote: bool = True,
-        region: Optional[str] = None,
-    ) -> List[FederatedAgent]:
+        region: str | None = None,
+    ) -> list[FederatedAgent]:
         """
         Find agents matching criteria.
 
@@ -427,9 +422,9 @@ class FederatedAgentPool:
 
     def select_agent(
         self,
-        agents: List[FederatedAgent],
-        strategy: Optional[LoadBalanceStrategy] = None,
-    ) -> Optional[FederatedAgent]:
+        agents: list[FederatedAgent],
+        strategy: LoadBalanceStrategy | None = None,
+    ) -> FederatedAgent | None:
         """
         Select an agent using the load balancing strategy.
 
@@ -474,19 +469,19 @@ class FederatedAgentPool:
 
         return agents[0]
 
-    def get_agent(self, agent_id: str) -> Optional[FederatedAgent]:
+    def get_agent(self, agent_id: str) -> FederatedAgent | None:
         """Get a specific agent by ID."""
         return self._agents.get(agent_id)
 
-    def list_local_agents(self) -> List[FederatedAgent]:
+    def list_local_agents(self) -> list[FederatedAgent]:
         """List all local agents."""
         return [a for a in self._agents.values() if a.is_local]
 
-    def list_remote_agents(self) -> List[FederatedAgent]:
+    def list_remote_agents(self) -> list[FederatedAgent]:
         """List all remote agents."""
         return [a for a in self._agents.values() if not a.is_local]
 
-    def get_instance_stats(self) -> Dict[str, Any]:
+    def get_instance_stats(self) -> dict[str, Any]:
         """Get statistics about the federated pool."""
         local_count = sum(1 for a in self._agents.values() if a.is_local)
         remote_count = len(self._agents) - local_count
@@ -506,7 +501,7 @@ class FederatedAgentPool:
     async def register_agent(
         self,
         agent_id: str,
-        capabilities: List[str],
+        capabilities: list[str],
         model: str = "unknown",
         provider: str = "unknown",
         **kwargs: Any,

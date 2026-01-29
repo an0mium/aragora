@@ -11,10 +11,9 @@ ideas but implementations fail due to scope mismatch.
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ScopeEvaluation:
@@ -23,8 +22,8 @@ class ScopeEvaluation:
     is_implementable: bool = True
     complexity_score: float = 0.0  # 0-1, lower is simpler
     file_count: int = 0
-    risk_factors: List[str] = field(default_factory=list)
-    suggested_simplifications: List[str] = field(default_factory=list)
+    risk_factors: list[str] = field(default_factory=list)
+    suggested_simplifications: list[str] = field(default_factory=list)
     reason: str = ""
 
     @property
@@ -43,7 +42,6 @@ class ScopeEvaluation:
             "suggested_simplifications": self.suggested_simplifications,
             "reason": self.reason,
         }
-
 
 # Patterns that indicate high complexity
 COMPLEXITY_PATTERNS = [
@@ -67,7 +65,6 @@ SIMPLICITY_PATTERNS = [
     (r"single\s+file\s+(?:change|modification)", -0.15, "Single file"),
 ]
 
-
 class ScopeLimiter:
     """
     Evaluates design complexity and suggests simplifications.
@@ -81,7 +78,7 @@ class ScopeLimiter:
         self,
         max_complexity: float = 0.7,
         max_files: int = 5,
-        protected_files: Optional[List[str]] = None,
+        protected_files: Optional[list[str]] = None,
     ):
         """
         Initialize scope limiter.
@@ -167,7 +164,7 @@ class ScopeLimiter:
 
         return evaluation
 
-    def _suggest_simplifications(self, design: str, evaluation: ScopeEvaluation) -> List[str]:
+    def _suggest_simplifications(self, design: str, evaluation: ScopeEvaluation) -> list[str]:
         """Generate simplification suggestions based on risk factors."""
         suggestions = []
 
@@ -196,7 +193,7 @@ class ScopeLimiter:
 
     def simplify_for_implementation(
         self, design: str, evaluation: ScopeEvaluation
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """
         Generate a simplified version of the design.
 
@@ -237,7 +234,6 @@ class ScopeLimiter:
 
         return simplified, note
 
-
 def check_design_scope(design: str, max_files: int = 5) -> ScopeEvaluation:
     """
     Convenience function to check design scope.
@@ -251,6 +247,5 @@ def check_design_scope(design: str, max_files: int = 5) -> ScopeEvaluation:
     """
     limiter = ScopeLimiter(max_files=max_files)
     return limiter.evaluate(design)
-
 
 __all__ = ["ScopeLimiter", "ScopeEvaluation", "check_design_scope"]

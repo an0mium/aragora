@@ -49,10 +49,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TeamsConversationReference:
@@ -67,13 +66,13 @@ class TeamsConversationReference:
     service_url: str
     tenant_id: str
     bot_id: str
-    channel_id: Optional[str] = None
-    activity_id: Optional[str] = None  # For replying to specific message
-    user_id: Optional[str] = None  # For 1:1 conversations
-    message_id: Optional[str] = None  # Thread/reply reference
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    channel_id: str | None = None
+    activity_id: str | None = None  # For replying to specific message
+    user_id: str | None = None  # For 1:1 conversations
+    message_id: str | None = None  # Thread/reply reference
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "conversation_id": self.conversation_id,
@@ -87,13 +86,13 @@ class TeamsConversationReference:
             "metadata": self.metadata,
         }
 
-    def to_bot_framework_reference(self) -> Dict[str, Any]:
+    def to_bot_framework_reference(self) -> dict[str, Any]:
         """
         Convert to Bot Framework conversation reference format.
 
         This format is used by the Bot Framework SDK for proactive messaging.
         """
-        reference: Dict[str, Any] = {
+        reference: dict[str, Any] = {
             "conversation": {
                 "id": self.conversation_id,
                 "tenantId": self.tenant_id,
@@ -122,7 +121,7 @@ class TeamsConversationReference:
         return reference
 
     @classmethod
-    def from_activity(cls, activity: Dict[str, Any]) -> "TeamsConversationReference":
+    def from_activity(cls, activity: dict[str, Any]) -> "TeamsConversationReference":
         """
         Create a conversation reference from a Bot Framework activity.
 
@@ -162,7 +161,6 @@ class TeamsConversationReference:
             },
         )
 
-
 @dataclass
 class StoredConversation:
     """A stored conversation reference with timestamps."""
@@ -172,7 +170,7 @@ class StoredConversation:
     created_at: float
     updated_at: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "debate_id": self.debate_id,
@@ -181,7 +179,6 @@ class StoredConversation:
             "created_at_iso": datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat(),
             "updated_at": self.updated_at,
         }
-
 
 class TeamsConversationStore:
     """
@@ -214,7 +211,7 @@ class TeamsConversationStore:
         ON teams_conversations(created_at DESC);
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the conversation store.
 
         Args:
@@ -302,7 +299,7 @@ class TeamsConversationStore:
     async def get_reference(
         self,
         debate_id: str,
-    ) -> Optional[TeamsConversationReference]:
+    ) -> TeamsConversationReference | None:
         """
         Get the conversation reference for a debate.
 
@@ -447,10 +444,8 @@ class TeamsConversationStore:
             metadata=metadata,
         )
 
-
 # Singleton instance
-_store: Optional[TeamsConversationStore] = None
-
+_store: TeamsConversationStore | None = None
 
 def get_teams_conversation_store() -> TeamsConversationStore:
     """Get or create the Teams conversation store singleton."""

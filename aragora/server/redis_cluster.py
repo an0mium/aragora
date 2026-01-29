@@ -41,13 +41,12 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.type_protocols import RedisClientProtocol
 
 logger = logging.getLogger(__name__)
-
 
 class ClusterMode(Enum):
     """Redis deployment mode."""
@@ -56,13 +55,12 @@ class ClusterMode(Enum):
     CLUSTER = "cluster"
     STANDALONE = "standalone"
 
-
 @dataclass
 class ClusterConfig:
     """Configuration for Redis cluster connection."""
 
     # Node configuration
-    nodes: List[Tuple[str, int]] = field(default_factory=list)
+    nodes: list[tuple[str, int]] = field(default_factory=list)
     mode: ClusterMode = ClusterMode.AUTO
 
     # Connection settings
@@ -70,7 +68,7 @@ class ClusterConfig:
     socket_timeout: float = 5.0
     socket_connect_timeout: float = 5.0
     retry_on_timeout: bool = True
-    retry_on_error: List[type] = field(default_factory=list)
+    retry_on_error: list[type] = field(default_factory=list)
     max_retries: int = 3
 
     # Cluster-specific
@@ -79,8 +77,8 @@ class ClusterConfig:
     require_full_coverage: bool = True
 
     # Authentication
-    password: Optional[str] = None
-    username: Optional[str] = None
+    password: str | None = None
+    username: str | None = None
 
     # Health checking
     health_check_interval: float = 30.0
@@ -89,12 +87,11 @@ class ClusterConfig:
     # Encoding
     decode_responses: bool = True
 
-
 def get_cluster_config() -> ClusterConfig:
     """Get cluster configuration from environment variables."""
     # Parse node list
     nodes_str = os.getenv("ARAGORA_REDIS_CLUSTER_NODES", "")
-    nodes: List[Tuple[str, int]] = []
+    nodes: list[tuple[str, int]] = []
     if nodes_str:
         for node in nodes_str.split(","):
             node = node.strip()
@@ -149,7 +146,6 @@ def get_cluster_config() -> ClusterConfig:
         health_check_interval=float(os.getenv("ARAGORA_REDIS_HEALTH_CHECK_INTERVAL", "30.0")),
     )
 
-
 class ClusterHealthMonitor:
     """Monitors cluster health and triggers reconnection on failures."""
 
@@ -187,7 +183,6 @@ class ClusterHealthMonitor:
             return True
         return False
 
-
 class RedisClusterClient:
     """
     Unified Redis client supporting both cluster and standalone modes.
@@ -195,7 +190,7 @@ class RedisClusterClient:
     Automatically detects cluster mode and provides a consistent interface.
     """
 
-    def __init__(self, config: Optional[ClusterConfig] = None):
+    def __init__(self, config: ClusterConfig | None = None):
         """
         Initialize Redis cluster client.
 
@@ -203,7 +198,7 @@ class RedisClusterClient:
             config: Cluster configuration (uses environment if not provided)
         """
         self.config = config or get_cluster_config()
-        self._client: Optional[RedisClientProtocol] = None
+        self._client: RedisClientProtocol | None = None
         self._is_cluster: bool = False
         self._available: bool = False
         self._lock = threading.Lock()
@@ -326,11 +321,11 @@ class RedisClusterClient:
         return self._available and self._health_monitor.is_healthy
 
     def _execute_with_retry(
-        self, operation: Callable[[], Any], max_retries: Optional[int] = None
+        self, operation: Callable[[], Any], max_retries: int | None = None
     ) -> Any:
         """Execute operation with retry logic."""
         retries = max_retries or self.config.max_retries
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(retries + 1):
             try:
@@ -388,10 +383,10 @@ class RedisClusterClient:
     # Standard Redis Operations (with retry)
     # ==========================================================================
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         """Get value for key."""
 
-        def _get() -> Optional[str]:
+        def _get() -> str | None:
             client = self.get_client()
             if client is None:
                 raise RuntimeError("Redis client not available")
@@ -404,8 +399,8 @@ class RedisClusterClient:
         self,
         key: str,
         value: str,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
     ) -> bool:
@@ -475,10 +470,10 @@ class RedisClusterClient:
     # Hash Operations
     # ==========================================================================
 
-    def hget(self, name: str, key: str) -> Optional[str]:
+    def hget(self, name: str, key: str) -> str | None:
         """Get field from hash."""
 
-        def _hget() -> Optional[str]:
+        def _hget() -> str | None:
             client = self.get_client()
             return client.hget(name, key)
 
@@ -493,10 +488,10 @@ class RedisClusterClient:
 
         return self._execute_with_retry(_hset)
 
-    def hgetall(self, name: str) -> Dict[str, str]:
+    def hgetall(self, name: str) -> dict[str, str]:
         """Get all fields from hash."""
 
-        def _hgetall() -> Dict[str, str]:
+        def _hgetall() -> dict[str, str]:
             client = self.get_client()
             return client.hgetall(name)
 
@@ -515,7 +510,7 @@ class RedisClusterClient:
     # Sorted Set Operations (for rate limiting)
     # ==========================================================================
 
-    def zadd(self, name: str, mapping: Dict[str, float]) -> int:
+    def zadd(self, name: str, mapping: dict[str, float]) -> int:
         """Add members to sorted set."""
 
         def _zadd() -> int:
@@ -545,19 +540,19 @@ class RedisClusterClient:
     def zrangebyscore(
         self,
         name: str,
-        min: Union[float, str],
-        max: Union[float, str],
+        min: float | str,
+        max: float | str,
         withscores: bool = False,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Get members by score range."""
 
-        def _zrangebyscore() -> List[Any]:
+        def _zrangebyscore() -> list[Any]:
             client = self.get_client()
             return client.zrangebyscore(name, min, max, withscores=withscores)
 
         return self._execute_with_retry(_zrangebyscore)
 
-    def zremrangebyscore(self, name: str, min: Union[float, str], max: Union[float, str]) -> int:
+    def zremrangebyscore(self, name: str, min: float | str, max: float | str) -> int:
         """Remove members by score range."""
 
         def _zremrangebyscore() -> int:
@@ -585,7 +580,7 @@ class RedisClusterClient:
     # Cluster-specific Operations
     # ==========================================================================
 
-    def get_cluster_info(self) -> Dict[str, Any]:
+    def get_cluster_info(self) -> dict[str, Any]:
         """Get cluster information (cluster mode only)."""
         if not self._is_cluster:
             return {"mode": "standalone", "cluster": False}
@@ -654,10 +649,10 @@ class RedisClusterClient:
             logger.warning(f"Unexpected error during Redis ping: {type(e).__name__}: {e}")
             return False
 
-    def info(self, section: Optional[str] = None) -> Dict[str, Any]:
+    def info(self, section: str | None = None) -> dict[str, Any]:
         """Get server information."""
 
-        def _info() -> Dict[str, Any]:
+        def _info() -> dict[str, Any]:
             client = self.get_client()
             if client is None:
                 raise RuntimeError("Redis client not available")
@@ -676,10 +671,10 @@ class RedisClusterClient:
 
         return self._execute_with_retry(_execute)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get connection statistics."""
         client = self.get_client()
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "available": self._available,
             "is_cluster": self._is_cluster,
             "healthy": self._health_monitor.is_healthy,
@@ -714,16 +709,14 @@ class RedisClusterClient:
                     self._client = None
                     self._available = False
 
-
 # =============================================================================
 # Module-level singleton
 # =============================================================================
 
-_cluster_client: Optional[RedisClusterClient] = None
+_cluster_client: RedisClusterClient | None = None
 _lock = threading.Lock()
 
-
-def get_cluster_client() -> Optional[RedisClusterClient]:
+def get_cluster_client() -> RedisClusterClient | None:
     """Get shared cluster client instance (thread-safe singleton)."""
     global _cluster_client
 
@@ -741,7 +734,6 @@ def get_cluster_client() -> Optional[RedisClusterClient]:
                 logger.debug("No Redis nodes configured, cluster client disabled")
         return _cluster_client
 
-
 def reset_cluster_client() -> None:
     """Reset cluster client (for testing)."""
     global _cluster_client
@@ -751,12 +743,10 @@ def reset_cluster_client() -> None:
             _cluster_client.close()
             _cluster_client = None
 
-
 def is_cluster_available() -> bool:
     """Check if cluster client is available."""
     client = get_cluster_client()
     return client is not None and client.is_available
-
 
 __all__ = [
     "ClusterConfig",

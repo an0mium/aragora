@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,6 @@ SLA_TARGETS = {
     "pro": {"rto": 4 * 3600, "rpo": 1 * 3600},
     "enterprise": {"rto": 1 * 3600, "rpo": 15 * 60},
 }
-
 
 def _init_metrics() -> None:
     """Initialize Prometheus metrics lazily."""
@@ -164,15 +163,14 @@ def _init_metrics() -> None:
             "Install with: pip install prometheus-client"
         )
 
-
 @dataclass
 class BackupMetrics:
     """Current backup metrics snapshot."""
 
-    last_backup_timestamp: Optional[float] = None
-    backup_age_seconds: Optional[float] = None
-    last_backup_size_bytes: Optional[int] = None
-    last_restore_duration: Optional[float] = None
+    last_backup_timestamp: float | None = None
+    backup_age_seconds: float | None = None
+    last_backup_size_bytes: int | None = None
+    last_restore_duration: float | None = None
     rpo_compliant: dict[str, bool] = None  # type: ignore[assignment]  # Initialized in __post_init__
     rto_compliant: dict[str, bool] = None  # type: ignore[assignment]  # Initialized in __post_init__
 
@@ -182,12 +180,10 @@ class BackupMetrics:
         if self.rto_compliant is None:
             self.rto_compliant = {}
 
-
 # In-memory state for metrics (used when prometheus_client not available)
-_last_backup_timestamp: Optional[float] = None
-_last_backup_size: Optional[int] = None
-_last_restore_duration: Optional[float] = None
-
+_last_backup_timestamp: float | None = None
+_last_backup_size: int | None = None
+_last_restore_duration: float | None = None
 
 def record_backup_created(
     size_bytes: int,
@@ -229,8 +225,7 @@ def record_backup_created(
         f"Backup created: type={backup_type}, size={size_bytes}, duration={duration_seconds:.2f}s"
     )
 
-
-def record_backup_verified(success: bool, failure_type: Optional[str] = None) -> None:
+def record_backup_verified(success: bool, failure_type: str | None = None) -> None:
     """Record a backup verification result.
 
     Args:
@@ -246,11 +241,10 @@ def record_backup_verified(success: bool, failure_type: Optional[str] = None) ->
     if not success and failure_type and BACKUP_VERIFICATION_FAILURES is not None:
         BACKUP_VERIFICATION_FAILURES.labels(failure_type=failure_type).inc()
 
-
 def record_restore_completed(
     duration_seconds: float,
     success: bool,
-    failure_type: Optional[str] = None,
+    failure_type: str | None = None,
 ) -> None:
     """Record a restore operation result.
 
@@ -279,8 +273,7 @@ def record_restore_completed(
 
     logger.info(f"Restore completed: success={success}, duration={duration_seconds:.2f}s")
 
-
-def update_backup_age() -> Optional[float]:
+def update_backup_age() -> float | None:
     """Update and return the current backup age in seconds.
 
     Returns:
@@ -300,8 +293,7 @@ def update_backup_age() -> Optional[float]:
 
     return age
 
-
-def get_backup_age_seconds() -> Optional[float]:
+def get_backup_age_seconds() -> float | None:
     """Get the current backup age in seconds.
 
     Returns:
@@ -310,7 +302,6 @@ def get_backup_age_seconds() -> Optional[float]:
     if _last_backup_timestamp is None:
         return None
     return time.time() - _last_backup_timestamp
-
 
 def get_current_metrics() -> BackupMetrics:
     """Get current backup metrics snapshot.
@@ -343,7 +334,6 @@ def get_current_metrics() -> BackupMetrics:
         rto_compliant=rto_compliant,
     )
 
-
 def _update_compliance_status() -> None:
     """Update RPO and RTO compliance gauges."""
     if RPO_COMPLIANCE is None or RTO_COMPLIANCE is None:
@@ -366,7 +356,6 @@ def _update_compliance_status() -> None:
             rto_ok = 1  # Not tested = assume compliant
         RTO_COMPLIANCE.labels(tier=tier).set(rto_ok)
 
-
 def check_rpo_breach(tier: str = "pro") -> bool:
     """Check if RPO is breached for a given tier.
 
@@ -385,7 +374,6 @@ def check_rpo_breach(tier: str = "pro") -> bool:
 
     return backup_age > SLA_TARGETS[tier]["rpo"]
 
-
 def check_rto_breach(tier: str = "pro") -> bool:
     """Check if RTO is breached for a given tier.
 
@@ -402,7 +390,6 @@ def check_rto_breach(tier: str = "pro") -> bool:
         return False  # No restore = not breached
 
     return _last_restore_duration > SLA_TARGETS[tier]["rto"]
-
 
 # Alerting helpers
 def get_alerts() -> list[dict]:
@@ -439,7 +426,6 @@ def get_alerts() -> list[dict]:
                 break  # Only report most severe breach
 
     return alerts
-
 
 __all__ = [
     "record_backup_created",

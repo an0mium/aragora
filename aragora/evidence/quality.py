@@ -8,13 +8,14 @@ Provides comprehensive quality scoring for evidence snippets including:
 - Authority scoring (source trustworthiness)
 - Overall quality score (weighted combination)
 """
+from __future__ import annotations
 
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.evidence.metadata import EnrichedMetadata, SourceType
 
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
     from aragora.memory.embeddings import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
-
 
 class QualityTier(str, Enum):
     """Quality tier classification for evidence."""
@@ -46,7 +46,6 @@ class QualityTier(str, Enum):
             return cls.POOR
         else:
             return cls.UNRELIABLE
-
 
 @dataclass
 class QualityScores:
@@ -92,7 +91,7 @@ class QualityScores:
         """Get the quality tier based on overall score."""
         return QualityTier.from_score(self.overall_score)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "relevance_score": self.relevance_score,
@@ -115,7 +114,7 @@ class QualityScores:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "QualityScores":
+    def from_dict(cls, data: dict[str, Any]) -> "QualityScores":
         """Create from dictionary."""
         weights = data.get("weights", {})
         return cls(
@@ -133,20 +132,18 @@ class QualityScores:
             consistency_weight=weights.get("consistency", 0.10),
         )
 
-
 @dataclass
 class QualityContext:
     """Context for quality scoring."""
 
     query: str = ""  # The original query/topic
-    keywords: List[str] = field(default_factory=list)  # Keywords to match
-    required_topics: Set[str] = field(default_factory=set)  # Must-have topics
-    preferred_sources: Set[str] = field(default_factory=set)  # Preferred sources
-    blocked_sources: Set[str] = field(default_factory=set)  # Sources to penalize
+    keywords: list[str] = field(default_factory=list)  # Keywords to match
+    required_topics: set[str] = field(default_factory=set)  # Must-have topics
+    preferred_sources: set[str] = field(default_factory=set)  # Preferred sources
+    blocked_sources: set[str] = field(default_factory=set)  # Sources to penalize
     max_age_days: int = 365  # Maximum age for freshness
     min_word_count: int = 50  # Minimum content length
     require_citations: bool = False  # Require citations for high score
-
 
 class QualityScorer:
     """Scores evidence quality based on multiple dimensions."""
@@ -190,7 +187,7 @@ class QualityScorer:
 
     def __init__(
         self,
-        default_context: Optional[QualityContext] = None,
+        default_context: QualityContext | None = None,
         embedding_provider: Optional["EmbeddingProvider"] = None,
     ):
         """Initialize the quality scorer.
@@ -202,7 +199,7 @@ class QualityScorer:
         """
         self.default_context = default_context or QualityContext()
         self._embedding_provider = embedding_provider
-        self._query_embedding_cache: Dict[str, List[float]] = {}
+        self._query_embedding_cache: dict[str, list[float]] = {}
 
     def set_embedding_provider(self, provider: "EmbeddingProvider") -> None:
         """Set or update the embedding provider for semantic scoring."""
@@ -212,11 +209,11 @@ class QualityScorer:
     def score(
         self,
         content: str,
-        metadata: Optional[EnrichedMetadata] = None,
-        context: Optional[QualityContext] = None,
-        url: Optional[str] = None,
-        source: Optional[str] = None,
-        fetched_at: Optional[datetime] = None,
+        metadata: EnrichedMetadata | None = None,
+        context: QualityContext | None = None,
+        url: str | None = None,
+        source: str | None = None,
+        fetched_at: datetime | None = None,
     ) -> QualityScores:
         """Score evidence quality (synchronous, without semantic scoring).
 
@@ -264,11 +261,11 @@ class QualityScorer:
     async def score_with_semantic(
         self,
         content: str,
-        metadata: Optional[EnrichedMetadata] = None,
-        context: Optional[QualityContext] = None,
-        url: Optional[str] = None,
-        source: Optional[str] = None,
-        fetched_at: Optional[datetime] = None,
+        metadata: EnrichedMetadata | None = None,
+        context: QualityContext | None = None,
+        url: str | None = None,
+        source: str | None = None,
+        fetched_at: datetime | None = None,
     ) -> QualityScores:
         """Score evidence quality with semantic similarity scoring.
 
@@ -342,9 +339,9 @@ class QualityScorer:
 
     async def score_batch_with_semantic(
         self,
-        evidence_list: List[Any],
-        context: Optional[QualityContext] = None,
-    ) -> List[QualityScores]:
+        evidence_list: list[Any],
+        context: QualityContext | None = None,
+    ) -> list[QualityScores]:
         """Score multiple evidence items with semantic similarity.
 
         Optimized for batch processing with parallel embedding computation.
@@ -432,8 +429,8 @@ class QualityScorer:
 
     def _score_freshness(
         self,
-        fetched_at: Optional[datetime],
-        published_at: Optional[datetime],
+        fetched_at: datetime | None,
+        published_at: datetime | None,
         max_age_days: int,
     ) -> float:
         """Score temporal freshness."""
@@ -465,10 +462,10 @@ class QualityScorer:
 
     def _score_authority(
         self,
-        source_type: Optional[SourceType],
-        url: Optional[str],
-        source: Optional[str],
-        provenance: Optional[Any],  # Provenance
+        source_type: SourceType | None,
+        url: str | None,
+        source: str | None,
+        provenance: Any | None,  # Provenance
         context: QualityContext,
     ) -> float:
         """Score source authority and trustworthiness."""
@@ -515,7 +512,7 @@ class QualityScorer:
     def _score_completeness(
         self,
         content: str,
-        metadata: Optional[EnrichedMetadata],
+        metadata: EnrichedMetadata | None,
         context: QualityContext,
     ) -> float:
         """Score content completeness."""
@@ -610,13 +607,12 @@ class QualityScorer:
 
         return max(0.3, min(1.0, score))
 
-
 class QualityFilter:
     """Filter evidence based on quality thresholds."""
 
     def __init__(
         self,
-        scorer: Optional[QualityScorer] = None,
+        scorer: QualityScorer | None = None,
         min_overall_score: float = 0.5,
         min_relevance_score: float = 0.3,
         min_authority_score: float = 0.3,
@@ -636,9 +632,9 @@ class QualityFilter:
 
     def filter(
         self,
-        evidence_list: List[Any],  # List of EvidenceSnippet
-        context: Optional[QualityContext] = None,
-    ) -> List[Any]:
+        evidence_list: list[Any],  # List of EvidenceSnippet
+        context: QualityContext | None = None,
+    ) -> list[Any]:
         """Filter evidence by quality.
 
         Args:
@@ -670,10 +666,10 @@ class QualityFilter:
 
     def rank(
         self,
-        evidence_list: List[Any],
-        context: Optional[QualityContext] = None,
-        top_k: Optional[int] = None,
-    ) -> List[tuple]:
+        evidence_list: list[Any],
+        context: QualityContext | None = None,
+        top_k: int | None = None,
+    ) -> list[tuple]:
         """Rank evidence by quality score.
 
         Args:
@@ -704,12 +700,11 @@ class QualityFilter:
 
         return scored
 
-
 def score_evidence_snippet(
     snippet: Any,  # EvidenceSnippet
     query: str = "",
-    keywords: Optional[List[str]] = None,
-    scorer: Optional[QualityScorer] = None,
+    keywords: Optional[list[str]] = None,
+    scorer: QualityScorer | None = None,
 ) -> QualityScores:
     """Convenience function to score an evidence snippet.
 

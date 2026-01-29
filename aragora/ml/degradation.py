@@ -31,7 +31,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, Sequence, TypeVar
+from typing import Any, Sequence, TypeVar
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
 
@@ -44,7 +44,6 @@ LATENCY_WARNING_MS = 500  # Start degradation planning
 LATENCY_DEGRADE_MS = 2000  # Force degradation
 ERROR_RATE_THRESHOLD = 0.20  # 20% error rate triggers degradation
 
-
 class MLFeature(str, Enum):
     """ML features that support graceful degradation."""
 
@@ -55,7 +54,6 @@ class MLFeature(str, Enum):
     SEMANTIC_SEARCH = "semantic_search"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
 
-
 class DegradationLevel(str, Enum):
     """Levels of ML degradation."""
 
@@ -63,7 +61,6 @@ class DegradationLevel(str, Enum):
     LIGHTWEIGHT = "lightweight"  # Use lightweight/local models
     HEURISTIC = "heuristic"  # Use heuristic fallbacks only
     DISABLED = "disabled"  # Feature temporarily disabled
-
 
 @dataclass
 class FeatureStatus:
@@ -96,7 +93,6 @@ class FeatureStatus:
             "reason": self.reason,
         }
 
-
 @dataclass
 class DegradationEvent:
     """Record of a degradation event."""
@@ -107,7 +103,6 @@ class DegradationEvent:
     timestamp: float
     reason: str
     metrics: dict[str, Any] = field(default_factory=dict)
-
 
 class MLDegradationManager:
     """
@@ -266,21 +261,17 @@ class MLDegradationManager:
             ],
         }
 
-
 # ============================================================================
 # Heuristic Fallback Implementations
 # ============================================================================
-
 
 def _tokenize(text: str) -> list[str]:
     """Simple word tokenization."""
     return re.findall(r"\b\w+\b", text.lower())
 
-
 def _get_word_counts(text: str) -> Counter:
     """Get word frequency counts."""
     return Counter(_tokenize(text))
-
 
 def heuristic_similarity(text1: str, text2: str) -> float:
     """
@@ -303,7 +294,6 @@ def heuristic_similarity(text1: str, text2: str) -> float:
     union = len(words1 | words2)
 
     return intersection / union
-
 
 def heuristic_tfidf_similarity(text1: str, text2: str) -> float:
     """
@@ -336,7 +326,6 @@ def heuristic_tfidf_similarity(text1: str, text2: str) -> float:
         return 0.0
 
     return dot_product / (norm1 * norm2)
-
 
 def heuristic_consensus_prediction(
     responses: Sequence[str],
@@ -392,7 +381,6 @@ def heuristic_consensus_prediction(
         "key_factors": ["heuristic_similarity", f"avg_sim={avg_similarity:.2f}"],
         "estimated_rounds": 3 if probability > 0.7 else 5,
     }
-
 
 def heuristic_quality_score(text: str) -> float:
     """
@@ -450,7 +438,6 @@ def heuristic_quality_score(text: str) -> float:
     )
 
     return round(score, 3)
-
 
 def heuristic_sentiment(text: str) -> dict[str, Any]:
     """
@@ -530,11 +517,9 @@ def heuristic_sentiment(text: str) -> dict[str, Any]:
         },
     }
 
-
 # ============================================================================
 # Fallback Service
 # ============================================================================
-
 
 class MLFallbackService:
     """
@@ -543,7 +528,7 @@ class MLFallbackService:
     Attempts ML operations first, falls back to heuristics on failure.
     """
 
-    def __init__(self, manager: Optional[MLDegradationManager] = None):
+    def __init__(self, manager: MLDegradationManager | None = None):
         self._manager = manager or _global_manager
         self._embedding_service = None
         self._consensus_predictor = None
@@ -710,14 +695,12 @@ class MLFallbackService:
         """Get degradation status."""
         return self._manager.get_status()
 
-
 # ============================================================================
 # Global Instances
 # ============================================================================
 
 _global_manager: MLDegradationManager | None = None
 _global_fallback: MLFallbackService | None = None
-
 
 def get_ml_manager() -> MLDegradationManager:
     """Get or create global degradation manager."""
@@ -726,14 +709,12 @@ def get_ml_manager() -> MLDegradationManager:
         _global_manager = MLDegradationManager()
     return _global_manager
 
-
 def get_ml_fallback() -> MLFallbackService:
     """Get or create global fallback service."""
     global _global_fallback
     if _global_fallback is None:
         _global_fallback = MLFallbackService(get_ml_manager())
     return _global_fallback
-
 
 def force_degradation(
     feature: MLFeature,
@@ -743,13 +724,11 @@ def force_degradation(
     """Force degradation of a feature (for testing or emergency)."""
     get_ml_manager().set_level(feature, level, reason)
 
-
 def reset_degradation() -> None:
     """Reset all features to full ML (for testing)."""
     manager = get_ml_manager()
     for feature in MLFeature:
         manager.set_level(feature, DegradationLevel.FULL, "reset")
-
 
 __all__ = [
     "MLFeature",

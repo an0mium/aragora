@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Optional, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 from aragora.resilience import CircuitBreaker, CircuitOpenError, get_circuit_breaker
 
@@ -36,14 +36,12 @@ DLQ_DB_PATH = os.getenv("ARAGORA_DLQ_DB_PATH", ".data/dlq.db")
 DLQ_MAX_RETRIES = int(os.getenv("ARAGORA_DLQ_MAX_RETRIES", "5"))
 DLQ_RETENTION_HOURS = float(os.getenv("ARAGORA_DLQ_RETENTION_HOURS", "168"))  # 7 days
 
-
 class PlatformStatus(Enum):
     """Platform health status."""
 
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNAVAILABLE = "unavailable"
-
 
 @dataclass
 class PlatformHealth:
@@ -55,10 +53,9 @@ class PlatformHealth:
     success_rate: float  # 0.0 - 1.0
     avg_latency_ms: float
     error_count: int
-    last_success_at: Optional[float] = None
-    last_error_at: Optional[float] = None
-    last_error_message: Optional[str] = None
-
+    last_success_at: float | None = None
+    last_error_at: float | None = None
+    last_error_message: str | None = None
 
 @dataclass
 class PlatformCircuitBreaker:
@@ -157,11 +154,9 @@ class PlatformCircuitBreaker:
             self._latencies.clear()
         self._circuit.reset()
 
-
 # Global platform circuit breakers registry
 _platform_circuits: dict[str, PlatformCircuitBreaker] = {}
 _platform_circuits_lock = threading.Lock()
-
 
 def get_platform_circuit(
     platform: str,
@@ -178,12 +173,10 @@ def get_platform_circuit(
             )
         return _platform_circuits[platform]
 
-
 def get_all_platform_health() -> dict[str, PlatformHealth]:
     """Get health status for all tracked platforms."""
     with _platform_circuits_lock:
         return {name: circuit.get_health() for name, circuit in _platform_circuits.items()}
-
 
 class PlatformResilience:
     """Aggregated platform resilience manager.
@@ -222,11 +215,9 @@ class PlatformResilience:
             ),
         }
 
-
 # Global singleton
-_platform_resilience: Optional[PlatformResilience] = None
+_platform_resilience: PlatformResilience | None = None
 _platform_resilience_lock = threading.Lock()
-
 
 def get_platform_resilience() -> PlatformResilience:
     """Get the global platform resilience manager."""
@@ -236,11 +227,9 @@ def get_platform_resilience() -> PlatformResilience:
             _platform_resilience = PlatformResilience()
         return _platform_resilience
 
-
 # =============================================================================
 # Dead Letter Queue for Failed Messages
 # =============================================================================
-
 
 @dataclass
 class DeadLetterMessage:
@@ -253,10 +242,9 @@ class DeadLetterMessage:
     error_message: str
     retry_count: int
     created_at: float
-    last_retry_at: Optional[float] = None
-    next_retry_at: Optional[float] = None
-    metadata: Optional[str] = None  # JSON for additional context
-
+    last_retry_at: float | None = None
+    next_retry_at: float | None = None
+    metadata: str | None = None  # JSON for additional context
 
 class DeadLetterQueue:
     """SQLite-backed dead letter queue for failed message delivery.
@@ -322,7 +310,7 @@ class DeadLetterQueue:
         destination: str,
         payload: dict | str,
         error_message: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> str:
         """Add a failed message to the dead letter queue.
 
@@ -375,7 +363,7 @@ class DeadLetterQueue:
             return ""
 
     def get_pending(
-        self, platform: Optional[str] = None, limit: int = 100
+        self, platform: str | None = None, limit: int = 100
     ) -> list[DeadLetterMessage]:
         """Get messages ready for retry."""
         self._ensure_initialized()
@@ -568,16 +556,13 @@ class DeadLetterQueue:
             logger.error(f"Failed to get DLQ stats: {e}")
             return {"total": 0, "by_status": {}, "by_platform": {}, "error": str(e)}
 
-
 # Global DLQ instance
-_dlq: Optional[DeadLetterQueue] = None
+_dlq: DeadLetterQueue | None = None
 _dlq_lock = threading.Lock()
-
 
 def get_dlq() -> DeadLetterQueue:
     """Alias for get_dead_letter_queue()."""
     return get_dead_letter_queue()
-
 
 def get_dead_letter_queue() -> DeadLetterQueue:
     """Get the global dead letter queue instance."""
@@ -588,15 +573,13 @@ def get_dead_letter_queue() -> DeadLetterQueue:
                 _dlq = DeadLetterQueue()
     return _dlq
 
-
 # =============================================================================
 # Bot Command Timeout Wrapper
 # =============================================================================
 
-
 def with_timeout(
     timeout_seconds: float = 25.0,  # Telegram has 30s limit, leave margin
-    fallback_response: Optional[str] = None,
+    fallback_response: str | None = None,
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T | str]]]:
     """Decorator to wrap async bot command handlers with timeout.
 
@@ -628,7 +611,6 @@ def with_timeout(
         return wrapper
 
     return decorator
-
 
 def with_platform_resilience(
     platform: str,
@@ -706,7 +688,6 @@ def with_platform_resilience(
 
     return decorator
 
-
 # =============================================================================
 # Metrics
 # =============================================================================
@@ -714,13 +695,12 @@ def with_platform_resilience(
 # Metrics will be collected via the existing observability infrastructure
 # These helper functions make it easy to record platform-specific metrics
 
-
 def record_platform_request(
     platform: str,
     operation: str,
     success: bool,
     latency_ms: float,
-    error_type: Optional[str] = None,
+    error_type: str | None = None,
 ) -> None:
     """Record a platform request for metrics.
 
@@ -747,7 +727,6 @@ def record_platform_request(
     except ImportError:
         # Metrics not available
         pass
-
 
 __all__ = [
     # Circuit breakers

@@ -12,6 +12,7 @@ Note: Core components are now in submodules for better organization:
 - aragora.server.stream.state_manager - DebateStateManager, BoundedDebateDict
 - aragora.server.stream.arena_hooks - create_arena_hooks, wrap_agent_for_streaming
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -22,7 +23,7 @@ import secrets
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import aiohttp.web
@@ -78,15 +79,12 @@ _debate_executor_lock = get_debate_executor_lock()
 # TTL for completed debates (24 hours)
 _DEBATE_TTL_SECONDS = 86400
 
-
 def _cleanup_stale_debates_stream() -> None:
     """Remove completed/errored debates older than TTL."""
     cleanup_stale_debates()
 
-
 # Backward compatibility alias - use wrap_agent_for_streaming from arena_hooks
 _wrap_agent_for_streaming = wrap_agent_for_streaming
-
 
 # Centralized CORS configuration
 # Import WebSocket config from centralized location
@@ -158,7 +156,6 @@ WS_TOKEN_REVALIDATION_INTERVAL = 300.0
 # Maximum connections per IP (concurrent)
 WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 
-
 # =============================================================================
 # NOTE: Core streaming classes are now in submodules for better organization:
 # - StreamEventType, StreamEvent, AudienceMessage -> aragora.server.stream.events
@@ -172,11 +169,9 @@ WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 
 # Import DebateStreamServer from its dedicated module for backward compatibility
 
-
 # =============================================================================
 # Unified HTTP + WebSocket Server (aiohttp-based)
 # =============================================================================
-
 
 class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[misc,override]
     """
@@ -197,7 +192,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         self,
         port: int = 8080,
         host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
-        nomic_dir: Optional[Path] = None,
+        nomic_dir: Path | None = None,
     ):
         # Initialize base class with common functionality
         super().__init__()
@@ -207,7 +202,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         self.nomic_dir = nomic_dir
 
         # ArgumentCartographer registry - Lock hierarchy level 4 (acquire last)
-        self.cartographers: Dict[str, Any] = {}
+        self.cartographers: dict[str, Any] = {}
         self._cartographers_lock = threading.Lock()
 
         # Optional stores (initialized from nomic_dir)
@@ -231,7 +226,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         self._voice_handler = VoiceStreamHandler(self)
 
         # Stop event for graceful shutdown
-        self._stop_event: Optional[asyncio.Event] = None
+        self._stop_event: asyncio.Event | None = None
 
         # Wire TTS integration to voice handler
         self._wire_tts_integration()
@@ -411,7 +406,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         )
 
     def update_loop_state(
-        self, loop_id: str, cycle: Optional[int] = None, phase: Optional[str] = None
+        self, loop_id: str, cycle: int | None = None, phase: str | None = None
     ) -> None:
         """Update loop state (cycle/phase)."""
         with self._active_loops_lock:
@@ -446,7 +441,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 for loop in self.active_loops.values()
             ]
 
-    def _cors_headers(self, origin: Optional[str] = None) -> dict:
+    def _cors_headers(self, origin: str | None = None) -> dict:
         """Generate CORS headers with proper origin validation.
 
         Only allows origins in the whitelist. Does NOT fallback to first
@@ -467,7 +462,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # For unauthorized origins, don't add Allow-Origin (browser will block)
         return headers
 
-    async def _check_usage_limit(self, headers: dict[str, Any]) -> Optional[dict[str, Any]]:
+    async def _check_usage_limit(self, headers: dict[str, Any]) -> dict[str, Any] | None:
         """Check if user has remaining debate quota.
 
         Returns None if within limits, or error dict if limit exceeded.
@@ -545,7 +540,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
     # - _fetch_trending_topic_async() -> debate_executor.fetch_trending_topic_async()
     # - _execute_debate_thread() -> debate_executor.execute_debate_thread()
 
-    async def _fetch_trending_topic_async(self, category: Optional[str] = None) -> Optional[Any]:
+    async def _fetch_trending_topic_async(self, category: str | None = None) -> Any | None:
         """Fetch a trending topic for the debate. Delegates to debate_executor."""
         return await fetch_trending_topic_async(category)
 
@@ -556,7 +551,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         agents_str: str,
         rounds: int,
         consensus: str,
-        trending_topic: Optional[Any],
+        trending_topic: Any | None,
         user_id: str = "",
         org_id: str = "",
     ) -> None:
@@ -739,7 +734,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             headers=self._cors_headers(origin),
         )
 
-    def _validate_audience_payload(self, data: dict) -> tuple[Optional[dict], Optional[str]]:
+    def _validate_audience_payload(self, data: dict) -> tuple[dict | None, str | None]:
         """Validate audience message payload.
 
         Returns:
@@ -763,7 +758,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         self,
         ws_id: int,
         ws: Any,
-    ) -> tuple[bool, Optional[dict]]:
+    ) -> tuple[bool, dict | None]:
         """Validate WebSocket authentication for write operations.
 
         Returns:
@@ -805,7 +800,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         self,
         ws_id: int,
         loop_id: str,
-    ) -> tuple[bool, Optional[dict]]:
+    ) -> tuple[bool, dict | None]:
         """Validate loop_id exists and client has access.
 
         Returns:
@@ -840,7 +835,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
     def _check_audience_rate_limit(
         self,
         client_id: str,
-    ) -> tuple[bool, Optional[dict]]:
+    ) -> tuple[bool, dict | None]:
         """Check rate limit for audience messages.
 
         Returns:

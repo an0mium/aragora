@@ -33,7 +33,7 @@ import re
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,6 @@ SLOW_THRESHOLD_MS = float(os.environ.get("ARAGORA_QUERY_SLOW_THRESHOLD_MS", "100
 # Maximum slow queries to retain
 MAX_SLOW_QUERIES = 1000
 
-
 @dataclass
 class QueryPlanIssue:
     """An issue detected in a query plan."""
@@ -53,11 +52,11 @@ class QueryPlanIssue:
     duration_ms: float
     issue: str
     suggestion: str
-    table: Optional[str] = None
-    plan_details: Optional[str] = None
+    table: str | None = None
+    plan_details: str | None = None
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "query": self.query[:200] + "..." if len(self.query) > 200 else self.query,
@@ -68,18 +67,17 @@ class QueryPlanIssue:
             "timestamp": self.timestamp,
         }
 
-
 @dataclass
 class SlowQuery:
     """A slow query record."""
 
     query: str
     duration_ms: float
-    table: Optional[str] = None
+    table: str | None = None
     timestamp: float = field(default_factory=time.time)
-    context: Optional[str] = None
+    context: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "query": self.query[:200] + "..." if len(self.query) > 200 else self.query,
@@ -89,10 +87,8 @@ class SlowQuery:
             "context": self.context,
         }
 
-
 # Global storage for slow queries
-_slow_queries: Deque[SlowQuery] = deque(maxlen=MAX_SLOW_QUERIES)
-
+_slow_queries: deque[SlowQuery] = deque(maxlen=MAX_SLOW_QUERIES)
 
 class QueryPlanAnalyzer:
     """
@@ -133,15 +129,15 @@ class QueryPlanAnalyzer:
         """
         self.slow_threshold_ms = slow_threshold_ms
         self.mode = mode
-        self._issues: List[QueryPlanIssue] = []
+        self._issues: list[QueryPlanIssue] = []
 
     async def analyze(
         self,
         query: str,
         duration_ms: float,
-        connection: Optional[Any] = None,
-        context: Optional[str] = None,
-    ) -> Optional[QueryPlanIssue]:
+        connection: Any | None = None,
+        context: str | None = None,
+    ) -> QueryPlanIssue | None:
         """
         Analyze a query for performance issues.
 
@@ -192,7 +188,7 @@ class QueryPlanAnalyzer:
         self,
         query: str,
         duration_ms: float,
-    ) -> Optional[QueryPlanIssue]:
+    ) -> QueryPlanIssue | None:
         """
         Analyze query pattern for common issues.
 
@@ -266,7 +262,7 @@ class QueryPlanAnalyzer:
         query: str,
         duration_ms: float,
         connection: Any,
-    ) -> Optional[QueryPlanIssue]:
+    ) -> QueryPlanIssue | None:
         """
         Analyze query using EXPLAIN output.
 
@@ -321,7 +317,7 @@ class QueryPlanAnalyzer:
 
         return None
 
-    def _extract_table(self, query: str) -> Optional[str]:
+    def _extract_table(self, query: str) -> str | None:
         """Extract primary table name from query."""
         # Handle SELECT ... FROM table
         match = re.search(r"\bFROM\s+([a-zA-Z_][a-zA-Z0-9_]*)", query, re.IGNORECASE)
@@ -350,7 +346,7 @@ class QueryPlanAnalyzer:
                 f"({issue.duration_ms:.1f}ms) - {issue.suggestion}"
             )
 
-    def get_issues(self) -> List[QueryPlanIssue]:
+    def get_issues(self) -> list[QueryPlanIssue]:
         """Get all recorded issues."""
         return list(self._issues)
 
@@ -358,10 +354,8 @@ class QueryPlanAnalyzer:
         """Clear recorded issues."""
         self._issues.clear()
 
-
 # Global analyzer instance
-_analyzer: Optional[QueryPlanAnalyzer] = None
-
+_analyzer: QueryPlanAnalyzer | None = None
 
 def get_analyzer() -> QueryPlanAnalyzer:
     """Get the global query analyzer."""
@@ -370,13 +364,12 @@ def get_analyzer() -> QueryPlanAnalyzer:
         _analyzer = QueryPlanAnalyzer()
     return _analyzer
 
-
 async def analyze_query(
     query: str,
     duration_ms: float,
-    connection: Optional[Any] = None,
-    context: Optional[str] = None,
-) -> Optional[QueryPlanIssue]:
+    connection: Any | None = None,
+    context: str | None = None,
+) -> QueryPlanIssue | None:
     """
     Analyze a query using the global analyzer.
 
@@ -391,11 +384,10 @@ async def analyze_query(
     """
     return await get_analyzer().analyze(query, duration_ms, connection, context)
 
-
 def get_slow_queries(
-    threshold_ms: Optional[float] = None,
+    threshold_ms: float | None = None,
     limit: int = 100,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Get recent slow queries.
 
@@ -416,19 +408,17 @@ def get_slow_queries(
 
     return [q.to_dict() for q in queries[:limit]]
 
-
 def clear_slow_queries() -> None:
     """Clear the slow query history."""
     _slow_queries.clear()
 
-
-def get_query_analysis_stats() -> Dict[str, Any]:
+def get_query_analysis_stats() -> dict[str, Any]:
     """Get query analysis statistics."""
     analyzer = get_analyzer()
     issues = analyzer.get_issues()
 
     # Group issues by type
-    issue_counts: Dict[str, int] = {}
+    issue_counts: dict[str, int] = {}
     for issue in issues:
         issue_counts[issue.issue] = issue_counts.get(issue.issue, 0) + 1
 
@@ -439,7 +429,6 @@ def get_query_analysis_stats() -> Dict[str, Any]:
         "issue_count": len(issues),
         "issues_by_type": issue_counts,
     }
-
 
 __all__ = [
     "QueryPlanAnalyzer",

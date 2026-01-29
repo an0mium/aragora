@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -76,7 +76,6 @@ IMPORTANT_FILES = {
 # Max file size to index (1MB)
 MAX_FILE_SIZE = 1024 * 1024
 
-
 @dataclass
 class GitHubFile:
     """A file from a GitHub repository."""
@@ -86,8 +85,7 @@ class GitHubFile:
     content: str
     size: int
     url: str
-    last_modified: Optional[datetime] = None
-
+    last_modified: datetime | None = None
 
 @dataclass
 class GitHubCommit:
@@ -97,8 +95,7 @@ class GitHubCommit:
     message: str
     author: str
     date: datetime
-    files_changed: List[str] = field(default_factory=list)
-
+    files_changed: list[str] = field(default_factory=list)
 
 class GitHubEnterpriseConnector(EnterpriseConnector):
     """
@@ -117,12 +114,12 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         self,
         repo: str,  # owner/repo format
         branch: str = "main",
-        token: Optional[str] = None,
+        token: str | None = None,
         include_prs: bool = True,
         include_issues: bool = True,
         include_discussions: bool = False,
-        file_extensions: Optional[Set[str]] = None,
-        exclude_paths: Optional[List[str]] = None,
+        file_extensions: Optional[set[str]] = None,
+        exclude_paths: Optional[list[str]] = None,
         **kwargs,
     ):
         # Validate repo format
@@ -153,8 +150,8 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         ]
 
         # Cache
-        self._file_cache: Dict[str, GitHubFile] = {}
-        self._gh_available: Optional[bool] = None
+        self._file_cache: dict[str, GitHubFile] = {}
+        self._gh_available: bool | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -202,7 +199,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         return self._gh_available
 
-    async def _run_gh(self, args: List[str]) -> Optional[str]:
+    async def _run_gh(self, args: list[str]) -> str | None:
         """Run gh CLI command."""
         if not self._check_gh_cli():
             return None
@@ -223,7 +220,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             logger.warning(f"gh command error: {e}")
             return None
 
-    async def _get_latest_commit(self) -> Optional[str]:
+    async def _get_latest_commit(self) -> str | None:
         """Get the latest commit SHA on the branch."""
         output = await self._run_gh(
             [
@@ -236,8 +233,8 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         return output.strip() if output else None
 
     async def _get_commits_since(
-        self, since_sha: Optional[str], limit: int = 100
-    ) -> List[GitHubCommit]:
+        self, since_sha: str | None, limit: int = 100
+    ) -> list[GitHubCommit]:
         """Get commits since a specific SHA."""
         args = [
             "api",
@@ -285,7 +282,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         return commits
 
-    async def _get_tree(self, sha: str) -> List[Dict[str, Any]]:
+    async def _get_tree(self, sha: str) -> list[dict[str, Any]]:
         """Get file tree for a commit."""
         output = await self._run_gh(
             [
@@ -305,7 +302,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         except json.JSONDecodeError:
             return []
 
-    async def _get_file_content(self, path: str) -> Optional[str]:
+    async def _get_file_content(self, path: str) -> str | None:
         """Get file content from the repository."""
         output = await self._run_gh(
             [
@@ -348,7 +345,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         ext = Path(path).suffix.lower()
         return ext in self.file_extensions
 
-    async def _get_issues(self, state: str = "all", limit: int = 100) -> List[Dict[str, Any]]:
+    async def _get_issues(self, state: str = "all", limit: int = 100) -> list[dict[str, Any]]:
         """Get issues from the repository."""
         output = await self._run_gh(
             [
@@ -372,7 +369,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         except json.JSONDecodeError:
             return []
 
-    async def _get_prs(self, state: str = "all", limit: int = 100) -> List[Dict[str, Any]]:
+    async def _get_prs(self, state: str = "all", limit: int = 100) -> list[dict[str, Any]]:
         """Get PRs from the repository."""
         output = await self._run_gh(
             [
@@ -396,7 +393,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         except json.JSONDecodeError:
             return []
 
-    def _extract_code_elements(self, content: str, path: str) -> List[Dict[str, Any]]:
+    def _extract_code_elements(self, content: str, path: str) -> list[dict[str, Any]]:
         """Extract code elements (functions, classes) from file content."""
         elements = []
         ext = Path(path).suffix.lower()
@@ -408,7 +405,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         return elements
 
-    def _extract_python_elements(self, content: str, path: str) -> List[Dict[str, Any]]:
+    def _extract_python_elements(self, content: str, path: str) -> list[dict[str, Any]]:
         """Extract Python functions and classes using regex (fast, no AST dependency)."""
         elements = []
 
@@ -438,7 +435,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         return elements
 
-    def _extract_js_elements(self, content: str, path: str) -> List[Dict[str, Any]]:
+    def _extract_js_elements(self, content: str, path: str) -> list[dict[str, Any]]:
         """Extract JavaScript/TypeScript functions and classes."""
         elements = []
 
@@ -472,7 +469,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         return elements
 
-    def _extract_dependencies(self, content: str, path: str) -> List[str]:
+    def _extract_dependencies(self, content: str, path: str) -> list[str]:
         """Extract import dependencies from code."""
         dependencies = []
         ext = Path(path).suffix.lower()
@@ -660,7 +657,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         connector = GitHubConnector(repo=self.repo, use_gh_cli=True)
         return await connector.fetch(evidence_id)
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle GitHub webhook for real-time sync."""
         event_type = payload.get("action", "")
 
@@ -682,7 +679,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         return False
 
-    def get_webhook_secret(self) -> Optional[str]:
+    def get_webhook_secret(self) -> str | None:
         """Get GitHub webhook secret from credentials."""
         import asyncio
 

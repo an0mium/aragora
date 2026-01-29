@@ -27,19 +27,18 @@ Usage:
                     (item_id, name)
                 )
 """
+from __future__ import annotations
 
 import logging
 import sqlite3
 from abc import ABC
 from pathlib import Path
-from typing import Optional, Union
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.base_database import BaseDatabase
 from aragora.storage.schema import SchemaManager, safe_add_column
 
 logger = logging.getLogger(__name__)
-
 
 class SQLiteStore(BaseDatabase, ABC):
     """
@@ -97,7 +96,7 @@ class SQLiteStore(BaseDatabase, ABC):
 
     def __init__(
         self,
-        db_path: Union[str, Path],
+        db_path: str | Path,
         timeout: float = DB_TIMEOUT_SECONDS,
         auto_init: bool = True,
     ):
@@ -254,7 +253,7 @@ class SQLiteStore(BaseDatabase, ABC):
         table: str,
         column: str,
         col_type: str,
-        default: Optional[str] = None,
+        default: str | None = None,
     ) -> None:
         """Safely add a column if it doesn't exist.
 
@@ -316,6 +315,5 @@ class SQLiteStore(BaseDatabase, ABC):
             }
             for row in rows
         ]
-
 
 __all__ = ["SQLiteStore"]

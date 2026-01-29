@@ -7,17 +7,14 @@ that configure the appropriate backend based on environment variables.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from .sqlite_store import UserStore
 from .postgres_store import PostgresUserStore
 
 # Singleton instance for global access
-_user_store_instance: Optional[UserStore] = None
-_postgres_user_store_instance: Optional[PostgresUserStore] = None
+_user_store_instance: UserStore | None = None
+_postgres_user_store_instance: PostgresUserStore | None = None
 
-
-def get_user_store() -> Optional[UserStore | PostgresUserStore]:
+def get_user_store() -> UserStore | PostgresUserStore | None:
     """
     Get or create the user store.
 
@@ -63,7 +60,6 @@ def get_user_store() -> Optional[UserStore | PostgresUserStore]:
 
     return store
 
-
 def set_user_store(store: UserStore | PostgresUserStore) -> None:
     """Set the global UserStore singleton instance."""
     global _user_store_instance, _postgres_user_store_instance
@@ -71,7 +67,6 @@ def set_user_store(store: UserStore | PostgresUserStore) -> None:
         _postgres_user_store_instance = store
     else:
         _user_store_instance = store
-
 
 def reset_user_store() -> None:
     """Reset the global user store (for testing)."""

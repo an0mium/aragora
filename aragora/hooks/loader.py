@@ -28,7 +28,6 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-
 class HookConfigLoader:
     """
     Loads and manages hook configurations from YAML files.
@@ -181,7 +180,7 @@ class HookConfigLoader:
             logger.error(f"YAML parse error from {source}: {e}")
             return []
 
-    def get_config(self, name: str) -> Optional[HookConfig]:
+    def get_config(self, name: str) -> HookConfig | None:
         """Get a hook configuration by name."""
         return self._configs.get(name)
 
@@ -238,7 +237,7 @@ class HookConfigLoader:
     def apply_to_manager(
         self,
         manager: "HookManager",
-        configs: Optional[list[HookConfig]] = None,
+        configs: list[HookConfig] | None = None,
     ) -> int:
         """
         Apply hook configurations to a HookManager.
@@ -449,10 +448,8 @@ class HookConfigLoader:
 
         return errors
 
-
 # Global loader singleton
-_hook_loader: Optional[HookConfigLoader] = None
-
+_hook_loader: HookConfigLoader | None = None
 
 def get_hook_loader() -> HookConfigLoader:
     """
@@ -465,7 +462,6 @@ def get_hook_loader() -> HookConfigLoader:
     if _hook_loader is None:
         _hook_loader = HookConfigLoader()
     return _hook_loader
-
 
 def setup_arena_hooks(
     hook_manager: "HookManager",
@@ -530,7 +526,6 @@ def setup_arena_hooks(
     )
 
     return registered
-
 
 def setup_arena_hooks_from_config(
     hook_manager: "HookManager",

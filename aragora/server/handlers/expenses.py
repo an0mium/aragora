@@ -32,7 +32,7 @@ import binascii
 import logging
 import threading
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -45,9 +45,8 @@ from aragora.server.handlers.base import (
 logger = logging.getLogger(__name__)
 
 # Thread-safe service instance
-_expense_tracker: Optional[Any] = None
+_expense_tracker: Any | None = None
 _expense_tracker_lock = threading.Lock()
-
 
 def get_expense_tracker():
     """Get or create expense tracker (thread-safe singleton)."""
@@ -62,15 +61,13 @@ def get_expense_tracker():
             _expense_tracker = ExpenseTracker()
         return _expense_tracker
 
-
 # =============================================================================
 # Receipt Upload and Processing
 # =============================================================================
 
-
 @require_permission("expenses:write")
 async def handle_upload_receipt(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -126,15 +123,13 @@ async def handle_upload_receipt(
         logger.exception("Error processing receipt")
         return error_response(f"Failed to process receipt: {e}", status=500)
 
-
 # =============================================================================
 # Expense CRUD Operations
 # =============================================================================
 
-
 @require_permission("expenses:write")
 async def handle_create_expense(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -223,10 +218,9 @@ async def handle_create_expense(
         logger.exception("Error creating expense")
         return error_response(f"Failed to create expense: {e}", status=500)
 
-
 @require_permission("expenses:read")
 async def handle_list_expenses(
-    query_params: Dict[str, Any],
+    query_params: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -308,7 +302,6 @@ async def handle_list_expenses(
         logger.exception("Error listing expenses")
         return error_response(f"Failed to list expenses: {e}", status=500)
 
-
 @require_permission("expenses:read")
 async def handle_get_expense(
     expense_id: str,
@@ -332,11 +325,10 @@ async def handle_get_expense(
         logger.exception("Error getting expense")
         return error_response(f"Failed to get expense: {e}", status=500)
 
-
 @require_permission("expenses:write")
 async def handle_update_expense(
     expense_id: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -400,7 +392,6 @@ async def handle_update_expense(
         logger.exception("Error updating expense")
         return error_response(f"Failed to update expense: {e}", status=500)
 
-
 @require_permission("admin:audit")
 async def handle_delete_expense(
     expense_id: str,
@@ -424,11 +415,9 @@ async def handle_delete_expense(
         logger.exception("Error deleting expense")
         return error_response(f"Failed to delete expense: {e}", status=500)
 
-
 # =============================================================================
 # Approval Workflow
 # =============================================================================
-
 
 @require_permission("expenses:approve")
 async def handle_approve_expense(
@@ -458,11 +447,10 @@ async def handle_approve_expense(
         logger.exception("Error approving expense")
         return error_response(f"Failed to approve expense: {e}", status=500)
 
-
 @require_permission("expenses:approve")
 async def handle_reject_expense(
     expense_id: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -492,7 +480,6 @@ async def handle_reject_expense(
         logger.exception("Error rejecting expense")
         return error_response(f"Failed to reject expense: {e}", status=500)
 
-
 @require_permission("expenses:read")
 async def handle_get_pending_approvals(
     user_id: str = "default",
@@ -518,15 +505,13 @@ async def handle_get_pending_approvals(
         logger.exception("Error getting pending approvals")
         return error_response(f"Failed to get pending approvals: {e}", status=500)
 
-
 # =============================================================================
 # Categorization
 # =============================================================================
 
-
 @require_permission("expenses:write")
 async def handle_categorize_expenses(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -563,15 +548,13 @@ async def handle_categorize_expenses(
         logger.exception("Error categorizing expenses")
         return error_response(f"Failed to categorize expenses: {e}", status=500)
 
-
 # =============================================================================
 # QBO Sync
 # =============================================================================
 
-
 @require_permission("finance:write")
 async def handle_sync_to_qbo(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -607,15 +590,13 @@ async def handle_sync_to_qbo(
         logger.exception("Error syncing to QBO")
         return error_response(f"Failed to sync to QBO: {e}", status=500)
 
-
 # =============================================================================
 # Statistics and Export
 # =============================================================================
 
-
 @require_permission("expenses:read")
 async def handle_get_expense_stats(
-    query_params: Dict[str, Any],
+    query_params: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -659,10 +640,9 @@ async def handle_get_expense_stats(
         logger.exception("Error getting expense stats")
         return error_response(f"Failed to get expense stats: {e}", status=500)
 
-
 @require_permission("admin:audit")
 async def handle_export_expenses(
-    query_params: Dict[str, Any],
+    query_params: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -714,11 +694,9 @@ async def handle_export_expenses(
         logger.exception("Error exporting expenses")
         return error_response(f"Failed to export expenses: {e}", status=500)
 
-
 # =============================================================================
 # Handler Class for Router Registration
 # =============================================================================
-
 
 class ExpenseHandler(BaseHandler):
     """Handler for expense-related routes."""
@@ -771,7 +749,7 @@ class ExpenseHandler(BaseHandler):
 
         return True
 
-    def _extract_expense_id(self, path: str) -> Optional[str]:
+    def _extract_expense_id(self, path: str) -> str | None:
         """Extract expense_id from path."""
         parts = path.split("/")
         # /api/v1/accounting/expenses/{expense_id}/...
@@ -780,7 +758,7 @@ class ExpenseHandler(BaseHandler):
             return parts[5]
         return None
 
-    def _check_auth(self, handler: Any) -> Optional[HandlerResult]:
+    def _check_auth(self, handler: Any) -> HandlerResult | None:
         """Check authentication and return error response if not authenticated."""
         try:
             from aragora.billing.jwt_auth import extract_user_from_request
@@ -793,7 +771,7 @@ class ExpenseHandler(BaseHandler):
             logger.debug(f"Auth check failed: {e}")
             return error_response("Authentication required", status=401)
 
-    def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+    def _check_permission(self, handler: Any, permission: str) -> HandlerResult | None:
         """Check RBAC permission and return error response if denied."""
         try:
             from aragora.billing.jwt_auth import extract_user_from_request
@@ -823,8 +801,8 @@ class ExpenseHandler(BaseHandler):
     async def handle_get(
         self,
         path: str,
-        query_params: Optional[Dict[str, Any]] = None,
-        handler: Optional[Any] = None,
+        query_params: Optional[dict[str, Any]] = None,
+        handler: Any | None = None,
     ) -> HandlerResult:
         """Handle GET requests."""
         # Check authentication for all GET requests
@@ -857,8 +835,8 @@ class ExpenseHandler(BaseHandler):
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
-        data: Optional[Dict[str, Any]] = None,
-        handler: Optional[Any] = None,
+        data: Optional[dict[str, Any]] = None,
+        handler: Any | None = None,
     ) -> HandlerResult:
         """Handle POST requests."""
         # Check write permission for all POST requests
@@ -898,8 +876,8 @@ class ExpenseHandler(BaseHandler):
     async def handle_put(  # type: ignore[override]
         self,
         path: str,
-        data: Optional[Dict[str, Any]] = None,
-        handler: Optional[Any] = None,
+        data: Optional[dict[str, Any]] = None,
+        handler: Any | None = None,
     ) -> HandlerResult:
         """Handle PUT requests."""
         # Check write permission for all PUT requests
@@ -919,7 +897,7 @@ class ExpenseHandler(BaseHandler):
     async def handle_delete(  # type: ignore[override]
         self,
         path: str,
-        handler: Optional[Any] = None,
+        handler: Any | None = None,
     ) -> HandlerResult:
         """Handle DELETE requests."""
         # Note: handle_delete_expense already has @require_permission("admin:audit")

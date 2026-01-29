@@ -37,7 +37,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Optional, cast
 
 from aragora.workflow.patterns import (
     HiveMindPattern,
@@ -58,7 +58,7 @@ from aragora.workflow.templates.package import (
 # Hive Mind Template
 # ============================================================================
 
-HIVE_MIND_TEMPLATE: Dict[str, Any] = {
+HIVE_MIND_TEMPLATE: dict[str, Any] = {
     "id": "pattern/hive-mind",
     "name": "Hive Mind Analysis",
     "description": "Parallel multi-agent analysis with consensus synthesis",
@@ -86,10 +86,9 @@ HIVE_MIND_TEMPLATE: Dict[str, Any] = {
     },
 }
 
-
 def create_hive_mind_workflow(
     name: str = "Hive Mind Analysis",
-    agents: Optional[List[str]] = None,
+    agents: Optional[list[str]] = None,
     task: str = "",
     consensus_mode: str = "synthesis",
     consensus_threshold: float = 0.7,
@@ -122,12 +121,11 @@ def create_hive_mind_workflow(
     )
     return cast(dict[str, Any], pattern.create_workflow())
 
-
 # ============================================================================
 # MapReduce Template
 # ============================================================================
 
-MAP_REDUCE_TEMPLATE: Dict[str, Any] = {
+MAP_REDUCE_TEMPLATE: dict[str, Any] = {
     "id": "pattern/map-reduce",
     "name": "MapReduce Processing",
     "description": "Split large inputs, process in parallel, aggregate results",
@@ -168,7 +166,6 @@ MAP_REDUCE_TEMPLATE: Dict[str, Any] = {
         "statistics": {"type": "object", "description": "Processing statistics"},
     },
 }
-
 
 def create_map_reduce_workflow(
     name: str = "MapReduce Processing",
@@ -211,12 +208,11 @@ def create_map_reduce_workflow(
     )
     return cast(dict[str, Any], pattern.create_workflow())
 
-
 # ============================================================================
 # Review Cycle Template
 # ============================================================================
 
-REVIEW_CYCLE_TEMPLATE: Dict[str, Any] = {
+REVIEW_CYCLE_TEMPLATE: dict[str, Any] = {
     "id": "pattern/review-cycle",
     "name": "Iterative Review Cycle",
     "description": "Iterative refinement with quality threshold convergence",
@@ -255,7 +251,6 @@ REVIEW_CYCLE_TEMPLATE: Dict[str, Any] = {
     },
 }
 
-
 def create_review_cycle_workflow(
     name: str = "Iterative Review Cycle",
     draft_agent: str = "claude",
@@ -263,7 +258,7 @@ def create_review_cycle_workflow(
     task: str = "",
     max_iterations: int = 3,
     convergence_threshold: float = 0.85,
-    review_criteria: Optional[List[str]] = None,
+    review_criteria: Optional[list[str]] = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -294,24 +289,21 @@ def create_review_cycle_workflow(
     )
     return cast(dict[str, Any], pattern.create_workflow())
 
-
 # ============================================================================
 # Pattern Template Registry
 # ============================================================================
 
-PATTERN_TEMPLATES: Dict[str, Dict[str, Any]] = {
+PATTERN_TEMPLATES: dict[str, dict[str, Any]] = {
     "pattern/hive-mind": HIVE_MIND_TEMPLATE,
     "pattern/map-reduce": MAP_REDUCE_TEMPLATE,
     "pattern/review-cycle": REVIEW_CYCLE_TEMPLATE,
 }
 
-
-def get_pattern_template(pattern_id: str) -> Optional[Dict[str, Any]]:
+def get_pattern_template(pattern_id: str) -> Optional[dict[str, Any]]:
     """Get a pattern template by ID."""
     return PATTERN_TEMPLATES.get(pattern_id)
 
-
-def list_pattern_templates() -> List[Dict[str, Any]]:
+def list_pattern_templates() -> list[dict[str, Any]]:
     """List all available pattern templates."""
     templates = []
     for template_id, template in PATTERN_TEMPLATES.items():
@@ -326,11 +318,9 @@ def list_pattern_templates() -> List[Dict[str, Any]]:
         )
     return templates
 
-
 # ============================================================================
 # Package Registration
 # ============================================================================
-
 
 def register_pattern_packages() -> None:
     """Register all pattern templates as packages."""
@@ -585,10 +575,8 @@ Each iteration:
     )
     register_package(review_cycle_pkg)
 
-
 # Register packages on module import
 register_pattern_packages()
-
 
 __all__ = [
     # Templates

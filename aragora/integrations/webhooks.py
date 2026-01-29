@@ -4,6 +4,7 @@ Outbound webhook dispatcher for aragora events.
 Non-blocking, bounded-queue implementation that sends events to external endpoints
 without affecting debate loop performance.
 """
+from __future__ import annotations
 
 import atexit
 import hashlib
@@ -22,13 +23,12 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 from aragora.resilience import get_circuit_breaker
 
 logger = logging.getLogger(__name__)
-
 
 def _safe_log(level: int, msg: str) -> None:
     """Log a message safely, ignoring errors during interpreter shutdown.
@@ -63,7 +63,6 @@ def _safe_log(level: int, msg: str) -> None:
     except (ValueError, RuntimeError, AttributeError, OSError, TypeError):
         # Logging system is shutting down - silently ignore
         pass
-
 
 # Default event types that webhooks receive (low-frequency, high-value)
 DEFAULT_EVENT_TYPES = frozenset(
@@ -100,7 +99,6 @@ DEFAULT_EVENT_TYPES = frozenset(
     }
 )
 
-
 class AragoraJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder for aragora events.
 
@@ -124,7 +122,6 @@ class AragoraJSONEncoder(json.JSONEncoder):
         except TypeError:
             return str(obj)
 
-
 @dataclass
 class WebhookConfig:
     """Configuration for a single webhook endpoint."""
@@ -132,14 +129,14 @@ class WebhookConfig:
     name: str
     url: str
     secret: str = ""
-    event_types: Set[str] = field(default_factory=lambda: set(DEFAULT_EVENT_TYPES))
-    loop_ids: Optional[Set[str]] = None  # None = all loops
+    event_types: set[str] = field(default_factory=lambda: set(DEFAULT_EVENT_TYPES))
+    loop_ids: Optional[set[str]] = None  # None = all loops
     timeout_s: float = 10.0
     max_retries: int = 3
     backoff_base_s: float = 1.0
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WebhookConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "WebhookConfig":
         """Create config from dictionary with validation and normalization.
 
         Raises ValueError if required fields are missing.
@@ -189,7 +186,6 @@ class WebhookConfig:
             backoff_base_s=float(safe_data.get("backoff_base_s", 1.0)),
         )
 
-
 def sign_payload(secret: str, body: bytes) -> str:
     """Generate HMAC-SHA256 signature for webhook payload.
 
@@ -204,15 +200,14 @@ def sign_payload(secret: str, body: bytes) -> str:
         logger.debug(f"Failed to sign payload: {e}")
         return ""
 
-
-def load_webhook_configs() -> List[WebhookConfig]:
+def load_webhook_configs() -> list[WebhookConfig]:
     """Load webhook configs from environment.
 
     Checks ARAGORA_WEBHOOKS (inline JSON) or ARAGORA_WEBHOOKS_CONFIG (file path).
     Returns empty list if neither is set or parsing fails.
     Invalid individual configs are skipped with warnings.
     """
-    configs: List[WebhookConfig] = []
+    configs: list[WebhookConfig] = []
 
     # Try inline JSON first
     inline = os.environ.get("ARAGORA_WEBHOOKS", "").strip()
@@ -258,7 +253,6 @@ def load_webhook_configs() -> List[WebhookConfig]:
 
     return []
 
-
 class WebhookDispatcher:
     """Thread-safe webhook dispatcher with bounded queue.
 
@@ -270,9 +264,9 @@ class WebhookDispatcher:
 
     def __init__(
         self,
-        configs: List[WebhookConfig],
-        queue_max_size: Optional[int] = None,
-        allow_localhost: Optional[bool] = None,
+        configs: list[WebhookConfig],
+        queue_max_size: int | None = None,
+        allow_localhost: bool | None = None,
     ):
         self.configs = configs
 
@@ -295,7 +289,7 @@ class WebhookDispatcher:
         self._queue: queue.Queue = queue.Queue(maxsize=queue_max_size)
         self._shutdown_event = threading.Event()  # Thread-safe shutdown signal
         self._started = False  # Tracks if we've ever started
-        self._worker: Optional[threading.Thread] = None
+        self._worker: threading.Thread | None = None
 
         # Thread pool for parallel webhook delivery (prevents one slow webhook from blocking others)
         # Max workers = number of webhook configs, capped at 10 to prevent resource exhaustion
@@ -359,7 +353,7 @@ class WebhookDispatcher:
                 f"Dropped: {self._drop_count}",
             )
 
-    def enqueue(self, event_dict: Dict[str, Any]) -> bool:
+    def enqueue(self, event_dict: dict[str, Any]) -> bool:
         """Non-blocking enqueue of an event for delivery.
 
         Returns True if enqueued, False if dropped (no matching config or queue full).
@@ -525,7 +519,7 @@ class WebhookDispatcher:
                     # This prevents one slow webhook from blocking others
                     self._executor.submit(self._deliver_and_track, cfg, event_dict)
 
-    def _deliver_and_track(self, cfg: "WebhookConfig", event_dict: Dict[str, Any]) -> None:
+    def _deliver_and_track(self, cfg: "WebhookConfig", event_dict: dict[str, Any]) -> None:
         """Deliver webhook and update stats (runs in thread pool)."""
         try:
             success = self._deliver(cfg, event_dict)
@@ -538,7 +532,7 @@ class WebhookDispatcher:
             # Release semaphore to allow more deliveries
             self._delivery_semaphore.release()
 
-    def _deliver(self, cfg: WebhookConfig, event_dict: Dict[str, Any]) -> bool:
+    def _deliver(self, cfg: WebhookConfig, event_dict: dict[str, Any]) -> bool:
         """Attempt delivery to a single webhook with retries and circuit breaker.
 
         Circuit breaker policy:
@@ -644,7 +638,7 @@ class WebhookDispatcher:
         return False
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return delivery statistics (thread-safe)."""
         with self._stats_lock:
             return {
@@ -654,13 +648,13 @@ class WebhookDispatcher:
                 "dropped": self._drop_count,
             }
 
-    def get_circuit_status(self) -> Dict[str, Dict[str, Any]]:
+    def get_circuit_status(self) -> dict[str, dict[str, Any]]:
         """Get circuit breaker status for all configured webhooks.
 
         Returns:
             Dict mapping webhook names to their circuit breaker status.
         """
-        status: Dict[str, Dict[str, Any]] = {}
+        status: dict[str, dict[str, Any]] = {}
         for cfg in self.configs:
             circuit = get_circuit_breaker(
                 f"webhook:{cfg.name}",
@@ -674,17 +668,14 @@ class WebhookDispatcher:
             }
         return status
 
-
 # Module-level singleton
-_dispatcher: Optional[WebhookDispatcher] = None
+_dispatcher: WebhookDispatcher | None = None
 
-
-def get_dispatcher() -> Optional[WebhookDispatcher]:
+def get_dispatcher() -> WebhookDispatcher | None:
     """Get the global webhook dispatcher (may be None if not configured)."""
     return _dispatcher
 
-
-def init_dispatcher(configs: Optional[List[WebhookConfig]] = None) -> Optional[WebhookDispatcher]:
+def init_dispatcher(configs: Optional[list[WebhookConfig]] = None) -> WebhookDispatcher | None:
     """Initialize the global webhook dispatcher.
 
     If configs is None, loads from environment. Returns None if no configs.
@@ -704,14 +695,12 @@ def init_dispatcher(configs: Optional[List[WebhookConfig]] = None) -> Optional[W
     _dispatcher.start()
     return _dispatcher
 
-
 def shutdown_dispatcher() -> None:
     """Shutdown the global dispatcher gracefully."""
     global _dispatcher
     if _dispatcher:
         _dispatcher.stop()
         _dispatcher = None
-
 
 # Alias for backward compatibility
 get_webhook_dispatcher = get_dispatcher

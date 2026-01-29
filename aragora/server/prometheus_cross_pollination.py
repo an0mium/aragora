@@ -9,8 +9,8 @@ Provides OpenMetrics-compliant metrics for monitoring:
 NOTE: Metric definitions are centralized in prometheus.py.
 This module imports from there and provides convenience APIs.
 """
+from __future__ import annotations
 
-from typing import Dict, Optional
 
 # Import metrics from central prometheus module
 from aragora.server.prometheus import PROMETHEUS_AVAILABLE
@@ -31,29 +31,27 @@ if PROMETHEUS_AVAILABLE:
         KM_STALE_NODES_FOUND,
     )
 
-
 # ============================================================================
 # Fallback Implementation (when prometheus_client not available)
 # ============================================================================
-
 
 class FallbackMetrics:
     """Simple metrics accumulator when prometheus_client is unavailable."""
 
     def __init__(self) -> None:
-        self.events_total: Dict[str, int] = {}
-        self.handler_calls: Dict[str, Dict[str, int]] = {}
-        self.handler_durations: Dict[str, list] = {}
-        self.circuit_breaker_states: Dict[str, int] = {}
-        self.subscriber_counts: Dict[str, int] = {}
+        self.events_total: dict[str, int] = {}
+        self.handler_calls: dict[str, dict[str, int]] = {}
+        self.handler_durations: dict[str, list] = {}
+        self.circuit_breaker_states: dict[str, int] = {}
+        self.subscriber_counts: dict[str, int] = {}
         # KM bidirectional flow metrics
-        self.km_inbound_events: Dict[str, Dict[str, int]] = {}
-        self.km_outbound_events: Dict[str, Dict[str, int]] = {}
-        self.km_adapter_syncs: Dict[str, Dict[str, Dict[str, int]]] = {}
-        self.km_adapter_sync_durations: Dict[str, Dict[str, list]] = {}
-        self.km_staleness_checks: Dict[str, Dict[str, int]] = {}
-        self.km_stale_nodes_found: Dict[str, int] = {}
-        self.km_nodes_by_source: Dict[str, int] = {}
+        self.km_inbound_events: dict[str, dict[str, int]] = {}
+        self.km_outbound_events: dict[str, dict[str, int]] = {}
+        self.km_adapter_syncs: dict[str, dict[str, dict[str, int]]] = {}
+        self.km_adapter_sync_durations: dict[str, dict[str, list]] = {}
+        self.km_staleness_checks: dict[str, dict[str, int]] = {}
+        self.km_stale_nodes_found: dict[str, int] = {}
+        self.km_nodes_by_source: dict[str, int] = {}
 
     def record_event(self, event_type: str) -> None:
         self.events_total[event_type] = self.events_total.get(event_type, 0) + 1
@@ -92,7 +90,7 @@ class FallbackMetrics:
         )
 
     def record_km_adapter_sync(
-        self, adapter: str, direction: str, status: str, duration: Optional[float] = None
+        self, adapter: str, direction: str, status: str, duration: float | None = None
     ) -> None:
         if adapter not in self.km_adapter_syncs:
             self.km_adapter_syncs[adapter] = {}
@@ -220,10 +218,8 @@ class FallbackMetrics:
 
         return "\n".join(lines)
 
-
 # Singleton fallback instance
-_fallback_metrics: Optional[FallbackMetrics] = None
-
+_fallback_metrics: FallbackMetrics | None = None
 
 def get_fallback_metrics() -> FallbackMetrics:
     """Get or create the fallback metrics instance."""
@@ -232,11 +228,9 @@ def get_fallback_metrics() -> FallbackMetrics:
         _fallback_metrics = FallbackMetrics()
     return _fallback_metrics
 
-
 # ============================================================================
 # Unified API
 # ============================================================================
-
 
 def record_event_dispatched(event_type: str) -> None:
     """Record an event being dispatched."""
@@ -245,8 +239,7 @@ def record_event_dispatched(event_type: str) -> None:
     else:
         get_fallback_metrics().record_event(event_type)
 
-
-def record_handler_call(handler: str, status: str, duration: Optional[float] = None) -> None:
+def record_handler_call(handler: str, status: str, duration: float | None = None) -> None:
     """Record a handler invocation.
 
     Args:
@@ -264,7 +257,6 @@ def record_handler_call(handler: str, status: str, duration: Optional[float] = N
         if duration is not None:
             fallback.record_handler_duration(handler, duration)
 
-
 def set_circuit_breaker_state(handler: str, is_open: bool) -> None:
     """Set circuit breaker state for a handler.
 
@@ -278,14 +270,12 @@ def set_circuit_breaker_state(handler: str, is_open: bool) -> None:
     else:
         get_fallback_metrics().set_circuit_breaker_state(handler, state)
 
-
 def update_subscriber_count(event_type: str, count: int) -> None:
     """Update the subscriber count for an event type."""
     if PROMETHEUS_AVAILABLE:
         CROSS_POLL_SUBSCRIBERS.labels(event_type=event_type).set(count)
     else:
         get_fallback_metrics().set_subscriber_count(event_type, count)
-
 
 def get_cross_pollination_metrics_text() -> str:
     """Get cross-pollination metrics as text (for non-prometheus endpoint)."""
@@ -297,11 +287,9 @@ def get_cross_pollination_metrics_text() -> str:
     else:
         return get_fallback_metrics().get_metrics_text()
 
-
 # ============================================================================
 # Knowledge Mound Bidirectional Flow API
 # ============================================================================
-
 
 def record_km_inbound_event(source: str, event_type: str) -> None:
     """Record an event flowing INTO Knowledge Mound.
@@ -315,7 +303,6 @@ def record_km_inbound_event(source: str, event_type: str) -> None:
     else:
         get_fallback_metrics().record_km_inbound_event(source, event_type)
 
-
 def record_km_outbound_event(target: str, event_type: str) -> None:
     """Record an event flowing OUT of Knowledge Mound.
 
@@ -328,12 +315,11 @@ def record_km_outbound_event(target: str, event_type: str) -> None:
     else:
         get_fallback_metrics().record_km_outbound_event(target, event_type)
 
-
 def record_km_adapter_sync(
     adapter: str,
     direction: str,
     status: str,
-    duration: Optional[float] = None,
+    duration: float | None = None,
 ) -> None:
     """Record an adapter sync operation.
 
@@ -349,7 +335,6 @@ def record_km_adapter_sync(
             KM_ADAPTER_SYNC_DURATION.labels(adapter=adapter, direction=direction).observe(duration)
     else:
         get_fallback_metrics().record_km_adapter_sync(adapter, direction, status, duration)
-
 
 def record_km_staleness_check(workspace: str, status: str, stale_count: int = 0) -> None:
     """Record a staleness check operation.
@@ -369,7 +354,6 @@ def record_km_staleness_check(workspace: str, status: str, stale_count: int = 0)
         if status == "completed":
             fallback.set_km_stale_nodes_found(workspace, stale_count)
 
-
 def update_km_nodes_by_source(source: str, count: int) -> None:
     """Update the count of knowledge nodes by source type.
 
@@ -381,7 +365,6 @@ def update_km_nodes_by_source(source: str, count: int) -> None:
         KM_NODES_BY_SOURCE.labels(source=source).set(count)
     else:
         get_fallback_metrics().set_km_nodes_by_source(source, count)
-
 
 __all__ = [
     "PROMETHEUS_AVAILABLE",

@@ -26,13 +26,12 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.billing.budget_manager import BudgetAlert, BudgetManager
 
 logger = logging.getLogger(__name__)
-
 
 class NotificationStatus(str, Enum):
     """Status of a notification delivery attempt."""
@@ -41,7 +40,6 @@ class NotificationStatus(str, Enum):
     FAILED = "failed"
     SKIPPED = "skipped"  # e.g., no subscriptions
 
-
 @dataclass
 class DeliveryResult:
     """Result of a notification delivery attempt."""
@@ -49,14 +47,14 @@ class DeliveryResult:
     channel_type: str
     channel_id: str
     status: NotificationStatus
-    error: Optional[str] = None
+    error: str | None = None
     timestamp: float = 0.0
 
     def __post_init__(self):
         if self.timestamp == 0.0:
             self.timestamp = datetime.now(timezone.utc).timestamp()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "channel_type": self.channel_type,
@@ -66,7 +64,6 @@ class DeliveryResult:
             "timestamp": self.timestamp,
             "timestamp_iso": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
         }
-
 
 class BudgetAlertNotifier:
     """Delivers budget alerts to subscribed channels.
@@ -79,9 +76,9 @@ class BudgetAlertNotifier:
 
     def __init__(
         self,
-        slack_connector: Optional[Any] = None,
-        teams_connector: Optional[Any] = None,
-        subscription_store: Optional[Any] = None,
+        slack_connector: Any | None = None,
+        teams_connector: Any | None = None,
+        subscription_store: Any | None = None,
     ):
         """Initialize the notifier.
 
@@ -93,7 +90,7 @@ class BudgetAlertNotifier:
         self._slack_connector = slack_connector
         self._teams_connector = teams_connector
         self._subscription_store = subscription_store
-        self._delivery_history: List[DeliveryResult] = []
+        self._delivery_history: list[DeliveryResult] = []
         self._max_history = 1000
 
     @property
@@ -132,7 +129,7 @@ class BudgetAlertNotifier:
         except Exception as e:
             logger.error(f"Failed to deliver budget alert: {e}", exc_info=True)
 
-    async def deliver_alert(self, alert: "BudgetAlert") -> List[DeliveryResult]:
+    async def deliver_alert(self, alert: "BudgetAlert") -> list[DeliveryResult]:
         """Deliver a budget alert to all subscribed channels.
 
         Args:
@@ -234,7 +231,7 @@ class BudgetAlertNotifier:
                 error=str(e),
             )
 
-    def _format_alert_message(self, alert: "BudgetAlert") -> Dict[str, Any]:
+    def _format_alert_message(self, alert: "BudgetAlert") -> dict[str, Any]:
         """Format alert for display in channels.
 
         Args:
@@ -321,8 +318,8 @@ class BudgetAlertNotifier:
         self,
         workspace_id: str,
         channel_id: str,
-        message: Dict[str, Any],
-        config: Dict[str, Any],
+        message: dict[str, Any],
+        config: dict[str, Any],
     ) -> None:
         """Send message to Slack channel.
 
@@ -364,8 +361,8 @@ class BudgetAlertNotifier:
         self,
         tenant_id: str,
         channel_id: str,
-        message: Dict[str, Any],
-        config: Dict[str, Any],
+        message: dict[str, Any],
+        config: dict[str, Any],
     ) -> None:
         """Send message to Teams channel.
 
@@ -405,7 +402,7 @@ class BudgetAlertNotifier:
         self,
         url: str,
         alert: "BudgetAlert",
-        config: Dict[str, Any],
+        config: dict[str, Any],
     ) -> None:
         """Send alert to webhook URL.
 
@@ -446,8 +443,8 @@ class BudgetAlertNotifier:
     def get_delivery_history(
         self,
         limit: int = 50,
-        status: Optional[NotificationStatus] = None,
-    ) -> List[DeliveryResult]:
+        status: NotificationStatus | None = None,
+    ) -> list[DeliveryResult]:
         """Get delivery history.
 
         Args:
@@ -462,10 +459,8 @@ class BudgetAlertNotifier:
             results = [r for r in results if r.status == status]
         return results[-limit:]
 
-
 # Global notifier instance
-_notifier: Optional[BudgetAlertNotifier] = None
-
+_notifier: BudgetAlertNotifier | None = None
 
 def get_budget_alert_notifier() -> BudgetAlertNotifier:
     """Get or create the global budget alert notifier."""
@@ -473,7 +468,6 @@ def get_budget_alert_notifier() -> BudgetAlertNotifier:
     if _notifier is None:
         _notifier = BudgetAlertNotifier()
     return _notifier
-
 
 def setup_budget_notifications(manager: "BudgetManager") -> BudgetAlertNotifier:
     """Setup budget notifications for a BudgetManager.

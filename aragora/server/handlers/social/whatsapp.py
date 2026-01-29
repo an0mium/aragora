@@ -32,12 +32,11 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Coroutine, Dict, List, Optional
+from typing import Any, Coroutine, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 logger = logging.getLogger(__name__)
-
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
@@ -47,13 +46,11 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
 
-
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
-
 
 from ..base import (
     BaseHandler,
@@ -120,7 +117,6 @@ if not WHATSAPP_VERIFY_TOKEN:
 if not WHATSAPP_APP_SECRET:
     logger.warning("WHATSAPP_APP_SECRET not configured - signature verification disabled")
 
-
 class WhatsAppHandler(BaseHandler):
     """Handler for WhatsApp Business API integration endpoints."""
 
@@ -137,7 +133,7 @@ class WhatsAppHandler(BaseHandler):
     # RBAC Helper Methods
     # =========================================================================
 
-    def _get_auth_context(self, handler: Any) -> Optional[Any]:
+    def _get_auth_context(self, handler: Any) -> Any | None:
         """Extract authorization context from the request."""
         if not RBAC_AVAILABLE or extract_user_from_request is None:
             return None
@@ -156,7 +152,7 @@ class WhatsAppHandler(BaseHandler):
             logger.debug(f"Could not extract auth context: {e}")
             return None
 
-    def _check_permission(self, handler: Any, permission_key: str) -> Optional[HandlerResult]:
+    def _check_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
         """Check if current user has permission. Returns error response if denied."""
         if not RBAC_AVAILABLE or check_permission is None:
             return None
@@ -177,8 +173,8 @@ class WhatsAppHandler(BaseHandler):
         return None
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route WhatsApp requests to appropriate methods."""
         logger.debug(f"WhatsApp request: {path} {handler.command}")
 
@@ -203,7 +199,7 @@ class WhatsAppHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    def handle_post(self, path: str, body: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests."""
         return self.handle(path, {}, handler)
 
@@ -251,7 +247,7 @@ class WhatsAppHandler(BaseHandler):
             }
         )
 
-    def _verify_webhook(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _verify_webhook(self, query_params: dict[str, Any]) -> HandlerResult:
         """Handle Meta webhook verification request.
 
         Meta sends a GET request with:
@@ -353,7 +349,7 @@ class WhatsAppHandler(BaseHandler):
             record_webhook_request("whatsapp", status)
             record_webhook_latency("whatsapp", latency)
 
-    def _process_messages(self, value: Dict[str, Any]) -> None:
+    def _process_messages(self, value: dict[str, Any]) -> None:
         """Process incoming messages from webhook."""
         messages = value.get("messages", [])
         contacts = value.get("contacts", [])
@@ -853,7 +849,7 @@ class WhatsAppHandler(BaseHandler):
         self,
         from_number: str,
         profile_name: str,
-        message: Dict[str, Any],
+        message: dict[str, Any],
     ) -> None:
         """Handle interactive message reply (button clicks)."""
         interactive = message.get("interactive", {})
@@ -873,7 +869,7 @@ class WhatsAppHandler(BaseHandler):
         from_number: str,
         profile_name: str,
         button_text: str,
-        message: Dict[str, Any],
+        message: dict[str, Any],
     ) -> None:
         """Handle quick reply button."""
         # Map button text to action
@@ -1051,8 +1047,8 @@ class WhatsAppHandler(BaseHandler):
         self,
         to_number: str,
         body_text: str,
-        buttons: List[Dict[str, str]],
-        header_text: Optional[str] = None,
+        buttons: list[dict[str, str]],
+        header_text: str | None = None,
     ) -> None:
         """Send an interactive buttons message.
 
@@ -1076,7 +1072,7 @@ class WhatsAppHandler(BaseHandler):
                 for b in buttons[:3]
             ]
 
-            interactive: Dict[str, Any] = {
+            interactive: dict[str, Any] = {
                 "type": "button",
                 "body": {"text": body_text[:1024]},  # Max 1024 chars
                 "action": {"buttons": button_list},
@@ -1123,7 +1119,7 @@ class WhatsAppHandler(BaseHandler):
         self,
         to_number: str,
         topic: str,
-        final_answer: Optional[str],
+        final_answer: str | None,
         consensus_reached: bool,
         confidence: float,
         rounds_used: int,
@@ -1249,12 +1245,10 @@ class WhatsAppHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error sending WhatsApp voice message: {e}")
 
-
 # Export handler factory
 _whatsapp_handler: Optional["WhatsAppHandler"] = None
 
-
-def get_whatsapp_handler(server_context: Optional[Dict] = None) -> "WhatsAppHandler":
+def get_whatsapp_handler(server_context: dict | None = None) -> "WhatsAppHandler":
     """Get or create the WhatsApp handler instance."""
     global _whatsapp_handler
     if _whatsapp_handler is None:
@@ -1262,6 +1256,5 @@ def get_whatsapp_handler(server_context: Optional[Dict] = None) -> "WhatsAppHand
             server_context = {}
         _whatsapp_handler = WhatsAppHandler(server_context)  # type: ignore[arg-type]
     return _whatsapp_handler
-
 
 __all__ = ["WhatsAppHandler", "get_whatsapp_handler"]

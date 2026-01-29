@@ -28,7 +28,7 @@ import sqlite3
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,6 @@ SLACK_DEBATE_DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "..", "data", "slack_debates.db"),
 )
 
-
 @dataclass
 class SlackActiveDebate:
     """Represents an active debate initiated from Slack."""
@@ -46,16 +45,16 @@ class SlackActiveDebate:
     debate_id: str
     workspace_id: str  # Slack team_id
     channel_id: str  # Channel where debate was started
-    thread_ts: Optional[str]  # Thread timestamp for updates
+    thread_ts: str | None  # Thread timestamp for updates
     topic: str  # Debate topic
     user_id: str  # Slack user who initiated
     status: str = "running"  # "pending", "running", "completed", "failed"
-    receipt_id: Optional[str] = None  # Decision receipt ID after completion
+    receipt_id: str | None = None  # Decision receipt ID after completion
     created_at: float = field(default_factory=lambda: datetime.now(timezone.utc).timestamp())
-    completed_at: Optional[float] = None
-    error_message: Optional[str] = None
+    completed_at: float | None = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "debate_id": self.debate_id,
@@ -100,12 +99,11 @@ class SlackActiveDebate:
         return self.status in ("pending", "running")
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Get debate duration if completed."""
         if self.completed_at and self.created_at:
             return self.completed_at - self.created_at
         return None
-
 
 class SlackDebateStore:
     """
@@ -146,7 +144,7 @@ class SlackDebateStore:
         ON slack_active_debates(workspace_id, channel_id, thread_ts);
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the debate store.
 
         Args:
@@ -220,7 +218,7 @@ class SlackDebateStore:
             logger.error(f"Failed to save debate: {e}")
             return False
 
-    def get(self, debate_id: str) -> Optional[SlackActiveDebate]:
+    def get(self, debate_id: str) -> SlackActiveDebate | None:
         """Get a debate by ID.
 
         Args:
@@ -251,7 +249,7 @@ class SlackDebateStore:
         workspace_id: str,
         channel_id: str,
         thread_ts: str,
-    ) -> Optional[SlackActiveDebate]:
+    ) -> SlackActiveDebate | None:
         """Get a debate by its thread location.
 
         Args:
@@ -284,10 +282,10 @@ class SlackDebateStore:
 
     def list_active(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[SlackActiveDebate]:
+    ) -> list[SlackActiveDebate]:
         """List active debates.
 
         Args:
@@ -332,7 +330,7 @@ class SlackDebateStore:
         workspace_id: str,
         user_id: str,
         limit: int = 20,
-    ) -> List[SlackActiveDebate]:
+    ) -> list[SlackActiveDebate]:
         """List debates by user.
 
         Args:
@@ -365,8 +363,8 @@ class SlackDebateStore:
         self,
         debate_id: str,
         status: str,
-        receipt_id: Optional[str] = None,
-        error_message: Optional[str] = None,
+        receipt_id: str | None = None,
+        error_message: str | None = None,
     ) -> bool:
         """Update debate status.
 
@@ -482,7 +480,7 @@ class SlackDebateStore:
             logger.error(f"Failed to cleanup old debates: {e}")
             return 0
 
-    def get_stats(self, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_stats(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get debate statistics.
 
         Args:
@@ -543,12 +541,10 @@ class SlackDebateStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_debates": 0, "active_debates": 0}
 
-
 # Singleton instance
-_debate_store: Optional[SlackDebateStore] = None
+_debate_store: SlackDebateStore | None = None
 
-
-def get_slack_debate_store(db_path: Optional[str] = None) -> SlackDebateStore:
+def get_slack_debate_store(db_path: str | None = None) -> SlackDebateStore:
     """Get or create the debate store singleton.
 
     Args:

@@ -44,7 +44,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -60,7 +60,6 @@ from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
 
-
 class ControlPlaneHandler(BaseHandler):
     """
     HTTP handler for control plane operations.
@@ -70,20 +69,20 @@ class ControlPlaneHandler(BaseHandler):
     """
 
     # Class-level coordinator (set during server initialization)
-    coordinator: Optional[Any] = None
+    coordinator: Any | None = None
 
-    def __init__(self, server_context: Dict[str, Any]):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)  # type: ignore[arg-type]
 
-    def _get_coordinator(self) -> Optional[Any]:
+    def _get_coordinator(self) -> Any | None:
         """Get the control plane coordinator."""
         # Try class-level first, then context
         if self.__class__.coordinator is not None:
             return self.__class__.coordinator
         return self.ctx.get("control_plane_coordinator")
 
-    def _get_stream(self) -> Optional[Any]:
+    def _get_stream(self) -> Any | None:
         """Get the control plane stream server for event emissions."""
         return self.ctx.get("control_plane_stream")
 
@@ -123,7 +122,7 @@ class ControlPlaneHandler(BaseHandler):
         if not method:
             return
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(max_retries):
             try:
@@ -154,8 +153,8 @@ class ControlPlaneHandler(BaseHandler):
     # =========================================================================
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         path = self._normalize_path(path)
 
@@ -252,7 +251,7 @@ class ControlPlaneHandler(BaseHandler):
         return None
 
     @require_permission("controlplane:agents.read")
-    def _handle_list_agents(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _handle_list_agents(self, query_params: dict[str, Any]) -> HandlerResult:
         """List registered agents."""
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -571,7 +570,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @require_permission("controlplane:queue.read")
-    def _handle_get_queue(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _handle_get_queue(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get current job queue (pending and running tasks)."""
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -596,7 +595,7 @@ class ControlPlaneHandler(BaseHandler):
             )
 
             # Format tasks as jobs for the frontend
-            def task_to_job(task) -> Dict[str, Any]:
+            def task_to_job(task) -> dict[str, Any]:
                 # Calculate progress based on status
                 progress = 0.0
                 if task.status.value == "running":
@@ -691,8 +690,8 @@ class ControlPlaneHandler(BaseHandler):
     @user_rate_limit(action="agent_call")
     @rate_limit(rpm=60, limiter_name="control_plane_post")
     async def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         path = self._normalize_path(path)
 
@@ -763,7 +762,7 @@ class ControlPlaneHandler(BaseHandler):
 
         return None
 
-    def _handle_register_agent(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
+    def _handle_register_agent(self, body: dict[str, Any], handler: Any) -> HandlerResult:
         """Register a new agent."""
         # Require authentication for agent registration
         user, err = self.require_auth_or_error(handler)
@@ -812,7 +811,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error registering agent: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
-    def _handle_heartbeat(self, agent_id: str, body: Dict[str, Any], handler: Any) -> HandlerResult:
+    def _handle_heartbeat(self, agent_id: str, body: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle agent heartbeat."""
         # Require authentication for heartbeats
         user, err = self.require_auth_or_error(handler)
@@ -844,7 +843,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error processing heartbeat: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
-    def _handle_submit_task(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
+    def _handle_submit_task(self, body: dict[str, Any], handler: Any) -> HandlerResult:
         """Submit a new task."""
         # Require authentication for task submission
         user, err = self.require_auth_or_error(handler)
@@ -902,7 +901,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response(safe_error_message(e, "control plane"), 500)
 
     async def _handle_submit_deliberation(
-        self, body: Dict[str, Any], handler: Any
+        self, body: dict[str, Any], handler: Any
     ) -> HandlerResult:
         """Submit a deliberation (sync or async via control plane)."""
         user, err = self.require_auth_or_error(handler)
@@ -1016,7 +1015,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response(f"Deliberation failed: {e}", 500)
 
     @require_permission("controlplane:tasks.claim")
-    def _handle_claim_task(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
+    def _handle_claim_task(self, body: dict[str, Any], handler: Any) -> HandlerResult:
         """Claim a task for an agent."""
         # Require authentication for claiming tasks
         user, err = self.require_auth_or_error(handler)
@@ -1064,7 +1063,7 @@ class ControlPlaneHandler(BaseHandler):
 
     @require_permission("controlplane:tasks.complete")
     def _handle_complete_task(
-        self, task_id: str, body: Dict[str, Any], handler: Any
+        self, task_id: str, body: dict[str, Any], handler: Any
     ) -> HandlerResult:
         """Mark task as completed."""
         # Require authentication for completing tasks
@@ -1111,7 +1110,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @require_permission("controlplane:tasks.complete")
-    def _handle_fail_task(self, task_id: str, body: Dict[str, Any], handler: Any) -> HandlerResult:
+    def _handle_fail_task(self, task_id: str, body: dict[str, Any], handler: Any) -> HandlerResult:
         """Mark task as failed."""
         # Require authentication for failing tasks
         user, err = self.require_auth_or_error(handler)
@@ -1191,8 +1190,8 @@ class ControlPlaneHandler(BaseHandler):
     # =========================================================================
 
     def handle_delete(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         path = self._normalize_path(path)
 
@@ -1241,7 +1240,7 @@ class ControlPlaneHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("controlplane:notifications.read")
-    def _handle_get_notifications(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _handle_get_notifications(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get recent notification history."""
         try:
             # Import check for availability
@@ -1304,7 +1303,7 @@ class ControlPlaneHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("controlplane:audit.read")
-    def _handle_get_audit_logs(self, query_params: Dict[str, Any], handler: Any) -> HandlerResult:
+    def _handle_get_audit_logs(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Query audit logs with filtering."""
         # Require authentication for audit access
         user, err = self.require_auth_or_error(handler)
@@ -1416,7 +1415,7 @@ class ControlPlaneHandler(BaseHandler):
 
     @require_permission("controlplane:audit.verify")
     def _handle_verify_audit_integrity(
-        self, query_params: Dict[str, Any], handler: Any
+        self, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult:
         """Verify audit log integrity."""
         # Require authentication for integrity verification
@@ -1459,8 +1458,8 @@ class ControlPlaneHandler(BaseHandler):
     # =========================================================================
 
     def handle_patch(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle PATCH requests."""
         path = self._normalize_path(path)
 
@@ -1490,7 +1489,7 @@ class ControlPlaneHandler(BaseHandler):
 
     @require_permission("controlplane:violations.read")
     def _handle_list_policy_violations(
-        self, query_params: Dict[str, Any], handler: Any
+        self, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult:
         """List control plane policy violations."""
         # Require authentication for violation access
@@ -1635,7 +1634,7 @@ class ControlPlaneHandler(BaseHandler):
 
     @require_permission("controlplane:violations.update")
     def _handle_update_policy_violation(
-        self, violation_id: str, body: Dict[str, Any], handler: Any
+        self, violation_id: str, body: dict[str, Any], handler: Any
     ) -> HandlerResult:
         """Update a policy violation status."""
         # Require authentication for violation updates

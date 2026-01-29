@@ -29,11 +29,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class AssignmentPriority(str, Enum):
     """Priority levels for finding assignments."""
@@ -44,7 +43,6 @@ class AssignmentPriority(str, Enum):
     LOW = "low"
     DEFERRED = "deferred"
 
-
 @dataclass
 class FindingAssignment:
     """An assignment of a finding to a user or team."""
@@ -54,8 +52,8 @@ class FindingAssignment:
     session_id: str = ""  # Audit session this finding belongs to
 
     # Assignee
-    user_id: Optional[str] = None
-    team_id: Optional[str] = None
+    user_id: str | None = None
+    team_id: str | None = None
     user_name: str = ""
     team_name: str = ""
 
@@ -66,14 +64,14 @@ class FindingAssignment:
 
     # Priority and scheduling
     priority: AssignmentPriority = AssignmentPriority.MEDIUM
-    due_date: Optional[datetime] = None
-    sla_hours: Optional[int] = None  # Hours to resolution by priority
+    due_date: datetime | None = None
+    sla_hours: int | None = None  # Hours to resolution by priority
 
     # Status
     is_active: bool = True
-    completed_at: Optional[datetime] = None
-    unassigned_at: Optional[datetime] = None
-    unassigned_by: Optional[str] = None
+    completed_at: datetime | None = None
+    unassigned_at: datetime | None = None
+    unassigned_by: str | None = None
 
     # Auto-assignment tracking
     auto_assigned: bool = False
@@ -107,7 +105,7 @@ class FindingAssignment:
     def from_dict(cls, data: dict[str, Any]) -> "FindingAssignment":
         """Create from dictionary."""
 
-        def parse_dt(val: Any) -> Optional[datetime]:
+        def parse_dt(val: Any) -> datetime | None:
             if isinstance(val, str):
                 return datetime.fromisoformat(val)
             return None
@@ -134,7 +132,6 @@ class FindingAssignment:
             auto_assign_rule=data.get("auto_assign_rule", ""),
         )
 
-
 @dataclass
 class AutoAssignRule:
     """Rule for automatic assignment of findings."""
@@ -144,23 +141,23 @@ class AutoAssignRule:
     description: str = ""
 
     # Conditions (all must match)
-    audit_type: Optional[str] = None  # e.g., "security", "compliance"
-    severity: Optional[str] = None  # e.g., "critical", "high"
-    category: Optional[str] = None  # e.g., "exposed_credentials"
-    tag: Optional[str] = None  # Finding must have this tag
+    audit_type: str | None = None  # e.g., "security", "compliance"
+    severity: str | None = None  # e.g., "critical", "high"
+    category: str | None = None  # e.g., "exposed_credentials"
+    tag: str | None = None  # Finding must have this tag
 
     # Assignment target
-    user_id: Optional[str] = None
-    team_id: Optional[str] = None
+    user_id: str | None = None
+    team_id: str | None = None
 
     # Priority override
-    priority: Optional[AssignmentPriority] = None
-    sla_hours: Optional[int] = None
+    priority: AssignmentPriority | None = None
+    sla_hours: int | None = None
 
     # Rule metadata
     is_active: bool = True
     priority_order: int = 0  # Lower = evaluated first
-    workspace_id: Optional[str] = None  # Scope to workspace
+    workspace_id: str | None = None  # Scope to workspace
 
     def matches(
         self,
@@ -180,7 +177,6 @@ class AutoAssignRule:
             return False
         return True
 
-
 # Default SLA hours by severity
 DEFAULT_SLA_HOURS = {
     AssignmentPriority.CRITICAL: 4,
@@ -189,7 +185,6 @@ DEFAULT_SLA_HOURS = {
     AssignmentPriority.LOW: 168,  # 1 week
     AssignmentPriority.DEFERRED: None,
 }
-
 
 class AssignmentManager:
     """
@@ -213,10 +208,10 @@ class AssignmentManager:
         *,
         assigned_by: str,
         session_id: str = "",
-        team_id: Optional[str] = None,
+        team_id: str | None = None,
         priority: AssignmentPriority = AssignmentPriority.MEDIUM,
-        due_date: Optional[datetime] = None,
-        sla_hours: Optional[int] = None,
+        due_date: datetime | None = None,
+        sla_hours: int | None = None,
         user_name: str = "",
         team_name: str = "",
         assigned_by_name: str = "",
@@ -288,7 +283,7 @@ class AssignmentManager:
         finding_id: str,
         *,
         unassigned_by: str,
-    ) -> Optional[FindingAssignment]:
+    ) -> FindingAssignment | None:
         """
         Remove assignment from a finding.
 
@@ -314,7 +309,7 @@ class AssignmentManager:
     def complete(
         self,
         finding_id: str,
-    ) -> Optional[FindingAssignment]:
+    ) -> FindingAssignment | None:
         """
         Mark an assignment as completed (finding resolved).
 
@@ -343,7 +338,7 @@ class AssignmentManager:
         reassigned_by: str,
         new_user_name: str = "",
         reassigned_by_name: str = "",
-    ) -> Optional[FindingAssignment]:
+    ) -> FindingAssignment | None:
         """
         Reassign a finding to a different user.
 
@@ -367,7 +362,7 @@ class AssignmentManager:
             assigned_by_name=reassigned_by_name,
         )
 
-    def get_assignment(self, finding_id: str) -> Optional[FindingAssignment]:
+    def get_assignment(self, finding_id: str) -> FindingAssignment | None:
         """Get the current assignment for a finding."""
         return self._assignments.get(finding_id)
 
@@ -436,7 +431,7 @@ class AssignmentManager:
                 return True
         return False
 
-    def get_rules(self, workspace_id: Optional[str] = None) -> list[AutoAssignRule]:
+    def get_rules(self, workspace_id: str | None = None) -> list[AutoAssignRule]:
         """Get all auto-assignment rules, optionally filtered by workspace."""
         if workspace_id is None:
             return list(self._rules)
@@ -451,8 +446,8 @@ class AssignmentManager:
         category: str,
         tags: list[str],
         session_id: str = "",
-        workspace_id: Optional[str] = None,
-    ) -> Optional[FindingAssignment]:
+        workspace_id: str | None = None,
+    ) -> FindingAssignment | None:
         """
         Automatically assign a finding based on rules.
 
@@ -573,10 +568,8 @@ class AssignmentManager:
                 results.append(result)
         return results
 
-
 # Singleton instance
-_assignment_manager: Optional[AssignmentManager] = None
-
+_assignment_manager: AssignmentManager | None = None
 
 def get_assignment_manager() -> AssignmentManager:
     """Get the global assignment manager instance."""

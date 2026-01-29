@@ -36,10 +36,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class ComplianceHealth(Enum):
     """Overall compliance health status."""
@@ -49,7 +48,6 @@ class ComplianceHealth(Enum):
     AT_RISK = "at_risk"  # Major violations pending
     CRITICAL = "critical"  # Critical violations requiring immediate action
 
-
 class ViolationTrend(Enum):
     """Trend direction for violations."""
 
@@ -57,14 +55,13 @@ class ViolationTrend(Enum):
     STABLE = "stable"  # Consistent violation count
     WORSENING = "worsening"  # More violations over time
 
-
 @dataclass
 class FrameworkStatus:
     """Status of a single compliance framework."""
 
     framework: str
     enabled: bool = True
-    last_check: Optional[datetime] = None
+    last_check: datetime | None = None
     total_rules: int = 0
     rules_passing: int = 0
     rules_failing: int = 0
@@ -85,7 +82,6 @@ class FrameworkStatus:
             return ComplianceHealth.DEGRADED
         return ComplianceHealth.HEALTHY
 
-
 @dataclass
 class ComplianceStatus:
     """Overall compliance status across all frameworks."""
@@ -93,14 +89,13 @@ class ComplianceStatus:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     overall_health: ComplianceHealth = ComplianceHealth.HEALTHY
     overall_score: float = 100.0
-    frameworks: Dict[str, FrameworkStatus] = field(default_factory=dict)
+    frameworks: dict[str, FrameworkStatus] = field(default_factory=dict)
     trend: ViolationTrend = ViolationTrend.STABLE
     open_violations: int = 0
     resolved_last_24h: int = 0
-    mttr_hours: Optional[float] = None  # Mean time to resolution
+    mttr_hours: float | None = None  # Mean time to resolution
     audit_trail_verified: bool = True
-    last_full_scan: Optional[datetime] = None
-
+    last_full_scan: datetime | None = None
 
 @dataclass
 class DriftEvent:
@@ -113,7 +108,6 @@ class DriftEvent:
     severity: str
     current_value: Any
     expected_value: Any
-
 
 @dataclass
 class ComplianceMonitorConfig:
@@ -131,14 +125,13 @@ class ComplianceMonitorConfig:
     alert_cooldown_seconds: float = 600.0  # 10 min between alerts
 
     # Frameworks to monitor
-    enabled_frameworks: Set[str] = field(
+    enabled_frameworks: set[str] = field(
         default_factory=lambda: {"soc2", "gdpr", "hipaa", "pci-dss", "iso27001"}
     )
 
     # Thresholds
     critical_score_threshold: float = 70.0  # Alert if score drops below
     degraded_score_threshold: float = 85.0
-
 
 class ComplianceMonitor:
     """
@@ -151,15 +144,15 @@ class ComplianceMonitor:
         """Initialize the monitor."""
         self.config = config
         self._running = False
-        self._task: Optional[asyncio.Task] = None
-        self._last_status: Optional[ComplianceStatus] = None
-        self._status_history: List[ComplianceStatus] = []
-        self._drift_events: List[DriftEvent] = []
-        self._last_alert: Dict[str, float] = {}
-        self._violation_callbacks: List[Callable[[Dict[str, Any]], Any]] = []
-        self._drift_callbacks: List[Callable[[DriftEvent], Any]] = []
-        self._last_full_scan: Optional[datetime] = None
-        self._last_audit_verify: Optional[datetime] = None
+        self._task: asyncio.Task | None = None
+        self._last_status: ComplianceStatus | None = None
+        self._status_history: list[ComplianceStatus] = []
+        self._drift_events: list[DriftEvent] = []
+        self._last_alert: dict[str, float] = {}
+        self._violation_callbacks: list[Callable[[dict[str, Any]], Any]] = []
+        self._drift_callbacks: list[Callable[[DriftEvent], Any]] = []
+        self._last_full_scan: datetime | None = None
+        self._last_audit_verify: datetime | None = None
 
     async def start(self) -> None:
         """Start the background monitoring loop."""
@@ -390,7 +383,7 @@ class ComplianceMonitor:
         severity: str,
         title: str,
         message: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> None:
         """Send alert via configured channels."""
         self._last_alert[alert_type] = time.time()
@@ -514,15 +507,15 @@ class ComplianceMonitor:
             return ViolationTrend.WORSENING
         return ViolationTrend.STABLE
 
-    def get_status(self) -> Optional[ComplianceStatus]:
+    def get_status(self) -> ComplianceStatus | None:
         """Get current compliance status."""
         return self._last_status
 
-    def get_drift_events(self, limit: int = 100) -> List[DriftEvent]:
+    def get_drift_events(self, limit: int = 100) -> list[DriftEvent]:
         """Get recent drift events."""
         return self._drift_events[-limit:]
 
-    def register_violation_callback(self, callback: Callable[[Dict[str, Any]], Any]) -> None:
+    def register_violation_callback(self, callback: Callable[[dict[str, Any]], Any]) -> None:
         """Register a callback for compliance violations."""
         if callback not in self._violation_callbacks:
             self._violation_callbacks.append(callback)
@@ -580,21 +573,18 @@ class ComplianceMonitor:
             except Exception as e:
                 logger.warning(f"Drift callback failed: {e}")
 
-
 # Global monitor instance
-_monitor: Optional[ComplianceMonitor] = None
+_monitor: ComplianceMonitor | None = None
 
-
-def get_compliance_monitor() -> Optional[ComplianceMonitor]:
+def get_compliance_monitor() -> ComplianceMonitor | None:
     """Get the global compliance monitor instance."""
     return _monitor
-
 
 def init_compliance_monitoring(
     check_interval_seconds: float = 300.0,
     alert_on_critical: bool = True,
     alert_on_major: bool = True,
-    enabled_frameworks: Optional[Set[str]] = None,
+    enabled_frameworks: Optional[set[str]] = None,
 ) -> ComplianceMonitor:
     """
     Initialize continuous compliance monitoring.
@@ -628,25 +618,21 @@ def init_compliance_monitoring(
 
     return _monitor
 
-
 async def start_compliance_monitoring() -> None:
     """Start the compliance monitoring background task."""
     if _monitor:
         await _monitor.start()
-
 
 async def stop_compliance_monitoring() -> None:
     """Stop the compliance monitoring background task."""
     if _monitor:
         await _monitor.stop()
 
-
-async def get_compliance_status() -> Optional[ComplianceStatus]:
+async def get_compliance_status() -> ComplianceStatus | None:
     """Get current compliance status."""
     if _monitor:
         return _monitor.get_status()
     return None
-
 
 __all__ = [
     "ComplianceHealth",

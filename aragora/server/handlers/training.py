@@ -15,7 +15,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from .base import (
     BaseHandler,
@@ -29,7 +29,6 @@ from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
-
 
 class TrainingHandler(BaseHandler):
     """Handler for training data export endpoints."""
@@ -76,13 +75,13 @@ class TrainingHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route training requests to appropriate methods."""
         # Check static routes first
         method_name = self.ROUTES.get(path)
         if method_name and hasattr(self, method_name):
             result = getattr(self, method_name)(path, query_params, handler)
-            return cast(Optional[HandlerResult], result)
+            return cast(HandlerResult | None, result)
 
         # Handle job-specific routes
         if path.startswith("/api/v1/training/jobs/"):
@@ -95,7 +94,7 @@ class TrainingHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route job-specific requests."""
         parts = path.split("/")
         # /api/training/jobs/{job_id}/...
@@ -580,7 +579,7 @@ class TrainingHandler(BaseHandler):
     # Job Management Endpoints
     # ============================================================================
 
-    def _get_training_pipeline(self) -> Optional[Any]:
+    def _get_training_pipeline(self) -> Any | None:
         """Get or create the specialist training pipeline."""
         if "pipeline" not in self._exporters:
             try:

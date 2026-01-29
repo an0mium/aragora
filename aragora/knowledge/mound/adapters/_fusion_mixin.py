@@ -14,10 +14,10 @@ Usage:
     class MyAdapter(FusionMixin, KnowledgeMoundAdapter):
         adapter_name = "my_adapter"
 
-        def _get_fusion_sources(self) -> List[str]:
+        def _get_fusion_sources(self) -> list[str]:
             return ["consensus", "elo", "belief"]
 
-        def _extract_fusible_data(self, km_item: Dict) -> Optional[Dict]:
+        def _extract_fusible_data(self, km_item: Dict) -> Dict | None:
             return {
                 "confidence": km_item.get("confidence"),
                 "source_id": km_item.get("id"),
@@ -37,7 +37,7 @@ import time
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Optional, TypedDict
 
 from aragora.knowledge.mound.ops.fusion import (
     FusionStrategy,
@@ -49,7 +49,6 @@ from aragora.knowledge.mound.ops.fusion import (
 
 logger = logging.getLogger(__name__)
 
-
 class FusionSyncResult(TypedDict):
     """Result type for fusion sync operations."""
 
@@ -58,9 +57,8 @@ class FusionSyncResult(TypedDict):
     items_skipped: int
     conflicts_detected: int
     conflicts_resolved: int
-    errors: List[str]
+    errors: list[str]
     duration_ms: float
-
 
 @dataclass
 class FusionState:
@@ -75,16 +73,16 @@ class FusionState:
     conflicts_resolved: int = 0
     """Total conflicts successfully resolved."""
 
-    last_fusion_at: Optional[datetime] = None
+    last_fusion_at: datetime | None = None
     """Timestamp of the last fusion operation."""
 
-    source_participation: Dict[str, int] = field(default_factory=dict)
+    source_participation: dict[str, int] = field(default_factory=dict)
     """Count of participation by source adapter."""
 
     avg_fusion_confidence: float = 0.0
     """Running average of fused confidence values."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "fusions_performed": self.fusions_performed,
@@ -94,7 +92,6 @@ class FusionState:
             "source_participation": self.source_participation,
             "avg_fusion_confidence": round(self.avg_fusion_confidence, 4),
         }
-
 
 class FusionMixin:
     """Mixin providing multi-adapter fusion capabilities for adapters.
@@ -124,7 +121,7 @@ class FusionMixin:
         """Initialize fusion state tracking."""
         self._fusion_state = FusionState()
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Expected from KnowledgeMoundAdapter."""
         pass  # Will be provided by base class
 
@@ -133,13 +130,13 @@ class FusionMixin:
         operation: str,
         success: bool,
         latency: float,
-        extra_labels: Optional[Dict[str, str]] = None,
+        extra_labels: Optional[dict[str, str]] = None,
     ) -> None:
         """Expected from KnowledgeMoundAdapter."""
         pass  # Will be provided by base class
 
     @abstractmethod
-    def _get_fusion_sources(self) -> List[str]:
+    def _get_fusion_sources(self) -> list[str]:
         """Return list of source adapter names this adapter can fuse data from.
 
         Override in subclass to specify which adapters to accept data from.
@@ -152,8 +149,8 @@ class FusionMixin:
     @abstractmethod
     def _extract_fusible_data(
         self,
-        km_item: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        km_item: dict[str, Any],
+    ) -> Optional[dict[str, Any]]:
         """Extract fusible data from a KM item.
 
         Override in subclass to extract relevant fields for fusion.
@@ -172,7 +169,7 @@ class FusionMixin:
         self,
         record: Any,
         fusion_result: FusedValidation,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply a fusion result to a source record.
 
@@ -188,7 +185,7 @@ class FusionMixin:
         """
         raise NotImplementedError
 
-    def _get_record_for_fusion(self, source_id: str) -> Optional[Any]:
+    def _get_record_for_fusion(self, source_id: str) -> Any | None:
         """Get a record by its source ID for fusion.
 
         Override if your adapter has a custom record lookup.
@@ -207,7 +204,7 @@ class FusionMixin:
 
     def fuse_validations_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         strategy: FusionStrategy = FusionStrategy.WEIGHTED_AVERAGE,
         conflict_resolution: ConflictResolution = ConflictResolution.PREFER_HIGHER_CONFIDENCE,
         min_sources: int = 2,
@@ -393,8 +390,8 @@ class FusionMixin:
 
     def _partition_by_source(
         self,
-        km_items: List[Dict[str, Any]],
-    ) -> Dict[str, List[Dict[str, Any]]]:
+        km_items: list[dict[str, Any]],
+    ) -> dict[str, list[dict[str, Any]]]:
         """Partition KM items by their source adapter.
 
         Args:
@@ -403,7 +400,7 @@ class FusionMixin:
         Returns:
             Dict mapping source adapter name to list of items.
         """
-        partitions: Dict[str, List[Dict[str, Any]]] = {}
+        partitions: dict[str, list[dict[str, Any]]] = {}
 
         for item in km_items:
             # Try to extract source from metadata
@@ -415,7 +412,7 @@ class FusionMixin:
 
         return partitions
 
-    def _extract_source_adapter(self, item: Dict[str, Any]) -> Optional[str]:
+    def _extract_source_adapter(self, item: dict[str, Any]) -> str | None:
         """Extract the source adapter name from a KM item.
 
         Override to customize source extraction for your adapter.
@@ -438,8 +435,8 @@ class FusionMixin:
 
     def _group_items_by_id(
         self,
-        source_items: Dict[str, List[Dict[str, Any]]],
-    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        source_items: dict[str, list[dict[str, Any]]],
+    ) -> dict[str, dict[str, dict[str, Any]]]:
         """Group items from multiple sources by their item ID.
 
         Args:
@@ -448,7 +445,7 @@ class FusionMixin:
         Returns:
             Dict mapping item_id -> {source -> item_data}.
         """
-        groups: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        groups: dict[str, dict[str, dict[str, Any]]] = {}
 
         for source, items in source_items.items():
             for item in items:
@@ -473,7 +470,7 @@ class FusionMixin:
 
         return groups
 
-    def _extract_item_id(self, item: Dict[str, Any]) -> Optional[str]:
+    def _extract_item_id(self, item: dict[str, Any]) -> str | None:
         """Extract item ID for grouping.
 
         Args:
@@ -487,9 +484,9 @@ class FusionMixin:
 
     def _build_adapter_validations(
         self,
-        source_data: Dict[str, Dict[str, Any]],
+        source_data: dict[str, dict[str, Any]],
         min_confidence: float,
-    ) -> List[AdapterValidation]:
+    ) -> list[AdapterValidation]:
         """Build AdapterValidation objects from source data.
 
         Args:
@@ -550,7 +547,7 @@ class FusionMixin:
     def _compute_adapter_weight(
         self,
         adapter_name: str,
-        reliability: Optional[float] = None,
+        reliability: float | None = None,
     ) -> float:
         """Compute weight for an adapter based on reliability.
 
@@ -600,7 +597,7 @@ class FusionMixin:
                 fusion_result.fused_confidence - old_avg
             ) / (n + 1)
 
-    def get_fusion_stats(self) -> Dict[str, Any]:
+    def get_fusion_stats(self) -> dict[str, Any]:
         """Get fusion statistics for this adapter.
 
         Returns:
@@ -615,7 +612,6 @@ class FusionMixin:
     def supports_fusion(self) -> bool:
         """Indicate that this adapter supports fusion operations."""
         return True
-
 
 __all__ = [
     "FusionMixin",

@@ -20,16 +20,15 @@ Usage:
 
 import logging
 import threading
-from typing import Callable, Dict, List, TypeVar
+from typing import Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable)
 
 # Thread-safe registry of LRU cache functions
-_registered_caches: List[Callable] = []
+_registered_caches: list[Callable] = []
 _registry_lock = threading.Lock()
-
 
 def register_lru_cache(func: F) -> F:
     """Register an LRU cache function for periodic cleanup.
@@ -55,7 +54,6 @@ def register_lru_cache(func: F) -> F:
             logger.debug(f"Registered LRU cache: {getattr(func, '__name__', repr(func))}")
     return func
 
-
 def unregister_lru_cache(func: Callable) -> bool:
     """Unregister an LRU cache function.
 
@@ -70,7 +68,6 @@ def unregister_lru_cache(func: Callable) -> bool:
             _registered_caches.remove(func)
             return True
         return False
-
 
 def clear_all_lru_caches() -> int:
     """Clear all registered LRU caches.
@@ -98,15 +95,14 @@ def clear_all_lru_caches() -> int:
 
     return total_cleared
 
-
-def get_lru_cache_stats() -> Dict[str, dict]:
+def get_lru_cache_stats() -> dict[str, dict]:
     """Get statistics for all registered LRU caches.
 
     Returns:
         Dictionary mapping function names to their cache stats (hits, misses,
         maxsize, currsize)
     """
-    stats: Dict[str, dict] = {}
+    stats: dict[str, dict] = {}
     with _registry_lock:
         for func in _registered_caches:
             name = getattr(func, "__name__", repr(func))
@@ -131,7 +127,6 @@ def get_lru_cache_stats() -> Dict[str, dict]:
 
     return stats
 
-
 def get_total_cache_entries() -> int:
     """Get total number of entries across all registered caches.
 
@@ -148,7 +143,6 @@ def get_total_cache_entries() -> int:
                     pass
     return total
 
-
 def get_registered_cache_count() -> int:
     """Get the number of registered LRU caches.
 
@@ -157,7 +151,6 @@ def get_registered_cache_count() -> int:
     """
     with _registry_lock:
         return len(_registered_caches)
-
 
 __all__ = [
     "register_lru_cache",

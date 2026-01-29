@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.nomic.task_decomposer import (
     TaskDecomposer,
@@ -48,7 +48,6 @@ from aragora.observability import get_logger
 
 logger = get_logger(__name__)
 
-
 class Track(Enum):
     """Development tracks for domain-based routing."""
 
@@ -57,7 +56,6 @@ class Track(Enum):
     SELF_HOSTED = "self_hosted"  # Docker, deployment, ops
     QA = "qa"  # Tests, CI/CD
     CORE = "core"  # Core debate engine (requires approval)
-
 
 # Agents that have dedicated agentic coding harnesses (can edit files autonomously)
 AGENTS_WITH_CODING_HARNESS = {"claude", "codex"}
@@ -73,22 +71,20 @@ KILOCODE_PROVIDER_MAPPING = {
     "qwen": "openrouter-qwen",  # Qwen via OpenRouter
 }
 
-
 @dataclass
 class TrackConfig:
     """Configuration for a development track."""
 
     name: str
-    folders: List[str]  # Folders this track owns
-    protected_folders: List[str] = field(default_factory=list)  # Cannot modify
-    agent_types: List[str] = field(default_factory=list)  # Preferred agents
+    folders: list[str]  # Folders this track owns
+    protected_folders: list[str] = field(default_factory=list)  # Cannot modify
+    agent_types: list[str] = field(default_factory=list)  # Preferred agents
     max_concurrent_tasks: int = 2
     # Whether to use KiloCode as coding harness for models without one
     use_kilocode_harness: bool = True
 
-
 # Default track configurations aligned with AGENT_ASSIGNMENTS.md
-DEFAULT_TRACK_CONFIGS: Dict[Track, TrackConfig] = {
+DEFAULT_TRACK_CONFIGS: dict[Track, TrackConfig] = {
     Track.SME: TrackConfig(
         name="SME",
         folders=["aragora/live/", "aragora/server/handlers/"],
@@ -126,7 +122,6 @@ DEFAULT_TRACK_CONFIGS: Dict[Track, TrackConfig] = {
     ),
 }
 
-
 @dataclass
 class AgentAssignment:
     """Assignment of a subtask to an agent."""
@@ -138,10 +133,9 @@ class AgentAssignment:
     status: str = "pending"  # pending, running, completed, failed
     attempt_count: int = 0
     max_attempts: int = 3
-    result: Optional[Dict[str, Any]] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-
+    result: Optional[dict[str, Any]] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 @dataclass
 class OrchestrationResult:
@@ -152,12 +146,11 @@ class OrchestrationResult:
     completed_subtasks: int
     failed_subtasks: int
     skipped_subtasks: int
-    assignments: List[AgentAssignment]
+    assignments: list[AgentAssignment]
     duration_seconds: float
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     summary: str = ""
-
 
 class AgentRouter:
     """
@@ -168,9 +161,9 @@ class AgentRouter:
     2. Which agent type is best suited (based on task complexity)
     """
 
-    def __init__(self, track_configs: Optional[Dict[Track, TrackConfig]] = None):
+    def __init__(self, track_configs: Optional[dict[Track, TrackConfig]] = None):
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
-        self._file_to_track_cache: Dict[str, Track] = {}
+        self._file_to_track_cache: dict[str, Track] = {}
 
     def determine_track(self, subtask: SubTask) -> Track:
         """Determine which track should handle a subtask."""
@@ -208,7 +201,7 @@ class AgentRouter:
         # Default to developer track for unclassified tasks
         return Track.DEVELOPER
 
-    def _file_to_track(self, file_path: str) -> Optional[Track]:
+    def _file_to_track(self, file_path: str) -> Track | None:
         """Map a file path to its owning track."""
         if file_path in self._file_to_track_cache:
             return self._file_to_track_cache[file_path]
@@ -244,7 +237,7 @@ class AgentRouter:
         self,
         agent_type: str,
         track: Track,
-    ) -> Optional[Dict[str, str]]:
+    ) -> Optional[dict[str, str]]:
         """Determine the coding harness to use for an agent.
 
         For agents with native coding harnesses (claude, codex), returns None.
@@ -285,8 +278,8 @@ class AgentRouter:
     def check_conflicts(
         self,
         subtask: SubTask,
-        active_assignments: List[AgentAssignment],
-    ) -> List[str]:
+        active_assignments: list[AgentAssignment],
+    ) -> list[str]:
         """Check for potential conflicts with active assignments."""
         conflicts = []
 
@@ -308,7 +301,6 @@ class AgentRouter:
 
         return conflicts
 
-
 class FeedbackLoop:
     """
     Manages feedback from verification back to earlier phases.
@@ -321,13 +313,13 @@ class FeedbackLoop:
 
     def __init__(self, max_iterations: int = 3):
         self.max_iterations = max_iterations
-        self._iteration_counts: Dict[str, int] = {}
+        self._iteration_counts: dict[str, int] = {}
 
     def analyze_failure(
         self,
         assignment: AgentAssignment,
-        error_info: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        error_info: dict[str, Any],
+    ) -> dict[str, Any]:
         """Analyze a failure and determine next steps."""
         subtask_id = assignment.subtask.id
         self._iteration_counts[subtask_id] = self._iteration_counts.get(subtask_id, 0) + 1
@@ -384,7 +376,6 @@ class FeedbackLoop:
 
         return "\n".join(hints[:5]) if hints else "Review test output"
 
-
 class AutonomousOrchestrator:
     """
     Orchestrates autonomous development across multiple agents and tracks.
@@ -399,13 +390,13 @@ class AutonomousOrchestrator:
 
     def __init__(
         self,
-        aragora_path: Optional[Path] = None,
-        track_configs: Optional[Dict[Track, TrackConfig]] = None,
-        workflow_engine: Optional[WorkflowEngine] = None,
-        task_decomposer: Optional[TaskDecomposer] = None,
+        aragora_path: Path | None = None,
+        track_configs: Optional[dict[Track, TrackConfig]] = None,
+        workflow_engine: WorkflowEngine | None = None,
+        task_decomposer: TaskDecomposer | None = None,
         require_human_approval: bool = False,
         max_parallel_tasks: int = 4,
-        on_checkpoint: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        on_checkpoint: Optional[Callable[[str, dict[str, Any]], None]] = None,
         use_debate_decomposition: bool = False,
     ):
         """
@@ -437,16 +428,16 @@ class AutonomousOrchestrator:
         self.feedback_loop = FeedbackLoop()
 
         # State
-        self._active_assignments: List[AgentAssignment] = []
-        self._completed_assignments: List[AgentAssignment] = []
-        self._orchestration_id: Optional[str] = None
+        self._active_assignments: list[AgentAssignment] = []
+        self._completed_assignments: list[AgentAssignment] = []
+        self._orchestration_id: str | None = None
 
     async def execute_goal(
         self,
         goal: str,
-        tracks: Optional[List[str]] = None,
+        tracks: Optional[list[str]] = None,
         max_cycles: int = 5,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> OrchestrationResult:
         """
         Execute a high-level goal by decomposing and orchestrating subtasks.
@@ -550,7 +541,7 @@ class AutonomousOrchestrator:
     async def _decompose_goal(
         self,
         goal: str,
-        tracks: Optional[List[str]] = None,
+        tracks: Optional[list[str]] = None,
     ) -> TaskDecomposition:
         """Decompose a high-level goal into subtasks."""
         # Enrich goal with track context if provided
@@ -570,8 +561,8 @@ class AutonomousOrchestrator:
     def _create_assignments(
         self,
         decomposition: TaskDecomposition,
-        tracks: Optional[List[str]] = None,
-    ) -> List[AgentAssignment]:
+        tracks: Optional[list[str]] = None,
+    ) -> list[AgentAssignment]:
         """Create agent assignments from decomposed subtasks."""
         assignments = []
         allowed_tracks = {Track(t.lower()) for t in tracks} if tracks else set(Track)
@@ -601,12 +592,12 @@ class AutonomousOrchestrator:
 
     async def _execute_assignments(
         self,
-        assignments: List[AgentAssignment],
+        assignments: list[AgentAssignment],
         max_cycles: int,
     ) -> None:
         """Execute assignments with parallel coordination."""
         pending = list(assignments)
-        running: List[asyncio.Task] = []
+        running: list[asyncio.Task] = []
 
         while pending or running:
             # Start new tasks up to max parallel
@@ -729,7 +720,7 @@ class AutonomousOrchestrator:
         )
 
         # Build implementation step config
-        implement_config: Dict[str, Any] = {
+        implement_config: dict[str, Any] = {
             "agent_type": assignment.agent_type,
             "prompt_template": "implement",
             "files": subtask.file_scope,
@@ -785,7 +776,7 @@ class AutonomousOrchestrator:
             entry_step="design",
         )
 
-    def _checkpoint(self, phase: str, data: Dict[str, Any]) -> None:
+    def _checkpoint(self, phase: str, data: dict[str, Any]) -> None:
         """Create a checkpoint for the orchestration."""
         if self.on_checkpoint:
             self.on_checkpoint(
@@ -797,9 +788,9 @@ class AutonomousOrchestrator:
                 },
             )
 
-    def _generate_summary(self, assignments: List[AgentAssignment]) -> str:
+    def _generate_summary(self, assignments: list[AgentAssignment]) -> str:
         """Generate a summary of the orchestration."""
-        by_track: Dict[str, List[str]] = {}
+        by_track: dict[str, list[str]] = {}
         for a in assignments:
             track_name = a.track.value
             if track_name not in by_track:
@@ -822,7 +813,7 @@ class AutonomousOrchestrator:
     async def execute_track(
         self,
         track: str,
-        focus_areas: Optional[List[str]] = None,
+        focus_areas: Optional[list[str]] = None,
         max_cycles: int = 3,
     ) -> OrchestrationResult:
         """
@@ -846,18 +837,16 @@ class AutonomousOrchestrator:
             max_cycles=max_cycles,
         )
 
-    def get_active_assignments(self) -> List[AgentAssignment]:
+    def get_active_assignments(self) -> list[AgentAssignment]:
         """Get currently active assignments."""
         return self._active_assignments.copy()
 
-    def get_completed_assignments(self) -> List[AgentAssignment]:
+    def get_completed_assignments(self) -> list[AgentAssignment]:
         """Get completed assignments."""
         return self._completed_assignments.copy()
 
-
 # Singleton instance
-_orchestrator_instance: Optional[AutonomousOrchestrator] = None
-
+_orchestrator_instance: AutonomousOrchestrator | None = None
 
 def get_orchestrator(
     **kwargs: Any,
@@ -870,12 +859,10 @@ def get_orchestrator(
 
     return _orchestrator_instance
 
-
 def reset_orchestrator() -> None:
     """Reset the singleton (for testing)."""
     global _orchestrator_instance
     _orchestrator_instance = None
-
 
 __all__ = [
     "AutonomousOrchestrator",

@@ -7,16 +7,15 @@ Formal verification and consensus proofs.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def get_consensus_proofs_tool(
     debate_id: str = "",
     proof_type: str = "all",
     limit: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Retrieve formal verification proofs from debates.
 
@@ -28,7 +27,7 @@ async def get_consensus_proofs_tool(
     Returns:
         Dict with proofs list and count
     """
-    proofs: List[Dict[str, Any]] = []
+    proofs: list[dict[str, Any]] = []
 
     # Try to get proofs from debate data
     if not proofs and debate_id:
@@ -54,11 +53,10 @@ async def get_consensus_proofs_tool(
         "proof_type": proof_type,
     }
 
-
 async def verify_consensus_tool(
     debate_id: str,
     backend: str = "z3",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Verify the consensus of a completed debate using formal methods.
 
@@ -117,12 +115,11 @@ async def verify_consensus_tool(
     except Exception as e:
         return {"error": f"Verification failed: {e}"}
 
-
 async def generate_proof_tool(
     claim: str,
     output_format: str = "lean4",
     context: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate a formal proof for a claim without verification.
 
@@ -140,7 +137,7 @@ async def generate_proof_tool(
     try:
         from aragora.verification.formal import LeanBackend, Z3Backend
 
-        backend: Union[LeanBackend, Z3Backend]
+        backend: LeanBackend | Z3Backend
         if output_format == "lean4":
             backend = LeanBackend()
         else:
@@ -160,7 +157,6 @@ async def generate_proof_tool(
         return {"error": "Verification module not available"}
     except Exception as e:
         return {"error": f"Proof generation failed: {e}"}
-
 
 __all__ = [
     "get_consensus_proofs_tool",

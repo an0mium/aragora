@@ -10,6 +10,7 @@ Extends the base provenance system with:
 
 This ensures debate conclusions remain valid as underlying evidence changes.
 """
+from __future__ import annotations
 
 import hashlib
 import os
@@ -19,14 +20,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.reasoning.provenance import (
     ProvenanceManager,
     ProvenanceRecord,
     SourceType,
 )
-
 
 class StalenessStatus(Enum):
     """Status of evidence freshness."""
@@ -36,7 +36,6 @@ class StalenessStatus(Enum):
     UNKNOWN = "unknown"  # Cannot determine
     ERROR = "error"  # Failed to check
     EXPIRED = "expired"  # Time-based expiration
-
 
 @dataclass
 class GitSourceInfo:
@@ -48,9 +47,9 @@ class GitSourceInfo:
     line_end: int
     commit_sha: str
     branch: str = "main"
-    commit_timestamp: Optional[str] = None
-    commit_author: Optional[str] = None
-    commit_message: Optional[str] = None
+    commit_timestamp: str | None = None
+    commit_author: str | None = None
+    commit_message: str | None = None
 
     @property
     def ref(self) -> str:
@@ -71,7 +70,6 @@ class GitSourceInfo:
             "ref": self.ref,
         }
 
-
 @dataclass
 class WebSourceInfo:
     """Web-specific source information for URL evidence."""
@@ -81,8 +79,8 @@ class WebSourceInfo:
     content_hash: str
     http_status: int = 200
     content_type: str = "text/html"
-    last_modified: Optional[str] = None
-    etag: Optional[str] = None
+    last_modified: str | None = None
+    etag: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -95,7 +93,6 @@ class WebSourceInfo:
             "etag": self.etag,
         }
 
-
 @dataclass
 class StalenessCheck:
     """Result of checking evidence staleness."""
@@ -106,9 +103,9 @@ class StalenessCheck:
     reason: str
 
     # Change details (if stale)
-    original_hash: Optional[str] = None
-    current_hash: Optional[str] = None
-    change_summary: Optional[str] = None
+    original_hash: str | None = None
+    current_hash: str | None = None
+    change_summary: str | None = None
 
     # For git sources
     commits_behind: int = 0
@@ -126,7 +123,6 @@ class StalenessCheck:
             "commits_behind": self.commits_behind,
             "changed_lines": self.changed_lines,
         }
-
 
 @dataclass
 class RevalidationTrigger:
@@ -151,11 +147,10 @@ class RevalidationTrigger:
             "created_at": self.created_at,
         }
 
-
 class GitProvenanceTracker:
     """Tracks provenance for code evidence via git."""
 
-    def __init__(self, repo_path: Optional[str] = None):
+    def __init__(self, repo_path: str | None = None):
         self.repo_path = repo_path or os.getcwd()
 
     def _run_git(self, args: list[str]) -> tuple[bool, str]:
@@ -183,7 +178,7 @@ class GitProvenanceTracker:
         except Exception as e:
             return False, str(e)
 
-    def get_current_commit(self) -> Optional[str]:
+    def get_current_commit(self) -> str | None:
         """Get current HEAD commit SHA."""
         success, output = self._run_git(["rev-parse", "HEAD"])
         return output if success else None
@@ -192,7 +187,7 @@ class GitProvenanceTracker:
         self,
         file_path: str,
         commit_sha: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get file content at a specific commit."""
         success, output = self._run_git(["show", f"{commit_sha}:{file_path}"])
         return output if success else None
@@ -353,11 +348,10 @@ class GitProvenanceTracker:
             changed_lines=changed_lines,
         )
 
-
 class WebProvenanceTracker:
     """Tracks provenance for web-based evidence."""
 
-    def __init__(self, cache_dir: Optional[str] = None):
+    def __init__(self, cache_dir: str | None = None):
         self.cache_dir = Path(cache_dir) if cache_dir else Path(".web_cache")
         self.cache_dir.mkdir(exist_ok=True)
 
@@ -435,7 +429,6 @@ class WebProvenanceTracker:
                 reason=str(e),
             )
 
-
 class EnhancedProvenanceManager(ProvenanceManager):
     """
     Enhanced provenance manager with staleness detection and verification.
@@ -449,8 +442,8 @@ class EnhancedProvenanceManager(ProvenanceManager):
 
     def __init__(
         self,
-        debate_id: Optional[str] = None,
-        repo_path: Optional[str] = None,
+        debate_id: str | None = None,
+        repo_path: str | None = None,
         staleness_threshold_hours: float = 24.0,
     ):
         super().__init__(debate_id)
@@ -470,7 +463,7 @@ class EnhancedProvenanceManager(ProvenanceManager):
         line_start: int,
         line_end: int,
         content: str,
-        claim_id: Optional[str] = None,
+        claim_id: str | None = None,
     ) -> ProvenanceRecord:
         """Record code evidence with git provenance."""
         # Get git info
@@ -501,7 +494,7 @@ class EnhancedProvenanceManager(ProvenanceManager):
         self,
         url: str,
         content: str,
-        claim_id: Optional[str] = None,
+        claim_id: str | None = None,
     ) -> ProvenanceRecord:
         """Record web evidence with URL provenance."""
         web_info = await self.web_tracker.record_url_evidence(url, content)
@@ -563,7 +556,7 @@ class EnhancedProvenanceManager(ProvenanceManager):
 
     def generate_revalidation_triggers(
         self,
-        claim_ids: Optional[list[str]] = None,
+        claim_ids: list[str] | None = None,
     ) -> list[RevalidationTrigger]:
         """Generate triggers for claims with stale evidence."""
         triggers: list[RevalidationTrigger] = []
@@ -687,7 +680,6 @@ class EnhancedProvenanceManager(ProvenanceManager):
         )
 
         return base_export
-
 
 class ProvenanceValidator:
     """

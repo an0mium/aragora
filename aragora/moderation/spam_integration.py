@@ -34,13 +34,12 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.services.spam_classifier import SpamClassifier, SpamClassificationResult
 
 logger = logging.getLogger(__name__)
-
 
 class SpamVerdict(str, Enum):
     """Verdict from spam content check."""
@@ -48,7 +47,6 @@ class SpamVerdict(str, Enum):
     CLEAN = "clean"
     SUSPICIOUS = "suspicious"
     SPAM = "spam"
-
 
 class ContentModerationError(Exception):
     """Raised when content is blocked by moderation."""
@@ -58,13 +56,12 @@ class ContentModerationError(Exception):
         message: str,
         verdict: SpamVerdict = SpamVerdict.SPAM,
         confidence: float = 0.0,
-        reasons: Optional[List[str]] = None,
+        reasons: Optional[list[str]] = None,
     ):
         super().__init__(message)
         self.verdict = verdict
         self.confidence = confidence
         self.reasons = reasons or []
-
 
 @dataclass
 class SpamCheckResult:
@@ -72,7 +69,7 @@ class SpamCheckResult:
 
     verdict: SpamVerdict
     confidence: float  # 0.0 to 1.0
-    reasons: List[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
     should_block: bool = False
     should_flag_for_review: bool = False
 
@@ -88,7 +85,7 @@ class SpamCheckResult:
     pattern_score: float = 0.0
     url_score: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "verdict": self.verdict.value,
@@ -107,7 +104,6 @@ class SpamCheckResult:
                 "url": self.url_score,
             },
         }
-
 
 @dataclass
 class SpamModerationConfig:
@@ -143,7 +139,6 @@ class SpamModerationConfig:
             log_all_checks=os.getenv("ARAGORA_SPAM_LOG_ALL", "false").lower() == "true",
         )
 
-
 class SpamModerationIntegration:
     """
     Integrates spam classifier with content moderation pipeline.
@@ -165,7 +160,7 @@ class SpamModerationIntegration:
     def __init__(
         self,
         classifier: Optional["SpamClassifier"] = None,
-        config: Optional[SpamModerationConfig] = None,
+        config: SpamModerationConfig | None = None,
     ):
         """
         Initialize spam moderation integration.
@@ -179,7 +174,7 @@ class SpamModerationIntegration:
         self._classifier = classifier
         self._config = config or SpamModerationConfig.from_env()
         self._initialized = False
-        self._cache: Dict[str, Tuple[SpamCheckResult, float]] = {}
+        self._cache: dict[str, tuple[SpamCheckResult, float]] = {}
         self._stats = {
             "checks": 0,
             "blocked": 0,
@@ -200,7 +195,7 @@ class SpamModerationIntegration:
         return self._config.enabled
 
     @property
-    def statistics(self) -> Dict[str, int]:
+    def statistics(self) -> dict[str, int]:
         """Get moderation statistics."""
         return dict(self._stats)
 
@@ -240,7 +235,7 @@ class SpamModerationIntegration:
     async def check_content(
         self,
         content: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> SpamCheckResult:
         """
         Check content for spam.
@@ -344,8 +339,8 @@ class SpamModerationIntegration:
     async def check_debate_input(
         self,
         proposal: str,
-        context: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        context: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> SpamCheckResult:
         """
         Check debate proposal for spam before processing.
@@ -382,8 +377,8 @@ class SpamModerationIntegration:
     async def check_message(
         self,
         message: str,
-        sender: Optional[str] = None,
-        debate_id: Optional[str] = None,
+        sender: str | None = None,
+        debate_id: str | None = None,
     ) -> SpamCheckResult:
         """
         Check an individual debate message for spam.
@@ -443,7 +438,7 @@ class SpamModerationIntegration:
         """Generate hash for content caching."""
         return hashlib.sha256(content.encode()).hexdigest()
 
-    def _get_cached(self, content_hash: str) -> Optional[SpamCheckResult]:
+    def _get_cached(self, content_hash: str) -> SpamCheckResult | None:
         """Get cached result if valid."""
         if content_hash not in self._cache:
             return None
@@ -473,7 +468,7 @@ class SpamModerationIntegration:
         self._cache.clear()
         return count
 
-    def reset_statistics(self) -> Dict[str, int]:
+    def reset_statistics(self) -> dict[str, int]:
         """Reset and return current statistics."""
         old_stats = dict(self._stats)
         self._stats = {
@@ -495,10 +490,8 @@ class SpamModerationIntegration:
                 logger.warning(f"Error closing classifier: {e}")
         self._initialized = False
 
-
 # Global instance management
-_global_moderation: Optional[SpamModerationIntegration] = None
-
+_global_moderation: SpamModerationIntegration | None = None
 
 def get_spam_moderation() -> SpamModerationIntegration:
     """
@@ -515,7 +508,6 @@ def get_spam_moderation() -> SpamModerationIntegration:
         _global_moderation = SpamModerationIntegration()
     return _global_moderation
 
-
 def set_spam_moderation(moderation: SpamModerationIntegration) -> None:
     """
     Set the global spam moderation instance.
@@ -525,11 +517,10 @@ def set_spam_moderation(moderation: SpamModerationIntegration) -> None:
     global _global_moderation
     _global_moderation = moderation
 
-
 async def check_debate_content(
     proposal: str,
-    context: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    context: str | None = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> SpamCheckResult:
     """
     Convenience function to check debate content for spam.
@@ -556,7 +547,6 @@ async def check_debate_content(
     if not moderation._initialized:
         await moderation.initialize()
     return await moderation.check_debate_input(proposal, context, metadata)
-
 
 __all__ = [
     "SpamVerdict",

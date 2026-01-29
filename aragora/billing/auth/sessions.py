@@ -45,7 +45,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,6 @@ logger = logging.getLogger(__name__)
 _SESSION_TTL = int(os.getenv("ARAGORA_JWT_SESSION_TTL", "2592000"))  # 30 days default
 _MAX_SESSIONS_PER_USER = int(os.getenv("ARAGORA_MAX_SESSIONS_PER_USER", "10"))
 _INACTIVITY_TIMEOUT = int(os.getenv("ARAGORA_SESSION_INACTIVITY_TIMEOUT", "86400"))  # 24 hours
-
 
 @dataclass
 class JWTSession:
@@ -63,16 +62,16 @@ class JWTSession:
     user_id: str
     created_at: float  # Unix timestamp
     last_activity: float  # Unix timestamp
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    device_name: Optional[str] = None  # Derived from user agent
-    expires_at: Optional[float] = None  # Token expiration time
+    ip_address: str | None = None
+    user_agent: str | None = None
+    device_name: str | None = None  # Derived from user agent
+    expires_at: float | None = None  # Token expiration time
 
     # MFA tracking for step-up authentication
-    mfa_verified_at: Optional[float] = None  # Unix timestamp of last MFA verification
-    mfa_methods_used: Optional[List[str]] = None  # ['totp', 'backup_code', etc.]
+    mfa_verified_at: float | None = None  # Unix timestamp of last MFA verification
+    mfa_methods_used: Optional[list[str]] = None  # ['totp', 'backup_code', etc.]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "session_id": self.session_id,
@@ -119,13 +118,13 @@ class JWTSession:
             return False
         return (time.time() - self.mfa_verified_at) <= max_age_seconds
 
-    def mfa_age_seconds(self) -> Optional[int]:
+    def mfa_age_seconds(self) -> int | None:
         """Get seconds since last MFA verification, or None if never verified."""
         if self.mfa_verified_at is None:
             return None
         return int(time.time() - self.mfa_verified_at)
 
-    def record_mfa_verification(self, methods: Optional[List[str]] = None) -> None:
+    def record_mfa_verification(self, methods: Optional[list[str]] = None) -> None:
         """
         Record that MFA was successfully verified for this session.
 
@@ -135,8 +134,7 @@ class JWTSession:
         self.mfa_verified_at = time.time()
         self.mfa_methods_used = methods or ["totp"]
 
-
-def _parse_device_name(user_agent: Optional[str]) -> str:
+def _parse_device_name(user_agent: str | None) -> str:
     """Parse a human-readable device name from user agent string."""
     if not user_agent:
         return "Unknown Device"
@@ -190,7 +188,6 @@ def _parse_device_name(user_agent: Optional[str]) -> str:
 
     return "Unknown Device"
 
-
 class JWTSessionManager:
     """
     Manages active JWT sessions with activity tracking.
@@ -217,7 +214,7 @@ class JWTSessionManager:
         self.inactivity_timeout = inactivity_timeout
 
         # user_id -> OrderedDict of session_id -> JWTSession
-        self._sessions: Dict[str, OrderedDict[str, JWTSession]] = {}
+        self._sessions: dict[str, OrderedDict[str, JWTSession]] = {}
         self._lock = threading.Lock()
         self._last_cleanup = time.time()
         self._cleanup_interval = 300  # 5 minutes
@@ -226,9 +223,9 @@ class JWTSessionManager:
         self,
         user_id: str,
         token_jti: str,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        expires_at: Optional[float] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        expires_at: float | None = None,
     ) -> JWTSession:
         """Create and track a new session.
 
@@ -302,7 +299,7 @@ class JWTSessionManager:
             return True
 
     def update_mfa_verification(
-        self, user_id: str, token_jti: str, methods: Optional[List[str]] = None
+        self, user_id: str, token_jti: str, methods: Optional[list[str]] = None
     ) -> bool:
         """Record MFA verification for a session (step-up auth)."""
         with self._lock:
@@ -316,7 +313,7 @@ class JWTSessionManager:
             logger.debug(f"MFA verification recorded for session {token_jti[:8]}...")
             return True
 
-    def get_mfa_freshness(self, user_id: str, token_jti: str) -> Optional[int]:
+    def get_mfa_freshness(self, user_id: str, token_jti: str) -> int | None:
         """Get seconds since last MFA verification."""
         with self._lock:
             user_sessions = self._sessions.get(user_id)
@@ -340,7 +337,7 @@ class JWTSessionManager:
                 return False
             return session.is_mfa_fresh(max_age_seconds)
 
-    def get_session(self, user_id: str, token_jti: str) -> Optional[JWTSession]:
+    def get_session(self, user_id: str, token_jti: str) -> JWTSession | None:
         """Get a specific session.
 
         Args:
@@ -367,7 +364,7 @@ class JWTSessionManager:
         self,
         user_id: str,
         include_inactive: bool = False,
-    ) -> List[JWTSession]:
+    ) -> list[JWTSession]:
         """List all active sessions for a user.
 
         Args:
@@ -426,7 +423,7 @@ class JWTSessionManager:
             logger.info(f"Revoked session {token_jti[:8]}... for user {user_id}")
             return True
 
-    def revoke_all_sessions(self, user_id: str, except_jti: Optional[str] = None) -> int:
+    def revoke_all_sessions(self, user_id: str, except_jti: str | None = None) -> int:
         """Revoke all sessions for a user.
 
         Args:
@@ -486,11 +483,9 @@ class JWTSessionManager:
         if total_removed > 0:
             logger.debug(f"Cleaned up {total_removed} expired/inactive sessions")
 
-
 # Singleton instance
-_session_manager: Optional[JWTSessionManager] = None
+_session_manager: JWTSessionManager | None = None
 _manager_lock = threading.Lock()
-
 
 def get_session_manager() -> JWTSessionManager:
     """Get the global session manager instance."""
@@ -501,13 +496,11 @@ def get_session_manager() -> JWTSessionManager:
                 _session_manager = JWTSessionManager()
     return _session_manager
 
-
 def reset_session_manager() -> None:
     """Reset the session manager (for testing)."""
     global _session_manager
     with _manager_lock:
         _session_manager = None
-
 
 __all__ = [
     "JWTSession",

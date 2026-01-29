@@ -17,7 +17,7 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -36,7 +36,6 @@ DEFAULT_TIMESTAMP_COLUMNS = [
     "_updated_at",
     "metadata$action",
 ]
-
 
 class SnowflakeConnector(EnterpriseConnector):
     """
@@ -71,11 +70,11 @@ class SnowflakeConnector(EnterpriseConnector):
         warehouse: str,
         database: str,
         schema: str = "PUBLIC",
-        role: Optional[str] = None,
-        tables: Optional[List[str]] = None,
-        timestamp_column: Optional[str] = None,
+        role: str | None = None,
+        tables: Optional[list[str]] = None,
+        timestamp_column: str | None = None,
         primary_key_column: str = "ID",
-        content_columns: Optional[List[str]] = None,
+        content_columns: Optional[list[str]] = None,
         use_change_tracking: bool = False,
         pool_size: int = 3,
         **kwargs: Any,
@@ -122,7 +121,7 @@ class SnowflakeConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"Snowflake ({self.database}.{self.schema})"
 
-    def _get_connection_params(self) -> Dict[str, Any]:
+    def _get_connection_params(self) -> dict[str, Any]:
         """Build connection parameters."""
         import os
 
@@ -190,7 +189,7 @@ class SnowflakeConnector(EnterpriseConnector):
             )
             raise
 
-    def _execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
+    def _execute_query(self, query: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute a query synchronously (for thread pool)."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -210,8 +209,8 @@ class SnowflakeConnector(EnterpriseConnector):
             cursor.close()
 
     async def _async_query(
-        self, query: str, params: Optional[tuple] = None
-    ) -> List[Dict[str, Any]]:
+        self, query: str, params: tuple | None = None
+    ) -> list[dict[str, Any]]:
         """Execute a query asynchronously via thread pool."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -221,7 +220,7 @@ class SnowflakeConnector(EnterpriseConnector):
             params,
         )
 
-    async def _discover_tables(self) -> List[str]:
+    async def _discover_tables(self) -> list[str]:
         """Discover tables in the schema."""
         query = """
             SELECT TABLE_NAME
@@ -233,7 +232,7 @@ class SnowflakeConnector(EnterpriseConnector):
         rows = await self._async_query(query, (self.schema,))
         return [row["TABLE_NAME"] for row in rows]
 
-    async def _get_table_columns(self, table: str) -> List[Dict[str, Any]]:
+    async def _get_table_columns(self, table: str) -> list[dict[str, Any]]:
         """Get column information for a table."""
         query = """
             SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
@@ -258,7 +257,7 @@ class SnowflakeConnector(EnterpriseConnector):
             logger.debug(f"Change tracking check failed for {table}: {e}")
             return False
 
-    def _find_timestamp_column(self, columns: List[Dict[str, Any]]) -> Optional[str]:
+    def _find_timestamp_column(self, columns: list[dict[str, Any]]) -> str | None:
         """Find a suitable timestamp column for incremental sync."""
         if self.timestamp_column:
             return self.timestamp_column
@@ -272,7 +271,7 @@ class SnowflakeConnector(EnterpriseConnector):
                         return str(col["COLUMN_NAME"])
         return None
 
-    def _row_to_content(self, row: Dict[str, Any], columns: Optional[List[str]] = None) -> str:
+    def _row_to_content(self, row: dict[str, Any], columns: Optional[list[str]] = None) -> str:
         """Convert a row to text content for indexing."""
         if columns:
             filtered = {k: v for k, v in row.items() if k in columns}
@@ -433,7 +432,7 @@ class SnowflakeConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        table: Optional[str] = None,
+        table: str | None = None,
         **kwargs: Any,
     ) -> list:
         """
@@ -442,7 +441,7 @@ class SnowflakeConnector(EnterpriseConnector):
         Note: Full-text search in Snowflake requires SEARCH OPTIMIZATION or
         Cortex functions. This falls back to ILIKE for basic search.
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         tables = [table] if table else (self.tables or await self._discover_tables())
 
@@ -487,7 +486,7 @@ class SnowflakeConnector(EnterpriseConnector):
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific row by evidence ID."""
         if not evidence_id.startswith("sf:"):
             return None
@@ -506,8 +505,8 @@ class SnowflakeConnector(EnterpriseConnector):
         return None
 
     async def execute_query(
-        self, query: str, params: Optional[tuple] = None
-    ) -> List[Dict[str, Any]]:
+        self, query: str, params: tuple | None = None
+    ) -> list[dict[str, Any]]:
         """
         Execute a custom query.
 
@@ -522,7 +521,7 @@ class SnowflakeConnector(EnterpriseConnector):
         """
         return await self._async_query(query, params)
 
-    async def get_table_stats(self, table: str) -> Dict[str, Any]:
+    async def get_table_stats(self, table: str) -> dict[str, Any]:
         """Get statistics for a table."""
         query = f"""
             SELECT
@@ -545,7 +544,7 @@ class SnowflakeConnector(EnterpriseConnector):
         table: str,
         timestamp: datetime,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Query table data as it existed at a specific timestamp.
 
@@ -578,7 +577,7 @@ class SnowflakeConnector(EnterpriseConnector):
 
         self._executor.shutdown(wait=False)
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """
         Handle webhook for Snowflake notifications.
 
@@ -602,6 +601,5 @@ class SnowflakeConnector(EnterpriseConnector):
             return True
 
         return False
-
 
 __all__ = ["SnowflakeConnector"]

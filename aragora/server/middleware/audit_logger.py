@@ -65,10 +65,9 @@ from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Callable, Optional, Protocol
 
 logger = logging.getLogger(__name__)
-
 
 class AuditSeverity(Enum):
     """Severity levels for audit events."""
@@ -78,7 +77,6 @@ class AuditSeverity(Enum):
     WARNING = "warning"  # Anomalous but not critical (failed auth attempts)
     ERROR = "error"  # Failures that need attention
     CRITICAL = "critical"  # Security incidents requiring immediate action
-
 
 class AuditCategory(Enum):
     """Categories for audit events."""
@@ -91,7 +89,6 @@ class AuditCategory(Enum):
     ADMINISTRATIVE = "administrative"  # User management, role changes
     SECURITY = "security"  # Security-related events (rate limits, blocks)
     SYSTEM = "system"  # System events (startup, shutdown)
-
 
 @dataclass
 class AuditEvent:
@@ -108,7 +105,7 @@ class AuditEvent:
     action: str  # Action name (e.g., "user.login", "debate.create")
 
     # Who (actor) - optional details
-    actor_ip: Optional[str] = None  # Client IP address
+    actor_ip: str | None = None  # Client IP address
     actor_type: str = "user"  # "user", "service", "system", "anonymous"
 
     # What (action) - optional details
@@ -117,23 +114,23 @@ class AuditEvent:
 
     # Where (resource)
     resource: str = ""  # Resource being acted upon
-    resource_id: Optional[str] = None  # Specific resource ID
-    resource_type: Optional[str] = None  # Type of resource
+    resource_id: str | None = None  # Specific resource ID
+    resource_type: str | None = None  # Type of resource
 
     # Result
     outcome: str = "success"  # "success", "failure", "denied", "error"
-    outcome_reason: Optional[str] = None  # Reason for outcome
+    outcome_reason: str | None = None  # Reason for outcome
 
     # Context
-    request_id: Optional[str] = None  # Correlation ID
-    session_id: Optional[str] = None  # Session ID if applicable
-    details: Dict[str, Any] = field(default_factory=dict)  # Additional context
+    request_id: str | None = None  # Correlation ID
+    session_id: str | None = None  # Session ID if applicable
+    details: dict[str, Any] = field(default_factory=dict)  # Additional context
 
     # Integrity
-    previous_hash: Optional[str] = None  # Hash of previous event (chain)
-    event_hash: Optional[str] = None  # Hash of this event
+    previous_hash: str | None = None  # Hash of previous event (chain)
+    event_hash: str | None = None  # Hash of this event
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "event_id": self.event_id,
@@ -171,7 +168,6 @@ class AuditEvent:
         serialized = json.dumps(data, sort_keys=True)
         return hashlib.sha256(serialized.encode()).hexdigest()
 
-
 class AuditBackend(Protocol):
     """Protocol for audit log backends."""
 
@@ -181,19 +177,18 @@ class AuditBackend(Protocol):
 
     def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        actor: Optional[str] = None,
-        action: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        actor: str | None = None,
+        action: str | None = None,
         limit: int = 100,
-    ) -> List[AuditEvent]:
+    ) -> list[AuditEvent]:
         """Query audit events."""
         ...
 
-    def get_last_hash(self) -> Optional[str]:
+    def get_last_hash(self) -> str | None:
         """Get hash of the last event for chain integrity."""
         ...
-
 
 class FileAuditBackend:
     """
@@ -204,7 +199,7 @@ class FileAuditBackend:
 
     def __init__(
         self,
-        log_dir: Optional[str] = None,
+        log_dir: str | None = None,
         file_prefix: str = "audit",
         max_file_size_mb: int = 100,
         retention_days: int = 90,
@@ -226,7 +221,7 @@ class FileAuditBackend:
         self._retention_days = retention_days
 
         self._lock = threading.Lock()
-        self._last_hash: Optional[str] = None
+        self._last_hash: str | None = None
 
         # Load last hash from existing log
         self._load_last_hash()
@@ -282,14 +277,14 @@ class FileAuditBackend:
 
     def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        actor: Optional[str] = None,
-        action: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        actor: str | None = None,
+        action: str | None = None,
         limit: int = 100,
-    ) -> List[AuditEvent]:
+    ) -> list[AuditEvent]:
         """Query audit events from files."""
-        results: List[AuditEvent] = []
+        results: list[AuditEvent] = []
 
         # Get all log files in date range
         log_files = sorted(self._log_dir.glob(f"{self._file_prefix}-*.jsonl"))
@@ -349,10 +344,9 @@ class FileAuditBackend:
 
         return results
 
-    def get_last_hash(self) -> Optional[str]:
+    def get_last_hash(self) -> str | None:
         """Get hash of the last event."""
         return self._last_hash
-
 
 class MemoryAuditBackend:
     """
@@ -368,10 +362,10 @@ class MemoryAuditBackend:
         Args:
             max_events: Maximum events to retain
         """
-        self._events: List[AuditEvent] = []
+        self._events: list[AuditEvent] = []
         self._max_events = max_events
         self._lock = threading.Lock()
-        self._last_hash: Optional[str] = None
+        self._last_hash: str | None = None
 
     def write(self, event: AuditEvent) -> None:
         """Write an audit event to memory."""
@@ -388,15 +382,15 @@ class MemoryAuditBackend:
 
     def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        actor: Optional[str] = None,
-        action: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        actor: str | None = None,
+        action: str | None = None,
         limit: int = 100,
-    ) -> List[AuditEvent]:
+    ) -> list[AuditEvent]:
         """Query audit events from memory."""
         with self._lock:
-            results: List[AuditEvent] = []
+            results: list[AuditEvent] = []
             for event in self._events:
                 if len(results) >= limit:
                     break
@@ -414,7 +408,7 @@ class MemoryAuditBackend:
 
             return results
 
-    def get_last_hash(self) -> Optional[str]:
+    def get_last_hash(self) -> str | None:
         """Get hash of the last event."""
         return self._last_hash
 
@@ -423,7 +417,6 @@ class MemoryAuditBackend:
         with self._lock:
             self._events.clear()
             self._last_hash = None
-
 
 class AuditLogger:
     """
@@ -435,7 +428,7 @@ class AuditLogger:
 
     def __init__(
         self,
-        backend: Optional[AuditBackend] = None,
+        backend: AuditBackend | None = None,
         service_name: str = "aragora",
         min_severity: AuditSeverity = AuditSeverity.INFO,
     ):
@@ -462,16 +455,16 @@ class AuditLogger:
         self,
         action: str,
         actor: str = "system",
-        actor_ip: Optional[str] = None,
+        actor_ip: str | None = None,
         actor_type: str = "user",
         resource: str = "",
-        resource_id: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        resource_id: str | None = None,
+        resource_type: str | None = None,
         outcome: str = "success",
-        outcome_reason: Optional[str] = None,
+        outcome_reason: str | None = None,
         category: AuditCategory = AuditCategory.SYSTEM,
         severity: AuditSeverity = AuditSeverity.INFO,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> AuditEvent:
         """
         Log an audit event.
@@ -553,12 +546,12 @@ class AuditLogger:
 
     def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        actor: Optional[str] = None,
-        action: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        actor: str | None = None,
+        action: str | None = None,
         limit: int = 100,
-    ) -> List[AuditEvent]:
+    ) -> list[AuditEvent]:
         """Query audit events."""
         return self._backend.query(
             start_time=start_time,
@@ -568,7 +561,7 @@ class AuditLogger:
             limit=limit,
         )
 
-    def verify_chain_integrity(self, events: List[AuditEvent]) -> bool:
+    def verify_chain_integrity(self, events: list[AuditEvent]) -> bool:
         """
         Verify the hash chain integrity of a sequence of events.
 
@@ -602,25 +595,23 @@ class AuditLogger:
 
         return True
 
-
 # Global audit logger instance
-_audit_logger: Optional[AuditLogger] = None
+_audit_logger: AuditLogger | None = None
 _logger_lock = threading.Lock()
 
 # Context variables for request/session tracking
-_current_request_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+_current_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "audit_request_id", default=None
 )
-_current_session_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+_current_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "audit_session_id", default=None
 )
-_current_actor: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+_current_actor: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "audit_actor", default=None
 )
-_current_actor_ip: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+_current_actor_ip: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "audit_actor_ip", default=None
 )
-
 
 def get_audit_logger() -> AuditLogger:
     """Get the global audit logger instance."""
@@ -631,19 +622,17 @@ def get_audit_logger() -> AuditLogger:
                 _audit_logger = AuditLogger()
     return _audit_logger
 
-
 def set_audit_logger(logger: AuditLogger) -> None:
     """Set the global audit logger instance."""
     global _audit_logger
     with _logger_lock:
         _audit_logger = logger
 
-
 def set_audit_context(
-    request_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    actor: Optional[str] = None,
-    actor_ip: Optional[str] = None,
+    request_id: str | None = None,
+    session_id: str | None = None,
+    actor: str | None = None,
+    actor_ip: str | None = None,
 ) -> None:
     """Set audit context for the current execution."""
     if request_id is not None:
@@ -655,7 +644,6 @@ def set_audit_context(
     if actor_ip is not None:
         _current_actor_ip.set(actor_ip)
 
-
 def clear_audit_context() -> None:
     """Clear audit context for the current execution."""
     _current_request_id.set(None)
@@ -663,16 +651,15 @@ def clear_audit_context() -> None:
     _current_actor.set(None)
     _current_actor_ip.set(None)
 
-
 def audit_event(
     action: str,
-    actor: Optional[str] = None,
+    actor: str | None = None,
     resource: str = "",
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
     outcome: str = "success",
     severity: AuditSeverity = AuditSeverity.INFO,
     category: AuditCategory = AuditCategory.SYSTEM,
-    details: Optional[Dict[str, Any]] = None,
+    details: Optional[dict[str, Any]] = None,
 ) -> AuditEvent:
     """
     Log an audit event using the global logger.
@@ -706,13 +693,12 @@ def audit_event(
         details=details,
     )
 
-
 def audit_action(
     action: str,
     category: AuditCategory = AuditCategory.SYSTEM,
     severity: AuditSeverity = AuditSeverity.INFO,
-    resource_from: Optional[str] = None,
-    resource_id_from: Optional[str] = None,
+    resource_from: str | None = None,
+    resource_id_from: str | None = None,
 ) -> Callable:
     """
     Decorator for automatic audit logging of function calls.
@@ -834,16 +820,14 @@ def audit_action(
 
     return decorator
 
-
 # Pre-defined audit event helpers for common operations
-
 
 def audit_auth_login(
     user_id: str,
     success: bool,
     method: str = "password",
-    ip_address: Optional[str] = None,
-    reason: Optional[str] = None,
+    ip_address: str | None = None,
+    reason: str | None = None,
 ) -> AuditEvent:
     """Log an authentication login attempt."""
     return audit_event(
@@ -860,8 +844,7 @@ def audit_auth_login(
         },
     )
 
-
-def audit_auth_logout(user_id: str, ip_address: Optional[str] = None) -> AuditEvent:
+def audit_auth_logout(user_id: str, ip_address: str | None = None) -> AuditEvent:
     """Log an authentication logout."""
     return audit_event(
         action="auth.logout",
@@ -872,7 +855,6 @@ def audit_auth_logout(user_id: str, ip_address: Optional[str] = None) -> AuditEv
         category=AuditCategory.AUTHENTICATION,
         details={"ip_address": ip_address},
     )
-
 
 def audit_token_revoked(
     token_hash: str,
@@ -891,12 +873,11 @@ def audit_token_revoked(
         details={"reason": reason},
     )
 
-
 def audit_access_denied(
     user_id: str,
     resource: str,
     required_permission: str,
-    ip_address: Optional[str] = None,
+    ip_address: str | None = None,
 ) -> AuditEvent:
     """Log an access denied event."""
     return audit_event(
@@ -912,13 +893,12 @@ def audit_access_denied(
         },
     )
 
-
 def audit_data_modified(
     user_id: str,
     resource_type: str,
     resource_id: str,
     operation: str,  # "create", "update", "delete"
-    changes: Optional[Dict[str, Any]] = None,
+    changes: Optional[dict[str, Any]] = None,
 ) -> AuditEvent:
     """Log a data modification event."""
     return audit_event(
@@ -932,12 +912,11 @@ def audit_data_modified(
         details={"changes": changes or {}},
     )
 
-
 def audit_config_changed(
     user_id: str,
     config_key: str,
-    old_value: Optional[str] = None,
-    new_value: Optional[str] = None,
+    old_value: str | None = None,
+    new_value: str | None = None,
 ) -> AuditEvent:
     """Log a configuration change."""
     return audit_event(
@@ -954,11 +933,10 @@ def audit_config_changed(
         },
     )
 
-
 def audit_security_event(
     event_type: str,  # "rate_limit", "blocked_ip", "suspicious_activity"
     actor: str,
-    details: Dict[str, Any],
+    details: dict[str, Any],
     severity: AuditSeverity = AuditSeverity.WARNING,
 ) -> AuditEvent:
     """Log a security-related event."""
@@ -971,7 +949,6 @@ def audit_security_event(
         category=AuditCategory.SECURITY,
         details=details,
     )
-
 
 __all__ = [
     # Core classes

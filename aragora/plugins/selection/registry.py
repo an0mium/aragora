@@ -7,9 +7,10 @@ Provides:
 - Default plugin configuration
 - Type-safe plugin retrieval
 """
+from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Type, TypeVar
+from typing import Callable, TypeVar
 
 from aragora.plugins.selection.protocols import (
     RoleAssignerProtocol,
@@ -23,7 +24,6 @@ logger = logging.getLogger(__name__)
 ScorerT = TypeVar("ScorerT", bound=ScorerProtocol)
 TeamSelectorT = TypeVar("TeamSelectorT", bound=TeamSelectorProtocol)
 RoleAssignerT = TypeVar("RoleAssignerT", bound=RoleAssignerProtocol)
-
 
 class SelectionPluginRegistry:
     """
@@ -49,9 +49,9 @@ class SelectionPluginRegistry:
     """
 
     def __init__(self):
-        self._scorers: dict[str, Type[ScorerProtocol]] = {}
-        self._team_selectors: dict[str, Type[TeamSelectorProtocol]] = {}
-        self._role_assigners: dict[str, Type[RoleAssignerProtocol]] = {}
+        self._scorers: dict[str, type[ScorerProtocol]] = {}
+        self._team_selectors: dict[str, type[TeamSelectorProtocol]] = {}
+        self._role_assigners: dict[str, type[RoleAssignerProtocol]] = {}
 
         # Default plugin names
         self._default_scorer: str = "elo-weighted"
@@ -61,7 +61,7 @@ class SelectionPluginRegistry:
     def register_scorer(
         self,
         name: str,
-        scorer_class: Type[ScorerProtocol],
+        scorer_class: type[ScorerProtocol],
         set_default: bool = False,
     ) -> None:
         """Register a scorer plugin."""
@@ -75,7 +75,7 @@ class SelectionPluginRegistry:
     def register_team_selector(
         self,
         name: str,
-        selector_class: Type[TeamSelectorProtocol],
+        selector_class: type[TeamSelectorProtocol],
         set_default: bool = False,
     ) -> None:
         """Register a team selector plugin."""
@@ -89,7 +89,7 @@ class SelectionPluginRegistry:
     def register_role_assigner(
         self,
         name: str,
-        assigner_class: Type[RoleAssignerProtocol],
+        assigner_class: type[RoleAssignerProtocol],
         set_default: bool = False,
     ) -> None:
         """Register a role assigner plugin."""
@@ -100,14 +100,14 @@ class SelectionPluginRegistry:
             self._default_role_assigner = name
         logger.debug(f"Registered role assigner: {name}")
 
-    def get_scorer(self, name: Optional[str] = None) -> ScorerProtocol:
+    def get_scorer(self, name: str | None = None) -> ScorerProtocol:
         """Get a scorer instance by name (or default)."""
         name = name or self._default_scorer
         if name not in self._scorers:
             raise KeyError(f"Unknown scorer: {name}. Available: {list(self._scorers.keys())}")
         return self._scorers[name]()
 
-    def get_team_selector(self, name: Optional[str] = None) -> TeamSelectorProtocol:
+    def get_team_selector(self, name: str | None = None) -> TeamSelectorProtocol:
         """Get a team selector instance by name (or default)."""
         name = name or self._default_team_selector
         if name not in self._team_selectors:
@@ -116,7 +116,7 @@ class SelectionPluginRegistry:
             )
         return self._team_selectors[name]()
 
-    def get_role_assigner(self, name: Optional[str] = None) -> RoleAssignerProtocol:
+    def get_role_assigner(self, name: str | None = None) -> RoleAssignerProtocol:
         """Get a role assigner instance by name (or default)."""
         name = name or self._default_role_assigner
         if name not in self._role_assigners:
@@ -178,10 +178,8 @@ class SelectionPluginRegistry:
             "role_assigners": [self.get_role_assigner_info(name) for name in self._role_assigners],
         }
 
-
 # Global registry instance
-_registry: Optional[SelectionPluginRegistry] = None
-
+_registry: SelectionPluginRegistry | None = None
 
 def get_selection_registry() -> SelectionPluginRegistry:
     """Get the global selection plugin registry."""
@@ -192,12 +190,10 @@ def get_selection_registry() -> SelectionPluginRegistry:
         _register_builtins(_registry)
     return _registry
 
-
 def reset_selection_registry() -> None:
     """Reset the global registry (for testing)."""
     global _registry
     _registry = None
-
 
 def _register_builtins(registry: SelectionPluginRegistry) -> None:
     """Register built-in selection strategies."""
@@ -222,11 +218,10 @@ def _register_builtins(registry: SelectionPluginRegistry) -> None:
     registry.register_role_assigner("domain-based", DomainBasedRoleAssigner, set_default=True)
     registry.register_role_assigner("simple", SimpleRoleAssigner)
 
-
 def register_scorer(
     name: str,
     set_default: bool = False,
-) -> Callable[[Type[ScorerT]], Type[ScorerT]]:
+) -> Callable[[type[ScorerT]], type[ScorerT]]:
     """
     Decorator to register a scorer plugin.
 
@@ -245,17 +240,16 @@ def register_scorer(
                 return "Simple ELO-only scoring"
     """
 
-    def decorator(cls: Type[ScorerT]) -> Type[ScorerT]:
+    def decorator(cls: type[ScorerT]) -> type[ScorerT]:
         get_selection_registry().register_scorer(name, cls, set_default)
         return cls
 
     return decorator
 
-
 def register_team_selector(
     name: str,
     set_default: bool = False,
-) -> Callable[[Type[TeamSelectorT]], Type[TeamSelectorT]]:
+) -> Callable[[type[TeamSelectorT]], type[TeamSelectorT]]:
     """
     Decorator to register a team selector plugin.
 
@@ -267,17 +261,16 @@ def register_team_selector(
             ...
     """
 
-    def decorator(cls: Type[TeamSelectorT]) -> Type[TeamSelectorT]:
+    def decorator(cls: type[TeamSelectorT]) -> type[TeamSelectorT]:
         get_selection_registry().register_team_selector(name, cls, set_default)
         return cls
 
     return decorator
 
-
 def register_role_assigner(
     name: str,
     set_default: bool = False,
-) -> Callable[[Type[RoleAssignerT]], Type[RoleAssignerT]]:
+) -> Callable[[type[RoleAssignerT]], type[RoleAssignerT]]:
     """
     Decorator to register a role assigner plugin.
 
@@ -289,7 +282,7 @@ def register_role_assigner(
             ...
     """
 
-    def decorator(cls: Type[RoleAssignerT]) -> Type[RoleAssignerT]:
+    def decorator(cls: type[RoleAssignerT]) -> type[RoleAssignerT]:
         get_selection_registry().register_role_assigner(name, cls, set_default)
         return cls
 

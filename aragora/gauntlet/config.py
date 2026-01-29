@@ -3,6 +3,7 @@ Gauntlet Configuration.
 
 Defines the configuration for a Gauntlet validation run.
 """
+from __future__ import annotations
 
 __all__ = [
     "AttackCategory",
@@ -16,14 +17,12 @@ __all__ = [
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 # Import shared types from types.py
 from .types import (
     GauntletPhase,
     GauntletSeverity,  # Alias for SeverityLevel
 )
-
 
 class AttackCategory(Enum):
     """Categories of adversarial attacks to run."""
@@ -64,7 +63,6 @@ class AttackCategory(Enum):
     RACE_CONDITION = "race_condition"
     RACE_CONDITIONS = "race_conditions"
 
-
 class ProbeCategory(Enum):
     """Categories of capability probes to run."""
 
@@ -77,7 +75,6 @@ class ProbeCategory(Enum):
     EDGE_CASE = "edge_case"
     INSTRUCTION_INJECTION = "instruction_injection"
     CAPABILITY_EXAGGERATION = "capability_exaggeration"
-
 
 @dataclass
 class PassFailCriteria:
@@ -116,7 +113,6 @@ class PassFailCriteria:
             min_confidence=0.5,
         )
 
-
 @dataclass
 class GauntletConfig:
     """
@@ -129,7 +125,7 @@ class GauntletConfig:
     # Template metadata
     name: str = "Gauntlet Validation"
     description: str = ""
-    template_id: Optional[str] = None
+    template_id: str | None = None
     input_type: str = "text"
     domain: str = "general"
     tags: list[str] = field(default_factory=list)
@@ -164,7 +160,7 @@ class GauntletConfig:
 
     # Scenario configuration
     run_scenario_matrix: bool = True
-    scenario_preset: Optional[str] = "comprehensive"  # scale, time_horizon, risk, comprehensive
+    scenario_preset: str | None = "comprehensive"  # scale, time_horizon, risk, comprehensive
     max_parallel_scenarios: int = 3
     scenario_presets: list[str] = field(default_factory=list)
     custom_scenarios: list[dict] = field(default_factory=list)
@@ -183,7 +179,7 @@ class GauntletConfig:
     criteria: PassFailCriteria = field(default_factory=PassFailCriteria)
 
     # Output configuration
-    output_dir: Optional[str] = None
+    output_dir: str | None = None
     output_formats: list[str] = field(default_factory=lambda: ["json", "md"])
     save_artifacts: bool = False
     generate_receipt: bool = True
@@ -341,7 +337,6 @@ class GauntletConfig:
             run_scenario_matrix=False,
         )
 
-
 @dataclass
 class GauntletFinding:
     """A finding from the Gauntlet validation process."""
@@ -355,18 +350,17 @@ class GauntletFinding:
 
     # Optional details
     recommendations: list[str] = field(default_factory=list)
-    attack_type: Optional[AttackCategory] = None
+    attack_type: AttackCategory | None = None
     exploitability: float = 0.5
     impact: float = 0.5
     risk_score: float = 0.5
 
     # Verification
     is_verified: bool = False
-    verification_method: Optional[str] = None
+    verification_method: str | None = None
 
     # Metadata
     metadata: dict = field(default_factory=dict)
-
 
 @dataclass
 class PhaseResult:
@@ -377,15 +371,14 @@ class PhaseResult:
     duration_ms: int = 0
     findings: list[GauntletFinding] = field(default_factory=list)
     metrics: dict = field(default_factory=dict)
-    error: Optional[str] = None
-
+    error: str | None = None
 
 @dataclass
 class GauntletResult:
     """Result of a complete Gauntlet validation run."""
 
     id: str = field(default_factory=lambda: f"gauntlet-{id(object())}")
-    config: Optional[GauntletConfig] = None
+    config: GauntletConfig | None = None
     input_text: str = ""
     agents_used: list[str] = field(default_factory=list)
 

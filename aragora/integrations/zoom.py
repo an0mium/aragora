@@ -32,7 +32,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
@@ -40,7 +40,6 @@ from aragora.core import DebateResult
 from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ZoomConfig:
@@ -97,19 +96,18 @@ class ZoomConfig:
         """Check if Zoom integration is configured."""
         return bool(self.client_id and self.client_secret and self.account_id)
 
-
 @dataclass
 class ZoomMeetingInfo:
     """Information about a Zoom meeting."""
 
     meeting_id: str
     topic: str
-    start_time: Optional[datetime] = None
+    start_time: datetime | None = None
     duration: int = 0  # minutes
     host_id: str = ""
     join_url: str = ""
     password: str = ""
-    recording_url: Optional[str] = None
+    recording_url: str | None = None
 
     @classmethod
     def from_api_response(cls, data: dict[str, Any]) -> "ZoomMeetingInfo":
@@ -131,7 +129,6 @@ class ZoomMeetingInfo:
             password=data.get("password", ""),
         )
 
-
 @dataclass
 class ZoomWebhookEvent:
     """A Zoom webhook event."""
@@ -150,7 +147,6 @@ class ZoomWebhookEvent:
             event_ts=data.get("event_ts", 0),
             account_id=data.get("payload", {}).get("account_id", ""),
         )
-
 
 class ZoomIntegration:
     """
@@ -178,11 +174,11 @@ class ZoomIntegration:
             event = await zoom.handle_webhook(request_body, signature)
     """
 
-    def __init__(self, config: Optional[ZoomConfig] = None):
+    def __init__(self, config: ZoomConfig | None = None):
         self.config = config or ZoomConfig.from_env()
-        self._session: Optional[aiohttp.ClientSession] = None
-        self._access_token: Optional[str] = None
-        self._token_expires: Optional[datetime] = None
+        self._session: aiohttp.ClientSession | None = None
+        self._access_token: str | None = None
+        self._token_expires: datetime | None = None
         self._request_count_minute = 0
         self._request_count_day = 0
         self._last_minute_reset = datetime.now()
@@ -279,8 +275,8 @@ class ZoomIntegration:
         self,
         method: str,
         endpoint: str,
-        data: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make an authenticated API request."""
         if not self._check_rate_limit():
@@ -348,7 +344,7 @@ class ZoomIntegration:
         body: bytes,
         signature: str,
         timestamp: str,
-    ) -> Optional[ZoomWebhookEvent]:
+    ) -> ZoomWebhookEvent | None:
         """Handle incoming Zoom webhook.
 
         Args:
@@ -376,9 +372,9 @@ class ZoomIntegration:
         self,
         topic: str,
         duration: int = 60,
-        start_time: Optional[datetime] = None,
-        password: Optional[str] = None,
-        settings: Optional[dict[str, Any]] = None,
+        start_time: datetime | None = None,
+        password: str | None = None,
+        settings: dict[str, Any] | None = None,
     ) -> ZoomMeetingInfo:
         """Create a Zoom meeting.
 
@@ -425,8 +421,8 @@ class ZoomIntegration:
     async def list_recordings(
         self,
         user_id: str = "me",
-        from_date: Optional[datetime] = None,
-        to_date: Optional[datetime] = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
     ) -> list[dict[str, Any]]:
         """List cloud recordings.
 
@@ -451,7 +447,7 @@ class ZoomIntegration:
     async def get_recording_transcript(
         self,
         meeting_id: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get transcript for a meeting recording.
 
         Args:

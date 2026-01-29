@@ -13,6 +13,7 @@ Key features:
 - Self-contained: All data needed for offline viewing
 - Verifiable: Chain integrity can be validated
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -20,8 +21,6 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-
 
 @dataclass
 class ConsensusProof:
@@ -44,7 +43,6 @@ class ConsensusProof:
             "timestamp": self.timestamp,
         }
 
-
 @dataclass
 class VerificationResult:
     """Result of a formal verification attempt."""
@@ -53,8 +51,8 @@ class VerificationResult:
     claim_text: str
     status: str  # "verified", "refuted", "timeout", "undecidable"
     method: str  # "z3", "lean", "simulation", etc.
-    proof_trace: Optional[str] = None
-    counterexample: Optional[str] = None
+    proof_trace: str | None = None
+    counterexample: str | None = None
     duration_ms: int = 0
     metadata: dict = field(default_factory=dict)
 
@@ -70,7 +68,6 @@ class VerificationResult:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class DebateArtifact:
     """
@@ -85,12 +82,12 @@ class DebateArtifact:
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     # Core components (stored as dicts for serialization)
-    graph_data: Optional[dict] = None
-    trace_data: Optional[dict] = None
-    provenance_data: Optional[dict] = None
+    graph_data: dict | None = None
+    trace_data: dict | None = None
+    provenance_data: dict | None = None
 
     # Results
-    consensus_proof: Optional[ConsensusProof] = None
+    consensus_proof: ConsensusProof | None = None
     verification_results: list[VerificationResult] = field(default_factory=list)
 
     # Metadata
@@ -232,7 +229,6 @@ class DebateArtifact:
 
         return len(errors) == 0, errors
 
-
 class ArtifactBuilder:
     """
     Builder for creating DebateArtifacts from debate components.
@@ -322,7 +318,6 @@ class ArtifactBuilder:
     def build(self) -> DebateArtifact:
         """Build the final artifact."""
         return self._artifact
-
 
 def create_artifact_from_debate(
     result,

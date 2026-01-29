@@ -30,10 +30,9 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class PoolConfig:
@@ -62,7 +61,6 @@ class PoolConfig:
     # Encoding
     decode_responses: bool = True
 
-
 @dataclass
 class PoolMetrics:
     """Metrics for connection pool monitoring."""
@@ -78,7 +76,7 @@ class PoolMetrics:
     last_health_check: float = 0.0
     pool_exhaustion_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for export."""
         return {
             "connections_created": self.connections_created,
@@ -96,7 +94,6 @@ class PoolMetrics:
             "last_health_check": self.last_health_check,
         }
 
-
 def get_pool_config() -> PoolConfig:
     """Get pool configuration from environment variables."""
     return PoolConfig(
@@ -113,7 +110,6 @@ def get_pool_config() -> PoolConfig:
         retry_delay=float(os.getenv("ARAGORA_POOL_RETRY_DELAY", "0.1")),
     )
 
-
 class ConnectionPoolManager:
     """
     Manages Redis connection pools with advanced features.
@@ -128,21 +124,21 @@ class ConnectionPoolManager:
     _instance: Optional["ConnectionPoolManager"] = None
     _lock = threading.Lock()
 
-    def __init__(self, config: Optional[PoolConfig] = None):
+    def __init__(self, config: PoolConfig | None = None):
         """Initialize pool manager."""
         self.config = config or get_pool_config()
         self.metrics = PoolMetrics()
 
-        self._pool: Optional[Any] = None
-        self._client: Optional[Any] = None
+        self._pool: Any | None = None
+        self._client: Any | None = None
         self._available: bool = False
         self._pool_lock = threading.Lock()
 
-        self._health_check_thread: Optional[threading.Thread] = None
+        self._health_check_thread: threading.Thread | None = None
         self._stop_health_check = threading.Event()
 
     @classmethod
-    def get_instance(cls, config: Optional[PoolConfig] = None) -> "ConnectionPoolManager":
+    def get_instance(cls, config: PoolConfig | None = None) -> "ConnectionPoolManager":
         """Get singleton instance."""
         if cls._instance is None:
             with cls._lock:
@@ -158,11 +154,11 @@ class ConnectionPoolManager:
                 cls._instance.close()
                 cls._instance = None
 
-    def _get_redis_url(self) -> Optional[str]:
+    def _get_redis_url(self) -> str | None:
         """Get Redis URL from environment."""
         return os.getenv("ARAGORA_REDIS_URL")
 
-    def _create_pool(self) -> Optional[Any]:
+    def _create_pool(self) -> Any | None:
         """Create optimized connection pool."""
         url = self._get_redis_url()
         if not url:
@@ -204,7 +200,7 @@ class ConnectionPoolManager:
             logger.error(f"Failed to create connection pool: {e}")
             return None
 
-    def get_pool(self) -> Optional[Any]:
+    def get_pool(self) -> Any | None:
         """Get or create connection pool."""
         if self._pool is not None:
             return self._pool
@@ -216,7 +212,7 @@ class ConnectionPoolManager:
                     self._start_health_check()
             return self._pool
 
-    def get_redis_client(self) -> Optional[Any]:
+    def get_redis_client(self) -> Any | None:
         """Get Redis client using managed pool."""
         pool = self.get_pool()
         if pool is None:
@@ -305,7 +301,7 @@ class ConnectionPoolManager:
         """Check if pool is available."""
         return self._available
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get pool metrics."""
         return {
             "available": self._available,
@@ -362,28 +358,23 @@ class ConnectionPoolManager:
                     self._client = None
                     self._available = False
 
-
 # =============================================================================
 # Convenience functions
 # =============================================================================
 
-
-def get_optimized_redis_client() -> Optional[Any]:
+def get_optimized_redis_client() -> Any | None:
     """Get Redis client with optimized connection pool."""
     manager = ConnectionPoolManager.get_instance()
     return manager.get_redis_client()
 
-
-def get_pool_metrics() -> Dict[str, Any]:
+def get_pool_metrics() -> dict[str, Any]:
     """Get connection pool metrics."""
     manager = ConnectionPoolManager.get_instance()
     return manager.get_metrics()
 
-
 def close_connection_pool() -> None:
     """Close connection pool."""
     ConnectionPoolManager.reset_instance()
-
 
 __all__ = [
     "PoolConfig",

@@ -38,7 +38,6 @@ TTS_DEFAULT_VOICE = os.environ.get("ARAGORA_TTS_DEFAULT_VOICE", "narrator")
 TTS_MAX_TEXT_LENGTH = int(os.environ.get("ARAGORA_TTS_MAX_TEXT", "4000"))
 TTS_CACHE_DIR = os.environ.get("ARAGORA_TTS_CACHE_DIR", "")
 
-
 @dataclass
 class TTSConfig:
     """Configuration for TTS bridge."""
@@ -46,7 +45,7 @@ class TTSConfig:
     default_voice: str = TTS_DEFAULT_VOICE
     max_text_length: int = TTS_MAX_TEXT_LENGTH
     cache_enabled: bool = True
-    cache_dir: Optional[str] = TTS_CACHE_DIR or None
+    cache_dir: str | None = TTS_CACHE_DIR or None
 
     # Voice mappings for different contexts
     voice_map: dict[str, str] = field(
@@ -61,7 +60,6 @@ class TTSConfig:
         }
     )
 
-
 class TTSBridge:
     """
     Bridge between text responses and TTS synthesis.
@@ -72,7 +70,7 @@ class TTSBridge:
 
     def __init__(
         self,
-        config: Optional[TTSConfig] = None,
+        config: TTSConfig | None = None,
         **kwargs: Any,
     ):
         """
@@ -85,7 +83,7 @@ class TTSBridge:
         self.config = config or TTSConfig()
         self._kwargs = kwargs
         self._backend: Optional["TTSBackend"] = None
-        self._temp_dir: Optional[Path] = None
+        self._temp_dir: Path | None = None
 
     def _get_backend(self) -> "TTSBackend":
         """Lazy-load TTS backend."""
@@ -119,7 +117,7 @@ class TTSBridge:
                 self._temp_dir = Path(tempfile.mkdtemp(prefix="aragora_tts_"))
         return self._temp_dir
 
-    def _resolve_voice(self, voice: Optional[str], context: Optional[str] = None) -> str:
+    def _resolve_voice(self, voice: str | None, context: str | None = None) -> str:
         """Resolve voice identifier from context or explicit voice."""
         if voice:
             return self.config.voice_map.get(voice, voice)
@@ -130,8 +128,8 @@ class TTSBridge:
     async def synthesize(
         self,
         text: str,
-        voice: Optional[str] = None,
-        context: Optional[str] = None,
+        voice: str | None = None,
+        context: str | None = None,
         output_format: str = "mp3",
     ) -> Path:
         """
@@ -171,7 +169,7 @@ class TTSBridge:
     async def synthesize_debate_summary(
         self,
         task: str,
-        final_answer: Optional[str],
+        final_answer: str | None,
         consensus_reached: bool,
         confidence: float,
         rounds_used: int,
@@ -253,7 +251,7 @@ class TTSBridge:
     async def synthesize_response(
         self,
         text: str,
-        voice: Optional[str] = None,
+        voice: str | None = None,
     ) -> str:
         """
         Synthesize a text response as audio.
@@ -275,8 +273,8 @@ class TTSBridge:
         connector: ChatPlatformConnector,
         channel_id: str,
         text: str,
-        voice: Optional[str] = None,
-        reply_to: Optional[str] = None,
+        voice: str | None = None,
+        reply_to: str | None = None,
     ) -> bool:
         """
         Synthesize and send a voice response to a chat channel.
@@ -328,10 +326,8 @@ class TTSBridge:
             except Exception as e:
                 logger.warning(f"Failed to cleanup TTS temp dir: {e}")
 
-
 # Singleton instance
-_tts_bridge: Optional[TTSBridge] = None
-
+_tts_bridge: TTSBridge | None = None
 
 def get_tts_bridge(**config: Any) -> TTSBridge:
     """Get or create the TTS Bridge singleton."""
@@ -339,7 +335,6 @@ def get_tts_bridge(**config: Any) -> TTSBridge:
     if _tts_bridge is None:
         _tts_bridge = TTSBridge(**config)
     return _tts_bridge
-
 
 def clear_tts_bridge() -> None:
     """Clear the TTS bridge singleton (for testing)."""

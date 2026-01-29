@@ -8,6 +8,7 @@ This module extracts consensus memory storage from FeedbackPhase:
 Used to enable future debates to benefit from past decisions,
 dissenting views, and learned patterns.
 """
+from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Optional
@@ -18,7 +19,6 @@ if TYPE_CHECKING:
     from aragora.type_protocols import ConsensusMemoryProtocol
 
 logger = logging.getLogger(__name__)
-
 
 class ConsensusStorage:
     """Handles consensus outcome storage and crux extraction.
@@ -39,7 +39,7 @@ class ConsensusStorage:
         """
         self.consensus_memory = consensus_memory
 
-    def store_consensus_outcome(self, ctx: "DebateContext") -> Optional[str]:
+    def store_consensus_outcome(self, ctx: "DebateContext") -> str | None:
         """Store debate outcome in ConsensusMemory for historical retrieval.
 
         This enables future debates to benefit from past decisions,
@@ -171,7 +171,7 @@ class ConsensusStorage:
             except (TypeError, ValueError, AttributeError, KeyError) as e:
                 logger.debug("Dissent storage failed for %s: %s", vote.agent, e)
 
-    def store_cruxes(self, ctx: "DebateContext", consensus_id: Optional[str] = None) -> None:
+    def store_cruxes(self, ctx: "DebateContext", consensus_id: str | None = None) -> None:
         """Extract and store belief cruxes from the debate.
 
         Cruxes are key points of contention that drove the debate.
@@ -268,6 +268,5 @@ class ConsensusStorage:
             )
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             logger.debug("Crux storage failed: %s", e)
-
 
 __all__ = ["ConsensusStorage"]

@@ -7,11 +7,10 @@ Provides access to consensus memory, dissents, and risk warnings.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
-
 
 @dataclass
 class SimilarDebate:
@@ -27,7 +26,7 @@ class SimilarDebate:
     dissent_count: int = 0
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SimilarDebate":
+    def from_dict(cls, data: dict[str, Any]) -> "SimilarDebate":
         return cls(
             id=data.get("id", ""),
             topic=data.get("topic", ""),
@@ -38,7 +37,6 @@ class SimilarDebate:
             timestamp=data.get("timestamp", ""),
             dissent_count=data.get("dissent_count", 0),
         )
-
 
 @dataclass
 class SettledTopic:
@@ -52,7 +50,7 @@ class SettledTopic:
     debate_count: int = 1
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SettledTopic":
+    def from_dict(cls, data: dict[str, Any]) -> "SettledTopic":
         return cls(
             topic=data.get("topic", ""),
             conclusion=data.get("conclusion", ""),
@@ -61,7 +59,6 @@ class SettledTopic:
             last_debated=data.get("last_debated", ""),
             debate_count=data.get("debate_count", 1),
         )
-
 
 @dataclass
 class Dissent:
@@ -79,7 +76,7 @@ class Dissent:
     timestamp: str = ""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Dissent":
+    def from_dict(cls, data: dict[str, Any]) -> "Dissent":
         return cls(
             id=data.get("id", ""),
             debate_id=data.get("debate_id", ""),
@@ -92,7 +89,6 @@ class Dissent:
             rebuttal=data.get("rebuttal", ""),
             timestamp=data.get("timestamp", ""),
         )
-
 
 @dataclass
 class RiskWarning:
@@ -108,7 +104,7 @@ class RiskWarning:
     timestamp: str = ""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RiskWarning":
+    def from_dict(cls, data: dict[str, Any]) -> "RiskWarning":
         return cls(
             id=data.get("id", ""),
             debate_id=data.get("debate_id", ""),
@@ -120,19 +116,18 @@ class RiskWarning:
             timestamp=data.get("timestamp", ""),
         )
 
-
 @dataclass
 class ConsensusStats:
     """Statistics about consensus memory."""
 
     total_consensuses: int
     total_dissents: int
-    by_strength: Dict[str, int]
-    by_domain: Dict[str, int]
+    by_strength: dict[str, int]
+    by_domain: dict[str, int]
     avg_confidence: float
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ConsensusStats":
+    def from_dict(cls, data: dict[str, Any]) -> "ConsensusStats":
         return cls(
             total_consensuses=data.get("total_consensuses", 0),
             total_dissents=data.get("total_dissents", 0),
@@ -140,7 +135,6 @@ class ConsensusStats:
             by_domain=data.get("by_domain", {}),
             avg_confidence=data.get("avg_confidence", 0.0),
         )
-
 
 class ConsensusAPI:
     """
@@ -168,10 +162,10 @@ class ConsensusAPI:
     def find_similar(
         self,
         topic: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.0,
         limit: int = 10,
-    ) -> List[SimilarDebate]:
+    ) -> list[SimilarDebate]:
         """
         Find similar past debates on a topic.
 
@@ -199,10 +193,10 @@ class ConsensusAPI:
     async def find_similar_async(
         self,
         topic: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.0,
         limit: int = 10,
-    ) -> List[SimilarDebate]:
+    ) -> list[SimilarDebate]:
         """Async version of find_similar."""
         params = {
             "topic": topic,
@@ -218,10 +212,10 @@ class ConsensusAPI:
 
     def get_settled(
         self,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.7,
         limit: int = 20,
-    ) -> List[SettledTopic]:
+    ) -> list[SettledTopic]:
         """
         Get topics that have been settled by consensus.
 
@@ -233,7 +227,7 @@ class ConsensusAPI:
         Returns:
             List of SettledTopic objects
         """
-        params: Dict[str, Any] = {"limit": limit, "min_confidence": min_confidence}
+        params: dict[str, Any] = {"limit": limit, "min_confidence": min_confidence}
         if domain:
             params["domain"] = domain
 
@@ -243,12 +237,12 @@ class ConsensusAPI:
 
     async def get_settled_async(
         self,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.7,
         limit: int = 20,
-    ) -> List[SettledTopic]:
+    ) -> list[SettledTopic]:
         """Async version of get_settled."""
-        params: Dict[str, Any] = {"limit": limit, "min_confidence": min_confidence}
+        params: dict[str, Any] = {"limit": limit, "min_confidence": min_confidence}
         if domain:
             params["domain"] = domain
 
@@ -258,10 +252,10 @@ class ConsensusAPI:
 
     def get_dissents(
         self,
-        topic: Optional[str] = None,
-        dissent_type: Optional[str] = None,
+        topic: str | None = None,
+        dissent_type: str | None = None,
         limit: int = 20,
-    ) -> List[Dissent]:
+    ) -> list[Dissent]:
         """
         Get dissenting views from debates.
 
@@ -274,7 +268,7 @@ class ConsensusAPI:
         Returns:
             List of Dissent objects
         """
-        params: Dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if topic:
             params["topic"] = topic
         if dissent_type:
@@ -286,12 +280,12 @@ class ConsensusAPI:
 
     async def get_dissents_async(
         self,
-        topic: Optional[str] = None,
-        dissent_type: Optional[str] = None,
+        topic: str | None = None,
+        dissent_type: str | None = None,
         limit: int = 20,
-    ) -> List[Dissent]:
+    ) -> list[Dissent]:
         """Async version of get_dissents."""
-        params: Dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if topic:
             params["topic"] = topic
         if dissent_type:
@@ -303,9 +297,9 @@ class ConsensusAPI:
 
     def get_risk_warnings(
         self,
-        topic: Optional[str] = None,
+        topic: str | None = None,
         limit: int = 10,
-    ) -> List[RiskWarning]:
+    ) -> list[RiskWarning]:
         """
         Get risk warnings from debates.
 
@@ -318,7 +312,7 @@ class ConsensusAPI:
         Returns:
             List of RiskWarning objects
         """
-        params: Dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if topic:
             params["topic"] = topic
 
@@ -328,11 +322,11 @@ class ConsensusAPI:
 
     async def get_risk_warnings_async(
         self,
-        topic: Optional[str] = None,
+        topic: str | None = None,
         limit: int = 10,
-    ) -> List[RiskWarning]:
+    ) -> list[RiskWarning]:
         """Async version of get_risk_warnings."""
-        params: Dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if topic:
             params["topic"] = topic
 
@@ -340,7 +334,7 @@ class ConsensusAPI:
         warnings = response.get("warnings", [])
         return [RiskWarning.from_dict(w) for w in warnings]
 
-    def get_contrarian_views(self, limit: int = 10) -> List[Dissent]:
+    def get_contrarian_views(self, limit: int = 10) -> list[Dissent]:
         """
         Get fundamental disagreements from debates.
 
@@ -356,7 +350,7 @@ class ConsensusAPI:
         views = response.get("views", [])
         return [Dissent.from_dict(v) for v in views]
 
-    async def get_contrarian_views_async(self, limit: int = 10) -> List[Dissent]:
+    async def get_contrarian_views_async(self, limit: int = 10) -> list[Dissent]:
         """Async version of get_contrarian_views."""
         response = await self._client._get_async(
             "/api/consensus/contrarian", params={"limit": limit}

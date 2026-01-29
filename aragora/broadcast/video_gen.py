@@ -4,6 +4,7 @@ Video generator for YouTube uploads.
 Converts debate audio files to video format by combining
 audio with static thumbnails or animated visualizations.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -11,10 +12,8 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class VideoMetadata:
@@ -27,16 +26,13 @@ class VideoMetadata:
     format: str = "mp4"
     resolution: str = "1920x1080"
 
-
 def _check_ffmpeg() -> bool:
     """Check if ffmpeg is available."""
     return shutil.which("ffmpeg") is not None
 
-
 def _check_ffprobe() -> bool:
     """Check if ffprobe is available."""
     return shutil.which("ffprobe") is not None
-
 
 # Subprocess timeout constants
 FFPROBE_TIMEOUT = 30  # seconds
@@ -63,7 +59,6 @@ MAX_AUDIO_FILE_SIZE = 500 * 1024 * 1024
 MIN_AUDIO_BITRATE = 64
 MAX_AUDIO_BITRATE = 320
 DEFAULT_AUDIO_BITRATE = 192
-
 
 def _validate_resolution(width: int, height: int) -> tuple[int, int]:
     """Validate and clamp resolution to safe bounds.
@@ -95,7 +90,6 @@ def _validate_resolution(width: int, height: int) -> tuple[int, int]:
 
     return clamped_width, clamped_height
 
-
 def _validate_bitrate(bitrate: int) -> int:
     """Validate and clamp audio bitrate.
 
@@ -114,7 +108,6 @@ def _validate_bitrate(bitrate: int) -> int:
         logger.warning(f"Bitrate {bitrate}kbps clamped to {clamped}kbps")
 
     return clamped
-
 
 def _validate_audio_file(audio_path: Path) -> bool:
     """Validate audio file exists and is within size limits.
@@ -142,8 +135,7 @@ def _validate_audio_file(audio_path: Path) -> bool:
 
     return True
 
-
-def _validate_duration(duration: Optional[int]) -> bool:
+def _validate_duration(duration: int | None) -> bool:
     """Validate duration is within acceptable bounds.
 
     Args:
@@ -168,8 +160,7 @@ def _validate_duration(duration: Optional[int]) -> bool:
 
     return True
 
-
-async def get_audio_duration(audio_path: Path) -> Optional[int]:
+async def get_audio_duration(audio_path: Path) -> int | None:
     """
     Get audio duration in seconds using ffprobe.
 
@@ -214,7 +205,6 @@ async def get_audio_duration(audio_path: Path) -> Optional[int]:
         logger.error(f"Failed to get audio duration: {e}")
 
     return None
-
 
 async def generate_thumbnail(
     title: str,
@@ -352,7 +342,6 @@ async def generate_thumbnail(
         logger.error(f"Failed to generate thumbnail with ImageMagick: {e}")
         return False
 
-
 class VideoGenerator:
     """
     Convert audio to video for YouTube upload.
@@ -360,7 +349,7 @@ class VideoGenerator:
     Uses ffmpeg to combine audio with static or animated visuals.
     """
 
-    def __init__(self, output_dir: Optional[Path] = None):
+    def __init__(self, output_dir: Path | None = None):
         """
         Initialize video generator.
 
@@ -379,11 +368,11 @@ class VideoGenerator:
         audio_path: Path,
         title: str,
         agents: list[str],
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         audio_bitrate: int = DEFAULT_AUDIO_BITRATE,
         width: int = 1920,
         height: int = 1080,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """
         Generate video with static thumbnail and audio track.
 
@@ -498,10 +487,10 @@ class VideoGenerator:
     async def generate_waveform_video(
         self,
         audio_path: Path,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         color: str = "0x4488ff",
         audio_bitrate: int = DEFAULT_AUDIO_BITRATE,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """
         Generate video with animated audio waveform.
 
@@ -598,7 +587,7 @@ class VideoGenerator:
 
         return None
 
-    def get_video_metadata(self, video_path: Path) -> Optional[VideoMetadata]:
+    def get_video_metadata(self, video_path: Path) -> VideoMetadata | None:
         """
         Get metadata for a generated video.
 
@@ -663,14 +652,13 @@ class VideoGenerator:
         if video_path.exists():
             video_path.unlink()
 
-
 async def generate_video(
     audio_path: Path,
     output_path: Path,
     title: str,
     description: str,
     resolution: tuple[int, int] = (1920, 1080),
-    thumbnail_path: Optional[str] = None,
+    thumbnail_path: str | None = None,
 ) -> bool:
     """
     Generate a video from audio with a static thumbnail.
@@ -698,7 +686,7 @@ async def generate_video(
         width, height = 1920, 1080
 
     # Convert thumbnail_path string to Path if provided
-    thumb_path: Optional[Path] = Path(thumbnail_path) if thumbnail_path else None
+    thumb_path: Path | None = Path(thumbnail_path) if thumbnail_path else None
 
     # If custom thumbnail provided, use it directly with ffmpeg
     if thumb_path and thumb_path.exists():

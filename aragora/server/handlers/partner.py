@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional
 
 from aragora.rbac.decorators import require_permission
 
@@ -32,7 +31,6 @@ from .base import (
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
 
 class PartnerHandler(BaseHandler):
     """Handler for partner API endpoints."""
@@ -52,7 +50,7 @@ class PartnerHandler(BaseHandler):
 
     @require_permission("partner:read")
     @rate_limit(rpm=30)
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route requests to appropriate methods."""
         method = handler.command
 

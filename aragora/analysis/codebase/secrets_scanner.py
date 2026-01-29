@@ -16,10 +16,9 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Pattern, Set, Tuple
+from typing import Any, Optional, Pattern
 
 from .models import SecretFinding, SecretsScanResult, SecretType, VulnerabilitySeverity
-
 
 @dataclass
 class SecretPattern:
@@ -32,9 +31,8 @@ class SecretPattern:
     description: str = ""
     remediation: str = ""
 
-
 # Compiled regex patterns for various secret types
-SECRET_PATTERNS: List[SecretPattern] = [
+SECRET_PATTERNS: list[SecretPattern] = [
     # AWS
     SecretPattern(
         secret_type=SecretType.AWS_ACCESS_KEY,
@@ -251,7 +249,7 @@ SECRET_PATTERNS: List[SecretPattern] = [
 ]
 
 # File extensions to skip
-SKIP_EXTENSIONS: Set[str] = {
+SKIP_EXTENSIONS: set[str] = {
     # Binary files
     ".exe",
     ".dll",
@@ -305,7 +303,7 @@ SKIP_EXTENSIONS: Set[str] = {
 }
 
 # Directories to skip
-SKIP_DIRS: Set[str] = {
+SKIP_DIRS: set[str] = {
     ".git",
     "node_modules",
     "__pycache__",
@@ -326,7 +324,7 @@ SKIP_DIRS: Set[str] = {
 }
 
 # Files to skip (exact match)
-SKIP_FILES: Set[str] = {
+SKIP_FILES: set[str] = {
     "package-lock.json",
     "yarn.lock",
     "Cargo.lock",
@@ -337,7 +335,6 @@ SKIP_FILES: Set[str] = {
     "go.sum",
 }
 
-
 def calculate_entropy(text: str) -> float:
     """Calculate Shannon entropy of a string."""
     if not text:
@@ -345,7 +342,7 @@ def calculate_entropy(text: str) -> float:
 
     entropy = 0.0
     length = len(text)
-    char_counts: Dict[str, int] = {}
+    char_counts: dict[str, int] = {}
 
     for char in text:
         char_counts[char] = char_counts.get(char, 0) + 1
@@ -356,7 +353,6 @@ def calculate_entropy(text: str) -> float:
 
     return entropy
 
-
 def is_high_entropy(text: str, threshold: float = 4.5) -> bool:
     """Check if a string has suspiciously high entropy."""
     if len(text) < 16:
@@ -364,7 +360,6 @@ def is_high_entropy(text: str, threshold: float = 4.5) -> bool:
 
     entropy = calculate_entropy(text)
     return entropy >= threshold
-
 
 class SecretsScanner:
     """
@@ -380,10 +375,10 @@ class SecretsScanner:
 
     def __init__(
         self,
-        patterns: Optional[List[SecretPattern]] = None,
-        skip_extensions: Optional[Set[str]] = None,
-        skip_dirs: Optional[Set[str]] = None,
-        skip_files: Optional[Set[str]] = None,
+        patterns: Optional[list[SecretPattern]] = None,
+        skip_extensions: Optional[set[str]] = None,
+        skip_dirs: Optional[set[str]] = None,
+        skip_files: Optional[set[str]] = None,
         max_concurrency: int = 20,
         max_file_size_mb: float = 10.0,
         enable_entropy_detection: bool = True,
@@ -399,13 +394,13 @@ class SecretsScanner:
         self.enable_entropy_detection = enable_entropy_detection
         self.entropy_threshold = entropy_threshold
         self.min_entropy_length = min_entropy_length
-        self._semaphore: Optional[asyncio.Semaphore] = None
+        self._semaphore: asyncio.Semaphore | None = None
 
     async def scan_repository(
         self,
         repo_path: str,
-        branch: Optional[str] = None,
-        commit_sha: Optional[str] = None,
+        branch: str | None = None,
+        commit_sha: str | None = None,
     ) -> SecretsScanResult:
         """
         Scan a repository for secrets.
@@ -457,7 +452,7 @@ class SecretsScanner:
         self,
         repo_path: str,
         depth: int = 100,
-        branch: Optional[str] = None,
+        branch: str | None = None,
     ) -> SecretsScanResult:
         """
         Scan git history for secrets in past commits.
@@ -511,7 +506,7 @@ class SecretsScanner:
 
         return result
 
-    def _collect_files(self, repo_path: str) -> List[str]:
+    def _collect_files(self, repo_path: str) -> list[str]:
         """Collect all files to scan, respecting filters."""
         files_to_scan = []
         repo_path = os.path.abspath(repo_path)
@@ -539,16 +534,16 @@ class SecretsScanner:
 
         return files_to_scan
 
-    async def _scan_file(self, file_path: str, repo_path: str) -> List[SecretFinding]:
+    async def _scan_file(self, file_path: str, repo_path: str) -> list[SecretFinding]:
         """Scan a single file for secrets."""
         assert self._semaphore is not None
 
         async with self._semaphore:
             return await asyncio.to_thread(self._scan_file_sync, file_path, repo_path)
 
-    def _scan_file_sync(self, file_path: str, repo_path: str) -> List[SecretFinding]:
+    def _scan_file_sync(self, file_path: str, repo_path: str) -> list[SecretFinding]:
         """Synchronous file scanning implementation."""
-        findings: List[SecretFinding] = []
+        findings: list[SecretFinding] = []
 
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -570,10 +565,10 @@ class SecretsScanner:
         line: str,
         file_path: str,
         line_number: int,
-    ) -> List[SecretFinding]:
+    ) -> list[SecretFinding]:
         """Scan a single line for secrets."""
-        findings: List[SecretFinding] = []
-        found_positions: Set[Tuple[int, int]] = set()
+        findings: list[SecretFinding] = []
+        found_positions: set[tuple[int, int]] = set()
 
         for pattern in self.patterns:
             for match in pattern.pattern.finditer(line):
@@ -615,10 +610,10 @@ class SecretsScanner:
         line: str,
         file_path: str,
         line_number: int,
-        exclude_positions: Set[Tuple[int, int]],
-    ) -> List[SecretFinding]:
+        exclude_positions: set[tuple[int, int]],
+    ) -> list[SecretFinding]:
         """Detect high-entropy strings that might be secrets."""
-        findings: List[SecretFinding] = []
+        findings: list[SecretFinding] = []
 
         token_pattern = re.compile(r"[A-Za-z0-9_/+=\-]{20,}")
 
@@ -657,12 +652,12 @@ class SecretsScanner:
         self,
         diff_content: str,
         commit_sha: str,
-        author: Optional[str],
-        commit_date: Optional[datetime],
-    ) -> List[SecretFinding]:
+        author: str | None,
+        commit_date: datetime | None,
+    ) -> list[SecretFinding]:
         """Scan git diff content for secrets."""
-        findings: List[SecretFinding] = []
-        current_file: Optional[str] = None
+        findings: list[SecretFinding] = []
+        current_file: str | None = None
         line_number = 0
 
         for line in diff_content.split("\n"):
@@ -699,8 +694,8 @@ class SecretsScanner:
         self,
         repo_path: str,
         depth: int,
-        branch: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        branch: str | None,
+    ) -> list[dict[str, Any]]:
         """Get list of commits to scan."""
         cmd = ["git", "log", f"-{depth}", "--format=%H|%an|%aI"]
         if branch:
@@ -763,7 +758,7 @@ class SecretsScanner:
     # Additional Public API Methods
     # =========================================================================
 
-    async def scan_file(self, file_path: str) -> List[SecretFinding]:
+    async def scan_file(self, file_path: str) -> list[SecretFinding]:
         """
         Scan a single file for secrets.
 
@@ -804,7 +799,7 @@ class SecretsScanner:
     async def scan_directory(
         self,
         dir_path: str,
-        exclude_patterns: Optional[List[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
     ) -> SecretsScanResult:
         """
         Scan a directory for secrets with custom exclusion patterns.
@@ -845,8 +840,8 @@ class SecretsScanner:
         try:
             # Merge exclude patterns with default skip patterns
             custom_skip_dirs = set(self.skip_dirs)
-            custom_skip_files: Set[str] = set(self.skip_files)
-            custom_glob_patterns: List[str] = []
+            custom_skip_files: set[str] = set(self.skip_files)
+            custom_glob_patterns: list[str] = []
 
             if exclude_patterns:
                 for pattern in exclude_patterns:
@@ -859,7 +854,7 @@ class SecretsScanner:
                         custom_glob_patterns.append(pattern)
 
             # Collect files with custom patterns
-            files_to_scan: List[str] = []
+            files_to_scan: list[str] = []
 
             for root, dirs, files in os.walk(dir_path):
                 # Filter directories
@@ -916,12 +911,11 @@ class SecretsScanner:
 
         return result
 
-
 async def scan_repository_for_secrets(
     repo_path: str,
     include_history: bool = False,
     history_depth: int = 100,
-    branch: Optional[str] = None,
+    branch: str | None = None,
 ) -> SecretsScanResult:
     """
     Convenience function to scan a repository for secrets.
@@ -949,9 +943,8 @@ async def scan_repository_for_secrets(
 
     return result
 
-
 # Convenience function for single file scanning
-async def scan_file_for_secrets(file_path: str) -> List[SecretFinding]:
+async def scan_file_for_secrets(file_path: str) -> list[SecretFinding]:
     """
     Convenience function to scan a single file for secrets.
 
@@ -969,11 +962,10 @@ async def scan_file_for_secrets(file_path: str) -> List[SecretFinding]:
     scanner = SecretsScanner()
     return await scanner.scan_file(file_path)
 
-
 # Convenience function for directory scanning
 async def scan_directory_for_secrets(
     dir_path: str,
-    exclude_patterns: Optional[List[str]] = None,
+    exclude_patterns: Optional[list[str]] = None,
 ) -> SecretsScanResult:
     """
     Convenience function to scan a directory for secrets.

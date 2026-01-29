@@ -44,15 +44,13 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Types and Enums
 # =============================================================================
-
 
 class SecretType(Enum):
     """Types of secrets that can be rotated."""
@@ -65,7 +63,6 @@ class SecretType(Enum):
     WEBHOOK_SECRET = "webhook_secret"
     SERVICE_ACCOUNT = "service_account"
 
-
 class RotationStatus(Enum):
     """Status of a rotation operation."""
 
@@ -76,7 +73,6 @@ class RotationStatus(Enum):
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
 
-
 class RotationTrigger(Enum):
     """What triggered a rotation."""
 
@@ -85,7 +81,6 @@ class RotationTrigger(Enum):
     EXPIRATION = "expiration"
     COMPROMISE = "compromise"
     POLICY = "policy"
-
 
 @dataclass
 class SecretMetadata:
@@ -96,13 +91,12 @@ class SecretMetadata:
     name: str
     description: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_rotated_at: Optional[datetime] = None
-    next_rotation_at: Optional[datetime] = None
+    last_rotated_at: datetime | None = None
+    next_rotation_at: datetime | None = None
     rotation_interval_days: int = 90
-    owner: Optional[str] = None
-    tags: Dict[str, str] = field(default_factory=dict)
+    owner: str | None = None
+    tags: dict[str, str] = field(default_factory=dict)
     is_active: bool = True
-
 
 @dataclass
 class RotationResult:
@@ -113,26 +107,26 @@ class RotationResult:
     secret_type: SecretType
     status: RotationStatus = RotationStatus.SCHEDULED
     trigger: RotationTrigger = RotationTrigger.SCHEDULED
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     initiated_by: str = "system"
 
     # Version tracking
-    old_version: Optional[str] = None
-    new_version: Optional[str] = None
-    grace_period_ends: Optional[datetime] = None
+    old_version: str | None = None
+    new_version: str | None = None
+    grace_period_ends: datetime | None = None
 
     # Metrics
     duration_seconds: float = 0.0
     verification_passed: bool = False
 
     # Error handling
-    error_message: Optional[str] = None
+    error_message: str | None = None
     rolled_back: bool = False
 
     notes: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "rotation_id": self.rotation_id,
@@ -155,11 +149,9 @@ class RotationResult:
             "notes": self.notes,
         }
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
-
 
 @dataclass
 class SecretsRotationConfig:
@@ -183,22 +175,20 @@ class SecretsRotationConfig:
 
     # Notification
     notify_days_before: int = 7
-    notification_email: Optional[str] = None
-    slack_webhook: Optional[str] = None
+    notification_email: str | None = None
+    slack_webhook: str | None = None
 
     # Storage
-    storage_path: Optional[str] = None
-
+    storage_path: str | None = None
 
 # =============================================================================
 # Storage Layer
 # =============================================================================
 
-
 class SecretsRotationStorage:
     """SQLite-backed storage for secrets rotation."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize storage."""
         self._db_path = db_path or ":memory:"
         self._local = threading.local()
@@ -295,7 +285,7 @@ class SecretsRotationStorage:
         )
         conn.commit()
 
-    def get_secret(self, secret_id: str) -> Optional[SecretMetadata]:
+    def get_secret(self, secret_id: str) -> SecretMetadata | None:
         """Get a secret's metadata."""
         import json
 
@@ -326,7 +316,7 @@ class SecretsRotationStorage:
             is_active=bool(row["is_active"]),
         )
 
-    def get_secrets_due_for_rotation(self) -> List[SecretMetadata]:
+    def get_secrets_due_for_rotation(self) -> list[SecretMetadata]:
         """Get secrets that need rotation."""
         import json
 
@@ -370,7 +360,7 @@ class SecretsRotationStorage:
 
         return secrets
 
-    def get_secrets_expiring_soon(self, days: int = 7) -> List[SecretMetadata]:
+    def get_secrets_expiring_soon(self, days: int = 7) -> list[SecretMetadata]:
         """Get secrets expiring within N days."""
         import json
 
@@ -445,8 +435,8 @@ class SecretsRotationStorage:
         conn.commit()
 
     def get_rotation_history(
-        self, secret_id: Optional[str] = None, limit: int = 50
-    ) -> List[RotationResult]:
+        self, secret_id: str | None = None, limit: int = 50
+    ) -> list[RotationResult]:
         """Get rotation history."""
         conn = self._get_conn()
 
@@ -498,7 +488,7 @@ class SecretsRotationStorage:
             for row in rows
         ]
 
-    def get_all_secrets(self, active_only: bool = True) -> List[SecretMetadata]:
+    def get_all_secrets(self, active_only: bool = True) -> list[SecretMetadata]:
         """Get all managed secrets."""
         import json
 
@@ -534,16 +524,14 @@ class SecretsRotationStorage:
             for row in rows
         ]
 
-
 # =============================================================================
 # Secrets Rotation Scheduler
 # =============================================================================
 
-
 class SecretsRotationScheduler:
     """Main secrets rotation scheduler and executor."""
 
-    def __init__(self, config: Optional[SecretsRotationConfig] = None):
+    def __init__(self, config: SecretsRotationConfig | None = None):
         """Initialize scheduler.
 
         Args:
@@ -552,13 +540,13 @@ class SecretsRotationScheduler:
         self.config = config or SecretsRotationConfig()
         self._storage = SecretsRotationStorage(self.config.storage_path)
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
         # Rotation handlers by secret type
-        self._rotation_handlers: Dict[SecretType, Callable[[str], Dict[str, Any]]] = {}
-        self._verification_handlers: Dict[SecretType, Callable[[str, str], bool]] = {}
-        self._rollback_handlers: Dict[SecretType, Callable[[str, str], bool]] = {}
-        self._notification_handlers: List[Callable[[Dict[str, Any]], None]] = []
+        self._rotation_handlers: dict[SecretType, Callable[[str], dict[str, Any]]] = {}
+        self._verification_handlers: dict[SecretType, Callable[[str, str], bool]] = {}
+        self._rollback_handlers: dict[SecretType, Callable[[str, str], bool]] = {}
+        self._notification_handlers: list[Callable[[dict[str, Any]], None]] = []
 
     # =========================================================================
     # Lifecycle
@@ -623,9 +611,9 @@ class SecretsRotationScheduler:
         secret_type: SecretType,
         name: str,
         description: str = "",
-        rotation_interval_days: Optional[int] = None,
-        owner: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
+        rotation_interval_days: int | None = None,
+        owner: str | None = None,
+        tags: Optional[dict[str, str]] = None,
     ) -> SecretMetadata:
         """Register a secret for managed rotation.
 
@@ -872,7 +860,7 @@ class SecretsRotationScheduler:
     # =========================================================================
 
     def register_rotation_handler(
-        self, secret_type: SecretType, handler: Callable[[str], Dict[str, Any]]
+        self, secret_type: SecretType, handler: Callable[[str], dict[str, Any]]
     ) -> None:
         """Register a rotation handler for a secret type."""
         self._rotation_handlers[secret_type] = handler
@@ -889,7 +877,7 @@ class SecretsRotationScheduler:
         """Register a rollback handler."""
         self._rollback_handlers[secret_type] = handler
 
-    def register_notification_handler(self, handler: Callable[[Dict[str, Any]], None]) -> None:
+    def register_notification_handler(self, handler: Callable[[dict[str, Any]], None]) -> None:
         """Register a notification handler."""
         self._notification_handlers.append(handler)
 
@@ -897,21 +885,21 @@ class SecretsRotationScheduler:
     # Queries
     # =========================================================================
 
-    def get_secret(self, secret_id: str) -> Optional[SecretMetadata]:
+    def get_secret(self, secret_id: str) -> SecretMetadata | None:
         """Get a secret's metadata."""
         return self._storage.get_secret(secret_id)
 
-    def get_all_secrets(self) -> List[SecretMetadata]:
+    def get_all_secrets(self) -> list[SecretMetadata]:
         """Get all managed secrets."""
         return self._storage.get_all_secrets()
 
     def get_rotation_history(
-        self, secret_id: Optional[str] = None, limit: int = 50
-    ) -> List[RotationResult]:
+        self, secret_id: str | None = None, limit: int = 50
+    ) -> list[RotationResult]:
         """Get rotation history."""
         return self._storage.get_rotation_history(secret_id, limit)
 
-    def get_compliance_report(self) -> Dict[str, Any]:
+    def get_compliance_report(self) -> dict[str, Any]:
         """Generate a compliance report for secrets rotation."""
         secrets = self._storage.get_all_secrets()
         history = self._storage.get_rotation_history(limit=100)
@@ -955,17 +943,15 @@ class SecretsRotationScheduler:
             },
         }
 
-
 # =============================================================================
 # Global Instance
 # =============================================================================
 
-_scheduler: Optional[SecretsRotationScheduler] = None
+_scheduler: SecretsRotationScheduler | None = None
 _scheduler_lock = threading.Lock()
 
-
 def get_secrets_rotation_scheduler(
-    config: Optional[SecretsRotationConfig] = None,
+    config: SecretsRotationConfig | None = None,
 ) -> SecretsRotationScheduler:
     """Get or create the global secrets rotation scheduler."""
     global _scheduler
@@ -973,7 +959,6 @@ def get_secrets_rotation_scheduler(
         if _scheduler is None:
             _scheduler = SecretsRotationScheduler(config)
         return _scheduler
-
 
 async def rotate_secret(
     secret_type: SecretType,
@@ -986,7 +971,6 @@ async def rotate_secret(
         secret_id=secret_id,
         trigger=trigger,
     )
-
 
 __all__ = [
     # Types

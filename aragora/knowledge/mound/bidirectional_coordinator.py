@@ -28,10 +28,9 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AdapterRegistration:
@@ -40,15 +39,14 @@ class AdapterRegistration:
     name: str
     adapter: Any
     forward_method: str  # Method name for source → KM
-    reverse_method: Optional[str] = None  # Method name for KM → source
+    reverse_method: str | None = None  # Method name for KM → source
     enabled: bool = True
     priority: int = 0  # Higher priority = earlier in sync order
-    last_forward_sync: Optional[float] = None
-    last_reverse_sync: Optional[float] = None
+    last_forward_sync: float | None = None
+    last_reverse_sync: float | None = None
     forward_errors: int = 0
     reverse_errors: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class SyncResult:
@@ -59,25 +57,23 @@ class SyncResult:
     success: bool
     items_processed: int = 0
     items_updated: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class BidirectionalSyncReport:
     """Report from a full bidirectional sync cycle."""
 
-    forward_results: List[SyncResult] = field(default_factory=list)
-    reverse_results: List[SyncResult] = field(default_factory=list)
+    forward_results: list[SyncResult] = field(default_factory=list)
+    reverse_results: list[SyncResult] = field(default_factory=list)
     total_adapters: int = 0
     successful_forward: int = 0
     successful_reverse: int = 0
     total_errors: int = 0
     total_duration_ms: int = 0
     timestamp: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class CoordinatorConfig:
@@ -91,7 +87,6 @@ class CoordinatorConfig:
     parallel_sync: bool = True  # Sync adapters in parallel
     timeout_seconds: float = 60.0  # Timeout per adapter sync
     enable_metrics: bool = True
-
 
 class BidirectionalCoordinator:
     """
@@ -110,8 +105,8 @@ class BidirectionalCoordinator:
 
     def __init__(
         self,
-        config: Optional[CoordinatorConfig] = None,
-        knowledge_mound: Optional[Any] = None,
+        config: CoordinatorConfig | None = None,
+        knowledge_mound: Any | None = None,
     ):
         """
         Initialize the coordinator.
@@ -124,10 +119,10 @@ class BidirectionalCoordinator:
         self.knowledge_mound = knowledge_mound
 
         # Adapter registry
-        self._adapters: Dict[str, AdapterRegistration] = {}
+        self._adapters: dict[str, AdapterRegistration] = {}
 
         # Sync state
-        self._last_full_sync: Optional[float] = None
+        self._last_full_sync: float | None = None
         self._sync_in_progress: bool = False
         self._sync_lock = asyncio.Lock()
 
@@ -135,7 +130,7 @@ class BidirectionalCoordinator:
         self._total_forward_syncs: int = 0
         self._total_reverse_syncs: int = 0
         self._total_errors: int = 0
-        self._sync_history: List[BidirectionalSyncReport] = []
+        self._sync_history: list[BidirectionalSyncReport] = []
         self._max_history: int = 100
 
     def register_adapter(
@@ -143,9 +138,9 @@ class BidirectionalCoordinator:
         name: str,
         adapter: Any,
         forward_method: str,
-        reverse_method: Optional[str] = None,
+        reverse_method: str | None = None,
         priority: int = 0,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """
         Register an adapter with the coordinator.
@@ -206,12 +201,12 @@ class BidirectionalCoordinator:
         logger.info(f"Unregistered adapter: {name}")
         return True
 
-    def get_adapter(self, name: str) -> Optional[Any]:
+    def get_adapter(self, name: str) -> Any | None:
         """Get an adapter by name."""
         reg = self._adapters.get(name)
         return reg.adapter if reg else None
 
-    def get_registered_adapters(self) -> List[str]:
+    def get_registered_adapters(self) -> list[str]:
         """Get list of registered adapter names."""
         return list(self._adapters.keys())
 
@@ -232,7 +227,7 @@ class BidirectionalCoordinator:
     async def _sync_adapter_forward(
         self,
         registration: AdapterRegistration,
-        km_items: Optional[List[Dict[str, Any]]] = None,
+        km_items: Optional[list[dict[str, Any]]] = None,
     ) -> SyncResult:
         """
         Run forward sync for a single adapter (source → KM).
@@ -299,7 +294,7 @@ class BidirectionalCoordinator:
     async def _sync_adapter_reverse(
         self,
         registration: AdapterRegistration,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
     ) -> SyncResult:
         """
         Run reverse sync for a single adapter (KM → source).
@@ -396,7 +391,7 @@ class BidirectionalCoordinator:
         except Exception as e:
             logger.debug(f"Failed to record Prometheus metrics: {e}")
 
-    async def sync_all_to_km(self) -> List[SyncResult]:
+    async def sync_all_to_km(self) -> list[SyncResult]:
         """
         Forward sync: All sources → KM.
 
@@ -442,8 +437,8 @@ class BidirectionalCoordinator:
 
     async def sync_all_from_km(
         self,
-        km_items: Optional[List[Dict[str, Any]]] = None,
-    ) -> List[SyncResult]:
+        km_items: Optional[list[dict[str, Any]]] = None,
+    ) -> list[SyncResult]:
         """
         Reverse sync: KM → All sources.
 
@@ -498,7 +493,7 @@ class BidirectionalCoordinator:
         self._total_reverse_syncs += 1
         return results
 
-    async def _get_recent_km_items(self) -> List[Dict[str, Any]]:
+    async def _get_recent_km_items(self) -> list[dict[str, Any]]:
         """Get recent KM items for reverse sync."""
         if self.knowledge_mound is None:
             # Return mock items for testing
@@ -519,7 +514,7 @@ class BidirectionalCoordinator:
 
     async def run_bidirectional_sync(
         self,
-        km_items: Optional[List[Dict[str, Any]]] = None,
+        km_items: Optional[list[dict[str, Any]]] = None,
     ) -> BidirectionalSyncReport:
         """
         Run complete bidirectional sync cycle.
@@ -590,7 +585,7 @@ class BidirectionalCoordinator:
 
         return report
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Get coordinator status and metrics.
 
@@ -633,7 +628,7 @@ class BidirectionalCoordinator:
     def get_sync_history(
         self,
         limit: int = 10,
-    ) -> List[BidirectionalSyncReport]:
+    ) -> list[BidirectionalSyncReport]:
         """Get recent sync history."""
         return self._sync_history[-limit:]
 
@@ -653,7 +648,6 @@ class BidirectionalCoordinator:
             reg.reverse_errors = 0
             reg.last_forward_sync = None
             reg.last_reverse_sync = None
-
 
 __all__ = [
     "BidirectionalCoordinator",

@@ -10,7 +10,7 @@ Provides workflow integration with Aragora's debate orchestration:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.config.settings import get_settings
@@ -18,14 +18,13 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
-
 class DebateStep(BaseStep):
     """
     Debate step for executing Aragora debates within workflows.
 
     Config options:
         topic: str - Debate topic (can use {input} placeholders)
-        agents: List[str] - Agent types to use (default: auto-selected)
+        agents: list[str] - Agent types to use (default: auto-selected)
         rounds: int - Number of debate rounds (default: global debate default)
         topology: str - Debate topology (default: "round_robin")
         consensus_mechanism: str - How to determine consensus (default: global debate default)
@@ -71,7 +70,7 @@ class DebateStep(BaseStep):
         )
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -227,7 +226,6 @@ class DebateStep(BaseStep):
 
         return text
 
-
 class QuickDebateStep(BaseStep):
     """
     Lightweight debate step for quick multi-agent consultations.
@@ -239,12 +237,12 @@ class QuickDebateStep(BaseStep):
 
     Config options:
         question: str - Question to ask agents
-        agents: List[str] - Agent types (default: 2 agents)
+        agents: list[str] - Agent types (default: 2 agents)
         max_response_length: int - Max chars per response (default: 500)
         synthesize: bool - Generate synthesis (default: True)
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -265,7 +263,7 @@ class QuickDebateStep(BaseStep):
             max_length = config.get("max_response_length", 500)
 
             # Get responses in parallel
-            async def get_response(agent_type: str) -> Dict[str, Any]:
+            async def get_response(agent_type: str) -> dict[str, Any]:
                 try:
                     agent = create_agent(agent_type)  # type: ignore[arg-type]
                     response = await agent.generate(question)

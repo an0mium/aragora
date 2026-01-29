@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
@@ -35,15 +35,13 @@ if TYPE_CHECKING:
     from aragora.reasoning.belief import BeliefNetwork, BeliefNode, CruxClaim
 
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
-
 
 # ============================================================================
 # Reverse Flow Dataclasses (KM → BeliefNetwork)
 # ============================================================================
-
 
 @dataclass
 class KMThresholdUpdate:
@@ -57,8 +55,7 @@ class KMThresholdUpdate:
     adjustments_made: int = 0
     confidence: float = 0.7
     recommendation: str = "keep"  # "increase", "decrease", "keep"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMBeliefValidation:
@@ -72,8 +69,7 @@ class KMBeliefValidation:
     was_supported: bool = False
     recommendation: str = "keep"  # "boost", "penalize", "keep", "review"
     adjustment: float = 0.0  # Confidence adjustment amount
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMPriorRecommendation:
@@ -83,9 +79,8 @@ class KMPriorRecommendation:
     recommended_prior: float  # 0.0-1.0
     sample_count: int = 0
     confidence: float = 0.7
-    supporting_debates: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    supporting_debates: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class BeliefThresholdSyncResult:
@@ -93,37 +88,34 @@ class BeliefThresholdSyncResult:
 
     beliefs_analyzed: int = 0
     cruxes_analyzed: int = 0
-    threshold_updates: List[KMThresholdUpdate] = field(default_factory=list)
-    validation_results: List[KMBeliefValidation] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    threshold_updates: list[KMThresholdUpdate] = field(default_factory=list)
+    validation_results: list[KMBeliefValidation] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: float = 0.0
-
 
 @dataclass
 class BeliefSearchResult:
     """Wrapper for belief search results with adapter metadata."""
 
-    belief: Dict[str, Any]
+    belief: dict[str, Any]
     relevance_score: float = 0.0
-    matched_topics: List[str] = None
+    matched_topics: list[str] = None
 
     def __post_init__(self) -> None:
         if self.matched_topics is None:
             self.matched_topics = []
 
-
 @dataclass
 class CruxSearchResult:
     """Wrapper for crux search results."""
 
-    crux: Dict[str, Any]
+    crux: dict[str, Any]
     relevance_score: float = 0.0
-    debate_ids: List[str] = None
+    debate_ids: list[str] = None
 
     def __post_init__(self) -> None:
         if self.debate_ids is None:
             self.debate_ids = []
-
 
 class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     """
@@ -166,14 +158,14 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     adapter_name = "belief"
 
     # FusionMixin abstract method implementations
-    def _get_fusion_sources(self) -> List[str]:
+    def _get_fusion_sources(self) -> list[str]:
         """Return list of source adapters this adapter can fuse data from."""
         return ["consensus", "elo", "evidence", "continuum", "insights"]
 
     def _extract_fusible_data(
         self,
-        km_item: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        km_item: dict[str, Any],
+    ) -> Optional[dict[str, Any]]:
         """Extract fusible data from a KM item.
 
         Args:
@@ -204,7 +196,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply a fusion result to a belief record.
 
@@ -256,7 +248,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         self,
         network: Optional["BeliefNetwork"] = None,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
     ):
         """
@@ -273,14 +265,14 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
-        self._beliefs: Dict[str, Dict[str, Any]] = {}
-        self._cruxes: Dict[str, Dict[str, Any]] = {}
-        self._provenance: Dict[str, Dict[str, Any]] = {}
+        self._beliefs: dict[str, dict[str, Any]] = {}
+        self._cruxes: dict[str, dict[str, Any]] = {}
+        self._provenance: dict[str, dict[str, Any]] = {}
 
         # Indices for fast lookup
-        self._debate_beliefs: Dict[str, List[str]] = {}  # debate_id -> [belief_ids]
-        self._debate_cruxes: Dict[str, List[str]] = {}  # debate_id -> [crux_ids]
-        self._topic_cruxes: Dict[str, List[str]] = {}  # topic -> [crux_ids]
+        self._debate_beliefs: dict[str, list[str]] = {}  # debate_id -> [belief_ids]
+        self._debate_cruxes: dict[str, list[str]] = {}  # debate_id -> [crux_ids]
+        self._topic_cruxes: dict[str, list[str]] = {}  # topic -> [crux_ids]
 
         # Initialize resilience patterns (circuit breaker, bulkhead, retry)
         if enable_resilience:
@@ -290,7 +282,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         """Set the event callback for WebSocket notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -303,7 +295,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         operation: str,
         success: bool,
         latency: float,
-        extra_labels: Optional[Dict[str, str]] = None,
+        extra_labels: Optional[dict[str, str]] = None,
     ) -> None:
         """Record Prometheus metric for adapter operation."""
         try:
@@ -332,8 +324,8 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     def store_converged_belief(
         self,
         node: "BeliefNode",
-        debate_id: Optional[str] = None,
-    ) -> Optional[str]:
+        debate_id: str | None = None,
+    ) -> str | None:
         """
         Store a converged belief node in the Knowledge Mound.
 
@@ -408,7 +400,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     def store_converged_beliefs(
         self,
         min_confidence: float = None,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Store all converged beliefs from the network above threshold.
 
@@ -439,9 +431,9 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     def store_crux(
         self,
         crux: "CruxClaim",
-        debate_id: Optional[str] = None,
-        topics: Optional[List[str]] = None,
-    ) -> Optional[str]:
+        debate_id: str | None = None,
+        topics: Optional[list[str]] = None,
+    ) -> str | None:
         """
         Store a crux claim in the Knowledge Mound.
 
@@ -511,12 +503,12 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         self,
         chain_id: str,
         source_id: str,
-        claim_ids: List[str],
+        claim_ids: list[str],
         verified: bool,
         verification_method: str,
-        debate_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        debate_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> str | None:
         """
         Store a provenance chain in the Knowledge Mound.
 
@@ -557,7 +549,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         logger.info(f"Stored provenance chain: {prov_id}")
         return prov_id
 
-    def get_belief(self, belief_id: str) -> Optional[Dict[str, Any]]:
+    def get_belief(self, belief_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific belief by ID.
 
@@ -571,7 +563,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
             belief_id = f"{self.BELIEF_PREFIX}{belief_id}"
         return self._beliefs.get(belief_id)
 
-    def get_crux(self, crux_id: str) -> Optional[Dict[str, Any]]:
+    def get_crux(self, crux_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific crux by ID.
 
@@ -590,7 +582,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         query: str,
         limit: int = 10,
         min_score: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find historical cruxes similar to the query.
 
@@ -639,7 +631,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         self,
         topic: str,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find cruxes tagged with a specific topic.
 
@@ -665,7 +657,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         self,
         debate_id: str,
         min_confidence: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get all beliefs from a specific debate.
 
@@ -690,7 +682,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         self,
         debate_id: str,
         min_score: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get all cruxes from a specific debate.
 
@@ -711,7 +703,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
 
         return results
 
-    def to_knowledge_item(self, belief: Dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, belief: dict[str, Any]) -> "KnowledgeItem":
         """
         Convert a belief dict to a KnowledgeItem.
 
@@ -767,7 +759,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
             importance=confidence_val,
         )
 
-    def crux_to_knowledge_item(self, crux: Dict[str, Any]) -> "KnowledgeItem":
+    def crux_to_knowledge_item(self, crux: dict[str, Any]) -> "KnowledgeItem":
         """
         Convert a crux dict to a KnowledgeItem.
 
@@ -822,7 +814,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
             importance=crux_score,
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored beliefs and cruxes."""
         self.__init_reverse_flow_state()
         return {
@@ -849,11 +841,11 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         if not hasattr(self, "_km_threshold_updates"):
             self._km_threshold_updates = 0
         if not hasattr(self, "_km_validated_priors"):
-            self._km_validated_priors: Dict[str, KMPriorRecommendation] = {}
+            self._km_validated_priors: dict[str, KMPriorRecommendation] = {}
         if not hasattr(self, "_km_validations"):
-            self._km_validations: List[KMBeliefValidation] = []
+            self._km_validations: list[KMBeliefValidation] = []
         if not hasattr(self, "_outcome_history"):
-            self._outcome_history: Dict[str, List[Dict[str, Any]]] = {}
+            self._outcome_history: dict[str, list[dict[str, Any]]] = {}
 
     def record_outcome(
         self,
@@ -889,7 +881,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
 
     async def update_belief_thresholds_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
     ) -> KMThresholdUpdate:
         """
@@ -912,14 +904,14 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         old_crux_threshold = self.MIN_CRUX_SCORE
 
         # Analyze success rates at different confidence levels
-        confidence_buckets: Dict[str, List[bool]] = {
+        confidence_buckets: dict[str, list[bool]] = {
             "0.6-0.7": [],
             "0.7-0.8": [],
             "0.8-0.9": [],
             "0.9-1.0": [],
         }
 
-        crux_buckets: Dict[str, List[bool]] = {
+        crux_buckets: dict[str, list[bool]] = {
             "0.2-0.3": [],
             "0.3-0.4": [],
             "0.4-0.5": [],
@@ -955,7 +947,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
                     crux_buckets["0.5+"].append(was_successful)
 
         # Compute success rates per bucket
-        def success_rate(bucket: List[bool]) -> Optional[float]:
+        def success_rate(bucket: list[bool]) -> float | None:
             if len(bucket) < 3:  # Need minimum samples
                 return None
             return sum(bucket) / len(bucket)
@@ -1034,7 +1026,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     async def get_km_validated_priors(
         self,
         claim_type: str,
-        km_items: Optional[List[Dict[str, Any]]] = None,
+        km_items: Optional[list[dict[str, Any]]] = None,
     ) -> KMPriorRecommendation:
         """
         Get KM-validated prior probability for a claim type.
@@ -1122,7 +1114,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     async def validate_belief_from_km(
         self,
         belief_id: str,
-        km_cross_references: List[Dict[str, Any]],
+        km_cross_references: list[dict[str, Any]],
     ) -> KMBeliefValidation:
         """
         Validate a belief based on KM cross-references.
@@ -1282,7 +1274,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
 
     async def sync_validations_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
     ) -> BeliefThresholdSyncResult:
         """
@@ -1304,7 +1296,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         errors = []
 
         # Group items by belief_id
-        items_by_belief: Dict[str, List[Dict[str, Any]]] = {}
+        items_by_belief: dict[str, list[dict[str, Any]]] = {}
         for item in km_items:
             meta = item.get("metadata", {})
             belief_id = meta.get("belief_id") or meta.get("source_id")
@@ -1346,7 +1338,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
 
         return result
 
-    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+    def get_reverse_flow_stats(self) -> dict[str, Any]:
         """Get statistics about reverse flow operations."""
         self.__init_reverse_flow_state()
 
@@ -1370,7 +1362,6 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         # Reset thresholds to defaults
         self.MIN_BELIEF_CONFIDENCE = 0.8
         self.MIN_CRUX_SCORE = 0.3
-
 
 __all__ = [
     "BeliefAdapter",

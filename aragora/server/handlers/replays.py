@@ -14,7 +14,7 @@ import json
 import logging
 import sqlite3
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import DEFAULT_ROUNDS
 
@@ -47,7 +47,6 @@ logger = logging.getLogger(__name__)
 # Rate limiter for replays endpoints (30 requests per minute - file operations)
 _replays_limiter = RateLimiter(requests_per_minute=30)
 
-
 class ReplaysHandler(BaseHandler):
     """Handler for replays and learning evolution endpoints."""
 
@@ -71,7 +70,7 @@ class ReplaysHandler(BaseHandler):
             return True
         return False
 
-    def _apply_rate_limit(self, handler: Any) -> Optional[HandlerResult]:
+    def _apply_rate_limit(self, handler: Any) -> HandlerResult | None:
         """Apply rate limiting. Returns error response if limit exceeded, None otherwise."""
         client_ip = get_client_ip(handler)
         if not _replays_limiter.is_allowed(client_ip):
@@ -80,7 +79,7 @@ class ReplaysHandler(BaseHandler):
         return None
 
     @require_permission("replays:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route replay requests to appropriate methods."""
         nomic_dir = self.ctx.get("nomic_dir")
         normalized = strip_version_prefix(path)
@@ -119,7 +118,7 @@ class ReplaysHandler(BaseHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_REPLAYS_LIST, key_prefix="replays_list", skip_first=True)
     @handle_errors("replays list retrieval")
-    def _list_replays(self, nomic_dir: Optional[Path], limit: int = 100) -> HandlerResult:
+    def _list_replays(self, nomic_dir: Path | None, limit: int = 100) -> HandlerResult:
         """List available replay directories with bounded iteration."""
         if not nomic_dir:
             return json_response([])
@@ -169,7 +168,7 @@ class ReplaysHandler(BaseHandler):
 
     @handle_errors("replay retrieval")
     def _get_replay(
-        self, nomic_dir: Optional[Path], replay_id: str, offset: int = 0, limit: int = 1000
+        self, nomic_dir: Path | None, replay_id: str, offset: int = 0, limit: int = 1000
     ) -> HandlerResult:
         """Get a specific replay with events (streaming with pagination).
 
@@ -236,7 +235,7 @@ class ReplaysHandler(BaseHandler):
         ttl_seconds=CACHE_TTL_LEARNING_EVOLUTION, key_prefix="learning_evolution", skip_first=True
     )
     @handle_errors("learning evolution retrieval")
-    def _get_learning_evolution(self, nomic_dir: Optional[Path], limit: int) -> HandlerResult:
+    def _get_learning_evolution(self, nomic_dir: Path | None, limit: int) -> HandlerResult:
         """Get learning/evolution data from meta_learning.db and elo_snapshot.json.
 
         Returns data in the format expected by the LearningEvolution frontend:
@@ -383,7 +382,7 @@ class ReplaysHandler(BaseHandler):
         ttl_seconds=CACHE_TTL_META_LEARNING, key_prefix="meta_learning_stats", skip_first=True
     )
     @handle_errors("meta learning stats retrieval")
-    def _get_meta_learning_stats(self, nomic_dir: Optional[Path], limit: int) -> HandlerResult:
+    def _get_meta_learning_stats(self, nomic_dir: Path | None, limit: int) -> HandlerResult:
         """Get meta-learning hyperparameters and efficiency stats.
 
         Returns current hyperparameters, adjustment history, and efficiency metrics.

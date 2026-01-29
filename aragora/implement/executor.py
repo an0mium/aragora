@@ -19,7 +19,6 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,6 @@ COMPLEXITY_TIMEOUT = os.environ.get("IMPL_COMPLEXITY_TIMEOUT", "1") == "1"
 DECOMPOSE_FAILED = os.environ.get("IMPL_DECOMPOSE_FAILED", "0") == "1"
 PARALLEL_TASKS = os.environ.get("IMPL_PARALLEL_TASKS", "0") == "1"
 MAX_PARALLEL = int(os.environ.get("IMPL_MAX_PARALLEL", "2"))
-
 
 TASK_PROMPT_TEMPLATE = """Implement this task in the codebase:
 
@@ -58,7 +56,6 @@ Working directory: {repo_path}
 
 IMPORTANT: Only make changes that are safe and reversible.
 """
-
 
 class HybridExecutor:
     """
@@ -90,8 +87,8 @@ class HybridExecutor:
         self.repo_path = repo_path
 
         # Initialize agents lazily (created on first use)
-        self._claude: Optional[ClaudeAgent] = None
-        self._codex: Optional[CodexAgent] = None
+        self._claude: ClaudeAgent | None = None
+        self._codex: CodexAgent | None = None
 
         self.claude_timeout = claude_timeout
         self.codex_timeout = codex_timeout

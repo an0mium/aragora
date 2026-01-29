@@ -8,10 +8,11 @@ Provides endpoints for:
 
 Uses ProvenanceStore for persistent storage.
 """
+from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.reasoning.provenance import (
     MerkleTree,
@@ -30,8 +31,7 @@ logger = logging.getLogger(__name__)
 _provenance_store: Optional["ProvenanceStore"] = None
 
 # In-memory cache for active managers (avoids repeated DB loads)
-_provenance_managers: Dict[str, ProvenanceManager] = {}
-
+_provenance_managers: dict[str, ProvenanceManager] = {}
 
 def get_provenance_store() -> "ProvenanceStore":
     """Get or create the global ProvenanceStore instance."""
@@ -42,7 +42,6 @@ def get_provenance_store() -> "ProvenanceStore":
         _provenance_store = ProvenanceStore()
         logger.info("ProvenanceStore initialized")
     return _provenance_store
-
 
 def get_provenance_manager(debate_id: str) -> ProvenanceManager:
     """Get or create a ProvenanceManager for a debate.
@@ -68,7 +67,6 @@ def get_provenance_manager(debate_id: str) -> ProvenanceManager:
     _provenance_managers[debate_id] = manager
     return manager
 
-
 def register_provenance_manager(debate_id: str, manager: ProvenanceManager) -> None:
     """Register and persist an externally created ProvenanceManager."""
     _provenance_managers[debate_id] = manager
@@ -78,8 +76,7 @@ def register_provenance_manager(debate_id: str, manager: ProvenanceManager) -> N
     store.save_manager(manager)
     logger.debug(f"Registered and persisted ProvenanceManager for debate {debate_id}")
 
-
-def _build_graph_nodes(manager: ProvenanceManager) -> List[Dict[str, Any]]:
+def _build_graph_nodes(manager: ProvenanceManager) -> list[dict[str, Any]]:
     """Build visualization nodes from provenance records."""
     nodes = []
 
@@ -101,10 +98,9 @@ def _build_graph_nodes(manager: ProvenanceManager) -> List[Dict[str, Any]]:
 
     return nodes
 
-
-def _build_graph_edges(manager: ProvenanceManager) -> List[Dict[str, Any]]:
+def _build_graph_edges(manager: ProvenanceManager) -> list[dict[str, Any]]:
     """Build visualization edges from provenance relationships."""
-    edges: List[Dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
 
     # Chain links (previous_hash relationships)
     for i, record in enumerate(manager.chain.records):
@@ -147,7 +143,6 @@ def _build_graph_edges(manager: ProvenanceManager) -> List[Dict[str, Any]]:
 
     return edges
 
-
 def _map_source_to_node_type(source_type: SourceType) -> str:
     """Map source type to visualization node type."""
     mapping = {
@@ -165,13 +160,11 @@ def _map_source_to_node_type(source_type: SourceType) -> str:
     }
     return mapping.get(source_type, "unknown")
 
-
 def _truncate(text: str, max_length: int) -> str:
     """Truncate text with ellipsis."""
     if len(text) <= max_length:
         return text
     return text[: max_length - 3] + "..."
-
 
 def _compute_max_depth(manager: ProvenanceManager) -> int:
     """Compute the maximum depth of the provenance graph."""
@@ -180,7 +173,6 @@ def _compute_max_depth(manager: ProvenanceManager) -> int:
 
     # Simple approach: count chain length
     return len(manager.chain.records)
-
 
 @require_permission("provenance:read")
 async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
@@ -198,7 +190,7 @@ async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
     # Verify chain integrity
     chain_valid, errors = manager.verify_chain_integrity()
 
-    graph_data: Dict[str, Any] = {
+    graph_data: dict[str, Any] = {
         "debate_id": debate_id,
         "nodes": nodes,
         "edges": edges,
@@ -215,11 +207,10 @@ async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
 
     return json_response(graph_data)
 
-
 @require_permission("provenance:read")
 async def handle_get_provenance_timeline(
     debate_id: str,
-    round_number: Optional[int] = None,
+    round_number: int | None = None,
 ) -> HandlerResult:
     """Get provenance as a timeline view.
 
@@ -228,7 +219,7 @@ async def handle_get_provenance_timeline(
     manager = get_provenance_manager(debate_id)
 
     # Group records by round (using metadata if available)
-    rounds_data: Dict[int, List[Dict[str, Any]]] = {}
+    rounds_data: dict[int, list[dict[str, Any]]] = {}
 
     for record in manager.chain.records:
         round_num = record.metadata.get("round_number", 0)
@@ -256,7 +247,7 @@ async def handle_get_provenance_timeline(
     ]
 
     # Track agent positions over time
-    agent_positions: Dict[str, List[Dict[str, Any]]] = {}
+    agent_positions: dict[str, list[dict[str, Any]]] = {}
     for record in manager.chain.records:
         if record.source_type == SourceType.AGENT_GENERATED:
             agent_id = record.source_id
@@ -279,7 +270,6 @@ async def handle_get_provenance_timeline(
     }
 
     return json_response(timeline_data)
-
 
 @require_permission("provenance:verify")
 async def handle_verify_provenance_chain(
@@ -325,7 +315,6 @@ async def handle_verify_provenance_chain(
 
     return json_response(verification_result)
 
-
 @require_permission("admin:audit")
 async def handle_export_provenance_report(
     debate_id: str,
@@ -345,7 +334,7 @@ async def handle_export_provenance_report(
     # Build base report
     chain_valid, _ = manager.verify_chain_integrity()
 
-    report: Dict[str, Any] = {
+    report: dict[str, Any] = {
         "debate_id": debate_id,
         "format": format,
         "generated_at": datetime.now().isoformat(),
@@ -406,7 +395,6 @@ async def handle_export_provenance_report(
         }
 
     return json_response(report)
-
 
 @require_permission("provenance:read")
 async def handle_get_claim_provenance(
@@ -490,11 +478,10 @@ async def handle_get_claim_provenance(
 
     return json_response(claim_provenance)
 
-
 @require_permission("provenance:read")
 async def handle_get_agent_contributions(
     debate_id: str,
-    agent_id: Optional[str] = None,
+    agent_id: str | None = None,
 ) -> HandlerResult:
     """Get provenance-tracked contributions by agent(s).
 
@@ -504,7 +491,7 @@ async def handle_get_agent_contributions(
     manager = get_provenance_manager(debate_id)
 
     # Group contributions by agent
-    agent_contributions: Dict[str, List[Dict[str, Any]]] = {}
+    agent_contributions: dict[str, list[dict[str, Any]]] = {}
 
     for record in manager.chain.records:
         if record.source_type != SourceType.AGENT_GENERATED:
@@ -529,7 +516,7 @@ async def handle_get_agent_contributions(
         agent_contributions[source].append(contribution)
 
     # Build contributions list
-    contributions: List[Dict[str, Any]] = [
+    contributions: list[dict[str, Any]] = [
         {"agent_id": aid, "contributions": contribs}
         for aid, contribs in agent_contributions.items()
     ]
@@ -557,7 +544,6 @@ async def handle_get_agent_contributions(
     }
 
     return json_response(response)
-
 
 def register_provenance_routes(router: Any) -> None:
     """Register provenance routes with the server router."""

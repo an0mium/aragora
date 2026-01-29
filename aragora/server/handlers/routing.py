@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -53,7 +53,6 @@ TaskRequirements = _routing_imports.get("TaskRequirements")
 DomainDetector = _routing_imports.get("DomainDetector")
 DEFAULT_AGENT_EXPERTISE = _routing_imports.get("DEFAULT_AGENT_EXPERTISE")
 
-
 class RoutingHandler(BaseHandler):
     """Handler for agent routing endpoints."""
 
@@ -70,7 +69,7 @@ class RoutingHandler(BaseHandler):
         return strip_version_prefix(path) in self.ROUTES
 
     @require_permission("routing:read")
-    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         path = strip_version_prefix(path)
         # Rate limit check
@@ -92,7 +91,7 @@ class RoutingHandler(BaseHandler):
         return None
 
     @require_permission("routing:create")
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         path = strip_version_prefix(path)
         if path == "/api/routing/recommendations":

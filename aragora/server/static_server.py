@@ -7,11 +7,12 @@ Handles:
 - SPA routing fallback to index.html
 - Audio file serving for debate broadcasts
 """
+from __future__ import annotations
 
 import logging
 import mimetypes
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
@@ -48,7 +49,6 @@ CONTENT_TYPES = {
     ".zip": "application/zip",
 }
 
-
 def get_content_type(filename: str) -> str:
     """Get content type for a file based on extension."""
     ext = Path(filename).suffix.lower()
@@ -59,11 +59,10 @@ def get_content_type(filename: str) -> str:
     mime_type, _ = mimetypes.guess_type(filename)
     return mime_type or "application/octet-stream"
 
-
 def validate_path(
     filename: str,
     base_dir: Path,
-) -> tuple[bool, Optional[Path], str]:
+) -> tuple[bool, Path | None, str]:
     """
     Validate and resolve a file path with security checks.
 
@@ -95,13 +94,12 @@ def validate_path(
         logger.debug(f"Path validation error: {e}")
         return False, None, "Invalid path"
 
-
 def serve_static_file(
     handler: "BaseHTTPRequestHandler",
     filename: str,
     static_dir: Path,
-    add_cors_headers: Optional[Callable] = None,
-    add_security_headers: Optional[Callable] = None,
+    add_cors_headers: Callable | None = None,
+    add_security_headers: Callable | None = None,
     spa_fallback: bool = True,
 ) -> bool:
     """
@@ -180,12 +178,11 @@ def serve_static_file(
         # Client disconnected, no response needed
         return False
 
-
 def serve_audio_file(
     handler: "BaseHTTPRequestHandler",
     debate_id: str,
     audio_store,
-    add_cors_headers: Optional[Callable] = None,
+    add_cors_headers: Callable | None = None,
 ) -> bool:
     """
     Serve an audio file for a debate broadcast.
@@ -241,7 +238,6 @@ def serve_audio_file(
         # Client disconnected
         return False
 
-
 class StaticFileHandler:
     """
     Reusable static file handler.
@@ -261,8 +257,8 @@ class StaticFileHandler:
         self,
         handler: "BaseHTTPRequestHandler",
         path: str,
-        add_cors_headers: Optional[Callable] = None,
-        add_security_headers: Optional[Callable] = None,
+        add_cors_headers: Callable | None = None,
+        add_security_headers: Callable | None = None,
     ) -> bool:
         """Serve a static file."""
         # Strip leading slash

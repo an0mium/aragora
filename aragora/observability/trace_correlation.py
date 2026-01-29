@@ -32,10 +32,9 @@ import random
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Generator, Optional
+from typing import Generator
 
 logger = logging.getLogger(__name__)
-
 
 # Sample rate for including trace_id in metrics (default 1%)
 # High cardinality labels need sampling to avoid memory issues
@@ -50,22 +49,20 @@ def _parse_sample_rate(raw: str) -> float:
         return 0.01
     return value
 
-
 TRACE_METRIC_SAMPLE_RATE = _parse_sample_rate(
     os.environ.get("ARAGORA_TRACE_METRIC_SAMPLE_RATE", "0.01")
 )
-
 
 @dataclass
 class TraceContext:
     """Current trace context for metric correlation."""
 
-    trace_id: Optional[str] = None
-    span_id: Optional[str] = None
+    trace_id: str | None = None
+    span_id: str | None = None
     sampled: bool = False
 
     @property
-    def trace_id_short(self) -> Optional[str]:
+    def trace_id_short(self) -> str | None:
         """Get short trace ID (first 8 chars) for metric labels."""
         if self.trace_id:
             return self.trace_id[:8]
@@ -76,7 +73,6 @@ class TraceContext:
         if self.sampled and self.trace_id:
             return {"trace_id": self.trace_id_short or ""}
         return {}
-
 
 def get_trace_context() -> TraceContext:
     """
@@ -100,7 +96,6 @@ def get_trace_context() -> TraceContext:
     except ImportError:
         return TraceContext()
 
-
 def should_sample_trace_id() -> bool:
     """
     Determine if this request's trace_id should be included in metrics.
@@ -108,7 +103,6 @@ def should_sample_trace_id() -> bool:
     Uses sampling to avoid high-cardinality label explosion.
     """
     return random.random() < TRACE_METRIC_SAMPLE_RATE
-
 
 @contextmanager
 def track_request_with_trace(
@@ -167,11 +161,9 @@ def track_request_with_trace(
         if ctx.sampled and ctx.trace_id and duration > 0.1:
             _record_traced_latency(endpoint, method, duration, ctx.trace_id_short or "")
 
-
 # Separate histogram for trace-correlated metrics (high cardinality)
 _TRACED_LATENCY_SAMPLES: list[tuple[str, str, float, str]] = []
 _TRACED_LATENCY_MAX_SAMPLES = 1000  # Keep memory bounded
-
 
 def _record_traced_latency(endpoint: str, method: str, duration: float, trace_id: str) -> None:
     """Record a trace-correlated latency sample."""
@@ -184,7 +176,6 @@ def _record_traced_latency(endpoint: str, method: str, duration: float, trace_id
 
     _TRACED_LATENCY_SAMPLES.append((endpoint, method, duration, trace_id))
 
-
 def get_traced_latency_samples() -> list[tuple[str, str, float, str]]:
     """
     Get recent trace-correlated latency samples.
@@ -194,12 +185,10 @@ def get_traced_latency_samples() -> list[tuple[str, str, float, str]]:
     """
     return list(_TRACED_LATENCY_SAMPLES)
 
-
 def clear_traced_latency_samples() -> None:
     """Clear the trace-correlated latency samples."""
     global _TRACED_LATENCY_SAMPLES
     _TRACED_LATENCY_SAMPLES = []
-
 
 def get_slow_traces(threshold_seconds: float = 1.0) -> list[dict]:
     """
@@ -227,7 +216,6 @@ def get_slow_traces(threshold_seconds: float = 1.0) -> list[dict]:
             )
     return sorted(slow, key=lambda x: x["duration_seconds"], reverse=True)
 
-
 def generate_exemplar_line(trace_id: str, duration: float) -> str:
     """
     Generate a Prometheus exemplar annotation.
@@ -243,7 +231,6 @@ def generate_exemplar_line(trace_id: str, duration: float) -> str:
     """
     # Format: # {trace_id="abc123"} value timestamp
     return f' # {{trace_id="{trace_id}"}} {duration}'
-
 
 __all__ = [
     "TraceContext",

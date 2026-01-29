@@ -7,7 +7,7 @@ Provides chunk search and statistics operations.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.rbac.decorators import require_permission
@@ -30,13 +30,11 @@ logger = logging.getLogger(__name__)
 # Cache TTLs
 CACHE_TTL_STATS = 300  # 5 minutes for statistics
 
-
 class SearchHandlerProtocol(Protocol):
     """Protocol for handlers that use SearchOperationsMixin."""
 
     def _get_fact_store(self) -> "FactStore": ...
     def _get_query_engine(self) -> "DatasetQueryEngine | SimpleQueryEngine": ...
-
 
 class SearchOperationsMixin:
     """Mixin providing search and stats operations for KnowledgeHandler."""
@@ -74,7 +72,7 @@ class SearchOperationsMixin:
 
     @ttl_cache(ttl_seconds=CACHE_TTL_STATS, key_prefix="knowledge_stats", skip_first=True)
     @handle_errors("get stats")
-    def _handle_stats(self: SearchHandlerProtocol, workspace_id: Optional[str]) -> HandlerResult:
+    def _handle_stats(self: SearchHandlerProtocol, workspace_id: str | None) -> HandlerResult:
         """Handle GET /api/knowledge/stats - Get statistics."""
         store = self._get_fact_store()
         stats = store.get_statistics(workspace_id)

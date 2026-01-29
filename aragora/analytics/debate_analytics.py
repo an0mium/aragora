@@ -20,11 +20,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class DebateTimeGranularity(str, Enum):
     """Time granularity for debate analytics."""
@@ -33,7 +32,6 @@ class DebateTimeGranularity(str, Enum):
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
-
 
 class DebateMetricType(str, Enum):
     """Types of debate metrics tracked."""
@@ -49,7 +47,6 @@ class DebateMetricType(str, Enum):
     USER_ACTIVITY = "user_activity"
     ERROR_RATE = "error_rate"
 
-
 @dataclass
 class DebateStats:
     """Statistics for debates."""
@@ -64,11 +61,11 @@ class DebateStats:
     avg_agents_per_debate: float = 0.0
     total_messages: int = 0
     total_votes: int = 0
-    period_start: Optional[datetime] = None
-    period_end: Optional[datetime] = None
-    by_protocol: Dict[str, int] = field(default_factory=dict)
+    period_start: datetime | None = None
+    period_end: datetime | None = None
+    by_protocol: dict[str, int] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "total_debates": self.total_debates,
@@ -85,7 +82,6 @@ class DebateStats:
             "period_end": self.period_end.isoformat() if self.period_end else None,
             "by_protocol": self.by_protocol,
         }
-
 
 @dataclass
 class AgentPerformance:
@@ -114,7 +110,7 @@ class AgentPerformance:
     elo_change_period: float = 0.0
     rank: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "agent_id": self.agent_id,
@@ -141,7 +137,6 @@ class AgentPerformance:
             "rank": self.rank,
         }
 
-
 @dataclass
 class UsageTrendPoint:
     """Usage trend data point."""
@@ -150,14 +145,13 @@ class UsageTrendPoint:
     value: float
     metric: DebateMetricType
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "timestamp": self.timestamp.isoformat(),
             "value": self.value,
             "metric": self.metric.value,
         }
-
 
 @dataclass
 class CostBreakdown:
@@ -166,16 +160,16 @@ class CostBreakdown:
     period_start: datetime
     period_end: datetime
     total_cost: Decimal = Decimal("0")
-    by_provider: Dict[str, Decimal] = field(default_factory=dict)
-    by_model: Dict[str, Decimal] = field(default_factory=dict)
-    by_user: Dict[str, Decimal] = field(default_factory=dict)
-    by_org: Dict[str, Decimal] = field(default_factory=dict)
-    daily_costs: List[Tuple[str, Decimal]] = field(default_factory=list)
+    by_provider: dict[str, Decimal] = field(default_factory=dict)
+    by_model: dict[str, Decimal] = field(default_factory=dict)
+    by_user: dict[str, Decimal] = field(default_factory=dict)
+    by_org: dict[str, Decimal] = field(default_factory=dict)
+    daily_costs: list[tuple[str, Decimal]] = field(default_factory=list)
     projected_monthly: Decimal = Decimal("0")
     cost_per_debate: Decimal = Decimal("0")
     cost_per_consensus: Decimal = Decimal("0")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "period_start": self.period_start.isoformat(),
@@ -191,26 +185,25 @@ class CostBreakdown:
             "cost_per_consensus": str(self.cost_per_consensus),
         }
 
-
 @dataclass
 class DebateDashboardSummary:
     """Complete debate dashboard summary."""
 
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    period_start: Optional[datetime] = None
-    period_end: Optional[datetime] = None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
     total_debates: int = 0
     total_users: int = 0
     total_organizations: int = 0
     active_agents: int = 0
-    debate_stats: Optional[DebateStats] = None
-    cost_breakdown: Optional[CostBreakdown] = None
-    top_agents: List[AgentPerformance] = field(default_factory=list)
-    debate_trend: List[UsageTrendPoint] = field(default_factory=list)
-    cost_trend: List[UsageTrendPoint] = field(default_factory=list)
-    alerts: List[Dict[str, Any]] = field(default_factory=list)
+    debate_stats: DebateStats | None = None
+    cost_breakdown: CostBreakdown | None = None
+    top_agents: list[AgentPerformance] = field(default_factory=list)
+    debate_trend: list[UsageTrendPoint] = field(default_factory=list)
+    cost_trend: list[UsageTrendPoint] = field(default_factory=list)
+    alerts: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "generated_at": self.generated_at.isoformat(),
@@ -227,7 +220,6 @@ class DebateDashboardSummary:
             "cost_trend": [t.to_dict() for t in self.cost_trend],
             "alerts": self.alerts,
         }
-
 
 class DebateAnalytics:
     """
@@ -257,7 +249,7 @@ class DebateAnalytics:
         summary = await analytics.get_dashboard_summary()
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize debate analytics."""
         self.db_path = db_path or ":memory:"
         self._lock = threading.Lock()
@@ -338,11 +330,11 @@ class DebateAnalytics:
         rounds: int,
         consensus_reached: bool,
         duration_seconds: float,
-        agents: List[str],
+        agents: list[str],
         status: str = "completed",
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        protocol: Optional[str] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        protocol: str | None = None,
         total_messages: int = 0,
         total_votes: int = 0,
         total_cost: Decimal = Decimal("0"),
@@ -389,9 +381,9 @@ class DebateAnalytics:
         tokens_out: int = 0,
         cost: Decimal = Decimal("0"),
         error: bool = False,
-        agent_name: Optional[str] = None,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
+        agent_name: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
     ) -> None:
         """Record agent activity in a debate."""
         now = datetime.now(timezone.utc)
@@ -428,7 +420,7 @@ class DebateAnalytics:
         self,
         agent_id: str,
         elo_rating: float,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> None:
         """Record agent ELO rating update."""
         now = datetime.now(timezone.utc)
@@ -447,7 +439,7 @@ class DebateAnalytics:
 
     async def get_debate_stats(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         days_back: int = 30,
     ) -> DebateStats:
         """Get debate statistics for a period."""
@@ -588,7 +580,7 @@ class DebateAnalytics:
         limit: int = 10,
         days_back: int = 30,
         sort_by: str = "elo",
-    ) -> List[AgentPerformance]:
+    ) -> list[AgentPerformance]:
         """Get agent leaderboard."""
         period_start = datetime.now(timezone.utc) - timedelta(days=days_back)
 
@@ -625,8 +617,8 @@ class DebateAnalytics:
         metric: DebateMetricType,
         granularity: DebateTimeGranularity = DebateTimeGranularity.DAILY,
         days_back: int = 30,
-        org_id: Optional[str] = None,
-    ) -> List[UsageTrendPoint]:
+        org_id: str | None = None,
+    ) -> list[UsageTrendPoint]:
         """Get usage trends over time."""
         period_start = datetime.now(timezone.utc) - timedelta(days=days_back)
 
@@ -679,7 +671,7 @@ class DebateAnalytics:
     async def get_cost_breakdown(
         self,
         days_back: int = 30,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> CostBreakdown:
         """Get cost analytics breakdown."""
         period_end = datetime.now(timezone.utc)
@@ -743,7 +735,7 @@ class DebateAnalytics:
 
     async def get_dashboard_summary(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         days_back: int = 30,
     ) -> DebateDashboardSummary:
         """Get complete debate dashboard summary."""
@@ -793,13 +785,11 @@ class DebateAnalytics:
             alerts=alerts,
         )
 
-
 # Global instance
-_debate_analytics: Optional[DebateAnalytics] = None
+_debate_analytics: DebateAnalytics | None = None
 _lock = threading.Lock()
 
-
-def get_debate_analytics(db_path: Optional[str] = None) -> DebateAnalytics:
+def get_debate_analytics(db_path: str | None = None) -> DebateAnalytics:
     """Get or create global debate analytics instance."""
     global _debate_analytics
     if _debate_analytics is None:
@@ -807,7 +797,6 @@ def get_debate_analytics(db_path: Optional[str] = None) -> DebateAnalytics:
             if _debate_analytics is None:
                 _debate_analytics = DebateAnalytics(db_path=db_path)
     return _debate_analytics
-
 
 __all__ = [
     "DebateAnalytics",

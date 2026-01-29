@@ -25,8 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class VerticalDomain(str, Enum):
     """Supported vertical domains for compliance templates."""
@@ -41,7 +40,6 @@ class VerticalDomain(str, Enum):
     AI_GOVERNANCE = "ai_governance"
     CUSTOM = "custom"
 
-
 @dataclass
 class ComplianceMapping:
     """Maps findings to compliance controls."""
@@ -51,7 +49,6 @@ class ComplianceMapping:
     control_name: str
     description: str
     severity_weight: float = 1.0
-
 
 @dataclass
 class VerticalTemplate:
@@ -104,7 +101,6 @@ class VerticalTemplate:
             "severity_thresholds": self.severity_thresholds,
             "metadata": self.metadata,
         }
-
 
 # ============================================================================
 # GDPR COMPLIANCE TEMPLATE
@@ -195,7 +191,6 @@ TEMPLATE_GDPR = VerticalTemplate(
     },
 )
 
-
 # ============================================================================
 # HIPAA HEALTHCARE TEMPLATE
 # ============================================================================
@@ -284,7 +279,6 @@ TEMPLATE_HIPAA = VerticalTemplate(
         "covered_entities": ["Healthcare Providers", "Health Plans", "Healthcare Clearinghouses"],
     },
 )
-
 
 # ============================================================================
 # SOC 2 TRUST SERVICES TEMPLATE
@@ -381,7 +375,6 @@ TEMPLATE_SOC2 = VerticalTemplate(
     },
 )
 
-
 # ============================================================================
 # PCI-DSS PAYMENT SECURITY TEMPLATE
 # ============================================================================
@@ -470,7 +463,6 @@ TEMPLATE_PCI_DSS = VerticalTemplate(
         "scan_requirements": "Quarterly ASV scans",
     },
 )
-
 
 # ============================================================================
 # AI/ML GOVERNANCE TEMPLATE
@@ -561,7 +553,6 @@ TEMPLATE_AI_GOVERNANCE = VerticalTemplate(
     },
 )
 
-
 # ============================================================================
 # TEMPLATE REGISTRY
 # ============================================================================
@@ -574,11 +565,9 @@ VERTICAL_TEMPLATES: dict[str, VerticalTemplate] = {
     "ai-ml-governance": TEMPLATE_AI_GOVERNANCE,
 }
 
-
-def get_template(template_id: str) -> Optional[VerticalTemplate]:
+def get_template(template_id: str) -> VerticalTemplate | None:
     """Get a vertical template by ID."""
     return VERTICAL_TEMPLATES.get(template_id)
-
 
 def list_templates() -> list[dict[str, Any]]:
     """List all available templates with summary info."""
@@ -595,11 +584,9 @@ def list_templates() -> list[dict[str, Any]]:
         for t in VERTICAL_TEMPLATES.values()
     ]
 
-
 def get_templates_for_domain(domain: VerticalDomain) -> list[VerticalTemplate]:
     """Get all templates for a specific domain."""
     return [t for t in VERTICAL_TEMPLATES.values() if t.domain == domain]
-
 
 def create_custom_template(
     id: str,
@@ -607,7 +594,7 @@ def create_custom_template(
     description: str,
     personas: list[str],
     priority_categories: list[str],
-    base_template: Optional[str] = None,
+    base_template: str | None = None,
 ) -> VerticalTemplate:
     """
     Create a custom template, optionally based on an existing template.

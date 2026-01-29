@@ -34,12 +34,11 @@ import logging
 from dataclasses import fields, is_dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, ClassVar, Dict, Type, TypeVar, get_type_hints
+from typing import Any, ClassVar, TypeVar, get_type_hints
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="SerializableMixin")
-
 
 def serialize_value(value: Any) -> Any:
     """Recursively serialize a value for JSON export.
@@ -76,7 +75,6 @@ def serialize_value(value: Any) -> Any:
     # Fallback: return as-is (str, int, float, bool, etc.)
     return value
 
-
 def deserialize_value(value: Any, target_type: Any) -> Any:
     """Deserialize a value to a target type.
 
@@ -95,7 +93,7 @@ def deserialize_value(value: Any, target_type: Any) -> Any:
     if value is None:
         return None
 
-    # Handle Optional[X] by extracting X
+    # Handle X | None by extracting X
     origin = getattr(target_type, "__origin__", None)
     if origin is type(None):  # noqa: E721
         return None
@@ -130,7 +128,6 @@ def deserialize_value(value: Any, target_type: Any) -> Any:
         return target_type.from_dict(value)
 
     return value
-
 
 class SerializableMixin:
     """Mixin providing consistent serialization for dataclasses.
@@ -168,9 +165,9 @@ class SerializableMixin:
 
     # Custom serializers for specific fields (override in subclass)
     # Maps field_name -> callable(value) -> serialized_value
-    _custom_serializers: ClassVar[Dict[str, Any]] = {}
+    _custom_serializers: ClassVar[dict[str, Any]] = {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary with consistent datetime/enum handling.
 
         Returns:
@@ -182,7 +179,7 @@ class SerializableMixin:
         if not is_dataclass(self):
             raise TypeError(f"{self.__class__.__name__} must be a dataclass")
 
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for f in fields(self):
             # Skip excluded fields
             if f.name in self._exclude_fields:
@@ -205,7 +202,7 @@ class SerializableMixin:
         return result
 
     @classmethod
-    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], data: dict[str, Any]) -> T:
         """Deserialize from dictionary.
 
         Args:
@@ -227,7 +224,7 @@ class SerializableMixin:
             # Forward references or missing imports - fall back to no type hints
             hints = {}
 
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         for f in fields(cls):
             if f.name not in data:
                 continue
@@ -240,8 +237,7 @@ class SerializableMixin:
 
         return cls(**kwargs)
 
-
-def dataclass_to_dict(obj: Any) -> Dict[str, Any]:
+def dataclass_to_dict(obj: Any) -> dict[str, Any]:
     """Utility function to serialize any dataclass to dict.
 
     Works with dataclasses that don't inherit from SerializableMixin.
@@ -259,15 +255,14 @@ def dataclass_to_dict(obj: Any) -> Dict[str, Any]:
     if not is_dataclass(obj):
         raise TypeError(f"{type(obj).__name__} is not a dataclass")
 
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
     for f in fields(obj):
         if f.name.startswith("_"):
             continue
         result[f.name] = serialize_value(getattr(obj, f.name))
     return result
 
-
-def dict_to_dataclass(cls: Type[T], data: Dict[str, Any]) -> T:
+def dict_to_dataclass(cls: type[T], data: dict[str, Any]) -> T:
     """Utility function to deserialize dict to any dataclass.
 
     Works with dataclasses that don't inherit from SerializableMixin.
@@ -292,7 +287,7 @@ def dict_to_dataclass(cls: Type[T], data: Dict[str, Any]) -> T:
         logger.debug(f"Failed to get type hints for {cls.__name__}: {type(e).__name__}: {e}")
         hints = {}
 
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
     for f in fields(cls):
         if f.name not in data:
             continue
@@ -300,7 +295,6 @@ def dict_to_dataclass(cls: Type[T], data: Dict[str, Any]) -> T:
         kwargs[f.name] = deserialize_value(data[f.name], target_type)
 
     return cls(**kwargs)
-
 
 __all__ = [
     "SerializableMixin",

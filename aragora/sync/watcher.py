@@ -26,7 +26,6 @@ from aragora.sync.models import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class WatcherConfig:
     """Configuration for the directory watcher."""
@@ -53,7 +52,6 @@ class WatcherConfig:
     # Max file size to track (bytes)
     max_file_size_bytes: int = 50 * 1024 * 1024  # 50 MB
 
-
 def _should_exclude(path: str, patterns: list[str]) -> bool:
     """Check if a path matches any exclude pattern."""
     import fnmatch
@@ -70,7 +68,6 @@ def _should_exclude(path: str, patterns: list[str]) -> bool:
 
     return False
 
-
 def _compute_file_hash(path: Path, chunk_size: int = 8192) -> str:
     """Compute SHA-256 hash of file contents."""
     hasher = hashlib.sha256()
@@ -82,7 +79,6 @@ def _compute_file_hash(path: Path, chunk_size: int = 8192) -> str:
     except (OSError, IOError) as e:
         logger.warning(f"Could not hash file {path}: {e}")
         return ""
-
 
 class DirectoryWatcher:
     """
@@ -98,7 +94,7 @@ class DirectoryWatcher:
 
     def __init__(
         self,
-        config: Optional[WatcherConfig] = None,
+        config: WatcherConfig | None = None,
         on_change: Optional[Callable[[FileChange], None]] = None,
     ):
         """
@@ -207,7 +203,7 @@ class DirectoryWatcher:
         for path in paths:
             await self.stop_watching(path)
 
-    def get_state(self, path: str | Path) -> Optional[SyncState]:
+    def get_state(self, path: str | Path) -> SyncState | None:
         """Get the sync state for a watched directory."""
         root = Path(path).resolve()
         return self._watching.get(str(root))
@@ -219,7 +215,7 @@ class DirectoryWatcher:
     async def get_changes(
         self,
         path: str | Path,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
     ) -> list[FileChange]:
         """
         Get pending changes for a watched directory.
@@ -462,7 +458,7 @@ class DirectoryWatcher:
         file_path: Path,
         root: Path,
         change_type: FileChangeType,
-        content_hash: Optional[str] = None,
+        content_hash: str | None = None,
     ) -> FileChange:
         """Create a FileChange object for a file."""
         rel_path = str(file_path.relative_to(root))
@@ -504,7 +500,6 @@ class DirectoryWatcher:
             state.known_files.pop(change.path, None)
             state.document_map.pop(change.path, None)
             state.total_files = max(0, state.total_files - 1)
-
 
 __all__ = [
     "DirectoryWatcher",

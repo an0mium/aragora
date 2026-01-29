@@ -30,7 +30,7 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -73,13 +73,11 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
-
 # Token fields to encrypt
 _TOKEN_FIELDS = ["access_token", "refresh_token"]
 
 # Exported for migration scripts
 ENCRYPTED_FIELDS = _TOKEN_FIELDS
-
 
 def _encrypt_token(token: str, user_id: str = "") -> str:
     """
@@ -118,7 +116,6 @@ def _encrypt_token(token: str, user_id: str = "") -> str:
         logger.warning(f"Token encryption failed, storing unencrypted: {e}")
         return token
 
-
 def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
     """
     Decrypt a token value, handling legacy unencrypted tokens.
@@ -141,7 +138,6 @@ def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
         logger.debug(f"Token decryption failed for user {user_id}, returning as-is: {e}")
         return encrypted_token
 
-
 @dataclass
 class GmailUserState:
     """Per-user Gmail state.
@@ -155,16 +151,16 @@ class GmailUserState:
     email_address: str = ""
     access_token: str = ""
     refresh_token: str = ""
-    token_expiry: Optional[datetime] = None
+    token_expiry: datetime | None = None
     history_id: str = ""
-    last_sync: Optional[datetime] = None
+    last_sync: datetime | None = None
     indexed_count: int = 0
     total_count: int = 0
-    connected_at: Optional[datetime] = None
+    connected_at: datetime | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
-    def to_dict(self, include_tokens: bool = False) -> Dict[str, Any]:
+    def to_dict(self, include_tokens: bool = False) -> dict[str, Any]:
         """Serialize to dictionary."""
         result = {
             "user_id": self.user_id,
@@ -247,7 +243,6 @@ class GmailUserState:
             updated_at=row[11] or time.time(),
         )
 
-
 @dataclass
 class SyncJobState:
     """Sync job state."""
@@ -256,20 +251,19 @@ class SyncJobState:
     status: str  # running, completed, failed, cancelled
     progress: int = 0
     messages_synced: int = 0
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    failed_at: Optional[str] = None
-    error: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    failed_at: str | None = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
 
 class GmailTokenStoreBackend(ABC):
     """Abstract base for Gmail token storage backends."""
 
     @abstractmethod
-    async def get(self, user_id: str) -> Optional[GmailUserState]:
+    async def get(self, user_id: str) -> GmailUserState | None:
         """Get Gmail state for a user."""
         pass
 
@@ -284,12 +278,12 @@ class GmailTokenStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def list_all(self) -> List[GmailUserState]:
+    async def list_all(self) -> list[GmailUserState]:
         """List all Gmail states (admin use)."""
         pass
 
     @abstractmethod
-    async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:
+    async def get_sync_job(self, user_id: str) -> SyncJobState | None:
         """Get sync job state for a user."""
         pass
 
@@ -307,7 +301,6 @@ class GmailTokenStoreBackend(ABC):
         """Close connections (optional to implement)."""
         pass
 
-
 class InMemoryGmailTokenStore(GmailTokenStoreBackend):
     """
     Thread-safe in-memory Gmail token store.
@@ -317,11 +310,11 @@ class InMemoryGmailTokenStore(GmailTokenStoreBackend):
     """
 
     def __init__(self) -> None:
-        self._tokens: Dict[str, GmailUserState] = {}
-        self._jobs: Dict[str, SyncJobState] = {}
+        self._tokens: dict[str, GmailUserState] = {}
+        self._jobs: dict[str, SyncJobState] = {}
         self._lock = asyncio.Lock()
 
-    async def get(self, user_id: str) -> Optional[GmailUserState]:
+    async def get(self, user_id: str) -> GmailUserState | None:
         async with self._lock:
             return self._tokens.get(user_id)
 
@@ -337,11 +330,11 @@ class InMemoryGmailTokenStore(GmailTokenStoreBackend):
                 return True
             return False
 
-    async def list_all(self) -> List[GmailUserState]:
+    async def list_all(self) -> list[GmailUserState]:
         async with self._lock:
             return list(self._tokens.values())
 
-    async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:
+    async def get_sync_job(self, user_id: str) -> SyncJobState | None:
         async with self._lock:
             return self._jobs.get(user_id)
 
@@ -360,7 +353,6 @@ class InMemoryGmailTokenStore(GmailTokenStoreBackend):
         """Clear all entries (for testing). Not async-safe, use only in test setup."""
         self._tokens.clear()
         self._jobs.clear()
-
 
 class SQLiteGmailTokenStore(GmailTokenStoreBackend):
     """
@@ -441,7 +433,7 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
         conn.commit()
         conn.close()
 
-    async def get(self, user_id: str) -> Optional[GmailUserState]:
+    async def get(self, user_id: str) -> GmailUserState | None:
         conn = self._get_conn()
         cursor = conn.execute(
             """SELECT user_id, email_address, access_token, refresh_token,
@@ -494,7 +486,7 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
             logger.debug(f"Deleted Gmail state for user {user_id}")
         return deleted
 
-    async def list_all(self) -> List[GmailUserState]:
+    async def list_all(self) -> list[GmailUserState]:
         conn = self._get_conn()
         cursor = conn.execute("""SELECT user_id, email_address, access_token, refresh_token,
                       token_expiry, history_id, last_sync, indexed_count,
@@ -502,7 +494,7 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
                FROM gmail_tokens""")
         return [GmailUserState.from_row(row) for row in cursor.fetchall()]
 
-    async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:
+    async def get_sync_job(self, user_id: str) -> SyncJobState | None:
         conn = self._get_conn()
         cursor = conn.execute(
             """SELECT user_id, status, progress, messages_synced,
@@ -558,7 +550,6 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
             self._local.conn.close()
             del self._local.conn
 
-
 class RedisGmailTokenStore(GmailTokenStoreBackend):
     """
     Redis-backed Gmail token store with SQLite fallback.
@@ -570,14 +561,14 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
     REDIS_JOBS_PREFIX = "aragora:gmail:jobs"
     REDIS_TTL = 86400 * 30  # 30 days
 
-    def __init__(self, db_path: Path | str, redis_url: Optional[str] = None):
+    def __init__(self, db_path: Path | str, redis_url: str | None = None):
         self._sqlite = SQLiteGmailTokenStore(db_path)
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_url = redis_url or os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379")
         self._redis_checked = False
         logger.info("RedisGmailTokenStore initialized with SQLite fallback")
 
-    def _get_redis(self) -> Optional[Any]:
+    def _get_redis(self) -> Any | None:
         """Get Redis client (lazy initialization)."""
         if self._redis_checked:
             return self._redis
@@ -602,7 +593,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
     def _job_key(self, user_id: str) -> str:
         return f"{self.REDIS_JOBS_PREFIX}:{user_id}"
 
-    async def get(self, user_id: str) -> Optional[GmailUserState]:
+    async def get(self, user_id: str) -> GmailUserState | None:
         redis = self._get_redis()
 
         if redis is not None:
@@ -646,10 +637,10 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
 
         return await self._sqlite.delete(user_id)
 
-    async def list_all(self) -> List[GmailUserState]:
+    async def list_all(self) -> list[GmailUserState]:
         return await self._sqlite.list_all()
 
-    async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:
+    async def get_sync_job(self, user_id: str) -> SyncJobState | None:
         redis = self._get_redis()
 
         if redis is not None:
@@ -693,7 +684,6 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
         await self._sqlite.close()
         if self._redis:
             self._redis.close()
-
 
 class PostgresGmailTokenStore(GmailTokenStoreBackend):
     """
@@ -751,17 +741,17 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
         self._initialized = True
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
 
-    async def get(self, user_id: str) -> Optional[GmailUserState]:
+    async def get(self, user_id: str) -> GmailUserState | None:
         """Get Gmail state for a user."""
         return await self.get_async(user_id)
 
-    def get_sync(self, user_id: str) -> Optional[GmailUserState]:
+    def get_sync(self, user_id: str) -> GmailUserState | None:
         """Get Gmail state for a user (sync wrapper for async)."""
         from aragora.utils.async_utils import run_async
 
         return run_async(self.get_async(user_id))
 
-    async def get_async(self, user_id: str) -> Optional[GmailUserState]:
+    async def get_async(self, user_id: str) -> GmailUserState | None:
         """Get Gmail state for a user asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -858,17 +848,17 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
                 logger.debug(f"Deleted Gmail state for user {user_id}")
             return deleted
 
-    async def list_all(self) -> List[GmailUserState]:
+    async def list_all(self) -> list[GmailUserState]:
         """List all Gmail states (admin use)."""
         return await self.list_all_async()
 
-    def list_all_sync(self) -> List[GmailUserState]:
+    def list_all_sync(self) -> list[GmailUserState]:
         """List all Gmail states (sync wrapper for async)."""
         from aragora.utils.async_utils import run_async
 
         return run_async(self.list_all_async())
 
-    async def list_all_async(self) -> List[GmailUserState]:
+    async def list_all_async(self) -> list[GmailUserState]:
         """List all Gmail states asynchronously."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch("""SELECT user_id, email_address, access_token, refresh_token,
@@ -877,17 +867,17 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
                    FROM gmail_tokens""")
             return [self._row_to_state(row) for row in rows]
 
-    async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:
+    async def get_sync_job(self, user_id: str) -> SyncJobState | None:
         """Get sync job state for a user."""
         return await self.get_sync_job_async(user_id)
 
-    def get_sync_job_sync(self, user_id: str) -> Optional[SyncJobState]:
+    def get_sync_job_sync(self, user_id: str) -> SyncJobState | None:
         """Get sync job state for a user (sync wrapper for async)."""
         from aragora.utils.async_utils import run_async
 
         return run_async(self.get_sync_job_async(user_id))
 
-    async def get_sync_job_async(self, user_id: str) -> Optional[SyncJobState]:
+    async def get_sync_job_async(self, user_id: str) -> SyncJobState | None:
         """Get sync job state for a user asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -965,14 +955,12 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 # =============================================================================
 # Global Store Factory
 # =============================================================================
 
-_gmail_token_store: Optional[GmailTokenStoreBackend] = None
+_gmail_token_store: GmailTokenStoreBackend | None = None
 _gmail_store_init_lock = threading.Lock()
-
 
 def get_gmail_token_store() -> GmailTokenStoreBackend:
     """
@@ -1037,19 +1025,16 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
 
         return _gmail_token_store
 
-
 def set_gmail_token_store(store: GmailTokenStoreBackend) -> None:
     """Set custom Gmail token store."""
     global _gmail_token_store
     _gmail_token_store = store
     logger.debug(f"Gmail token store backend set: {type(store).__name__}")
 
-
 def reset_gmail_token_store() -> None:
     """Reset the global Gmail token store (for testing)."""
     global _gmail_token_store
     _gmail_token_store = None
-
 
 __all__ = [
     "GmailUserState",

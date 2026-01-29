@@ -45,8 +45,6 @@ from typing import (
     Callable,
     Optional,
     ParamSpec,
-    Tuple,
-    Type,
     TypeVar,
 )
 
@@ -54,7 +52,6 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 P = ParamSpec("P")
-
 
 class RetryStrategy(str, Enum):
     """Retry backoff strategies."""
@@ -64,7 +61,6 @@ class RetryStrategy(str, Enum):
     CONSTANT = "constant"  # base_delay always
     FIBONACCI = "fibonacci"  # Fibonacci sequence * base_delay
 
-
 class JitterMode(str, Enum):
     """Jitter application modes to prevent thundering herd."""
 
@@ -73,15 +69,13 @@ class JitterMode(str, Enum):
     MULTIPLICATIVE = "multiplicative"  # delay * random(1-jitter_factor, 1+jitter_factor)
     FULL = "full"  # random(0, delay) - decorrelated jitter
 
-
 # Default exceptions that are considered retryable
-DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[Type[Exception], ...] = (
+DEFAULT_RETRYABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     ConnectionError,
     TimeoutError,
     OSError,
     IOError,
 )
-
 
 @dataclass
 class RetryConfig:
@@ -105,7 +99,7 @@ class RetryConfig:
     strategy: RetryStrategy = RetryStrategy.EXPONENTIAL
     jitter_mode: JitterMode = JitterMode.MULTIPLICATIVE
     jitter_factor: float = 0.25  # ±25% jitter
-    retryable_exceptions: Tuple[Type[Exception], ...] = DEFAULT_RETRYABLE_EXCEPTIONS
+    retryable_exceptions: tuple[type[Exception], ...] = DEFAULT_RETRYABLE_EXCEPTIONS
     on_retry: Optional[Callable[[int, Exception, float], None]] = None
     should_retry: Optional[Callable[[Exception], bool]] = None
 
@@ -139,7 +133,6 @@ class RetryConfig:
         if self.should_retry is not None:
             return self.should_retry(exception)
         return isinstance(exception, self.retryable_exceptions)
-
 
 def calculate_backoff_delay(
     attempt: int,
@@ -192,7 +185,6 @@ def calculate_backoff_delay(
 
     return max(0, delay)
 
-
 def _fibonacci(n: int) -> int:
     """Calculate nth Fibonacci number."""
     if n <= 0:
@@ -203,7 +195,6 @@ def _fibonacci(n: int) -> int:
     for _ in range(2, n + 1):
         a, b = b, a + b
     return b
-
 
 class ExponentialBackoff:
     """Iterator-based exponential backoff for manual retry loops.
@@ -263,13 +254,12 @@ class ExponentialBackoff:
         """Reset the backoff iterator."""
         self._attempt = 0
 
-
 def with_retry(
-    config: Optional[RetryConfig] = None,
+    config: RetryConfig | None = None,
     *,
     max_retries: int = 3,
     base_delay: float = 0.1,
-    retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
+    retryable_exceptions: Optional[tuple[type[Exception], ...]] = None,
 ) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Decorator for async functions with retry logic.
 
@@ -303,7 +293,7 @@ def with_retry(
     def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            last_exception: Optional[Exception] = None
+            last_exception: Exception | None = None
 
             for attempt in range(config.max_retries + 1):
                 try:
@@ -340,13 +330,12 @@ def with_retry(
 
     return decorator
 
-
 def with_retry_sync(
-    config: Optional[RetryConfig] = None,
+    config: RetryConfig | None = None,
     *,
     max_retries: int = 3,
     base_delay: float = 0.1,
-    retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
+    retryable_exceptions: Optional[tuple[type[Exception], ...]] = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator for sync functions with retry logic.
 
@@ -371,7 +360,7 @@ def with_retry_sync(
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            last_exception: Optional[Exception] = None
+            last_exception: Exception | None = None
 
             for attempt in range(config.max_retries + 1):
                 try:

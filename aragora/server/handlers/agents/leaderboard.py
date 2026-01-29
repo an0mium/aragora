@@ -10,7 +10,7 @@ This reduces frontend latency by 80% (1 request instead of 6).
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import (
     CACHE_TTL_LB_INTROSPECTION,
@@ -49,7 +49,6 @@ LEADERBOARD_PERMISSION = "agents:read"
 # Rate limiter for leaderboard endpoints (60 requests per minute - cached data)
 _leaderboard_limiter = RateLimiter(requests_per_minute=60)
 
-
 class LeaderboardViewHandler(SecureHandler):
     """Handler for consolidated leaderboard view endpoint.
 
@@ -85,7 +84,7 @@ class LeaderboardViewHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route leaderboard view requests with RBAC."""
         path = strip_version_prefix(path)
         # Rate limit check
@@ -121,7 +120,7 @@ class LeaderboardViewHandler(SecureHandler):
         return None
 
     def _get_leaderboard_view(
-        self, limit: int, domain: Optional[str], loop_id: Optional[str]
+        self, limit: int, domain: str | None, loop_id: str | None
     ) -> HandlerResult:
         """
         Get consolidated leaderboard view with all tab data.
@@ -191,7 +190,7 @@ class LeaderboardViewHandler(SecureHandler):
         )
 
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_RANKINGS, key_prefix="lb_rankings", skip_first=True)
-    def _fetch_rankings(self, limit: int, domain: Optional[str]) -> dict:
+    def _fetch_rankings(self, limit: int, domain: str | None) -> dict:
         """Fetch agent rankings with consistency scores."""
         elo = self.get_elo_system()
         if not elo:
@@ -252,7 +251,7 @@ class LeaderboardViewHandler(SecureHandler):
         return {"agents": enhanced, "count": len(enhanced)}
 
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_MATCHES, key_prefix="lb_matches", skip_first=True)
-    def _fetch_matches(self, limit: int, loop_id: Optional[str]) -> dict:
+    def _fetch_matches(self, limit: int, loop_id: str | None) -> dict:
         """Fetch recent matches."""
         elo = self.get_elo_system()
         if not elo:

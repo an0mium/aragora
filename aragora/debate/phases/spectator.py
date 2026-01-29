@@ -7,6 +7,7 @@ Provides a mixin class that handles:
 - ArgumentCartographer updates
 - Moment event emission
 """
+from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any, Optional
@@ -18,14 +19,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class SpectatorMixin:
     """Mixin providing spectator event emission capabilities.
 
     Expected attributes from the host class:
-    - spectator: Optional[SpectatorStream]
-    - event_emitter: Optional[SyncEventEmitter]
-    - cartographer: Optional[ArgumentCartographer]
+    - spectator: SpectatorStream | None
+    - event_emitter: SyncEventEmitter | None
+    - cartographer: ArgumentCartographer | None
     - loop_id: str
     """
 

@@ -4,6 +4,7 @@ Debate context adapter for RLM.
 Extracted from bridge.py for maintainability.
 Provides DebateContextAdapter for formatting debate history for RLM processing.
 """
+from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any, Optional
@@ -16,7 +17,6 @@ from .compressor import HierarchicalCompressor
 from .types import AbstractionLevel
 
 logger = logging.getLogger(__name__)
-
 
 class DebateContextAdapter:
     """
@@ -61,7 +61,7 @@ class DebateContextAdapter:
     async def query_debate(
         self,
         query: str,
-        debate_result: Optional[Any] = None,
+        debate_result: Any | None = None,
         strategy: str = "auto",
     ) -> str:
         """
@@ -140,7 +140,7 @@ class DebateContextAdapter:
     async def get_critiques_summary(
         self,
         debate_result: Any,
-        target_agent: Optional[str] = None,
+        target_agent: str | None = None,
     ) -> str:
         """
         Get summary of critiques, optionally filtered by target.
@@ -313,7 +313,7 @@ class DebateContextAdapter:
             consensus = debate_result.final_answer
 
         # Build helper functions
-        def get_round(n: int) -> Optional[dict]:
+        def get_round(n: int) -> dict | None:
             if 0 < n <= len(rounds):
                 return rounds[n - 1]
             return None
@@ -360,6 +360,5 @@ class DebateContextAdapter:
             parts.append(str(data["CONSENSUS"]))
 
         return "\n".join(parts)
-
 
 __all__ = ["DebateContextAdapter"]

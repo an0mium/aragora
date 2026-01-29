@@ -29,7 +29,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -50,32 +50,31 @@ DEFAULT_DB_PATH = (
 _receipt_store: Optional["ReceiptStore"] = None
 _store_lock = threading.RLock()
 
-
 @dataclass
 class StoredReceipt:
     """A stored decision receipt with signature metadata."""
 
     receipt_id: str
     gauntlet_id: str
-    debate_id: Optional[str]
+    debate_id: str | None
     created_at: float
-    expires_at: Optional[float]
+    expires_at: float | None
     verdict: str
     confidence: float
     risk_level: str
     risk_score: float
     checksum: str
     # Signature fields
-    signature: Optional[str] = None
-    signature_algorithm: Optional[str] = None
-    signature_key_id: Optional[str] = None
-    signed_at: Optional[float] = None
+    signature: str | None = None
+    signature_algorithm: str | None = None
+    signature_key_id: str | None = None
+    signed_at: float | None = None
     # Links
-    audit_trail_id: Optional[str] = None
+    audit_trail_id: str | None = None
     # Full data
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         result = {
             "receipt_id": self.receipt_id,
@@ -99,12 +98,11 @@ class StoredReceipt:
             }
         return result
 
-    def to_full_dict(self) -> Dict[str, Any]:
+    def to_full_dict(self) -> dict[str, Any]:
         """Convert to full dictionary including data payload."""
         result = self.to_dict()
         result.update(self.data)
         return result
-
 
 @dataclass
 class SignatureVerificationResult:
@@ -112,13 +110,13 @@ class SignatureVerificationResult:
 
     receipt_id: str
     is_valid: bool
-    algorithm: Optional[str] = None
-    key_id: Optional[str] = None
-    signed_at: Optional[float] = None
+    algorithm: str | None = None
+    key_id: str | None = None
+    signed_at: float | None = None
     verified_at: float = field(default_factory=lambda: time.time())
-    error: Optional[str] = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to API response."""
         return {
             "receipt_id": self.receipt_id,
@@ -131,7 +129,6 @@ class SignatureVerificationResult:
             ).isoformat(),
             "error": self.error,
         }
-
 
 class ReceiptStore:
     """
@@ -210,9 +207,9 @@ class ReceiptStore:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        db_path: Path | None = None,
+        backend: str | None = None,
+        database_url: str | None = None,
         retention_days: int = DEFAULT_RETENTION_DAYS,
     ):
         """
@@ -237,7 +234,7 @@ class ReceiptStore:
             backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
 
         self.backend_type = backend
-        self._backend: Optional[DatabaseBackend] = None
+        self._backend: DatabaseBackend | None = None
 
         if backend == "postgresql":
             if not actual_url:
@@ -276,8 +273,8 @@ class ReceiptStore:
 
     def save(
         self,
-        receipt_dict: Dict[str, Any],
-        signed_receipt: Optional[Dict[str, Any]] = None,
+        receipt_dict: dict[str, Any],
+        signed_receipt: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Save a decision receipt.
@@ -391,7 +388,7 @@ class ReceiptStore:
         logger.debug(f"Saved receipt: {receipt_id}")
         return receipt_id
 
-    def get(self, receipt_id: str) -> Optional[StoredReceipt]:
+    def get(self, receipt_id: str) -> StoredReceipt | None:
         """
         Get a receipt by ID.
 
@@ -418,7 +415,7 @@ class ReceiptStore:
             return self._row_to_stored_receipt(row)
         return None
 
-    def get_by_gauntlet(self, gauntlet_id: str) -> Optional[StoredReceipt]:
+    def get_by_gauntlet(self, gauntlet_id: str) -> StoredReceipt | None:
         """Get receipt by gauntlet ID."""
         if self._backend is None:
             return None
@@ -437,7 +434,7 @@ class ReceiptStore:
             return self._row_to_stored_receipt(row)
         return None
 
-    def _row_to_stored_receipt(self, row: Tuple) -> StoredReceipt:
+    def _row_to_stored_receipt(self, row: tuple) -> StoredReceipt:
         """Convert database row to StoredReceipt."""
         return StoredReceipt(
             receipt_id=row[0],
@@ -462,14 +459,14 @@ class ReceiptStore:
         self,
         limit: int = 20,
         offset: int = 0,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
-        date_from: Optional[float] = None,
-        date_to: Optional[float] = None,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+        date_from: float | None = None,
+        date_to: float | None = None,
         signed_only: bool = False,
         sort_by: str = "created_at",
         order: str = "desc",
-    ) -> List[StoredReceipt]:
+    ) -> list[StoredReceipt]:
         """
         List receipts with filtering and pagination.
 
@@ -491,7 +488,7 @@ class ReceiptStore:
             return []
 
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if verdict:
             conditions.append("verdict = ?")
@@ -536,10 +533,10 @@ class ReceiptStore:
 
     def count(
         self,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
-        date_from: Optional[float] = None,
-        date_to: Optional[float] = None,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+        date_from: float | None = None,
+        date_to: float | None = None,
         signed_only: bool = False,
     ) -> int:
         """Get total count of receipts matching filters."""
@@ -547,7 +544,7 @@ class ReceiptStore:
             return 0
 
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if verdict:
             conditions.append("verdict = ?")
@@ -581,9 +578,9 @@ class ReceiptStore:
         query: str,
         limit: int = 50,
         offset: int = 0,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
-    ) -> List[StoredReceipt]:
+        verdict: str | None = None,
+        risk_level: str | None = None,
+    ) -> list[StoredReceipt]:
         """
         Full-text search across receipt content.
 
@@ -608,7 +605,7 @@ class ReceiptStore:
 
         # Sanitize and limit
         limit = min(limit, 100)
-        params: List[Any] = []
+        params: list[Any] = []
         conditions = []
 
         if self.backend_type == "postgresql":
@@ -661,8 +658,8 @@ class ReceiptStore:
     def search_count(
         self,
         query: str,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
+        verdict: str | None = None,
+        risk_level: str | None = None,
     ) -> int:
         """
         Get total count of receipts matching search query.
@@ -681,7 +678,7 @@ class ReceiptStore:
         if not query or len(query) < 3:
             return 0
 
-        params: List[Any] = []
+        params: list[Any] = []
         conditions = []
 
         if self.backend_type == "postgresql":
@@ -843,8 +840,8 @@ class ReceiptStore:
             )
 
     def verify_batch(
-        self, receipt_ids: List[str]
-    ) -> Tuple[List[SignatureVerificationResult], Dict[str, int]]:
+        self, receipt_ids: list[str]
+    ) -> tuple[list[SignatureVerificationResult], dict[str, int]]:
         """
         Verify signatures for multiple receipts.
 
@@ -874,7 +871,7 @@ class ReceiptStore:
     # Integrity Verification
     # =========================================================================
 
-    def verify_integrity(self, receipt_id: str) -> Dict[str, Any]:
+    def verify_integrity(self, receipt_id: str) -> dict[str, Any]:
         """
         Verify the integrity checksum of a receipt.
 
@@ -923,7 +920,7 @@ class ReceiptStore:
 
     def cleanup_expired(
         self,
-        retention_days: Optional[int] = None,
+        retention_days: int | None = None,
         operator: str = "system:retention_cleanup",
         log_deletions: bool = True,
     ) -> int:
@@ -997,7 +994,7 @@ class ReceiptStore:
 
         return count
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get receipt statistics."""
         if self._backend is None:
             return {}
@@ -1030,7 +1027,7 @@ class ReceiptStore:
         limit: int = 100,
         offset: int = 0,
         include_data: bool = True,
-    ) -> Tuple[List[StoredReceipt], int]:
+    ) -> tuple[list[StoredReceipt], int]:
         """
         Get all receipts associated with a user (GDPR DSAR support).
 
@@ -1081,7 +1078,7 @@ class ReceiptStore:
 
         return receipts, total
 
-    def get_retention_status(self) -> Dict[str, Any]:
+    def get_retention_status(self) -> dict[str, Any]:
         """
         Get retention status for GDPR compliance reporting.
 
@@ -1142,11 +1139,9 @@ class ReceiptStore:
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-
 # =========================================================================
 # Module-level Functions
 # =========================================================================
-
 
 def get_receipt_store() -> ReceiptStore:
     """
@@ -1162,8 +1157,7 @@ def get_receipt_store() -> ReceiptStore:
             _receipt_store = ReceiptStore()
         return _receipt_store
 
-
-def set_receipt_store(store: Optional[ReceiptStore]) -> None:
+def set_receipt_store(store: ReceiptStore | None) -> None:
     """
     Set the global receipt store (for testing).
 

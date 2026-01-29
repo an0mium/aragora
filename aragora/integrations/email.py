@@ -25,6 +25,7 @@ Usage:
         ses_region="us-east-1"
     ))
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -37,7 +38,7 @@ from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
@@ -52,7 +53,6 @@ import threading
 
 _circuit_breakers: dict[str, Any] = {}
 _circuit_breakers_lock = threading.Lock()
-
 
 def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: float = 60.0) -> Any:
     """Get or create circuit breaker for email provider (thread-safe)."""
@@ -78,14 +78,12 @@ def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: floa
                 _circuit_breakers[provider] = None
     return _circuit_breakers.get(provider)
 
-
 class EmailProvider(Enum):
     """Email service provider."""
 
     SMTP = "smtp"
     SENDGRID = "sendgrid"
     SES = "ses"
-
 
 @dataclass
 class EmailConfig:
@@ -172,13 +170,12 @@ class EmailConfig:
         """Get the email provider enum."""
         return EmailProvider(self.provider)
 
-
 @dataclass
 class EmailRecipient:
     """An email recipient."""
 
     email: str
-    name: Optional[str] = None
+    name: str | None = None
     preferences: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -187,7 +184,6 @@ class EmailRecipient:
         if self.name:
             return f"{self.name} <{self.email}>"
         return self.email
-
 
 class EmailIntegration:
     """
@@ -242,7 +238,7 @@ class EmailIntegration:
         self._last_reset = datetime.now()
         self._pending_digests: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self._rate_limit_lock = asyncio.Lock()
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session with timeout protection."""
@@ -298,7 +294,7 @@ class EmailIntegration:
             cooldown=self.config.circuit_breaker_cooldown,
         )
 
-    def _check_circuit_breaker(self) -> tuple[bool, Optional[str]]:
+    def _check_circuit_breaker(self) -> tuple[bool, str | None]:
         """Check if circuit breaker allows the request."""
         cb = self._get_circuit_breaker()
         if cb is None:
@@ -318,7 +314,7 @@ class EmailIntegration:
         if cb:
             cb.record_success()
 
-    def _record_failure(self, error: Optional[Exception] = None) -> None:
+    def _record_failure(self, error: Exception | None = None) -> None:
         """Record failed email send."""
         cb = self._get_circuit_breaker()
         if cb:
@@ -355,7 +351,7 @@ class EmailIntegration:
         recipient: EmailRecipient,
         subject: str,
         html_body: str,
-        text_body: Optional[str] = None,
+        text_body: str | None = None,
     ) -> bool:
         """Send an email with retry logic and circuit breaker.
 
@@ -434,7 +430,7 @@ class EmailIntegration:
         recipient: EmailRecipient,
         subject: str,
         html_body: str,
-        text_body: Optional[str] = None,
+        text_body: str | None = None,
     ) -> bool:
         """Send email via SMTP."""
         msg = MIMEMultipart("alternative")
@@ -463,7 +459,7 @@ class EmailIntegration:
         recipient: EmailRecipient,
         subject: str,
         html_body: str,
-        text_body: Optional[str] = None,
+        text_body: str | None = None,
     ) -> bool:
         """Send email via SendGrid Web API v3.
 
@@ -537,7 +533,7 @@ class EmailIntegration:
         recipient: EmailRecipient,
         subject: str,
         html_body: str,
-        text_body: Optional[str] = None,
+        text_body: str | None = None,
     ) -> bool:
         """Send email via AWS SES.
 
@@ -660,7 +656,7 @@ class EmailIntegration:
     async def send_debate_summary(
         self,
         result: DebateResult,
-        recipients: Optional[list[EmailRecipient]] = None,
+        recipients: list[EmailRecipient] | None = None,
     ) -> int:
         """Send a debate summary to recipients.
 
@@ -802,9 +798,9 @@ class EmailIntegration:
         self,
         debate_id: str,
         confidence: float,
-        winner: Optional[str] = None,
-        task: Optional[str] = None,
-        recipients: Optional[list[EmailRecipient]] = None,
+        winner: str | None = None,
+        task: str | None = None,
+        recipients: list[EmailRecipient] | None = None,
     ) -> int:
         """Send a consensus reached notification.
 
@@ -836,8 +832,8 @@ class EmailIntegration:
         self,
         debate_id: str,
         confidence: float,
-        winner: Optional[str],
-        task: Optional[str],
+        winner: str | None,
+        task: str | None,
     ) -> str:
         """Build HTML email for consensus alert."""
         task_html = f"<p><strong>Task:</strong> {task}</p>" if task else ""
@@ -884,8 +880,8 @@ class EmailIntegration:
         self,
         debate_id: str,
         confidence: float,
-        winner: Optional[str],
-        task: Optional[str],
+        winner: str | None,
+        task: str | None,
     ) -> str:
         """Build plain text email for consensus alert."""
         lines = [
@@ -914,7 +910,7 @@ class EmailIntegration:
 
     async def send_digest(
         self,
-        recipients: Optional[list[EmailRecipient]] = None,
+        recipients: list[EmailRecipient] | None = None,
     ) -> int:
         """Send a digest of recent debates.
 
@@ -1034,7 +1030,6 @@ class EmailIntegration:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit."""
         await self.close()
-
 
 __all__ = [
     "EmailConfig",

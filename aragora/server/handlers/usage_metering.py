@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 from aragora.billing.models import SubscriptionTier
 
@@ -32,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter for usage endpoints (30 requests per minute)
 _usage_limiter = RateLimiter(requests_per_minute=30)
-
 
 class UsageMeteringHandler(SecureHandler):
     """Handler for usage metering endpoints.
@@ -62,7 +60,7 @@ class UsageMeteringHandler(SecureHandler):
         query_params: dict,
         handler,
         method: str = "GET",
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route usage metering requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -553,6 +551,5 @@ class UsageMeteringHandler(SecureHandler):
                 "Content-Disposition": f'attachment; filename="{filename}"',
             },
         )
-
 
 __all__ = ["UsageMeteringHandler"]

@@ -35,7 +35,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
 
 from aragora.agents.personas import (
     DEFAULT_PERSONAS,
@@ -43,7 +42,6 @@ from aragora.agents.personas import (
     Persona,
     PersonaManager,
 )
-
 
 class Vertical(Enum):
     """Industry verticals supported by the control plane."""
@@ -55,7 +53,6 @@ class Vertical(Enum):
     ACADEMIC = "academic"
     GENERAL = "general"
 
-
 class TaskComplexity(Enum):
     """Complexity levels for task-based model selection."""
 
@@ -64,27 +61,25 @@ class TaskComplexity(Enum):
     HIGH = "high"
     CRITICAL = "critical"
 
-
 @dataclass
 class VerticalConfig:
     """Configuration for an industry vertical."""
 
     vertical: Vertical
     description: str
-    primary_personas: List[str]  # Persona names
-    compliance_frameworks: List[str]  # Framework IDs
-    preferred_models: Dict[TaskComplexity, List[str]]  # Complexity -> models
-    expertise_domains: List[str]  # Relevant expertise domains
-    typical_tasks: List[str]  # Common task types
+    primary_personas: list[str]  # Persona names
+    compliance_frameworks: list[str]  # Framework IDs
+    preferred_models: dict[TaskComplexity, list[str]]  # Complexity -> models
+    expertise_domains: list[str]  # Relevant expertise domains
+    typical_tasks: list[str]  # Common task types
 
     # Model preferences
     default_model: str = "claude"
     requires_high_accuracy: bool = False
     max_temperature: float = 0.7
 
-
 # Vertical configurations
-VERTICAL_CONFIGS: Dict[Vertical, VerticalConfig] = {
+VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
     Vertical.SOFTWARE: VerticalConfig(
         vertical=Vertical.SOFTWARE,
         description="Software development, code review, and architecture analysis",
@@ -330,7 +325,6 @@ VERTICAL_CONFIGS: Dict[Vertical, VerticalConfig] = {
     ),
 }
 
-
 @dataclass
 class VerticalTeamRecommendation:
     """Recommended team configuration for a vertical task."""
@@ -338,13 +332,12 @@ class VerticalTeamRecommendation:
     vertical: Vertical
     task_type: str
     complexity: TaskComplexity
-    personas: List[str]
-    models: List[str]
-    compliance_frameworks: List[str]
+    personas: list[str]
+    models: list[str]
+    compliance_frameworks: list[str]
     max_temperature: float
     estimated_cost_tier: str  # "low", "medium", "high"
     reasoning: str
-
 
 class VerticalPersonaManager:
     """
@@ -357,7 +350,7 @@ class VerticalPersonaManager:
     - Model selection based on vertical and complexity
     """
 
-    def __init__(self, persona_manager: Optional[PersonaManager] = None):
+    def __init__(self, persona_manager: PersonaManager | None = None):
         self._persona_manager = persona_manager
         self._vertical_configs = VERTICAL_CONFIGS
 
@@ -365,7 +358,7 @@ class VerticalPersonaManager:
         """Get configuration for a vertical."""
         return self._vertical_configs.get(vertical, self._vertical_configs[Vertical.GENERAL])
 
-    def get_personas_for_vertical(self, vertical: Vertical) -> List[Persona]:
+    def get_personas_for_vertical(self, vertical: Vertical) -> list[Persona]:
         """
         Get all personas suitable for a vertical.
 
@@ -385,7 +378,7 @@ class VerticalPersonaManager:
         vertical: Vertical,
         expertise_domain: str,
         min_score: float = 0.5,
-    ) -> List[Persona]:
+    ) -> list[Persona]:
         """
         Get personas with specific expertise in a vertical.
 
@@ -471,7 +464,7 @@ class VerticalPersonaManager:
         task_type: str,
         team_size: int,
         include_compliance: bool,
-    ) -> List[str]:
+    ) -> list[str]:
         """Select personas for a specific task."""
         selected = []
 
@@ -536,8 +529,8 @@ class VerticalPersonaManager:
         vertical: Vertical,
         task_type: str,
         complexity: TaskComplexity,
-        personas: List[str],
-        models: List[str],
+        personas: list[str],
+        models: list[str],
     ) -> str:
         """Generate human-readable reasoning for recommendation."""
         return (
@@ -547,12 +540,12 @@ class VerticalPersonaManager:
             f"This configuration balances expertise coverage with cost efficiency."
         )
 
-    def get_compliance_frameworks(self, vertical: Vertical) -> List[str]:
+    def get_compliance_frameworks(self, vertical: Vertical) -> list[str]:
         """Get compliance frameworks applicable to a vertical."""
         config = self.get_vertical_config(vertical)
         return config.compliance_frameworks
 
-    def get_typical_tasks(self, vertical: Vertical) -> List[str]:
+    def get_typical_tasks(self, vertical: Vertical) -> list[str]:
         """Get typical tasks for a vertical."""
         config = self.get_vertical_config(vertical)
         return config.typical_tasks
@@ -644,8 +637,7 @@ class VerticalPersonaManager:
 
         return Vertical.GENERAL
 
-
-def get_vertical_personas(vertical: Vertical) -> List[Persona]:
+def get_vertical_personas(vertical: Vertical) -> list[Persona]:
     """
     Convenience function to get personas for a vertical.
 
@@ -657,7 +649,6 @@ def get_vertical_personas(vertical: Vertical) -> List[Persona]:
     """
     manager = VerticalPersonaManager()
     return manager.get_personas_for_vertical(vertical)
-
 
 __all__ = [
     "Vertical",

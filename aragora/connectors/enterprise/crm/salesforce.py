@@ -18,7 +18,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -28,7 +28,6 @@ from aragora.connectors.enterprise.base import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 # Standard Salesforce objects for CRM
 SALESFORCE_OBJECTS = {
@@ -195,7 +194,6 @@ SALESFORCE_OBJECTS = {
     },
 }
 
-
 @dataclass
 class SalesforceRecord:
     """A Salesforce record."""
@@ -206,11 +204,10 @@ class SalesforceRecord:
     description: str = ""
     status: str = ""
     owner_id: str = ""
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     url: str = ""
-    attributes: Dict[str, Any] = field(default_factory=dict)
-
+    attributes: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class SalesforceAttachment:
@@ -221,8 +218,7 @@ class SalesforceAttachment:
     content_type: str
     body_length: int
     parent_id: str
-    created_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
 
 class SalesforceConnector(EnterpriseConnector):
     """
@@ -256,10 +252,10 @@ class SalesforceConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        instance_url: Optional[str] = None,
-        objects: Optional[List[str]] = None,
-        custom_objects: Optional[List[str]] = None,
-        soql_filter: Optional[str] = None,
+        instance_url: str | None = None,
+        objects: Optional[list[str]] = None,
+        custom_objects: Optional[list[str]] = None,
+        soql_filter: str | None = None,
         include_attachments: bool = False,
         include_notes: bool = False,
         exclude_archived: bool = True,
@@ -296,9 +292,9 @@ class SalesforceConnector(EnterpriseConnector):
         self.bulk_threshold = bulk_threshold
         self.is_sandbox = is_sandbox
 
-        self._access_token: Optional[str] = None
-        self._token_expiry: Optional[datetime] = None
-        self._instance_url_resolved: Optional[str] = None
+        self._access_token: str | None = None
+        self._token_expiry: datetime | None = None
+        self._instance_url_resolved: str | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -378,7 +374,7 @@ class SalesforceConnector(EnterpriseConnector):
         client_secret: str,
         username: str,
         password: str,
-        security_token: Optional[str] = None,
+        security_token: str | None = None,
     ) -> str:
         """Authenticate with username/password flow."""
         import httpx
@@ -419,9 +415,9 @@ class SalesforceConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make a request to Salesforce REST API."""
         import httpx
 
@@ -446,7 +442,7 @@ class SalesforceConnector(EnterpriseConnector):
             response.raise_for_status()
             return response.json() if response.content else {}
 
-    async def _query(self, soql: str) -> AsyncIterator[Dict[str, Any]]:
+    async def _query(self, soql: str) -> AsyncIterator[dict[str, Any]]:
         """Execute SOQL query with automatic pagination."""
         # URL encode the query
         import urllib.parse
@@ -480,8 +476,8 @@ class SalesforceConnector(EnterpriseConnector):
     def _build_soql_query(
         self,
         object_name: str,
-        fields: List[str],
-        last_sync: Optional[datetime] = None,
+        fields: list[str],
+        last_sync: datetime | None = None,
     ) -> str:
         """Build SOQL query for an object."""
         # Escape any reserved characters in field names
@@ -510,7 +506,7 @@ class SalesforceConnector(EnterpriseConnector):
 
         return soql
 
-    def _parse_datetime(self, value: Optional[str]) -> Optional[datetime]:
+    def _parse_datetime(self, value: str | None) -> datetime | None:
         """Parse Salesforce datetime string."""
         if not value:
             return None
@@ -522,7 +518,7 @@ class SalesforceConnector(EnterpriseConnector):
         except ValueError:
             return None
 
-    def _record_to_text(self, record: Dict[str, Any], object_name: str) -> str:
+    def _record_to_text(self, record: dict[str, Any], object_name: str) -> str:
         """Convert a record to text representation."""
         lines = [f"# {object_name}: {record.get('Name', record.get('Id', 'Unknown'))}"]
         lines.append("")
@@ -626,7 +622,7 @@ class SalesforceConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 25,
-        object_types: Optional[List[str]] = None,
+        object_types: Optional[list[str]] = None,
         **kwargs,
     ) -> list:
         """Search Salesforce using SOSL."""
@@ -677,7 +673,7 @@ class SalesforceConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific Salesforce record."""
         from aragora.connectors.base import Evidence
 
@@ -720,7 +716,7 @@ class SalesforceConnector(EnterpriseConnector):
         self,
         account_id: str,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get contacts associated with an account."""
         soql = f"""
             SELECT Id, FirstName, LastName, Email, Phone, Title
@@ -740,7 +736,7 @@ class SalesforceConnector(EnterpriseConnector):
         account_id: str,
         include_closed: bool = False,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get opportunities associated with an account."""
         soql = f"""
             SELECT Id, Name, StageName, Amount, CloseDate, Probability, IsWon
@@ -758,6 +754,5 @@ class SalesforceConnector(EnterpriseConnector):
             opportunities.append(record)
 
         return opportunities
-
 
 __all__ = ["SalesforceConnector", "SalesforceRecord", "SALESFORCE_OBJECTS"]

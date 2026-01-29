@@ -11,9 +11,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
-
 
 class RecommendationType(str, Enum):
     """Types of cost optimization recommendations."""
@@ -27,7 +26,6 @@ class RecommendationType(str, Enum):
     TIME_SHIFTING = "time_shifting"  # Shift load to off-peak
     QUOTA_ADJUSTMENT = "quota_adjustment"  # Adjust usage quotas
 
-
 class RecommendationPriority(str, Enum):
     """Priority levels for recommendations."""
 
@@ -35,7 +33,6 @@ class RecommendationPriority(str, Enum):
     HIGH = "high"  # Should implement soon
     MEDIUM = "medium"  # Good to have
     LOW = "low"  # Minor optimization
-
 
 class RecommendationStatus(str, Enum):
     """Status of a recommendation."""
@@ -45,7 +42,6 @@ class RecommendationStatus(str, Enum):
     DISMISSED = "dismissed"  # User dismissed
     EXPIRED = "expired"  # No longer applicable
     PARTIAL = "partial"  # Partially applied
-
 
 @dataclass
 class ModelAlternative:
@@ -57,8 +53,7 @@ class ModelAlternative:
     cost_per_1k_output: Decimal
     quality_score: float  # 0-1, relative quality vs current
     latency_multiplier: float  # 1.0 = same, 2.0 = 2x slower
-    suitable_for: List[str] = field(default_factory=list)  # Task types
-
+    suitable_for: list[str] = field(default_factory=list)  # Task types
 
 @dataclass
 class CachingOpportunity:
@@ -70,7 +65,6 @@ class CachingOpportunity:
     repeat_count: int
     cache_strategy: str  # "exact", "semantic", "prefix"
 
-
 @dataclass
 class BatchingOpportunity:
     """Details about a batching opportunity."""
@@ -81,17 +75,15 @@ class BatchingOpportunity:
     requests_per_hour: int
     latency_impact_ms: float
 
-
 @dataclass
 class ImplementationStep:
     """A step to implement a recommendation."""
 
     order: int
     description: str
-    code_snippet: Optional[str] = None
-    config_change: Optional[Dict[str, Any]] = None
+    code_snippet: str | None = None
+    config_change: Optional[dict[str, Any]] = None
     estimated_effort: str = "low"  # low, medium, high
-
 
 @dataclass
 class OptimizationRecommendation:
@@ -116,9 +108,9 @@ class OptimizationRecommendation:
 
     # Context
     workspace_id: str = ""
-    org_id: Optional[str] = None
-    affected_agents: List[str] = field(default_factory=list)
-    affected_operations: List[str] = field(default_factory=list)
+    org_id: str | None = None
+    affected_agents: list[str] = field(default_factory=list)
+    affected_operations: list[str] = field(default_factory=list)
 
     # Human-readable
     title: str = ""
@@ -126,12 +118,12 @@ class OptimizationRecommendation:
     rationale: str = ""  # Why this recommendation
 
     # Type-specific details
-    model_alternative: Optional[ModelAlternative] = None
-    caching_opportunity: Optional[CachingOpportunity] = None
-    batching_opportunity: Optional[BatchingOpportunity] = None
+    model_alternative: ModelAlternative | None = None
+    caching_opportunity: CachingOpportunity | None = None
+    batching_opportunity: BatchingOpportunity | None = None
 
     # Implementation
-    implementation_steps: List[ImplementationStep] = field(default_factory=list)
+    implementation_steps: list[ImplementationStep] = field(default_factory=list)
     auto_apply_available: bool = False  # Can be applied automatically
     requires_approval: bool = True  # Needs human approval
 
@@ -142,12 +134,12 @@ class OptimizationRecommendation:
 
     # Timestamps
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
-    applied_at: Optional[datetime] = None
-    applied_by: Optional[str] = None
+    expires_at: datetime | None = None
+    applied_at: datetime | None = None
+    applied_by: str | None = None
 
     # Tracking
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Calculate derived fields."""
@@ -157,7 +149,7 @@ class OptimizationRecommendation:
                 (self.estimated_savings_usd / self.current_cost_usd) * 100
             )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "id": self.id,
@@ -231,7 +223,7 @@ class OptimizationRecommendation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OptimizationRecommendation:
+    def from_dict(cls, data: dict[str, Any]) -> OptimizationRecommendation:
         """Create from dictionary."""
         rec = cls(
             id=data.get("id", str(uuid4())),
@@ -267,7 +259,6 @@ class OptimizationRecommendation:
         """Mark recommendation as dismissed."""
         self.status = RecommendationStatus.DISMISSED
 
-
 @dataclass
 class RecommendationSummary:
     """Summary of recommendations for a workspace."""
@@ -289,9 +280,9 @@ class RecommendationSummary:
     low_count: int = 0
 
     # By type
-    by_type: Dict[str, int] = field(default_factory=dict)
+    by_type: dict[str, int] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "workspace_id": self.workspace_id,
@@ -309,7 +300,6 @@ class RecommendationSummary:
             },
             "by_type": self.by_type,
         }
-
 
 __all__ = [
     "RecommendationType",

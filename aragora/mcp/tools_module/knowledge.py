@@ -12,10 +12,9 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def query_knowledge_tool(
     query: str,
@@ -23,7 +22,7 @@ async def query_knowledge_tool(
     min_confidence: float = 0.0,
     limit: int = 10,
     include_relationships: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Query the Knowledge Mound for relevant information.
 
@@ -37,7 +36,7 @@ async def query_knowledge_tool(
     Returns:
         Dict with nodes, count, and query metadata
     """
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
 
     try:
         from aragora.knowledge.mound.core import get_knowledge_mound  # type: ignore[attr-defined]
@@ -101,15 +100,14 @@ async def query_knowledge_tool(
         },
     }
 
-
 async def store_knowledge_tool(
     content: str,
     node_type: str = "fact",
     confidence: float = 0.8,
     tier: str = "medium",
     topics: str = "",
-    source_debate_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    source_debate_id: str | None = None,
+) -> dict[str, Any]:
     """
     Store a new knowledge node in the Knowledge Mound.
 
@@ -177,8 +175,7 @@ async def store_knowledge_tool(
         logger.error(f"Failed to store knowledge: {e}")
         return {"error": f"Store failed: {str(e)}"}
 
-
-async def get_knowledge_stats_tool() -> Dict[str, Any]:
+async def get_knowledge_stats_tool() -> dict[str, Any]:
     """
     Get statistics about the Knowledge Mound.
 
@@ -211,13 +208,12 @@ async def get_knowledge_stats_tool() -> Dict[str, Any]:
         logger.error(f"Failed to get knowledge stats: {e}")
         return {"error": f"Stats failed: {str(e)}"}
 
-
 async def get_decision_receipt_tool(
     debate_id: str,
     format: str = "json",
     include_proofs: bool = True,
     include_evidence: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get a formal decision receipt for a completed debate.
 
@@ -250,7 +246,7 @@ async def get_decision_receipt_tool(
             return {"error": f"Debate {debate_id} not found"}
 
         # Build the receipt
-        receipt: Dict[str, Any] = {
+        receipt: dict[str, Any] = {
             "receipt_id": f"receipt_{debate_id}_{int(time.time())}",
             "debate_id": debate_id,
             "generated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC"),
@@ -296,8 +292,7 @@ async def get_decision_receipt_tool(
         logger.error(f"Failed to generate decision receipt: {e}")
         return {"error": f"Receipt generation failed: {str(e)}"}
 
-
-def _format_receipt_markdown(receipt: Dict[str, Any]) -> str:
+def _format_receipt_markdown(receipt: dict[str, Any]) -> str:
     """Format a decision receipt as markdown."""
     md = f"""# Decision Receipt
 
@@ -332,7 +327,6 @@ def _format_receipt_markdown(receipt: Dict[str, Any]) -> str:
         )
 
     return md
-
 
 # Export all tools
 __all__ = [

@@ -12,13 +12,12 @@ Usage:
     except Exception as e:
         handle_cli_error(e)
 """
+from __future__ import annotations
 
 import sys
 import traceback
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
-
 
 class ErrorCategory(str, Enum):
     """Categories of CLI errors."""
@@ -33,15 +32,13 @@ class ErrorCategory(str, Enum):
     PERMISSION = "permission"
     UNKNOWN = "unknown"
 
-
 @dataclass
 class RecoverySuggestion:
     """A suggestion for recovering from an error."""
 
     title: str
     steps: list[str]
-    command: Optional[str] = None  # Optional command to run
-
+    command: str | None = None  # Optional command to run
 
 @dataclass
 class CLIError:
@@ -50,8 +47,8 @@ class CLIError:
     message: str
     category: ErrorCategory
     suggestions: list[RecoverySuggestion] = field(default_factory=list)
-    details: Optional[str] = None
-    original_error: Optional[Exception] = None
+    details: str | None = None
+    original_error: Exception | None = None
 
     def format(self, verbose: bool = False) -> str:
         """Format the error for display."""
@@ -88,7 +85,6 @@ class CLIError:
             )
 
         return "\n".join(lines)
-
 
 class CLIErrorHandler:
     """
@@ -373,7 +369,6 @@ class CLIErrorHandler:
             original_error=exception,
         )
 
-
 def handle_cli_error(
     error: Exception,
     verbose: bool = False,
@@ -399,7 +394,6 @@ def handle_cli_error(
         sys.exit(exit_code)
 
     return cli_error
-
 
 def cli_error_handler(verbose: bool = False):
     """
@@ -428,7 +422,6 @@ def cli_error_handler(verbose: bool = False):
 
     return decorator
 
-
 # Common error shortcuts
 def api_key_error(provider: str = "AI") -> CLIError:
     """Create an API key error."""
@@ -438,7 +431,6 @@ def api_key_error(provider: str = "AI") -> CLIError:
         suggestions=CLIErrorHandler.get_suggestions(ErrorCategory.API_KEY, Exception()),
     )
 
-
 def server_unavailable_error(url: str = "http://localhost:8080") -> CLIError:
     """Create a server unavailable error."""
     return CLIError(
@@ -446,7 +438,6 @@ def server_unavailable_error(url: str = "http://localhost:8080") -> CLIError:
         category=ErrorCategory.SERVER,
         suggestions=CLIErrorHandler.get_suggestions(ErrorCategory.SERVER, Exception()),
     )
-
 
 def rate_limit_error(provider: str) -> CLIError:
     """Create a rate limit error."""

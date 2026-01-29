@@ -15,6 +15,7 @@ Configure via environment:
     ARAGORA_XTTS_MODEL_PATH - Optional Coqui XTTS model override
     ARAGORA_POLLY_REGION - AWS region for Polly (fallback to AWS_REGION)
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -25,7 +26,6 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional
 
 from aragora.broadcast.script_gen import ScriptSegment
 from aragora.broadcast.tts_backends import (
@@ -38,10 +38,10 @@ from aragora.broadcast.tts_backends import (
 logger = logging.getLogger(__name__)
 
 # Legacy voice mapping (for backward compatibility)
-VOICE_MAP: Dict[str, str] = EDGE_TTS_VOICES
+VOICE_MAP: dict[str, str] = EDGE_TTS_VOICES
 
 # Global TTS backend instance (lazy initialized)
-_tts_backend: Optional[TTSBackend] = None
+_tts_backend: TTSBackend | None = None
 
 # Legacy fallback availability (pyttsx3)
 try:
@@ -50,7 +50,6 @@ try:
     FALLBACK_AVAILABLE = True
 except ImportError:
     FALLBACK_AVAILABLE = False
-
 
 def get_audio_backend() -> TTSBackend:
     """Get the TTS backend, initializing if needed."""
@@ -71,13 +70,11 @@ def get_audio_backend() -> TTSBackend:
 
     return _tts_backend
 
-
 def _get_voice_for_speaker(speaker: str) -> str:
     """Get voice ID for a speaker (legacy compatibility)."""
     return VOICE_MAP.get(speaker, VOICE_MAP.get("narrator", "en-US-AriaNeural"))
 
-
-def _edge_tts_command() -> Optional[list[str]]:
+def _edge_tts_command() -> list[str] | None:
     """Resolve the edge-tts command in a venv/pyenv-safe way."""
     cmd = shutil.which("edge-tts")
     if cmd:
@@ -85,7 +82,6 @@ def _edge_tts_command() -> Optional[list[str]]:
     if importlib.util.find_spec("edge_tts") is not None:
         return [sys.executable, "-m", "edge_tts"]
     return None
-
 
 async def _generate_edge_tts(
     text: str,
@@ -108,7 +104,7 @@ async def _generate_edge_tts(
     Returns:
         True if audio was generated successfully, False otherwise
     """
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
 
     for attempt in range(max_retries):
         try:
@@ -175,7 +171,6 @@ async def _generate_edge_tts(
     logger.warning(f"edge-tts failed after {max_retries} attempts: {last_error}")
     return False
 
-
 def _generate_fallback_tts_sync(text: str, output_path: Path) -> bool:
     """Generate audio using pyttsx3 fallback (synchronous).
 
@@ -193,7 +188,6 @@ def _generate_fallback_tts_sync(text: str, output_path: Path) -> bool:
         logger.debug("pyttsx3 fallback TTS failed: %s", e)
         return False
 
-
 async def _generate_fallback_tts(text: str, output_path: Path) -> bool:
     """Generate audio using pyttsx3 fallback (non-blocking).
 
@@ -205,8 +199,7 @@ async def _generate_fallback_tts(text: str, output_path: Path) -> bool:
 
     return await asyncio.to_thread(_generate_fallback_tts_sync, text, output_path)
 
-
-async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Optional[Path]:
+async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Path | None:
     """
     Generate audio for a single script segment.
 
@@ -249,9 +242,8 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Op
 
     return None
 
-
 async def generate_audio(
-    segments: list[ScriptSegment], output_dir: Optional[Path] = None
+    segments: list[ScriptSegment], output_dir: Path | None = None
 ) -> list[Path]:
     """
     Generate audio files for all script segments.

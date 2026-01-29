@@ -15,11 +15,12 @@ Usage:
     class MyHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
         pass
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Optional
 
 from aragora.server.versioning import (
     extract_version,
@@ -43,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 # Type alias for handler classes that may be None when handlers are unavailable
 # This allows proper type hints without requiring type: ignore comments
-HandlerType = Optional[Type[Any]]
+HandlerType = Optional[type[Any]]
 
 # Handler class placeholders - set to actual classes on successful import
 SystemHandler: HandlerType = None
@@ -669,9 +670,43 @@ except ImportError as e:
     # Handler class placeholders remain None for graceful degradation
 
 
+def _run_handler_coroutine(coro: Any) -> Any:
+    """Run an async handler coroutine from the sync HTTP thread.
+
+    When a PostgreSQL pool is initialized, schedules the coroutine on the
+    main event loop (where asyncpg pool lives) using run_coroutine_threadsafe.
+    This ensures:
+    - asyncpg pool.acquire() works (same event loop)
+    - nest_asyncio allows nested run_until_complete() from sync store wrappers
+
+    Falls back to creating a local event loop when no pool is configured
+    (SQLite-only mode).
+    """
+    # Try to use the main event loop (where asyncpg pool was created)
+    try:
+        from aragora.storage.pool_manager import get_pool_event_loop
+
+        main_loop = get_pool_event_loop()
+        if main_loop is not None and main_loop.is_running():
+            future = asyncio.run_coroutine_threadsafe(coro, main_loop)
+            return future.result(timeout=60)
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.debug(f"[handler_registry] Main loop dispatch failed: {e}")
+
+    # Fallback: create a local event loop (works for SQLite-only mode)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(coro)
+
+
 # Handler class registry - ordered list of (attr_name, handler_class) pairs
 # Handlers are tried in this order during routing
-HANDLER_REGISTRY: List[Tuple[str, Any]] = [
+HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_health_handler", HealthHandler),
     ("_nomic_handler", NomicHandler),
     ("_docs_handler", DocsHandler),
@@ -792,7 +827,6 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_computer_use_handler", ComputerUseHandler),
 ]
 
-
 class RouteIndex:
     """O(1) route lookup index for handler dispatch.
 
@@ -806,9 +840,9 @@ class RouteIndex:
 
     def __init__(self) -> None:
         # Exact path → (attr_name, handler) mapping
-        self._exact_routes: Dict[str, Tuple[str, Any]] = {}
+        self._exact_routes: dict[str, tuple[str, Any]] = {}
         # Prefix patterns for dynamic routes: [(prefix, attr_name, handler)]
-        self._prefix_routes: List[Tuple[str, str, Any]] = []
+        self._prefix_routes: list[tuple[str, str, Any]] = []
         # Cache for resolved dynamic routes
         self._cache_size: int = 500
 
@@ -1054,7 +1088,7 @@ class RouteIndex:
             f"{len(self._prefix_routes)} prefix patterns"
         )
 
-    def get_handler(self, path: str) -> Optional[Tuple[str, Any]]:
+    def get_handler(self, path: str) -> Optional[tuple[str, Any]]:
         """Get handler for path with O(1) lookup for known routes.
 
         Supports both versioned (/api/v1/debates) and legacy (/api/debates) paths.
@@ -1079,7 +1113,7 @@ class RouteIndex:
         return self._get_handler_cached(path, normalized_path)
 
     @lru_cache(maxsize=500)
-    def _get_handler_cached(self, path: str, normalized_path: str) -> Optional[Tuple[str, Any]]:
+    def _get_handler_cached(self, path: str, normalized_path: str) -> Optional[tuple[str, Any]]:
         """Cached prefix matching for dynamic routes.
 
         Tries matching both the original path and the normalized (version-stripped) path.
@@ -1101,10 +1135,8 @@ class RouteIndex:
 
         return None
 
-
 # Global route index instance
-_route_index: Optional[RouteIndex] = None
-
+_route_index: RouteIndex | None = None
 
 def get_route_index() -> RouteIndex:
     """Get or create the global route index."""
@@ -1113,19 +1145,16 @@ def get_route_index() -> RouteIndex:
         _route_index = RouteIndex()
     return _route_index
 
-
 # =============================================================================
 # Handler Validation
 # =============================================================================
-
 
 class HandlerValidationError(Exception):
     """Raised when a handler fails validation."""
 
     pass
 
-
-def validate_handler_class(handler_class: Any, handler_name: str) -> List[str]:
+def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
     """
     Validate that a handler class has required methods and attributes.
 
@@ -1136,7 +1165,7 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> List[str]:
     Returns:
         List of validation errors (empty if valid)
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if handler_class is None:
         errors.append(f"{handler_name}: Handler class is None")
@@ -1160,8 +1189,7 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> List[str]:
 
     return errors
 
-
-def validate_handler_instance(handler: Any, handler_name: str) -> List[str]:
+def validate_handler_instance(handler: Any, handler_name: str) -> list[str]:
     """
     Validate an instantiated handler works correctly.
 
@@ -1172,7 +1200,7 @@ def validate_handler_instance(handler: Any, handler_name: str) -> List[str]:
     Returns:
         List of validation errors (empty if valid)
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if handler is None:
         errors.append(f"{handler_name}: Handler instance is None")
@@ -1188,8 +1216,7 @@ def validate_handler_instance(handler: Any, handler_name: str) -> List[str]:
 
     return errors
 
-
-def validate_all_handlers(raise_on_error: bool = False) -> Dict[str, Any]:
+def validate_all_handlers(raise_on_error: bool = False) -> dict[str, Any]:
     """
     Validate all registered handler classes.
 
@@ -1213,7 +1240,7 @@ def validate_all_handlers(raise_on_error: bool = False) -> Dict[str, Any]:
             "status": "imports_failed",
         }
 
-    results: Dict[str, Any] = {
+    results: dict[str, Any] = {
         "valid": [],
         "invalid": {},
         "missing": [],
@@ -1258,8 +1285,7 @@ def validate_all_handlers(raise_on_error: bool = False) -> Dict[str, Any]:
 
     return results
 
-
-def validate_handlers_on_init(registry_mixin: Any) -> Dict[str, Any]:
+def validate_handlers_on_init(registry_mixin: Any) -> dict[str, Any]:
     """
     Validate instantiated handlers after initialization.
 
@@ -1271,7 +1297,7 @@ def validate_handlers_on_init(registry_mixin: Any) -> Dict[str, Any]:
     Returns:
         Dict with validation results
     """
-    results: Dict[str, Any] = {
+    results: dict[str, Any] = {
         "valid": [],
         "invalid": {},
         "not_initialized": [],
@@ -1298,20 +1324,19 @@ def validate_handlers_on_init(registry_mixin: Any) -> Dict[str, Any]:
 
     return results
 
-
 class HandlerRegistryMixin:
     """
     Mixin providing modular HTTP handler initialization and routing.
 
     This mixin expects the following class attributes from the parent:
-    - storage: Optional[DebateStorage]
-    - elo_system: Optional[EloSystem]
-    - debate_embeddings: Optional[DebateEmbeddingsDatabase]
-    - document_store: Optional[DocumentStore]
-    - nomic_state_file: Optional[Path] (for deriving nomic_dir)
-    - critique_store: Optional[CritiqueStore]
-    - persona_manager: Optional[PersonaManager]
-    - position_ledger: Optional[PositionLedger]
+    - storage: DebateStorage | None
+    - elo_system: EloSystem | None
+    - debate_embeddings: DebateEmbeddingsDatabase | None
+    - document_store: DocumentStore | None
+    - nomic_state_file: Path | None (for deriving nomic_dir)
+    - critique_store: CritiqueStore | None
+    - persona_manager: PersonaManager | None
+    - position_ledger: PositionLedger | None
 
     And these methods:
     - _add_cors_headers()
@@ -1326,7 +1351,7 @@ class HandlerRegistryMixin:
     storage: Optional["DebateStorage"]
     elo_system: Optional["EloSystem"]
     debate_embeddings: Optional["DebateEmbeddingsDatabase"]
-    document_store: Optional[Any]
+    document_store: Any | None
     nomic_state_file: Optional["Path"]
     critique_store: Optional["CritiqueStore"]
     persona_manager: Optional["PersonaManager"]
@@ -1635,12 +1660,7 @@ class HandlerRegistryMixin:
 
             # Handle async handlers - await coroutines
             if asyncio.iscoroutine(result):
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                result = loop.run_until_complete(result)
+                result = _run_handler_coroutine(result)
 
             if result:
                 self.send_response(result.status_code)
@@ -1691,7 +1711,7 @@ class HandlerRegistryMixin:
 
         return False
 
-    def _get_handler_stats(self) -> Dict[str, Any]:
+    def _get_handler_stats(self) -> dict[str, Any]:
         """Get statistics about initialized handlers.
 
         Returns:
@@ -1711,7 +1731,6 @@ class HandlerRegistryMixin:
             "count": len(initialized_handlers),
             "handlers": initialized_handlers,
         }
-
 
 __all__ = [
     "HandlerRegistryMixin",

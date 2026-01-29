@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.core import DebateResult, Message, Vote
 
@@ -23,15 +23,14 @@ except ImportError:
     DebateTrace = None  # type: ignore[misc,assignment]
     EventType = None  # type: ignore[misc,assignment]
 
-
 @dataclass
 class ReplayScene:
     """A single scene (round) in the debate replay."""
 
     round_number: int
     timestamp: datetime
-    messages: List[Message] = field(default_factory=list)
-    consensus_indicators: Dict[str, Any] = field(default_factory=dict)
+    messages: list[Message] = field(default_factory=list)
+    consensus_indicators: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """Convert to dict for JSON serialization with HTML escaping."""
@@ -51,16 +50,15 @@ class ReplayScene:
             "consensus_indicators": self.consensus_indicators,
         }
 
-
 @dataclass
 class ReplayArtifact:
     """Complete debate data for HTML generation."""
 
     debate_id: str
     task: str
-    scenes: List[ReplayScene] = field(default_factory=list)
-    verdict: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    scenes: list[ReplayScene] = field(default_factory=list)
+    verdict: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """Convert to dict for JSON embedding in HTML."""
@@ -71,7 +69,6 @@ class ReplayArtifact:
             "verdict": self.verdict,
             "metadata": self.metadata,
         }
-
 
 class ReplayGenerator:
     """Generates HTML replay artifacts from debate results."""
@@ -122,11 +119,11 @@ class ReplayGenerator:
         )
 
     def _extract_scenes(
-        self, messages: List[Message], trace: Optional["DebateTrace"] = None
-    ) -> List[ReplayScene]:
+        self, messages: list[Message], trace: Optional["DebateTrace"] = None
+    ) -> list[ReplayScene]:
         """Extract scenes (rounds) from messages with consensus indicators."""
-        scenes: List[ReplayScene] = []
-        round_groups: Dict[int, List[Message]] = {}
+        scenes: list[ReplayScene] = []
+        round_groups: dict[int, list[Message]] = {}
 
         # Group messages by round
         for msg in messages:
@@ -181,13 +178,13 @@ class ReplayGenerator:
 
         return scenes
 
-    def _create_verdict_card(self, debate_result: DebateResult) -> Dict[str, Any]:
+    def _create_verdict_card(self, debate_result: DebateResult) -> dict[str, Any]:
         """Create verdict card data from debate result with proper tie handling."""
         votes = getattr(debate_result, "votes", []) or []
         consensus = getattr(debate_result, "consensus_reached", False)
 
         # Build vote breakdown
-        vote_counts: Dict[str, List[Vote]] = {}
+        vote_counts: dict[str, list[Vote]] = {}
         for v in votes:
             choice = str(v.choice)
             vote_counts.setdefault(choice, []).append(v)

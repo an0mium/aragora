@@ -31,7 +31,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from ..base import (
@@ -52,11 +52,9 @@ CODEBASE_AUDIT_READ_PERMISSION = "codebase_audit:read"
 # Write: start scans, dismiss findings, create issues
 CODEBASE_AUDIT_WRITE_PERMISSION = "codebase_audit:write"
 
-
 # =============================================================================
 # Enums and Data Classes
 # =============================================================================
-
 
 class ScanType(Enum):
     """Types of code analysis scans."""
@@ -68,7 +66,6 @@ class ScanType(Enum):
     DEPENDENCIES = "dependencies"
     METRICS = "metrics"
 
-
 class ScanStatus(Enum):
     """Scan execution status."""
 
@@ -77,7 +74,6 @@ class ScanStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 class FindingSeverity(Enum):
     """Finding severity levels."""
@@ -88,7 +84,6 @@ class FindingSeverity(Enum):
     LOW = "low"
     INFO = "info"
 
-
 class FindingStatus(Enum):
     """Finding status."""
 
@@ -97,7 +92,6 @@ class FindingStatus(Enum):
     FIXED = "fixed"
     FALSE_POSITIVE = "false_positive"
     ACCEPTED_RISK = "accepted_risk"
-
 
 @dataclass
 class Finding:
@@ -110,21 +104,21 @@ class Finding:
     title: str
     description: str
     file_path: str
-    line_number: Optional[int] = None
-    column: Optional[int] = None
-    code_snippet: Optional[str] = None
-    rule_id: Optional[str] = None
-    cwe_id: Optional[str] = None
-    owasp_category: Optional[str] = None
-    remediation: Optional[str] = None
+    line_number: int | None = None
+    column: int | None = None
+    code_snippet: str | None = None
+    rule_id: str | None = None
+    cwe_id: str | None = None
+    owasp_category: str | None = None
+    remediation: str | None = None
     confidence: float = 0.8
     status: FindingStatus = FindingStatus.OPEN
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    dismissed_by: Optional[str] = None
-    dismissed_reason: Optional[str] = None
-    github_issue_url: Optional[str] = None
+    dismissed_by: str | None = None
+    dismissed_reason: str | None = None
+    github_issue_url: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "scan_id": self.scan_id,
@@ -148,7 +142,6 @@ class Finding:
             "github_issue_url": self.github_issue_url,
         }
 
-
 @dataclass
 class ScanResult:
     """Result of a codebase scan."""
@@ -159,17 +152,17 @@ class ScanResult:
     status: ScanStatus
     target_path: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
-    error_message: Optional[str] = None
+    completed_at: datetime | None = None
+    error_message: str | None = None
     files_scanned: int = 0
     findings_count: int = 0
-    severity_counts: Dict[str, int] = field(default_factory=dict)
+    severity_counts: dict[str, int] = field(default_factory=dict)
     duration_seconds: float = 0.0
     progress: float = 0.0
-    findings: List[Finding] = field(default_factory=list)
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    findings: list[Finding] = field(default_factory=list)
+    metrics: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "tenant_id": self.tenant_id,
@@ -187,38 +180,33 @@ class ScanResult:
             "metrics": self.metrics,
         }
 
-
 # =============================================================================
 # In-Memory Storage
 # =============================================================================
 
-_scan_store: Dict[str, Dict[str, ScanResult]] = {}  # tenant_id -> scan_id -> ScanResult
-_finding_store: Dict[str, Dict[str, Finding]] = {}  # tenant_id -> finding_id -> Finding
+_scan_store: dict[str, dict[str, ScanResult]] = {}  # tenant_id -> scan_id -> ScanResult
+_finding_store: dict[str, dict[str, Finding]] = {}  # tenant_id -> finding_id -> Finding
 
-
-def _get_tenant_scans(tenant_id: str) -> Dict[str, ScanResult]:
+def _get_tenant_scans(tenant_id: str) -> dict[str, ScanResult]:
     if tenant_id not in _scan_store:
         _scan_store[tenant_id] = {}
     return _scan_store[tenant_id]
 
-
-def _get_tenant_findings(tenant_id: str) -> Dict[str, Finding]:
+def _get_tenant_findings(tenant_id: str) -> dict[str, Finding]:
     if tenant_id not in _finding_store:
         _finding_store[tenant_id] = {}
     return _finding_store[tenant_id]
-
 
 # =============================================================================
 # Scanner Integration
 # =============================================================================
 
-
 async def run_sast_scan(
     target_path: str,
     scan_id: str,
     tenant_id: str,
-    languages: Optional[List[str]] = None,
-) -> List[Finding]:
+    languages: Optional[list[str]] = None,
+) -> list[Finding]:
     """Run SAST vulnerability scan."""
     findings = []
     try:
@@ -261,12 +249,11 @@ async def run_sast_scan(
 
     return findings
 
-
 async def run_bug_scan(
     target_path: str,
     scan_id: str,
     tenant_id: str,
-) -> List[Finding]:
+) -> list[Finding]:
     """Run bug detection scan."""
     findings = []
     try:
@@ -301,12 +288,11 @@ async def run_bug_scan(
 
     return findings
 
-
 async def run_secrets_scan(
     target_path: str,
     scan_id: str,
     tenant_id: str,
-) -> List[Finding]:
+) -> list[Finding]:
     """Run secrets detection scan."""
     findings = []
     try:
@@ -340,12 +326,11 @@ async def run_secrets_scan(
 
     return findings
 
-
 async def run_dependency_scan(
     target_path: str,
     scan_id: str,
     tenant_id: str,
-) -> List[Finding]:
+) -> list[Finding]:
     """Run dependency vulnerability scan."""
     findings = []
     try:
@@ -385,12 +370,11 @@ async def run_dependency_scan(
 
     return findings
 
-
 async def run_metrics_analysis(
     target_path: str,
     scan_id: str,
     tenant_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run code metrics analysis."""
     metrics = {}
     try:
@@ -424,7 +408,6 @@ async def run_metrics_analysis(
 
     return metrics
 
-
 def _map_severity(severity: Any) -> FindingSeverity:
     """Map various severity representations to FindingSeverity."""
     if hasattr(severity, "value"):
@@ -442,13 +425,11 @@ def _map_severity(severity: Any) -> FindingSeverity:
     }
     return mapping.get(severity_str, FindingSeverity.MEDIUM)
 
-
 # =============================================================================
 # Mock Data for Demo Mode
 # =============================================================================
 
-
-def _get_mock_sast_findings(scan_id: str) -> List[Finding]:
+def _get_mock_sast_findings(scan_id: str) -> list[Finding]:
     """Generate mock SAST findings for demo."""
     return [
         Finding(
@@ -501,8 +482,7 @@ def _get_mock_sast_findings(scan_id: str) -> List[Finding]:
         ),
     ]
 
-
-def _get_mock_bug_findings(scan_id: str) -> List[Finding]:
+def _get_mock_bug_findings(scan_id: str) -> list[Finding]:
     """Generate mock bug findings for demo."""
     return [
         Finding(
@@ -535,8 +515,7 @@ def _get_mock_bug_findings(scan_id: str) -> List[Finding]:
         ),
     ]
 
-
-def _get_mock_secrets_findings(scan_id: str) -> List[Finding]:
+def _get_mock_secrets_findings(scan_id: str) -> list[Finding]:
     """Generate mock secrets findings for demo."""
     return [
         Finding(
@@ -554,8 +533,7 @@ def _get_mock_secrets_findings(scan_id: str) -> List[Finding]:
         ),
     ]
 
-
-def _get_mock_dependency_findings(scan_id: str) -> List[Finding]:
+def _get_mock_dependency_findings(scan_id: str) -> list[Finding]:
     """Generate mock dependency findings for demo."""
     return [
         Finding(
@@ -584,8 +562,7 @@ def _get_mock_dependency_findings(scan_id: str) -> List[Finding]:
         ),
     ]
 
-
-def _get_mock_metrics() -> Dict[str, Any]:
+def _get_mock_metrics() -> dict[str, Any]:
     """Generate mock metrics for demo."""
     return {
         "total_lines": 45678,
@@ -613,11 +590,9 @@ def _get_mock_metrics() -> Dict[str, Any]:
         ],
     }
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class CodebaseAuditHandler(SecureHandler):
     """Handler for codebase audit API endpoints.
@@ -643,7 +618,7 @@ class CodebaseAuditHandler(SecureHandler):
         "/api/v1/codebase/demo",
     ]
 
-    def __init__(self, server_context: Optional[Dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
@@ -778,10 +753,10 @@ class CodebaseAuditHandler(SecureHandler):
             scans[scan_id] = scan_result
 
             # Run scans in parallel
-            all_findings: List[Finding] = []
-            metrics: Dict[str, Any] = {}
+            all_findings: list[Finding] = []
+            metrics: dict[str, Any] = {}
 
-            tasks: List[tuple[str, Any]] = []
+            tasks: list[tuple[str, Any]] = []
             if "sast" in scan_types:
                 tasks.append(("sast", run_sast_scan(target_path, scan_id, tenant_id, languages)))
             if "bugs" in scan_types:
@@ -1200,7 +1175,7 @@ class CodebaseAuditHandler(SecureHandler):
             }
         )
 
-    def _calculate_risk_score(self, findings: List[Finding]) -> float:
+    def _calculate_risk_score(self, findings: list[Finding]) -> float:
         """Calculate overall risk score (0-100)."""
         if not findings:
             return 0.0
@@ -1251,7 +1226,7 @@ class CodebaseAuditHandler(SecureHandler):
     # Utility Methods
     # =========================================================================
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
@@ -1259,7 +1234,7 @@ class CodebaseAuditHandler(SecureHandler):
             return request.json
         return {}
 
-    def _get_query_params(self, request: Any) -> Dict[str, str]:
+    def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""
         if hasattr(request, "query"):
             return dict(request.query)
@@ -1267,13 +1242,11 @@ class CodebaseAuditHandler(SecureHandler):
             return dict(request.args)
         return {}
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-_handler_instance: Optional[CodebaseAuditHandler] = None
-
+_handler_instance: CodebaseAuditHandler | None = None
 
 def get_codebase_audit_handler() -> CodebaseAuditHandler:
     """Get or create handler instance."""
@@ -1282,12 +1255,10 @@ def get_codebase_audit_handler() -> CodebaseAuditHandler:
         _handler_instance = CodebaseAuditHandler()
     return _handler_instance
 
-
 async def handle_codebase_audit(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for codebase audit requests."""
     handler = get_codebase_audit_handler()
     return await handler.handle(request, path, method)
-
 
 __all__ = [
     "CodebaseAuditHandler",

@@ -5,19 +5,18 @@ Provides:
 - GenomeBreeder: Crossover, mutation, and selection operators
 - PopulationManager: Persistent population management across debates
 """
+from __future__ import annotations
 
 import json
 import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS
 from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
 from aragora.genesis.genome import AgentGenome, GenomeStore, generate_genome_id
-
 
 @dataclass
 class Population:
@@ -40,12 +39,12 @@ class Population:
         return sum(g.fitness_score for g in self.genomes) / len(self.genomes)
 
     @property
-    def best_genome(self) -> Optional[AgentGenome]:
+    def best_genome(self) -> AgentGenome | None:
         if not self.genomes:
             return None
         return max(self.genomes, key=lambda g: g.fitness_score)
 
-    def get_by_id(self, genome_id: str) -> Optional[AgentGenome]:
+    def get_by_id(self, genome_id: str) -> AgentGenome | None:
         for g in self.genomes:
             if g.genome_id == genome_id:
                 return g
@@ -59,7 +58,6 @@ class Population:
             "created_at": self.created_at.isoformat(),
             "debate_history": self.debate_history,
         }
-
 
 class GenomeBreeder:
     """
@@ -86,8 +84,8 @@ class GenomeBreeder:
         self,
         parent_a: AgentGenome,
         parent_b: AgentGenome,
-        name: Optional[str] = None,
-        debate_id: Optional[str] = None,
+        name: str | None = None,
+        debate_id: str | None = None,
     ) -> AgentGenome:
         """
         Blend two parent genomes into a child.
@@ -138,7 +136,7 @@ class GenomeBreeder:
             birth_debate_id=debate_id,
         )
 
-    def mutate(self, genome: AgentGenome, rate: Optional[float] = None) -> AgentGenome:
+    def mutate(self, genome: AgentGenome, rate: float | None = None) -> AgentGenome:
         """
         Apply random mutations to a genome.
 
@@ -198,7 +196,7 @@ class GenomeBreeder:
         )
 
     def spawn_specialist(
-        self, domain: str, parent_pool: list[AgentGenome], debate_id: Optional[str] = None
+        self, domain: str, parent_pool: list[AgentGenome], debate_id: str | None = None
     ) -> AgentGenome:
         """
         Create a domain-specialized agent from best-fit parents.
@@ -308,7 +306,6 @@ class GenomeBreeder:
             debate_history=population.debate_history.copy(),
         )
 
-
 class PopulationManager:
     """
     Manages persistent populations across debates.
@@ -329,7 +326,7 @@ class PopulationManager:
         self.breeder = GenomeBreeder()
 
     def get_or_create_population(
-        self, base_agents: list[str], population_id: Optional[str] = None
+        self, base_agents: list[str], population_id: str | None = None
     ) -> Population:
         """
         Load existing population or create from base agents.
@@ -455,7 +452,7 @@ class PopulationManager:
         population.debate_history.append(debate_id)
         self._save_population(population)
 
-    def _get_active_population_id(self) -> Optional[str]:
+    def _get_active_population_id(self) -> str | None:
         """Get the currently active population ID."""
         with self.db.connection() as conn:
             cursor = conn.cursor()
@@ -481,7 +478,7 @@ class PopulationManager:
 
             conn.commit()
 
-    def _load_population(self, population_id: str) -> Optional[Population]:
+    def _load_population(self, population_id: str) -> Population | None:
         """Load a population from database."""
         with self.db.connection() as conn:
             cursor = conn.cursor()

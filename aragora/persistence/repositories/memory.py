@@ -16,7 +16,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
@@ -24,11 +24,9 @@ from .base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Memory Entities
 # =============================================================================
-
 
 @dataclass
 class MemoryEntity:
@@ -40,7 +38,7 @@ class MemoryEntity:
     content: str
     importance: float  # 0-1 scale
     created_at: str
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     metadata: dict = field(default_factory=dict)
 
     @property
@@ -66,15 +64,13 @@ class MemoryEntity:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ReflectionSchedule:
     """Tracks when an agent should perform reflection."""
 
     agent_name: str
-    last_reflection: Optional[str] = None
+    last_reflection: str | None = None
     memories_since_reflection: int = 0
-
 
 @dataclass
 class RetrievedMemory:
@@ -90,11 +86,9 @@ class RetrievedMemory:
         """Combined retrieval score with default weights."""
         return 0.3 * self.recency_score + 0.3 * self.importance_score + 0.4 * self.relevance_score
 
-
 # =============================================================================
 # Memory Repository
 # =============================================================================
-
 
 class MemoryRepository(BaseRepository[MemoryEntity]):
     """
@@ -206,7 +200,7 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
             metadata=metadata,
         )
 
-    def _from_entity(self, entity: MemoryEntity) -> Dict[str, Any]:
+    def _from_entity(self, entity: MemoryEntity) -> dict[str, Any]:
         """Convert MemoryEntity to database columns."""
         return {
             "id": entity.id,
@@ -235,8 +229,8 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
         content: str,
         memory_type: str = "observation",
         importance: float = 0.5,
-        debate_id: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        debate_id: str | None = None,
+        metadata: dict | None = None,
     ) -> MemoryEntity:
         """
         Add a new memory.
@@ -302,7 +296,7 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
         self,
         agent_name: str,
         content: str,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         importance: float = 0.5,
     ) -> MemoryEntity:
         """Record an observation (convenience method)."""
@@ -319,10 +313,10 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
     def get_by_agent(
         self,
         agent_name: str,
-        memory_type: Optional[str] = None,
+        memory_type: str | None = None,
         limit: int = 100,
         min_importance: float = 0.0,
-    ) -> List[MemoryEntity]:
+    ) -> list[MemoryEntity]:
         """
         Get memories for an agent.
 
@@ -354,11 +348,11 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
     def retrieve(
         self,
         agent_name: str,
-        query: Optional[str] = None,
-        memory_type: Optional[str] = None,
+        query: str | None = None,
+        memory_type: str | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
-    ) -> List[RetrievedMemory]:
+    ) -> list[RetrievedMemory]:
         """
         Retrieve memories ranked by recency, importance, and relevance.
 
@@ -404,7 +398,7 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
         hours = memory.age_hours
         return 0.5 ** (hours / 24)
 
-    def _relevance_score(self, content: str, query: Optional[str]) -> float:
+    def _relevance_score(self, content: str, query: str | None) -> float:
         """Calculate relevance score using keyword matching."""
         if not query:
             return 0.5
@@ -439,7 +433,7 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
                 (datetime.now().isoformat(), agent_name),
             )
 
-    def get_reflection_schedule(self, agent_name: str) -> Optional[ReflectionSchedule]:
+    def get_reflection_schedule(self, agent_name: str) -> ReflectionSchedule | None:
         """Get reflection schedule for an agent."""
         row = self._fetch_one(
             "SELECT * FROM reflection_schedule WHERE agent_name = ?",

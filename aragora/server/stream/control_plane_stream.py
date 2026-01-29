@@ -17,6 +17,7 @@ Usage:
     await server.emit_agent_status(agent_id, status)
     await server.emit_task_event(task_id, event_type, data)
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -24,10 +25,9 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class ControlPlaneEventType(Enum):
     """Types of control plane events."""
@@ -71,16 +71,15 @@ class ControlPlaneEventType(Enum):
     # Error events
     ERROR = "error"
 
-
 @dataclass
 class ControlPlaneEvent:
     """Event emitted by the control plane."""
 
     event_type: ControlPlaneEventType
     timestamp: float = field(default_factory=time.time)
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary for JSON serialization."""
         return {
             "type": self.event_type.value,
@@ -91,7 +90,6 @@ class ControlPlaneEvent:
     def to_json(self) -> str:
         """Serialize event to JSON string."""
         return json.dumps(self.to_dict())
-
 
 class ControlPlaneStreamServer:
     """
@@ -110,10 +108,10 @@ class ControlPlaneStreamServer:
         """
         self.port = port
         self.host = host
-        self._clients: Set[Any] = set()  # websockets.WebSocketServerProtocol
+        self._clients: set[Any] = set()  # websockets.WebSocketServerProtocol
         self._lock = asyncio.Lock()
         self._running = False
-        self._server: Optional[Any] = None  # websockets.WebSocketServer
+        self._server: Any | None = None  # websockets.WebSocketServer
 
     async def start(self):
         """Start the WebSocket server."""
@@ -318,7 +316,7 @@ class ControlPlaneStreamServer:
             )
         )
 
-    async def emit_task_completed(self, task_id: str, agent_id: str, result: Dict[str, Any] = None):
+    async def emit_task_completed(self, task_id: str, agent_id: str, result: dict[str, Any] = None):
         """Emit task completed event."""
         await self.broadcast(
             ControlPlaneEvent(
@@ -356,7 +354,7 @@ class ControlPlaneStreamServer:
             )
         )
 
-    async def emit_health_update(self, status: str, agents: Dict[str, Any]):
+    async def emit_health_update(self, status: str, agents: dict[str, Any]):
         """Emit system health update event."""
         await self.broadcast(
             ControlPlaneEvent(
@@ -365,7 +363,7 @@ class ControlPlaneStreamServer:
             )
         )
 
-    async def emit_scheduler_stats(self, stats: Dict[str, Any]):
+    async def emit_scheduler_stats(self, stats: dict[str, Any]):
         """Emit scheduler statistics event."""
         await self.broadcast(
             ControlPlaneEvent(
@@ -374,7 +372,7 @@ class ControlPlaneStreamServer:
             )
         )
 
-    async def emit_error(self, error: str, context: Dict[str, Any] = None):
+    async def emit_error(self, error: str, context: dict[str, Any] = None):
         """Emit error event."""
         await self.broadcast(
             ControlPlaneEvent(
@@ -437,7 +435,7 @@ class ControlPlaneStreamServer:
         self,
         task_id: str,
         event_type: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Emit general deliberation progress event."""
         await self.broadcast(
@@ -476,7 +474,7 @@ class ControlPlaneStreamServer:
         task_id: str,
         reached: bool,
         confidence: float,
-        vote_distribution: Dict[str, int],
+        vote_distribution: dict[str, int],
     ):
         """Emit deliberation consensus event."""
         await self.broadcast(

@@ -11,8 +11,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class TenantTier(Enum):
     """Subscription tiers for tenants."""
@@ -23,7 +22,6 @@ class TenantTier(Enum):
     ENTERPRISE = "enterprise"
     CUSTOM = "custom"
 
-
 class TenantStatus(Enum):
     """Tenant account status."""
 
@@ -32,7 +30,6 @@ class TenantStatus(Enum):
     PENDING = "pending"
     TRIAL = "trial"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class TenantConfig:
@@ -146,7 +143,6 @@ class TenantConfig:
         }
         return configs.get(tier, cls())
 
-
 @dataclass
 class Tenant:
     """A tenant (organization) in the multi-tenant system."""
@@ -173,7 +169,7 @@ class Tenant:
     owner_email: str = ""
     """Primary contact email."""
 
-    billing_email: Optional[str] = None
+    billing_email: str | None = None
     """Billing contact email."""
 
     # Metadata
@@ -184,17 +180,17 @@ class Tenant:
     """When the tenant was last updated."""
 
     # Security
-    api_key_hash: Optional[str] = None
+    api_key_hash: str | None = None
     """Hash of the tenant's API key."""
 
-    sso_provider: Optional[str] = None
+    sso_provider: str | None = None
     """SSO provider (okta, azure_ad, google, etc.)."""
 
     sso_config: dict[str, Any] = field(default_factory=dict)
     """SSO configuration."""
 
     # Customization
-    logo_url: Optional[str] = None
+    logo_url: str | None = None
     """Custom logo URL."""
 
     theme: dict[str, Any] = field(default_factory=dict)
@@ -291,7 +287,6 @@ class Tenant:
             "storage_used": self.storage_used,
         }
 
-
 class TenantSuspendedError(Exception):
     """Raised when a suspended tenant attempts to perform an action."""
 
@@ -302,7 +297,6 @@ class TenantSuspendedError(Exception):
         if reason:
             message += f": {reason}"
         super().__init__(message)
-
 
 class TenantManager:
     """Manager for tenant lifecycle and validation.
@@ -321,18 +315,18 @@ class TenantManager:
         if tenant.api_key_hash:
             self._api_key_index[tenant.api_key_hash] = tenant.id
 
-    def unregister_tenant(self, tenant_id: str) -> Optional[Tenant]:
+    def unregister_tenant(self, tenant_id: str) -> Tenant | None:
         """Remove a tenant from the manager."""
         tenant = self._tenants.pop(tenant_id, None)
         if tenant and tenant.api_key_hash:
             self._api_key_index.pop(tenant.api_key_hash, None)
         return tenant
 
-    def get_tenant(self, tenant_id: str) -> Optional[Tenant]:
+    def get_tenant(self, tenant_id: str) -> Tenant | None:
         """Get a tenant by ID."""
         return self._tenants.get(tenant_id)
 
-    async def validate_api_key(self, api_key: str) -> Optional[Tenant]:
+    async def validate_api_key(self, api_key: str) -> Tenant | None:
         """Validate an API key and return the associated tenant.
 
         Returns None if the key is invalid or tenant not found.
@@ -389,8 +383,8 @@ class TenantManager:
 
     def list_tenants(
         self,
-        status: Optional[TenantStatus] = None,
-        tier: Optional[TenantTier] = None,
+        status: TenantStatus | None = None,
+        tier: TenantTier | None = None,
     ) -> list[Tenant]:
         """List tenants with optional filtering."""
         tenants = list(self._tenants.values())

@@ -17,10 +17,9 @@ import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class BM25Config:
@@ -40,7 +39,6 @@ class BM25Config:
     fuzzy_max_distance: int = 2  # Max edit distance for fuzzy matching
     fuzzy_min_length: int = 4  # Min word length for fuzzy matching
 
-
 @dataclass
 class BM25Document:
     """Document indexed for BM25 search."""
@@ -52,7 +50,6 @@ class BM25Document:
     length: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
-
 @dataclass
 class BM25SearchResult:
     """Result from BM25 search."""
@@ -62,7 +59,6 @@ class BM25SearchResult:
     score: float
     matched_terms: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 class BM25Index:
     """
@@ -77,7 +73,7 @@ class BM25Index:
     score(D, Q) = Σ IDF(qi) * (f(qi, D) * (k1 + 1)) / (f(qi, D) + k1 * (1 - b + b * |D|/avgdl))
     """
 
-    def __init__(self, config: Optional[BM25Config] = None):
+    def __init__(self, config: BM25Config | None = None):
         self.config = config or BM25Config()
         self._documents: dict[str, BM25Document] = {}
         self._document_frequencies: Counter[str] = Counter()  # term -> doc count
@@ -104,7 +100,7 @@ class BM25Index:
         self,
         id: str,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Add a document to the index."""
         tokens = self.tokenize(content)
@@ -241,7 +237,7 @@ class BM25Index:
         self,
         query_term: str,
         doc_terms: list[str],
-    ) -> Optional[str]:
+    ) -> str | None:
         """Find a fuzzy match for a query term in document terms."""
         if len(query_term) < self.config.fuzzy_min_length:
             return None
@@ -286,7 +282,7 @@ class BM25Index:
         query: str,
         limit: int = 10,
         min_score: float = 0.0,
-        filter_ids: Optional[set[str]] = None,
+        filter_ids: set[str] | None = None,
     ) -> list[BM25SearchResult]:
         """Search the index for matching documents.
 
@@ -350,7 +346,6 @@ class BM25Index:
         self._total_docs = 0
         self._avg_doc_length = 0.0
         self._total_length = 0
-
 
 class HybridSearcher:
     """
@@ -470,7 +465,6 @@ class HybridSearcher:
             if result_id == doc_id:
                 return i + 1
         return len(results) + 1
-
 
 __all__ = [
     "BM25Config",

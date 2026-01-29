@@ -16,13 +16,12 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult, Environment
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SubTask:
@@ -31,10 +30,9 @@ class SubTask:
     id: str
     title: str
     description: str
-    dependencies: List[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
     estimated_complexity: str = "low"  # low, medium, high
-    file_scope: List[str] = field(default_factory=list)
-
+    file_scope: list[str] = field(default_factory=list)
 
 @dataclass
 class TaskDecomposition:
@@ -44,9 +42,8 @@ class TaskDecomposition:
     complexity_score: int  # 1-10
     complexity_level: str  # low, medium, high
     should_decompose: bool
-    subtasks: List[SubTask] = field(default_factory=list)
+    subtasks: list[SubTask] = field(default_factory=list)
     rationale: str = ""
-
 
 @dataclass
 class DecomposerConfig:
@@ -61,7 +58,6 @@ class DecomposerConfig:
     # Debate-based decomposition settings
     debate_rounds: int = 2  # Rounds for goal decomposition debate
     debate_timeout: int = 120  # Timeout in seconds for debate
-
 
 # Keywords that indicate different complexity areas
 COMPLEXITY_INDICATORS = {
@@ -109,7 +105,6 @@ DECOMPOSITION_CONCEPTS = [
     "deployment",
 ]
 
-
 class TaskDecomposer:
     """Analyzes tasks and decomposes complex ones into subtasks.
 
@@ -130,8 +125,8 @@ class TaskDecomposer:
 
     def __init__(
         self,
-        config: Optional[DecomposerConfig] = None,
-        extract_subtasks_fn: Optional[Callable[[str], List[Dict]]] = None,
+        config: DecomposerConfig | None = None,
+        extract_subtasks_fn: Optional[Callable[[str], list[dict]]] = None,
     ):
         """Initialize the decomposer.
 
@@ -295,12 +290,12 @@ class TaskDecomposer:
         self,
         task: str,
         debate_result: Optional["DebateResult"] = None,
-    ) -> List[SubTask]:
+    ) -> list[SubTask]:
         """Generate subtasks for a complex task.
 
         Uses heuristics to identify natural decomposition points.
         """
-        subtasks: List[SubTask] = []
+        subtasks: list[SubTask] = []
 
         # If AI extraction is available, use it
         if self._extract_subtasks_fn:
@@ -329,7 +324,7 @@ class TaskDecomposer:
         self,
         task: str,
         debate_result: Optional["DebateResult"] = None,
-    ) -> List[SubTask]:
+    ) -> list[SubTask]:
         """Generate subtasks using heuristics.
 
         Looks for:
@@ -337,7 +332,7 @@ class TaskDecomposer:
         2. Sequential steps implied
         3. File groupings
         """
-        subtasks: List[SubTask] = []
+        subtasks: list[SubTask] = []
         task_lower = task.lower()
 
         # Find concept areas in the task
@@ -382,9 +377,9 @@ class TaskDecomposer:
         else:
             return "low"
 
-    def _find_files_for_concept(self, concept: str, task: str) -> List[str]:
+    def _find_files_for_concept(self, concept: str, task: str) -> list[str]:
         """Find files mentioned in the task that relate to a concept."""
-        files: List[str] = []
+        files: list[str] = []
 
         # Map concepts to likely file patterns
         concept_patterns = {
@@ -402,7 +397,7 @@ class TaskDecomposer:
 
         return list(set(files))[:5]
 
-    def _create_generic_phases(self, task: str) -> List[SubTask]:
+    def _create_generic_phases(self, task: str) -> list[SubTask]:
         """Create generic implementation phases when no concepts found."""
         return [
             SubTask(
@@ -435,7 +430,7 @@ class TaskDecomposer:
     async def analyze_with_debate(
         self,
         goal: str,
-        agents: Optional[List[Any]] = None,
+        agents: Optional[list[Any]] = None,
         context: str = "",
     ) -> TaskDecomposition:
         """Analyze an abstract goal using multi-agent debate.
@@ -525,11 +520,11 @@ class TaskDecomposer:
     async def _run_debate_with_fallback(
         self,
         env: "Environment",
-        agents: List[Any],
+        agents: list[Any],
         protocol: Any,
         goal: str,
         context: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Run debate with OpenRouter fallback on API errors or poor output.
 
         The fallback triggers when:
@@ -674,7 +669,7 @@ class TaskDecomposer:
             # Return original result if we have one
             return result
 
-    async def _get_openrouter_agents(self) -> List[Any]:
+    async def _get_openrouter_agents(self) -> list[Any]:
         """Get OpenRouter agents for fallback."""
         from aragora.config.secrets import get_secret
 
@@ -760,9 +755,9 @@ Focus on:
 
 Prioritize by impact: which improvements would provide the most value?"""
 
-    def _parse_debate_subtasks(self, consensus_text: str) -> List[SubTask]:
+    def _parse_debate_subtasks(self, consensus_text: str) -> list[SubTask]:
         """Parse subtasks from debate consensus text."""
-        subtasks: List[SubTask] = []
+        subtasks: list[SubTask] = []
 
         # Try to extract JSON from the consensus
         json_match = re.search(r"```json\s*([\s\S]*?)\s*```", consensus_text)
@@ -802,7 +797,7 @@ Prioritize by impact: which improvements would provide the most value?"""
 
         return subtasks
 
-    async def _get_default_agents(self) -> List[Any]:
+    async def _get_default_agents(self) -> list[Any]:
         """Get default agents for debate decomposition.
 
         Uses aragora.config.secrets to load API keys from AWS Secrets Manager
@@ -882,10 +877,8 @@ Prioritize by impact: which improvements would provide the most value?"""
         logger.info(f"debate_agents_loaded count={len(agents)}")
         return agents
 
-
 # Module-level singleton
-_decomposer: Optional[TaskDecomposer] = None
-
+_decomposer: TaskDecomposer | None = None
 
 def get_task_decomposer() -> TaskDecomposer:
     """Get or create the singleton TaskDecomposer instance."""
@@ -893,7 +886,6 @@ def get_task_decomposer() -> TaskDecomposer:
     if _decomposer is None:
         _decomposer = TaskDecomposer()
     return _decomposer
-
 
 def analyze_task(task: str) -> TaskDecomposition:
     """Convenience function to analyze a task."""

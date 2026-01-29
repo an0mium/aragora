@@ -12,13 +12,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TenantQuota:
@@ -31,7 +30,6 @@ class TenantQuota:
     concurrent_debates: int = 5
     knowledge_nodes: int = 10000
 
-
 @dataclass
 class TenantSettings:
     """Settings for a tenant."""
@@ -40,9 +38,8 @@ class TenantSettings:
     enable_knowledge_sharing: bool = False
     data_retention_days: int = 365
     require_mfa: bool = False
-    allowed_domains: List[str] = field(default_factory=list)
-    custom_branding: Dict[str, Any] = field(default_factory=dict)
-
+    allowed_domains: list[str] = field(default_factory=list)
+    custom_branding: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Tenant:
@@ -56,10 +53,9 @@ class Tenant:
     owner_id: str
     quotas: TenantQuota
     settings: TenantSettings
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class TenantUsage:
@@ -71,9 +67,8 @@ class TenantUsage:
     storage_used_gb: float = 0.0
     api_calls_today: int = 0
     knowledge_nodes_count: int = 0
-    period_start: Optional[datetime] = None
-    period_end: Optional[datetime] = None
-
+    period_start: datetime | None = None
+    period_end: datetime | None = None
 
 class TenantsAPI:
     """API interface for tenant management."""
@@ -87,11 +82,11 @@ class TenantsAPI:
 
     def list(
         self,
-        status: Optional[str] = None,
-        tier: Optional[str] = None,
+        status: str | None = None,
+        tier: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[Tenant], int]:
+    ) -> tuple[list[Tenant], int]:
         """
         List all tenants (admin only).
 
@@ -104,7 +99,7 @@ class TenantsAPI:
         Returns:
             Tuple of (list of Tenant objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         if tier:
@@ -116,13 +111,13 @@ class TenantsAPI:
 
     async def list_async(
         self,
-        status: Optional[str] = None,
-        tier: Optional[str] = None,
+        status: str | None = None,
+        tier: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[Tenant], int]:
+    ) -> tuple[list[Tenant], int]:
         """Async version of list()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         if tier:
@@ -155,9 +150,9 @@ class TenantsAPI:
         name: str,
         slug: str,
         tier: str = "free",
-        owner_id: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
-        quotas: Optional[Dict[str, Any]] = None,
+        owner_id: str | None = None,
+        settings: Optional[dict[str, Any]] = None,
+        quotas: Optional[dict[str, Any]] = None,
     ) -> Tenant:
         """
         Create a new tenant.
@@ -173,7 +168,7 @@ class TenantsAPI:
         Returns:
             Created Tenant object.
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "slug": slug,
             "tier": tier,
@@ -193,12 +188,12 @@ class TenantsAPI:
         name: str,
         slug: str,
         tier: str = "free",
-        owner_id: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
-        quotas: Optional[Dict[str, Any]] = None,
+        owner_id: str | None = None,
+        settings: Optional[dict[str, Any]] = None,
+        quotas: Optional[dict[str, Any]] = None,
     ) -> Tenant:
         """Async version of create()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "slug": slug,
             "tier": tier,
@@ -216,10 +211,10 @@ class TenantsAPI:
     def update(
         self,
         tenant_id: str,
-        name: Optional[str] = None,
-        tier: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
-        quotas: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        tier: str | None = None,
+        settings: Optional[dict[str, Any]] = None,
+        quotas: Optional[dict[str, Any]] = None,
     ) -> Tenant:
         """
         Update tenant details.
@@ -234,7 +229,7 @@ class TenantsAPI:
         Returns:
             Updated Tenant object.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if tier is not None:
@@ -250,13 +245,13 @@ class TenantsAPI:
     async def update_async(
         self,
         tenant_id: str,
-        name: Optional[str] = None,
-        tier: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
-        quotas: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        tier: str | None = None,
+        settings: Optional[dict[str, Any]] = None,
+        quotas: Optional[dict[str, Any]] = None,
     ) -> Tenant:
         """Async version of update()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if tier is not None:
@@ -291,7 +286,7 @@ class TenantsAPI:
     # Tenant Status Management
     # =========================================================================
 
-    def suspend(self, tenant_id: str, reason: Optional[str] = None) -> Tenant:
+    def suspend(self, tenant_id: str, reason: str | None = None) -> Tenant:
         """
         Suspend a tenant.
 
@@ -302,16 +297,16 @@ class TenantsAPI:
         Returns:
             Updated Tenant object.
         """
-        body: Dict[str, Any] = {"action": "suspend"}
+        body: dict[str, Any] = {"action": "suspend"}
         if reason:
             body["reason"] = reason
 
         response = self._client._post(f"/api/v1/tenants/{tenant_id}/status", body)
         return self._parse_tenant(response.get("tenant", response))
 
-    async def suspend_async(self, tenant_id: str, reason: Optional[str] = None) -> Tenant:
+    async def suspend_async(self, tenant_id: str, reason: str | None = None) -> Tenant:
         """Async version of suspend()."""
-        body: Dict[str, Any] = {"action": "suspend"}
+        body: dict[str, Any] = {"action": "suspend"}
         if reason:
             body["reason"] = reason
 
@@ -360,7 +355,7 @@ class TenantsAPI:
         response = await self._client._get_async(f"/api/v1/tenants/{tenant_id}/usage")
         return self._parse_usage(response)
 
-    def update_quotas(self, tenant_id: str, quotas: Dict[str, Any]) -> TenantQuota:
+    def update_quotas(self, tenant_id: str, quotas: dict[str, Any]) -> TenantQuota:
         """
         Update quota limits for a tenant.
 
@@ -374,7 +369,7 @@ class TenantsAPI:
         response = self._client._patch(f"/api/v1/tenants/{tenant_id}/quotas", quotas)
         return self._parse_quota(response.get("quotas", response))
 
-    async def update_quotas_async(self, tenant_id: str, quotas: Dict[str, Any]) -> TenantQuota:
+    async def update_quotas_async(self, tenant_id: str, quotas: dict[str, Any]) -> TenantQuota:
         """Async version of update_quotas()."""
         response = await self._client._patch_async(f"/api/v1/tenants/{tenant_id}/quotas", quotas)
         return self._parse_quota(response.get("quotas", response))
@@ -383,7 +378,7 @@ class TenantsAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_tenant(self, data: Dict[str, Any]) -> Tenant:
+    def _parse_tenant(self, data: dict[str, Any]) -> Tenant:
         """Parse tenant data into Tenant object."""
         created_at = None
         updated_at = None
@@ -414,7 +409,7 @@ class TenantsAPI:
             metadata=data.get("metadata", {}),
         )
 
-    def _parse_quota(self, data: Dict[str, Any]) -> TenantQuota:
+    def _parse_quota(self, data: dict[str, Any]) -> TenantQuota:
         """Parse quota data into TenantQuota object."""
         return TenantQuota(
             debates_per_month=data.get("debates_per_month", 1000),
@@ -425,7 +420,7 @@ class TenantsAPI:
             knowledge_nodes=data.get("knowledge_nodes", 10000),
         )
 
-    def _parse_settings(self, data: Dict[str, Any]) -> TenantSettings:
+    def _parse_settings(self, data: dict[str, Any]) -> TenantSettings:
         """Parse settings data into TenantSettings object."""
         return TenantSettings(
             allow_external_agents=data.get("allow_external_agents", True),
@@ -436,7 +431,7 @@ class TenantsAPI:
             custom_branding=data.get("custom_branding", {}),
         )
 
-    def _parse_usage(self, data: Dict[str, Any]) -> TenantUsage:
+    def _parse_usage(self, data: dict[str, Any]) -> TenantUsage:
         """Parse usage data into TenantUsage object."""
         period_start = None
         period_end = None
@@ -463,7 +458,6 @@ class TenantsAPI:
             period_start=period_start,
             period_end=period_end,
         )
-
 
 __all__ = [
     "TenantsAPI",

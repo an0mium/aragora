@@ -30,10 +30,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class CreditTransactionType(str, Enum):
     """Types of credit transactions."""
@@ -46,7 +45,6 @@ class CreditTransactionType(str, Enum):
     ADJUSTMENT = "adjustment"  # Manual adjustment by admin
     EXPIRED = "expired"  # Credits that expired
 
-
 @dataclass
 class CreditTransaction:
     """A credit transaction record."""
@@ -56,12 +54,12 @@ class CreditTransaction:
     amount_cents: int  # Positive = credit, negative = debit
     transaction_type: CreditTransactionType
     description: str
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = None  # User who created the transaction
-    reference_id: Optional[str] = None  # Reference to related entity (e.g., refund ID)
+    created_by: str | None = None  # User who created the transaction
+    reference_id: str | None = None  # Reference to related entity (e.g., refund ID)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -90,7 +88,6 @@ class CreditTransaction:
             reference_id=row["reference_id"],
         )
 
-
 @dataclass
 class CreditAccount:
     """Credit account summary for an organization."""
@@ -101,7 +98,7 @@ class CreditAccount:
     lifetime_redeemed_cents: int = 0
     lifetime_expired_cents: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "org_id": self.org_id,
@@ -115,7 +112,6 @@ class CreditAccount:
             "lifetime_expired_usd": self.lifetime_expired_cents / 100,
         }
 
-
 @dataclass
 class DeductionResult:
     """Result of attempting to deduct credits."""
@@ -125,7 +121,7 @@ class DeductionResult:
     remaining_amount_cents: int = 0  # Amount still owed after credits
     message: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "success": self.success,
@@ -133,7 +129,6 @@ class DeductionResult:
             "remaining_amount_cents": self.remaining_amount_cents,
             "message": self.message,
         }
-
 
 class CreditManager:
     """
@@ -146,7 +141,7 @@ class CreditManager:
     - Transaction history
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize credit manager.
 
         Args:
@@ -202,9 +197,9 @@ class CreditManager:
         amount_cents: int,
         credit_type: CreditTransactionType,
         description: str,
-        expires_at: Optional[datetime] = None,
-        created_by: Optional[str] = None,
-        reference_id: Optional[str] = None,
+        expires_at: datetime | None = None,
+        created_by: str | None = None,
+        reference_id: str | None = None,
     ) -> CreditTransaction:
         """Issue credits to an organization.
 
@@ -267,8 +262,8 @@ class CreditManager:
         org_id: str,
         amount_cents: int,
         description: str,
-        created_by: Optional[str] = None,
-        reference_id: Optional[str] = None,
+        created_by: str | None = None,
+        reference_id: str | None = None,
     ) -> DeductionResult:
         """Deduct credits from an organization.
 
@@ -438,8 +433,8 @@ class CreditManager:
         org_id: str,
         limit: int = 100,
         offset: int = 0,
-        transaction_type: Optional[CreditTransactionType] = None,
-    ) -> List[CreditTransaction]:
+        transaction_type: CreditTransactionType | None = None,
+    ) -> list[CreditTransaction]:
         """Get credit transactions for an organization.
 
         Args:
@@ -478,7 +473,7 @@ class CreditManager:
 
     async def get_expiring_credits(
         self, org_id: str, within_days: int = 30
-    ) -> List[CreditTransaction]:
+    ) -> list[CreditTransaction]:
         """Get credits that will expire within the specified period.
 
         Args:
@@ -617,13 +612,11 @@ class CreditManager:
         logger.info(f"Adjusted balance for org {org_id} by {amount_cents} cents: {description}")
         return transaction
 
-
 # Global credit manager instance
-_credit_manager: Optional[CreditManager] = None
+_credit_manager: CreditManager | None = None
 _credit_manager_lock = threading.Lock()
 
-
-def get_credit_manager(db_path: Optional[str] = None) -> CreditManager:
+def get_credit_manager(db_path: str | None = None) -> CreditManager:
     """Get or create the global credit manager.
 
     Args:
@@ -638,7 +631,6 @@ def get_credit_manager(db_path: Optional[str] = None) -> CreditManager:
             _credit_manager = CreditManager(db_path)
         return _credit_manager
 
-
 def set_credit_manager(manager: CreditManager) -> None:
     """Set the global credit manager (for testing).
 
@@ -649,13 +641,11 @@ def set_credit_manager(manager: CreditManager) -> None:
     with _credit_manager_lock:
         _credit_manager = manager
 
-
 def reset_credit_manager() -> None:
     """Reset the global credit manager (for testing)."""
     global _credit_manager
     with _credit_manager_lock:
         _credit_manager = None
-
 
 __all__ = [
     "CreditTransactionType",

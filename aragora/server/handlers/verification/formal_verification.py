@@ -25,7 +25,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
@@ -44,7 +44,6 @@ from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Verification History Storage
 # =============================================================================
@@ -52,18 +51,17 @@ logger = logging.getLogger(__name__)
 MAX_HISTORY_SIZE = 1000
 HISTORY_TTL_SECONDS = 86400  # 24 hours
 
-
 @dataclass
 class VerificationHistoryEntry:
     """A single verification history entry."""
 
     id: str
     claim: str
-    claim_type: Optional[str]
+    claim_type: str | None
     context: str
     result: dict
     timestamp: float
-    proof_tree: Optional[list] = None
+    proof_tree: list | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -78,14 +76,12 @@ class VerificationHistoryEntry:
             "has_proof_tree": self.proof_tree is not None,
         }
 
-
 # In-memory history storage (OrderedDict for FIFO eviction)
 # Used as cache, backed by GovernanceStore for persistence
 _verification_history: OrderedDict[str, VerificationHistoryEntry] = OrderedDict()
 
 # Lazy-loaded governance store
 _governance_store = None
-
 
 def _get_governance_store():
     """Get or create governance store for persistence."""
@@ -99,19 +95,17 @@ def _get_governance_store():
             logger.debug("GovernanceStore not available, using in-memory only")
     return _governance_store
 
-
 def _generate_verification_id(claim: str, timestamp: float) -> str:
     """Generate a unique ID for a verification entry."""
     data = f"{claim}:{timestamp}".encode()
     return hashlib.sha256(data).hexdigest()[:16]
 
-
 def _add_to_history(
     claim: str,
-    claim_type: Optional[str],
+    claim_type: str | None,
     context: str,
     result: dict,
-    proof_tree: Optional[list] = None,
+    proof_tree: list | None = None,
 ) -> str:
     """Add a verification result to history."""
     timestamp = time.time()
@@ -154,7 +148,6 @@ def _add_to_history(
 
     return entry_id
 
-
 def _cleanup_old_history():
     """Remove entries older than TTL."""
     cutoff = time.time() - HISTORY_TTL_SECONDS
@@ -162,8 +155,7 @@ def _cleanup_old_history():
     for k in to_remove:
         del _verification_history[k]
 
-
-def _build_proof_tree(result: dict) -> Optional[list]:
+def _build_proof_tree(result: dict) -> list | None:
     """Build a proof tree structure from verification result."""
     if not result.get("is_verified"):
         return None
@@ -226,7 +218,6 @@ def _build_proof_tree(result: dict) -> Optional[list]:
 
     return nodes
 
-
 def _init_verification():
     """Deferred import to avoid circular dependencies."""
     from aragora.verification.formal import (
@@ -244,7 +235,6 @@ def _init_verification():
         "TranslationModel": TranslationModel,
         "get_formal_verification_manager": get_formal_verification_manager,
     }
-
 
 class FormalVerificationHandler(BaseHandler):
     """Handler for formal verification endpoints.
@@ -264,11 +254,11 @@ class FormalVerificationHandler(BaseHandler):
         "/api/v1/verify/history",
     ]
 
-    def __init__(self, server_context: Optional[ServerContext] = None):
+    def __init__(self, server_context: ServerContext | None = None):
         super().__init__(server_context or cast(ServerContext, {}))
         self._manager = None
 
-    def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+    def _check_permission(self, handler: Any, permission: str) -> HandlerResult | None:
         """Check RBAC permission for the request.
 
         Returns None if permission is granted, or an error response if denied.
@@ -318,8 +308,8 @@ class FormalVerificationHandler(BaseHandler):
         handler,
         method: str,
         path: str,
-        body: Optional[bytes] = None,
-        query_params: Optional[dict] = None,
+        body: bytes | None = None,
+        query_params: dict | None = None,
     ) -> HandlerResult:
         """Route and handle formal verification requests with RBAC enforcement."""
         # Determine required permission based on method
@@ -351,7 +341,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification claim")
     @rate_limit(rpm=30)
-    async def _handle_verify_claim(self, handler, body: Optional[bytes]) -> HandlerResult:
+    async def _handle_verify_claim(self, handler, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/claim - Verify a single claim.
 
@@ -418,7 +408,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification batch")
     @rate_limit(rpm=10)
-    async def _handle_verify_batch(self, handler, body: Optional[bytes]) -> HandlerResult:
+    async def _handle_verify_batch(self, handler, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/batch - Batch verification of multiple claims.
 
@@ -543,7 +533,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification translate")
     @rate_limit(rpm=30)
-    async def _handle_translate(self, handler, body: Optional[bytes]) -> HandlerResult:
+    async def _handle_translate(self, handler, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/translate - Translate claim to formal language only.
 
@@ -819,6 +809,5 @@ class FormalVerificationHandler(BaseHandler):
             response["proof_tree"] = entry.proof_tree
 
         return json_response(response)
-
 
 __all__ = ["FormalVerificationHandler"]

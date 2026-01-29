@@ -37,7 +37,6 @@ __all__ = [
     "user_vote_multiplier",
 ]
 
-
 @dataclass
 class RoundPhase:
     """Configuration for a structured debate round phase."""
@@ -47,7 +46,6 @@ class RoundPhase:
     description: str  # What this phase accomplishes
     focus: str  # Key focus area for agents
     cognitive_mode: str  # Analyst, Skeptic, Lateral, Synthesizer, etc.
-
 
 # Default structured debate format for aragora.ai (defaults to ARAGORA_DEFAULT_ROUNDS=9)
 # Round 0 (Context Gathering) runs parallel with Round 1
@@ -122,7 +120,6 @@ STRUCTURED_ROUND_PHASES: list[RoundPhase] = [
 # Derived defaults (kept in sync with config)
 DEFAULT_MIN_ROUNDS_BEFORE_EARLY_STOP = max(DEFAULT_ROUNDS - 1, 1)
 
-
 @dataclass
 class DebateProtocol:
     """Configuration for how debates are conducted."""
@@ -133,13 +130,13 @@ class DebateProtocol:
     topology_sparsity: float = (
         0.5  # fraction of possible critique connections (for sparse/random-graph)
     )
-    topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
+    topology_hub_agent: str | None = None  # for star topology, which agent is the hub
     rounds: int = DEFAULT_ROUNDS  # Structured default format (0-8), Round 8 is adjudication
 
     # Structured round phases: Use predefined phase structure for each round
     # When enabled, each round has a specific focus (Analysis, Skeptic, Lateral, etc.)
     use_structured_phases: bool = True  # Enable structured 9-round format
-    round_phases: Optional[list[RoundPhase]] = (
+    round_phases: list[RoundPhase] | None = (
         None  # Custom phases (uses STRUCTURED_ROUND_PHASES if None)
     )
 
@@ -239,13 +236,13 @@ class DebateProtocol:
     # Assigns different cognitive roles (Analyst, Skeptic, Lateral Thinker, Synthesizer)
     # to each agent per round, ensuring diverse perspectives
     role_rotation: bool = True  # Enable role rotation (cognitive diversity)
-    role_rotation_config: Optional[RoleRotationConfig] = None  # Custom role config
+    role_rotation_config: RoleRotationConfig | None = None  # Custom role config
 
     # Dynamic role matching (calibration-based)
     # Uses agent calibration scores and expertise to assign optimal roles
     # Overrides simple rotation when enabled
     role_matching: bool = True  # Enable calibration-based role matching
-    role_matching_config: Optional[RoleMatchingConfig] = None  # Custom matching config
+    role_matching_config: RoleMatchingConfig | None = None  # Custom matching config
 
     # Debate timeout (seconds) - prevents runaway debates
     # Uses ARAGORA_DEBATE_TIMEOUT env var (default 900s = 15 min)
@@ -378,7 +375,7 @@ class DebateProtocol:
     enable_agent_channels: bool = True  # Enable peer messaging during debates
     agent_channel_max_history: int = 100  # Max messages to retain in channel history
 
-    def get_round_phase(self, round_number: int) -> Optional[RoundPhase]:
+    def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 
         Args:
@@ -394,7 +391,6 @@ class DebateProtocol:
         if 0 <= round_number < len(phases):
             return phases[round_number]
         return None
-
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """
@@ -430,7 +426,6 @@ def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
         # intensity=neutral -> 1.0, intensity=scale -> max_multiplier
         ratio = (intensity - neutral) / (scale - neutral) if scale > neutral else 0
         return 1.0 + (protocol.user_vote_intensity_max_multiplier - 1.0) * ratio
-
 
 # =============================================================================
 # Aragora.ai Web UI Default Protocol
@@ -554,7 +549,6 @@ ARAGORA_AI_LIGHT_PROTOCOL = DebateProtocol(
     # No breakpoints in light mode
     enable_breakpoints=False,
 )
-
 
 def resolve_default_protocol(
     protocol: DebateProtocol | None = None,

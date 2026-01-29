@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
 
 from aragora.audit.exploration.session import (
     ChunkUnderstanding,
@@ -21,7 +20,6 @@ from aragora.audit.exploration.session import (
 from aragora.audit.exploration.agents import ExplorationAgent
 
 logger = logging.getLogger(__name__)
-
 
 class QuestionType:
     """Types of follow-up questions."""
@@ -35,7 +33,6 @@ class QuestionType:
     SCOPE = "scope"  # What are the boundaries of X?
     TEMPORAL = "temporal"  # When did X occur/change?
 
-
 @dataclass
 class UnderstandingGap:
     """Represents a gap in current understanding."""
@@ -44,7 +41,6 @@ class UnderstandingGap:
     gap_type: str  # missing_info, unclear, contradictory
     related_chunks: list[str] = field(default_factory=list)
     priority: float = 0.5
-
 
 class QueryGenerator:
     """Generates follow-up questions based on understanding gaps.
@@ -96,7 +92,7 @@ class QueryGenerator:
 
     def __init__(
         self,
-        agent: Optional[ExplorationAgent] = None,
+        agent: ExplorationAgent | None = None,
         max_questions_per_gap: int = 2,
         dedup_threshold: float = 0.8,
     ):
@@ -301,7 +297,7 @@ class QueryGenerator:
 
         return questions
 
-    def _extract_key_term(self, text: str) -> Optional[str]:
+    def _extract_key_term(self, text: str) -> str | None:
         """Extract a key term from text for question generation."""
         # Simple heuristic: look for quoted terms or capitalized phrases
         import re

@@ -16,7 +16,7 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Iterator, List, Optional
+from typing import Any, Iterator, Optional
 
 from .messages import ProtocolMessage, ProtocolMessageType
 
@@ -26,8 +26,7 @@ logger = logging.getLogger(__name__)
 _protocol_store: Optional["ProtocolMessageStore"] = None
 _store_lock = threading.Lock()
 
-
-def get_protocol_store(db_path: Optional[str] = None) -> "ProtocolMessageStore":
+def get_protocol_store(db_path: str | None = None) -> "ProtocolMessageStore":
     """Get or create the global protocol message store."""
     global _protocol_store
     with _store_lock:
@@ -35,27 +34,25 @@ def get_protocol_store(db_path: Optional[str] = None) -> "ProtocolMessageStore":
             _protocol_store = ProtocolMessageStore(db_path)
         return _protocol_store
 
-
 @dataclass
 class QueryFilters:
     """Filters for querying protocol messages."""
 
-    debate_id: Optional[str] = None
-    agent_id: Optional[str] = None
-    message_type: Optional[ProtocolMessageType] = None
-    message_types: Optional[List[ProtocolMessageType]] = None
-    round_number: Optional[int] = None
-    min_round: Optional[int] = None
-    max_round: Optional[int] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    correlation_id: Optional[str] = None
-    parent_message_id: Optional[str] = None
+    debate_id: str | None = None
+    agent_id: str | None = None
+    message_type: ProtocolMessageType | None = None
+    message_types: Optional[list[ProtocolMessageType]] = None
+    round_number: int | None = None
+    min_round: int | None = None
+    max_round: int | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    correlation_id: str | None = None
+    parent_message_id: str | None = None
     limit: int = 1000
     offset: int = 0
     order_by: str = "timestamp"
     order_desc: bool = False
-
 
 class ProtocolMessageStore:
     """
@@ -69,7 +66,7 @@ class ProtocolMessageStore:
     - Thread-safe operations
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize the protocol message store.
 
@@ -226,7 +223,7 @@ class ProtocolMessageStore:
             )
         return message.message_id
 
-    async def query(self, filters: Optional[QueryFilters] = None) -> List[ProtocolMessage]:
+    async def query(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
         """
         Query protocol messages with filters.
 
@@ -237,8 +234,8 @@ class ProtocolMessageStore:
             List of matching protocol messages.
         """
         filters = filters or QueryFilters()
-        conditions: List[str] = []
-        params: List[Any] = []
+        conditions: list[str] = []
+        params: list[Any] = []
 
         if filters.debate_id:
             conditions.append("debate_id = ?")
@@ -302,7 +299,7 @@ class ProtocolMessageStore:
 
         return [self._row_to_message(row) for row in rows]
 
-    def query_sync(self, filters: Optional[QueryFilters] = None) -> List[ProtocolMessage]:
+    def query_sync(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
         """Synchronous version of query."""
         import asyncio
 
@@ -315,11 +312,11 @@ class ProtocolMessageStore:
         except RuntimeError:
             return self._query_sync_impl(filters)
 
-    def _query_sync_impl(self, filters: Optional[QueryFilters] = None) -> List[ProtocolMessage]:
+    def _query_sync_impl(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
         """Internal synchronous query implementation."""
         filters = filters or QueryFilters()
-        conditions: List[str] = []
-        params: List[Any] = []
+        conditions: list[str] = []
+        params: list[Any] = []
 
         if filters.debate_id:
             conditions.append("debate_id = ?")
@@ -350,7 +347,7 @@ class ProtocolMessageStore:
 
         return [self._row_to_message(row) for row in rows]
 
-    async def get(self, message_id: str) -> Optional[ProtocolMessage]:
+    async def get(self, message_id: str) -> ProtocolMessage | None:
         """Get a single message by ID."""
         with self._cursor() as cursor:
             cursor.execute(
@@ -364,8 +361,8 @@ class ProtocolMessageStore:
         return None
 
     async def get_debate_timeline(
-        self, debate_id: str, include_types: Optional[List[ProtocolMessageType]] = None
-    ) -> List[ProtocolMessage]:
+        self, debate_id: str, include_types: Optional[list[ProtocolMessageType]] = None
+    ) -> list[ProtocolMessage]:
         """
         Get full timeline of messages for a debate.
 
@@ -384,7 +381,7 @@ class ProtocolMessageStore:
         )
         return await self.query(filters)
 
-    async def get_round_messages(self, debate_id: str, round_number: int) -> List[ProtocolMessage]:
+    async def get_round_messages(self, debate_id: str, round_number: int) -> list[ProtocolMessage]:
         """Get all messages for a specific round."""
         filters = QueryFilters(
             debate_id=debate_id,
@@ -393,7 +390,7 @@ class ProtocolMessageStore:
         )
         return await self.query(filters)
 
-    async def get_agent_messages(self, debate_id: str, agent_id: str) -> List[ProtocolMessage]:
+    async def get_agent_messages(self, debate_id: str, agent_id: str) -> list[ProtocolMessage]:
         """Get all messages from a specific agent in a debate."""
         filters = QueryFilters(
             debate_id=debate_id,
@@ -402,11 +399,11 @@ class ProtocolMessageStore:
         )
         return await self.query(filters)
 
-    async def count(self, filters: Optional[QueryFilters] = None) -> int:
+    async def count(self, filters: QueryFilters | None = None) -> int:
         """Count messages matching filters."""
         filters = filters or QueryFilters()
-        conditions: List[str] = []
-        params: List[Any] = []
+        conditions: list[str] = []
+        params: list[Any] = []
 
         if filters.debate_id:
             conditions.append("debate_id = ?")

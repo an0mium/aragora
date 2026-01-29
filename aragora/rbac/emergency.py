@@ -44,7 +44,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,6 @@ PERSISTENCE_ENABLED = os.environ.get("ARAGORA_EMERGENCY_ACCESS_PERSISTENCE", "")
     "yes",
 )
 
-
 class EmergencyAccessStatus(str, Enum):
     """Status of emergency access."""
 
@@ -64,7 +63,6 @@ class EmergencyAccessStatus(str, Enum):
     EXPIRED = "expired"
     DEACTIVATED = "deactivated"
     REVOKED = "revoked"  # Forcibly revoked by security
-
 
 @dataclass
 class EmergencyAccessRecord:
@@ -76,14 +74,14 @@ class EmergencyAccessRecord:
     status: EmergencyAccessStatus
     activated_at: datetime
     expires_at: datetime
-    deactivated_at: Optional[datetime] = None
-    deactivated_by: Optional[str] = None  # User who deactivated
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
+    deactivated_at: datetime | None = None
+    deactivated_by: str | None = None  # User who deactivated
+    ip_address: str | None = None
+    user_agent: str | None = None
     actions_taken: list[dict[str, Any]] = field(default_factory=list)
     review_required: bool = True
     review_completed: bool = False
-    review_notes: Optional[str] = None
+    review_notes: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -181,7 +179,6 @@ class EmergencyAccessRecord:
             metadata=data.get("metadata", {}),
         )
 
-
 class BreakGlassAccess:
     """
     Emergency access management for break-glass scenarios.
@@ -217,7 +214,7 @@ class BreakGlassAccess:
         "audit_log:read",
     ]
 
-    def __init__(self, enable_persistence: Optional[bool] = None):
+    def __init__(self, enable_persistence: bool | None = None):
         """
         Initialize break-glass access manager.
 
@@ -232,14 +229,14 @@ class BreakGlassAccess:
         self._persistence_enabled = (
             enable_persistence if enable_persistence is not None else PERSISTENCE_ENABLED
         )
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_checked = False
 
         # Load from persistence on startup
         if self._persistence_enabled:
             self._load_from_persistence()
 
-    def _get_redis(self) -> Optional[Any]:
+    def _get_redis(self) -> Any | None:
         """Get Redis client (lazy initialization)."""
         if self._redis_checked:
             return self._redis
@@ -354,9 +351,9 @@ class BreakGlassAccess:
         user_id: str,
         reason: str,
         duration_minutes: int = DEFAULT_DURATION_MINUTES,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Activate break-glass emergency access.
@@ -443,7 +440,7 @@ class BreakGlassAccess:
     async def deactivate(
         self,
         access_id: str,
-        deactivated_by: Optional[str] = None,
+        deactivated_by: str | None = None,
     ) -> EmergencyAccessRecord:
         """
         Deactivate break-glass access.
@@ -556,7 +553,7 @@ class BreakGlassAccess:
         record = await self.get_active_access(user_id)
         return record is not None and record.is_active
 
-    async def get_active_access(self, user_id: str) -> Optional[EmergencyAccessRecord]:
+    async def get_active_access(self, user_id: str) -> EmergencyAccessRecord | None:
         """
         Get active emergency access for a user.
 
@@ -580,8 +577,8 @@ class BreakGlassAccess:
         user_id: str,
         action: str,
         resource_type: str,
-        resource_id: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        resource_id: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """
         Record an action taken during emergency access.
@@ -655,7 +652,7 @@ class BreakGlassAccess:
 
     async def get_history(
         self,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         limit: int = 100,
     ) -> list[EmergencyAccessRecord]:
         """
@@ -763,10 +760,8 @@ class BreakGlassAccess:
         except ImportError:
             logger.info(f"Break-glass audit: {event_type} - {kwargs}")
 
-
 # Singleton instance
-_break_glass: Optional[BreakGlassAccess] = None
-
+_break_glass: BreakGlassAccess | None = None
 
 def get_break_glass_access() -> BreakGlassAccess:
     """Get the global BreakGlassAccess instance."""
@@ -774,7 +769,6 @@ def get_break_glass_access() -> BreakGlassAccess:
     if _break_glass is None:
         _break_glass = BreakGlassAccess()
     return _break_glass
-
 
 __all__ = [
     "EmergencyAccessStatus",

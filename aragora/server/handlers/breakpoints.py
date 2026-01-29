@@ -15,7 +15,7 @@ __all__ = [
 
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -36,7 +36,6 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiter for breakpoints endpoints (60 requests per minute - debug feature)
 _breakpoints_limiter = RateLimiter(requests_per_minute=60)
-
 
 class BreakpointsHandler(BaseHandler):
     """Handler for breakpoint management endpoints."""
@@ -72,7 +71,7 @@ class BreakpointsHandler(BaseHandler):
         return bool(self.BREAKPOINT_PATTERN.match(path))
 
     @require_permission("breakpoint:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route breakpoint requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -105,7 +104,7 @@ class BreakpointsHandler(BaseHandler):
         return None
 
     @require_permission("breakpoint:update")
-    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for breakpoint resolution."""
         match = self.BREAKPOINT_PATTERN.match(path)
         if not match:

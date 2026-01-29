@@ -13,6 +13,7 @@ Key concepts:
 - CheckpointManager: Orchestrates checkpointing lifecycle
 - ResumedDebate: Context for continuing from checkpoint
 """
+from __future__ import annotations
 
 import asyncio
 import gzip
@@ -36,7 +37,6 @@ logger = logging.getLogger(__name__)
 from aragora.core import Critique, Message, Vote
 from aragora.exceptions import ConfigurationError
 
-
 class CheckpointStatus(Enum):
     """Status of a checkpoint."""
 
@@ -45,7 +45,6 @@ class CheckpointStatus(Enum):
     RESUMING = "resuming"
     CORRUPTED = "corrupted"
     EXPIRED = "expired"
-
 
 @dataclass
 class AgentState:
@@ -56,8 +55,7 @@ class AgentState:
     agent_role: str
     system_prompt: str
     stance: str
-    memory_snapshot: Optional[dict] = None
-
+    memory_snapshot: dict | None = None
 
 @dataclass
 class DebateCheckpoint:
@@ -86,29 +84,29 @@ class DebateCheckpoint:
     agent_states: list[AgentState]
 
     # Consensus state
-    current_consensus: Optional[str] = None
+    current_consensus: str | None = None
     consensus_confidence: float = 0.0
     convergence_status: str = ""
 
     # Claims kernel state (if using)
-    claims_kernel_state: Optional[dict] = None
+    claims_kernel_state: dict | None = None
 
     # Belief network state (if using)
-    belief_network_state: Optional[dict] = None
+    belief_network_state: dict | None = None
 
     # Continuum memory state (if using)
-    continuum_memory_state: Optional[dict] = None
+    continuum_memory_state: dict | None = None
 
     # Metadata
     status: CheckpointStatus = CheckpointStatus.COMPLETE
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    expires_at: Optional[str] = None
+    expires_at: str | None = None
     checksum: str = ""
 
     # Resumption info
     resume_count: int = 0
-    last_resumed_at: Optional[str] = None
-    resumed_by: Optional[str] = None  # User/system that resumed
+    last_resumed_at: str | None = None
+    resumed_by: str | None = None  # User/system that resumed
 
     # Human intervention
     pending_intervention: bool = False
@@ -206,7 +204,6 @@ class DebateCheckpoint:
             intervention_notes=data.get("intervention_notes", []),
         )
 
-
 @dataclass
 class ResumedDebate:
     """Context for a debate resumed from checkpoint."""
@@ -224,7 +221,6 @@ class ResumedDebate:
     context_drift_detected: bool = False
     drift_notes: list[str] = field(default_factory=list)
 
-
 class CheckpointStore(ABC):
     """Abstract base for checkpoint persistence."""
 
@@ -234,14 +230,14 @@ class CheckpointStore(ABC):
         raise NotImplementedError("Subclasses must implement save")
 
     @abstractmethod
-    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+    async def load(self, checkpoint_id: str) -> DebateCheckpoint | None:
         """Load checkpoint by ID."""
         raise NotImplementedError("Subclasses must implement load")
 
     @abstractmethod
     async def list_checkpoints(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         """List available checkpoints."""
@@ -251,7 +247,6 @@ class CheckpointStore(ABC):
     async def delete(self, checkpoint_id: str) -> bool:
         """Delete a checkpoint."""
         raise NotImplementedError("Subclasses must implement delete")
-
 
 class FileCheckpointStore(CheckpointStore):
     """File-based checkpoint storage."""
@@ -296,7 +291,7 @@ class FileCheckpointStore(CheckpointStore):
 
         return str(path)
 
-    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+    async def load(self, checkpoint_id: str) -> DebateCheckpoint | None:
         path = self._get_path(checkpoint_id)
 
         if not path.exists():
@@ -323,7 +318,7 @@ class FileCheckpointStore(CheckpointStore):
 
     async def list_checkpoints(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         checkpoints = []
@@ -362,7 +357,6 @@ class FileCheckpointStore(CheckpointStore):
             path.unlink()
             return True
         return False
-
 
 class S3CheckpointStore(CheckpointStore):
     """S3-based checkpoint storage for distributed deployments."""
@@ -411,7 +405,7 @@ class S3CheckpointStore(CheckpointStore):
 
         return f"s3://{self.bucket}/{key}"
 
-    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+    async def load(self, checkpoint_id: str) -> DebateCheckpoint | None:
         try:
             client = self._get_client()
             key = self._get_key(checkpoint_id)
@@ -437,7 +431,7 @@ class S3CheckpointStore(CheckpointStore):
 
     async def list_checkpoints(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         client = self._get_client()
@@ -477,7 +471,6 @@ class S3CheckpointStore(CheckpointStore):
         except OSError as e:
             logger.warning(f"S3 connection error deleting {checkpoint_id}: {e}")
             return False
-
 
 class GitCheckpointStore(CheckpointStore):
     """Git branch-based checkpoint storage for version control.
@@ -557,7 +550,7 @@ class GitCheckpointStore(CheckpointStore):
 
         return f"git:{branch_name}"
 
-    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+    async def load(self, checkpoint_id: str) -> DebateCheckpoint | None:
         # Validate checkpoint ID for git safety
         if not SAFE_CHECKPOINT_ID.match(checkpoint_id):
             logger.warning(f"Invalid checkpoint ID format rejected: {checkpoint_id[:50]}")
@@ -587,7 +580,7 @@ class GitCheckpointStore(CheckpointStore):
 
     async def list_checkpoints(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         success, branches = await self._run_git(["branch", "-a"])
@@ -628,8 +621,8 @@ class GitCheckpointStore(CheckpointStore):
         debate_id: str,
         round_num: int,
         checkpoint: DebateCheckpoint,
-        message: Optional[str] = None,
-    ) -> Optional[str]:
+        message: str | None = None,
+    ) -> str | None:
         """Commit a single round checkpoint (continuous mode).
 
         Returns the commit hash if successful, None otherwise.
@@ -708,7 +701,7 @@ class GitCheckpointStore(CheckpointStore):
         self,
         debate_id: str,
         target_round: int,
-    ) -> Optional[DebateCheckpoint]:
+    ) -> DebateCheckpoint | None:
         """Restore debate state to a specific round from git history.
 
         Searches commit history to find the checkpoint for the target round.
@@ -732,7 +725,6 @@ class GitCheckpointStore(CheckpointStore):
                         continue
 
         return None
-
 
 class RecoveryNarrator:
     """Summarizes git history for resuming debates (Gastown pattern).
@@ -870,7 +862,6 @@ maintaining consistency with your previous positions while remaining open to
 new arguments. The debate will now continue.
 """
 
-
 class DatabaseCheckpointStore(CheckpointStore):
     """
     SQLite-based checkpoint storage for single-machine deployments.
@@ -992,7 +983,7 @@ class DatabaseCheckpointStore(CheckpointStore):
 
         return f"db:{checkpoint.checkpoint_id}"
 
-    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+    async def load(self, checkpoint_id: str) -> DebateCheckpoint | None:
         """Load checkpoint from database."""
         with self._db.connection() as conn:
             cursor = conn.execute(
@@ -1026,7 +1017,7 @@ class DatabaseCheckpointStore(CheckpointStore):
 
     async def list_checkpoints(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         """List available checkpoints."""
@@ -1115,7 +1106,6 @@ class DatabaseCheckpointStore(CheckpointStore):
             "pool": pool_stats,
         }
 
-
 @dataclass
 class CheckpointConfig:
     """Configuration for checkpointing behavior."""
@@ -1131,7 +1121,6 @@ class CheckpointConfig:
     enable_recovery_narrator: bool = True  # Generate recovery summaries
     glacial_tier_sync: bool = False  # Sync to ContinuumMemory glacial tier
 
-
 class CheckpointManager:
     """
     Manages checkpoint lifecycle for debates.
@@ -1146,8 +1135,8 @@ class CheckpointManager:
 
     def __init__(
         self,
-        store: Optional[CheckpointStore] = None,
-        config: Optional[CheckpointConfig] = None,
+        store: CheckpointStore | None = None,
+        config: CheckpointConfig | None = None,
         webhook: Optional["CheckpointWebhook"] = None,
     ):
         self.store = store or FileCheckpointStore()
@@ -1158,7 +1147,7 @@ class CheckpointManager:
         self._checkpoint_count: dict[str, int] = {}
 
         # Initialize recovery narrator for GitCheckpointStore
-        self._recovery_narrator: Optional[RecoveryNarrator] = None
+        self._recovery_narrator: RecoveryNarrator | None = None
         if isinstance(self.store, GitCheckpointStore) and self.config.enable_recovery_narrator:
             self._recovery_narrator = RecoveryNarrator(self.store)
 
@@ -1167,7 +1156,7 @@ class CheckpointManager:
         """Get the recovery narrator (only available with GitCheckpointStore)."""
         return self._recovery_narrator
 
-    async def get_recovery_context(self, debate_id: str, agent_name: str) -> Optional[str]:
+    async def get_recovery_context(self, debate_id: str, agent_name: str) -> str | None:
         """Get recovery context for resuming a debate.
 
         Returns a prompt injection with debate history summary.
@@ -1206,10 +1195,10 @@ class CheckpointManager:
         critiques: list[Critique],
         votes: list[Vote],
         agents: list,  # Agent objects
-        current_consensus: Optional[str] = None,
-        claims_kernel_state: Optional[dict] = None,
-        belief_network_state: Optional[dict] = None,
-        continuum_memory_state: Optional[dict] = None,
+        current_consensus: str | None = None,
+        claims_kernel_state: dict | None = None,
+        belief_network_state: dict | None = None,
+        continuum_memory_state: dict | None = None,
     ) -> DebateCheckpoint:
         """Create and save a checkpoint."""
         checkpoint_id = f"cp-{debate_id[:8]}-{current_round:03d}-{uuid.uuid4().hex[:4]}"
@@ -1319,7 +1308,7 @@ class CheckpointManager:
         self,
         checkpoint_id: str,
         resumed_by: str = "system",
-    ) -> Optional[ResumedDebate]:
+    ) -> ResumedDebate | None:
         """Resume a debate from a checkpoint."""
         checkpoint = await self.store.load(checkpoint_id)
 
@@ -1442,7 +1431,7 @@ class CheckpointManager:
         """
         return await self.store.save(checkpoint)
 
-    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+    async def load(self, checkpoint_id: str) -> DebateCheckpoint | None:
         """
         Load a checkpoint directly.
 
@@ -1456,7 +1445,7 @@ class CheckpointManager:
         """
         return await self.store.load(checkpoint_id)
 
-    async def get_latest(self, debate_id: str) -> Optional[DebateCheckpoint]:
+    async def get_latest(self, debate_id: str) -> DebateCheckpoint | None:
         """
         Get the latest checkpoint for a debate.
 
@@ -1489,11 +1478,10 @@ class CheckpointManager:
         for cp in checkpoints[self.config.max_checkpoints :]:
             await self.store.delete(cp["checkpoint_id"])
 
-
 class CheckpointWebhook:
     """Webhook notifications for checkpoint events."""
 
-    def __init__(self, webhook_url: Optional[str] = None):
+    def __init__(self, webhook_url: str | None = None):
         self.webhook_url = webhook_url
         self.handlers: dict[str, list[Callable]] = {
             "on_checkpoint": [],
@@ -1552,7 +1540,6 @@ class CheckpointWebhook:
             logger.debug(f"Webhook notification failed - connection error: {e}")
         except Exception as e:
             logger.warning(f"Unexpected webhook notification error: {e}")
-
 
 # Convenience function for quick checkpointing
 async def checkpoint_debate(

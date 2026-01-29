@@ -20,13 +20,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.hooks import HookManager, HookPriority
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class HookHandlerRegistry:
@@ -56,10 +55,10 @@ class HookHandlerRegistry:
     """
 
     hook_manager: "HookManager"
-    subsystems: Dict[str, Any] = field(default_factory=dict)
+    subsystems: dict[str, Any] = field(default_factory=dict)
 
     # Track registered handlers for cleanup
-    _unregister_fns: List[Callable[[], None]] = field(default_factory=list, repr=False)
+    _unregister_fns: list[Callable[[], None]] = field(default_factory=list, repr=False)
     _registered: bool = field(default=False, repr=False)
 
     def register_all(self) -> int:
@@ -498,7 +497,7 @@ class HookHandlerRegistry:
 
                 def handle_consensus_check(
                     ctx: Any = None,
-                    votes: List[Any] = None,
+                    votes: list[Any] = None,
                     **kwargs: Any,
                 ) -> None:
                     try:
@@ -523,7 +522,7 @@ class HookHandlerRegistry:
                 def handle_flip_check(
                     ctx: Any = None,
                     round_num: int = 0,
-                    positions: Dict[str, str] = None,
+                    positions: dict[str, str] = None,
                     **kwargs: Any,
                 ) -> None:
                     try:
@@ -1051,7 +1050,6 @@ class HookHandlerRegistry:
         """Whether handlers have been registered."""
         return self._registered
 
-
 def create_hook_handler_registry(
     hook_manager: "HookManager",
     *,
@@ -1096,7 +1094,7 @@ def create_hook_handler_registry(
     Returns:
         Configured HookHandlerRegistry instance
     """
-    subsystems: Dict[str, Any] = {}
+    subsystems: dict[str, Any] = {}
 
     if analytics is not None:
         subsystems["analytics"] = analytics
@@ -1135,6 +1133,5 @@ def create_hook_handler_registry(
         registry.register_all()
 
     return registry
-
 
 __all__ = ["HookHandlerRegistry", "create_hook_handler_registry"]

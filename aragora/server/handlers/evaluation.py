@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -54,7 +54,6 @@ DEFAULT_RUBRICS = _judge_imports.get("DEFAULT_RUBRICS")
 WEIGHT_PROFILES = _judge_imports.get("WEIGHT_PROFILES")
 DEFAULT_WEIGHTS = _judge_imports.get("DEFAULT_WEIGHTS")
 
-
 class EvaluationHandler(BaseHandler):
     """Handler for LLM-as-Judge evaluation endpoints."""
 
@@ -70,7 +69,7 @@ class EvaluationHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("evaluation:read")
-    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -87,7 +86,7 @@ class EvaluationHandler(BaseHandler):
     @require_permission("evaluation:create")
     async def handle_post(
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)

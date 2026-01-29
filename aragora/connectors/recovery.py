@@ -37,7 +37,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 
 if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
@@ -55,7 +55,6 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-
 class RecoveryAction(Enum):
     """Actions that can be taken to recover from errors."""
 
@@ -67,18 +66,16 @@ class RecoveryAction(Enum):
     ESCALATE = "escalate"  # Escalate to human/alerting
     FAIL = "fail"  # Give up and fail
 
-
 @dataclass
 class RecoveryResult:
     """Result of a recovery attempt."""
 
     action: RecoveryAction
     success: bool
-    error: Optional[Exception] = None
+    error: Exception | None = None
     attempts: int = 0
     total_wait_seconds: float = 0.0
     message: str = ""
-
 
 @dataclass
 class RecoveryConfig:
@@ -100,12 +97,11 @@ class RecoveryConfig:
     token_refresh_timeout: float = 30.0
 
     # Fallback
-    fallback_endpoints: List[str] = field(default_factory=list)
+    fallback_endpoints: list[str] = field(default_factory=list)
 
     # Escalation
     escalation_threshold: int = 3  # Consecutive failures before escalation
     escalation_callback: Optional[Callable[[Exception, int], None]] = None
-
 
 class RecoveryStrategy:
     """
@@ -121,7 +117,7 @@ class RecoveryStrategy:
 
     def __init__(
         self,
-        config: Optional[RecoveryConfig] = None,
+        config: RecoveryConfig | None = None,
         connector_name: str = "unknown",
     ):
         """
@@ -137,7 +133,7 @@ class RecoveryStrategy:
         # State tracking
         self._consecutive_failures = 0
         self._total_retries = 0
-        self._last_error_time: Optional[float] = None
+        self._last_error_time: float | None = None
 
         # Circuit breaker (lazy initialized)
         self._circuit_breaker: Optional["CircuitBreaker"] = None
@@ -234,7 +230,7 @@ class RecoveryStrategy:
         """
         attempt = 0
         total_wait = 0.0
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         while True:
             # Check circuit breaker
@@ -337,7 +333,7 @@ class RecoveryStrategy:
             raise classify_exception(last_error, self.connector_name)
         raise ConnectorError("Unknown error", connector_name=self.connector_name)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get recovery statistics."""
         return {
             "connector_name": self.connector_name,
@@ -349,12 +345,11 @@ class RecoveryStrategy:
             ),
         }
 
-
 def with_recovery(
     max_retries: int = 3,
     enable_token_refresh: bool = False,
     enable_circuit_breaker: bool = True,
-    connector_name: Optional[str] = None,
+    connector_name: str | None = None,
 ) -> Callable:
     """
     Decorator to add automatic recovery to async functions.
@@ -399,10 +394,9 @@ def with_recovery(
 
     return decorator
 
-
 def create_recovery_chain(
     connector: Any,
-    config: Optional[RecoveryConfig] = None,
+    config: RecoveryConfig | None = None,
 ) -> RecoveryStrategy:
     """
     Create a recovery strategy for a connector.
@@ -440,7 +434,6 @@ def create_recovery_chain(
             strategy.set_token_refresh_callback(refresh_method)
 
     return strategy
-
 
 __all__ = [
     "RecoveryAction",

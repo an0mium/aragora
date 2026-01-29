@@ -4,6 +4,7 @@ Team building utilities for agent selection.
 Provides team composition, diversity calculation, and role assignment logic
 extracted from AgentSelector for better modularity.
 """
+from __future__ import annotations
 
 import logging
 import random
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
     from aragora.routing.selection import AgentProfile, TaskRequirements, TeamComposition
 
 logger = logging.getLogger(__name__)
-
 
 # Phase role configuration: phase -> (agent_role_map, fallback_role)
 # agent_role_map: {agent_type: role}
@@ -43,7 +43,6 @@ PHASE_ROLES: dict[str, tuple[dict[str, str], str]] = {
     ),
     "commit": ({}, "reviewer"),
 }
-
 
 class TeamBuilder:
     """
@@ -338,7 +337,7 @@ class TeamBuilder:
         return "\n".join(lines)
 
     def record_selection(
-        self, task_id: str, selected: list[str], result: Optional[str] = None, confidence: float = 0
+        self, task_id: str, selected: list[str], result: str | None = None, confidence: float = 0
     ) -> None:
         """Record a selection to history."""
         entry: dict[str, Any] = {
@@ -351,14 +350,13 @@ class TeamBuilder:
             entry["confidence"] = confidence
         self._selection_history.append(entry)
 
-    def get_selection_history(self, limit: Optional[int] = None) -> list[dict]:
+    def get_selection_history(self, limit: int | None = None) -> list[dict]:
         """Retrieve selection history for meta-analysis."""
         history = self._selection_history.copy()
         history.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         if limit:
             history = history[:limit]
         return history
-
 
 __all__ = [
     "PHASE_ROLES",

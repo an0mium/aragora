@@ -6,6 +6,7 @@ task descriptions. Uses Claude Haiku for fast, accurate classification.
 
 Includes TTL caching to reduce API costs for repeated queries.
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -25,7 +26,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_CACHE_TTL = 3600  # 1 hour
 DEFAULT_CACHE_SIZE = 500  # Max entries
 
-
 class _DomainCache:
     """Simple TTL cache for domain detection results."""
 
@@ -42,7 +42,7 @@ class _DomainCache:
         normalized = text.lower().strip()[:500]
         return hashlib.sha256(f"{normalized}:{top_n}".encode()).hexdigest()[:16]
 
-    def get(self, text: str, top_n: int) -> Optional[list[tuple[str, float]]]:
+    def get(self, text: str, top_n: int) -> list[tuple[str, float] | None]:
         """Get cached result if valid."""
         key = self._make_key(text, top_n)
         entry = self._cache.get(key)
@@ -89,7 +89,6 @@ class _DomainCache:
         count = len(self._cache)
         self._cache.clear()
         return count
-
 
 # Global cache instance (shared across DomainDetector instances)
 _domain_cache = _DomainCache()
@@ -366,7 +365,6 @@ DOMAIN_KEYWORDS: dict[str, list[str]] = {
     ],
 }
 
-
 class DomainDetector:
     """
     Detects task domain from natural language description.
@@ -381,7 +379,7 @@ class DomainDetector:
 
     def __init__(
         self,
-        custom_keywords: Optional[dict[str, list[str]]] = None,
+        custom_keywords: dict[str, list[str] | None] = None,
         use_llm: bool = True,
         client: Optional["anthropic.Anthropic"] = None,
         use_cache: bool = True,
@@ -418,7 +416,7 @@ class DomainDetector:
                 self.use_llm = False
         return self._client
 
-    def _detect_with_llm(self, task_text: str, top_n: int = 3) -> Optional[list[tuple[str, float]]]:
+    def _detect_with_llm(self, task_text: str, top_n: int = 3) -> list[tuple[str, float] | None]:
         """Detect domains using Claude Haiku for accurate classification.
 
         Returns None if LLM classification fails (caller should use keyword fallback).
@@ -607,7 +605,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
     def get_task_requirements(
         self,
         task_text: str,
-        task_id: Optional[str] = None,
+        task_id: str | None = None,
     ) -> "TaskRequirements":
         """
         Create TaskRequirements from task text with auto-detected domains.
@@ -646,7 +644,6 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             secondary_domains=secondary,
             required_traits=traits,
         )
-
 
 __all__ = [
     "DOMAIN_KEYWORDS",

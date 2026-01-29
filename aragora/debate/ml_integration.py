@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
 from aragora.debate.delegation import DelegationStrategy
 
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from aragora.debate.team_selector import TeamSelector
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class MLIntegrationConfig:
@@ -67,7 +66,6 @@ class MLIntegrationConfig:
     cache_routing_decisions: bool = True
     cache_ttl_seconds: int = 300
 
-
 class MLDelegationStrategy(DelegationStrategy):
     """ML-powered delegation strategy using AgentRouter.
 
@@ -86,10 +84,10 @@ class MLDelegationStrategy(DelegationStrategy):
 
     def __init__(
         self,
-        config: Optional[MLIntegrationConfig] = None,
-        elo_system: Optional[Any] = None,
-        calibration_tracker: Optional[Any] = None,
-        ml_weight: Optional[float] = None,
+        config: MLIntegrationConfig | None = None,
+        elo_system: Any | None = None,
+        calibration_tracker: Any | None = None,
+        ml_weight: float | None = None,
     ):
         """Initialize ML delegation strategy.
 
@@ -100,8 +98,8 @@ class MLDelegationStrategy(DelegationStrategy):
             ml_weight: Weight for ML routing in hybrid scoring (0.0-1.0)
         """
         self.config = config or MLIntegrationConfig()
-        self._router: Optional[Any] = None
-        self._cache: Dict[str, Tuple[List[str], float]] = {}
+        self._router: Any | None = None
+        self._cache: dict[str, tuple[list[str], float]] = {}
 
         # Hybrid scoring components
         self._elo_system = elo_system
@@ -120,7 +118,7 @@ class MLDelegationStrategy(DelegationStrategy):
                 logger.warning("ML module not available, using fallback scoring")
         return self._router
 
-    def _get_cache_key(self, task: str, agent_names: List[str]) -> str:
+    def _get_cache_key(self, task: str, agent_names: list[str]) -> str:
         """Generate cache key for routing decision."""
         return f"{task[:100]}:{','.join(sorted(agent_names))}"
 
@@ -129,8 +127,8 @@ class MLDelegationStrategy(DelegationStrategy):
         task: str,
         agents: Sequence["Agent"],
         context: Optional["DebateContext"] = None,
-        max_agents: Optional[int] = None,
-    ) -> List["Agent"]:
+        max_agents: int | None = None,
+    ) -> list["Agent"]:
         """Select agents using ML-based routing.
 
         Args:
@@ -190,8 +188,8 @@ class MLDelegationStrategy(DelegationStrategy):
     def _reorder_agents(
         self,
         agents: Sequence["Agent"],
-        order: List[str],
-    ) -> List["Agent"]:
+        order: list[str],
+    ) -> list["Agent"]:
         """Reorder agents according to ML routing decision."""
         agent_map = {a.name: a for a in agents}
         result = []
@@ -252,7 +250,6 @@ class MLDelegationStrategy(DelegationStrategy):
             logger.warning(f"Unexpected ML scoring error for {agent.name}: {e}")
             return 2.5
 
-
 class QualityGate:
     """Quality gate for filtering debate responses.
 
@@ -277,7 +274,7 @@ class QualityGate:
         """
         self.threshold = threshold
         self.min_confidence = min_confidence
-        self._scorer: Optional[Any] = None
+        self._scorer: Any | None = None
 
     def _get_scorer(self):
         """Lazy load quality scorer."""
@@ -293,8 +290,8 @@ class QualityGate:
     def score_response(
         self,
         text: str,
-        context: Optional[str] = None,
-    ) -> Tuple[float, float]:
+        context: str | None = None,
+    ) -> tuple[float, float]:
         """Score a single response.
 
         Args:
@@ -321,7 +318,7 @@ class QualityGate:
     def passes_gate(
         self,
         text: str,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> bool:
         """Check if response passes quality gate.
 
@@ -342,9 +339,9 @@ class QualityGate:
 
     def filter_responses(
         self,
-        responses: Sequence[Tuple[str, str]],  # (agent_id, text) pairs
-        context: Optional[str] = None,
-    ) -> List[Tuple[str, str, float]]:
+        responses: Sequence[tuple[str, str]],  # (agent_id, text) pairs
+        context: str | None = None,
+    ) -> list[tuple[str, str, float]]:
         """Filter responses by quality.
 
         Args:
@@ -373,8 +370,8 @@ class QualityGate:
     def filter_messages(
         self,
         messages: Sequence["Message"],
-        context: Optional[str] = None,
-    ) -> List[Tuple["Message", float]]:
+        context: str | None = None,
+    ) -> list[tuple["Message", float]]:
         """Filter Message objects by quality.
 
         Args:
@@ -396,7 +393,6 @@ class QualityGate:
             results.append((message, quality))
 
         return results
-
 
 class ConsensusEstimator:
     """Estimates consensus likelihood for early termination.
@@ -424,8 +420,8 @@ class ConsensusEstimator:
         """
         self.threshold = early_termination_threshold
         self.min_rounds = min_rounds
-        self._predictor: Optional[Any] = None
-        self._similarity_history: List[float] = []
+        self._predictor: Any | None = None
+        self._similarity_history: list[float] = []
 
     def _get_predictor(self):
         """Lazy load consensus predictor."""
@@ -440,8 +436,8 @@ class ConsensusEstimator:
 
     def estimate_consensus(
         self,
-        responses: Sequence[Tuple[str, str]],
-        context: Optional[str] = None,
+        responses: Sequence[tuple[str, str]],
+        context: str | None = None,
         current_round: int = 1,
         total_rounds: int = 3,
     ) -> dict[str, Any]:
@@ -514,10 +510,10 @@ class ConsensusEstimator:
 
     def should_terminate_early(
         self,
-        responses: Sequence[Tuple[str, str]],
+        responses: Sequence[tuple[str, str]],
         current_round: int,
         total_rounds: int = 3,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> bool:
         """Check if debate should terminate early.
 
@@ -566,7 +562,6 @@ class ConsensusEstimator:
         """Reset similarity history for new debate."""
         self._similarity_history = []
 
-
 class MLEnhancedTeamSelector:
     """Team selector with ML-enhanced scoring.
 
@@ -577,7 +572,7 @@ class MLEnhancedTeamSelector:
     def __init__(
         self,
         base_selector: "TeamSelector",
-        ml_delegation: Optional[MLDelegationStrategy] = None,
+        ml_delegation: MLDelegationStrategy | None = None,
         ml_weight: float = 0.3,
     ):
         """Initialize ML-enhanced selector.
@@ -593,11 +588,11 @@ class MLEnhancedTeamSelector:
 
     def select(
         self,
-        agents: List["Agent"],
+        agents: list["Agent"],
         domain: str = "general",
         task: str = "",
         context: Optional["DebateContext"] = None,
-    ) -> List["Agent"]:
+    ) -> list["Agent"]:
         """Select agents with ML-enhanced scoring.
 
         Args:
@@ -624,7 +619,7 @@ class MLEnhancedTeamSelector:
         base_ordered = self.base_selector.select(agents, domain, task, context)
 
         # Combine scores
-        combined_scores: Dict[str, float] = {}
+        combined_scores: dict[str, float] = {}
 
         for i, agent in enumerate(base_ordered):
             # Base score: higher rank = lower index = higher score
@@ -646,7 +641,6 @@ class MLEnhancedTeamSelector:
         )
 
         return [agent_map[name] for name in sorted_names if name in agent_map]
-
 
 def create_ml_team_selector(
     elo_system=None,
@@ -677,7 +671,6 @@ def create_ml_team_selector(
         base_selector=base_selector,
         ml_weight=ml_weight,
     )
-
 
 # Export training data from debates
 class DebateTrainingExporter:
@@ -711,9 +704,9 @@ class DebateTrainingExporter:
         self,
         task: str,
         consensus_response: str,
-        rejected_responses: Optional[List[str]] = None,
+        rejected_responses: Optional[list[str]] = None,
         context: str = "",
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Export single debate as training example.
 
         Args:
@@ -746,7 +739,7 @@ class DebateTrainingExporter:
     def export_debates_batch(
         self,
         debates: Sequence[dict[str, Any]],
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Export multiple debates as training data.
 
         Args:
@@ -780,13 +773,11 @@ class DebateTrainingExporter:
 
         return data
 
-
 # Singleton instances for convenience
-_ml_delegation: Optional[MLDelegationStrategy] = None
-_quality_gate: Optional[QualityGate] = None
-_consensus_estimator: Optional[ConsensusEstimator] = None
-_training_exporter: Optional[DebateTrainingExporter] = None
-
+_ml_delegation: MLDelegationStrategy | None = None
+_quality_gate: QualityGate | None = None
+_consensus_estimator: ConsensusEstimator | None = None
+_training_exporter: DebateTrainingExporter | None = None
 
 def get_ml_delegation() -> MLDelegationStrategy:
     """Get or create global ML delegation strategy."""
@@ -795,7 +786,6 @@ def get_ml_delegation() -> MLDelegationStrategy:
         _ml_delegation = MLDelegationStrategy()
     return _ml_delegation
 
-
 def get_quality_gate(threshold: float = 0.6) -> QualityGate:
     """Get or create global quality gate."""
     global _quality_gate
@@ -803,14 +793,12 @@ def get_quality_gate(threshold: float = 0.6) -> QualityGate:
         _quality_gate = QualityGate(threshold=threshold)
     return _quality_gate
 
-
 def get_consensus_estimator() -> ConsensusEstimator:
     """Get or create global consensus estimator."""
     global _consensus_estimator
     if _consensus_estimator is None:
         _consensus_estimator = ConsensusEstimator()
     return _consensus_estimator
-
 
 def get_training_exporter() -> DebateTrainingExporter:
     """Get or create global training exporter."""

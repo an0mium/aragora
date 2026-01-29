@@ -35,7 +35,7 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.observability import get_logger
 
@@ -46,14 +46,12 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-
 class ScalingDirection(Enum):
     """Direction of scaling action."""
 
     SCALE_UP = "scale_up"
     SCALE_DOWN = "scale_down"
     NONE = "none"
-
 
 class ScalingReason(Enum):
     """Reason for scaling decision."""
@@ -65,7 +63,6 @@ class ScalingReason(Enum):
     IDLE_AGENTS = "idle_agents"
     COST_OPTIMIZATION = "cost_optimization"
     MANUAL = "manual"
-
 
 @dataclass
 class ScalingPolicy:
@@ -85,7 +82,7 @@ class ScalingPolicy:
     # Capacity limits
     min_agents: int = 1
     max_agents: int = 20
-    max_agents_per_provider: Dict[str, int] = field(
+    max_agents_per_provider: dict[str, int] = field(
         default_factory=lambda: {
             "anthropic": 10,
             "openai": 10,
@@ -101,10 +98,10 @@ class ScalingPolicy:
     evaluation_interval_seconds: float = 30.0  # How often to evaluate
 
     # Provider preferences for scaling
-    scale_up_provider_priority: List[str] = field(
+    scale_up_provider_priority: list[str] = field(
         default_factory=lambda: ["anthropic", "openai", "mistral", "openrouter"]
     )
-    scale_down_provider_priority: List[str] = field(
+    scale_down_provider_priority: list[str] = field(
         default_factory=lambda: ["openrouter", "mistral", "openai", "anthropic"]
     )
 
@@ -137,7 +134,6 @@ class ScalingPolicy:
             idle_time_threshold_seconds=600.0,
         )
 
-
 @dataclass
 class ScalingMetrics:
     """Current metrics used for scaling decisions."""
@@ -152,7 +148,7 @@ class ScalingMetrics:
     latency_p99_ms: float = 0.0
     avg_wait_time_seconds: float = 0.0
     queue_empty_duration_seconds: float = 0.0
-    agents_by_provider: Dict[str, int] = field(default_factory=dict)
+    agents_by_provider: dict[str, int] = field(default_factory=dict)
 
     @property
     def agent_exhaustion_ratio(self) -> float:
@@ -161,7 +157,6 @@ class ScalingMetrics:
             return 1.0  # No agents = exhausted
         return self.busy_agents / self.total_agents
 
-
 @dataclass
 class ScalingDecision:
     """Result of scaling evaluation."""
@@ -169,9 +164,9 @@ class ScalingDecision:
     direction: ScalingDirection
     reason: ScalingReason
     recommended_delta: int  # Positive for scale-up, negative for scale-down
-    target_provider: Optional[str] = None
+    target_provider: str | None = None
     confidence: float = 0.0  # 0-1, how confident in this decision
-    metrics: Optional[ScalingMetrics] = None
+    metrics: ScalingMetrics | None = None
     explanation: str = ""
 
     @property
@@ -179,10 +174,8 @@ class ScalingDecision:
         """Check if scaling action is recommended."""
         return self.direction != ScalingDirection.NONE and self.recommended_delta != 0
 
-
 # Type for scale-up/down callbacks
 ScalingCallback = Callable[[ScalingDecision], "asyncio.Future[bool]"]
-
 
 class AutoScaler:
     """
@@ -197,9 +190,9 @@ class AutoScaler:
         registry: Optional["AgentRegistry"] = None,
         scheduler: Optional["TaskScheduler"] = None,
         health_monitor: Optional["HealthMonitor"] = None,
-        policy: Optional[ScalingPolicy] = None,
-        scale_up_callback: Optional[ScalingCallback] = None,
-        scale_down_callback: Optional[ScalingCallback] = None,
+        policy: ScalingPolicy | None = None,
+        scale_up_callback: ScalingCallback | None = None,
+        scale_down_callback: ScalingCallback | None = None,
     ):
         """
         Initialize the auto-scaler.
@@ -222,16 +215,16 @@ class AutoScaler:
         # State tracking
         self._last_scale_time: float = 0.0
         self._last_evaluation_time: float = 0.0
-        self._queue_empty_since: Optional[float] = None
-        self._scaling_history: List[Dict[str, Any]] = []
+        self._queue_empty_since: float | None = None
+        self._scaling_history: list[dict[str, Any]] = []
         self._max_history = 100
 
         # Background task
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
         # Metrics tracking
-        self._latency_samples: List[float] = []
+        self._latency_samples: list[float] = []
         self._max_latency_samples = 100
 
     async def start(self) -> None:
@@ -507,7 +500,7 @@ class AutoScaler:
             metrics=metrics,
         )
 
-    def _select_provider_for_scale_up(self, metrics: ScalingMetrics) -> Optional[str]:
+    def _select_provider_for_scale_up(self, metrics: ScalingMetrics) -> str | None:
         """Select which provider to scale up."""
         for provider in self._policy.scale_up_provider_priority:
             current = metrics.agents_by_provider.get(provider, 0)
@@ -518,7 +511,7 @@ class AutoScaler:
 
         return None
 
-    def _select_provider_for_scale_down(self, metrics: ScalingMetrics) -> Optional[str]:
+    def _select_provider_for_scale_down(self, metrics: ScalingMetrics) -> str | None:
         """Select which provider to scale down."""
         for provider in self._policy.scale_down_provider_priority:
             current = metrics.agents_by_provider.get(provider, 0)
@@ -601,7 +594,7 @@ class AutoScaler:
         if len(self._latency_samples) > self._max_latency_samples:
             self._latency_samples = self._latency_samples[-self._max_latency_samples :]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get auto-scaler statistics."""
         return {
             "running": self._running,
@@ -632,27 +625,23 @@ class AutoScaler:
         self._policy = policy
         logger.info("Scaling policy updated")
 
-
 # Module-level singleton
-_auto_scaler: Optional[AutoScaler] = None
+_auto_scaler: AutoScaler | None = None
 
-
-def get_auto_scaler() -> Optional[AutoScaler]:
+def get_auto_scaler() -> AutoScaler | None:
     """Get the global auto-scaler instance."""
     return _auto_scaler
-
 
 def set_auto_scaler(scaler: AutoScaler) -> None:
     """Set the global auto-scaler instance."""
     global _auto_scaler
     _auto_scaler = scaler
 
-
 def init_auto_scaler(
     registry: Optional["AgentRegistry"] = None,
     scheduler: Optional["TaskScheduler"] = None,
     health_monitor: Optional["HealthMonitor"] = None,
-    policy: Optional[ScalingPolicy] = None,
+    policy: ScalingPolicy | None = None,
 ) -> AutoScaler:
     """Initialize and set the global auto-scaler."""
     scaler = AutoScaler(
@@ -663,7 +652,6 @@ def init_auto_scaler(
     )
     set_auto_scaler(scaler)
     return scaler
-
 
 __all__ = [
     "ScalingDirection",

@@ -21,18 +21,16 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class ConfigurationError(Exception):
     """Raised when configuration validation fails in strict mode."""
 
     pass
 
-
-def validate_all(strict: bool = False) -> Dict[str, Any]:
+def validate_all(strict: bool = False) -> dict[str, Any]:
     """
     Validate all required configuration.
 
@@ -51,8 +49,8 @@ def validate_all(strict: bool = False) -> Dict[str, Any]:
             "config_summary": {...}
         }
     """
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
 
     # Run basic validation from legacy module
     try:
@@ -189,8 +187,7 @@ def validate_all(strict: bool = False) -> Dict[str, Any]:
 
     return result
 
-
-def validate_production() -> Dict[str, Any]:
+def validate_production() -> dict[str, Any]:
     """
     Validate configuration for production deployment.
 
@@ -205,8 +202,7 @@ def validate_production() -> Dict[str, Any]:
     """
     return validate_all(strict=True)
 
-
-def get_missing_required_keys() -> List[str]:
+def get_missing_required_keys() -> list[str]:
     """
     Get list of missing required environment variables.
 
@@ -236,7 +232,6 @@ def get_missing_required_keys() -> List[str]:
 
     return missing
 
-
 def print_config_status() -> None:
     """Print a formatted configuration status report to stdout."""
     result = validate_all(strict=False)
@@ -254,7 +249,6 @@ def print_config_status() -> None:
             pass
 
     "PASS" if result["valid"] else "FAIL"
-
 
 __all__ = [
     "ConfigurationError",

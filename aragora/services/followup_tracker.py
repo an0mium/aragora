@@ -28,13 +28,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
 logger = logging.getLogger(__name__)
-
 
 class FollowUpStatus(str, Enum):
     """Status of a follow-up item."""
@@ -45,7 +44,6 @@ class FollowUpStatus(str, Enum):
     RESOLVED = "resolved"  # Manually marked as resolved
     CANCELLED = "cancelled"  # No longer tracking
 
-
 class FollowUpPriority(str, Enum):
     """Priority level for follow-ups."""
 
@@ -53,7 +51,6 @@ class FollowUpPriority(str, Enum):
     HIGH = "high"  # Important, check soon
     NORMAL = "normal"  # Standard follow-up
     LOW = "low"  # Can wait
-
 
 @dataclass
 class FollowUpItem:
@@ -66,12 +63,12 @@ class FollowUpItem:
     recipient: str
     sent_at: datetime
     status: FollowUpStatus = FollowUpStatus.AWAITING
-    expected_by: Optional[datetime] = None
+    expected_by: datetime | None = None
     priority: FollowUpPriority = FollowUpPriority.NORMAL
     notes: str = ""
     reminder_count: int = 0
-    last_reminder: Optional[datetime] = None
-    reply_received_at: Optional[datetime] = None
+    last_reminder: datetime | None = None
+    reply_received_at: datetime | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -94,7 +91,7 @@ class FollowUpItem:
             return (datetime.now() - self.expected_by).days
         return 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -113,7 +110,6 @@ class FollowUpItem:
             "reminder_count": self.reminder_count,
         }
 
-
 @dataclass
 class FollowUpStats:
     """Statistics about follow-ups."""
@@ -123,9 +119,9 @@ class FollowUpStats:
     urgent_count: int = 0
     avg_wait_days: float = 0.0
     resolved_this_week: int = 0
-    top_recipients: List[Dict[str, Any]] = field(default_factory=list)
+    top_recipients: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_pending": self.total_pending,
             "overdue_count": self.overdue_count,
@@ -134,7 +130,6 @@ class FollowUpStats:
             "resolved_this_week": self.resolved_this_week,
             "top_recipients": self.top_recipients,
         }
-
 
 class FollowUpTracker:
     """
@@ -146,7 +141,7 @@ class FollowUpTracker:
 
     def __init__(
         self,
-        gmail_connector: Optional[GmailConnector] = None,
+        gmail_connector: GmailConnector | None = None,
         default_followup_days: int = 3,
         auto_detect_threshold_days: int = 2,
     ):
@@ -155,9 +150,9 @@ class FollowUpTracker:
         self.auto_detect_threshold_days = auto_detect_threshold_days
 
         # In-memory storage (would be persisted in production)
-        self._followups: Dict[str, FollowUpItem] = {}
-        self._by_thread: Dict[str, Set[str]] = {}  # thread_id -> followup_ids
-        self._by_recipient: Dict[str, Set[str]] = {}  # recipient -> followup_ids
+        self._followups: dict[str, FollowUpItem] = {}
+        self._by_thread: dict[str, set[str]] = {}  # thread_id -> followup_ids
+        self._by_recipient: dict[str, set[str]] = {}  # recipient -> followup_ids
 
     async def mark_awaiting_reply(
         self,
@@ -165,8 +160,8 @@ class FollowUpTracker:
         thread_id: str,
         subject: str,
         recipient: str,
-        sent_at: Optional[datetime] = None,
-        expected_by: Optional[datetime] = None,
+        sent_at: datetime | None = None,
+        expected_by: datetime | None = None,
         priority: FollowUpPriority = FollowUpPriority.NORMAL,
         notes: str = "",
     ) -> FollowUpItem:
@@ -229,7 +224,7 @@ class FollowUpTracker:
         user_id: str = "default",
         include_resolved: bool = False,
         sort_by: str = "expected_by",
-    ) -> List[FollowUpItem]:
+    ) -> list[FollowUpItem]:
         """
         Get all pending follow-ups for a user.
 
@@ -271,7 +266,7 @@ class FollowUpTracker:
 
         return items
 
-    async def check_for_replies(self, thread_ids: Optional[List[str]] = None) -> List[FollowUpItem]:
+    async def check_for_replies(self, thread_ids: Optional[list[str]] = None) -> list[FollowUpItem]:
         """
         Check if replies have been received for tracked threads.
 
@@ -332,8 +327,8 @@ class FollowUpTracker:
     async def auto_detect_sent_emails(
         self,
         days_back: int = 7,
-        exclude_recipients: Optional[Set[str]] = None,
-    ) -> List[FollowUpItem]:
+        exclude_recipients: Optional[set[str]] = None,
+    ) -> list[FollowUpItem]:
         """
         Auto-detect sent emails that might need follow-up tracking.
 
@@ -415,7 +410,7 @@ class FollowUpTracker:
         followup_id: str,
         status: FollowUpStatus = FollowUpStatus.RESOLVED,
         notes: str = "",
-    ) -> Optional[FollowUpItem]:
+    ) -> FollowUpItem | None:
         """
         Mark a follow-up as resolved.
 
@@ -441,7 +436,7 @@ class FollowUpTracker:
         self,
         followup_id: str,
         priority: FollowUpPriority,
-    ) -> Optional[FollowUpItem]:
+    ) -> FollowUpItem | None:
         """Update follow-up priority."""
         item = self._followups.get(followup_id)
         if not item:
@@ -455,7 +450,7 @@ class FollowUpTracker:
         self,
         followup_id: str,
         expected_by: datetime,
-    ) -> Optional[FollowUpItem]:
+    ) -> FollowUpItem | None:
         """Update expected response date."""
         item = self._followups.get(followup_id)
         if not item:
@@ -470,7 +465,7 @@ class FollowUpTracker:
 
         return item
 
-    async def record_reminder_sent(self, followup_id: str) -> Optional[FollowUpItem]:
+    async def record_reminder_sent(self, followup_id: str) -> FollowUpItem | None:
         """Record that a reminder was sent for this follow-up."""
         item = self._followups.get(followup_id)
         if not item:
@@ -504,7 +499,7 @@ class FollowUpTracker:
         ]
 
         # Top recipients
-        recipient_counts: Dict[str, int] = {}
+        recipient_counts: dict[str, int] = {}
         for item in pending:
             recipient = item.recipient.lower()
             recipient_counts[recipient] = recipient_counts.get(recipient, 0) + 1
@@ -523,13 +518,13 @@ class FollowUpTracker:
             top_recipients=top_recipients,
         )
 
-    async def get_followups_by_recipient(self, recipient: str) -> List[FollowUpItem]:
+    async def get_followups_by_recipient(self, recipient: str) -> list[FollowUpItem]:
         """Get all follow-ups for a specific recipient."""
         recipient_lower = recipient.lower()
         followup_ids = self._by_recipient.get(recipient_lower, set())
         return [self._followups[fid] for fid in followup_ids if fid in self._followups]
 
-    async def get_overdue_followups(self) -> List[FollowUpItem]:
+    async def get_overdue_followups(self) -> list[FollowUpItem]:
         """Get all overdue follow-ups."""
         return [
             item
@@ -538,7 +533,7 @@ class FollowUpTracker:
             or (item.status == FollowUpStatus.AWAITING and item.is_overdue)
         ]
 
-    async def get_followups_due_soon(self, days: int = 1) -> List[FollowUpItem]:
+    async def get_followups_due_soon(self, days: int = 1) -> list[FollowUpItem]:
         """Get follow-ups due within the specified days."""
         threshold = datetime.now() + timedelta(days=days)
         return [

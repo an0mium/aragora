@@ -4,9 +4,9 @@ Legal Industry Workflow Templates.
 Templates for legal document review and compliance workflows.
 """
 
-from typing import Dict, Any
+from typing import Any
 
-CONTRACT_REVIEW_TEMPLATE: Dict[str, Any] = {
+CONTRACT_REVIEW_TEMPLATE: dict[str, Any] = {
     "name": "Contract Review",
     "description": "Multi-agent contract analysis with risk assessment and clause review",
     "category": "legal",
@@ -104,7 +104,7 @@ CONTRACT_REVIEW_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-DUE_DILIGENCE_TEMPLATE: Dict[str, Any] = {
+DUE_DILIGENCE_TEMPLATE: dict[str, Any] = {
     "name": "Due Diligence Review",
     "description": "Comprehensive M&A due diligence workflow with multi-document analysis",
     "category": "legal",
@@ -210,7 +210,7 @@ DUE_DILIGENCE_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-COMPLIANCE_AUDIT_TEMPLATE: Dict[str, Any] = {
+COMPLIANCE_AUDIT_TEMPLATE: dict[str, Any] = {
     "name": "Compliance Audit",
     "description": "Regulatory compliance audit workflow with gap analysis",
     "category": "legal",
@@ -320,7 +320,7 @@ COMPLIANCE_AUDIT_TEMPLATE: Dict[str, Any] = {
 # E-Signature Workflow (DocuSign Integration)
 # =============================================================================
 
-E_SIGNATURE_WORKFLOW_TEMPLATE: Dict[str, Any] = {
+E_SIGNATURE_WORKFLOW_TEMPLATE: dict[str, Any] = {
     "name": "Contract E-Signature Workflow",
     "description": "End-to-end contract signing workflow with DocuSign integration",
     "category": "legal",

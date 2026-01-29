@@ -26,25 +26,23 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.nomic.meta_planner import PrioritizedGoal, Track
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TrackAssignment:
     """Assignment of a goal to a track for parallel execution."""
 
     goal: PrioritizedGoal
-    branch_name: Optional[str] = None
+    branch_name: str | None = None
     status: str = "pending"  # pending, running, completed, failed, merged
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    result: Optional[dict[str, Any]] = None
+    error: str | None = None
 
 @dataclass
 class ConflictReport:
@@ -52,10 +50,9 @@ class ConflictReport:
 
     source_branch: str
     target_branch: str
-    conflicting_files: List[str]
+    conflicting_files: list[str]
     severity: str  # low, medium, high
     resolution_hint: str = ""
-
 
 @dataclass
 class MergeResult:
@@ -64,10 +61,9 @@ class MergeResult:
     source_branch: str
     target_branch: str
     success: bool
-    commit_sha: Optional[str] = None
-    error: Optional[str] = None
-    conflicts: List[str] = field(default_factory=list)
-
+    commit_sha: str | None = None
+    error: str | None = None
+    conflicts: list[str] = field(default_factory=list)
 
 @dataclass
 class CoordinationResult:
@@ -77,11 +73,10 @@ class CoordinationResult:
     completed_branches: int
     failed_branches: int
     merged_branches: int
-    assignments: List[TrackAssignment]
+    assignments: list[TrackAssignment]
     duration_seconds: float
     success: bool
     summary: str = ""
-
 
 @dataclass
 class BranchCoordinatorConfig:
@@ -93,7 +88,6 @@ class BranchCoordinatorConfig:
     require_tests_pass: bool = True
     max_parallel_branches: int = 3
 
-
 class BranchCoordinator:
     """Manages parallel development branches.
 
@@ -103,14 +97,14 @@ class BranchCoordinator:
 
     def __init__(
         self,
-        repo_path: Optional[Path] = None,
-        config: Optional[BranchCoordinatorConfig] = None,
+        repo_path: Path | None = None,
+        config: BranchCoordinatorConfig | None = None,
         on_conflict: Optional[Callable[[ConflictReport], None]] = None,
     ):
         self.repo_path = repo_path or Path.cwd()
         self.config = config or BranchCoordinatorConfig()
         self.on_conflict = on_conflict
-        self._active_branches: List[str] = []
+        self._active_branches: list[str] = []
 
     def _run_git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
         """Run a git command."""
@@ -142,7 +136,7 @@ class BranchCoordinator:
         self,
         track: Track,
         goal: str,
-        base_branch: Optional[str] = None,
+        base_branch: str | None = None,
     ) -> str:
         """Create a feature branch for a track.
 
@@ -180,8 +174,8 @@ class BranchCoordinator:
 
     async def create_track_branches(
         self,
-        assignments: List[TrackAssignment],
-    ) -> List[TrackAssignment]:
+        assignments: list[TrackAssignment],
+    ) -> list[TrackAssignment]:
         """Create branches for all track assignments.
 
         Args:
@@ -204,9 +198,9 @@ class BranchCoordinator:
 
     async def detect_conflicts(
         self,
-        branches: List[str],
-        target_branch: Optional[str] = None,
-    ) -> List[ConflictReport]:
+        branches: list[str],
+        target_branch: str | None = None,
+    ) -> list[ConflictReport]:
         """Detect potential merge conflicts between branches.
 
         Args:
@@ -255,7 +249,7 @@ class BranchCoordinator:
 
         return conflicts
 
-    def _get_branch_files(self, branch: str, base: str) -> List[str]:
+    def _get_branch_files(self, branch: str, base: str) -> list[str]:
         """Get files changed in a branch relative to base."""
         result = self._run_git(
             "diff",
@@ -267,7 +261,7 @@ class BranchCoordinator:
             return []
         return [f.strip() for f in result.stdout.split("\n") if f.strip()]
 
-    def _generate_resolution_hint(self, conflicting_files: List[str]) -> str:
+    def _generate_resolution_hint(self, conflicting_files: list[str]) -> str:
         """Generate a hint for resolving conflicts."""
         if any("test" in f.lower() for f in conflicting_files):
             return "Consider merging test changes separately"
@@ -278,7 +272,7 @@ class BranchCoordinator:
     async def safe_merge(
         self,
         source: str,
-        target: Optional[str] = None,
+        target: str | None = None,
         dry_run: bool = False,
     ) -> MergeResult:
         """Merge a branch if safe.
@@ -354,7 +348,7 @@ class BranchCoordinator:
             commit_sha=commit_sha,
         )
 
-    def _parse_merge_conflicts(self, stderr: str) -> List[str]:
+    def _parse_merge_conflicts(self, stderr: str) -> list[str]:
         """Parse conflicting files from git merge stderr."""
         conflicts = []
         for line in stderr.split("\n"):
@@ -367,7 +361,7 @@ class BranchCoordinator:
 
     async def coordinate_parallel_work(
         self,
-        assignments: List[TrackAssignment],
+        assignments: list[TrackAssignment],
         run_nomic_fn: Optional[Callable[[TrackAssignment], Any]] = None,
     ) -> CoordinationResult:
         """Run nomic loops in parallel on separate branches.
@@ -471,11 +465,11 @@ class BranchCoordinator:
             # Return to base branch
             self._run_git("checkout", self.config.base_branch, check=False)
 
-    def _generate_summary(self, assignments: List[TrackAssignment]) -> str:
+    def _generate_summary(self, assignments: list[TrackAssignment]) -> str:
         """Generate a summary of coordination result."""
         lines = ["Branch Coordination Summary:", ""]
 
-        by_status: Dict[str, List[str]] = {}
+        by_status: dict[str, list[str]] = {}
         for a in assignments:
             if a.status not in by_status:
                 by_status[a.status] = []
@@ -501,7 +495,7 @@ class BranchCoordinator:
         slug = slug.strip("-")
         return slug
 
-    def cleanup_branches(self, branches: Optional[List[str]] = None) -> int:
+    def cleanup_branches(self, branches: Optional[list[str]] = None) -> int:
         """Delete merged or stale branches.
 
         Args:
@@ -532,7 +526,6 @@ class BranchCoordinator:
                 logger.info(f"Deleted merged branch: {branch}")
 
         return deleted
-
 
 __all__ = [
     "BranchCoordinator",

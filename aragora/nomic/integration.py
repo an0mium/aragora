@@ -11,13 +11,14 @@ Coordinates all advanced features for the nomic loop:
 This module provides a unified interface for the nomic loop to leverage
 all aragora features in a coordinated way.
 """
+from __future__ import annotations
 
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,6 @@ from aragora.reasoning.provenance_enhanced import (
     StalenessStatus,
 )
 
-
 @dataclass
 class BeliefAnalysis:
     """Result of analyzing a debate with belief propagation."""
@@ -71,7 +71,7 @@ class BeliefAnalysis:
         return len(self.crux_claims) > 0
 
     @property
-    def top_crux(self) -> Optional[BeliefNode]:
+    def top_crux(self) -> BeliefNode | None:
         """Get the most important contested claim."""
         if self.crux_claims:
             return max(self.crux_claims, key=lambda n: self.centralities.get(n.claim_id, 0))
@@ -89,14 +89,13 @@ class BeliefAnalysis:
             "timestamp": self.analysis_timestamp.isoformat(),
         }
 
-
 @dataclass
 class AgentReliability:
     """Agent reliability assessment from capability probing."""
 
     agent_name: str
     weight: float  # 0.0 to 1.0 multiplier for consensus
-    vulnerability_report: Optional[VulnerabilityReport]
+    vulnerability_report: VulnerabilityReport | None
     probe_results: list[ProbeResult]
     probed_at: datetime = field(default_factory=datetime.now)
 
@@ -111,7 +110,6 @@ class AgentReliability:
         if self.vulnerability_report:
             return self.vulnerability_report.critical_count
         return 0
-
 
 @dataclass
 class StalenessReport:
@@ -134,7 +132,6 @@ class StalenessReport:
         """Get IDs of stale claims."""
         return [c.claim_id for c in self.stale_claims]
 
-
 @dataclass
 class PhaseCheckpoint:
     """Checkpoint for a nomic loop phase."""
@@ -144,7 +141,6 @@ class PhaseCheckpoint:
     state: dict[str, Any]
     checkpoint: DebateCheckpoint
     created_at: datetime = field(default_factory=datetime.now)
-
 
 class NomicIntegration:
     """
@@ -175,7 +171,7 @@ class NomicIntegration:
     def __init__(
         self,
         elo_system=None,
-        checkpoint_dir: Optional[Path] = None,
+        checkpoint_dir: Path | None = None,
         enable_probing: bool = True,
         enable_belief_analysis: bool = True,
         enable_staleness_check: bool = True,
@@ -218,16 +214,16 @@ class NomicIntegration:
             self.checkpoint_mgr = None
 
         # State tracking
-        self._current_debate_id: Optional[str] = None
+        self._current_debate_id: str | None = None
         self._current_cycle: int = 0
-        self._belief_network: Optional[BeliefNetwork] = None
+        self._belief_network: BeliefNetwork | None = None
         self._agent_weights: dict[str, float] = {}
         self._phase_checkpoints: list[PhaseCheckpoint] = []
 
     async def analyze_debate(
         self,
         result: DebateResult,
-        claims_kernel: Optional[ClaimsKernel] = None,
+        claims_kernel: ClaimsKernel | None = None,
         disagreement_threshold: float = 0.6,
         centrality_threshold: float = 0.3,
     ) -> BeliefAnalysis:
@@ -355,7 +351,7 @@ class NomicIntegration:
     async def probe_agents(
         self,
         agents: list[Agent],
-        run_agent_fn: Optional[Callable] = None,
+        run_agent_fn: Callable | None = None,
         probe_count: int = 3,
         min_weight: float = 0.5,
     ) -> dict[str, float]:
@@ -420,7 +416,7 @@ class NomicIntegration:
         self,
         claims: list[TypedClaim],
         changed_files: list[str],
-        repo_path: Optional[Path] = None,
+        repo_path: Path | None = None,
     ) -> StalenessReport:
         """
         Check which claims have stale evidence due to code changes.
@@ -527,8 +523,8 @@ class NomicIntegration:
         self,
         contested_claims: list[BeliefNode],
         arena=None,  # Optional Arena for running branches
-        run_branch_fn: Optional[Callable] = None,
-    ) -> Optional[ConditionalConsensus]:
+        run_branch_fn: Callable | None = None,
+    ) -> ConditionalConsensus | None:
         """
         Resolve debate deadlock by forking on contested claims.
 
@@ -613,9 +609,9 @@ class NomicIntegration:
     async def full_post_debate_analysis(
         self,
         result: DebateResult,
-        arena: Optional[Any] = None,
-        claims_kernel: Optional[ClaimsKernel] = None,
-        changed_files: Optional[list[str]] = None,
+        arena: Any | None = None,
+        claims_kernel: ClaimsKernel | None = None,
+        changed_files: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Run all post-debate analyses in one unified call.
@@ -677,9 +673,9 @@ class NomicIntegration:
         self,
         phase: str,
         state: dict[str, Any],
-        debate_id: Optional[str] = None,
-        cycle: Optional[int] = None,
-    ) -> Optional[str]:
+        debate_id: str | None = None,
+        cycle: int | None = None,
+    ) -> str | None:
         """
         Create a checkpoint for the current phase.
 
@@ -734,7 +730,7 @@ class NomicIntegration:
     async def resume_from_checkpoint(
         self,
         checkpoint_id: str,
-    ) -> Optional[PhaseCheckpoint]:
+    ) -> PhaseCheckpoint | None:
         """
         Resume from a previous checkpoint.
 
@@ -777,7 +773,7 @@ class NomicIntegration:
 
     async def list_checkpoints(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> list[dict]:
         """List available checkpoints."""
         if not self.checkpoint_mgr:
@@ -802,11 +798,10 @@ class NomicIntegration:
         """Set the current debate ID."""
         self._current_debate_id = debate_id
 
-
 # Convenience function for creating integration with defaults
 def create_nomic_integration(
     elo_system=None,
-    checkpoint_dir: Optional[str] = None,
+    checkpoint_dir: str | None = None,
     **feature_flags,
 ) -> NomicIntegration:
     """

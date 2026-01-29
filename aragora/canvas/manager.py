@@ -11,7 +11,7 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine, Optional
 
 from .models import (
     Canvas,
@@ -25,7 +25,6 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class CanvasStateManager:
     """
@@ -46,12 +45,12 @@ class CanvasStateManager:
         Args:
             max_history: Maximum undo history size per canvas
         """
-        self._canvases: Dict[str, Canvas] = {}
-        self._subscribers: Dict[str, Set[Callable[[CanvasEvent], Coroutine[Any, Any, None]]]] = {}
-        self._user_selections: Dict[
-            str, Dict[str, Set[str]]
+        self._canvases: dict[str, Canvas] = {}
+        self._subscribers: dict[str, set[Callable[[CanvasEvent], Coroutine[Any, Any, None]]]] = {}
+        self._user_selections: dict[
+            str, dict[str, set[str]]
         ] = {}  # canvas_id -> user_id -> node_ids
-        self._history: Dict[str, List[CanvasEvent]] = {}  # canvas_id -> events
+        self._history: dict[str, list[CanvasEvent]] = {}  # canvas_id -> events
         self._max_history = max_history
         self._lock = asyncio.Lock()
 
@@ -61,10 +60,10 @@ class CanvasStateManager:
 
     async def create_canvas(
         self,
-        canvas_id: Optional[str] = None,
+        canvas_id: str | None = None,
         name: str = "Untitled Canvas",
-        owner_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        owner_id: str | None = None,
+        workspace_id: str | None = None,
         **metadata: Any,
     ) -> Canvas:
         """Create a new canvas."""
@@ -85,7 +84,7 @@ class CanvasStateManager:
             logger.info(f"Created canvas: {canvas_id} ({name})")
             return canvas
 
-    async def get_canvas(self, canvas_id: str) -> Optional[Canvas]:
+    async def get_canvas(self, canvas_id: str) -> Canvas | None:
         """Get a canvas by ID."""
         return self._canvases.get(canvas_id)
 
@@ -115,9 +114,9 @@ class CanvasStateManager:
 
     async def list_canvases(
         self,
-        owner_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> List[Canvas]:
+        owner_id: str | None = None,
+        workspace_id: str | None = None,
+    ) -> list[Canvas]:
         """List canvases, optionally filtered by owner or workspace."""
         canvases = list(self._canvases.values())
 
@@ -131,12 +130,12 @@ class CanvasStateManager:
     async def update_canvas(
         self,
         canvas_id: str,
-        name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        owner_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Optional[Canvas]:
+        name: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        owner_id: str | None = None,
+        workspace_id: str | None = None,
+        user_id: str | None = None,
+    ) -> Canvas | None:
         """
         Update canvas properties.
 
@@ -156,7 +155,7 @@ class CanvasStateManager:
             if not canvas:
                 return None
 
-            updates: Dict[str, Any] = {}
+            updates: dict[str, Any] = {}
 
             if name is not None:
                 canvas.name = name
@@ -200,10 +199,10 @@ class CanvasStateManager:
         node_type: CanvasNodeType,
         position: Position,
         label: str = "",
-        data: Optional[Dict[str, Any]] = None,
-        user_id: Optional[str] = None,
+        data: Optional[dict[str, Any]] = None,
+        user_id: str | None = None,
         **kwargs: Any,
-    ) -> Optional[CanvasNode]:
+    ) -> CanvasNode | None:
         """Add a node to the canvas."""
         canvas = self._canvases.get(canvas_id)
         if not canvas:
@@ -234,9 +233,9 @@ class CanvasStateManager:
         self,
         canvas_id: str,
         node_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         **updates: Any,
-    ) -> Optional[CanvasNode]:
+    ) -> CanvasNode | None:
         """Update a node's properties."""
         canvas = self._canvases.get(canvas_id)
         if not canvas:
@@ -277,8 +276,8 @@ class CanvasStateManager:
         node_id: str,
         x: float,
         y: float,
-        user_id: Optional[str] = None,
-    ) -> Optional[CanvasNode]:
+        user_id: str | None = None,
+    ) -> CanvasNode | None:
         """Move a node to a new position."""
         canvas = self._canvases.get(canvas_id)
         if not canvas:
@@ -316,8 +315,8 @@ class CanvasStateManager:
         node_id: str,
         width: float,
         height: float,
-        user_id: Optional[str] = None,
-    ) -> Optional[CanvasNode]:
+        user_id: str | None = None,
+    ) -> CanvasNode | None:
         """Resize a node."""
         canvas = self._canvases.get(canvas_id)
         if not canvas:
@@ -353,7 +352,7 @@ class CanvasStateManager:
         self,
         canvas_id: str,
         node_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> bool:
         """Delete a node from the canvas."""
         canvas = self._canvases.get(canvas_id)
@@ -420,9 +419,9 @@ class CanvasStateManager:
         target_id: str,
         edge_type: EdgeType = EdgeType.DEFAULT,
         label: str = "",
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         **kwargs: Any,
-    ) -> Optional[CanvasEdge]:
+    ) -> CanvasEdge | None:
         """Add an edge between two nodes."""
         canvas = self._canvases.get(canvas_id)
         if not canvas:
@@ -455,9 +454,9 @@ class CanvasStateManager:
         self,
         canvas_id: str,
         edge_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         **updates: Any,
-    ) -> Optional[CanvasEdge]:
+    ) -> CanvasEdge | None:
         """Update an edge's properties."""
         canvas = self._canvases.get(canvas_id)
         if not canvas:
@@ -494,7 +493,7 @@ class CanvasStateManager:
         self,
         canvas_id: str,
         edge_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> bool:
         """Delete an edge from the canvas."""
         canvas = self._canvases.get(canvas_id)
@@ -526,9 +525,9 @@ class CanvasStateManager:
         self,
         canvas_id: str,
         action: str,
-        params: Dict[str, Any],
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any],
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Execute a canvas action.
 
@@ -547,7 +546,7 @@ class CanvasStateManager:
         )
         await self._broadcast(canvas_id, action_event)
 
-        result: Dict[str, Any] = {"success": True, "action": action}
+        result: dict[str, Any] = {"success": True, "action": action}
 
         # Handle built-in actions
         if action == "start_debate":
@@ -576,9 +575,9 @@ class CanvasStateManager:
     async def _handle_start_debate(
         self,
         canvas: Canvas,
-        params: Dict[str, Any],
-        user_id: Optional[str],
-    ) -> Dict[str, Any]:
+        params: dict[str, Any],
+        user_id: str | None,
+    ) -> dict[str, Any]:
         """Handle starting a debate from the canvas."""
         question = params.get("question", "")
         if not question:
@@ -690,7 +689,7 @@ class CanvasStateManager:
                 "error": str(e),
             }
 
-    async def _get_debate_agents(self, agent_config: Optional[List[str]] = None):
+    async def _get_debate_agents(self, agent_config: Optional[list[str]] = None):
         """Get agents for debate, using defaults if not specified."""
         try:
             from aragora.agents.registry import AgentRegistry
@@ -728,9 +727,9 @@ class CanvasStateManager:
     async def _handle_run_workflow(
         self,
         canvas: Canvas,
-        params: Dict[str, Any],
-        user_id: Optional[str],
-    ) -> Dict[str, Any]:
+        params: dict[str, Any],
+        user_id: str | None,
+    ) -> dict[str, Any]:
         """Handle running a workflow from the canvas."""
         workflow_id = params.get("workflow_id")
         workflow_definition = params.get("definition")
@@ -843,9 +842,9 @@ class CanvasStateManager:
     async def _handle_query_knowledge(
         self,
         canvas: Canvas,
-        params: Dict[str, Any],
-        user_id: Optional[str],
-    ) -> Dict[str, Any]:
+        params: dict[str, Any],
+        user_id: str | None,
+    ) -> dict[str, Any]:
         """Handle querying knowledge from the canvas."""
         query = params.get("query", "")
         if not query:
@@ -933,7 +932,7 @@ class CanvasStateManager:
         query: str,
         limit: int = 10,
         min_confidence: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Query the knowledge mound for relevant information."""
         try:
             from aragora.knowledge.mound.facade import KnowledgeMound
@@ -1025,7 +1024,7 @@ class CanvasStateManager:
         self,
         canvas_id: str,
         limit: int = 50,
-    ) -> List[CanvasEvent]:
+    ) -> list[CanvasEvent]:
         """Get recent history for a canvas."""
         history = self._history.get(canvas_id, [])
         return history[-limit:] if limit else history
@@ -1034,7 +1033,7 @@ class CanvasStateManager:
     # State Sync
     # =========================================================================
 
-    async def get_state(self, canvas_id: str) -> Optional[Dict[str, Any]]:
+    async def get_state(self, canvas_id: str) -> Optional[dict[str, Any]]:
         """Get the full state of a canvas for sync."""
         canvas = self._canvases.get(canvas_id)
         if not canvas:
@@ -1051,7 +1050,7 @@ class CanvasStateManager:
     async def sync_state(
         self,
         canvas_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> None:
         """Broadcast current state to all subscribers."""
         state = await self.get_state(canvas_id)
@@ -1066,10 +1065,8 @@ class CanvasStateManager:
         )
         await self._broadcast(canvas_id, event)
 
-
 # Global manager instance
-_manager: Optional[CanvasStateManager] = None
-
+_manager: CanvasStateManager | None = None
 
 def get_canvas_manager() -> CanvasStateManager:
     """Get or create the global canvas state manager."""
@@ -1077,7 +1074,6 @@ def get_canvas_manager() -> CanvasStateManager:
     if _manager is None:
         _manager = CanvasStateManager()
     return _manager
-
 
 __all__ = [
     "CanvasStateManager",

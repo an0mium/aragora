@@ -37,10 +37,9 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CacheEntry:
@@ -52,7 +51,6 @@ class CacheEntry:
     hit_count: int = 0
     request_hash: str = ""
 
-
 @dataclass
 class InFlightRequest:
     """Tracks an in-flight request for deduplication."""
@@ -60,10 +58,9 @@ class InFlightRequest:
     request_hash: str
     started_at: float
     event: asyncio.Event = field(default_factory=asyncio.Event)
-    result: Optional[Any] = None
-    error: Optional[Exception] = None
+    result: Any | None = None
+    error: Exception | None = None
     waiters: int = 0
-
 
 @dataclass
 class CacheConfig:
@@ -87,7 +84,6 @@ class CacheConfig:
     # Metrics
     track_metrics: bool = True
 
-
 class DecisionCache:
     """
     Cache for decision results with request deduplication.
@@ -99,11 +95,11 @@ class DecisionCache:
     - Thread-safe async operations
     """
 
-    def __init__(self, config: Optional[CacheConfig] = None):
+    def __init__(self, config: CacheConfig | None = None):
         """Initialize the cache."""
         self.config = config or CacheConfig()
-        self._cache: Dict[str, CacheEntry] = {}
-        self._in_flight: Dict[str, InFlightRequest] = {}
+        self._cache: dict[str, CacheEntry] = {}
+        self._in_flight: dict[str, InFlightRequest] = {}
         self._lock = asyncio.Lock()
 
         # Metrics
@@ -144,7 +140,7 @@ class DecisionCache:
         key_str = "|".join(key_parts)
         return hashlib.sha256(key_str.encode()).hexdigest()[:32]
 
-    async def get(self, request: Any) -> Optional[Any]:
+    async def get(self, request: Any) -> Any | None:
         """
         Get cached result for a request.
 
@@ -183,7 +179,7 @@ class DecisionCache:
         self,
         request: Any,
         result: Any,
-        ttl_seconds: Optional[float] = None,
+        ttl_seconds: float | None = None,
     ) -> None:
         """
         Cache a result for a request.
@@ -311,8 +307,8 @@ class DecisionCache:
     async def complete_in_flight(
         self,
         request: Any,
-        result: Optional[Any] = None,
-        error: Optional[Exception] = None,
+        result: Any | None = None,
+        error: Exception | None = None,
     ) -> None:
         """
         Mark an in-flight request as complete and notify waiters.
@@ -358,8 +354,8 @@ class DecisionCache:
     async def wait_for_result(
         self,
         request: Any,
-        timeout: Optional[float] = None,
-    ) -> Optional[Any]:
+        timeout: float | None = None,
+    ) -> Any | None:
         """
         Wait for an in-flight request to complete and get its result.
 
@@ -408,7 +404,7 @@ class DecisionCache:
     # Metrics
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         total_requests = self._hits + self._misses
         hit_rate = self._hits / total_requests if total_requests > 0 else 0.0
@@ -434,15 +430,13 @@ class DecisionCache:
         self._dedup_hits = 0
         self._evictions = 0
 
-
 # =============================================================================
 # Singleton
 # =============================================================================
 
-_decision_cache_instance: Optional[DecisionCache] = None
+_decision_cache_instance: DecisionCache | None = None
 
-
-def get_decision_cache(config: Optional[CacheConfig] = None) -> DecisionCache:
+def get_decision_cache(config: CacheConfig | None = None) -> DecisionCache:
     """
     Get the singleton decision cache instance.
 
@@ -457,12 +451,10 @@ def get_decision_cache(config: Optional[CacheConfig] = None) -> DecisionCache:
         _decision_cache_instance = DecisionCache(config=config)
     return _decision_cache_instance
 
-
 def reset_decision_cache() -> None:
     """Reset the singleton instance (for testing)."""
     global _decision_cache_instance
     _decision_cache_instance = None
-
 
 __all__ = [
     "DecisionCache",

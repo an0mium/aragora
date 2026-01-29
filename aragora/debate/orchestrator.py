@@ -107,7 +107,6 @@ if TYPE_CHECKING:
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
     from aragora.types.protocols import EventEmitterProtocol
 
-
 @register_lru_cache
 @lru_cache(maxsize=1024)
 def _compute_domain_from_task(task_lower: str) -> str:
@@ -133,7 +132,6 @@ def _compute_domain_from_task(task_lower: str) -> str:
     if any(w in task_lower for w in ("ui", "frontend", "react", "css", "layout")):
         return "frontend"
     return "general"
-
 
 class Arena:
     """
@@ -169,9 +167,9 @@ class Arena:
         memory=None,  # CritiqueStore instance
         event_hooks: dict = None,  # Optional hooks for streaming events
         hook_manager=None,  # Optional HookManager for extended lifecycle hooks
-        event_emitter: Optional[
+        event_emitter: 
             "EventEmitterProtocol"
-        ] = None,  # Optional event emitter for subscribing to user events
+         | None = None,  # Optional event emitter for subscribing to user events
         spectator: SpectatorStream = None,  # Optional spectator stream for real-time events
         debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
         insight_store=None,  # Optional InsightStore for extracting learnings from debates
@@ -600,7 +598,7 @@ class Arena:
         self._ml_quality_gate = core.ml_quality_gate
         self._ml_consensus_estimator = core.ml_consensus_estimator
         # Event bus initialized later in _init_event_bus() after audience_manager exists
-        self.event_bus: Optional[EventBus] = None
+        self.event_bus: EventBus | None = None
 
     def _apply_tracker_components(self, trackers) -> None:
         """Unpack TrackerComponents dataclass to instance attributes."""
@@ -692,7 +690,7 @@ class Arena:
         self.roles_manager.assign_stances(round_num=0)
         self.roles_manager.apply_agreement_intensity()
 
-    def _init_convergence(self, debate_id: Optional[str] = None) -> None:
+    def _init_convergence(self, debate_id: str | None = None) -> None:
         """Initialize convergence detection if enabled."""
         self.convergence_detector = None
         self._convergence_debate_id = debate_id
@@ -779,18 +777,18 @@ class Arena:
     def _init_agent_hierarchy(
         self,
         enable_agent_hierarchy: bool,
-        hierarchy_config: Optional[HierarchyConfig],
+        hierarchy_config: HierarchyConfig | None,
     ) -> None:
         """Initialize AgentHierarchy. Delegates to orchestrator_agents."""
         self.enable_agent_hierarchy = enable_agent_hierarchy
-        self._hierarchy: Optional[AgentHierarchy] = _agents_init_agent_hierarchy(
+        self._hierarchy: AgentHierarchy | None = _agents_init_agent_hierarchy(
             enable_agent_hierarchy, hierarchy_config
         )
 
     def _assign_hierarchy_roles(
         self,
         ctx: "DebateContext",
-        task_type: Optional[str] = None,
+        task_type: str | None = None,
     ) -> None:
         """Assign hierarchy roles to agents. Delegates to orchestrator_agents."""
         _agents_assign_hierarchy_roles(ctx, self.enable_agent_hierarchy, self._hierarchy, task_type)
@@ -1128,7 +1126,7 @@ class Arena:
         debate_id: str,
         round_num: int,
         confidence: float = 0.7,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ):
         """Record position. Delegates to GroundedOperations."""
         self._grounded_ops.record_position(
@@ -1141,7 +1139,7 @@ class Arena:
         )
 
     def _update_agent_relationships(
-        self, debate_id: str, participants: list[str], winner: Optional[str], votes: list
+        self, debate_id: str, participants: list[str], winner: str | None, votes: list
     ):
         """Update relationships. Delegates to GroundedOperations."""
         self._grounded_ops.update_relationships(debate_id, participants, winner, votes)
@@ -1170,19 +1168,19 @@ class Arena:
         """Perform multi-source research for the debate topic."""
         return await self._context_delegator.perform_research(task)
 
-    async def _gather_aragora_context(self, task: str) -> Optional[str]:
+    async def _gather_aragora_context(self, task: str) -> str | None:
         """Gather Aragora-specific documentation context if relevant to task."""
         return await self._context_delegator.gather_aragora_context(task)
 
-    async def _gather_evidence_context(self, task: str) -> Optional[str]:
+    async def _gather_evidence_context(self, task: str) -> str | None:
         """Gather evidence from web, GitHub, and local docs connectors."""
         return await self._context_delegator.gather_evidence_context(task)
 
-    async def _gather_trending_context(self) -> Optional[str]:
+    async def _gather_trending_context(self) -> str | None:
         """Gather pulse/trending context from social platforms."""
         return await self._context_delegator.gather_trending_context()
 
-    async def _fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
+    async def _fetch_knowledge_context(self, task: str, limit: int = 10) -> str | None:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
         Delegates to ArenaKnowledgeManager.fetch_context().
@@ -1196,11 +1194,11 @@ class Arena:
         """
         await self._km_manager.ingest_outcome(result, self.env)
 
-    async def _create_debate_bead(self, result: "DebateResult") -> Optional[str]:
+    async def _create_debate_bead(self, result: "DebateResult") -> str | None:
         """Create a Bead to track this debate decision. Delegates to orchestrator_hooks."""
         return await _hooks_create_debate_bead(result, self.protocol, self.env, self)
 
-    async def _create_pending_debate_bead(self, debate_id: str, task: str) -> Optional[str]:
+    async def _create_pending_debate_bead(self, debate_id: str, task: str) -> str | None:
         """Create a pending bead for GUPP tracking. Delegates to orchestrator_hooks."""
         return await _hooks_create_pending_debate_bead(
             debate_id, task, self.protocol, self.env, self.agents, self
@@ -1285,8 +1283,8 @@ class Arena:
     async def __aexit__(
         self,
         exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit async context - cleanup resources.
 
@@ -1468,7 +1466,7 @@ class Arena:
 
         # Initialize GUPP hook tracking for crash recovery
         # Creates pending bead and pushes work to agent hooks
-        gupp_bead_id: Optional[str] = None
+        gupp_bead_id: str | None = None
         gupp_hook_entries: dict[str, str] = {}
         if getattr(self.protocol, "enable_hook_tracking", False):
             try:
@@ -1777,7 +1775,7 @@ class Arena:
     async def run_security_debate(
         cls,
         event: "SecurityEvent",
-        agents: Optional[list[Agent]] = None,
+        agents: list[Agent] | None = None,
         confidence_threshold: float = 0.7,
         timeout_seconds: int = 300,
         org_id: str = "default",

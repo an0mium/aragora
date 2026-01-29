@@ -26,7 +26,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.models import EmailMessage
@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from aragora.services.sender_history import SenderHistoryService
 
 logger = logging.getLogger(__name__)
-
 
 class SnoozeReason(str, Enum):
     """Reason for snooze suggestion."""
@@ -47,7 +46,6 @@ class SnoozeReason(str, Enum):
     END_OF_DAY = "end_of_day"  # Review at EOD
     TOMORROW_MORNING = "tomorrow_morning"  # Fresh start
 
-
 @dataclass
 class SnoozeSuggestion:
     """A snooze time suggestion."""
@@ -59,7 +57,7 @@ class SnoozeSuggestion:
     rationale: str = ""
     is_recommended: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "snooze_until": self.snooze_until.isoformat(),
@@ -70,19 +68,18 @@ class SnoozeSuggestion:
             "is_recommended": self.is_recommended,
         }
 
-
 @dataclass
 class SnoozeRecommendation:
     """Complete snooze recommendation with multiple options."""
 
     email_id: str
-    suggestions: List[SnoozeSuggestion]
-    recommended: Optional[SnoozeSuggestion] = None
+    suggestions: list[SnoozeSuggestion]
+    recommended: SnoozeSuggestion | None = None
     priority_level: int = 3
     can_safely_snooze: bool = True
-    warning: Optional[str] = None
+    warning: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "email_id": self.email_id,
@@ -93,17 +90,15 @@ class SnoozeRecommendation:
             "warning": self.warning,
         }
 
-
 @dataclass
 class WorkSchedule:
     """User's work schedule configuration."""
 
     work_start: time = field(default_factory=lambda: time(9, 0))
     work_end: time = field(default_factory=lambda: time(17, 0))
-    work_days: List[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])  # Mon-Fri
+    work_days: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])  # Mon-Fri
     timezone: str = "UTC"
     prefer_morning: bool = True  # Prefer morning for important emails
-
 
 class SnoozeRecommender:
     """
@@ -115,9 +110,9 @@ class SnoozeRecommender:
 
     def __init__(
         self,
-        sender_history: Optional[SenderHistoryService] = None,
-        calendar_service: Optional[Any] = None,
-        work_schedule: Optional[WorkSchedule] = None,
+        sender_history: SenderHistoryService | None = None,
+        calendar_service: Any | None = None,
+        work_schedule: WorkSchedule | None = None,
     ):
         self.sender_history = sender_history
         self.calendar_service = calendar_service
@@ -126,7 +121,7 @@ class SnoozeRecommender:
     async def recommend_snooze(
         self,
         email: EmailMessage,
-        priority_result: Optional[EmailPriorityResult] = None,
+        priority_result: EmailPriorityResult | None = None,
         max_suggestions: int = 4,
     ) -> SnoozeRecommendation:
         """
@@ -143,7 +138,7 @@ class SnoozeRecommender:
         email_id = getattr(email, "id", "unknown")
         priority = priority_result.priority.value if priority_result else 3
 
-        suggestions: List[SnoozeSuggestion] = []
+        suggestions: list[SnoozeSuggestion] = []
         now = datetime.now()
 
         # Check if email can be safely snoozed
@@ -203,7 +198,7 @@ class SnoozeRecommender:
         self,
         now: datetime,
         priority: int,
-    ) -> List[SnoozeSuggestion]:
+    ) -> list[SnoozeSuggestion]:
         """Get quick snooze options."""
         suggestions = []
 
@@ -267,7 +262,7 @@ class SnoozeRecommender:
     async def _get_calendar_suggestions(
         self,
         now: datetime,
-    ) -> List[SnoozeSuggestion]:
+    ) -> list[SnoozeSuggestion]:
         """Get calendar-based snooze suggestions."""
         suggestions = []
 
@@ -296,7 +291,7 @@ class SnoozeRecommender:
         self,
         now: datetime,
         days_ahead: int = 3,
-    ) -> List[datetime]:
+    ) -> list[datetime]:
         """Find free slots in calendar."""
         # Mock implementation - would integrate with calendar API
         slots = []
@@ -326,9 +321,9 @@ class SnoozeRecommender:
         self,
         sender_email: str,
         now: datetime,
-    ) -> List[SnoozeSuggestion]:
+    ) -> list[SnoozeSuggestion]:
         """Get suggestions based on sender patterns."""
-        suggestions: List[SnoozeSuggestion] = []
+        suggestions: list[SnoozeSuggestion] = []
 
         if not self.sender_history or not sender_email:
             return suggestions
@@ -376,7 +371,7 @@ class SnoozeRecommender:
         self,
         priority: int,
         now: datetime,
-    ) -> List[SnoozeSuggestion]:
+    ) -> list[SnoozeSuggestion]:
         """Get suggestions based on priority decay."""
         suggestions = []
 
@@ -418,7 +413,7 @@ class SnoozeRecommender:
     def _get_work_schedule_suggestions(
         self,
         now: datetime,
-    ) -> List[SnoozeSuggestion]:
+    ) -> list[SnoozeSuggestion]:
         """Get suggestions based on work schedule."""
         suggestions = []
 
@@ -500,8 +495,8 @@ class SnoozeRecommender:
 
     def _deduplicate_suggestions(
         self,
-        suggestions: List[SnoozeSuggestion],
-    ) -> List[SnoozeSuggestion]:
+        suggestions: list[SnoozeSuggestion],
+    ) -> list[SnoozeSuggestion]:
         """Remove duplicate suggestions (same time)."""
         seen_times = set()
         unique = []
@@ -519,9 +514,9 @@ class SnoozeRecommender:
 
     def _pick_recommended(
         self,
-        suggestions: List[SnoozeSuggestion],
+        suggestions: list[SnoozeSuggestion],
         priority: int,
-    ) -> Optional[SnoozeSuggestion]:
+    ) -> SnoozeSuggestion | None:
         """Pick the recommended suggestion."""
         if not suggestions:
             return None
@@ -538,12 +533,11 @@ class SnoozeRecommender:
         # Otherwise pick highest confidence
         return max(suggestions, key=lambda x: x.confidence)
 
-
 # Convenience function
 async def get_snooze_suggestions(
     email: EmailMessage,
     priority: int = 3,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Quick snooze suggestions for an email.
 

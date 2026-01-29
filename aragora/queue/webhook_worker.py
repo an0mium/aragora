@@ -17,14 +17,13 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.queue.base import Job, JobQueue, JobStatus
 from aragora.queue.config import get_queue_config
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DeliveryResult:
@@ -33,12 +32,11 @@ class DeliveryResult:
     webhook_id: str
     url: str
     success: bool
-    status_code: Optional[int] = None
-    error: Optional[str] = None
+    status_code: int | None = None
+    error: str | None = None
     response_time_ms: float = 0.0
     attempt: int = 1
     delivered_at: float = field(default_factory=time.time)
-
 
 @dataclass
 class EndpointHealth:
@@ -48,8 +46,8 @@ class EndpointHealth:
     total_deliveries: int = 0
     successful_deliveries: int = 0
     failed_deliveries: int = 0
-    last_success_at: Optional[float] = None
-    last_failure_at: Optional[float] = None
+    last_success_at: float | None = None
+    last_failure_at: float | None = None
     avg_response_time_ms: float = 0.0
     circuit_state: str = "closed"
 
@@ -59,7 +57,6 @@ class EndpointHealth:
         if self.total_deliveries == 0:
             return 100.0
         return (self.successful_deliveries / self.total_deliveries) * 100
-
 
 class WebhookDeliveryWorker:
     """
@@ -113,16 +110,16 @@ class WebhookDeliveryWorker:
         self._shutdown_event = asyncio.Event()
 
         # Per-endpoint circuit breakers
-        self._circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self._circuit_breakers: dict[str, CircuitBreaker] = {}
 
         # Endpoint health tracking
-        self._endpoint_health: Dict[str, EndpointHealth] = {}
+        self._endpoint_health: dict[str, EndpointHealth] = {}
 
         # Metrics
         self._deliveries_total = 0
         self._deliveries_succeeded = 0
         self._deliveries_failed = 0
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
 
     @property
     def worker_id(self) -> str:
@@ -134,7 +131,7 @@ class WebhookDeliveryWorker:
         """Check if worker is running."""
         return self._running
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get worker statistics."""
         uptime = time.time() - self._start_time if self._start_time else 0
         return {
@@ -149,11 +146,11 @@ class WebhookDeliveryWorker:
             "queue_name": self.QUEUE_NAME,
         }
 
-    def get_endpoint_health(self, url: str) -> Optional[EndpointHealth]:
+    def get_endpoint_health(self, url: str) -> EndpointHealth | None:
         """Get health info for a specific endpoint."""
         return self._endpoint_health.get(url)
 
-    def get_all_endpoint_health(self) -> List[EndpointHealth]:
+    def get_all_endpoint_health(self) -> list[EndpointHealth]:
         """Get health info for all tracked endpoints."""
         return list(self._endpoint_health.values())
 
@@ -293,7 +290,7 @@ class WebhookDeliveryWorker:
         webhook_id: str,
         url: str,
         secret: str,
-        event_data: Dict[str, Any],
+        event_data: dict[str, Any],
         attempt: int,
     ) -> DeliveryResult:
         """Perform the actual webhook delivery."""
@@ -386,7 +383,7 @@ class WebhookDeliveryWorker:
             )
         return self._circuit_breakers[url]
 
-    async def _schedule_retry(self, job: Job, error: Optional[str]) -> None:
+    async def _schedule_retry(self, job: Job, error: str | None) -> None:
         """Schedule a job for retry with exponential backoff."""
         attempt = job.attempts + 1
         backoff = min(
@@ -444,14 +441,13 @@ class WebhookDeliveryWorker:
         if circuit:
             health.circuit_state = circuit.state
 
-
 async def enqueue_webhook_delivery(
     queue: JobQueue,
     webhook_id: str,
     url: str,
     secret: str,
     event_type: str,
-    event_data: Dict[str, Any],
+    event_data: dict[str, Any],
     priority: int = 0,
 ) -> Job:
     """
@@ -490,7 +486,6 @@ async def enqueue_webhook_delivery(
     )
 
     return job
-
 
 __all__ = [
     "WebhookDeliveryWorker",

@@ -14,7 +14,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, List, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from . import CommitResult
 
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from aragora.nomic.gates import CommitGate
 
 NOMIC_AUTO_COMMIT = os.environ.get("NOMIC_AUTO_COMMIT", "0") == "1"
-
 
 class CommitPhase:
     """
@@ -250,7 +249,7 @@ class CommitPhase:
             response = input("\nCommit these changes? [y/N]: ")
             return response.lower() == "y"
 
-    def _get_changed_files(self) -> List[str]:
+    def _get_changed_files(self) -> list[str]:
         """Get list of changed files."""
         try:
             result = subprocess.run(
@@ -264,6 +263,5 @@ class CommitPhase:
         except Exception as e:
             self._log(f"  [git] Failed to get changed files: {e}")
         return []
-
 
 __all__ = ["CommitPhase"]

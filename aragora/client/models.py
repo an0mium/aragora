@@ -9,12 +9,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
-
 
 class DebateStatus(str, Enum):
     """Status of a debate.
@@ -54,7 +53,6 @@ class DebateStatus(str, Enum):
         }
         return legacy_map.get(value.lower())
 
-
 class ConsensusType(str, Enum):
     """Type of consensus mechanism."""
 
@@ -64,18 +62,16 @@ class ConsensusType(str, Enum):
     HYBRID = "hybrid"
     JUDGE = "judge"
 
-
 class AgentMessage(BaseModel):
     """A message from an agent during debate."""
 
     agent_id: str = Field(validation_alias=AliasChoices("agent_id", "agent"))
     content: str
-    round: Optional[int] = Field(
+    round: int | None = Field(
         default=None, validation_alias=AliasChoices("round", "round_number")
     )
-    timestamp: Optional[datetime] = None
-    token_count: Optional[int] = None
-
+    timestamp: datetime | None = None
+    token_count: int | None = None
 
 class Vote(BaseModel):
     """A vote cast by an agent."""
@@ -83,17 +79,16 @@ class Vote(BaseModel):
     agent_id: str
     position: str
     confidence: float = Field(ge=0.0, le=1.0)
-    reasoning: Optional[str] = None
-
+    reasoning: str | None = None
 
 class ConsensusResult(BaseModel):
     """Result of consensus detection."""
 
     reached: bool
-    agreement: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-    final_answer: Optional[str] = None
-    conclusion: Optional[str] = None
+    agreement: float | None = Field(default=None, ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    final_answer: str | None = None
+    conclusion: str | None = None
     supporting_agents: list[str] = Field(default_factory=list)
     dissenting_agents: list[str] = Field(default_factory=list)
     votes: list[Vote] = Field(default_factory=list)
@@ -110,14 +105,12 @@ class ConsensusResult(BaseModel):
             self.conclusion = self.final_answer
         return self
 
-
 class DebateRound(BaseModel):
     """A single round of debate."""
 
     round_number: int = Field(validation_alias=AliasChoices("round_number", "round"))
     messages: list[AgentMessage] = Field(default_factory=list)
     critiques: list[AgentMessage] = Field(default_factory=list)
-
 
 class Debate(BaseModel):
     """A debate result."""
@@ -127,10 +120,10 @@ class Debate(BaseModel):
     status: DebateStatus
     agents: list[str] = Field(default_factory=list)
     rounds: list[DebateRound] = Field(default_factory=list)
-    consensus: Optional[ConsensusResult] = None
-    consensus_proof: Optional[dict[str, Any]] = None
-    created_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    consensus: ConsensusResult | None = None
+    consensus_proof: dict[str, Any] | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("rounds", mode="before")
@@ -160,7 +153,6 @@ class Debate(BaseModel):
             )
         return self
 
-
 class DebateCreateRequest(BaseModel):
     """Request to create a new debate."""
 
@@ -170,17 +162,15 @@ class DebateCreateRequest(BaseModel):
     )
     rounds: int = Field(default=DEFAULT_ROUNDS, ge=1, le=MAX_ROUNDS)
     consensus: ConsensusType = ConsensusType(DEFAULT_CONSENSUS)
-    context: Optional[str] = None
+    context: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-
 
 class DebateCreateResponse(BaseModel):
     """Response from creating a debate."""
 
     debate_id: str
-    status: Optional[DebateStatus] = None
-    task: Optional[str] = None
-
+    status: DebateStatus | None = None
+    task: str | None = None
 
 class AgentProfile(BaseModel):
     """Profile of an AI agent."""
@@ -194,7 +184,6 @@ class AgentProfile(BaseModel):
     available: bool = True
     capabilities: list[str] = Field(default_factory=list)
 
-
 class LeaderboardEntry(BaseModel):
     """An entry in the leaderboard."""
 
@@ -205,7 +194,6 @@ class LeaderboardEntry(BaseModel):
     win_rate: float
     recent_trend: str = "stable"  # "up", "down", "stable"
 
-
 class GauntletVerdict(str, Enum):
     """Verdict from a gauntlet run."""
 
@@ -214,17 +202,16 @@ class GauntletVerdict(str, Enum):
     NEEDS_REVIEW = "needs_review"
     REJECTED = "rejected"
 
-
 class Finding(BaseModel):
     """A finding from gauntlet analysis."""
 
     severity: str = "medium"  # "critical", "high", "medium", "low"
     category: str = "general"
-    title: Optional[str] = None
-    description: Optional[str] = None
-    location: Optional[str] = None
-    mitigation: Optional[str] = None
-    suggestion: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
+    location: str | None = None
+    mitigation: str | None = None
+    suggestion: str | None = None
 
     @model_validator(mode="after")
     def _normalize_fields(self) -> "Finding":
@@ -236,22 +223,21 @@ class Finding(BaseModel):
             self.mitigation = self.suggestion
         return self
 
-
 class GauntletReceipt(BaseModel):
     """Decision receipt from gauntlet run."""
 
-    receipt_id: Optional[str] = None
-    gauntlet_id: Optional[str] = None
-    verdict: Optional[GauntletVerdict | str] = None
-    status: Optional[str] = None
-    risk_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-    score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    receipt_id: str | None = None
+    gauntlet_id: str | None = None
+    verdict: GauntletVerdict | str | None = None
+    status: str | None = None
+    risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    score: float | None = Field(default=None, ge=0.0, le=1.0)
     findings: list[Finding] = Field(default_factory=list)
-    summary: Optional[str] = None
-    created_at: Optional[datetime] = None
-    duration_seconds: Optional[int] = None
-    input_hash: Optional[str] = None
-    persona: Optional[str] = None
+    summary: str | None = None
+    created_at: datetime | None = None
+    duration_seconds: int | None = None
+    input_hash: str | None = None
+    persona: str | None = None
 
     @field_validator("findings", mode="before")
     @classmethod
@@ -283,7 +269,6 @@ class GauntletReceipt(BaseModel):
             self.score = self.risk_score
         return self
 
-
 class GauntletRunRequest(BaseModel):
     """Request to run gauntlet analysis."""
 
@@ -292,14 +277,12 @@ class GauntletRunRequest(BaseModel):
     persona: str = "security"
     profile: str = "default"  # "quick", "default", "thorough"
 
-
 class GauntletRunResponse(BaseModel):
     """Response from starting a gauntlet run."""
 
     gauntlet_id: str
     status: str
-    estimated_duration: Optional[int] = None
-
+    estimated_duration: int | None = None
 
 class HealthCheck(BaseModel):
     """Health check response."""
@@ -309,20 +292,17 @@ class HealthCheck(BaseModel):
     uptime_seconds: float
     components: dict[str, str] = Field(default_factory=dict)
 
-
 class APIError(BaseModel):
     """API error response."""
 
     error: str
     code: str
-    details: Optional[str] = None
-    suggestion: Optional[str] = None
-
+    details: str | None = None
+    suggestion: str | None = None
 
 # =============================================================================
 # Graph Debates Models
 # =============================================================================
-
 
 class GraphDebateNode(BaseModel):
     """A node in the graph debate."""
@@ -331,9 +311,8 @@ class GraphDebateNode(BaseModel):
     content: str
     agent_id: str
     node_type: str  # "proposal", "critique", "synthesis"
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     round: int = 0
-
 
 class GraphDebateBranch(BaseModel):
     """A branch in the graph debate."""
@@ -341,9 +320,8 @@ class GraphDebateBranch(BaseModel):
     branch_id: str
     name: str
     nodes: list[GraphDebateNode] = Field(default_factory=list)
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
     is_main: bool = False
-
 
 class GraphDebateCreateRequest(BaseModel):
     """Request to create a graph debate."""
@@ -354,14 +332,12 @@ class GraphDebateCreateRequest(BaseModel):
     branch_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     max_branches: int = Field(default=5, ge=1, le=20)
 
-
 class GraphDebateCreateResponse(BaseModel):
     """Response from creating a graph debate."""
 
     debate_id: str
     status: str
     task: str
-
 
 class GraphDebate(BaseModel):
     """A graph-structured debate result."""
@@ -371,15 +347,13 @@ class GraphDebate(BaseModel):
     status: DebateStatus
     agents: list[str] = Field(default_factory=list)
     branches: list[GraphDebateBranch] = Field(default_factory=list)
-    consensus: Optional[ConsensusResult] = None
-    created_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-
+    consensus: ConsensusResult | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
 
 # =============================================================================
 # Matrix Debates Models
 # =============================================================================
-
 
 class MatrixScenario(BaseModel):
     """A scenario configuration for matrix debates."""
@@ -389,15 +363,13 @@ class MatrixScenario(BaseModel):
     constraints: list[str] = Field(default_factory=list)
     is_baseline: bool = False
 
-
 class MatrixScenarioResult(BaseModel):
     """Result from a single scenario in matrix debate."""
 
     scenario_name: str
-    consensus: Optional[ConsensusResult] = None
+    consensus: ConsensusResult | None = None
     key_findings: list[str] = Field(default_factory=list)
     differences_from_baseline: list[str] = Field(default_factory=list)
-
 
 class MatrixConclusion(BaseModel):
     """Conclusions from matrix debate analysis."""
@@ -405,7 +377,6 @@ class MatrixConclusion(BaseModel):
     universal: list[str] = Field(default_factory=list)  # True across all scenarios
     conditional: dict[str, list[str]] = Field(default_factory=dict)  # Scenario-dependent
     contradictions: list[str] = Field(default_factory=list)  # Conflicting conclusions
-
 
 class MatrixDebateCreateRequest(BaseModel):
     """Request to create a matrix debate."""
@@ -415,7 +386,6 @@ class MatrixDebateCreateRequest(BaseModel):
     scenarios: list[MatrixScenario] = Field(default_factory=list)
     max_rounds: int = Field(default=3, ge=1, le=10)
 
-
 class MatrixDebateCreateResponse(BaseModel):
     """Response from creating a matrix debate."""
 
@@ -423,7 +393,6 @@ class MatrixDebateCreateResponse(BaseModel):
     status: str
     task: str
     scenario_count: int
-
 
 class MatrixDebate(BaseModel):
     """A matrix debate result with parallel scenarios."""
@@ -433,15 +402,13 @@ class MatrixDebate(BaseModel):
     status: DebateStatus
     agents: list[str] = Field(default_factory=list)
     scenarios: list[MatrixScenarioResult] = Field(default_factory=list)
-    conclusions: Optional[MatrixConclusion] = None
-    created_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-
+    conclusions: MatrixConclusion | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
 
 # =============================================================================
 # Verification Models
 # =============================================================================
-
 
 class VerificationStatus(str, Enum):
     """Status of a verification attempt."""
@@ -451,7 +418,6 @@ class VerificationStatus(str, Enum):
     UNKNOWN = "unknown"
     ERROR = "error"
 
-
 class VerificationBackend(str, Enum):
     """Verification backend type."""
 
@@ -459,35 +425,31 @@ class VerificationBackend(str, Enum):
     LEAN = "lean"
     COQ = "coq"
 
-
 class VerifyClaimRequest(BaseModel):
     """Request to verify a claim."""
 
     claim: str
-    context: Optional[str] = None
+    context: str | None = None
     backend: str = "z3"  # z3, lean, coq
     timeout: int = Field(default=30, ge=1, le=300)
-
 
 class VerifyClaimResponse(BaseModel):
     """Response from claim verification."""
 
     status: VerificationStatus
     claim: str
-    formal_translation: Optional[str] = None
-    proof: Optional[str] = None
-    counterexample: Optional[str] = None
-    error_message: Optional[str] = None
+    formal_translation: str | None = None
+    proof: str | None = None
+    counterexample: str | None = None
+    error_message: str | None = None
     duration_ms: int = 0
-
 
 class VerificationBackendStatus(BaseModel):
     """Status of a verification backend."""
 
     name: str
     available: bool
-    version: Optional[str] = None
-
+    version: str | None = None
 
 class VerifyStatusResponse(BaseModel):
     """Response from verification status check."""
@@ -495,11 +457,9 @@ class VerifyStatusResponse(BaseModel):
     available: bool
     backends: list[VerificationBackendStatus] = Field(default_factory=list)
 
-
 # =============================================================================
 # Memory Analytics Models
 # =============================================================================
-
 
 class MemoryTierStats(BaseModel):
     """Statistics for a memory tier."""
@@ -511,14 +471,12 @@ class MemoryTierStats(BaseModel):
     demotion_rate: float = 0.0
     hit_rate: float = 0.0
 
-
 class MemoryRecommendation(BaseModel):
     """A recommendation for memory optimization."""
 
     type: str  # "promotion", "cleanup", "rebalance"
     description: str
     impact: str  # "high", "medium", "low"
-
 
 class MemoryAnalyticsResponse(BaseModel):
     """Response from memory analytics endpoint."""
@@ -530,7 +488,6 @@ class MemoryAnalyticsResponse(BaseModel):
     recommendations: list[MemoryRecommendation] = Field(default_factory=list)
     period_days: int = 30
 
-
 class MemorySnapshotResponse(BaseModel):
     """Response from taking a memory snapshot."""
 
@@ -538,11 +495,9 @@ class MemorySnapshotResponse(BaseModel):
     timestamp: datetime
     success: bool
 
-
 # =============================================================================
 # Replay Models
 # =============================================================================
-
 
 class ReplaySummary(BaseModel):
     """Summary of a debate replay."""
@@ -555,16 +510,14 @@ class ReplaySummary(BaseModel):
     agent_count: int = 0
     round_count: int = 0
 
-
 class ReplayEvent(BaseModel):
     """An event in a replay timeline."""
 
     event_type: str
     timestamp: datetime
-    agent_id: Optional[str] = None
-    content: Optional[str] = None
+    agent_id: str | None = None
+    content: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-
 
 class Replay(BaseModel):
     """Full replay of a debate."""
@@ -574,15 +527,13 @@ class Replay(BaseModel):
     task: str
     agents: list[str] = Field(default_factory=list)
     events: list[ReplayEvent] = Field(default_factory=list)
-    consensus: Optional[ConsensusResult] = None
+    consensus: ConsensusResult | None = None
     created_at: datetime
     duration_seconds: int = 0
-
 
 # =============================================================================
 # Document Models
 # =============================================================================
-
 
 class DocumentStatus(str, Enum):
     """Status of document processing."""
@@ -592,7 +543,6 @@ class DocumentStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
-
 class AuditType(str, Enum):
     """Type of document audit."""
 
@@ -600,7 +550,6 @@ class AuditType(str, Enum):
     COMPLIANCE = "compliance"
     CONSISTENCY = "consistency"
     QUALITY = "quality"
-
 
 class FindingSeverity(str, Enum):
     """Severity level for audit findings."""
@@ -610,7 +559,6 @@ class FindingSeverity(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
-
 
 class Document(BaseModel):
     """A document in the system."""
@@ -624,7 +572,6 @@ class Document(BaseModel):
     created_at: datetime
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-
 class DocumentChunk(BaseModel):
     """A chunk of a processed document."""
 
@@ -635,7 +582,6 @@ class DocumentChunk(BaseModel):
     token_count: int = 0
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-
 class DocumentUploadResponse(BaseModel):
     """Response from uploading a document."""
 
@@ -644,7 +590,6 @@ class DocumentUploadResponse(BaseModel):
     status: DocumentStatus = DocumentStatus.PENDING
     message: str = ""
 
-
 class BatchUploadResponse(BaseModel):
     """Response from batch upload."""
 
@@ -652,7 +597,6 @@ class BatchUploadResponse(BaseModel):
     document_count: int
     status: str
     message: str = ""
-
 
 class BatchJobStatus(BaseModel):
     """Status of a batch processing job."""
@@ -663,10 +607,9 @@ class BatchJobStatus(BaseModel):
     document_count: int = 0
     completed_count: int = 0
     failed_count: int = 0
-    error: Optional[str] = None
+    error: str | None = None
     created_at: datetime
-    updated_at: Optional[datetime] = None
-
+    updated_at: datetime | None = None
 
 class BatchJobResults(BaseModel):
     """Results of a completed batch job."""
@@ -674,7 +617,6 @@ class BatchJobResults(BaseModel):
     job_id: str
     documents: list[Document] = Field(default_factory=list)
     failed: list[dict[str, Any]] = Field(default_factory=list)
-
 
 class DocumentContext(BaseModel):
     """LLM-ready context from document chunks."""
@@ -684,7 +626,6 @@ class DocumentContext(BaseModel):
     context: str
     chunks_used: int
     truncated: bool = False
-
 
 class ProcessingStats(BaseModel):
     """Document processing statistics."""
@@ -697,18 +638,15 @@ class ProcessingStats(BaseModel):
     total_chunks: int = 0
     total_tokens: int = 0
 
-
 class SupportedFormats(BaseModel):
     """Supported document formats."""
 
     formats: list[str] = Field(default_factory=list)
     mime_types: list[str] = Field(default_factory=list)
 
-
 # =============================================================================
 # Audit Session Models
 # =============================================================================
-
 
 class AuditSessionStatus(str, Enum):
     """Status of an audit session."""
@@ -719,7 +657,6 @@ class AuditSessionStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 class AuditFinding(BaseModel):
     """A finding from a document audit."""
@@ -738,8 +675,7 @@ class AuditFinding(BaseModel):
     evidence_location: str = ""
     recommendation: str = ""
     found_by: str = ""
-    created_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
 
 class AuditSession(BaseModel):
     """An audit session."""
@@ -752,10 +688,9 @@ class AuditSession(BaseModel):
     finding_count: int = 0
     model: str = "gemini-1.5-flash"
     created_at: datetime
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    error: Optional[str] = None
-
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error: str | None = None
 
 class AuditSessionCreateRequest(BaseModel):
     """Request to create an audit session."""
@@ -767,7 +702,6 @@ class AuditSessionCreateRequest(BaseModel):
     model: str = "gemini-1.5-flash"
     options: dict[str, Any] = Field(default_factory=dict)
 
-
 class AuditSessionCreateResponse(BaseModel):
     """Response from creating an audit session."""
 
@@ -775,7 +709,6 @@ class AuditSessionCreateResponse(BaseModel):
     status: AuditSessionStatus = AuditSessionStatus.PENDING
     document_count: int = 0
     audit_types: list[str] = Field(default_factory=list)
-
 
 class AuditReportFormat(str, Enum):
     """Format for audit reports."""
@@ -785,7 +718,6 @@ class AuditReportFormat(str, Enum):
     HTML = "html"
     PDF = "pdf"
 
-
 class AuditReport(BaseModel):
     """Audit report data."""
 
@@ -794,11 +726,9 @@ class AuditReport(BaseModel):
     content: str
     generated_at: datetime
 
-
 # =============================================================================
 # Enterprise Audit Models
 # =============================================================================
-
 
 class FindingWorkflowStatus(str, Enum):
     """Workflow status for audit findings."""
@@ -812,7 +742,6 @@ class FindingWorkflowStatus(str, Enum):
     ACCEPTED_RISK = "accepted_risk"
     DUPLICATE = "duplicate"
 
-
 class AuditPreset(BaseModel):
     """Audit preset configuration for specific industries/use cases."""
 
@@ -823,7 +752,6 @@ class AuditPreset(BaseModel):
     consensus_threshold: float = 0.8
     agents: list[str] = Field(default_factory=list)
     parameters: dict[str, Any] = Field(default_factory=dict)
-
 
 class AuditPresetDetail(BaseModel):
     """Detailed audit preset with custom rules."""
@@ -836,14 +764,12 @@ class AuditPresetDetail(BaseModel):
     agents: list[str] = Field(default_factory=list)
     parameters: dict[str, Any] = Field(default_factory=dict)
 
-
 class AuditTypeCapabilities(BaseModel):
     """Capabilities of an audit type."""
 
     supports_chunk_analysis: bool = True
     supports_cross_document: bool = False
     requires_llm: bool = True
-
 
 class AuditTypeInfo(BaseModel):
     """Information about a registered audit type."""
@@ -854,7 +780,6 @@ class AuditTypeInfo(BaseModel):
     version: str = "1.0.0"
     capabilities: AuditTypeCapabilities = Field(default_factory=AuditTypeCapabilities)
 
-
 class FindingWorkflowEvent(BaseModel):
     """An event in a finding's workflow history."""
 
@@ -863,22 +788,20 @@ class FindingWorkflowEvent(BaseModel):
     timestamp: datetime
     user_id: str
     user_name: str = ""
-    comment: Optional[str] = None
-    from_state: Optional[str] = None
-    to_state: Optional[str] = None
+    comment: str | None = None
+    from_state: str | None = None
+    to_state: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-
 
 class FindingWorkflowData(BaseModel):
     """Full workflow data for a finding."""
 
     finding_id: str
     current_state: FindingWorkflowStatus = FindingWorkflowStatus.OPEN
-    assigned_to: Optional[str] = None
+    assigned_to: str | None = None
     priority: int = 3  # 1=Critical, 2=High, 3=Medium, 4=Low, 5=Lowest
-    due_date: Optional[datetime] = None
+    due_date: datetime | None = None
     history: list[FindingWorkflowEvent] = Field(default_factory=list)
-
 
 class QuickAuditResult(BaseModel):
     """Result from a quick audit run."""
@@ -891,11 +814,9 @@ class QuickAuditResult(BaseModel):
     critical_findings: list[AuditFinding] = Field(default_factory=list)
     high_findings: list[AuditFinding] = Field(default_factory=list)
 
-
 # =============================================================================
 # Extended Agent Models
 # =============================================================================
-
 
 class AgentCalibration(BaseModel):
     """Calibration scores for an agent."""
@@ -904,9 +825,8 @@ class AgentCalibration(BaseModel):
     overall_score: float = Field(ge=0.0, le=1.0)
     domain_scores: dict[str, float] = Field(default_factory=dict)
     confidence_accuracy: float = 0.0
-    last_calibrated: Optional[datetime] = None
+    last_calibrated: datetime | None = None
     sample_size: int = 0
-
 
 class AgentPerformance(BaseModel):
     """Performance statistics for an agent."""
@@ -922,7 +842,6 @@ class AgentPerformance(BaseModel):
     total_debates: int = 0
     recent_results: list[dict[str, Any]] = Field(default_factory=list)
 
-
 class HeadToHeadStats(BaseModel):
     """Head-to-head statistics between two agents."""
 
@@ -937,7 +856,6 @@ class HeadToHeadStats(BaseModel):
     recent_matchups: list[dict[str, Any]] = Field(default_factory=list)
     domain_breakdown: dict[str, dict[str, int]] = Field(default_factory=dict)
 
-
 class OpponentBriefing(BaseModel):
     """Strategic briefing against an opponent."""
 
@@ -948,7 +866,6 @@ class OpponentBriefing(BaseModel):
     recommended_strategy: str = ""
     key_insights: list[str] = Field(default_factory=list)
     confidence: float = 0.0
-
 
 class AgentConsistency(BaseModel):
     """Consistency metrics for an agent."""
@@ -961,7 +878,6 @@ class AgentConsistency(BaseModel):
     volatility_index: float = 0.0
     sample_size: int = 0
 
-
 class AgentFlip(BaseModel):
     """A position flip event."""
 
@@ -971,11 +887,10 @@ class AgentFlip(BaseModel):
     topic: str = ""
     original_position: str = ""
     new_position: str = ""
-    flip_reason: Optional[str] = None
+    flip_reason: str | None = None
     round_number: int = 0
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
     was_justified: bool = False
-
 
 class AgentNetwork(BaseModel):
     """Agent relationship network."""
@@ -984,9 +899,8 @@ class AgentNetwork(BaseModel):
     allies: list[dict[str, Any]] = Field(default_factory=list)
     rivals: list[dict[str, Any]] = Field(default_factory=list)
     neutrals: list[str] = Field(default_factory=list)
-    cluster_id: Optional[str] = None
+    cluster_id: str | None = None
     network_position: str = "peripheral"  # central, peripheral, bridge
-
 
 class AgentMoment(BaseModel):
     """A significant moment for an agent."""
@@ -997,9 +911,8 @@ class AgentMoment(BaseModel):
     type: str  # breakthrough, comeback, decisive_argument, consensus_catalyst, upset
     description: str = ""
     impact_score: float = 0.0
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
     context: dict[str, Any] = Field(default_factory=dict)
-
 
 class AgentPosition(BaseModel):
     """A position taken by an agent."""
@@ -1012,9 +925,8 @@ class AgentPosition(BaseModel):
     confidence: float = 0.0
     supporting_evidence: list[str] = Field(default_factory=list)
     round_number: int = 0
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
     was_final: bool = False
-
 
 class DomainRating(BaseModel):
     """Domain-specific rating for an agent."""
@@ -1024,14 +936,12 @@ class DomainRating(BaseModel):
     matches: int = 0
     win_rate: float = 0.0
     avg_confidence: float = 0.0
-    last_active: Optional[datetime] = None
+    last_active: datetime | None = None
     trend: str = "stable"  # rising, stable, falling
-
 
 # =============================================================================
 # Extended Gauntlet Models
 # =============================================================================
-
 
 class GauntletRunStatus(str, Enum):
     """Status of a gauntlet run."""
@@ -1042,21 +952,19 @@ class GauntletRunStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-
 class GauntletRun(BaseModel):
     """A gauntlet run status."""
 
     id: str
-    name: Optional[str] = None
+    name: str | None = None
     status: GauntletRunStatus = GauntletRunStatus.PENDING
-    created_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     config: dict[str, Any] = Field(default_factory=dict)
     progress: dict[str, int] = Field(default_factory=dict)
-    results_summary: Optional[dict[str, Any]] = None
+    results_summary: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-
 
 class GauntletPersonaCategory(str, Enum):
     """Category of gauntlet persona."""
@@ -1066,7 +974,6 @@ class GauntletPersonaCategory(str, Enum):
     STRESS = "stress"
     COMPLIANCE = "compliance"
     CUSTOM = "custom"
-
 
 class GauntletPersona(BaseModel):
     """A gauntlet testing persona."""
@@ -1080,7 +987,6 @@ class GauntletPersona(BaseModel):
     example_prompts: list[str] = Field(default_factory=list)
     enabled: bool = True
 
-
 class GauntletResultStatus(str, Enum):
     """Status of a gauntlet result."""
 
@@ -1089,23 +995,21 @@ class GauntletResultStatus(str, Enum):
     ERROR = "error"
     SKIP = "skip"
 
-
 class GauntletResult(BaseModel):
     """A single gauntlet scenario result."""
 
     id: str
     gauntlet_id: str
     scenario: str = ""
-    persona: Optional[str] = None
+    persona: str | None = None
     status: GauntletResultStatus = GauntletResultStatus.PASS
     verdict: str = ""
     confidence: float = 0.0
     risk_level: str = "low"  # low, medium, high, critical
     duration_ms: int = 0
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     findings: list[dict[str, Any]] = Field(default_factory=list)
-    timestamp: Optional[datetime] = None
-
+    timestamp: datetime | None = None
 
 class GauntletHeatmapExtended(BaseModel):
     """Extended heatmap data for a gauntlet run."""
@@ -1115,8 +1019,7 @@ class GauntletHeatmapExtended(BaseModel):
     matrix: list[list[float]] = Field(default_factory=list)
     overall_risk: float = 0.0
     hotspots: list[dict[str, Any]] = Field(default_factory=list)
-    generated_at: Optional[datetime] = None
-
+    generated_at: datetime | None = None
 
 class GauntletComparison(BaseModel):
     """Comparison between two gauntlet runs."""
@@ -1126,13 +1029,11 @@ class GauntletComparison(BaseModel):
     comparison: dict[str, Any] = Field(default_factory=dict)
     scenario_diffs: list[dict[str, Any]] = Field(default_factory=list)
     recommendation: str = "investigate"  # promote, investigate, block
-    generated_at: Optional[datetime] = None
-
+    generated_at: datetime | None = None
 
 # =============================================================================
 # Analytics Models
 # =============================================================================
-
 
 class DisagreementAnalytics(BaseModel):
     """Disagreement analytics."""
@@ -1145,7 +1046,6 @@ class DisagreementAnalytics(BaseModel):
     agent_disagreement_matrix: dict[str, dict[str, float]] = Field(default_factory=dict)
     persistent_disagreements: list[dict[str, Any]] = Field(default_factory=list)
 
-
 class RoleRotationAnalytics(BaseModel):
     """Role rotation analytics."""
 
@@ -1156,7 +1056,6 @@ class RoleRotationAnalytics(BaseModel):
     rotation_fairness_index: float = 0.0
     stuck_agents: list[dict[str, Any]] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
-
 
 class EarlyStopAnalytics(BaseModel):
     """Early stop analytics."""
@@ -1169,7 +1068,6 @@ class EarlyStopAnalytics(BaseModel):
     confidence_at_stop: dict[str, float] = Field(default_factory=dict)
     false_early_stops: int = 0
     missed_early_stops: int = 0
-
 
 class ConsensusQualityAnalytics(BaseModel):
     """Consensus quality analytics."""
@@ -1184,7 +1082,6 @@ class ConsensusQualityAnalytics(BaseModel):
     consensus_durability: dict[str, int] = Field(default_factory=dict)
     quality_by_topic: dict[str, float] = Field(default_factory=dict)
 
-
 class RankingStats(BaseModel):
     """Ranking statistics."""
 
@@ -1193,8 +1090,7 @@ class RankingStats(BaseModel):
     tier_distribution: dict[str, int] = Field(default_factory=dict)
     top_performers: list[dict[str, Any]] = Field(default_factory=list)
     most_improved: list[dict[str, Any]] = Field(default_factory=list)
-    last_updated: Optional[datetime] = None
-
+    last_updated: datetime | None = None
 
 class MemoryStats(BaseModel):
     """Memory system statistics."""
@@ -1205,25 +1101,22 @@ class MemoryStats(BaseModel):
     consolidation_rate: float = 0.0
     avg_importance: float = 0.0
     cache_hit_rate: float = 0.0
-    oldest_entry: Optional[datetime] = None
-    newest_entry: Optional[datetime] = None
+    oldest_entry: datetime | None = None
+    newest_entry: datetime | None = None
     health_status: str = "healthy"  # healthy, degraded, critical
-
 
 # =============================================================================
 # Debate Update and Search Models
 # =============================================================================
 
-
 class DebateUpdateRequest(BaseModel):
     """Request to update a debate."""
 
-    status: Optional[DebateStatus] = None
-    metadata: Optional[dict[str, Any]] = None
-    tags: Optional[list[str]] = None
-    archived: Optional[bool] = None
-    notes: Optional[str] = None
-
+    status: DebateStatus | None = None
+    metadata: dict[str, Any] | None = None
+    tags: list[str] | None = None
+    archived: bool | None = None
+    notes: str | None = None
 
 class VerificationReportClaimDetail(BaseModel):
     """Detail for a verified claim."""
@@ -1231,9 +1124,8 @@ class VerificationReportClaimDetail(BaseModel):
     claim: str
     verified: bool
     confidence: float = 0.0
-    evidence: Optional[str] = None
-    counterevidence: Optional[str] = None
-
+    evidence: str | None = None
+    counterevidence: str | None = None
 
 class VerificationReport(BaseModel):
     """Verification report for a debate."""
@@ -1247,21 +1139,19 @@ class VerificationReport(BaseModel):
     claim_details: list[VerificationReportClaimDetail] = Field(default_factory=list)
     overall_confidence: float = 0.0
     verification_duration_ms: int = 0
-    generated_at: Optional[datetime] = None
-
+    generated_at: datetime | None = None
 
 class SearchResult(BaseModel):
     """A search result."""
 
     type: str  # debate, agent, memory, claim
     id: str
-    title: Optional[str] = None
+    title: str | None = None
     snippet: str = ""
     score: float = 0.0
     highlights: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
 
 class SearchResponse(BaseModel):
     """Search response."""
@@ -1273,11 +1163,9 @@ class SearchResponse(BaseModel):
     suggestions: list[str] = Field(default_factory=list)
     took_ms: int = 0
 
-
 # =============================================================================
 # Memory Search Models
 # =============================================================================
-
 
 class MemoryTierType(str, Enum):
     """Memory tier type."""
@@ -1287,7 +1175,6 @@ class MemoryTierType(str, Enum):
     SLOW = "slow"
     GLACIAL = "glacial"
 
-
 class MemoryEntry(BaseModel):
     """A memory entry."""
 
@@ -1296,25 +1183,23 @@ class MemoryEntry(BaseModel):
     content: str = ""
     importance: float = 0.0
     consolidation_count: int = 0
-    source_debate_id: Optional[str] = None
-    agent: Optional[str] = None
+    source_debate_id: str | None = None
+    agent: str | None = None
     tags: list[str] = Field(default_factory=list)
-    created_at: Optional[datetime] = None
-    accessed_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    accessed_at: datetime | None = None
+    expires_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-
 
 class MemorySearchParams(BaseModel):
     """Memory search parameters."""
 
     query: str
-    tiers: Optional[list[MemoryTierType]] = None
-    agent: Optional[str] = None
+    tiers: list[MemoryTierType] | None = None
+    agent: str | None = None
     limit: int = 20
-    min_importance: Optional[float] = None
+    min_importance: float | None = None
     include_expired: bool = False
-
 
 class CritiqueEntry(BaseModel):
     """A critique entry from memory."""
@@ -1326,7 +1211,7 @@ class CritiqueEntry(BaseModel):
     critique: str = ""
     severity: str = "moderate"  # minor, moderate, major
     was_addressed: bool = False
-    resolution: Optional[str] = None
+    resolution: str | None = None
     round_number: int = 0
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
     impact_score: float = 0.0

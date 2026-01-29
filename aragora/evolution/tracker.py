@@ -10,13 +10,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
 
 from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class OutcomeRecord:
@@ -24,14 +22,13 @@ class OutcomeRecord:
 
     agent: str
     won: bool
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     generation: int = 0
     recorded_at: str = ""
 
     def __post_init__(self):
         if not self.recorded_at:
             self.recorded_at = datetime.now(timezone.utc).isoformat()
-
 
 class EvolutionTracker(SQLiteStore):
     """
@@ -76,7 +73,7 @@ class EvolutionTracker(SQLiteStore):
         self,
         agent: str,
         won: bool,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         generation: int = 0,
     ):
         """

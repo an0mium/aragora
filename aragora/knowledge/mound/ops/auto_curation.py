@@ -33,10 +33,9 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class CurationAction(str, Enum):
     """Actions that auto-curation can take."""
@@ -48,7 +47,6 @@ class CurationAction(str, Enum):
     REFRESH = "refresh"  # Trigger revalidation
     FLAG = "flag"  # Mark for manual review
 
-
 class TierLevel(str, Enum):
     """Knowledge tier levels in order of access speed."""
 
@@ -57,10 +55,8 @@ class TierLevel(str, Enum):
     COLD = "cold"  # Infrequently accessed
     GLACIAL = "glacial"  # Archive tier
 
-
 # Tier priority for promotion/demotion logic
 TIER_ORDER = [TierLevel.HOT, TierLevel.WARM, TierLevel.COLD, TierLevel.GLACIAL]
-
 
 @dataclass
 class QualityScore:
@@ -80,7 +76,7 @@ class QualityScore:
     calculated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     debate_uses: int = 0  # Times used in debates
     retrieval_count: int = 0  # Total retrievals
-    days_since_last_use: Optional[int] = None
+    days_since_last_use: int | None = None
 
     @property
     def recommendation(self) -> CurationAction:
@@ -94,7 +90,6 @@ class QualityScore:
         elif self.freshness_score < 0.3:
             return CurationAction.REFRESH
         return CurationAction.FLAG  # Default to review
-
 
 @dataclass
 class CurationPolicy:
@@ -129,7 +124,7 @@ class CurationPolicy:
 
     # Scheduling
     auto_curate: bool = True
-    schedule_cron: Optional[str] = "0 3 * * *"  # 3am daily default
+    schedule_cron: str | None = "0 3 * * *"  # 3am daily default
     max_items_per_run: int = 500
 
     # Dedup integration
@@ -154,7 +149,6 @@ class CurationPolicy:
             return False
         return True
 
-
 @dataclass
 class CurationCandidate:
     """An item being evaluated for curation."""
@@ -164,9 +158,8 @@ class CurationCandidate:
     current_tier: str
     quality_score: QualityScore
     recommended_action: CurationAction
-    target_tier: Optional[str] = None
-    merge_target_id: Optional[str] = None
-
+    target_tier: str | None = None
+    merge_target_id: str | None = None
 
 @dataclass
 class CurationResult:
@@ -215,7 +208,6 @@ class CurationResult:
             + self.flagged_count
         )
 
-
 @dataclass
 class CurationHistory:
     """Historical record of curation operations."""
@@ -224,17 +216,16 @@ class CurationHistory:
     workspace_id: str
     executed_at: datetime
     policy_id: str
-    result_summary: Dict[str, Any]
+    result_summary: dict[str, Any]
     items_affected: int
     trigger: str  # "scheduled", "manual", "threshold"
-
 
 class AutoCurationMixin:
     """Mixin providing auto-curation operations for Knowledge Mound."""
 
     # Policies stored per workspace
-    _curation_policies: Dict[str, CurationPolicy] = {}
-    _curation_history: List[CurationHistory] = []
+    _curation_policies: dict[str, CurationPolicy] = {}
+    _curation_history: list[CurationHistory] = []
 
     async def set_curation_policy(
         self,
@@ -254,7 +245,7 @@ class AutoCurationMixin:
     async def get_curation_policy(
         self,
         workspace_id: str,
-    ) -> Optional[CurationPolicy]:
+    ) -> CurationPolicy | None:
         """Get the curation policy for a workspace."""
         return self._curation_policies.get(workspace_id)
 
@@ -262,7 +253,7 @@ class AutoCurationMixin:
         self,
         node_id: str,
         workspace_id: str,
-        policy: Optional[CurationPolicy] = None,
+        policy: CurationPolicy | None = None,
     ) -> QualityScore:
         """Calculate composite quality score for a knowledge item.
 
@@ -351,7 +342,7 @@ class AutoCurationMixin:
         self,
         workspace_id: str,
         limit: int = 100,
-    ) -> List[CurationCandidate]:
+    ) -> list[CurationCandidate]:
         """Get items that are candidates for curation actions.
 
         Args:
@@ -412,7 +403,7 @@ class AutoCurationMixin:
 
         return candidates[:limit]
 
-    def _get_higher_tier(self, current_tier: str) -> Optional[str]:
+    def _get_higher_tier(self, current_tier: str) -> str | None:
         """Get the next higher (faster) tier."""
         tier_values = [t.value for t in TIER_ORDER]
         try:
@@ -423,7 +414,7 @@ class AutoCurationMixin:
             pass
         return None
 
-    def _get_lower_tier(self, current_tier: str) -> Optional[str]:
+    def _get_lower_tier(self, current_tier: str) -> str | None:
         """Get the next lower (slower) tier."""
         tier_values = [t.value for t in TIER_ORDER]
         try:
@@ -609,7 +600,7 @@ class AutoCurationMixin:
         self,
         workspace_id: str,
         limit: int = 20,
-    ) -> List[CurationHistory]:
+    ) -> list[CurationHistory]:
         """Get curation history for a workspace.
 
         Args:
@@ -626,7 +617,7 @@ class AutoCurationMixin:
     async def get_workspace_quality_summary(
         self,
         workspace_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get quality summary for a workspace.
 
         Returns:
@@ -648,8 +639,8 @@ class AutoCurationMixin:
             }
 
         # Calculate stats
-        tier_counts: Dict[str, int] = {}
-        action_counts: Dict[str, int] = {}
+        tier_counts: dict[str, int] = {}
+        action_counts: dict[str, int] = {}
         total_quality = 0.0
 
         for c in candidates:
@@ -678,7 +669,6 @@ class AutoCurationMixin:
             "needs_attention": needs_attention,
             "analyzed_at": datetime.now(timezone.utc).isoformat(),
         }
-
 
 # Exports
 __all__ = [

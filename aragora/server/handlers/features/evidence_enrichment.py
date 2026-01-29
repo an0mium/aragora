@@ -31,16 +31,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 def _get_evidence_enrichment(finding: "AuditFinding") -> Any:
     """Get evidence enrichment from finding using getattr to avoid type errors."""
     return getattr(finding, "_evidence_enrichment", None)
 
-
 def _set_evidence_enrichment(finding: "AuditFinding", enrichment: Any) -> None:
     """Set evidence enrichment on finding using setattr to avoid type errors."""
     setattr(finding, "_evidence_enrichment", enrichment)
-
 
 class EvidenceEnrichmentHandler(BaseHandler):
     """Handler for evidence enrichment endpoints."""
@@ -59,7 +56,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         return False
 
     @require_permission("evidence:read")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):
             # Extract finding_id from /api/findings/{finding_id}/evidence
@@ -69,7 +66,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
                 return self._get_finding_evidence(finding_id)
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/findings/batch-evidence":
             return self._batch_enrich(handler)
@@ -201,7 +198,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
     async def _run_enrichment(
         self,
         finding_id: str,
-        document_content: Optional[str],
+        document_content: str | None,
         related_documents: dict[str, str],
         config_dict: dict[str, Any],
         document_store: Optional["DocumentStore"],

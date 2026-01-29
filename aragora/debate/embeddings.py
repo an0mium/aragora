@@ -5,12 +5,10 @@ Allows agents to retrieve and learn from past debates, enhancing continuity
 and intelligence in the nomic loop.
 """
 
-from typing import List, Tuple
 
 from aragora.config import resolve_db_path
 from aragora.memory.embeddings import SemanticRetriever
 from aragora.persistence.models import DebateArtifact
-
 
 class DebateEmbeddingsDatabase:
     """
@@ -55,7 +53,7 @@ Transcript:
 
     async def find_similar_debates(
         self, query: str, limit: int = 5, min_similarity: float = 0.7
-    ) -> List[Tuple[str, str, float]]:
+    ) -> list[tuple[str, str, float]]:
         """
         Find debates similar to the query.
 
@@ -69,7 +67,7 @@ Transcript:
         """
         return await self.retriever.find_similar(query, limit, min_similarity)
 
-    def _transcript_to_text(self, transcript: List[dict]) -> str:
+    def _transcript_to_text(self, transcript: list[dict]) -> str:
         """Convert transcript list to readable text."""
         lines = []
         for msg in transcript:

@@ -20,10 +20,9 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional, cast
+from typing import cast
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ValidationResult:
@@ -40,7 +39,6 @@ class ValidationResult:
     @property
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0
-
 
 class ConfigValidator:
     """
@@ -248,7 +246,7 @@ class ConfigValidator:
         return result.is_valid
 
     @classmethod
-    def check_database_connectivity(cls) -> tuple[bool, Optional[str]]:
+    def check_database_connectivity(cls) -> tuple[bool, str | None]:
         """
         Check if database is accessible (if configured).
 
@@ -281,7 +279,7 @@ class ConfigValidator:
         cls,
         timeout_seconds: float = 5.0,
         skip_connectivity_test: bool = False,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         Check if PostgreSQL is accessible (if configured).
 
@@ -314,7 +312,7 @@ class ConfigValidator:
         # Actually test the connection
         import asyncio
 
-        async def _test_connection() -> tuple[bool, Optional[str]]:
+        async def _test_connection() -> tuple[bool, str | None]:
             conn = None
             try:
                 conn = await asyncio.wait_for(
@@ -340,7 +338,7 @@ class ConfigValidator:
         try:
             # Check if there's already a running loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # Already in async context - can't run sync
                 # Return success but warn
                 logger.warning(
@@ -355,7 +353,7 @@ class ConfigValidator:
             return False, f"Failed to run connectivity test: {e}"
 
     @classmethod
-    def check_redis_connectivity(cls) -> tuple[bool, Optional[str]]:
+    def check_redis_connectivity(cls) -> tuple[bool, str | None]:
         """
         Check if Redis is accessible (if configured).
 
@@ -382,7 +380,7 @@ class ConfigValidator:
     async def check_postgresql_connectivity_async(
         cls,
         timeout_seconds: float = 5.0,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         Async version of PostgreSQL connectivity check.
 
@@ -518,7 +516,6 @@ class ConfigValidator:
             "allowed_origins": bool(os.getenv("ARAGORA_ALLOWED_ORIGINS")),
         }
 
-
 def validate_startup_config(strict: bool = False, exit_on_error: bool = True) -> bool:
     """
     Convenience function to validate configuration at startup.
@@ -539,7 +536,6 @@ def validate_startup_config(strict: bool = False, exit_on_error: bool = True) ->
         sys.exit(1)
 
     return is_valid
-
 
 async def validate_startup_config_async(
     strict: bool = False,
@@ -573,7 +569,6 @@ async def validate_startup_config_async(
         logger.error(f"Configuration error: {error}")
 
     return result
-
 
 __all__ = [
     "ConfigValidator",

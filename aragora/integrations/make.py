@@ -17,12 +17,13 @@ Actions:
 - Get Agents: List available agents
 - Run Gauntlet: Execute stress-test
 """
+from __future__ import annotations
 
 import logging
 import secrets
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aiohttp import ClientTimeout
 
@@ -30,11 +31,9 @@ from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Make Data Models
 # =============================================================================
-
 
 @dataclass
 class MakeWebhook:
@@ -44,14 +43,14 @@ class MakeWebhook:
     module_type: str
     webhook_url: str
     created_at: float = field(default_factory=time.time)
-    last_triggered_at: Optional[float] = None
+    last_triggered_at: float | None = None
     trigger_count: int = 0
 
     # Filtering options
-    workspace_id: Optional[str] = None
-    event_filter: Optional[Dict[str, Any]] = None
+    workspace_id: str | None = None
+    event_filter: Optional[dict[str, Any]] = None
 
-    def matches_event(self, event: Dict[str, Any]) -> bool:
+    def matches_event(self, event: dict[str, Any]) -> bool:
         """Check if an event matches this webhook's filters."""
         if self.workspace_id:
             if event.get("workspace_id") != self.workspace_id:
@@ -64,7 +63,6 @@ class MakeWebhook:
 
         return True
 
-
 @dataclass
 class MakeConnection:
     """Make connection configuration for an Aragora workspace."""
@@ -73,18 +71,16 @@ class MakeConnection:
     workspace_id: str
     api_key: str
     created_at: float = field(default_factory=time.time)
-    webhooks: Dict[str, MakeWebhook] = field(default_factory=dict)
+    webhooks: dict[str, MakeWebhook] = field(default_factory=dict)
     active: bool = True
 
     # Usage tracking
     total_operations: int = 0
-    last_operation_at: Optional[float] = None
-
+    last_operation_at: float | None = None
 
 # =============================================================================
 # Make Integration
 # =============================================================================
-
 
 class MakeIntegration(BaseIntegration):
     """
@@ -98,7 +94,7 @@ class MakeIntegration(BaseIntegration):
     """
 
     # Module types (triggers and actions)
-    MODULE_TYPES: Dict[str, Dict[str, Any]] = {
+    MODULE_TYPES: dict[str, dict[str, Any]] = {
         # Instant triggers (webhook-based)
         "watch_debates": {
             "type": "trigger",
@@ -164,7 +160,7 @@ class MakeIntegration(BaseIntegration):
         """
         super().__init__()
         self.api_base = api_base
-        self._connections: Dict[str, MakeConnection] = {}
+        self._connections: dict[str, MakeConnection] = {}
 
     @property
     def is_configured(self) -> bool:
@@ -216,18 +212,18 @@ class MakeIntegration(BaseIntegration):
         logger.info(f"Created Make connection {conn_id} for workspace {workspace_id}")
         return connection
 
-    def get_connection(self, conn_id: str) -> Optional[MakeConnection]:
+    def get_connection(self, conn_id: str) -> MakeConnection | None:
         """Get Make connection by ID."""
         return self._connections.get(conn_id)
 
-    def get_connection_by_key(self, api_key: str) -> Optional[MakeConnection]:
+    def get_connection_by_key(self, api_key: str) -> MakeConnection | None:
         """Get Make connection by API key."""
         for conn in self._connections.values():
             if conn.api_key == api_key:
                 return conn
         return None
 
-    def list_connections(self, workspace_id: Optional[str] = None) -> List[MakeConnection]:
+    def list_connections(self, workspace_id: str | None = None) -> list[MakeConnection]:
         """List all Make connections, optionally filtered by workspace."""
         connections = list(self._connections.values())
         if workspace_id:
@@ -251,9 +247,9 @@ class MakeIntegration(BaseIntegration):
         conn_id: str,
         module_type: str,
         webhook_url: str,
-        workspace_id: Optional[str] = None,
-        event_filter: Optional[Dict[str, Any]] = None,
-    ) -> Optional[MakeWebhook]:
+        workspace_id: str | None = None,
+        event_filter: Optional[dict[str, Any]] = None,
+    ) -> MakeWebhook | None:
         """Register a webhook for a trigger module.
 
         Args:
@@ -313,7 +309,7 @@ class MakeIntegration(BaseIntegration):
             return True
         return False
 
-    def list_webhooks(self, conn_id: str) -> List[MakeWebhook]:
+    def list_webhooks(self, conn_id: str) -> list[MakeWebhook]:
         """List all webhooks for a Make connection."""
         connection = self._connections.get(conn_id)
         if not connection:
@@ -327,7 +323,7 @@ class MakeIntegration(BaseIntegration):
     async def trigger_webhooks(
         self,
         module_type: str,
-        event_data: Dict[str, Any],
+        event_data: dict[str, Any],
     ) -> int:
         """Trigger webhooks for all matching connections.
 
@@ -368,7 +364,7 @@ class MakeIntegration(BaseIntegration):
     async def _trigger_single_webhook(
         self,
         webhook: MakeWebhook,
-        event_data: Dict[str, Any],
+        event_data: dict[str, Any],
     ) -> bool:
         """Trigger a single webhook.
 
@@ -406,8 +402,8 @@ class MakeIntegration(BaseIntegration):
     def _format_webhook_payload(
         self,
         webhook: MakeWebhook,
-        event_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        event_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Format event data for Make webhook payload."""
         return {
             "event_id": event_data.get("id", f"evt_{secrets.token_hex(8)}"),
@@ -424,8 +420,8 @@ class MakeIntegration(BaseIntegration):
         self,
         conn_id: str,
         action_type: str,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute a Make action.
 
         Args:
@@ -458,8 +454,8 @@ class MakeIntegration(BaseIntegration):
     async def _execute_action_internal(
         self,
         action_type: str,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Internal action execution.
 
         This would typically make API calls to execute the action.
@@ -479,7 +475,7 @@ class MakeIntegration(BaseIntegration):
     def authenticate_request(
         self,
         api_key: str,
-    ) -> Optional[MakeConnection]:
+    ) -> MakeConnection | None:
         """Authenticate a request using API key.
 
         Args:
@@ -490,7 +486,7 @@ class MakeIntegration(BaseIntegration):
         """
         return self.get_connection_by_key(api_key)
 
-    def test_connection(self, conn_id: str) -> Dict[str, Any]:
+    def test_connection(self, conn_id: str) -> dict[str, Any]:
         """Test a Make connection.
 
         Args:
@@ -511,13 +507,11 @@ class MakeIntegration(BaseIntegration):
             "total_operations": connection.total_operations,
         }
 
-
 # =============================================================================
 # Module-level singleton
 # =============================================================================
 
-_make_integration: Optional[MakeIntegration] = None
-
+_make_integration: MakeIntegration | None = None
 
 def get_make_integration() -> MakeIntegration:
     """Get or create the global Make integration instance."""
@@ -525,7 +519,6 @@ def get_make_integration() -> MakeIntegration:
     if _make_integration is None:
         _make_integration = MakeIntegration()
     return _make_integration
-
 
 # =============================================================================
 # Exports

@@ -12,13 +12,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class PolicyRule:
@@ -30,8 +29,7 @@ class PolicyRule:
     condition: str
     severity: str  # critical, high, medium, low
     enabled: bool = True
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Policy:
@@ -45,11 +43,10 @@ class Policy:
     vertical_id: str
     level: str  # required, recommended, optional
     enabled: bool = True
-    rules: List[PolicyRule] = field(default_factory=list)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    rules: list[PolicyRule] = field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class PolicyViolation:
@@ -66,12 +63,11 @@ class PolicyViolation:
     status: str  # open, investigating, resolved, false_positive
     description: str
     source: str
-    created_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
-    resolved_by: Optional[str] = None
-    resolution_notes: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    created_at: datetime | None = None
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
+    resolution_notes: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ComplianceCheckResult:
@@ -79,9 +75,8 @@ class ComplianceCheckResult:
 
     compliant: bool
     score: float
-    issues: List[Dict[str, Any]] = field(default_factory=list)
-    checked_at: Optional[datetime] = None
-
+    issues: list[dict[str, Any]] = field(default_factory=list)
+    checked_at: datetime | None = None
 
 @dataclass
 class ComplianceStats:
@@ -92,9 +87,8 @@ class ComplianceStats:
     policies_disabled: int = 0
     violations_total: int = 0
     violations_open: int = 0
-    violations_by_severity: Dict[str, int] = field(default_factory=dict)
+    violations_by_severity: dict[str, int] = field(default_factory=dict)
     risk_score: int = 0
-
 
 class PoliciesAPI:
     """API interface for compliance policy management."""
@@ -108,13 +102,13 @@ class PoliciesAPI:
 
     def list(
         self,
-        workspace_id: Optional[str] = None,
-        vertical_id: Optional[str] = None,
-        framework_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        vertical_id: str | None = None,
+        framework_id: str | None = None,
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[Policy], int]:
+    ) -> tuple[list[Policy], int]:
         """
         List policies with optional filters.
 
@@ -129,7 +123,7 @@ class PoliciesAPI:
         Returns:
             Tuple of (list of Policy objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workspace_id:
             params["workspace_id"] = workspace_id
         if vertical_id:
@@ -145,15 +139,15 @@ class PoliciesAPI:
 
     async def list_async(
         self,
-        workspace_id: Optional[str] = None,
-        vertical_id: Optional[str] = None,
-        framework_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        vertical_id: str | None = None,
+        framework_id: str | None = None,
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[Policy], int]:
+    ) -> tuple[list[Policy], int]:
         """Async version of list()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workspace_id:
             params["workspace_id"] = workspace_id
         if vertical_id:
@@ -194,8 +188,8 @@ class PoliciesAPI:
         workspace_id: str = "default",
         level: str = "recommended",
         enabled: bool = True,
-        rules: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        rules: Optional[list[dict[str, Any]]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Policy:
         """
         Create a new policy.
@@ -214,7 +208,7 @@ class PoliciesAPI:
         Returns:
             Created Policy object.
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "framework_id": framework_id,
             "vertical_id": vertical_id,
@@ -240,11 +234,11 @@ class PoliciesAPI:
         workspace_id: str = "default",
         level: str = "recommended",
         enabled: bool = True,
-        rules: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        rules: Optional[list[dict[str, Any]]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Policy:
         """Async version of create()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "framework_id": framework_id,
             "vertical_id": vertical_id,
@@ -264,12 +258,12 @@ class PoliciesAPI:
     def update(
         self,
         policy_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        level: Optional[str] = None,
-        enabled: Optional[bool] = None,
-        rules: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        level: str | None = None,
+        enabled: bool | None = None,
+        rules: Optional[list[dict[str, Any]]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Policy:
         """
         Update a policy.
@@ -286,7 +280,7 @@ class PoliciesAPI:
         Returns:
             Updated Policy object.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if description is not None:
@@ -306,15 +300,15 @@ class PoliciesAPI:
     async def update_async(
         self,
         policy_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        level: Optional[str] = None,
-        enabled: Optional[bool] = None,
-        rules: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        level: str | None = None,
+        enabled: bool | None = None,
+        rules: Optional[list[dict[str, Any]]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Policy:
         """Async version of update()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if description is not None:
@@ -349,7 +343,7 @@ class PoliciesAPI:
         await self._client._delete_async(f"/api/v1/policies/{policy_id}")
         return True
 
-    def toggle(self, policy_id: str, enabled: Optional[bool] = None) -> Policy:
+    def toggle(self, policy_id: str, enabled: bool | None = None) -> Policy:
         """
         Toggle a policy's enabled status.
 
@@ -360,16 +354,16 @@ class PoliciesAPI:
         Returns:
             Updated Policy object.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if enabled is not None:
             body["enabled"] = enabled
 
         response = self._client._post(f"/api/v1/policies/{policy_id}/toggle", body)
         return self._parse_policy(response.get("policy", response))
 
-    async def toggle_async(self, policy_id: str, enabled: Optional[bool] = None) -> Policy:
+    async def toggle_async(self, policy_id: str, enabled: bool | None = None) -> Policy:
         """Async version of toggle()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if enabled is not None:
             body["enabled"] = enabled
 
@@ -382,13 +376,13 @@ class PoliciesAPI:
 
     def list_violations(
         self,
-        policy_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
+        policy_id: str | None = None,
+        workspace_id: str | None = None,
+        status: str | None = None,
+        severity: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[PolicyViolation], int]:
+    ) -> tuple[list[PolicyViolation], int]:
         """
         List policy violations.
 
@@ -403,7 +397,7 @@ class PoliciesAPI:
         Returns:
             Tuple of (list of PolicyViolation objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if policy_id:
             params["policy_id"] = policy_id
         if workspace_id:
@@ -419,15 +413,15 @@ class PoliciesAPI:
 
     async def list_violations_async(
         self,
-        policy_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
+        policy_id: str | None = None,
+        workspace_id: str | None = None,
+        status: str | None = None,
+        severity: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[PolicyViolation], int]:
+    ) -> tuple[list[PolicyViolation], int]:
         """Async version of list_violations()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if policy_id:
             params["policy_id"] = policy_id
         if workspace_id:
@@ -463,7 +457,7 @@ class PoliciesAPI:
         self,
         violation_id: str,
         status: str,
-        resolution_notes: Optional[str] = None,
+        resolution_notes: str | None = None,
     ) -> PolicyViolation:
         """
         Update violation status.
@@ -476,7 +470,7 @@ class PoliciesAPI:
         Returns:
             Updated PolicyViolation object.
         """
-        body: Dict[str, Any] = {"status": status}
+        body: dict[str, Any] = {"status": status}
         if resolution_notes:
             body["resolution_notes"] = resolution_notes
 
@@ -487,10 +481,10 @@ class PoliciesAPI:
         self,
         violation_id: str,
         status: str,
-        resolution_notes: Optional[str] = None,
+        resolution_notes: str | None = None,
     ) -> PolicyViolation:
         """Async version of update_violation()."""
-        body: Dict[str, Any] = {"status": status}
+        body: dict[str, Any] = {"status": status}
         if resolution_notes:
             body["resolution_notes"] = resolution_notes
 
@@ -506,7 +500,7 @@ class PoliciesAPI:
     def check(
         self,
         content: str,
-        frameworks: Optional[List[str]] = None,
+        frameworks: Optional[list[str]] = None,
         min_severity: str = "low",
         store_violations: bool = False,
         workspace_id: str = "default",
@@ -524,7 +518,7 @@ class PoliciesAPI:
         Returns:
             ComplianceCheckResult object.
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "content": content,
             "min_severity": min_severity,
             "store_violations": store_violations,
@@ -539,13 +533,13 @@ class PoliciesAPI:
     async def check_async(
         self,
         content: str,
-        frameworks: Optional[List[str]] = None,
+        frameworks: Optional[list[str]] = None,
         min_severity: str = "low",
         store_violations: bool = False,
         workspace_id: str = "default",
     ) -> ComplianceCheckResult:
         """Async version of check()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "content": content,
             "min_severity": min_severity,
             "store_violations": store_violations,
@@ -557,7 +551,7 @@ class PoliciesAPI:
         response = await self._client._post_async("/api/v1/compliance/check", body)
         return self._parse_check_result(response)
 
-    def get_stats(self, workspace_id: Optional[str] = None) -> ComplianceStats:
+    def get_stats(self, workspace_id: str | None = None) -> ComplianceStats:
         """
         Get compliance statistics.
 
@@ -567,16 +561,16 @@ class PoliciesAPI:
         Returns:
             ComplianceStats object.
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
 
         response = self._client._get("/api/v1/compliance/stats", params=params)
         return self._parse_stats(response)
 
-    async def get_stats_async(self, workspace_id: Optional[str] = None) -> ComplianceStats:
+    async def get_stats_async(self, workspace_id: str | None = None) -> ComplianceStats:
         """Async version of get_stats()."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
 
@@ -587,7 +581,7 @@ class PoliciesAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_policy(self, data: Dict[str, Any]) -> Policy:
+    def _parse_policy(self, data: dict[str, Any]) -> Policy:
         """Parse policy data into Policy object."""
         created_at = None
         updated_at = None
@@ -621,7 +615,7 @@ class PoliciesAPI:
             metadata=data.get("metadata", {}),
         )
 
-    def _parse_rule(self, data: Dict[str, Any]) -> PolicyRule:
+    def _parse_rule(self, data: dict[str, Any]) -> PolicyRule:
         """Parse rule data into PolicyRule object."""
         return PolicyRule(
             id=data.get("id", ""),
@@ -633,7 +627,7 @@ class PoliciesAPI:
             metadata=data.get("metadata", {}),
         )
 
-    def _parse_violation(self, data: Dict[str, Any]) -> PolicyViolation:
+    def _parse_violation(self, data: dict[str, Any]) -> PolicyViolation:
         """Parse violation data into PolicyViolation object."""
         created_at = None
         resolved_at = None
@@ -669,7 +663,7 @@ class PoliciesAPI:
             metadata=data.get("metadata", {}),
         )
 
-    def _parse_check_result(self, data: Dict[str, Any]) -> ComplianceCheckResult:
+    def _parse_check_result(self, data: dict[str, Any]) -> ComplianceCheckResult:
         """Parse check result data into ComplianceCheckResult object."""
         checked_at = None
         if data.get("checked_at"):
@@ -686,7 +680,7 @@ class PoliciesAPI:
             checked_at=checked_at,
         )
 
-    def _parse_stats(self, data: Dict[str, Any]) -> ComplianceStats:
+    def _parse_stats(self, data: dict[str, Any]) -> ComplianceStats:
         """Parse stats data into ComplianceStats object."""
         policies = data.get("policies", {})
         violations = data.get("violations", {})
@@ -700,7 +694,6 @@ class PoliciesAPI:
             violations_by_severity=violations.get("by_severity", {}),
             risk_score=data.get("risk_score", 0),
         )
-
 
 __all__ = [
     "PoliciesAPI",

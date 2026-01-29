@@ -21,7 +21,7 @@ import asyncio
 import logging
 import threading
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.analysis.codebase import (
     CodeMetricsAnalyzer,
@@ -44,11 +44,9 @@ METRICS_ANALYZE_PERMISSION = "codebase:metrics:analyze"
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Service Registry Integration
 # =============================================================================
-
 
 def _get_metrics_analyzer(
     complexity_warning: int = 10,
@@ -64,40 +62,36 @@ def _get_metrics_analyzer(
         duplication_threshold=duplication_threshold,
     )
 
-
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
-_metrics_reports: Dict[str, Dict[str, MetricsReport]] = {}  # repo_id -> {analysis_id -> report}
+_metrics_reports: dict[str, dict[str, MetricsReport]] = {}  # repo_id -> {analysis_id -> report}
 _metrics_lock = threading.Lock()
-_running_analyses: Dict[str, asyncio.Task] = {}
+_running_analyses: dict[str, asyncio.Task] = {}
 
-
-def _get_or_create_repo_metrics(repo_id: str) -> Dict[str, MetricsReport]:
+def _get_or_create_repo_metrics(repo_id: str) -> dict[str, MetricsReport]:
     """Get or create metrics storage for a repository."""
     with _metrics_lock:
         if repo_id not in _metrics_reports:
             _metrics_reports[repo_id] = {}
         return _metrics_reports[repo_id]
 
-
 # =============================================================================
 # Metrics Handlers
 # =============================================================================
 
-
 async def handle_analyze_metrics(
     repo_path: str,
-    repo_id: Optional[str] = None,
-    include_patterns: Optional[List[str]] = None,
-    exclude_patterns: Optional[List[str]] = None,
+    repo_id: str | None = None,
+    include_patterns: Optional[list[str]] = None,
+    exclude_patterns: Optional[list[str]] = None,
     complexity_warning: int = 10,
     complexity_error: int = 20,
     duplication_threshold: int = 6,
-    workspace_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    workspace_id: str | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """
     Run metrics analysis on a repository.
 
@@ -191,11 +185,10 @@ async def handle_analyze_metrics(
             "error": str(e),
         }
 
-
 async def handle_get_metrics(
     repo_id: str,
-    analysis_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    analysis_id: str | None = None,
+) -> dict[str, Any]:
     """
     Get metrics analysis result.
 
@@ -233,12 +226,11 @@ async def handle_get_metrics(
             "error": str(e),
         }
 
-
 async def handle_get_hotspots(
     repo_id: str,
     min_complexity: int = 5,
     limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get complexity hotspots from latest analysis.
 
@@ -273,12 +265,11 @@ async def handle_get_hotspots(
             "error": str(e),
         }
 
-
 async def handle_get_duplicates(
     repo_id: str,
     min_lines: int = 6,
     limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get code duplicates from latest analysis.
 
@@ -322,11 +313,10 @@ async def handle_get_duplicates(
             "error": str(e),
         }
 
-
 async def handle_get_file_metrics(
     repo_id: str,
     file_path: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get metrics for a specific file.
 
@@ -388,12 +378,11 @@ async def handle_get_file_metrics(
             "error": str(e),
         }
 
-
 async def handle_list_analyses(
     repo_id: str,
     limit: int = 20,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List metrics analysis history for a repository.
 
@@ -441,11 +430,9 @@ async def handle_list_analyses(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class MetricsHandler(SecureHandler):
     """
@@ -458,7 +445,7 @@ class MetricsHandler(SecureHandler):
         "/api/v1/codebase/",
     ]
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)  # type: ignore[arg-type]
 
@@ -472,8 +459,8 @@ class MetricsHandler(SecureHandler):
         return False
 
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route metrics endpoint requests."""
         # RBAC: Require authentication and metrics:read permission
         try:
@@ -486,7 +473,7 @@ class MetricsHandler(SecureHandler):
         return None
 
     async def handle_post_analyze(
-        self, data: Dict[str, Any], repo_id: str, handler: Any = None
+        self, data: dict[str, Any], repo_id: str, handler: Any = None
     ) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/metrics/analyze"""
         # RBAC: Require codebase:metrics:analyze permission
@@ -520,7 +507,7 @@ class MetricsHandler(SecureHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_metrics(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_get_metrics(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/metrics"""
         result = await handle_get_metrics(repo_id=repo_id)
 
@@ -530,7 +517,7 @@ class MetricsHandler(SecureHandler):
             return error_response(result.get("error", "Unknown error"), 404)
 
     async def handle_get_metrics_by_id(
-        self, params: Dict[str, Any], repo_id: str, analysis_id: str
+        self, params: dict[str, Any], repo_id: str, analysis_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/metrics/{analysis_id}"""
         result = await handle_get_metrics(repo_id=repo_id, analysis_id=analysis_id)
@@ -540,7 +527,7 @@ class MetricsHandler(SecureHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
-    async def handle_get_hotspots(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_get_hotspots(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/hotspots"""
         result = await handle_get_hotspots(
             repo_id=repo_id,
@@ -553,7 +540,7 @@ class MetricsHandler(SecureHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_get_duplicates(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_get_duplicates(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/duplicates"""
         result = await handle_get_duplicates(
             repo_id=repo_id,
@@ -567,7 +554,7 @@ class MetricsHandler(SecureHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     async def handle_get_file_metrics(
-        self, params: Dict[str, Any], repo_id: str, file_path: str
+        self, params: dict[str, Any], repo_id: str, file_path: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/metrics/file/{file_path}"""
         result = await handle_get_file_metrics(repo_id=repo_id, file_path=file_path)
@@ -577,7 +564,7 @@ class MetricsHandler(SecureHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
-    async def handle_list_analyses(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_list_analyses(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/metrics/history"""
         result = await handle_list_analyses(
             repo_id=repo_id,

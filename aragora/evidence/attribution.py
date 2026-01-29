@@ -12,6 +12,7 @@ Works alongside aragora/reasoning/provenance.py which provides:
 - CitationGraph for citation dependencies
 - MerkleTree for batch verification
 """
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -19,10 +20,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class VerificationOutcome(str, Enum):
     """Outcome of evidence verification."""
@@ -32,7 +32,6 @@ class VerificationOutcome(str, Enum):
     UNVERIFIED = "unverified"  # Could not verify (neutral)
     CONTESTED = "contested"  # Disputed by other evidence
     REFUTED = "refuted"  # Evidence shown to be incorrect
-
 
 class ReputationTier(str, Enum):
     """Source reputation tiers."""
@@ -57,7 +56,6 @@ class ReputationTier(str, Enum):
         else:
             return cls.UNRELIABLE
 
-
 @dataclass
 class VerificationRecord:
     """Record of a single verification event."""
@@ -69,11 +67,11 @@ class VerificationRecord:
     confidence: float = 1.0  # Confidence in this verification
     timestamp: datetime = field(default_factory=datetime.now)
     verifier_type: str = "system"  # system, agent, user
-    verifier_id: Optional[str] = None
+    verifier_id: str | None = None
     notes: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "record_id": self.record_id,
@@ -89,7 +87,7 @@ class VerificationRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VerificationRecord":
+    def from_dict(cls, data: dict[str, Any]) -> "VerificationRecord":
         """Deserialize from dictionary."""
         return cls(
             record_id=data["record_id"],
@@ -103,7 +101,6 @@ class VerificationRecord:
             notes=data.get("notes", ""),
             metadata=data.get("metadata", {}),
         )
-
 
 @dataclass
 class SourceReputation:
@@ -129,10 +126,10 @@ class SourceReputation:
     debate_count: int = 0  # Number of debates this source appeared in
 
     # History tracking
-    score_history: List[Tuple[datetime, float]] = field(default_factory=list)
+    score_history: list[tuple[datetime, float]] = field(default_factory=list)
 
     # Additional metadata (e.g., tracking debates)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def tier(self) -> ReputationTier:
@@ -153,7 +150,7 @@ class SourceReputation:
             return 0.0
         return self.refuted_count / self.verification_count
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         # Convert debates set to list for JSON serialization
         metadata_for_json = dict(self.metadata)
@@ -181,7 +178,7 @@ class SourceReputation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SourceReputation":
+    def from_dict(cls, data: dict[str, Any]) -> "SourceReputation":
         """Deserialize from dictionary."""
         # Convert debates list back to set
         metadata = data.get("metadata", {})
@@ -209,7 +206,6 @@ class SourceReputation:
                 (datetime.fromisoformat(ts), score) for ts, score in data["score_history"]
             ]
         return rep
-
 
 class ReputationScorer:
     """Algorithms for computing source reputation scores."""
@@ -246,9 +242,9 @@ class ReputationScorer:
 
     def compute_score(
         self,
-        verifications: List[VerificationRecord],
+        verifications: list[VerificationRecord],
         current_score: float = 0.5,
-    ) -> Tuple[float, float, float]:
+    ) -> tuple[float, float, float]:
         """Compute reputation score from verification history.
 
         Returns:
@@ -355,22 +351,21 @@ class ReputationScorer:
 
         return reputation
 
-
 class SourceReputationManager:
     """Manages source reputations across debates."""
 
-    def __init__(self, scorer: Optional[ReputationScorer] = None):
+    def __init__(self, scorer: ReputationScorer | None = None):
         """Initialize manager.
 
         Args:
             scorer: ReputationScorer instance for computing scores
         """
         self.scorer = scorer or ReputationScorer()
-        self.reputations: Dict[str, SourceReputation] = {}
-        self.verifications: Dict[str, List[VerificationRecord]] = defaultdict(list)
-        self.debate_sources: Dict[str, set] = defaultdict(set)  # debate_id -> source_ids
+        self.reputations: dict[str, SourceReputation] = {}
+        self.verifications: dict[str, list[VerificationRecord]] = defaultdict(list)
+        self.debate_sources: dict[str, set] = defaultdict(set)  # debate_id -> source_ids
 
-    def get_reputation(self, source_id: str) -> Optional[SourceReputation]:
+    def get_reputation(self, source_id: str) -> SourceReputation | None:
         """Get reputation for a source."""
         return self.reputations.get(source_id)
 
@@ -395,7 +390,7 @@ class SourceReputationManager:
         outcome: VerificationOutcome,
         confidence: float = 1.0,
         verifier_type: str = "system",
-        verifier_id: Optional[str] = None,
+        verifier_id: str | None = None,
         notes: str = "",
         source_type: str = "unknown",
     ) -> VerificationRecord:
@@ -455,7 +450,7 @@ class SourceReputationManager:
 
         return verification
 
-    def recompute_reputation(self, source_id: str) -> Optional[SourceReputation]:
+    def recompute_reputation(self, source_id: str) -> SourceReputation | None:
         """Recompute reputation from full history."""
         if source_id not in self.verifications:
             return None
@@ -492,22 +487,22 @@ class SourceReputationManager:
         self,
         source_id: str,
         limit: int = 50,
-    ) -> List[VerificationRecord]:
+    ) -> list[VerificationRecord]:
         """Get verification history for a source."""
         history = self.verifications.get(source_id, [])
         return sorted(history, key=lambda v: v.timestamp, reverse=True)[:limit]
 
-    def get_debate_sources(self, debate_id: str) -> List[SourceReputation]:
+    def get_debate_sources(self, debate_id: str) -> list[SourceReputation]:
         """Get reputations for all sources in a debate."""
         source_ids = self.debate_sources.get(debate_id, set())
         return [self.reputations[sid] for sid in source_ids if sid in self.reputations]
 
     def get_top_sources(
         self,
-        source_type: Optional[str] = None,
+        source_type: str | None = None,
         min_verifications: int = 1,
         limit: int = 10,
-    ) -> List[SourceReputation]:
+    ) -> list[SourceReputation]:
         """Get top-rated sources.
 
         Args:
@@ -531,7 +526,7 @@ class SourceReputationManager:
         self,
         threshold: float = 0.3,
         min_verifications: int = 3,
-    ) -> List[SourceReputation]:
+    ) -> list[SourceReputation]:
         """Get sources below reliability threshold."""
         return [
             rep
@@ -539,7 +534,7 @@ class SourceReputationManager:
             if rep.reputation_score < threshold and rep.verification_count >= min_verifications
         ]
 
-    def export_state(self) -> Dict[str, Any]:
+    def export_state(self) -> dict[str, Any]:
         """Export manager state for persistence."""
         return {
             "reputations": {sid: rep.to_dict() for sid, rep in self.reputations.items()},
@@ -550,7 +545,7 @@ class SourceReputationManager:
             "exported_at": datetime.now().isoformat(),
         }
 
-    def import_state(self, data: Dict[str, Any]) -> None:
+    def import_state(self, data: dict[str, Any]) -> None:
         """Import manager state from persistence."""
         # Import reputations
         for sid, rep_data in data.get("reputations", {}).items():
@@ -569,7 +564,6 @@ class SourceReputationManager:
             f"{sum(len(v) for v in self.verifications.values())} verifications"
         )
 
-
 @dataclass
 class AttributionChainEntry:
     """Entry in the cross-debate attribution chain."""
@@ -580,10 +574,10 @@ class AttributionChainEntry:
     content_hash: str
     reputation_at_use: float  # Source reputation when this evidence was used
     timestamp: datetime = field(default_factory=datetime.now)
-    verification_outcome: Optional[VerificationOutcome] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    verification_outcome: VerificationOutcome | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "evidence_id": self.evidence_id,
@@ -598,21 +592,20 @@ class AttributionChainEntry:
             "metadata": self.metadata,
         }
 
-
 class AttributionChain:
     """Cross-debate attribution chain for evidence tracking."""
 
-    def __init__(self, reputation_manager: Optional[SourceReputationManager] = None):
+    def __init__(self, reputation_manager: SourceReputationManager | None = None):
         """Initialize attribution chain.
 
         Args:
             reputation_manager: SourceReputationManager for reputation lookups
         """
         self.reputation_manager = reputation_manager or SourceReputationManager()
-        self.entries: List[AttributionChainEntry] = []
-        self.by_evidence: Dict[str, List[AttributionChainEntry]] = defaultdict(list)
-        self.by_source: Dict[str, List[AttributionChainEntry]] = defaultdict(list)
-        self.by_debate: Dict[str, List[AttributionChainEntry]] = defaultdict(list)
+        self.entries: list[AttributionChainEntry] = []
+        self.by_evidence: dict[str, list[AttributionChainEntry]] = defaultdict(list)
+        self.by_source: dict[str, list[AttributionChainEntry]] = defaultdict(list)
+        self.by_debate: dict[str, list[AttributionChainEntry]] = defaultdict(list)
 
     def add_entry(
         self,
@@ -621,7 +614,7 @@ class AttributionChain:
         debate_id: str,
         content: str,
         source_type: str = "unknown",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> AttributionChainEntry:
         """Add evidence to the attribution chain.
 
@@ -664,8 +657,8 @@ class AttributionChain:
         outcome: VerificationOutcome,
         confidence: float = 1.0,
         verifier_type: str = "system",
-        verifier_id: Optional[str] = None,
-    ) -> Optional[VerificationRecord]:
+        verifier_id: str | None = None,
+    ) -> VerificationRecord | None:
         """Record verification outcome for evidence in the chain.
 
         Updates both the chain entry and the source reputation.
@@ -690,19 +683,19 @@ class AttributionChain:
             verifier_id=verifier_id,
         )
 
-    def get_evidence_chain(self, evidence_id: str) -> List[AttributionChainEntry]:
+    def get_evidence_chain(self, evidence_id: str) -> list[AttributionChainEntry]:
         """Get full chain for an evidence item across debates."""
         return sorted(self.by_evidence.get(evidence_id, []), key=lambda e: e.timestamp)
 
-    def get_source_chain(self, source_id: str) -> List[AttributionChainEntry]:
+    def get_source_chain(self, source_id: str) -> list[AttributionChainEntry]:
         """Get all evidence from a source across debates."""
         return sorted(self.by_source.get(source_id, []), key=lambda e: e.timestamp)
 
-    def get_debate_attributions(self, debate_id: str) -> List[AttributionChainEntry]:
+    def get_debate_attributions(self, debate_id: str) -> list[AttributionChainEntry]:
         """Get all attributions for a debate."""
         return self.by_debate.get(debate_id, [])
 
-    def compute_debate_reliability(self, debate_id: str) -> Dict[str, Any]:
+    def compute_debate_reliability(self, debate_id: str) -> dict[str, Any]:
         """Compute overall reliability metrics for a debate.
 
         Returns metrics based on source reputations of evidence used.
@@ -740,20 +733,19 @@ class AttributionChain:
     def find_reused_evidence(
         self,
         min_uses: int = 2,
-    ) -> Dict[str, List[AttributionChainEntry]]:
+    ) -> dict[str, list[AttributionChainEntry]]:
         """Find evidence that has been reused across debates."""
         return {
             eid: entries for eid, entries in self.by_evidence.items() if len(entries) >= min_uses
         }
 
-    def export_chain(self) -> Dict[str, Any]:
+    def export_chain(self) -> dict[str, Any]:
         """Export chain state for persistence."""
         return {
             "entries": [e.to_dict() for e in self.entries],
             "reputation_state": self.reputation_manager.export_state(),
             "exported_at": datetime.now().isoformat(),
         }
-
 
 __all__ = [
     "VerificationOutcome",

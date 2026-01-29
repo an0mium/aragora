@@ -8,7 +8,7 @@ querying the Knowledge Mound.
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,6 @@ except ImportError:
             self.page_content = page_content
             self.metadata = metadata or {}
 
-
 class AragoraRetriever(BaseRetriever):
     """
     LangChain Retriever for Aragora Knowledge Mound.
@@ -57,7 +56,7 @@ class AragoraRetriever(BaseRetriever):
     """
 
     aragora_url: str = "http://localhost:8080"
-    api_token: Optional[str] = None
+    api_token: str | None = None
     max_results: int = 5
     timeout_seconds: float = 30.0
     include_metadata: bool = True
@@ -65,7 +64,7 @@ class AragoraRetriever(BaseRetriever):
     def __init__(
         self,
         aragora_url: str = "http://localhost:8080",
-        api_token: Optional[str] = None,
+        api_token: str | None = None,
         max_results: int = 5,
         **kwargs: Any,
     ):
@@ -87,8 +86,8 @@ class AragoraRetriever(BaseRetriever):
         self,
         query: str,
         *,
-        run_manager: Optional[CallbackManagerForRetrieverRun] = None,
-    ) -> List[Document]:
+        run_manager: CallbackManagerForRetrieverRun | None = None,
+    ) -> list[Document]:
         """Retrieve documents synchronously."""
         import asyncio
 
@@ -100,8 +99,8 @@ class AragoraRetriever(BaseRetriever):
         self,
         query: str,
         *,
-        run_manager: Optional[AsyncCallbackManagerForRetrieverRun] = None,
-    ) -> List[Document]:
+        run_manager: AsyncCallbackManagerForRetrieverRun | None = None,
+    ) -> list[Document]:
         """Retrieve documents asynchronously."""
         import httpx
 

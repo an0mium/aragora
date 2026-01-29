@@ -7,7 +7,7 @@ Follows the same pattern as AgentRegistry for consistency.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.core_types import AgentRole
 from aragora.verticals.config import VerticalConfig
@@ -15,16 +15,14 @@ from aragora.verticals.config import VerticalConfig
 if TYPE_CHECKING:
     from aragora.verticals.base import VerticalSpecialistAgent
 
-
 @dataclass(frozen=True)
 class VerticalSpec:
     """Specification for a registered vertical."""
 
     vertical_id: str
-    specialist_class: Type["VerticalSpecialistAgent"]
+    specialist_class: type["VerticalSpecialistAgent"]
     config: VerticalConfig
     description: str
-
 
 class VerticalRegistry:
     """
@@ -47,7 +45,7 @@ class VerticalRegistry:
         available = VerticalRegistry.list_all()
     """
 
-    _registry: Dict[str, VerticalSpec] = {}
+    _registry: dict[str, VerticalSpec] = {}
 
     @classmethod
     def register(
@@ -56,7 +54,7 @@ class VerticalRegistry:
         *,
         config: VerticalConfig,
         description: str = "",
-    ) -> Callable[[Type["VerticalSpecialistAgent"]], Type["VerticalSpecialistAgent"]]:
+    ) -> Callable[[type["VerticalSpecialistAgent"]], type["VerticalSpecialistAgent"]]:
         """
         Decorator to register a vertical specialist class.
 
@@ -70,8 +68,8 @@ class VerticalRegistry:
         """
 
         def decorator(
-            specialist_cls: Type["VerticalSpecialistAgent"],
-        ) -> Type["VerticalSpecialistAgent"]:
+            specialist_cls: type["VerticalSpecialistAgent"],
+        ) -> type["VerticalSpecialistAgent"]:
             spec = VerticalSpec(
                 vertical_id=vertical_id,
                 specialist_class=specialist_cls,
@@ -88,9 +86,9 @@ class VerticalRegistry:
         cls,
         vertical_id: str,
         name: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         role: AgentRole = "analyst",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         **kwargs: Any,
     ) -> "VerticalSpecialistAgent":
         """
@@ -130,7 +128,7 @@ class VerticalRegistry:
         )
 
     @classmethod
-    def get(cls, vertical_id: str) -> Optional[VerticalSpec]:
+    def get(cls, vertical_id: str) -> VerticalSpec | None:
         """Get a vertical specification by ID."""
         return cls._registry.get(vertical_id)
 
@@ -140,13 +138,13 @@ class VerticalRegistry:
         return vertical_id in cls._registry
 
     @classmethod
-    def get_config(cls, vertical_id: str) -> Optional[VerticalConfig]:
+    def get_config(cls, vertical_id: str) -> VerticalConfig | None:
         """Get configuration for a vertical."""
         spec = cls._registry.get(vertical_id)
         return spec.config if spec else None
 
     @classmethod
-    def list_all(cls) -> Dict[str, Dict[str, Any]]:
+    def list_all(cls) -> dict[str, dict[str, Any]]:
         """
         List all registered verticals with their metadata.
 
@@ -166,12 +164,12 @@ class VerticalRegistry:
         }
 
     @classmethod
-    def get_registered_ids(cls) -> List[str]:
+    def get_registered_ids(cls) -> list[str]:
         """Get list of all registered vertical IDs."""
         return list(cls._registry.keys())
 
     @classmethod
-    def get_by_keyword(cls, keyword: str) -> List[str]:
+    def get_by_keyword(cls, keyword: str) -> list[str]:
         """
         Find verticals matching a keyword.
 
@@ -193,7 +191,7 @@ class VerticalRegistry:
         return matches
 
     @classmethod
-    def get_for_task(cls, task_description: str) -> Optional[str]:
+    def get_for_task(cls, task_description: str) -> str | None:
         """
         Infer the best vertical for a task description.
 

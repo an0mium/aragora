@@ -14,15 +14,15 @@ Usage:
         # Only accessible if user is admin AND has MFA enabled
         return {"admin": True}
 """
+from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from aragora.server.middleware.user_auth import User, get_current_user
 
 logger = logging.getLogger(__name__)
-
 
 def _has_valid_mfa_bypass(full_user: Any) -> bool:
     """
@@ -66,7 +66,6 @@ def _has_valid_mfa_bypass(full_user: Any) -> bool:
             return False  # Bypass expired
 
     return True
-
 
 def require_mfa(func: Callable) -> Callable:
     """
@@ -133,7 +132,6 @@ def require_mfa(func: Callable) -> Callable:
         return func(*args, **kwargs)
 
     return wrapper
-
 
 def require_admin_mfa(func: Callable) -> Callable:
     """
@@ -208,7 +206,6 @@ def require_admin_mfa(func: Callable) -> Callable:
 
     return wrapper
 
-
 def require_admin_with_mfa(func: Callable) -> Callable:
     """
     Decorator that requires BOTH admin role AND MFA enabled.
@@ -279,7 +276,6 @@ def require_admin_with_mfa(func: Callable) -> Callable:
 
     return wrapper
 
-
 def check_mfa_status(user_id: str, user_store: Any) -> dict:
     """
     Check MFA status for a user.
@@ -320,12 +316,11 @@ def check_mfa_status(user_id: str, user_store: Any) -> dict:
         "backup_codes_remaining": backup_count,
     }
 
-
 def enforce_admin_mfa_policy(
     user: User,
     user_store: Any,
-    grace_period_days: Optional[int] = None,
-) -> Optional[dict]:
+    grace_period_days: int | None = None,
+) -> dict | None:
     """
     Check if admin user complies with MFA policy.
 
@@ -412,7 +407,6 @@ def enforce_admin_mfa_policy(
         "action": "MFA is required for admin access",
     }
 
-
 def _get_user_store_from_handler(handler: Any) -> Any:
     """
     Extract user store from handler context.
@@ -442,7 +436,6 @@ def _get_user_store_from_handler(handler: Any) -> Any:
             return app.user_store
 
     return None
-
 
 def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
     """
@@ -552,7 +545,6 @@ def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
 
     return decorator
 
-
 def _get_session_manager_from_handler(handler: Any) -> Any:
     """Extract session manager from handler context."""
     # Try common patterns for accessing session manager
@@ -587,7 +579,6 @@ def _get_session_manager_from_handler(handler: Any) -> Any:
     except Exception as e:
         logger.error(f"MFA session manager import failed: {e}")
         raise  # Don't silently bypass MFA
-
 
 __all__ = [
     "require_mfa",

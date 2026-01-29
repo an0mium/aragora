@@ -10,7 +10,7 @@ import logging
 import uuid
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Callable, Generator, Optional, cast
+from typing import Any, Callable, Generator, cast
 
 from aragora.debate.hooks import HookManager
 from aragora.server.errors import safe_error_message as _safe_error_message
@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 _current_task_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "current_task_id", default=""
 )
-
 
 @contextmanager
 def streaming_task_context(task_id: str) -> Generator[None, None, None]:
@@ -43,11 +42,9 @@ def streaming_task_context(task_id: str) -> Generator[None, None, None]:
     finally:
         _current_task_id.reset(token)
 
-
 def get_current_task_id() -> str:
     """Get the current task_id for streaming events."""
     return _current_task_id.get()
-
 
 def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
     """Wrap an agent to emit token streaming events.
@@ -70,7 +67,7 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
     # Store original generate method
     original_generate = agent.generate
 
-    async def streaming_generate(prompt: str, context: Optional[Any] = None) -> str:
+    async def streaming_generate(prompt: str, context: Any | None = None) -> str:
         """Streaming wrapper that emits TOKEN_* events."""
         # Get current task_id from context variable (set by streaming_task_context)
         task_id = get_current_task_id()
@@ -164,7 +161,6 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
     # Replace the generate method
     agent.generate = streaming_generate
     return agent
-
 
 def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str, Callable]:
     """
@@ -292,7 +288,7 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         answer: str,
         synthesis: str = "",
         status: str = "",
-        agent_failures: Optional[dict] = None,
+        agent_failures: dict | None = None,
     ) -> None:
         emitter.emit(
             StreamEvent(
@@ -522,7 +518,6 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         "on_novelty_check": on_novelty_check,
     }
 
-
 def create_hook_manager_from_emitter(
     emitter: SyncEventEmitter,
     loop_id: str = "",
@@ -722,7 +717,6 @@ def create_hook_manager_from_emitter(
 
     logger.debug(f"Created HookManager with {len(manager.stats)} hook types bridged to WebSocket")
     return manager
-
 
 __all__ = [
     "create_arena_hooks",

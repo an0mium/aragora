@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 T = TypeVar("T")
 
-
 class UnauthorizedError(Exception):
     """Raised when authentication fails."""
 
@@ -38,15 +37,13 @@ class UnauthorizedError(Exception):
         super().__init__(message)
         self.message = message
 
-
 class ForbiddenError(Exception):
     """Raised when authorization fails."""
 
-    def __init__(self, message: str = "Access denied", permission: Optional[str] = None):
+    def __init__(self, message: str = "Access denied", permission: str | None = None):
         super().__init__(message)
         self.message = message
         self.permission = permission
-
 
 async def get_auth_context(
     request: Any,
@@ -115,13 +112,11 @@ async def get_auth_context(
             permissions=set(),
         )
 
-
-def _extract_workspace_id(request: Any) -> Optional[str]:
+def _extract_workspace_id(request: Any) -> str | None:
     """Extract workspace ID from request headers."""
     if hasattr(request, "headers"):
         return request.headers.get("X-Workspace-ID")
     return None
-
 
 def _get_user_permissions(user_ctx: Any) -> set[str]:
     """Get permissions for a user based on their roles."""
@@ -139,7 +134,6 @@ def _get_user_permissions(user_ctx: Any) -> set[str]:
     except Exception as e:
         logger.warning(f"Error getting user permissions: {e}")
         return set()
-
 
 def require_authenticated(
     func: Optional[Callable[P, T]] = None,
@@ -206,8 +200,7 @@ def require_authenticated(
     # Called with arguments: @require_authenticated(...)
     return decorator
 
-
-def _find_request(args: tuple, kwargs: dict) -> Optional[Any]:
+def _find_request(args: tuple, kwargs: dict) -> Any | None:
     """Find the request object in function arguments."""
     # Check kwargs first
     if "request" in kwargs:
@@ -220,7 +213,6 @@ def _find_request(args: tuple, kwargs: dict) -> Optional[Any]:
             return arg
 
     return None
-
 
 def get_user_from_handler(handler: Any) -> tuple[str, str]:
     """
@@ -253,7 +245,6 @@ def get_user_from_handler(handler: Any) -> tuple[str, str]:
 
     # Sync fallback - extract from headers with validation
     return _extract_user_from_headers(handler)
-
 
 def _extract_user_from_headers(handler: Any) -> tuple[str, str]:
     """

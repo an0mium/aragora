@@ -6,6 +6,7 @@ Inspired by UniversalBackrooms' branching conversations, this module provides:
 - Running parallel branches to explore alternatives
 - Comparing and merging branch outcomes
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -13,12 +14,11 @@ import uuid
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
 from aragora.core import Agent, DebateResult, Environment, Message
-
 
 @dataclass
 class ForkPoint:
@@ -31,7 +31,6 @@ class ForkPoint:
     branch_ids: list[str]
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
-
 @dataclass
 class Branch:
     """A branch of a forked debate."""
@@ -42,13 +41,12 @@ class Branch:
     hypothesis: str  # What this branch is exploring
     lead_agent: str  # Agent whose approach this branch follows
     messages: list[Message] = field(default_factory=list)
-    result: Optional[DebateResult] = None
+    result: DebateResult | None = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     @property
     def is_complete(self) -> bool:
         return self.result is not None
-
 
 @dataclass
 class ForkDecision:
@@ -59,7 +57,6 @@ class ForkDecision:
     branches: list[dict]  # [{hypothesis: str, lead_agent: str}, ...]
     disagreement_score: float  # 0-1
 
-
 @dataclass
 class MergeResult:
     """Result of merging forked branches."""
@@ -69,7 +66,6 @@ class MergeResult:
     comparison_summary: str
     all_branch_results: dict[str, DebateResult]
     merged_insights: list[str]
-
 
 class ForkDetector:
     """
@@ -257,7 +253,6 @@ class ForkDetector:
         # Fall back to first sentence
         return content[:100].split(".")[0] + "..."
 
-
 class DebateForker:
     """
     Manages forking and merging of debates.
@@ -395,7 +390,7 @@ class DebateForker:
             branch_scores[branch.branch_id] = score
 
         # Find winner
-        winner_id = max(branch_scores, key=branch_scores.get)
+        winner_id = max(branch_scores, key=lambda k: branch_scores[k])
         winner = next((b for b in completed if b.branch_id == winner_id), None)
         if not winner:
             logger.error(f"branch_winner_not_found winner_id={winner_id}")
@@ -490,7 +485,6 @@ class DebateForker:
         """Get all branches for a debate."""
         return self.branches.get(parent_debate_id, [])
 
-
 @dataclass
 class DeadlockSignal:
     """Signal indicating a debate is deadlocked."""
@@ -502,7 +496,6 @@ class DeadlockSignal:
     pattern: str  # "positional", "circular", "exhaustion"
     recommendation: str  # "fork", "conclude", "inject_perspective"
     detected_at: str = field(default_factory=lambda: datetime.now().isoformat())
-
 
 class DeadlockResolver:
     """
@@ -522,7 +515,7 @@ class DeadlockResolver:
     STAGNATION_THRESHOLD = 0.7
     MAX_ROUNDS_WITHOUT_PROGRESS = 2
 
-    def __init__(self, forker: Optional[DebateForker] = None):
+    def __init__(self, forker: DebateForker | None = None):
         """Initialize the deadlock resolver.
 
         Args:
@@ -537,8 +530,8 @@ class DeadlockResolver:
         debate_id: str,
         round_num: int,
         messages: list[Message],
-        previous_positions: Optional[dict[str, str]] = None,
-    ) -> Optional[DeadlockSignal]:
+        previous_positions: dict[str, str] | None = None,
+    ) -> DeadlockSignal | None:
         """
         Analyze a round for deadlock indicators.
 
@@ -630,7 +623,7 @@ class DeadlockResolver:
         signal: DeadlockSignal,
         messages: list[Message],
         agents: list[Agent],
-    ) -> Optional[list[Branch]]:
+    ) -> list[Branch] | None:
         """
         Automatically resolve a detected deadlock.
 
@@ -699,7 +692,7 @@ class DeadlockResolver:
         self,
         debate_id: str,
         current_positions: dict[str, str],
-        previous_positions: Optional[dict[str, str]],
+        previous_positions: dict[str, str] | None,
     ) -> float:
         """Calculate how much positions have stagnated."""
         history = self.debate_history.get(debate_id, [])
@@ -898,7 +891,7 @@ class DeadlockResolver:
             disagreement_score=signal.stagnation_score,
         )
 
-    def reset(self, debate_id: Optional[str] = None) -> None:
+    def reset(self, debate_id: str | None = None) -> None:
         """Reset resolver state.
 
         Args:
@@ -910,7 +903,7 @@ class DeadlockResolver:
             self.debate_history.clear()
             self.deadlock_signals.clear()
 
-    def get_signals(self, debate_id: Optional[str] = None) -> list[DeadlockSignal]:
+    def get_signals(self, debate_id: str | None = None) -> list[DeadlockSignal]:
         """Get deadlock signals, optionally filtered by debate."""
         if debate_id:
             return [s for s in self.deadlock_signals if s.debate_id == debate_id]

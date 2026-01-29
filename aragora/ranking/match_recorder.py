@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import ELO_K_FACTOR
 
@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 K_FACTOR = ELO_K_FACTOR
-
 
 def build_match_scores(winner: str, loser: str, is_draw: bool) -> dict[str, float]:
     """Build score dict for a two-player match.
@@ -36,7 +35,6 @@ def build_match_scores(winner: str, loser: str, is_draw: bool) -> dict[str, floa
     if is_draw:
         return {winner: 0.5, loser: 0.5}
     return {winner: 1.0, loser: 0.0}
-
 
 def generate_match_id(
     participants: list[str], task: str | None = None, domain: str | None = None
@@ -54,7 +52,6 @@ def generate_match_id(
     label = "-vs-".join(participants) if participants else "match"
     scope = task or domain or "debate"
     return f"{scope}-{label}-{uuid.uuid4().hex[:8]}"
-
 
 def normalize_match_params(
     debate_id: str | None,
@@ -115,7 +112,6 @@ def normalize_match_params(
 
     return debate_id or "", participants_list, scores
 
-
 def compute_calibration_k_multipliers(
     participants: list[str],
     calibration_tracker: Any | None = None,
@@ -166,13 +162,12 @@ def compute_calibration_k_multipliers(
 
     return multipliers
 
-
 def save_match(
     db: "EloDatabase",
     debate_id: str,
-    winner: Optional[str],
+    winner: str | None,
     participants: list[str],
-    domain: Optional[str],
+    domain: str | None,
     scores: dict[str, float],
     elo_changes: dict[str, float],
 ) -> None:
@@ -206,7 +201,6 @@ def save_match(
         )
         conn.commit()
 
-
 def check_duplicate_match(db: "EloDatabase", debate_id: str) -> dict[str, float] | None:
     """Check if a match has already been recorded.
 
@@ -231,7 +225,6 @@ def check_duplicate_match(db: "EloDatabase", debate_id: str) -> dict[str, float]
             return safe_json_loads(existing[0], {})
     return None
 
-
 def determine_winner(scores: dict[str, float]) -> str | None:
     """Determine winner from scores.
 
@@ -245,7 +238,6 @@ def determine_winner(scores: dict[str, float]) -> str | None:
     if len(sorted_agents) < 2:
         return sorted_agents[0][0] if sorted_agents else None
     return sorted_agents[0][0] if sorted_agents[0][1] > sorted_agents[1][1] else None
-
 
 __all__ = [
     "build_match_scores",

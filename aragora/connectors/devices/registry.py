@@ -25,13 +25,12 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 from .base import DeviceConnector, DeviceConnectorConfig
 from .models import DeviceType
 
 logger = logging.getLogger(__name__)
-
 
 class DeviceConnectorRegistry:
     """
@@ -42,10 +41,10 @@ class DeviceConnectorRegistry:
     """
 
     # Known connector types
-    CONNECTOR_CLASSES: Dict[str, Type[DeviceConnector]] = {}
+    CONNECTOR_CLASSES: dict[str, type[DeviceConnector]] = {}
 
     def __init__(self):
-        self._connectors: Dict[str, DeviceConnector] = {}
+        self._connectors: dict[str, DeviceConnector] = {}
         self._lock = threading.Lock()
         self._initialized = False
 
@@ -86,7 +85,7 @@ class DeviceConnectorRegistry:
     def get(
         self,
         platform: str,
-        config: Optional[DeviceConnectorConfig] = None,
+        config: DeviceConnectorConfig | None = None,
         auto_initialize: bool = True,
     ) -> DeviceConnector:
         """
@@ -150,7 +149,7 @@ class DeviceConnectorRegistry:
             self._connectors[platform] = connector
             logger.info(f"Registered device connector: {platform}")
 
-    def unregister(self, platform: str) -> Optional[DeviceConnector]:
+    def unregister(self, platform: str) -> DeviceConnector | None:
         """
         Unregister a connector.
 
@@ -163,22 +162,22 @@ class DeviceConnectorRegistry:
         with self._lock:
             return self._connectors.pop(platform, None)
 
-    def all(self) -> Dict[str, DeviceConnector]:
+    def all(self) -> dict[str, DeviceConnector]:
         """Get all registered connectors."""
         with self._lock:
             return dict(self._connectors)
 
-    def list_platforms(self) -> List[str]:
+    def list_platforms(self) -> list[str]:
         """List all registered platform names."""
         with self._lock:
             return list(self._connectors.keys())
 
-    def list_available_platforms(self) -> List[str]:
+    def list_available_platforms(self) -> list[str]:
         """List all available (loadable) platform names."""
         self._load_connector_classes()
         return list(self.CONNECTOR_CLASSES.keys())
 
-    def get_for_device_type(self, device_type: DeviceType) -> List[DeviceConnector]:
+    def get_for_device_type(self, device_type: DeviceType) -> list[DeviceConnector]:
         """
         Get all connectors that support a device type.
 
@@ -194,7 +193,7 @@ class DeviceConnectorRegistry:
                 result.append(connector)
         return result
 
-    def get_configured_platforms(self) -> List[str]:
+    def get_configured_platforms(self) -> list[str]:
         """
         Get list of platforms that have required environment variables configured.
 
@@ -240,7 +239,7 @@ class DeviceConnectorRegistry:
 
         return configured
 
-    async def initialize_all(self) -> Dict[str, bool]:
+    async def initialize_all(self) -> dict[str, bool]:
         """
         Initialize all known connectors.
 
@@ -283,14 +282,14 @@ class DeviceConnectorRegistry:
         with self._lock:
             self._connectors.clear()
 
-    async def get_health(self) -> Dict[str, Any]:
+    async def get_health(self) -> dict[str, Any]:
         """
         Get health status for all connectors.
 
         Returns:
             Dict with health information for each connector
         """
-        health: Dict[str, Any] = {
+        health: dict[str, Any] = {
             "status": "healthy",
             "connectors": {},
             "configured_platforms": self.get_configured_platforms(),
@@ -320,11 +319,9 @@ class DeviceConnectorRegistry:
 
         return health
 
-
 # Global registry instance
-_registry: Optional[DeviceConnectorRegistry] = None
+_registry: DeviceConnectorRegistry | None = None
 _registry_lock = threading.Lock()
-
 
 def get_registry() -> DeviceConnectorRegistry:
     """Get the global device connector registry."""
@@ -335,22 +332,18 @@ def get_registry() -> DeviceConnectorRegistry:
                 _registry = DeviceConnectorRegistry()
     return _registry
 
-
 def get_connector(platform: str) -> DeviceConnector:
     """Get a device connector by platform name."""
     return get_registry().get(platform)
-
 
 def register_connector(platform: str, connector: DeviceConnector) -> None:
     """Register a device connector."""
     get_registry().register(platform, connector)
 
-
-def list_available_platforms() -> List[str]:
+def list_available_platforms() -> list[str]:
     """List all available device connector platforms."""
     return get_registry().list_available_platforms()
 
-
-def get_configured_platforms() -> List[str]:
+def get_configured_platforms() -> list[str]:
     """Get list of configured device connector platforms."""
     return get_registry().get_configured_platforms()

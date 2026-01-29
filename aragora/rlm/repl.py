@@ -26,14 +26,12 @@ from .types import AbstractionLevel, RLMConfig, RLMContext, RLMResult
 
 logger = logging.getLogger(__name__)
 
-
 # Security constants
 MAX_REGEX_PATTERN_LENGTH = 1000
 MAX_REGEX_GROUPS = 20
 REGEX_TIMEOUT_SECONDS = 2.0
 # Default per-value cap; RLMEnvironment overrides using RLMConfig
 MAX_NAMESPACE_VALUE_SIZE = 10_000_000  # 10MB per value (fallback)
-
 
 def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
     """
@@ -77,7 +75,7 @@ def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
 
     # Execute with timeout using threading
     result: list[str] = []
-    error: Optional[Exception] = None
+    error: Exception | None = None
 
     def run_regex() -> None:
         nonlocal result, error
@@ -99,7 +97,6 @@ def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
         return []
 
     return result
-
 
 def _contains_blocked_dunder(value: str) -> bool:
     """
@@ -133,7 +130,6 @@ def _contains_blocked_dunder(value: str) -> bool:
     }
     value_lower = value.lower()
     return any(b in value_lower for b in blocked)
-
 
 class SafeReModule:
     """
@@ -196,7 +192,6 @@ class SafeReModule:
         """Blocked - could bypass our safety checks."""
         raise SecurityError("re.compile() is not allowed - use findall/search directly")
 
-
 @dataclass
 class REPLState:
     """State of the REPL environment."""
@@ -212,14 +207,13 @@ class REPLState:
     sub_call_count: int = 0
 
     # Final result
-    final_answer: Optional[str] = None
-    final_var: Optional[str] = None
+    final_answer: str | None = None
+    final_var: str | None = None
 
     # Iterative refinement (Prime Intellect alignment)
     ready: bool = True  # Whether answer is complete (False = needs refinement)
     iteration: int = 0  # Current refinement iteration
-    feedback: Optional[str] = None  # Feedback from previous iteration
-
+    feedback: str | None = None  # Feedback from previous iteration
 
 class RLMEnvironment:
     """
@@ -374,7 +368,7 @@ class RLMEnvironment:
         """Get context at a specific abstraction level."""
         return self.context.get_at_level(level)
 
-    def _get_node(self, node_id: str) -> Optional[dict[str, Any]]:
+    def _get_node(self, node_id: str) -> dict[str, Any] | None:
         """Get a specific node by ID."""
         node = self.context.get_node(node_id)
         if not node:
@@ -408,7 +402,7 @@ class RLMEnvironment:
         node = self.context.get_node(node_id)
         return node.child_ids if node else []
 
-    def _search(self, query: str, level: Optional[str] = None) -> list[dict[str, Any]]:
+    def _search(self, query: str, level: str | None = None) -> list[dict[str, Any]]:
         """Search for content matching query."""
         search_level = AbstractionLevel[level.upper()] if level else AbstractionLevel.SUMMARY
 
@@ -426,7 +420,7 @@ class RLMEnvironment:
                     )
         return results[:10]  # Limit results
 
-    def _grep(self, pattern: str, content: Optional[str] = None) -> list[str]:
+    def _grep(self, pattern: str, content: str | None = None) -> list[str]:
         """Search using regex pattern with ReDoS protection."""
         text = content or self.context.original_content
         try:
@@ -541,7 +535,7 @@ class RLMEnvironment:
         """
         self.state.ready = ready
 
-    def _get_feedback(self) -> Optional[str]:
+    def _get_feedback(self) -> str | None:
         """Get feedback from previous iteration (FEEDBACK primitive).
 
         Returns feedback injected from previous refinement iteration,
@@ -549,7 +543,7 @@ class RLMEnvironment:
         """
         return self.state.feedback
 
-    def set_iteration_context(self, iteration: int, feedback: Optional[str] = None) -> None:
+    def set_iteration_context(self, iteration: int, feedback: str | None = None) -> None:
         """Set iteration context for refinement loop.
 
         Called by bridge.query_with_refinement() between iterations.
@@ -909,7 +903,6 @@ FINAL("The authentication system uses JWT tokens...")
 # FINAL("Initial analysis suggests JWT...", ready=False)
 ```
 """
-
 
 class SecurityError(Exception):
     """Raised when code attempts unsafe operations."""

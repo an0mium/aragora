@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
 
@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = ["DiscordDock"]
-
 
 class DiscordDock(ChannelDock):
     """
@@ -44,7 +43,7 @@ class DiscordDock(ChannelDock):
         | ChannelCapability.INLINE_IMAGES
     )
 
-    def __init__(self, config: Optional[dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize Discord dock.
 
@@ -52,7 +51,7 @@ class DiscordDock(ChannelDock):
             token: Discord bot token (or use DISCORD_BOT_TOKEN env var)
         """
         super().__init__(config)
-        self._token: Optional[str] = None
+        self._token: str | None = None
 
     async def initialize(self) -> bool:
         """Initialize the Discord dock."""
@@ -188,8 +187,8 @@ class DiscordDock(ChannelDock):
         self,
         channel_id: str,
         audio_data: bytes,
-        text: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        text: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """

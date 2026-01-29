@@ -44,7 +44,6 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # In-memory storage for in-flight gauntlet runs (pending/running)
 # Completed runs are persisted to GauntletStorage
 # Using OrderedDict for FIFO eviction when memory limit reached
@@ -70,7 +69,6 @@ _USE_DURABLE_QUEUE = os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() not
     "no",
 )
 
-
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -78,7 +76,6 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     elif task.exception():
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
-
 
 def create_tracked_task(coro: Any, name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging.
@@ -90,19 +87,16 @@ def create_tracked_task(coro: Any, name: str) -> asyncio.Task[Any]:
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
 
-
 # Persistent storage singleton
 _storage: Optional["GauntletStorage"] = None
 
 # WebSocket broadcast function (set by unified server when streaming is enabled)
 _gauntlet_broadcast_fn: Optional[Callable[..., Any]] = None
 
-
 def set_gauntlet_broadcast_fn(broadcast_fn: Callable[..., Any]) -> None:
     """Set the broadcast function for WebSocket streaming."""
     global _gauntlet_broadcast_fn
     _gauntlet_broadcast_fn = broadcast_fn
-
 
 def _get_storage() -> "GauntletStorage":
     """Get or create the persistent storage instance."""
@@ -112,7 +106,6 @@ def _get_storage() -> "GauntletStorage":
 
         _storage = GauntletStorage()
     return _storage
-
 
 def _cleanup_gauntlet_runs() -> None:
     """Remove old runs from memory to prevent unbounded growth.
@@ -170,7 +163,6 @@ def _cleanup_gauntlet_runs() -> None:
     # If still over limit, evict oldest entries (FIFO via OrderedDict)
     while len(_gauntlet_runs) > MAX_GAUNTLET_RUNS_IN_MEMORY:
         _gauntlet_runs.popitem(last=False)  # Remove oldest
-
 
 def recover_stale_gauntlet_runs(max_age_seconds: int = 7200) -> int:
     """
@@ -236,7 +228,6 @@ def recover_stale_gauntlet_runs(max_age_seconds: int = 7200) -> int:
     except (ImportError, OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to recover stale gauntlet runs: {e}")
         return 0
-
 
 class GauntletHandler(BaseHandler):
     """Handler for gauntlet stress-testing endpoints.
@@ -344,7 +335,7 @@ class GauntletHandler(BaseHandler):
     @rate_limit(rpm=10)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route request to appropriate handler.
 
         Note: This handler uses a different signature than BaseHandler.handle()
@@ -365,7 +356,7 @@ class GauntletHandler(BaseHandler):
         # Normalize path for routing (remove version prefix)
         path = self._normalize_path(path)
 
-        result: Optional[HandlerResult] = None
+        result: HandlerResult | None = None
 
         # POST /api/gauntlet/run
         if path == "/api/gauntlet/run" and method == "POST":
@@ -653,7 +644,7 @@ class GauntletHandler(BaseHandler):
         gauntlet_id: str,
         input_content: str,
         input_type: str,
-        persona: Optional[str],
+        persona: str | None,
         agents: list[str],
         profile: str,
     ) -> None:
@@ -669,7 +660,7 @@ class GauntletHandler(BaseHandler):
             from aragora.server.stream.gauntlet_emitter import GauntletStreamEmitter
 
             # Create stream emitter if broadcasting is available
-            emitter: Optional[GauntletStreamEmitter] = None
+            emitter: GauntletStreamEmitter | None = None
             if _gauntlet_broadcast_fn:
                 emitter = GauntletStreamEmitter(
                     broadcast_fn=_gauntlet_broadcast_fn,
@@ -1080,7 +1071,7 @@ class GauntletHandler(BaseHandler):
         # Prepare receipt data
         receipt_data = receipt.to_dict()
 
-        def _notify_export(export_format: str, size_bytes: Optional[int] = None) -> None:
+        def _notify_export(export_format: str, size_bytes: int | None = None) -> None:
             try:
                 from aragora.integrations.receipt_webhooks import get_receipt_notifier
 

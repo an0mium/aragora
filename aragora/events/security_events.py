@@ -23,10 +23,9 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any, Callable, Coroutine, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class SecurityEventType(str, Enum):
     """Types of security events."""
@@ -60,7 +59,6 @@ class SecurityEventType(str, Enum):
     SECURITY_DEBATE_STARTED = "security_debate_started"
     SECURITY_DEBATE_COMPLETED = "security_debate_completed"
 
-
 class SecuritySeverity(str, Enum):
     """Security severity levels."""
 
@@ -69,7 +67,6 @@ class SecuritySeverity(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
-
 
 @dataclass
 class SecurityFinding:
@@ -80,15 +77,15 @@ class SecurityFinding:
     severity: SecuritySeverity
     title: str
     description: str
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
-    cve_id: Optional[str] = None
-    package_name: Optional[str] = None
-    package_version: Optional[str] = None
-    recommendation: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    file_path: str | None = None
+    line_number: int | None = None
+    cve_id: str | None = None
+    package_name: str | None = None
+    package_version: str | None = None
+    recommendation: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -105,7 +102,6 @@ class SecurityFinding:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class SecurityEvent:
     """Represents a security event with context for debate triggering."""
@@ -117,25 +113,25 @@ class SecurityEvent:
 
     # Source information - categorizes the origin of the event
     source: str = "sast"  # "sast", "secrets", "dependency", "threat_intel"
-    repository: Optional[str] = None
-    scan_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    repository: str | None = None
+    scan_id: str | None = None
+    workspace_id: str | None = None
 
     # Findings
-    findings: List[SecurityFinding] = field(default_factory=list)
+    findings: list[SecurityFinding] = field(default_factory=list)
 
     # Debate context
     debate_requested: bool = False
-    debate_id: Optional[str] = None
-    debate_question: Optional[str] = None
+    debate_id: str | None = None
+    debate_question: str | None = None
 
     # Correlation
-    correlation_id: Optional[str] = None
+    correlation_id: str | None = None
 
     # Metadata for additional context
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -171,10 +167,8 @@ class SecurityEvent:
         """Count of high severity findings."""
         return sum(1 for f in self.findings if f.severity == SecuritySeverity.HIGH)
 
-
 # Type alias for event handlers
 SecurityEventHandler = Callable[[SecurityEvent], Coroutine[Any, Any, None]]
-
 
 class SecurityEventEmitter:
     """
@@ -200,7 +194,7 @@ class SecurityEventEmitter:
         self,
         enable_auto_debate: bool = True,
         debate_confidence_threshold: float = 0.7,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ):
         """
         Initialize the security event emitter.
@@ -210,13 +204,13 @@ class SecurityEventEmitter:
             debate_confidence_threshold: Minimum confidence for debate consensus
             workspace_id: Default workspace for events
         """
-        self._handlers: Dict[SecurityEventType, List[SecurityEventHandler]] = {}
-        self._global_handlers: List[SecurityEventHandler] = []
+        self._handlers: dict[SecurityEventType, list[SecurityEventHandler]] = {}
+        self._global_handlers: list[SecurityEventHandler] = []
         self._enable_auto_debate = enable_auto_debate
         self._debate_confidence_threshold = debate_confidence_threshold
         self._workspace_id = workspace_id
-        self._pending_debates: Dict[str, asyncio.Task] = {}
-        self._event_history: List[SecurityEvent] = []
+        self._pending_debates: dict[str, asyncio.Task] = {}
+        self._event_history: list[SecurityEvent] = []
         self._max_history = 1000
 
     def subscribe(
@@ -326,7 +320,7 @@ class SecurityEventEmitter:
 
         return False
 
-    async def _trigger_security_debate(self, event: SecurityEvent) -> Optional[str]:
+    async def _trigger_security_debate(self, event: SecurityEvent) -> str | None:
         """
         Trigger a multi-agent debate for remediation recommendations.
 
@@ -367,10 +361,10 @@ class SecurityEventEmitter:
 
     def get_recent_events(
         self,
-        event_type: Optional[SecurityEventType] = None,
-        severity: Optional[SecuritySeverity] = None,
+        event_type: SecurityEventType | None = None,
+        severity: SecuritySeverity | None = None,
         limit: int = 100,
-    ) -> List[SecurityEvent]:
+    ) -> list[SecurityEvent]:
         """
         Get recent security events with optional filtering.
 
@@ -401,15 +395,13 @@ class SecurityEventEmitter:
 
         return events[:limit]
 
-    def get_pending_debates(self) -> Dict[str, asyncio.Task]:
+    def get_pending_debates(self) -> dict[str, asyncio.Task]:
         """Get currently pending security debates."""
         return {k: v for k, v in self._pending_debates.items() if not v.done()}
-
 
 # =============================================================================
 # Debate Integration
 # =============================================================================
-
 
 def build_security_debate_question(event: SecurityEvent) -> str:
     """
@@ -458,13 +450,12 @@ def build_security_debate_question(event: SecurityEvent) -> str:
         "4. Impact on existing functionality"
     )
 
-
 async def trigger_security_debate(
     event: SecurityEvent,
     confidence_threshold: float = 0.7,
-    agents: Optional[List[Any]] = None,
+    agents: Optional[list[Any]] = None,
     timeout_seconds: int = 300,
-) -> Optional[str]:
+) -> str | None:
     """
     Trigger a multi-agent debate for security remediation.
 
@@ -546,8 +537,7 @@ async def trigger_security_debate(
         logger.exception(f"Failed to run security debate: {e}")
         return None
 
-
-async def _get_security_debate_agents() -> List[Any]:
+async def _get_security_debate_agents() -> list[Any]:
     """Get agents suitable for security debates."""
     try:
         from aragora.agents.factory import get_available_agents
@@ -595,10 +585,8 @@ async def _get_security_debate_agents() -> List[Any]:
         logger.debug("Could not import agent availability module")
         return []
 
-
 # Storage for debate results (in-memory, replace with database in production)
-_security_debate_results: Dict[str, Dict[str, Any]] = {}
-
+_security_debate_results: dict[str, dict[str, Any]] = {}
 
 async def _store_security_debate_result(
     debate_id: str,
@@ -617,16 +605,14 @@ async def _store_security_debate_result(
         "completed_at": datetime.now(timezone.utc).isoformat(),
     }
 
-
-async def get_security_debate_result(debate_id: str) -> Optional[Dict[str, Any]]:
+async def get_security_debate_result(debate_id: str) -> Optional[dict[str, Any]]:
     """Get a security debate result by ID."""
     return _security_debate_results.get(debate_id)
 
-
 async def list_security_debates(
-    repository: Optional[str] = None,
+    repository: str | None = None,
     limit: int = 20,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List security debate results."""
     results = list(_security_debate_results.values())
 
@@ -638,17 +624,15 @@ async def list_security_debates(
 
     return results[:limit]
 
-
 # =============================================================================
 # Convenience Functions
 # =============================================================================
 
-
 def create_vulnerability_event(
-    vulnerability: Dict[str, Any],
+    vulnerability: dict[str, Any],
     repository: str,
     scan_id: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> SecurityEvent:
     """
     Create a security event from a vulnerability finding.
@@ -701,12 +685,11 @@ def create_vulnerability_event(
         findings=[finding],
     )
 
-
 def create_secret_event(
-    secret: Dict[str, Any],
+    secret: dict[str, Any],
     repository: str,
     scan_id: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> SecurityEvent:
     """
     Create a security event from a secret finding.
@@ -758,12 +741,11 @@ def create_secret_event(
         findings=[finding],
     )
 
-
 def create_scan_completed_event(
-    scan_result: Dict[str, Any],
+    scan_result: dict[str, Any],
     repository: str,
     scan_id: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> SecurityEvent:
     """
     Create a scan completed event with findings summary.
@@ -813,13 +795,11 @@ def create_scan_completed_event(
         findings=findings,
     )
 
-
 # =============================================================================
 # Singleton Instance
 # =============================================================================
 
-_default_emitter: Optional[SecurityEventEmitter] = None
-
+_default_emitter: SecurityEventEmitter | None = None
 
 def get_security_emitter() -> SecurityEventEmitter:
     """Get the default security event emitter instance."""
@@ -828,12 +808,10 @@ def get_security_emitter() -> SecurityEventEmitter:
         _default_emitter = SecurityEventEmitter()
     return _default_emitter
 
-
 def set_security_emitter(emitter: SecurityEventEmitter) -> None:
     """Set the default security event emitter instance."""
     global _default_emitter
     _default_emitter = emitter
-
 
 __all__ = [
     # Event types

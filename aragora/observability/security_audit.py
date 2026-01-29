@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.observability.immutable_log import AuditEntry, get_audit_log
 from aragora.observability.metrics.security import (
@@ -104,19 +104,17 @@ SECURITY_EVENTS = {
     "request_blocked": "security.request.blocked",
 }
 
-
 # =============================================================================
 # Authentication Audit Functions
 # =============================================================================
 
-
 async def audit_auth_success(
     user_id: str,
     method: str,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
-    workspace_id: Optional[str] = None,
-    correlation_id: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    workspace_id: str | None = None,
+    correlation_id: str | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -154,14 +152,13 @@ async def audit_auth_success(
         correlation_id=correlation_id,
     )
 
-
 async def audit_auth_failure(
-    user_id: Optional[str],
+    user_id: str | None,
     method: str,
     reason: str,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
-    correlation_id: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    correlation_id: str | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -200,13 +197,12 @@ async def audit_auth_failure(
         correlation_id=correlation_id,
     )
 
-
 async def audit_session_created(
     session_id: str,
     user_id: str,
     session_type: str,
-    expiry: Optional[datetime] = None,
-    ip_address: Optional[str] = None,
+    expiry: datetime | None = None,
+    ip_address: str | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -238,13 +234,12 @@ async def audit_session_created(
         ip_address=ip_address,
     )
 
-
 async def audit_token_issued(
     token_id: str,
     user_id: str,
     token_type: str,
-    scopes: Optional[list[str]] = None,
-    expiry: Optional[datetime] = None,
+    scopes: list[str] | None = None,
+    expiry: datetime | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -276,11 +271,9 @@ async def audit_token_issued(
         },
     )
 
-
 # =============================================================================
 # RBAC Audit Functions
 # =============================================================================
-
 
 async def audit_rbac_decision(
     user_id: str,
@@ -288,8 +281,8 @@ async def audit_rbac_decision(
     granted: bool,
     resource_type: str,
     resource_id: str,
-    role: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    role: str | None = None,
+    workspace_id: str | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -328,13 +321,12 @@ async def audit_rbac_decision(
         },
     )
 
-
 async def audit_role_change(
     target_user_id: str,
     actor_id: str,
     role: str,
     action: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -370,20 +362,18 @@ async def audit_role_change(
         },
     )
 
-
 # =============================================================================
 # Encryption Audit Functions
 # =============================================================================
-
 
 async def audit_encryption_operation(
     actor: str,
     operation: str,
     success: bool,
-    store: Optional[str] = None,
-    field: Optional[str] = None,
-    record_id: Optional[str] = None,
-    latency_ms: Optional[float] = None,
+    store: str | None = None,
+    field: str | None = None,
+    record_id: str | None = None,
+    latency_ms: float | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -428,14 +418,13 @@ async def audit_encryption_operation(
         },
     )
 
-
 async def audit_key_rotation(
     actor: str,
     key_id: str,
     old_version: int,
     new_version: int,
     success: bool,
-    latency_ms: Optional[float] = None,
+    latency_ms: float | None = None,
     records_re_encrypted: int = 0,
     **details: Any,
 ) -> AuditEntry:
@@ -474,7 +463,6 @@ async def audit_key_rotation(
         },
     )
 
-
 async def audit_key_generated(
     actor: str,
     key_id: str,
@@ -506,19 +494,17 @@ async def audit_key_generated(
         },
     )
 
-
 # =============================================================================
 # Secret Access Audit Functions
 # =============================================================================
-
 
 async def audit_secret_access(
     actor: str,
     secret_type: str,
     store: str,
     operation: str,
-    secret_id: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    secret_id: str | None = None,
+    workspace_id: str | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -553,14 +539,13 @@ async def audit_secret_access(
         },
     )
 
-
 async def audit_secret_modified(
     actor: str,
     secret_type: str,
     store: str,
     action: str,
     secret_id: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -600,11 +585,9 @@ async def audit_secret_modified(
         },
     )
 
-
 # =============================================================================
 # Migration Audit Functions
 # =============================================================================
-
 
 async def audit_migration_started(
     actor: str,
@@ -641,7 +624,6 @@ async def audit_migration_started(
             **details,
         },
     )
-
 
 async def audit_migration_completed(
     actor: str,
@@ -686,19 +668,17 @@ async def audit_migration_completed(
         },
     )
 
-
 # =============================================================================
 # Security Incident Audit Functions
 # =============================================================================
-
 
 async def audit_security_incident(
     severity: str,
     incident_type: str,
     description: str,
-    actor: Optional[str] = None,
-    ip_address: Optional[str] = None,
-    affected_resources: Optional[list[dict[str, str]]] = None,
+    actor: str | None = None,
+    ip_address: str | None = None,
+    affected_resources: list[dict[str, str] | None] = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -735,7 +715,6 @@ async def audit_security_incident(
             **details,
         },
     )
-
 
 async def audit_security_alert(
     alert_type: str,
@@ -776,14 +755,13 @@ async def audit_security_alert(
         },
     )
 
-
 async def audit_request_blocked(
     reason: str,
     ip_address: str,
-    user_id: Optional[str] = None,
-    path: Optional[str] = None,
-    method: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    user_id: str | None = None,
+    path: str | None = None,
+    method: str | None = None,
+    user_agent: str | None = None,
     **details: Any,
 ) -> AuditEntry:
     """
@@ -821,19 +799,17 @@ async def audit_request_blocked(
         },
     )
 
-
 # =============================================================================
 # Query Functions
 # =============================================================================
 
-
 async def get_security_events(
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
-    event_types: Optional[list[str]] = None,
-    actors: Optional[list[str]] = None,
-    workspace_id: Optional[str] = None,
-    severity: Optional[str] = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+    event_types: list[str] | None = None,
+    actors: list[str] | None = None,
+    workspace_id: str | None = None,
+    severity: str | None = None,
     limit: int = 100,
 ) -> list[AuditEntry]:
     """
@@ -873,11 +849,10 @@ async def get_security_events(
 
     return entries
 
-
 async def get_auth_failures(
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
-    ip_address: Optional[str] = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+    ip_address: str | None = None,
     limit: int = 100,
 ) -> list[AuditEntry]:
     """
@@ -904,11 +879,10 @@ async def get_auth_failures(
 
     return entries
 
-
 async def get_security_incidents(
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
-    severity: Optional[str] = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+    severity: str | None = None,
     limit: int = 100,
 ) -> list[AuditEntry]:
     """

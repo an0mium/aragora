@@ -18,7 +18,7 @@ import sqlite3
 import time
 import threading
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 from .config import ThreatEventHandler, ThreatIntelConfig
@@ -39,7 +39,6 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-
 class ThreatIntelligenceService:
     """
     Unified threat intelligence service.
@@ -50,7 +49,7 @@ class ThreatIntelligenceService:
     Features:
     - Multi-source threat intelligence (VirusTotal, AbuseIPDB, PhishTank, URLhaus)
     - Tiered caching with different TTLs per target type
-    - Batch lookups returning Dict[str, ThreatResult]
+    - Batch lookups returning dict[str, ThreatResult]
     - Aggregate scoring with weighted confidence
     - Event emission for high-risk findings
     - Email prioritization integration
@@ -58,12 +57,12 @@ class ThreatIntelligenceService:
 
     def __init__(
         self,
-        config: Optional[ThreatIntelConfig] = None,
-        virustotal_api_key: Optional[str] = None,
-        abuseipdb_api_key: Optional[str] = None,
-        phishtank_api_key: Optional[str] = None,
-        urlhaus_api_key: Optional[str] = None,
-        event_handler: Optional[ThreatEventHandler] = None,
+        config: ThreatIntelConfig | None = None,
+        virustotal_api_key: str | None = None,
+        abuseipdb_api_key: str | None = None,
+        phishtank_api_key: str | None = None,
+        urlhaus_api_key: str | None = None,
+        event_handler: ThreatEventHandler | None = None,
     ):
         """
         Initialize threat intelligence service.
@@ -102,12 +101,12 @@ class ThreatIntelligenceService:
 
         # Event handler for threat notifications
         self._event_handler = event_handler
-        self._event_handlers: List[ThreatEventHandler] = []
+        self._event_handlers: list[ThreatEventHandler] = []
         if event_handler:
             self._event_handlers.append(event_handler)
 
         # Rate limiting state
-        self._rate_limits: Dict[str, List[float]] = {
+        self._rate_limits: dict[str, list[float]] = {
             "virustotal": [],
             "abuseipdb": [],
             "phishtank": [],
@@ -144,13 +143,13 @@ class ThreatIntelligenceService:
         self._malicious_patterns = [re.compile(p) for p in MALICIOUS_URL_PATTERNS]
 
         # Cache backends
-        self._cache_conn: Optional[sqlite3.Connection] = None  # SQLite backend
+        self._cache_conn: sqlite3.Connection | None = None  # SQLite backend
         self._redis_client: Any = None  # Redis backend (optional)
-        self._memory_cache: Dict[str, Dict[str, Any]] = {}  # In-memory cache
+        self._memory_cache: dict[str, dict[str, Any]] = {}  # In-memory cache
         self._memory_cache_lock = threading.Lock()
 
         # HTTP session (lazy initialized)
-        self._http_session: Optional[Any] = None  # aiohttp.ClientSession
+        self._http_session: Any | None = None  # aiohttp.ClientSession
 
         logger.info(
             f"ThreatIntelligenceService initialized "
@@ -175,7 +174,7 @@ class ThreatIntelligenceService:
             return True
         return False
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit a threat event to all handlers."""
         if not self.config.enable_event_emission:
             return
@@ -278,7 +277,7 @@ class ThreatIntelligenceService:
         cache_key = self._get_cache_key(target, target_type)
         return f"threat_intel:{cache_key}"
 
-    async def _get_cached(self, target: str, target_type: str) -> Optional[ThreatResult]:
+    async def _get_cached(self, target: str, target_type: str) -> ThreatResult | None:
         """Get cached result if available and not expired."""
         if not self.config.enable_caching:
             return None
@@ -306,7 +305,7 @@ class ThreatIntelligenceService:
 
         return None
 
-    def _get_memory_cached(self, target: str, target_type: str) -> Optional[ThreatResult]:
+    def _get_memory_cached(self, target: str, target_type: str) -> ThreatResult | None:
         """Get from in-memory cache."""
         cache_key = self._get_cache_key(target, target_type)
         with self._memory_cache_lock:
@@ -341,7 +340,7 @@ class ThreatIntelligenceService:
                 "expires_at": expires_at.isoformat(),
             }
 
-    async def _get_redis_cached(self, target: str, target_type: str) -> Optional[ThreatResult]:
+    async def _get_redis_cached(self, target: str, target_type: str) -> ThreatResult | None:
         """Get from Redis cache."""
         if not self._redis_client:
             return None
@@ -368,7 +367,7 @@ class ThreatIntelligenceService:
         except Exception as e:
             logger.debug(f"Redis cache set failed: {e}")
 
-    async def _get_sqlite_cached(self, target: str, target_type: str) -> Optional[ThreatResult]:
+    async def _get_sqlite_cached(self, target: str, target_type: str) -> ThreatResult | None:
         """Get from SQLite cache."""
         if not self._cache_conn:
             return None
@@ -395,7 +394,7 @@ class ThreatIntelligenceService:
 
         return None
 
-    def _serialize_threat_result(self, result: ThreatResult) -> Dict[str, Any]:
+    def _serialize_threat_result(self, result: ThreatResult) -> dict[str, Any]:
         """Serialize ThreatResult to dictionary for caching."""
         return {
             "target": result.target,
@@ -413,7 +412,7 @@ class ThreatIntelligenceService:
             "sources": [s.value for s in result.sources],
         }
 
-    def _deserialize_threat_result(self, data: Dict[str, Any]) -> ThreatResult:
+    def _deserialize_threat_result(self, data: dict[str, Any]) -> ThreatResult:
         """Deserialize ThreatResult from cached dictionary."""
         return ThreatResult(
             target=data["target"],
@@ -544,7 +543,7 @@ class ThreatIntelligenceService:
                     f"API calls will be skipped for {self._circuit_breakers[service].cooldown_seconds}s"
                 )
 
-    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
         """Get status of all threat intel circuit breakers."""
         return {
             service: {
@@ -588,12 +587,12 @@ class ThreatIntelligenceService:
         if cached:
             return cached
 
-        sources: List[ThreatSource] = []
+        sources: list[ThreatSource] = []
         is_malicious = False
         threat_type = ThreatType.NONE
         severity = ThreatSeverity.NONE
         confidence = 0.0
-        details: Dict[str, Any] = {}
+        details: dict[str, Any] = {}
         vt_positives = 0
         vt_total = 0
         pt_verified = False
@@ -696,7 +695,7 @@ class ThreatIntelligenceService:
 
         return result
 
-    def _check_url_patterns(self, url: str) -> Optional[Dict[str, Any]]:
+    def _check_url_patterns(self, url: str) -> Optional[dict[str, Any]]:
         """Check URL against local malicious patterns."""
         for pattern in self._malicious_patterns:
             if pattern.search(url):
@@ -720,7 +719,7 @@ class ThreatIntelligenceService:
 
         return None
 
-    async def _check_url_virustotal(self, url: str) -> Optional[Dict[str, Any]]:
+    async def _check_url_virustotal(self, url: str) -> Optional[dict[str, Any]]:
         """Check URL with VirusTotal API."""
         if self._is_circuit_open("virustotal"):
             logger.debug("VirusTotal circuit breaker open, skipping")
@@ -768,7 +767,7 @@ class ThreatIntelligenceService:
 
         return None
 
-    async def _submit_url_virustotal(self, url: str) -> Optional[Dict[str, Any]]:
+    async def _submit_url_virustotal(self, url: str) -> Optional[dict[str, Any]]:
         """Submit a URL to VirusTotal for scanning."""
         if not await self._check_rate_limit("virustotal"):
             return None
@@ -800,7 +799,7 @@ class ThreatIntelligenceService:
 
         return None
 
-    async def _check_url_phishtank(self, url: str) -> Optional[Dict[str, Any]]:
+    async def _check_url_phishtank(self, url: str) -> Optional[dict[str, Any]]:
         """Check URL with PhishTank API."""
         if self._is_circuit_open("phishtank"):
             logger.debug("PhishTank circuit breaker open, skipping")
@@ -846,7 +845,7 @@ class ThreatIntelligenceService:
 
         return None
 
-    async def _check_url_urlhaus(self, url: str) -> Optional[Dict[str, Any]]:
+    async def _check_url_urlhaus(self, url: str) -> Optional[dict[str, Any]]:
         """Check URL with URLhaus API."""
         if self._is_circuit_open("urlhaus"):
             logger.debug("URLhaus circuit breaker open, skipping")
@@ -897,7 +896,7 @@ class ThreatIntelligenceService:
 
         return None
 
-    def _classify_vt_threat(self, vt_result: Dict[str, Any]) -> ThreatType:
+    def _classify_vt_threat(self, vt_result: dict[str, Any]) -> ThreatType:
         """Classify threat type from VirusTotal result."""
         categories = vt_result.get("categories", {})
 
@@ -1064,7 +1063,7 @@ class ThreatIntelligenceService:
     async def check_file_hash(
         self,
         hash_value: str,
-        hash_type: Optional[str] = None,
+        hash_type: str | None = None,
     ) -> FileHashResult:
         """Check a file hash against VirusTotal."""
         if not hash_type:
@@ -1086,7 +1085,7 @@ class ThreatIntelligenceService:
             is_malware=False,
         )
 
-    def _detect_hash_type(self, hash_value: str) -> Optional[str]:
+    def _detect_hash_type(self, hash_value: str) -> str | None:
         """Detect hash type from length."""
         hash_value = hash_value.strip().lower()
 
@@ -1184,9 +1183,9 @@ class ThreatIntelligenceService:
 
     async def check_urls_batch(
         self,
-        urls: List[str],
+        urls: list[str],
         max_concurrent: int = 5,
-    ) -> Dict[str, ThreatResult]:
+    ) -> dict[str, ThreatResult]:
         """Check multiple URLs concurrently."""
         semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -1201,9 +1200,9 @@ class ThreatIntelligenceService:
 
     async def check_ips_batch(
         self,
-        ips: List[str],
+        ips: list[str],
         max_concurrent: int = 5,
-    ) -> Dict[str, ThreatResult]:
+    ) -> dict[str, ThreatResult]:
         """Check multiple IPs concurrently."""
         semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -1250,8 +1249,8 @@ class ThreatIntelligenceService:
             else:
                 target_type = "url"
 
-        source_results: Dict[str, SourceResult] = {}
-        threat_types_found: List[str] = []
+        source_results: dict[str, SourceResult] = {}
+        threat_types_found: list[str] = []
         cache_hits = 0
 
         if target_type == "url":
@@ -1386,8 +1385,8 @@ class ThreatIntelligenceService:
     def _parse_source_result(
         self,
         source_name: str,
-        result: Dict[str, Any],
-        threat_types_found: List[str],
+        result: dict[str, Any],
+        threat_types_found: list[str],
     ) -> SourceResult:
         """Parse API result into SourceResult."""
         if source_name == "virustotal":
@@ -1463,7 +1462,7 @@ class ThreatIntelligenceService:
 
     def _calculate_aggregate_risk(
         self,
-        source_results: Dict[str, SourceResult],
+        source_results: dict[str, SourceResult],
     ) -> tuple:
         """Calculate aggregate risk score with weighted confidence."""
         if not source_results:
@@ -1503,10 +1502,10 @@ class ThreatIntelligenceService:
     async def check_email_content(
         self,
         email_body: str,
-        email_headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        email_headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
         """Check email content for threats."""
-        results: Dict[str, Any] = {
+        results: dict[str, Any] = {
             "urls": [],
             "ips": [],
             "overall_threat_score": 0,
@@ -1591,13 +1590,12 @@ class ThreatIntelligenceService:
             self._cache_conn.close()
             self._cache_conn = None
 
-
 # Convenience function for quick checks
 async def check_threat(
     target: str,
     target_type: str = "auto",
-    virustotal_api_key: Optional[str] = None,
-    abuseipdb_api_key: Optional[str] = None,
+    virustotal_api_key: str | None = None,
+    abuseipdb_api_key: str | None = None,
 ) -> ThreatResult:
     """Quick convenience function for threat checking."""
     service = ThreatIntelligenceService(

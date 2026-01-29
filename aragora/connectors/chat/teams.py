@@ -21,7 +21,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .thread_manager import ThreadInfo, ThreadStats
@@ -49,7 +49,6 @@ except ImportError:
 
     def build_trace_headers() -> dict[str, str]:
         return {}
-
 
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
@@ -95,7 +94,6 @@ GRAPH_AUTH_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 # Graph API scopes for different operations
 GRAPH_SCOPE_FILES = "https://graph.microsoft.com/.default"
 
-
 def _classify_teams_error(
     error_str: str,
     status_code: int = 0,
@@ -134,7 +132,6 @@ def _classify_teams_error(
     # Default fallback
     return ConnectorAPIError(error_str, connector_name="teams")
 
-
 class TeamsConnector(ChatPlatformConnector):
     """
     Microsoft Teams connector using Bot Framework.
@@ -151,11 +148,11 @@ class TeamsConnector(ChatPlatformConnector):
 
     def __init__(
         self,
-        app_id: Optional[str] = None,
-        app_password: Optional[str] = None,
-        tenant_id: Optional[str] = None,
-        request_timeout: Optional[float] = None,
-        upload_timeout: Optional[float] = None,
+        app_id: str | None = None,
+        app_password: str | None = None,
+        tenant_id: str | None = None,
+        request_timeout: float | None = None,
+        upload_timeout: float | None = None,
         **config: Any,
     ):
         """
@@ -179,10 +176,10 @@ class TeamsConnector(ChatPlatformConnector):
         self.app_password = app_password or TEAMS_APP_PASSWORD
         self.tenant_id = tenant_id or TEAMS_TENANT_ID
         self._upload_timeout = upload_timeout or TEAMS_UPLOAD_TIMEOUT
-        self._access_token: Optional[str] = None
+        self._access_token: str | None = None
         self._token_expires: float = 0
         # Separate token cache for Microsoft Graph API
-        self._graph_token: Optional[str] = None
+        self._graph_token: str | None = None
         self._graph_token_expires: float = 0
 
     @property
@@ -276,11 +273,11 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        json_data: Optional[dict] = None,
-        data: Optional[bytes] = None,
-        content_type: Optional[str] = None,
+        json_data: dict | None = None,
+        data: bytes | None = None,
+        content_type: str | None = None,
         operation: str = "graph_api",
-    ) -> tuple[bool, Optional[dict], Optional[str]]:
+    ) -> tuple[bool, dict | None, str | None]:
         """
         Make a Microsoft Graph API request with auth and circuit breaker.
 
@@ -324,10 +321,10 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
-        thread_id: Optional[str] = None,
-        service_url: Optional[str] = None,
-        conversation_id: Optional[str] = None,
+        blocks: list[dict] | None = None,
+        thread_id: str | None = None,
+        service_url: str | None = None,
+        conversation_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -423,8 +420,8 @@ class TeamsConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
-        service_url: Optional[str] = None,
+        blocks: list[dict] | None = None,
+        service_url: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -506,7 +503,7 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         message_id: str,
-        service_url: Optional[str] = None,
+        service_url: str | None = None,
         **kwargs: Any,
     ) -> bool:
         """
@@ -541,7 +538,7 @@ class TeamsConnector(ChatPlatformConnector):
     async def send_typing_indicator(
         self,
         channel_id: str,
-        service_url: Optional[str] = None,
+        service_url: str | None = None,
         **kwargs: Any,
     ) -> bool:
         """Send typing indicator to a Teams conversation.
@@ -580,7 +577,7 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: list[dict] | None = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -611,7 +608,7 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: list[dict] | None = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -646,7 +643,7 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         response_url: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: list[dict] | None = None,
     ) -> SendMessageResponse:
         """
         Send response to a Bot Framework response URL.
@@ -704,9 +701,9 @@ class TeamsConnector(ChatPlatformConnector):
         content: bytes,
         filename: str,
         content_type: str = "application/octet-stream",
-        title: Optional[str] = None,
-        thread_id: Optional[str] = None,
-        team_id: Optional[str] = None,
+        title: str | None = None,
+        thread_id: str | None = None,
+        team_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """
@@ -916,7 +913,7 @@ class TeamsConnector(ChatPlatformConnector):
     async def download_file(
         self,
         file_id: str,
-        drive_id: Optional[str] = None,
+        drive_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """
@@ -1047,10 +1044,10 @@ class TeamsConnector(ChatPlatformConnector):
 
     def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        actions: Optional[list[MessageButton]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str] | None] = None,
+        actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict]:
         """Format content as Adaptive Card elements."""
@@ -1098,9 +1095,9 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
+        value: str | None = None,
         style: str = "default",
-        url: Optional[str] = None,
+        url: str | None = None,
     ) -> dict:
         """Format an Adaptive Card action button."""
         if url:
@@ -1270,9 +1267,9 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         limit: int = 100,
-        oldest: Optional[str] = None,
-        latest: Optional[str] = None,
-        team_id: Optional[str] = None,
+        oldest: str | None = None,
+        latest: str | None = None,
+        team_id: str | None = None,
         **kwargs: Any,
     ) -> list[ChatMessage]:
         """
@@ -1311,7 +1308,7 @@ class TeamsConnector(ChatPlatformConnector):
 
         try:
             messages: list[ChatMessage] = []
-            next_link: Optional[str] = None
+            next_link: str | None = None
 
             # Build initial endpoint with filters
             endpoint = f"/teams/{actual_team_id}/channels/{channel_id}/messages"
@@ -1435,11 +1432,11 @@ class TeamsConnector(ChatPlatformConnector):
     async def collect_evidence(
         self,
         channel_id: str,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 100,
         include_threads: bool = True,
         min_relevance: float = 0.0,
-        team_id: Optional[str] = None,
+        team_id: str | None = None,
         **kwargs: Any,
     ) -> list[ChatEvidence]:
         """
@@ -1506,9 +1503,9 @@ class TeamsConnector(ChatPlatformConnector):
     async def get_channel_info(
         self,
         channel_id: str,
-        team_id: Optional[str] = None,
+        team_id: str | None = None,
         **kwargs: Any,
-    ) -> Optional[ChatChannel]:
+    ) -> ChatChannel | None:
         """
         Get information about a Teams channel via Microsoft Graph API.
 
@@ -1617,7 +1614,7 @@ class TeamsConnector(ChatPlatformConnector):
         self,
         user_id: str,
         **kwargs: Any,
-    ) -> Optional[ChatUser]:
+    ) -> ChatUser | None:
         """
         Get information about a user via Microsoft Graph API.
 
@@ -1656,7 +1653,6 @@ class TeamsConnector(ChatPlatformConnector):
         except Exception as e:
             logger.debug(f"Teams get_user_info error: {e}")
             return None
-
 
 class TeamsThreadManager:
     """
@@ -1765,8 +1761,8 @@ class TeamsThreadManager:
         thread_id: str,
         channel_id: str,
         limit: int = 50,
-        cursor: Optional[str] = None,
-    ) -> tuple[list[ChatMessage], Optional[str]]:
+        cursor: str | None = None,
+    ) -> tuple[list[ChatMessage], str | None]:
         """
         Get messages in a thread with pagination.
 

@@ -4,17 +4,17 @@ Handler validation decorators.
 Provides decorators for automatic validation of handler requests
 including body schemas, query parameters, and path segments.
 """
+from __future__ import annotations
 
 from functools import wraps
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Optional
 
 from .schema import validate_against_schema
 
-
 def validate_request(
-    schema: Optional[dict] = None,
-    required_params: Optional[list] = None,
-    path_validators: Optional[Dict[str, Callable]] = None,
+    schema: dict | None = None,
+    required_params: list | None = None,
+    path_validators: Optional[dict[str, Callable]] = None,
 ) -> Callable:
     """Decorator for validating handler requests.
 
@@ -116,7 +116,6 @@ def validate_request(
 
     return decorator
 
-
 def validate_post_body(schema: dict) -> Callable:
     """Decorator for validating POST request bodies only.
 
@@ -155,11 +154,10 @@ def validate_post_body(schema: dict) -> Callable:
 
     return decorator
 
-
 def validate_query_params(
-    required: Optional[list] = None,
-    int_params: Optional[Dict[str, Tuple[int, int, int]]] = None,
-    string_params: Optional[Dict[str, Tuple[str, int]]] = None,
+    required: list | None = None,
+    int_params: Optional[dict[str, tuple[int, int, int]]] = None,
+    string_params: Optional[dict[str, tuple[str, int]]] = None,
 ) -> Callable:
     """Decorator for validating query parameters.
 

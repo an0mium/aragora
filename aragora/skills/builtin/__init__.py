@@ -8,18 +8,15 @@ These skills provide core functionality:
 - evidence_fetch: Collect evidence from various sources
 """
 
-from typing import List
-
 from ..base import Skill
 
-
-def register_skills() -> List[Skill]:
+def register_skills() -> list[Skill]:
     """
     Register all built-in skills.
 
     Called by the SkillLoader when loading builtin skills.
     """
-    skills: List[Skill] = []
+    skills: list[Skill] = []
 
     # Try to import each builtin skill
     try:

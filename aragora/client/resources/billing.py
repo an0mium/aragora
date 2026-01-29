@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
-
 
 @dataclass
 class BillingPlan:
@@ -22,7 +21,6 @@ class BillingPlan:
     limits: dict[str, Any]
     is_current: bool = False
 
-
 @dataclass
 class Subscription:
     """User subscription details."""
@@ -35,7 +33,6 @@ class Subscription:
     current_period_end: str
     cancel_at_period_end: bool = False
 
-
 @dataclass
 class Invoice:
     """Invoice details."""
@@ -45,9 +42,8 @@ class Invoice:
     currency: str
     status: str
     created_at: str
-    paid_at: Optional[str] = None
-    pdf_url: Optional[str] = None
-
+    paid_at: str | None = None
+    pdf_url: str | None = None
 
 @dataclass
 class UsageMetrics:
@@ -60,7 +56,6 @@ class UsageMetrics:
     period_start: str
     period_end: str
 
-
 @dataclass
 class UsageForecast:
     """Usage forecast for the billing period."""
@@ -70,7 +65,6 @@ class UsageForecast:
     projected_api_calls: int
     confidence: float
     based_on_days: int
-
 
 class BillingAPI:
     """API interface for billing and subscription management."""
@@ -184,7 +178,7 @@ class BillingAPI:
     # Usage
     # -------------------------------------------------------------------------
 
-    def get_usage(self, period: Optional[str] = None) -> UsageMetrics:
+    def get_usage(self, period: str | None = None) -> UsageMetrics:
         """
         Get usage metrics for the current billing period.
 
@@ -198,7 +192,7 @@ class BillingAPI:
         response = self._client._get("/api/v1/billing/usage", params=params)
         return UsageMetrics(**response)
 
-    async def get_usage_async(self, period: Optional[str] = None) -> UsageMetrics:
+    async def get_usage_async(self, period: str | None = None) -> UsageMetrics:
         """Async version of get_usage()."""
         params = {"period": period} if period else {}
         response = await self._client._get_async("/api/v1/billing/usage", params=params)

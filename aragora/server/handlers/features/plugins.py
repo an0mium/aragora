@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
@@ -53,14 +52,13 @@ SUBMISSION_STATUS_PENDING = "pending"
 SUBMISSION_STATUS_APPROVED = "approved"
 SUBMISSION_STATUS_REJECTED = "rejected"
 
-
 class PluginsHandler(BaseHandler):
     """Handler for plugins endpoints."""
 
     # RFC 8594 Sunset header for deprecated legacy paths
     _SUNSET_DATE = "Sat, 31 Dec 2026 23:59:59 GMT"
 
-    def get_user_id(self, handler) -> Optional[str]:
+    def get_user_id(self, handler) -> str | None:
         """Extract user ID from authenticated request.
 
         Args:
@@ -212,9 +210,9 @@ class PluginsHandler(BaseHandler):
 
         return False
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
-        response: Optional[HandlerResult] = None
+        response: HandlerResult | None = None
 
         if path in ("/api/v1/plugins", "/api/plugins"):
             response = self._list_plugins()
@@ -244,9 +242,9 @@ class PluginsHandler(BaseHandler):
             return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
-        response: Optional[HandlerResult] = None
+        response: HandlerResult | None = None
 
         # Submit plugin: /api/v1/plugins/submit or /api/plugins/submit
         if path in ("/api/v1/plugins/submit", "/api/plugins/submit"):
@@ -276,9 +274,9 @@ class PluginsHandler(BaseHandler):
             return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
-        response: Optional[HandlerResult] = None
+        response: HandlerResult | None = None
 
         # Uninstall plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install
         if path.startswith(("/api/v1/plugins/", "/api/plugins/")) and path.endswith("/install"):

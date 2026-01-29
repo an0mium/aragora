@@ -15,10 +15,9 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class EmailMessage:
@@ -27,16 +26,16 @@ class EmailMessage:
     message_id: str
     subject: str
     sender: str
-    recipients: List[str] = field(default_factory=list)
-    cc: List[str] = field(default_factory=list)
-    date: Optional[datetime] = None
+    recipients: list[str] = field(default_factory=list)
+    cc: list[str] = field(default_factory=list)
+    date: datetime | None = None
     body_preview: str = ""
-    references: List[str] = field(default_factory=list)
-    in_reply_to: Optional[str] = None
-    thread_id: Optional[str] = None
-    labels: List[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
+    in_reply_to: str | None = None
+    thread_id: str | None = None
+    labels: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "message_id": self.message_id,
@@ -52,22 +51,21 @@ class EmailMessage:
             "labels": self.labels,
         }
 
-
 @dataclass
 class EmailThread:
     """A threaded email conversation."""
 
     thread_id: str
     subject: str  # Normalized subject
-    participants: Set[str] = field(default_factory=set)
-    messages: List[EmailMessage] = field(default_factory=list)
-    first_message_date: Optional[datetime] = None
-    last_message_date: Optional[datetime] = None
+    participants: set[str] = field(default_factory=set)
+    messages: list[EmailMessage] = field(default_factory=list)
+    first_message_date: datetime | None = None
+    last_message_date: datetime | None = None
     message_count: int = 0
     unread_count: int = 0
-    labels: Set[str] = field(default_factory=set)
+    labels: set[str] = field(default_factory=set)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "thread_id": self.thread_id,
@@ -85,19 +83,18 @@ class EmailThread:
             "labels": list(self.labels),
         }
 
-
 @dataclass
 class ThreadSummary:
     """AI-generated summary of a thread."""
 
     thread_id: str
     summary: str
-    key_points: List[str] = field(default_factory=list)
-    action_items: List[str] = field(default_factory=list)
+    key_points: list[str] = field(default_factory=list)
+    action_items: list[str] = field(default_factory=list)
     sentiment: str = "neutral"  # positive, negative, neutral
     urgency: str = "normal"  # low, normal, high, urgent
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "thread_id": self.thread_id,
@@ -107,7 +104,6 @@ class ThreadSummary:
             "sentiment": self.sentiment,
             "urgency": self.urgency,
         }
-
 
 class EmailThreader:
     """
@@ -145,11 +141,11 @@ class EmailThreader:
         self.enable_semantic_matching = enable_semantic_matching
 
         # Thread index for fast lookup
-        self._message_id_to_thread: Dict[str, str] = {}
-        self._normalized_subject_to_threads: Dict[str, Set[str]] = {}
-        self._threads: Dict[str, EmailThread] = {}
+        self._message_id_to_thread: dict[str, str] = {}
+        self._normalized_subject_to_threads: dict[str, set[str]] = {}
+        self._threads: dict[str, EmailThread] = {}
 
-    def thread_emails(self, emails: List[EmailMessage]) -> List[EmailThread]:
+    def thread_emails(self, emails: list[EmailMessage]) -> list[EmailThread]:
         """
         Thread a list of emails into conversations.
 
@@ -306,7 +302,7 @@ class EmailThreader:
     def get_thread_summary(
         self,
         thread: EmailThread,
-        summarizer: Optional[Any] = None,
+        summarizer: Any | None = None,
     ) -> ThreadSummary:
         """
         Generate AI summary of thread conversation.
@@ -395,7 +391,7 @@ class EmailThreader:
         self,
         thread_id_1: str,
         thread_id_2: str,
-    ) -> Optional[EmailThread]:
+    ) -> EmailThread | None:
         """
         Merge two threads into one.
 
@@ -442,8 +438,8 @@ class EmailThreader:
     def split_thread(
         self,
         thread_id: str,
-        message_ids: List[str],
-    ) -> Optional[EmailThread]:
+        message_ids: list[str],
+    ) -> EmailThread | None:
         """
         Split messages out of a thread into a new thread.
 
@@ -494,7 +490,7 @@ class EmailThreader:
         self,
         thread_id: str,
         max_results: int = 5,
-    ) -> List[EmailThread]:
+    ) -> list[EmailThread]:
         """
         Find threads related to a given thread.
 
@@ -509,7 +505,7 @@ class EmailThreader:
         if not source:
             return []
 
-        candidates: List[Tuple[str, float]] = []
+        candidates: list[tuple[str, float]] = []
 
         for tid, thread in self._threads.items():
             if tid == thread_id:

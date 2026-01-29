@@ -29,10 +29,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class SLOStatus(Enum):
     """Status of SLO compliance."""
@@ -45,7 +44,6 @@ class SLOStatus(Enum):
 
     VIOLATED = "violated"
     """SLO has been violated."""
-
 
 class BottleneckSeverity(Enum):
     """Severity of identified bottleneck."""
@@ -64,7 +62,6 @@ class BottleneckSeverity(Enum):
 
     CRITICAL = "critical"
     """Critical bottleneck, system degradation."""
-
 
 class OptimizationType(Enum):
     """Types of optimization recommendations."""
@@ -86,7 +83,6 @@ class OptimizationType(Enum):
 
     SCALE = "scale"
     """Scale resources for adapter."""
-
 
 @dataclass
 class AdapterMetrics:
@@ -134,7 +130,7 @@ class AdapterMetrics:
     throughput_per_sec: float = 0.0
     """Items processed per second."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "adapter_name": self.adapter_name,
@@ -152,7 +148,6 @@ class AdapterMetrics:
             "error_rate": round(self.error_rate, 4),
             "throughput_per_sec": round(self.throughput_per_sec, 2),
         }
-
 
 @dataclass
 class SLOConfig:
@@ -176,7 +171,6 @@ class SLOConfig:
     throughput_min_per_sec: float = 10.0
     """Minimum items per second."""
 
-
 @dataclass
 class SLOResult:
     """Result of SLO evaluation."""
@@ -196,7 +190,7 @@ class SLOResult:
     margin: float = 0.0
     """Margin from threshold (positive = headroom, negative = violation)."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "slo_name": self.slo_name,
@@ -206,12 +200,11 @@ class SLOResult:
             "margin": round(self.margin, 4),
         }
 
-
 @dataclass
 class BottleneckAnalysis:
     """Analysis of adapter bottlenecks."""
 
-    bottleneck_adapter: Optional[str] = None
+    bottleneck_adapter: str | None = None
     """Name of the bottleneck adapter (if any)."""
 
     severity: BottleneckSeverity = BottleneckSeverity.NONE
@@ -223,7 +216,7 @@ class BottleneckAnalysis:
     avg_time_ms: float = 0.0
     """Average time for bottleneck adapter."""
 
-    second_slowest: Optional[str] = None
+    second_slowest: str | None = None
     """Second slowest adapter for comparison."""
 
     gap_ms: float = 0.0
@@ -232,7 +225,7 @@ class BottleneckAnalysis:
     recommendation: str = ""
     """Recommendation for addressing bottleneck."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "bottleneck_adapter": self.bottleneck_adapter,
@@ -243,7 +236,6 @@ class BottleneckAnalysis:
             "gap_ms": round(self.gap_ms, 2),
             "recommendation": self.recommendation,
         }
-
 
 @dataclass
 class OptimizationRecommendation:
@@ -267,7 +259,7 @@ class OptimizationRecommendation:
     implementation_notes: str = ""
     """Notes for implementation."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "adapter_name": self.adapter_name,
@@ -277,7 +269,6 @@ class OptimizationRecommendation:
             "description": self.description,
             "implementation_notes": self.implementation_notes,
         }
-
 
 @dataclass
 class CompositeMetrics:
@@ -304,25 +295,25 @@ class CompositeMetrics:
     successful_adapters: int = 0
     """Number of adapters with successful syncs."""
 
-    adapter_metrics: Dict[str, AdapterMetrics] = field(default_factory=dict)
+    adapter_metrics: dict[str, AdapterMetrics] = field(default_factory=dict)
     """Per-adapter metrics."""
 
     composite_slo_met: bool = True
     """Whether composite SLO is met."""
 
-    slo_results: List[SLOResult] = field(default_factory=list)
+    slo_results: list[SLOResult] = field(default_factory=list)
     """Individual SLO results."""
 
-    bottleneck_analysis: Optional[BottleneckAnalysis] = None
+    bottleneck_analysis: BottleneckAnalysis | None = None
     """Bottleneck analysis."""
 
-    recommendations: List[OptimizationRecommendation] = field(default_factory=list)
+    recommendations: list[OptimizationRecommendation] = field(default_factory=list)
     """Optimization recommendations."""
 
     computed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When metrics were computed."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_sync_time_ms": round(self.total_sync_time_ms, 2),
@@ -342,7 +333,6 @@ class CompositeMetrics:
             "computed_at": self.computed_at.isoformat(),
         }
 
-
 @dataclass
 class SyncResultInput:
     """Input format for sync results (matches BidirectionalCoordinator.SyncResult)."""
@@ -352,10 +342,9 @@ class SyncResultInput:
     success: bool
     items_processed: int = 0
     items_updated: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 class CompositeAnalytics:
     """Engine for computing cross-adapter analytics.
@@ -364,20 +353,20 @@ class CompositeAnalytics:
     and generates optimization recommendations.
     """
 
-    def __init__(self, slo_config: Optional[SLOConfig] = None):
+    def __init__(self, slo_config: SLOConfig | None = None):
         """Initialize the composite analytics engine.
 
         Args:
             slo_config: Optional SLO configuration.
         """
         self.slo_config = slo_config or SLOConfig()
-        self._historical_times: Dict[str, List[float]] = defaultdict(list)
-        self._adapter_dependencies: Dict[str, Set[str]] = {}
+        self._historical_times: dict[str, list[float]] = defaultdict(list)
+        self._adapter_dependencies: dict[str, set[str]] = {}
         self._max_history = 100  # Keep last 100 measurements
 
     def compute_composite_metrics(
         self,
-        sync_results: List[Any],
+        sync_results: list[Any],
         include_recommendations: bool = True,
     ) -> CompositeMetrics:
         """Compute composite metrics from sync results.
@@ -398,7 +387,7 @@ class CompositeAnalytics:
         normalized = self._normalize_sync_results(sync_results)
 
         # Aggregate per-adapter metrics
-        adapter_data: Dict[str, List[SyncResultInput]] = defaultdict(list)
+        adapter_data: dict[str, list[SyncResultInput]] = defaultdict(list)
         for result in normalized:
             adapter_data[result.adapter_name].append(result)
 
@@ -461,7 +450,7 @@ class CompositeAnalytics:
 
         return metrics
 
-    def _normalize_sync_results(self, sync_results: List[Any]) -> List[SyncResultInput]:
+    def _normalize_sync_results(self, sync_results: list[Any]) -> list[SyncResultInput]:
         """Normalize sync results to standard format.
 
         Args:
@@ -508,7 +497,7 @@ class CompositeAnalytics:
     def _compute_adapter_metrics(
         self,
         adapter_name: str,
-        results: List[SyncResultInput],
+        results: list[SyncResultInput],
     ) -> AdapterMetrics:
         """Compute metrics for a single adapter.
 
@@ -558,7 +547,7 @@ class CompositeAnalytics:
 
         return metrics
 
-    def _evaluate_slos(self, metrics: CompositeMetrics) -> List[SLOResult]:
+    def _evaluate_slos(self, metrics: CompositeMetrics) -> list[SLOResult]:
         """Evaluate SLOs against metrics.
 
         Args:
@@ -755,7 +744,7 @@ class CompositeAnalytics:
     def _generate_recommendations(
         self,
         metrics: CompositeMetrics,
-    ) -> List[OptimizationRecommendation]:
+    ) -> list[OptimizationRecommendation]:
         """Generate optimization recommendations.
 
         Args:
@@ -841,7 +830,7 @@ class CompositeAnalytics:
 
     def set_adapter_dependencies(
         self,
-        dependencies: Dict[str, List[str]],
+        dependencies: dict[str, list[str]],
     ) -> None:
         """Set adapter dependencies for parallelization analysis.
 
@@ -850,7 +839,7 @@ class CompositeAnalytics:
         """
         self._adapter_dependencies = {adapter: set(deps) for adapter, deps in dependencies.items()}
 
-    def recommend_parallelization(self) -> List[str]:
+    def recommend_parallelization(self) -> list[str]:
         """Recommend adapters safe to parallelize.
 
         Returns:
@@ -877,7 +866,7 @@ class CompositeAnalytics:
 
         return sorted(parallelizable)
 
-    def get_historical_stats(self, adapter_name: str) -> Dict[str, float]:
+    def get_historical_stats(self, adapter_name: str) -> dict[str, float]:
         """Get historical statistics for an adapter.
 
         Args:
@@ -909,7 +898,7 @@ class CompositeAnalytics:
         self,
         adapter_name: str,
         window_size: int = 10,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compute performance trend for an adapter.
 
         Args:
@@ -946,33 +935,31 @@ class CompositeAnalytics:
             "change_pct": round(change_pct, 2),
         }
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get summary of all tracked adapters.
 
         Returns:
             Summary dict with adapter statistics.
         """
-        adapters: Dict[str, Any] = {}
+        adapters: dict[str, Any] = {}
         for adapter_name in self._historical_times:
             adapters[adapter_name] = {
                 "stats": self.get_historical_stats(adapter_name),
                 "trend": self.compute_trend(adapter_name),
             }
 
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "adapter_count": len(self._historical_times),
             "adapters": adapters,
         }
 
         return summary
 
-
 # Singleton instance
-_composite_analytics: Optional[CompositeAnalytics] = None
-
+_composite_analytics: CompositeAnalytics | None = None
 
 def get_composite_analytics(
-    slo_config: Optional[SLOConfig] = None,
+    slo_config: SLOConfig | None = None,
 ) -> CompositeAnalytics:
     """Get or create the singleton composite analytics engine.
 
@@ -986,7 +973,6 @@ def get_composite_analytics(
     if _composite_analytics is None:
         _composite_analytics = CompositeAnalytics(slo_config)
     return _composite_analytics
-
 
 __all__ = [
     # Enums

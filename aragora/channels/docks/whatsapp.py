@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
 
@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = ["WhatsAppDock"]
-
 
 class WhatsAppDock(ChannelDock):
     """
@@ -42,7 +41,7 @@ class WhatsAppDock(ChannelDock):
     CAPABILITIES = ChannelCapability.VOICE | ChannelCapability.FILES
     # WhatsApp has limited rich text support (no markdown)
 
-    def __init__(self, config: Optional[dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize WhatsApp dock.
 
@@ -51,8 +50,8 @@ class WhatsAppDock(ChannelDock):
             phone_number_id: WhatsApp phone number ID (or WHATSAPP_PHONE_NUMBER_ID env)
         """
         super().__init__(config)
-        self._access_token: Optional[str] = None
-        self._phone_number_id: Optional[str] = None
+        self._access_token: str | None = None
+        self._phone_number_id: str | None = None
 
     async def initialize(self) -> bool:
         """Initialize the WhatsApp dock."""
@@ -274,8 +273,8 @@ class WhatsAppDock(ChannelDock):
         self,
         channel_id: str,
         audio_data: bytes,
-        text: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        text: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """

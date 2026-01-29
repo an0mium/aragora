@@ -37,14 +37,12 @@ from aragora.documents.models import DocumentChunk
 
 logger = logging.getLogger(__name__)
 
-
 class EventEmitter(Protocol):
     """Protocol for event emission during exploration."""
 
     async def emit(self, event: str, data: dict[str, Any]) -> None:
         """Emit an exploration event."""
         ...
-
 
 @dataclass
 class ExplorerConfig:
@@ -71,12 +69,11 @@ class ExplorerConfig:
 
     # Memory
     enable_memory: bool = True
-    memory_db_path: Optional[Path] = None
+    memory_db_path: Path | None = None
 
     # Timeouts
     phase_timeout: float = 300.0  # 5 minutes per phase
     total_timeout: float = 1800.0  # 30 minutes total
-
 
 class DocumentExplorer:
     """Orchestrates iterative document exploration.
@@ -100,9 +97,9 @@ class DocumentExplorer:
     def __init__(
         self,
         agents: list[ExplorationAgent],
-        config: Optional[ExplorerConfig] = None,
-        memory: Optional[ExplorationMemory] = None,
-        event_emitter: Optional[EventEmitter] = None,
+        config: ExplorerConfig | None = None,
+        memory: ExplorationMemory | None = None,
+        event_emitter: EventEmitter | None = None,
         document_loader: Optional[Callable[[str], str]] = None,
     ):
         """Initialize the document explorer.
@@ -133,7 +130,7 @@ class DocumentExplorer:
             self.verifier = VerifierAgent()
 
         # Chunking strategy
-        self._chunker: Optional[ChunkingStrategy] = None
+        self._chunker: ChunkingStrategy | None = None
 
         # Chunk storage (populated during document loading)
         self._session_chunks: dict[str, dict[str, DocumentChunk]] = {}
@@ -167,8 +164,8 @@ class DocumentExplorer:
         self,
         documents: list[str],
         objective: str,
-        initial_questions: Optional[list[str]] = None,
-        session: Optional[ExplorationSession] = None,
+        initial_questions: list[str] | None = None,
+        session: ExplorationSession | None = None,
     ) -> ExplorationResult:
         """Explore documents iteratively to achieve an objective.
 
@@ -430,7 +427,7 @@ class DocumentExplorer:
 
     def _search_for_answer(
         self, session: ExplorationSession, question: Question
-    ) -> Optional[dict[str, str]]:
+    ) -> dict[str, str] | None:
         """Search existing understandings for an answer to a question."""
         question_words = set(question.text.lower().split())
 

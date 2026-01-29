@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class AggregatedVotes:
     """Result of vote aggregation.
@@ -66,7 +65,6 @@ class AggregatedVotes:
             return {}
         return {choice: count / self.total_weighted for choice, count in self.vote_counts.items()}
 
-
 class VoteAggregator:
     """Aggregate votes with weighting and grouping.
 
@@ -110,8 +108,8 @@ class VoteAggregator:
     def aggregate(
         self,
         votes: list["Vote"],
-        weights: Optional[dict[str, float]] = None,
-        user_votes: Optional[list[dict]] = None,
+        weights: dict[str, float] | None = None,
+        user_votes: list[dict] | None = None,
     ) -> AggregatedVotes:
         """Aggregate votes with weighting and grouping.
 
@@ -272,7 +270,7 @@ class VoteAggregator:
     def count_unweighted(
         self,
         votes: list["Vote"],
-        choice_mapping: Optional[dict[str, str]] = None,
+        choice_mapping: dict[str, str] | None = None,
     ) -> Counter:
         """Count votes without weighting (for unanimous mode).
 
@@ -296,7 +294,6 @@ class VoteAggregator:
             vote_counts[canonical] += 1
 
         return vote_counts
-
 
 def calculate_consensus_strength(
     vote_counts: Counter,

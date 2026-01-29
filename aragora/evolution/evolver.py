@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 # Import gauntlet types for vulnerability recording
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.core import Agent, DebateResult
@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class EvolutionStrategy(Enum):
     """Strategies for prompt evolution."""
 
@@ -33,7 +32,6 @@ class EvolutionStrategy(Enum):
     REPLACE = "replace"  # Replace sections of the prompt
     REFINE = "refine"  # Use LLM to refine the prompt
     HYBRID = "hybrid"  # Combination of strategies
-
 
 @dataclass
 class PromptVersion:
@@ -46,7 +44,6 @@ class PromptVersion:
     debates_count: int = 0
     consensus_rate: float = 0.0
     metadata: dict = field(default_factory=dict)
-
 
 class PromptEvolver(SQLiteStore):
     """
@@ -322,7 +319,7 @@ class PromptEvolver(SQLiteStore):
 
     def get_top_patterns(
         self,
-        pattern_type: Optional[str] = None,
+        pattern_type: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
         """Get most effective patterns."""
@@ -365,7 +362,7 @@ class PromptEvolver(SQLiteStore):
 
     def get_prompt_version(
         self, agent_name: str, version: int | None = None
-    ) -> Optional[PromptVersion]:
+    ) -> PromptVersion | None:
         """Get a specific prompt version or the latest."""
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -965,7 +962,7 @@ Return ONLY the refined prompt, no explanations."""
         self,
         agent: Agent,
         min_vulnerability_count: int = 3,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Evolve an agent's prompt to address recorded vulnerabilities.
 

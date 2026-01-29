@@ -6,14 +6,14 @@ Provides similarity-based deduplication (beyond exact hash matching):
 - Merge duplicate clusters
 - Dedup visibility/reporting
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
-
 
 @dataclass
 class DuplicateMatch:
@@ -26,7 +26,6 @@ class DuplicateMatch:
     tier: str
     confidence: float
 
-
 @dataclass
 class DuplicateCluster:
     """A cluster of potential duplicate nodes."""
@@ -37,7 +36,6 @@ class DuplicateCluster:
     avg_similarity: float
     recommended_action: str  # "merge", "review", "keep_separate"
 
-
 @dataclass
 class MergeResult:
     """Result of a merge operation."""
@@ -46,7 +44,6 @@ class MergeResult:
     merged_node_ids: list[str]
     archived_count: int
     updated_relationships: int
-
 
 @dataclass
 class DedupReport:
@@ -58,7 +55,6 @@ class DedupReport:
     duplicate_clusters_found: int
     clusters: list[DuplicateCluster]
     estimated_reduction_percent: float
-
 
 class DedupOperationsMixin:
     """Mixin providing deduplication operations for Knowledge Mound."""
@@ -201,7 +197,7 @@ class DedupOperationsMixin:
         self,
         workspace_id: str,
         cluster_id: str,
-        primary_node_id: Optional[str] = None,
+        primary_node_id: str | None = None,
         archive: bool = True,
     ) -> MergeResult:
         """Merge a cluster of duplicate nodes into one.

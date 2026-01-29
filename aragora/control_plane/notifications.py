@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from aragora.control_plane.channels import (
     ChannelConfig,
@@ -44,11 +44,9 @@ logger = logging.getLogger(__name__)
 
 _default_dispatcher: Optional["NotificationDispatcher"] = None
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
-
 
 @dataclass
 class RetryConfig:
@@ -72,7 +70,6 @@ class RetryConfig:
             delay = delay * (0.5 + random.random())
         return delay
 
-
 @dataclass
 class NotificationDispatcherConfig:
     """Configuration for the notification dispatcher."""
@@ -87,7 +84,6 @@ class NotificationDispatcherConfig:
     max_concurrent_deliveries: int = 20
     rate_limit_per_channel: int = 100  # per minute
 
-
 @dataclass
 class QueuedNotification:
     """A notification queued for delivery."""
@@ -97,10 +93,10 @@ class QueuedNotification:
     channel_config: ChannelConfig
     attempt: int = 0
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    next_retry_at: Optional[datetime] = None
-    last_error: Optional[str] = None
+    next_retry_at: datetime | None = None
+    last_error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize for queue storage."""
         return {
             "id": self.id,
@@ -125,7 +121,7 @@ class QueuedNotification:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "QueuedNotification":
+    def from_dict(cls, data: dict[str, Any]) -> "QueuedNotification":
         """Deserialize from queue storage."""
         message_data = data["message"]
         message = NotificationMessage(
@@ -167,11 +163,9 @@ class QueuedNotification:
             last_error=data.get("last_error"),
         )
 
-
 # =============================================================================
 # Email Provider
 # =============================================================================
-
 
 class EmailProvider(ChannelProvider):
     """Email notification provider using SMTP."""
@@ -290,11 +284,9 @@ Aragora Control Plane | {message.event_type.value} | {message.timestamp.strftime
 
         return html.strip(), text.strip()
 
-
 # =============================================================================
 # Notification Dispatcher
 # =============================================================================
-
 
 class NotificationDispatcher:
     """
@@ -322,20 +314,20 @@ class NotificationDispatcher:
         self,
         manager: NotificationManager,
         redis: Optional["Redis"] = None,
-        config: Optional[NotificationDispatcherConfig] = None,
+        config: NotificationDispatcherConfig | None = None,
     ) -> None:
         self._manager = manager
         self._redis = redis
         self._config = config or NotificationDispatcherConfig()
 
         # Circuit breakers per channel
-        self._circuit_breakers: Dict[NotificationChannel, CircuitBreaker] = {}
+        self._circuit_breakers: dict[NotificationChannel, CircuitBreaker] = {}
 
         # Rate limiting
-        self._rate_limiters: Dict[NotificationChannel, List[float]] = {}
+        self._rate_limiters: dict[NotificationChannel, list[float]] = {}
 
         # Metrics
-        self._metrics: Dict[str, Any] = {
+        self._metrics: dict[str, Any] = {
             "total_dispatched": 0,
             "total_delivered": 0,
             "total_failed": 0,
@@ -384,11 +376,11 @@ class NotificationDispatcher:
         title: str,
         body: str,
         priority: NotificationPriority = NotificationPriority.NORMAL,
-        metadata: Optional[Dict[str, Any]] = None,
-        workspace_id: Optional[str] = None,
-        link_url: Optional[str] = None,
-        link_text: Optional[str] = None,
-    ) -> List[NotificationResult]:
+        metadata: Optional[dict[str, Any]] = None,
+        workspace_id: str | None = None,
+        link_url: str | None = None,
+        link_text: str | None = None,
+    ) -> list[NotificationResult]:
         """
         Dispatch a notification to all applicable channels with resilience.
 
@@ -428,7 +420,7 @@ class NotificationDispatcher:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Process results
-        notification_results: List[NotificationResult] = []
+        notification_results: list[NotificationResult] = []
         for result in results:
             if isinstance(result, NotificationResult):
                 notification_results.append(result)
@@ -549,7 +541,7 @@ class NotificationDispatcher:
         message: NotificationMessage,
         config: ChannelConfig,
         attempt: int = 0,
-        last_error: Optional[str] = None,
+        last_error: str | None = None,
     ) -> None:
         """Queue a notification for later delivery."""
         if not self._redis:
@@ -655,7 +647,7 @@ class NotificationDispatcher:
     async def _process_queued_message(
         self,
         message_id: bytes,
-        fields: Dict[bytes, bytes],
+        fields: dict[bytes, bytes],
     ) -> None:
         """Process a single queued notification."""
         # Guard: called from _worker_loop which already checked redis
@@ -716,7 +708,7 @@ class NotificationDispatcher:
     async def _move_to_dlq(
         self,
         queued: QueuedNotification,
-        error: Optional[str],
+        error: str | None,
     ) -> None:
         """Move failed notification to dead letter queue."""
         if not self._redis:
@@ -739,7 +731,7 @@ class NotificationDispatcher:
     # Metrics and Status
     # =========================================================================
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get dispatcher metrics."""
         return {
             **self._metrics,
@@ -753,7 +745,7 @@ class NotificationDispatcher:
             "worker_running": self._worker_task is not None and not self._worker_task.done(),
         }
 
-    def get_circuit_breaker_status(self) -> Dict[str, str]:
+    def get_circuit_breaker_status(self) -> dict[str, str]:
         """Get status of all circuit breakers."""
         return {
             channel.value: breaker.get_status()
@@ -791,16 +783,14 @@ class NotificationDispatcher:
             # Stream doesn't exist yet
             return 0
 
-
 # =============================================================================
 # Factory Function
 # =============================================================================
 
-
 def create_notification_dispatcher(
-    manager: Optional[NotificationManager] = None,
+    manager: NotificationManager | None = None,
     redis: Optional["Redis"] = None,
-    config: Optional[NotificationDispatcherConfig] = None,
+    config: NotificationDispatcherConfig | None = None,
 ) -> NotificationDispatcher:
     """
     Create a notification dispatcher with sensible defaults.
@@ -825,25 +815,21 @@ def create_notification_dispatcher(
         config=config,
     )
 
-
 def get_default_notification_dispatcher() -> Optional["NotificationDispatcher"]:
     """Get the default notification dispatcher, if configured."""
     return _default_dispatcher
-
 
 def set_default_notification_dispatcher(dispatcher: "NotificationDispatcher") -> None:
     """Set the default notification dispatcher."""
     global _default_dispatcher
     _default_dispatcher = dispatcher
 
-
 # =============================================================================
 # Event Handler Decorator
 # =============================================================================
 
-
 def on_notification_event(
-    event_types: List[NotificationEventType],
+    event_types: list[NotificationEventType],
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to register a function as a notification event handler.
@@ -861,17 +847,15 @@ def on_notification_event(
 
     return decorator
 
-
 # =============================================================================
 # Security Notifications
 # =============================================================================
-
 
 async def send_security_notification(
     title: str,
     message: str,
     severity: str = "medium",
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> bool:
     """
     Send a security-related notification to the security team.
@@ -915,7 +899,6 @@ async def send_security_notification(
     except Exception as e:
         logger.error(f"Failed to send security notification: {e}")
         return False
-
 
 # =============================================================================
 # Exports

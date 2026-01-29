@@ -4,6 +4,7 @@ Centralized server state management.
 Consolidates global state that was previously scattered across
 stream.py and unified_server.py to prevent inconsistencies.
 """
+from __future__ import annotations
 
 import atexit
 import logging
@@ -11,12 +12,11 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable
 
 from aragora.config import DEFAULT_ROUNDS
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DebateState:
@@ -30,7 +30,7 @@ class DebateState:
     current_round: int = 0
     total_rounds: int = DEFAULT_ROUNDS
     messages: list = field(default_factory=list)
-    subscribers: Set[Any] = field(default_factory=set)
+    subscribers: set[Any] = field(default_factory=set)
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -47,7 +47,6 @@ class DebateState:
             "subscriber_count": len(self.subscribers),
             "elapsed_seconds": time.time() - self.start_time,
         }
-
 
 class StateManager:
     """
@@ -79,11 +78,11 @@ class StateManager:
     def __init__(self) -> None:
         """Initialize state manager."""
         # Active debates
-        self._active_debates: Dict[str, DebateState] = {}
+        self._active_debates: dict[str, DebateState] = {}
         self._debates_lock = threading.Lock()
 
         # Thread pool executor for debates
-        self._executor: Optional[ThreadPoolExecutor] = None
+        self._executor: ThreadPoolExecutor | None = None
         self._executor_lock = threading.Lock()
         self._executor_max_workers = 4
 
@@ -114,7 +113,7 @@ class StateManager:
         task: str,
         agents: list[str],
         total_rounds: int = DEFAULT_ROUNDS,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> DebateState:
         """
         Register a new active debate.
@@ -146,7 +145,7 @@ class StateManager:
 
         return state
 
-    def unregister_debate(self, debate_id: str) -> Optional[DebateState]:
+    def unregister_debate(self, debate_id: str) -> DebateState | None:
         """
         Unregister a debate when it completes.
 
@@ -168,12 +167,12 @@ class StateManager:
 
         return state
 
-    def get_debate(self, debate_id: str) -> Optional[DebateState]:
+    def get_debate(self, debate_id: str) -> DebateState | None:
         """Get a debate's state by ID."""
         with self._debates_lock:
             return self._active_debates.get(debate_id)
 
-    def get_active_debates(self) -> Dict[str, DebateState]:
+    def get_active_debates(self) -> dict[str, DebateState]:
         """Get a copy of all active debates."""
         with self._debates_lock:
             return dict(self._active_debates)
@@ -186,8 +185,8 @@ class StateManager:
     def update_debate_status(
         self,
         debate_id: str,
-        status: Optional[str] = None,
-        current_round: Optional[int] = None,
+        status: str | None = None,
+        current_round: int | None = None,
     ) -> bool:
         """
         Update a debate's status.
@@ -262,7 +261,7 @@ class StateManager:
 
     # ==================== Executor Management ====================
 
-    def get_executor(self, max_workers: Optional[int] = None) -> ThreadPoolExecutor:
+    def get_executor(self, max_workers: int | None = None) -> ThreadPoolExecutor:
         """
         Get or create the shared thread pool executor.
 
@@ -390,10 +389,8 @@ class StateManager:
             "cleanup_counter": self._cleanup_counter,
         }
 
-
 # Use ServiceRegistry for singleton management
 from aragora.services import ServiceRegistry
-
 
 def get_state_manager() -> StateManager:
     """
@@ -409,7 +406,6 @@ def get_state_manager() -> StateManager:
         atexit.register(_shutdown_state_manager)
 
     return registry.resolve(StateManager)
-
 
 def _shutdown_state_manager() -> None:
     """Atexit handler to cleanup StateManager resources.
@@ -429,7 +425,6 @@ def _shutdown_state_manager() -> None:
     except Exception:
         # Silently ignore errors during shutdown - logging is disabled anyway
         pass
-
 
 def reset_state_manager() -> None:
     """

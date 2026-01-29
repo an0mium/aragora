@@ -31,7 +31,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -49,7 +49,6 @@ DEFAULT_RETENTION_DAYS = int(
 DEFAULT_DB_PATH = (
     Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "inbox_activities.db"
 )
-
 
 class InboxActivityAction:
     """Constants for inbox activity action types."""
@@ -71,7 +70,6 @@ class InboxActivityAction:
     MERGED = "merged"
     SPLIT = "split"
 
-
 @dataclass
 class InboxActivity:
     """A shared inbox activity record."""
@@ -80,12 +78,12 @@ class InboxActivity:
     org_id: str
     actor_id: str
     action: str
-    target_id: Optional[str] = None  # message_id, member_id, etc.
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    target_id: str | None = None  # message_id, member_id, etc.
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -99,7 +97,7 @@ class InboxActivity:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "InboxActivity":
+    def from_dict(cls, data: dict[str, Any]) -> "InboxActivity":
         """Create from dictionary."""
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -119,7 +117,6 @@ class InboxActivity:
             metadata=data.get("metadata", {}),
             created_at=created_at,
         )
-
 
 class InboxActivityStore:
     """
@@ -151,9 +148,9 @@ class InboxActivityStore:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        db_path: Path | None = None,
+        backend: str | None = None,
+        database_url: str | None = None,
         retention_days: int = DEFAULT_RETENTION_DAYS,
     ):
         """
@@ -178,7 +175,7 @@ class InboxActivityStore:
             backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
 
         self.backend_type = backend
-        self._backend: Optional[DatabaseBackend] = None
+        self._backend: DatabaseBackend | None = None
 
         if backend == "postgresql":
             if not actual_url:
@@ -240,7 +237,7 @@ class InboxActivityStore:
         )
         logger.debug(f"Logged inbox activity: {activity.action} for {activity.inbox_id}")
 
-    def get_activity(self, activity_id: str) -> Optional[InboxActivity]:
+    def get_activity(self, activity_id: str) -> InboxActivity | None:
         """
         Get an activity by ID.
 
@@ -269,9 +266,9 @@ class InboxActivityStore:
         inbox_id: str,
         limit: int = 100,
         offset: int = 0,
-        after: Optional[datetime] = None,
-        action: Optional[str] = None,
-    ) -> List[InboxActivity]:
+        after: datetime | None = None,
+        action: str | None = None,
+    ) -> list[InboxActivity]:
         """
         Get activities for an inbox.
 
@@ -289,7 +286,7 @@ class InboxActivityStore:
             return []
 
         conditions = ["inbox_id = ?"]
-        params: List[Any] = [inbox_id]
+        params: list[Any] = [inbox_id]
 
         if after:
             conditions.append("created_at > ?")
@@ -319,7 +316,7 @@ class InboxActivityStore:
         self,
         message_id: str,
         limit: int = 100,
-    ) -> List[InboxActivity]:
+    ) -> list[InboxActivity]:
         """
         Get activity history for a specific message.
 
@@ -351,8 +348,8 @@ class InboxActivityStore:
         org_id: str,
         limit: int = 100,
         offset: int = 0,
-        after: Optional[datetime] = None,
-    ) -> List[InboxActivity]:
+        after: datetime | None = None,
+    ) -> list[InboxActivity]:
         """
         Get all activities for an organization.
 
@@ -369,7 +366,7 @@ class InboxActivityStore:
             return []
 
         conditions = ["org_id = ?"]
-        params: List[Any] = [org_id]
+        params: list[Any] = [org_id]
 
         if after:
             conditions.append("created_at > ?")
@@ -396,7 +393,7 @@ class InboxActivityStore:
         actor_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[InboxActivity]:
+    ) -> list[InboxActivity]:
         """
         Get all activities by a specific actor.
 
@@ -426,9 +423,9 @@ class InboxActivityStore:
 
     def count_activities(
         self,
-        inbox_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        action: Optional[str] = None,
+        inbox_id: str | None = None,
+        org_id: str | None = None,
+        action: str | None = None,
     ) -> int:
         """
         Count activities with optional filters.
@@ -445,7 +442,7 @@ class InboxActivityStore:
             return 0
 
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if inbox_id:
             conditions.append("inbox_id = ?")
@@ -520,16 +517,14 @@ class InboxActivityStore:
             self._backend.close()
             self._backend = None
 
-
 # Module-level singleton
-_default_store: Optional[InboxActivityStore] = None
+_default_store: InboxActivityStore | None = None
 _store_lock = threading.Lock()
 
-
 def get_inbox_activity_store(
-    db_path: Optional[Path] = None,
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    db_path: Path | None = None,
+    backend: str | None = None,
+    database_url: str | None = None,
 ) -> InboxActivityStore:
     """
     Get or create the default InboxActivityStore instance.
@@ -580,7 +575,6 @@ def get_inbox_activity_store(
 
     return _default_store
 
-
 def reset_inbox_activity_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store
@@ -588,7 +582,6 @@ def reset_inbox_activity_store() -> None:
         if _default_store is not None:
             _default_store.close()
             _default_store = None
-
 
 __all__ = [
     "InboxActivity",

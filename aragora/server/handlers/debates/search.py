@@ -8,7 +8,7 @@ functionality with efficient SQL queries.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.server.validation.security import (
     validate_search_query_redos_safe,
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by SearchOperationsMixin.
 
@@ -43,12 +42,11 @@ class _DebatesHandlerProtocol(Protocol):
     expect to be mixed into a class providing these methods/attributes.
     """
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
-    def get_storage(self) -> Optional[Any]:
+    def get_storage(self) -> Any | None:
         """Get debate storage instance."""
         ...
-
 
 class SearchOperationsMixin:
     """Mixin providing search operations for DebatesHandler."""
@@ -62,7 +60,7 @@ class SearchOperationsMixin:
         query: str,
         limit: int,
         offset: int,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> HandlerResult:
         """Search debates by query string, optionally filtered by organization.
 
@@ -135,6 +133,5 @@ class SearchOperationsMixin:
         except ValueError as e:
             logger.warning("Invalid search query '%s': %s", query, e)
             return error_response(f"Invalid search query: {e}", 400)
-
 
 __all__ = ["SearchOperationsMixin"]

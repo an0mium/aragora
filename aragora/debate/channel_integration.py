@@ -43,7 +43,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ChannelIntegration:
     """
     Integrates AgentChannel with Arena for peer messaging.
@@ -72,7 +71,7 @@ class ChannelIntegration:
         self._debate_id = debate_id
         self._agents = agents
         self._protocol = protocol
-        self._channel: Optional[AgentChannel] = None
+        self._channel: AgentChannel | None = None
         self._manager: ChannelManager = get_channel_manager()
 
         # Check if channels are enabled
@@ -91,7 +90,7 @@ class ChannelIntegration:
         return self._enabled
 
     @property
-    def channel(self) -> Optional[AgentChannel]:
+    def channel(self) -> AgentChannel | None:
         """Get the debate channel."""
         return self._channel
 
@@ -140,8 +139,8 @@ class ChannelIntegration:
         agent_name: str,
         proposal_content: str,
         round_number: int,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> Optional[ChannelMessage]:
+        metadata: dict[str, Any] | None = None,
+    ) -> ChannelMessage | None:
         """
         Broadcast a proposal to all agents.
 
@@ -170,9 +169,9 @@ class ChannelIntegration:
         self,
         agent_name: str,
         critique_content: str,
-        target_proposal_id: Optional[str] = None,
+        target_proposal_id: str | None = None,
         round_number: int = 0,
-    ) -> Optional[ChannelMessage]:
+    ) -> ChannelMessage | None:
         """
         Broadcast a critique to all agents.
 
@@ -201,7 +200,7 @@ class ChannelIntegration:
         sender: str,
         recipient: str,
         query: str,
-    ) -> Optional[ChannelMessage]:
+    ) -> ChannelMessage | None:
         """
         Send a direct query to another agent.
 
@@ -223,7 +222,7 @@ class ChannelIntegration:
             message_type=MessageType.QUERY,
         )
 
-    async def signal_ready(self, agent_name: str, phase: str) -> Optional[ChannelMessage]:
+    async def signal_ready(self, agent_name: str, phase: str) -> ChannelMessage | None:
         """
         Signal that an agent is ready for a phase.
 
@@ -321,7 +320,6 @@ class ChannelIntegration:
 
         return f"{context}\n\n---\n\n{prompt}"
 
-
 # Factory function for Arena integration
 def create_channel_integration(
     debate_id: str,
@@ -340,7 +338,6 @@ def create_channel_integration(
         ChannelIntegration instance
     """
     return ChannelIntegration(debate_id, agents, protocol)
-
 
 __all__ = [
     "ChannelIntegration",

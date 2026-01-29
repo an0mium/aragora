@@ -8,7 +8,7 @@ accumulated knowledge, consensus positions, and debate outcomes.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     Skill,
@@ -19,7 +19,6 @@ from ..base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class KnowledgeQuerySkill(Skill):
     """
@@ -81,7 +80,7 @@ class KnowledgeQuerySkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         """Execute knowledge query."""
@@ -107,7 +106,7 @@ class KnowledgeQuerySkill(Skill):
                     error_code="service_unavailable",
                 )
 
-            results: Dict[str, Any] = {
+            results: dict[str, Any] = {
                 "query": query,
                 "query_type": query_type,
                 "sources_queried": sources,
@@ -144,7 +143,7 @@ class KnowledgeQuerySkill(Skill):
             logger.exception(f"Knowledge query failed: {e}")
             return SkillResult.create_failure(f"Query failed: {e}")
 
-    async def _get_knowledge_mound(self) -> Optional[Any]:
+    async def _get_knowledge_mound(self) -> Any | None:
         """Get the Knowledge Mound instance."""
         try:
             from aragora.knowledge.mound import get_knowledge_mound
@@ -163,8 +162,8 @@ class KnowledgeQuerySkill(Skill):
         query: str,
         max_results: int,
         min_confidence: float,
-        tenant_id: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        tenant_id: str | None,
+    ) -> list[dict[str, Any]]:
         """Query consensus positions."""
         try:
             if hasattr(mound, "query_consensus"):
@@ -193,8 +192,8 @@ class KnowledgeQuerySkill(Skill):
         query: str,
         max_results: int,
         min_confidence: float,
-        tenant_id: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        tenant_id: str | None,
+    ) -> list[dict[str, Any]]:
         """Query evidence records."""
         try:
             if hasattr(mound, "query_evidence"):
@@ -222,8 +221,8 @@ class KnowledgeQuerySkill(Skill):
         mound: Any,
         query: str,
         max_results: int,
-        tenant_id: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        tenant_id: str | None,
+    ) -> list[dict[str, Any]]:
         """Query learned patterns."""
         try:
             if hasattr(mound, "query_patterns"):
@@ -249,8 +248,8 @@ class KnowledgeQuerySkill(Skill):
         mound: Any,
         query: str,
         max_results: int,
-        tenant_id: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        tenant_id: str | None,
+    ) -> list[dict[str, Any]]:
         """Query meta-learning insights."""
         try:
             if hasattr(mound, "query_insights"):
@@ -270,7 +269,6 @@ class KnowledgeQuerySkill(Skill):
         except Exception as e:
             logger.warning(f"Insight query error: {e}")
         return []
-
 
 # Skill instance for registration
 SKILLS = [KnowledgeQuerySkill()]

@@ -31,7 +31,7 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 from aragora.observability.config import get_metrics_config
 from aragora.observability.metrics.base import NoOpMetric
@@ -79,7 +79,6 @@ BLOCKED_REQUESTS_TOTAL: Any = None
 MIGRATION_RECORDS_TOTAL: Any = None
 MIGRATION_ERRORS_TOTAL: Any = None
 MIGRATION_DURATION: Any = None
-
 
 def init_security_metrics() -> bool:
     """Initialize security Prometheus metrics."""
@@ -261,7 +260,6 @@ def init_security_metrics() -> bool:
         _initialized = True
         return False
 
-
 def _init_noop_metrics() -> None:
     """Initialize no-op metrics when Prometheus is disabled."""
     global ENCRYPTION_OPERATIONS_TOTAL, ENCRYPTION_OPERATION_LATENCY
@@ -305,17 +303,14 @@ def _init_noop_metrics() -> None:
     MIGRATION_ERRORS_TOTAL = noop
     MIGRATION_DURATION = noop
 
-
 def _ensure_init() -> None:
     """Ensure metrics are initialized."""
     if not _initialized:
         init_security_metrics()
 
-
 # =============================================================================
 # Encryption Functions
 # =============================================================================
-
 
 def record_encryption_operation(
     operation: str,
@@ -334,7 +329,6 @@ def record_encryption_operation(
     ENCRYPTION_OPERATIONS_TOTAL.labels(operation=operation, status=status).inc()
     ENCRYPTION_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
 
-
 def record_encryption_error(operation: str, error_type: str) -> None:
     """Record an encryption error.
 
@@ -345,7 +339,6 @@ def record_encryption_error(operation: str, error_type: str) -> None:
     _ensure_init()
     ENCRYPTION_ERRORS_TOTAL.labels(operation=operation, error_type=error_type).inc()
 
-
 def record_encrypted_field(field_type: str, store: str) -> None:
     """Record a field that was encrypted.
 
@@ -355,7 +348,6 @@ def record_encrypted_field(field_type: str, store: str) -> None:
     """
     _ensure_init()
     ENCRYPTED_FIELDS_TOTAL.labels(field_type=field_type, store=store).inc()
-
 
 @contextmanager
 def track_encryption_operation(operation: str) -> Generator[None, None, None]:
@@ -376,11 +368,9 @@ def track_encryption_operation(operation: str) -> Generator[None, None, None]:
         latency = time.perf_counter() - start
         record_encryption_operation(operation, success, latency)
 
-
 # =============================================================================
 # Key Management Functions
 # =============================================================================
-
 
 def record_key_operation(operation: str, success: bool) -> None:
     """Record a key management operation.
@@ -392,7 +382,6 @@ def record_key_operation(operation: str, success: bool) -> None:
     _ensure_init()
     status = "success" if success else "error"
     KEY_OPERATIONS_TOTAL.labels(operation=operation, status=status).inc()
-
 
 def record_key_rotation(key_id: str, success: bool, latency_seconds: float) -> None:
     """Record a key rotation.
@@ -407,7 +396,6 @@ def record_key_rotation(key_id: str, success: bool, latency_seconds: float) -> N
     KEY_ROTATION_TOTAL.labels(key_id=key_id, status=status).inc()
     KEY_ROTATION_LATENCY.observe(latency_seconds)
 
-
 def set_active_keys(master: int = 0, session: int = 0, ephemeral: int = 0) -> None:
     """Set the number of active encryption keys by type.
 
@@ -421,16 +409,14 @@ def set_active_keys(master: int = 0, session: int = 0, ephemeral: int = 0) -> No
     ACTIVE_KEYS_GAUGE.labels(key_type="session").set(session)
     ACTIVE_KEYS_GAUGE.labels(key_type="ephemeral").set(ephemeral)
 
-
 # =============================================================================
 # Authentication Functions
 # =============================================================================
 
-
 def record_auth_attempt(
     method: str,
     success: bool,
-    latency_seconds: Optional[float] = None,
+    latency_seconds: float | None = None,
 ) -> None:
     """Record an authentication attempt.
 
@@ -445,7 +431,6 @@ def record_auth_attempt(
     if latency_seconds is not None:
         AUTH_LATENCY.labels(method=method).observe(latency_seconds)
 
-
 def record_auth_failure(method: str, reason: str) -> None:
     """Record an authentication failure with reason.
 
@@ -455,7 +440,6 @@ def record_auth_failure(method: str, reason: str) -> None:
     """
     _ensure_init()
     AUTH_FAILURES_TOTAL.labels(method=method, reason=reason).inc()
-
 
 def set_active_sessions(jwt: int = 0, api_key: int = 0, oauth: int = 0) -> None:
     """Set the number of active sessions by type.
@@ -469,7 +453,6 @@ def set_active_sessions(jwt: int = 0, api_key: int = 0, oauth: int = 0) -> None:
     ACTIVE_SESSIONS_GAUGE.labels(session_type="jwt").set(jwt)
     ACTIVE_SESSIONS_GAUGE.labels(session_type="api_key").set(api_key)
     ACTIVE_SESSIONS_GAUGE.labels(session_type="oauth").set(oauth)
-
 
 @contextmanager
 def track_auth_attempt(method: str) -> Generator[None, None, None]:
@@ -490,11 +473,9 @@ def track_auth_attempt(method: str) -> Generator[None, None, None]:
         latency = time.perf_counter() - start
         record_auth_attempt(method, success, latency)
 
-
 # =============================================================================
 # RBAC Functions
 # =============================================================================
-
 
 def record_rbac_decision(permission: str, granted: bool) -> None:
     """Record an RBAC authorization decision.
@@ -508,7 +489,6 @@ def record_rbac_decision(permission: str, granted: bool) -> None:
     RBAC_DECISIONS_TOTAL.labels(permission=permission, decision=decision).inc()
     PERMISSIONS_CHECKED_TOTAL.labels(permission=permission).inc()
 
-
 def record_rbac_denial(permission: str, role: str) -> None:
     """Record an RBAC denial with role context.
 
@@ -519,7 +499,6 @@ def record_rbac_denial(permission: str, role: str) -> None:
     _ensure_init()
     RBAC_DENIED_TOTAL.labels(permission=permission, role=role).inc()
 
-
 def record_rbac_evaluation_latency(latency_seconds: float) -> None:
     """Record RBAC policy evaluation latency.
 
@@ -528,7 +507,6 @@ def record_rbac_evaluation_latency(latency_seconds: float) -> None:
     """
     _ensure_init()
     RBAC_EVALUATION_LATENCY.observe(latency_seconds)
-
 
 @contextmanager
 def track_rbac_evaluation() -> Generator[None, None, None]:
@@ -541,11 +519,9 @@ def track_rbac_evaluation() -> Generator[None, None, None]:
         latency = time.perf_counter() - start
         record_rbac_evaluation_latency(latency)
 
-
 # =============================================================================
 # Secret Access Functions
 # =============================================================================
-
 
 def record_secret_access(secret_type: str, operation: str) -> None:
     """Record a secret access operation.
@@ -557,7 +533,6 @@ def record_secret_access(secret_type: str, operation: str) -> None:
     _ensure_init()
     SECRET_ACCESS_TOTAL.labels(secret_type=secret_type, operation=operation).inc()
 
-
 def record_secret_decryption(store: str, field: str) -> None:
     """Record a secret decryption operation.
 
@@ -567,7 +542,6 @@ def record_secret_decryption(store: str, field: str) -> None:
     """
     _ensure_init()
     SECRET_DECRYPTION_TOTAL.labels(store=store, field=field).inc()
-
 
 def record_sensitive_field_operation(field: str, operation: str) -> None:
     """Record an operation on a sensitive field.
@@ -579,11 +553,9 @@ def record_sensitive_field_operation(field: str, operation: str) -> None:
     _ensure_init()
     SENSITIVE_FIELD_OPERATIONS.labels(field=field, operation=operation).inc()
 
-
 # =============================================================================
 # Security Incident Functions
 # =============================================================================
-
 
 def record_security_incident(severity: str, incident_type: str) -> None:
     """Record a security incident.
@@ -595,7 +567,6 @@ def record_security_incident(severity: str, incident_type: str) -> None:
     _ensure_init()
     SECURITY_INCIDENTS_TOTAL.labels(severity=severity, type=incident_type).inc()
 
-
 def record_security_alert(alert_type: str, destination: str) -> None:
     """Record a security alert.
 
@@ -605,7 +576,6 @@ def record_security_alert(alert_type: str, destination: str) -> None:
     """
     _ensure_init()
     SECURITY_ALERTS_TOTAL.labels(alert_type=alert_type, destination=destination).inc()
-
 
 def record_blocked_request(reason: str, source: str) -> None:
     """Record a blocked request.
@@ -617,11 +587,9 @@ def record_blocked_request(reason: str, source: str) -> None:
     _ensure_init()
     BLOCKED_REQUESTS_TOTAL.labels(reason=reason, source=source).inc()
 
-
 # =============================================================================
 # Migration Functions
 # =============================================================================
-
 
 def record_migration_record(store: str, success: bool) -> None:
     """Record a record migrated during encryption migration.
@@ -634,7 +602,6 @@ def record_migration_record(store: str, success: bool) -> None:
     status = "success" if success else "error"
     MIGRATION_RECORDS_TOTAL.labels(store=store, status=status).inc()
 
-
 def record_migration_error(store: str, error_type: str) -> None:
     """Record an error during encryption migration.
 
@@ -645,7 +612,6 @@ def record_migration_error(store: str, error_type: str) -> None:
     _ensure_init()
     MIGRATION_ERRORS_TOTAL.labels(store=store, error_type=error_type).inc()
 
-
 def record_migration_duration(store: str, duration_seconds: float) -> None:
     """Record the duration of a migration operation.
 
@@ -655,7 +621,6 @@ def record_migration_duration(store: str, duration_seconds: float) -> None:
     """
     _ensure_init()
     MIGRATION_DURATION.labels(store=store).observe(duration_seconds)
-
 
 @contextmanager
 def track_migration(store: str) -> Generator[None, None, None]:

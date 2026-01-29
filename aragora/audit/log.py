@@ -46,7 +46,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 from aragora.storage.production_guards import require_distributed_store, StorageMode
@@ -61,7 +61,6 @@ try:
 except ImportError:
     POSTGRESQL_AVAILABLE = False
 
-
 class AuditCategory(Enum):
     """Categories of audit events."""
 
@@ -75,7 +74,6 @@ class AuditCategory(Enum):
     SECURITY = "security"  # Security events
     SYSTEM = "system"  # System events
 
-
 class AuditOutcome(Enum):
     """Outcome of audited action."""
 
@@ -83,7 +81,6 @@ class AuditOutcome(Enum):
     FAILURE = "failure"
     DENIED = "denied"
     ERROR = "error"
-
 
 AUDIT_COLUMNS = [
     "id",
@@ -180,7 +177,6 @@ POSTGRES_SCHEMA_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_audit_outcome ON audit_events(outcome)",
 ]
 
-
 @dataclass
 class AuditEvent:
     """An audit log event."""
@@ -274,25 +270,23 @@ class AuditEvent:
             event_hash=data.get("event_hash", ""),
         )
 
-
 @dataclass
 class AuditQuery:
     """Query parameters for audit log search."""
 
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    category: Optional[AuditCategory] = None
-    action: Optional[str] = None
-    actor_id: Optional[str] = None
-    resource_type: Optional[str] = None
-    resource_id: Optional[str] = None
-    outcome: Optional[AuditOutcome] = None
-    org_id: Optional[str] = None
-    ip_address: Optional[str] = None
-    search_text: Optional[str] = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    category: AuditCategory | None = None
+    action: str | None = None
+    actor_id: str | None = None
+    resource_type: str | None = None
+    resource_id: str | None = None
+    outcome: AuditOutcome | None = None
+    org_id: str | None = None
+    ip_address: str | None = None
+    search_text: str | None = None
     limit: int = 1000
     offset: int = 0
-
 
 class SQLiteBackend:
     """SQLite backend for audit log storage.
@@ -321,7 +315,7 @@ class SQLiteBackend:
         conn.execute(sql, params)
         conn.commit()
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[Any]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> Any | None:
         """Execute query and fetch single row."""
         conn = self._get_connection()
         cursor = conn.execute(sql, params)
@@ -340,13 +334,11 @@ class SQLiteBackend:
             conn.close()
             self._local.conn = None
 
-
 class PostgreSQLBackend:
     """PostgreSQL backend for audit log storage (enterprise deployments)."""
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-
 
 class AuditLog:
     """
@@ -362,7 +354,7 @@ class AuditLog:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
+        db_path: Path | None = None,
         retention_days: int = 365 * 7,  # 7 years default (SOX requirement)
     ):
         """
@@ -607,8 +599,8 @@ class AuditLog:
 
     def verify_integrity(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> tuple[bool, list[str]]:
         """
         Verify audit log integrity via hash chain.
@@ -667,7 +659,7 @@ class AuditLog:
         output_path: Path,
         start_date: datetime,
         end_date: datetime,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> int:
         """
         Export audit log to JSON.
@@ -708,7 +700,7 @@ class AuditLog:
         output_path: Path,
         start_date: datetime,
         end_date: datetime,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> int:
         """
         Export audit log to CSV.
@@ -759,7 +751,7 @@ class AuditLog:
         output_path: Path,
         start_date: datetime,
         end_date: datetime,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Export audit log in SOC 2 Type II format.
@@ -922,7 +914,6 @@ class AuditLog:
             "retention_days": self.retention_days,
         }
 
-
 # Convenience functions for common audit events
 def audit_auth_login(
     audit: AuditLog,
@@ -944,7 +935,6 @@ def audit_auth_login(
         )
     )
 
-
 def audit_data_access(
     audit: AuditLog,
     user_id: str,
@@ -965,14 +955,13 @@ def audit_data_access(
         )
     )
 
-
 def audit_admin_action(
     audit: AuditLog,
     admin_id: str,
     action: str,
     target_type: str,
     target_id: str,
-    details: Optional[dict] = None,
+    details: dict | None = None,
 ) -> str:
     """Log administrative action."""
     return audit.log(
@@ -986,13 +975,11 @@ def audit_admin_action(
         )
     )
 
-
 # Singleton management
-_audit_log_instance: Optional[AuditLog] = None
-
+_audit_log_instance: AuditLog | None = None
 
 def get_audit_log(
-    db_path: Optional[Path] = None,
+    db_path: Path | None = None,
     retention_days: int = 365 * 7,
 ) -> AuditLog:
     """
@@ -1030,12 +1017,10 @@ def get_audit_log(
     _audit_log_instance = AuditLog(db_path=db_path, retention_days=retention_days)
     return _audit_log_instance
 
-
 def reset_audit_log() -> None:
     """Reset the singleton audit log instance (for testing)."""
     global _audit_log_instance
     _audit_log_instance = None
-
 
 __all__ = [
     "AuditCategory",

@@ -25,18 +25,16 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Enums and Types
 # =============================================================================
-
 
 class NotificationChannel(Enum):
     """Supported notification channels."""
@@ -45,7 +43,6 @@ class NotificationChannel(Enum):
     TEAMS = "teams"
     EMAIL = "email"
     WEBHOOK = "webhook"
-
 
 class DeliveryStatus(Enum):
     """Status of notification delivery."""
@@ -58,7 +55,6 @@ class DeliveryStatus(Enum):
     REJECTED = "rejected"  # Rejected by provider
     RATE_LIMITED = "rate_limited"  # Hit rate limit
 
-
 class NotificationPriority(Enum):
     """Notification priority levels."""
 
@@ -67,7 +63,6 @@ class NotificationPriority(Enum):
     HIGH = "high"
     URGENT = "urgent"
     CRITICAL = "critical"
-
 
 class NotificationEventType(Enum):
     """Types of events that trigger notifications."""
@@ -92,11 +87,9 @@ class NotificationEventType(Enum):
     CONNECTOR_SYNC_COMPLETE = "connector_sync_complete"
     CONNECTOR_SYNC_FAILED = "connector_sync_failed"
 
-
 # =============================================================================
 # Data Classes
 # =============================================================================
-
 
 @dataclass
 class NotificationMessage:
@@ -106,16 +99,16 @@ class NotificationMessage:
     title: str
     body: str
     priority: NotificationPriority = NotificationPriority.NORMAL
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    workspace_id: Optional[str] = None
-    link_url: Optional[str] = None
-    link_text: Optional[str] = None
+    workspace_id: str | None = None
+    link_url: str | None = None
+    link_text: str | None = None
 
     # Correlation and tracking
-    correlation_id: Optional[str] = None  # For request tracing across services
-    parent_correlation_id: Optional[str] = None  # For hierarchical tracing
-    idempotency_key: Optional[str] = None  # Prevent duplicate deliveries
+    correlation_id: str | None = None  # For request tracing across services
+    parent_correlation_id: str | None = None  # For hierarchical tracing
+    idempotency_key: str | None = None  # Prevent duplicate deliveries
 
     def __post_init__(self) -> None:
         """Generate correlation_id if not provided."""
@@ -124,7 +117,7 @@ class NotificationMessage:
         if self.correlation_id is None:
             self.correlation_id = str(uuid.uuid4())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "event_type": self.event_type.value,
@@ -141,36 +134,35 @@ class NotificationMessage:
             "idempotency_key": self.idempotency_key,
         }
 
-
 @dataclass
 class ChannelConfig:
     """Configuration for a notification channel."""
 
     channel_type: NotificationChannel
     enabled: bool = True
-    workspace_id: Optional[str] = None
-    config_id: Optional[str] = None  # Unique identifier for persistence
+    workspace_id: str | None = None
+    config_id: str | None = None  # Unique identifier for persistence
 
     # Slack settings
-    slack_webhook_url: Optional[str] = None
-    slack_channel: Optional[str] = None
-    slack_bot_token: Optional[str] = None
+    slack_webhook_url: str | None = None
+    slack_channel: str | None = None
+    slack_bot_token: str | None = None
 
     # Teams settings
-    teams_webhook_url: Optional[str] = None
+    teams_webhook_url: str | None = None
 
     # Email settings
-    email_recipients: List[str] = field(default_factory=list)
-    email_from: Optional[str] = None
-    smtp_host: Optional[str] = None
+    email_recipients: list[str] = field(default_factory=list)
+    email_from: str | None = None
+    smtp_host: str | None = None
     smtp_port: int = 587
 
     # Webhook settings
-    webhook_url: Optional[str] = None
-    webhook_headers: Dict[str, str] = field(default_factory=dict)
+    webhook_url: str | None = None
+    webhook_headers: dict[str, str] = field(default_factory=dict)
 
     # Filtering
-    event_types: Optional[List[NotificationEventType]] = None  # None = all events
+    event_types: Optional[list[NotificationEventType]] = None  # None = all events
     min_priority: NotificationPriority = NotificationPriority.LOW
 
     def __post_init__(self) -> None:
@@ -180,7 +172,7 @@ class ChannelConfig:
         if self.config_id is None:
             self.config_id = str(uuid.uuid4())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary for persistence."""
         return {
             "config_id": self.config_id,
@@ -202,7 +194,7 @@ class ChannelConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChannelConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "ChannelConfig":
         """Deserialize from dictionary."""
         event_types = None
         if data.get("event_types"):
@@ -227,26 +219,25 @@ class ChannelConfig:
             min_priority=NotificationPriority(data.get("min_priority", "low")),
         )
 
-
 @dataclass
 class NotificationResult:
     """Result of sending a notification."""
 
     success: bool
     channel: NotificationChannel
-    message_id: Optional[str] = None
-    error: Optional[str] = None
+    message_id: str | None = None
+    error: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Delivery confirmation fields
-    correlation_id: Optional[str] = None  # Correlation ID from request
+    correlation_id: str | None = None  # Correlation ID from request
     delivery_status: DeliveryStatus = DeliveryStatus.PENDING
-    delivered_at: Optional[datetime] = None
-    provider_response: Optional[Dict[str, Any]] = None  # Raw provider response
+    delivered_at: datetime | None = None
+    provider_response: Optional[dict[str, Any]] = None  # Raw provider response
     retry_count: int = 0
-    next_retry_at: Optional[datetime] = None
+    next_retry_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "success": self.success,
@@ -262,11 +253,9 @@ class NotificationResult:
             "next_retry_at": self.next_retry_at.isoformat() if self.next_retry_at else None,
         }
 
-
 # =============================================================================
 # Channel Providers
 # =============================================================================
-
 
 class ChannelProvider(ABC):
     """Abstract base class for notification channel providers."""
@@ -280,7 +269,6 @@ class ChannelProvider(ABC):
     def format_message(self, message: NotificationMessage) -> Any:
         """Format message for this channel."""
         pass
-
 
 class SlackProvider(ChannelProvider):
     """Slack notification provider using webhooks or Bot API."""
@@ -340,7 +328,7 @@ class SlackProvider(ChannelProvider):
                 error=str(e),
             )
 
-    def format_message(self, message: NotificationMessage) -> Dict[str, Any]:
+    def format_message(self, message: NotificationMessage) -> dict[str, Any]:
         """Format message as Slack Block Kit."""
         # Priority emoji
         priority_emoji = {
@@ -401,7 +389,6 @@ class SlackProvider(ChannelProvider):
 
         return {"blocks": blocks}
 
-
 class TeamsProvider(ChannelProvider):
     """Microsoft Teams notification provider using webhooks."""
 
@@ -451,7 +438,7 @@ class TeamsProvider(ChannelProvider):
                 error=str(e),
             )
 
-    def format_message(self, message: NotificationMessage) -> Dict[str, Any]:
+    def format_message(self, message: NotificationMessage) -> dict[str, Any]:
         """Format message as Teams Adaptive Card."""
         # Priority color
         priority_color = {
@@ -497,8 +484,8 @@ class TeamsProvider(ChannelProvider):
 
         # Add action button if link provided
         if message.link_url:
-            attachments: List[Dict[str, Any]] = card["attachments"]  # type: ignore[assignment]
-            content: Dict[str, Any] = attachments[0]["content"]
+            attachments: list[dict[str, Any]] = card["attachments"]  # type: ignore[assignment]
+            content: dict[str, Any] = attachments[0]["content"]
             content["actions"] = [
                 {
                     "type": "Action.OpenUrl",
@@ -508,7 +495,6 @@ class TeamsProvider(ChannelProvider):
             ]
 
         return card
-
 
 class WebhookProvider(ChannelProvider):
     """Generic webhook notification provider."""
@@ -556,15 +542,13 @@ class WebhookProvider(ChannelProvider):
                 error=str(e),
             )
 
-    def format_message(self, message: NotificationMessage) -> Dict[str, Any]:
+    def format_message(self, message: NotificationMessage) -> dict[str, Any]:
         """Format message as generic JSON payload."""
         return message.to_dict()
-
 
 # =============================================================================
 # Notification Manager
 # =============================================================================
-
 
 class NotificationManager:
     """
@@ -594,7 +578,7 @@ class NotificationManager:
 
     REDIS_CHANNEL_KEY = "aragora:notification_channels"
 
-    def __init__(self, redis_client: Optional[Any] = None) -> None:
+    def __init__(self, redis_client: Any | None = None) -> None:
         """
         Initialize the notification manager.
 
@@ -602,14 +586,14 @@ class NotificationManager:
             redis_client: Optional Redis client for channel config persistence.
                          If provided, channel configs will be persisted to Redis.
         """
-        self._channels: List[ChannelConfig] = []
-        self._providers: Dict[NotificationChannel, ChannelProvider] = {
+        self._channels: list[ChannelConfig] = []
+        self._providers: dict[NotificationChannel, ChannelProvider] = {
             NotificationChannel.SLACK: SlackProvider(),
             NotificationChannel.TEAMS: TeamsProvider(),
             NotificationChannel.WEBHOOK: WebhookProvider(),
         }
-        self._event_handlers: Dict[NotificationEventType, List[Callable[..., None]]] = {}
-        self._notification_history: List[NotificationResult] = []
+        self._event_handlers: dict[NotificationEventType, list[Callable[..., None]]] = {}
+        self._notification_history: list[NotificationResult] = []
         self._max_history = 1000
         self._redis = redis_client
 
@@ -699,7 +683,7 @@ class NotificationManager:
         return True
 
     def remove_channel(
-        self, channel_type: NotificationChannel, workspace_id: Optional[str] = None
+        self, channel_type: NotificationChannel, workspace_id: str | None = None
     ) -> bool:
         """Remove a notification channel."""
         removed_configs = [
@@ -723,7 +707,7 @@ class NotificationManager:
         return len(self._channels) < initial_count
 
     async def remove_channel_async(
-        self, channel_type: NotificationChannel, workspace_id: Optional[str] = None
+        self, channel_type: NotificationChannel, workspace_id: str | None = None
     ) -> bool:
         """Remove a notification channel (async with persistence)."""
         removed_configs = [
@@ -746,7 +730,7 @@ class NotificationManager:
 
         return len(self._channels) < initial_count
 
-    def get_channels(self, workspace_id: Optional[str] = None) -> List[ChannelConfig]:
+    def get_channels(self, workspace_id: str | None = None) -> list[ChannelConfig]:
         """Get configured channels, optionally filtered by workspace."""
         if workspace_id:
             return [
@@ -762,11 +746,11 @@ class NotificationManager:
         title: str,
         body: str,
         priority: NotificationPriority = NotificationPriority.NORMAL,
-        metadata: Optional[Dict[str, Any]] = None,
-        workspace_id: Optional[str] = None,
-        link_url: Optional[str] = None,
-        link_text: Optional[str] = None,
-    ) -> List[NotificationResult]:
+        metadata: Optional[dict[str, Any]] = None,
+        workspace_id: str | None = None,
+        link_url: str | None = None,
+        link_text: str | None = None,
+    ) -> list[NotificationResult]:
         """
         Send a notification to all applicable channels.
 
@@ -806,7 +790,7 @@ class NotificationManager:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Process results
-        notification_results: List[NotificationResult] = []
+        notification_results: list[NotificationResult] = []
         for result in results:
             if isinstance(result, NotificationResult):
                 notification_results.append(result)
@@ -822,7 +806,7 @@ class NotificationManager:
 
         return notification_results
 
-    def _filter_channels(self, message: NotificationMessage) -> List[ChannelConfig]:
+    def _filter_channels(self, message: NotificationMessage) -> list[ChannelConfig]:
         """Filter channels based on message properties."""
         applicable = []
 
@@ -887,11 +871,11 @@ class NotificationManager:
         if len(self._notification_history) > self._max_history:
             self._notification_history = self._notification_history[-self._max_history :]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get notification statistics."""
         total = len(self._notification_history)
         successful = sum(1 for r in self._notification_history if r.success)
-        by_channel: Dict[str, int] = {}
+        by_channel: dict[str, int] = {}
 
         for result in self._notification_history:
             channel = result.channel.value
@@ -906,11 +890,9 @@ class NotificationManager:
             "channels_configured": len(self._channels),
         }
 
-
 # =============================================================================
 # Helper Functions
 # =============================================================================
-
 
 def create_task_completed_notification(
     task_id: str,
@@ -930,7 +912,6 @@ def create_task_completed_notification(
         link_text="View Task",
     )
 
-
 def create_deliberation_consensus_notification(
     task_id: str,
     question: str,
@@ -949,7 +930,6 @@ def create_deliberation_consensus_notification(
         link_text="View Vetted Decisionmaking",
     )
 
-
 def create_sla_violation_notification(
     task_id: str,
     task_type: str,
@@ -964,7 +944,6 @@ def create_sla_violation_notification(
         priority=NotificationPriority.HIGH,
         metadata={"task_id": task_id, "elapsed_seconds": elapsed_seconds},
     )
-
 
 # =============================================================================
 # Exports

@@ -9,6 +9,7 @@ Controls observation levels for agent thought streaming:
 
 Now integrated with ServiceRegistry for centralized dependency management.
 """
+from __future__ import annotations
 
 __all__ = [
     "TelemetryLevel",
@@ -22,7 +23,6 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-
 class TelemetryLevel(Enum):
     """Observation levels for agent telemetry."""
 
@@ -30,7 +30,6 @@ class TelemetryLevel(Enum):
     DIAGNOSTIC = auto()  # Internal debugging only (logs, no broadcast)
     CONTROLLED = auto()  # Filtered telemetry with security redaction
     SPECTACLE = auto()  # Full transparency for demos/debugging
-
 
 # Level name mappings for environment variable parsing
 _LEVEL_NAMES = {
@@ -45,7 +44,6 @@ _LEVEL_NAMES = {
     "3": TelemetryLevel.SPECTACLE,
 }
 
-
 class TelemetryConfig:
     """
     Configuration manager for telemetry observation levels.
@@ -56,7 +54,7 @@ class TelemetryConfig:
 
     _instance: Optional["TelemetryConfig"] = None
 
-    def __init__(self, level: Optional[TelemetryLevel] = None):
+    def __init__(self, level: TelemetryLevel | None = None):
         """
         Initialize telemetry configuration.
 

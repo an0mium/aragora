@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.checkpoint import KMCheckpointMetadata, KMCheckpointStore
@@ -37,7 +37,6 @@ from aragora.observability.metrics import (
 )
 from aragora.observability.metrics.slo import check_and_record_slo
 
-
 # Protocol for the checkpoint store's extended interface
 # This documents the methods used by the handler, even if the underlying
 # implementation may have different signatures
@@ -49,22 +48,21 @@ class CheckpointStoreProtocol(Protocol):
         self,
         name: str,
         description: str = "",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         return_metadata: bool = False,
-    ) -> Union[str, Any]: ...
-    def get_checkpoint(self, name: str) -> Optional[Any]: ...
+    ) -> str | Any: ...
+    def get_checkpoint(self, name: str) -> Any | None: ...
     def delete_checkpoint(self, name: str) -> bool: ...
     def restore_checkpoint(
         self,
         name: str,
         strategy: str = "merge",
         skip_duplicates: bool = True,
-    ) -> Optional[Any]: ...
-    def compare_with_current(self, name: str) -> Optional[dict[str, Any]]: ...
+    ) -> Any | None: ...
+    def compare_with_current(self, name: str) -> dict[str, Any] | None: ...
     def compare_checkpoints(
         self, checkpoint_a: str, checkpoint_b: str
-    ) -> Optional[dict[str, Any]]: ...
-
+    ) -> dict[str, Any] | None: ...
 
 # Protocol for restore result objects
 class RestoreResultProtocol(Protocol):
@@ -74,7 +72,6 @@ class RestoreResultProtocol(Protocol):
     nodes_restored: int
     nodes_skipped: int
     errors: list[str]
-
 
 # RBAC imports with fallback for backwards compatibility
 try:
@@ -93,7 +90,6 @@ _checkpoint_limiter = RateLimiter(requests_per_minute=20)
 # More restrictive rate limiter for write operations (5 per minute)
 _checkpoint_write_limiter = RateLimiter(requests_per_minute=5)
 
-
 class KMCheckpointHandler(BaseHandler):
     """Handler for Knowledge Mound checkpoint management endpoints."""
 
@@ -110,7 +106,7 @@ class KMCheckpointHandler(BaseHandler):
         "/api/v1/km/checkpoints/{name}/download",
     ]
 
-    def __init__(self, server_context: Optional[ServerContext] = None):
+    def __init__(self, server_context: ServerContext | None = None):
         # Default to empty dict if None, then cast for BaseHandler
         ctx = server_context if server_context is not None else cast(ServerContext, {})
         super().__init__(ctx)
@@ -130,7 +126,7 @@ class KMCheckpointHandler(BaseHandler):
                 raise RuntimeError("KM checkpoint module not available")
         return self._checkpoint_store
 
-    def _check_auth(self, handler: Any) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
+    def _check_auth(self, handler: Any) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Check authentication for checkpoint operations.
 
         Returns:
@@ -151,8 +147,8 @@ class KMCheckpointHandler(BaseHandler):
         return None, None
 
     def _check_rbac_permission(
-        self, auth_ctx: Any, permission_key: str, resource_id: Optional[str] = None
-    ) -> Optional[HandlerResult]:
+        self, auth_ctx: Any, permission_key: str, resource_id: str | None = None
+    ) -> HandlerResult | None:
         """Check granular RBAC permission for KM checkpoint operations.
 
         Args:
@@ -308,9 +304,6 @@ class KMCheckpointHandler(BaseHandler):
                     )
                 # At this point, result is KMCheckpointMetadata (not a string)
                 # Import the type for runtime and cast
-                from aragora.knowledge.mound.checkpoint import (
-                    KMCheckpointMetadata as CheckpointMeta,
-                )
 
                 metadata = result  # Already CheckpointMeta type
                 ctx["size_bytes"] = metadata.size_bytes
@@ -608,7 +601,7 @@ class KMCheckpointHandler(BaseHandler):
     async def handle_get(
         self,
         path: str = "",
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any] | None = None,
         handler: Any = None,
     ) -> HandlerResult:
         """Handle GET requests.
@@ -639,7 +632,7 @@ class KMCheckpointHandler(BaseHandler):
     async def handle_post(
         self,
         path: str = "",
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any] | None = None,
         handler: Any = None,
     ) -> HandlerResult:
         """Handle POST requests.
@@ -668,7 +661,7 @@ class KMCheckpointHandler(BaseHandler):
     async def handle_delete(
         self,
         path: str = "",
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any] | None = None,
         handler: Any = None,
     ) -> HandlerResult:
         """Handle DELETE requests.

@@ -10,8 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class PatternType(str, Enum):
     """Types of accumulated patterns."""
@@ -24,7 +23,6 @@ class PatternType(str, Enum):
     DOMAIN_NORM = "domain_norm"  # Vertical-specific norms
     CONSENSUS_PATTERN = "consensus"  # How consensus was reached
     DISSENT_PATTERN = "dissent"  # Valuable minority opinions
-
 
 @dataclass
 class ReasoningPattern:
@@ -50,7 +48,7 @@ class ReasoningPattern:
     confidence: float = 0.5
     success_count: int = 0
     failure_count: int = 0
-    last_applied: Optional[datetime] = None
+    last_applied: datetime | None = None
 
     # Provenance
     derived_from_debates: list[str] = field(default_factory=list)
@@ -58,7 +56,7 @@ class ReasoningPattern:
 
     # Scope
     verticals: list[str] = field(default_factory=list)  # Empty = all
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
     topics: list[str] = field(default_factory=list)
 
     # Timestamps
@@ -164,7 +162,6 @@ class ReasoningPattern:
             ),
         )
 
-
 @dataclass
 class DecisionHeuristic:
     """
@@ -181,7 +178,7 @@ class DecisionHeuristic:
     supporting_evidence: list[str]
     exceptions: list[str] = field(default_factory=list)
     verticals: list[str] = field(default_factory=list)
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
     usage_count: int = 0
     created_at: datetime = field(default_factory=datetime.now)
 

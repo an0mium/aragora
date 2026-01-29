@@ -41,15 +41,13 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Anomaly Types and Severity
 # =============================================================================
-
 
 class AnomalyType(Enum):
     """Types of security anomalies."""
@@ -77,7 +75,6 @@ class AnomalyType(Enum):
     NETWORK_KNOWN_BAD_IP = "network.known_bad_ip"
     NETWORK_UNUSUAL_COUNTRY = "network.unusual_country"
 
-
 class AnomalySeverity(Enum):
     """Severity levels for anomalies."""
 
@@ -86,21 +83,20 @@ class AnomalySeverity(Enum):
     HIGH = "high"
     CRITICAL = "critical"
 
-
 @dataclass
 class AnomalyResult:
     """Result of an anomaly check."""
 
     is_anomalous: bool
-    anomaly_type: Optional[AnomalyType] = None
+    anomaly_type: AnomalyType | None = None
     severity: AnomalySeverity = AnomalySeverity.LOW
     confidence: float = 0.0
     description: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
-    recommendations: List[str] = field(default_factory=list)
+    details: dict[str, Any] = field(default_factory=dict)
+    recommendations: list[str] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "is_anomalous": self.is_anomalous,
@@ -113,11 +109,9 @@ class AnomalyResult:
             "timestamp": self.timestamp,
         }
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
-
 
 @dataclass
 class AnomalyDetectorConfig:
@@ -142,44 +136,40 @@ class AnomalyDetectorConfig:
     impossible_travel_speed_kmh: float = 1000.0  # Speed suggesting VPN/proxy
 
     # Storage
-    storage_path: Optional[str] = None
+    storage_path: str | None = None
     retention_days: int = 90
-
 
 # =============================================================================
 # Baseline Learning
 # =============================================================================
-
 
 @dataclass
 class UserBaseline:
     """Learned baseline for a user's behavior."""
 
     user_id: str
-    typical_login_hours: List[int] = field(default_factory=list)
-    typical_ips: Set[str] = field(default_factory=set)
-    typical_user_agents: Set[str] = field(default_factory=set)
-    typical_resources: Set[str] = field(default_factory=set)
+    typical_login_hours: list[int] = field(default_factory=list)
+    typical_ips: set[str] = field(default_factory=set)
+    typical_user_agents: set[str] = field(default_factory=set)
+    typical_resources: set[str] = field(default_factory=set)
     avg_requests_per_hour: float = 0.0
     std_requests_per_hour: float = 0.0
-    last_known_locations: List[Tuple[str, str, datetime]] = field(default_factory=list)
+    last_known_locations: list[tuple[str, str, datetime]] = field(default_factory=list)
     learning_samples: int = 0
-    last_updated: Optional[datetime] = None
+    last_updated: datetime | None = None
 
     def is_mature(self, min_samples: int = 50) -> bool:
         """Check if baseline has enough samples for reliable detection."""
         return self.learning_samples >= min_samples
 
-
 # =============================================================================
 # Storage Layer
 # =============================================================================
 
-
 class AnomalyStorage:
     """SQLite-backed storage for anomaly detection data."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize storage.
 
         Args:
@@ -260,10 +250,10 @@ class AnomalyStorage:
         self,
         user_id: str,
         success: bool,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        country: Optional[str] = None,
-        city: Optional[str] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        country: str | None = None,
+        city: str | None = None,
     ) -> None:
         """Record an authentication event."""
         conn = self._get_conn()
@@ -288,8 +278,8 @@ class AnomalyStorage:
         self,
         endpoint: str,
         method: str,
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
+        user_id: str | None = None,
+        ip_address: str | None = None,
         response_size_bytes: int = 0,
     ) -> None:
         """Record an API request."""
@@ -312,8 +302,8 @@ class AnomalyStorage:
 
     def get_failed_logins_in_window(
         self,
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
+        user_id: str | None = None,
+        ip_address: str | None = None,
         window_minutes: int = 15,
     ) -> int:
         """Get count of failed logins in time window."""
@@ -353,8 +343,8 @@ class AnomalyStorage:
 
     def get_requests_in_window(
         self,
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
+        user_id: str | None = None,
+        ip_address: str | None = None,
         window_minutes: int = 60,
     ) -> int:
         """Get request count in time window."""
@@ -396,7 +386,7 @@ class AnomalyStorage:
 
         return result[0] if result else 0
 
-    def get_user_login_hours(self, user_id: str, days: int = 30) -> List[int]:
+    def get_user_login_hours(self, user_id: str, days: int = 30) -> list[int]:
         """Get login hours for a user over the past N days."""
         conn = self._get_conn()
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
@@ -447,7 +437,7 @@ class AnomalyStorage:
         )
         conn.commit()
 
-    def get_baseline(self, user_id: str) -> Optional[UserBaseline]:
+    def get_baseline(self, user_id: str) -> UserBaseline | None:
         """Get a user's baseline."""
         import json
 
@@ -475,7 +465,7 @@ class AnomalyStorage:
         )
 
     def record_anomaly(
-        self, result: AnomalyResult, user_id: Optional[str] = None, ip_address: Optional[str] = None
+        self, result: AnomalyResult, user_id: str | None = None, ip_address: str | None = None
     ) -> int:
         """Record a detected anomaly."""
         import json
@@ -505,9 +495,9 @@ class AnomalyStorage:
     def get_recent_anomalies(
         self,
         hours: int = 24,
-        severity: Optional[AnomalySeverity] = None,
+        severity: AnomalySeverity | None = None,
         unresolved_only: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get recent anomalies."""
         import json
 
@@ -515,7 +505,7 @@ class AnomalyStorage:
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
         query = "SELECT * FROM detected_anomalies WHERE timestamp > ?"
-        params: List[Any] = [cutoff]
+        params: list[Any] = [cutoff]
 
         if severity:
             query += " AND severity = ?"
@@ -556,16 +546,14 @@ class AnomalyStorage:
         conn.commit()
         return deleted
 
-
 # =============================================================================
 # Anomaly Detector
 # =============================================================================
 
-
 class AnomalyDetector:
     """Main anomaly detection engine."""
 
-    def __init__(self, config: Optional[AnomalyDetectorConfig] = None):
+    def __init__(self, config: AnomalyDetectorConfig | None = None):
         """Initialize detector.
 
         Args:
@@ -573,11 +561,11 @@ class AnomalyDetector:
         """
         self.config = config or AnomalyDetectorConfig()
         self._storage = AnomalyStorage(self.config.storage_path)
-        self._baselines: Dict[str, UserBaseline] = {}
+        self._baselines: dict[str, UserBaseline] = {}
         self._lock = threading.Lock()
 
         # In-memory rate tracking (for high-frequency checks)
-        self._request_counts: Dict[str, List[datetime]] = defaultdict(list)
+        self._request_counts: dict[str, list[datetime]] = defaultdict(list)
         self._last_cleanup = datetime.now(timezone.utc)
 
     # =========================================================================
@@ -588,10 +576,10 @@ class AnomalyDetector:
         self,
         user_id: str,
         success: bool,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        country: Optional[str] = None,
-        city: Optional[str] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        country: str | None = None,
+        city: str | None = None,
     ) -> AnomalyResult:
         """Check an authentication event for anomalies.
 
@@ -765,9 +753,9 @@ class AnomalyDetector:
 
     async def check_rate_anomaly(
         self,
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        endpoint: Optional[str] = None,
+        user_id: str | None = None,
+        ip_address: str | None = None,
+        endpoint: str | None = None,
         method: str = "GET",
         response_size_bytes: int = 0,
     ) -> AnomalyResult:
@@ -953,10 +941,10 @@ class AnomalyDetector:
     async def check_network_anomaly(
         self,
         ip_address: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         is_tor_exit: bool = False,
         is_known_bad_ip: bool = False,
-        country: Optional[str] = None,
+        country: str | None = None,
     ) -> AnomalyResult:
         """Check for network-based anomalies.
 
@@ -1055,8 +1043,8 @@ class AnomalyDetector:
     def _update_baseline(
         self,
         user_id: str,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> None:
         """Update a user's baseline with new data."""
         baseline = self._get_or_create_baseline(user_id)
@@ -1112,9 +1100,9 @@ class AnomalyDetector:
     def get_recent_anomalies(
         self,
         hours: int = 24,
-        severity: Optional[AnomalySeverity] = None,
+        severity: AnomalySeverity | None = None,
         unresolved_only: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get recent detected anomalies."""
         return self._storage.get_recent_anomalies(
             hours=hours,
@@ -1122,11 +1110,11 @@ class AnomalyDetector:
             unresolved_only=unresolved_only,
         )
 
-    def get_anomaly_stats(self) -> Dict[str, Any]:
+    def get_anomaly_stats(self) -> dict[str, Any]:
         """Get anomaly detection statistics."""
         recent = self._storage.get_recent_anomalies(hours=24)
-        by_type: Dict[str, int] = defaultdict(int)
-        by_severity: Dict[str, int] = defaultdict(int)
+        by_type: dict[str, int] = defaultdict(int)
+        by_severity: dict[str, int] = defaultdict(int)
 
         for anomaly in recent:
             by_type[anomaly["anomaly_type"]] += 1
@@ -1143,16 +1131,14 @@ class AnomalyDetector:
         """Clean up old data according to retention policy."""
         return self._storage.cleanup_old_data(self.config.retention_days)
 
-
 # =============================================================================
 # Global Instance & Convenience Functions
 # =============================================================================
 
-_detector: Optional[AnomalyDetector] = None
+_detector: AnomalyDetector | None = None
 _detector_lock = threading.Lock()
 
-
-def get_anomaly_detector(config: Optional[AnomalyDetectorConfig] = None) -> AnomalyDetector:
+def get_anomaly_detector(config: AnomalyDetectorConfig | None = None) -> AnomalyDetector:
     """Get or create the global anomaly detector."""
     global _detector
     with _detector_lock:
@@ -1160,13 +1146,12 @@ def get_anomaly_detector(config: Optional[AnomalyDetectorConfig] = None) -> Anom
             _detector = AnomalyDetector(config)
         return _detector
 
-
 async def check_auth_anomaly(
     user_id: str,
     success: bool,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
-    country: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    country: str | None = None,
 ) -> AnomalyResult:
     """Convenience function to check for auth anomalies."""
     return await get_anomaly_detector().check_auth_event(
@@ -1177,11 +1162,10 @@ async def check_auth_anomaly(
         country=country,
     )
 
-
 async def check_rate_anomaly(
-    user_id: Optional[str] = None,
-    ip_address: Optional[str] = None,
-    endpoint: Optional[str] = None,
+    user_id: str | None = None,
+    ip_address: str | None = None,
+    endpoint: str | None = None,
     response_size_bytes: int = 0,
 ) -> AnomalyResult:
     """Convenience function to check for rate anomalies."""
@@ -1191,7 +1175,6 @@ async def check_rate_anomaly(
         endpoint=endpoint,
         response_size_bytes=response_size_bytes,
     )
-
 
 __all__ = [
     # Types

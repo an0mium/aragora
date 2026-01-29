@@ -30,13 +30,12 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 # Context variables for automatic field injection
-_log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
+_log_context: ContextVar[dict[str, Any]] = ContextVar("log_context", default={})
 
-
-def _get_trace_context() -> Dict[str, Optional[str]]:
+def _get_trace_context() -> dict[str, str | None]:
     """Get trace context from tracing middleware if available.
 
     This integrates the logging system with the distributed tracing middleware,
@@ -56,7 +55,6 @@ def _get_trace_context() -> Dict[str, Optional[str]]:
         # Tracing middleware not available (e.g., in standalone scripts)
         return {"trace_id": None, "span_id": None}
 
-
 # Environment configuration
 LOG_LEVEL = os.environ.get("ARAGORA_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = os.environ.get("ARAGORA_LOG_FORMAT", "json")  # "json" or "text"
@@ -66,7 +64,6 @@ LOG_FILE = os.environ.get("ARAGORA_LOG_FILE", "")
 LOG_MAX_BYTES = int(os.environ.get("ARAGORA_LOG_MAX_BYTES", 10 * 1024 * 1024))  # 10MB default
 LOG_BACKUP_COUNT = int(os.environ.get("ARAGORA_LOG_BACKUP_COUNT", 5))  # Keep 5 backups
 
-
 @dataclass
 class LogRecord:
     """Structured log record with all context fields."""
@@ -75,15 +72,15 @@ class LogRecord:
     level: str
     logger: str
     message: str
-    fields: Dict[str, Any] = field(default_factory=dict)
-    trace_id: Optional[str] = None
-    span_id: Optional[str] = None
-    debate_id: Optional[str] = None
-    exception: Optional[Dict[str, Any]] = None
+    fields: dict[str, Any] = field(default_factory=dict)
+    trace_id: str | None = None
+    span_id: str | None = None
+    debate_id: str | None = None
+    exception: Optional[dict[str, Any]] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "ts": self.timestamp,
             "level": self.level,
             "logger": self.logger,
@@ -127,7 +124,6 @@ class LogRecord:
             parts.append(f"\n{self.exception.get('traceback', '')}")
         return " ".join(parts)
 
-
 class JSONFormatter(logging.Formatter):
     """JSON log formatter with structured field support."""
 
@@ -165,7 +161,6 @@ class JSONFormatter(logging.Formatter):
 
         return log_record.to_json()
 
-
 class TextFormatter(logging.Formatter):
     """Human-readable text formatter with structured field support."""
 
@@ -197,7 +192,6 @@ class TextFormatter(logging.Formatter):
             }
 
         return log_record.to_text()
-
 
 class StructuredLogger:
     """
@@ -259,7 +253,6 @@ class StructuredLogger:
         """Check if logger is enabled for level."""
         return self._logger.isEnabledFor(level)
 
-
 class LogContext:
     """
     Context manager for setting log context fields.
@@ -269,7 +262,7 @@ class LogContext:
 
     def __init__(self, **fields: Any):
         self._fields = fields
-        self._token: Optional[Token[Dict[str, Any]]] = None
+        self._token: Optional[Token[dict[str, Any]]] = None
 
     def __enter__(self) -> "LogContext":
         # Merge with existing context
@@ -282,27 +275,22 @@ class LogContext:
         if self._token is not None:
             _log_context.reset(self._token)
 
-
 def set_context(**fields: Any) -> None:
     """Set log context fields for the current async context."""
     current = _log_context.get()
     _log_context.set({**current, **fields})
 
-
-def get_context() -> Dict[str, Any]:
+def get_context() -> dict[str, Any]:
     """Get current log context fields."""
     return _log_context.get()
-
 
 def clear_context() -> None:
     """Clear all log context fields."""
     _log_context.set({})
 
-
 # Logger cache (thread-safe)
-_loggers: Dict[str, StructuredLogger] = {}
+_loggers: dict[str, StructuredLogger] = {}
 _loggers_lock = threading.Lock()
-
 
 def get_logger(name: str) -> StructuredLogger:
     """
@@ -318,7 +306,6 @@ def get_logger(name: str) -> StructuredLogger:
         if name not in _loggers:
             _loggers[name] = StructuredLogger(name)
         return _loggers[name]
-
 
 def configure_logging(
     level: str | None = None,
@@ -375,7 +362,6 @@ def configure_logging(
     aragora_logger.setLevel(log_level)
     aragora_logger.propagate = propagate
 
-
 # Integration with tracing module
 def inject_trace_context() -> None:
     """
@@ -402,7 +388,6 @@ def inject_trace_context() -> None:
             _log_context.set({**current, **ctx})
     except ImportError:
         pass  # Tracing module not available
-
 
 # Decorators for automatic logging
 def log_function(
@@ -476,7 +461,6 @@ def log_function(
         return wrapper
 
     return decorator
-
 
 def log_request(logger: StructuredLogger = None):
     """

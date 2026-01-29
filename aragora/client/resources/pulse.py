@@ -7,11 +7,10 @@ Provides access to trending topics and debate suggestions.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
-
 
 @dataclass
 class TrendingTopic:
@@ -21,16 +20,16 @@ class TrendingTopic:
     source: str
     score: float
     category: str = "general"
-    url: Optional[str] = None
-    summary: Optional[str] = None
-    suggested_agents: List[str] = None
+    url: str | None = None
+    summary: str | None = None
+    suggested_agents: list[str] = None
 
     def __post_init__(self):
         if self.suggested_agents is None:
             self.suggested_agents = []
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TrendingTopic":
+    def from_dict(cls, data: dict[str, Any]) -> "TrendingTopic":
         return cls(
             title=data.get("title", ""),
             source=data.get("source", "unknown"),
@@ -41,7 +40,6 @@ class TrendingTopic:
             suggested_agents=data.get("suggested_agents", []),
         )
 
-
 @dataclass
 class DebateSuggestion:
     """A suggested debate topic."""
@@ -50,8 +48,8 @@ class DebateSuggestion:
     rationale: str
     difficulty: str = "medium"
     estimated_rounds: int = 3
-    suggested_agents: List[str] = None
-    related_topics: List[str] = None
+    suggested_agents: list[str] = None
+    related_topics: list[str] = None
 
     def __post_init__(self):
         if self.suggested_agents is None:
@@ -60,7 +58,7 @@ class DebateSuggestion:
             self.related_topics = []
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DebateSuggestion":
+    def from_dict(cls, data: dict[str, Any]) -> "DebateSuggestion":
         return cls(
             topic=data.get("topic", ""),
             rationale=data.get("rationale", ""),
@@ -70,19 +68,18 @@ class DebateSuggestion:
             related_topics=data.get("related_topics", []),
         )
 
-
 @dataclass
 class PulseAnalytics:
     """Analytics about trending topics."""
 
     total_topics: int
-    by_source: Dict[str, int]
-    by_category: Dict[str, int]
-    top_categories: List[str]
+    by_source: dict[str, int]
+    by_category: dict[str, int]
+    top_categories: list[str]
     freshness_hours: float = 24.0
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PulseAnalytics":
+    def from_dict(cls, data: dict[str, Any]) -> "PulseAnalytics":
         return cls(
             total_topics=data.get("total_topics", 0),
             by_source=data.get("by_source", {}),
@@ -90,7 +87,6 @@ class PulseAnalytics:
             top_categories=data.get("top_categories", []),
             freshness_hours=data.get("freshness_hours", 24.0),
         )
-
 
 class PulseAPI:
     """
@@ -121,10 +117,10 @@ class PulseAPI:
 
     def trending(
         self,
-        category: Optional[str] = None,
-        source: Optional[str] = None,
+        category: str | None = None,
+        source: str | None = None,
         limit: int = 20,
-    ) -> List[TrendingTopic]:
+    ) -> list[TrendingTopic]:
         """
         Get trending topics.
 
@@ -136,7 +132,7 @@ class PulseAPI:
         Returns:
             List of TrendingTopic objects sorted by score
         """
-        params: Dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if category:
             params["category"] = category
         if source:
@@ -148,12 +144,12 @@ class PulseAPI:
 
     async def trending_async(
         self,
-        category: Optional[str] = None,
-        source: Optional[str] = None,
+        category: str | None = None,
+        source: str | None = None,
         limit: int = 20,
-    ) -> List[TrendingTopic]:
+    ) -> list[TrendingTopic]:
         """Async version of trending."""
-        params: Dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if category:
             params["category"] = category
         if source:
@@ -165,10 +161,10 @@ class PulseAPI:
 
     def suggest(
         self,
-        domain: Optional[str] = None,
-        difficulty: Optional[str] = None,
+        domain: str | None = None,
+        difficulty: str | None = None,
         count: int = 5,
-    ) -> List[DebateSuggestion]:
+    ) -> list[DebateSuggestion]:
         """
         Get debate topic suggestions.
 
@@ -180,7 +176,7 @@ class PulseAPI:
         Returns:
             List of DebateSuggestion objects
         """
-        params: Dict[str, Any] = {"count": count}
+        params: dict[str, Any] = {"count": count}
         if domain:
             params["domain"] = domain
         if difficulty:
@@ -192,12 +188,12 @@ class PulseAPI:
 
     async def suggest_async(
         self,
-        domain: Optional[str] = None,
-        difficulty: Optional[str] = None,
+        domain: str | None = None,
+        difficulty: str | None = None,
         count: int = 5,
-    ) -> List[DebateSuggestion]:
+    ) -> list[DebateSuggestion]:
         """Async version of suggest."""
-        params: Dict[str, Any] = {"count": count}
+        params: dict[str, Any] = {"count": count}
         if domain:
             params["domain"] = domain
         if difficulty:
@@ -222,7 +218,7 @@ class PulseAPI:
         response = await self._client._get_async("/api/pulse/analytics")
         return PulseAnalytics.from_dict(response)
 
-    def refresh(self, sources: Optional[List[str]] = None) -> bool:
+    def refresh(self, sources: Optional[list[str]] = None) -> bool:
         """
         Refresh trending topics from sources.
 
@@ -239,7 +235,7 @@ class PulseAPI:
         response = self._client._post("/api/pulse/refresh", data)
         return response.get("refreshed", False)
 
-    async def refresh_async(self, sources: Optional[List[str]] = None) -> bool:
+    async def refresh_async(self, sources: Optional[list[str]] = None) -> bool:
         """Async version of refresh."""
         data = {}
         if sources:

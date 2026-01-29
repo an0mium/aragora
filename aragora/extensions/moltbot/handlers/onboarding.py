@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 # Global orchestrator instance
 _orchestrator: Optional["OnboardingOrchestrator"] = None
 
-
 def get_orchestrator() -> "OnboardingOrchestrator":
     """Get or create the onboarding orchestrator instance."""
     global _orchestrator
@@ -46,7 +45,6 @@ def get_orchestrator() -> "OnboardingOrchestrator":
 
         _orchestrator = OnboardingOrchestrator()
     return _orchestrator
-
 
 class MoltbotOnboardingHandler(BaseHandler):
     """HTTP handler for Moltbot onboarding flows."""
@@ -68,7 +66,7 @@ class MoltbotOnboardingHandler(BaseHandler):
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/moltbot/flows":
             return await self._handle_list_flows(query_params, handler)
@@ -93,7 +91,7 @@ class MoltbotOnboardingHandler(BaseHandler):
 
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/moltbot/flows":
             return await self._handle_create_flow(handler)
@@ -126,7 +124,7 @@ class MoltbotOnboardingHandler(BaseHandler):
 
     async def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle PUT requests."""
         if path.startswith("/api/v1/moltbot/flows/"):
             parts = path.split("/")
@@ -137,7 +135,7 @@ class MoltbotOnboardingHandler(BaseHandler):
 
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         if path.startswith("/api/v1/moltbot/flows/"):
             parts = path.split("/")

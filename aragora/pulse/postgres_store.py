@@ -14,12 +14,11 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from aragora.storage.postgres_store import PostgresStore
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ScheduledDebateRecord:
@@ -31,10 +30,10 @@ class ScheduledDebateRecord:
     platform: str
     category: str
     volume: int
-    debate_id: Optional[str]
+    debate_id: str | None
     created_at: float
-    consensus_reached: Optional[bool]
-    confidence: Optional[float]
+    consensus_reached: bool | None
+    confidence: float | None
     rounds_used: int
     scheduler_run_id: str
 
@@ -42,7 +41,6 @@ class ScheduledDebateRecord:
     def hours_ago(self) -> float:
         """Hours since this debate was created."""
         return (time.time() - self.created_at) / 3600
-
 
 class PostgresScheduledDebateStore(PostgresStore):
     """PostgreSQL persistence for scheduled debate outcomes.
@@ -120,8 +118,8 @@ class PostgresScheduledDebateStore(PostgresStore):
         self,
         limit: int = 50,
         offset: int = 0,
-        platform: Optional[str] = None,
-        category: Optional[str] = None,
+        platform: str | None = None,
+        category: str | None = None,
     ) -> list[ScheduledDebateRecord]:
         """Get historical scheduled debates (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -242,8 +240,8 @@ class PostgresScheduledDebateStore(PostgresStore):
         self,
         limit: int = 50,
         offset: int = 0,
-        platform: Optional[str] = None,
-        category: Optional[str] = None,
+        platform: str | None = None,
+        category: str | None = None,
     ) -> list[ScheduledDebateRecord]:
         """Get historical scheduled debates asynchronously."""
         sql = """
@@ -449,6 +447,5 @@ class PostgresScheduledDebateStore(PostgresStore):
     def close(self) -> None:
         """No-op for pool-based store (pool managed externally)."""
         pass
-
 
 __all__ = ["PostgresScheduledDebateStore", "ScheduledDebateRecord"]

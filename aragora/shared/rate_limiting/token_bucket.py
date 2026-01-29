@@ -21,10 +21,8 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TokenBucketStats:
@@ -53,7 +51,6 @@ class TokenBucketStats:
                 round(self.total_wait_ms / self.acquired, 2) if self.acquired > 0 else 0.0
             ),
         }
-
 
 class TokenBucket:
     """
@@ -110,12 +107,12 @@ class TokenBucket:
 
         # Thread safety
         self._sync_lock = threading.Lock()
-        self._async_lock: Optional[asyncio.Lock] = None
+        self._async_lock: asyncio.Lock | None = None
 
         # API-reported limits (optional, from response headers)
-        self._api_limit: Optional[int] = None
-        self._api_remaining: Optional[int] = None
-        self._api_reset: Optional[float] = None
+        self._api_limit: int | None = None
+        self._api_remaining: int | None = None
+        self._api_reset: float | None = None
 
         # Statistics
         self._stats = TokenBucketStats()
@@ -142,7 +139,7 @@ class TokenBucket:
             return True
         return False
 
-    def _check_api_limit(self) -> Optional[float]:
+    def _check_api_limit(self) -> float | None:
         """Check API-reported limits and return wait time if needed (must hold lock)."""
         if self._api_remaining is not None and self._api_remaining <= 0:
             if self._api_reset:
@@ -240,7 +237,7 @@ class TokenBucket:
 
         while True:
             # Check state inside lock, sleep outside
-            wait_time: Optional[float] = None
+            wait_time: float | None = None
 
             async with async_lock:
                 self._refill()
@@ -351,7 +348,6 @@ class TokenBucket:
         with self._sync_lock:
             self._stats = TokenBucketStats()
 
-
 class KeyedTokenBucket:
     """
     Multi-key token bucket for per-key rate limiting.
@@ -455,7 +451,7 @@ class KeyedTokenBucket:
                 **self._stats.to_dict(),
             }
 
-    def get_key_stats(self, key: str) -> Optional[dict]:
+    def get_key_stats(self, key: str) -> dict | None:
         """Get statistics for a specific key."""
         if key in self._buckets:
             return self._buckets[key].stats
@@ -481,6 +477,5 @@ class KeyedTokenBucket:
         # Note: TokenBucket doesn't track last access time yet
         # This is a placeholder for future implementation
         return 0
-
 
 __all__ = ["TokenBucket", "KeyedTokenBucket", "TokenBucketStats"]

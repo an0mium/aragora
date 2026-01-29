@@ -4,12 +4,13 @@ Document Connector.
 Integrates DocumentParser with the EvidenceCollector to enable
 omnivorous document ingestion for debate evidence.
 """
+from __future__ import annotations
 
 import hashlib
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 from aragora.connectors.base import Connector, Evidence
 from aragora.connectors.documents.parser import (
@@ -21,7 +22,6 @@ from aragora.connectors.documents.parser import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 class DocumentConnector(Connector):
     """Connector for parsing documents as evidence sources.
@@ -63,8 +63,8 @@ class DocumentConnector(Connector):
             extract_metadata=extract_metadata,
             max_content_size=max_content_size,
         )
-        self._parsed_docs: Dict[str, ParsedDocument] = {}
-        self._reliability_scores: Dict[str, float] = {
+        self._parsed_docs: dict[str, ParsedDocument] = {}
+        self._reliability_scores: dict[str, float] = {
             "pdf": 0.85,  # Academic/official documents
             "docx": 0.80,  # Word documents
             "xlsx": 0.85,  # Spreadsheets (data)
@@ -88,7 +88,7 @@ class DocumentConnector(Connector):
         """The source type for this connector."""
         return SourceType.DOCUMENT
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """Fetch a specific piece of evidence by ID.
 
         Args:
@@ -167,7 +167,7 @@ class DocumentConnector(Connector):
         self,
         query: str,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search across all parsed documents.
 
         Args:
@@ -222,7 +222,7 @@ class DocumentConnector(Connector):
                     table_page = table.page
                     table_caption = table.caption
                 else:
-                    table_data = table  # raw List[List[str]]
+                    table_data = table  # raw list[list[str]]
                     table_headers = None
                     table_page = None
                     table_caption = None
@@ -264,8 +264,8 @@ class DocumentConnector(Connector):
 
     async def parse_file(
         self,
-        file_path: Union[str, Path],
-    ) -> Optional[ParsedDocument]:
+        file_path: str | Path,
+    ) -> ParsedDocument | None:
         """Parse a document file and add to search index.
 
         Args:
@@ -303,8 +303,8 @@ class DocumentConnector(Connector):
         self,
         content: bytes,
         filename: str,
-        format: Optional[DocumentFormat] = None,
-    ) -> Optional[ParsedDocument]:
+        format: DocumentFormat | None = None,
+    ) -> ParsedDocument | None:
         """Parse document bytes and add to search index.
 
         Args:
@@ -334,8 +334,8 @@ class DocumentConnector(Connector):
         self,
         url: str,
         content: bytes,
-        filename: Optional[str] = None,
-    ) -> Optional[ParsedDocument]:
+        filename: str | None = None,
+    ) -> ParsedDocument | None:
         """Parse document fetched from URL.
 
         Args:
@@ -359,7 +359,7 @@ class DocumentConnector(Connector):
 
         return doc
 
-    def get_parsed_documents(self) -> Dict[str, ParsedDocument]:
+    def get_parsed_documents(self) -> dict[str, ParsedDocument]:
         """Get all parsed documents."""
         return self._parsed_docs.copy()
 
@@ -393,7 +393,7 @@ class DocumentConnector(Connector):
         hasher.update(filename.encode())
         return hasher.hexdigest()[:16]
 
-    def _get_reliability(self, format: Optional[DocumentFormat]) -> float:  # type: ignore[no-redef]
+    def _get_reliability(self, format: DocumentFormat | None) -> float:  # type: ignore[no-redef]
         """Get reliability score for document format."""
         if format is None:
             return 0.60
@@ -401,8 +401,8 @@ class DocumentConnector(Connector):
 
     def _format_table(
         self,
-        data: List[List[Any]],
-        headers: Optional[List[str]] = None,
+        data: list[list[Any]],
+        headers: Optional[list[str]] = None,
     ) -> str:
         """Format table data as text."""
         lines = []
@@ -419,7 +419,6 @@ class DocumentConnector(Connector):
 
         return "\n".join(lines)
 
-
 class DocumentEvidence:
     """Helper class for creating evidence snippets from documents."""
 
@@ -427,7 +426,7 @@ class DocumentEvidence:
     def from_parsed_document(
         doc: ParsedDocument,
         max_snippet_length: int = 1000,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Convert ParsedDocument to evidence snippets.
 
         Args:
@@ -486,7 +485,7 @@ class DocumentEvidence:
                 table_page = table.page
                 table_caption = table.caption
             else:
-                table_data = table  # raw List[List[str]]
+                table_data = table  # raw list[list[str]]
                 table_headers = None
                 table_page = None
                 table_caption = None
@@ -517,8 +516,8 @@ class DocumentEvidence:
 
     @staticmethod
     def _format_table_text(
-        data: List[List[Any]],
-        headers: Optional[List[str]] = None,
+        data: list[list[Any]],
+        headers: Optional[list[str]] = None,
     ) -> str:
         """Format table as text for evidence snippet."""
         lines = []
@@ -534,7 +533,6 @@ class DocumentEvidence:
             lines.append(f"[{len(data) - 15} more rows...]")
 
         return "\n".join(lines)
-
 
 __all__ = [
     "DocumentConnector",

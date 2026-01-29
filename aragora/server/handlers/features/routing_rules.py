@@ -28,7 +28,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.secure import (
     ForbiddenError,
@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 # In-memory rule storage (for development/demo)
 # In production, rules would be stored in a database
 _rules_store: dict[str, dict[str, Any]] = {}
-
 
 def _get_routing_engine():
     """Get or create the routing rules engine."""
@@ -58,7 +57,6 @@ def _get_routing_engine():
             logger.error(f"Failed to load rule {rule_id}: {e}")
 
     return engine
-
 
 class RoutingRulesHandler(SecureHandler):
     """
@@ -441,7 +439,7 @@ class RoutingRulesHandler(SecureHandler):
                 "error": str(e),
             }
 
-    async def _get_json_body(self, request: Any) -> Optional[dict[str, Any]]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any] | None:
         """Extract JSON body from request."""
         try:
             if hasattr(request, "json"):
@@ -462,7 +460,6 @@ class RoutingRulesHandler(SecureHandler):
             "error": f"Method {method} not allowed for {path}",
             "code": 405,
         }
-
 
 # Handler class (instantiated by server with context)
 # Note: Do not instantiate at module level - requires server_context

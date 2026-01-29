@@ -20,10 +20,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Pattern
+from typing import Any, Optional, Pattern
 
 logger = logging.getLogger(__name__)
-
 
 class SecuritySeverity(str, Enum):
     """Severity level for security findings."""
@@ -33,7 +32,6 @@ class SecuritySeverity(str, Enum):
     MEDIUM = "medium"  # Moderate risk
     LOW = "low"  # Minor issue
     INFO = "info"  # Informational
-
 
 class VulnerabilityCategory(str, Enum):
     """Category of security vulnerability."""
@@ -51,7 +49,6 @@ class VulnerabilityCategory(str, Enum):
     AUTHENTICATION = "authentication"
     AUTHORIZATION = "authorization"
 
-
 @dataclass
 class SecurityPattern:
     """A pattern for detecting security vulnerabilities."""
@@ -62,11 +59,10 @@ class SecurityPattern:
     severity: SecuritySeverity
     description: str
     recommendation: str
-    cwe_id: Optional[str] = None  # CWE reference
-    owasp_category: Optional[str] = None  # OWASP Top 10 category
-    languages: Optional[List[str]] = None  # Applicable languages (None = all)
-    false_positive_hints: List[str] = field(default_factory=list)
-
+    cwe_id: str | None = None  # CWE reference
+    owasp_category: str | None = None  # OWASP Top 10 category
+    languages: Optional[list[str]] = None  # Applicable languages (None = all)
+    false_positive_hints: list[str] = field(default_factory=list)
 
 @dataclass
 class SecurityFinding:
@@ -83,25 +79,25 @@ class SecurityFinding:
     file_path: str
     line_number: int
     column: int = 0
-    end_line: Optional[int] = None
+    end_line: int | None = None
     code_snippet: str = ""
 
     # Context
-    function_name: Optional[str] = None
-    class_name: Optional[str] = None
+    function_name: str | None = None
+    class_name: str | None = None
 
     # Metadata
-    pattern_name: Optional[str] = None
-    cwe_id: Optional[str] = None
-    owasp_category: Optional[str] = None
+    pattern_name: str | None = None
+    cwe_id: str | None = None
+    owasp_category: str | None = None
     recommendation: str = ""
-    references: List[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
 
     # Analysis
     is_false_positive: bool = False
-    false_positive_reason: Optional[str] = None
+    false_positive_reason: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -125,7 +121,6 @@ class SecurityFinding:
             "is_false_positive": self.is_false_positive,
         }
 
-
 @dataclass
 class SecurityReport:
     """Complete security scan report."""
@@ -133,11 +128,11 @@ class SecurityReport:
     scan_id: str
     repository: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     files_scanned: int = 0
     lines_scanned: int = 0
-    findings: List[SecurityFinding] = field(default_factory=list)
-    error: Optional[str] = None
+    findings: list[SecurityFinding] = field(default_factory=list)
+    error: str | None = None
 
     # Summary counts
     critical_count: int = 0
@@ -179,7 +174,7 @@ class SecurityReport:
         score = sum(weights.get(f.severity, 0) * f.confidence for f in self.findings)
         return min(100.0, score)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "scan_id": self.scan_id,
@@ -200,7 +195,6 @@ class SecurityReport:
             "findings": [f.to_dict() for f in self.findings],
             "error": self.error,
         }
-
 
 class SecurityScanner:
     """
@@ -750,7 +744,7 @@ class SecurityScanner:
         self,
         include_low_severity: bool = True,
         include_info: bool = False,
-        custom_patterns: Optional[List[SecurityPattern]] = None,
+        custom_patterns: Optional[list[SecurityPattern]] = None,
     ):
         """
         Initialize the security scanner.
@@ -764,7 +758,7 @@ class SecurityScanner:
         self.include_info = include_info
 
         # Combine all patterns
-        self.patterns: List[SecurityPattern] = []
+        self.patterns: list[SecurityPattern] = []
         self.patterns.extend(self.SECRET_PATTERNS)
         self.patterns.extend(self.INJECTION_PATTERNS)
         self.patterns.extend(self.XSS_PATTERNS)
@@ -779,7 +773,7 @@ class SecurityScanner:
 
         self._finding_counter = 0
 
-    def scan_file(self, file_path: str) -> List[SecurityFinding]:
+    def scan_file(self, file_path: str) -> list[SecurityFinding]:
         """
         Scan a single file for security vulnerabilities.
 
@@ -789,7 +783,7 @@ class SecurityScanner:
         Returns:
             List of security findings
         """
-        findings: List[SecurityFinding] = []
+        findings: list[SecurityFinding] = []
 
         try:
             with open(file_path, "r", encoding="utf-8", errors="replace") as f:
@@ -867,8 +861,8 @@ class SecurityScanner:
     def scan_directory(
         self,
         directory: str,
-        exclude_patterns: Optional[List[str]] = None,
-        extensions: Optional[List[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
+        extensions: Optional[list[str]] = None,
     ) -> SecurityReport:
         """
         Scan a directory for security vulnerabilities.
@@ -931,7 +925,7 @@ class SecurityScanner:
 
         # Collect files
         root = Path(directory)
-        files_to_scan: List[Path] = []
+        files_to_scan: list[Path] = []
 
         for ext in extensions:
             for file_path in root.rglob(f"*{ext}"):
@@ -973,7 +967,7 @@ class SecurityScanner:
 
         return report
 
-    def _extension_to_language(self, ext: str) -> Optional[str]:
+    def _extension_to_language(self, ext: str) -> str | None:
         """Map file extension to language name."""
         mapping = {
             ".py": "python",
@@ -989,11 +983,10 @@ class SecurityScanner:
         }
         return mapping.get(ext)
 
-
 def quick_security_scan(
     path: str,
     severity_threshold: SecuritySeverity = SecuritySeverity.MEDIUM,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Quick security scan of a file or directory.
 

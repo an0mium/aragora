@@ -59,7 +59,6 @@ _prov_imports, PROVENANCE_AVAILABLE = try_import(
 )
 ProvenanceTracker = _prov_imports["ProvenanceTracker"]
 
-
 class BeliefHandler(BaseHandler):
     """Handler for belief network and reasoning endpoints."""
 
@@ -146,7 +145,7 @@ class BeliefHandler(BaseHandler):
     def _create_belief_network(
         self,
         debate_id: str,
-        topic: Optional[str] = None,
+        topic: str | None = None,
         seed_from_km: bool = False,
     ) -> Any:
         """Create a BeliefNetwork with KM adapter wired.
@@ -198,7 +197,7 @@ class BeliefHandler(BaseHandler):
             return True
         return False
 
-    def _check_reasoning_permission(self, handler: Any, user: Any) -> Optional[HandlerResult]:
+    def _check_reasoning_permission(self, handler: Any, user: Any) -> HandlerResult | None:
         """Check RBAC permission for reasoning/belief network access.
 
         Args:
@@ -230,7 +229,7 @@ class BeliefHandler(BaseHandler):
 
         return None
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route belief network requests to appropriate methods."""
         normalized = strip_version_prefix(path)
         # Rate limit check
@@ -308,7 +307,7 @@ class BeliefHandler(BaseHandler):
 
         return None
 
-    def _extract_debate_id(self, path: str, segment_index: int) -> Optional[str]:
+    def _extract_debate_id(self, path: str, segment_index: int) -> str | None:
         """Extract and validate debate ID from path."""
         parts = path.split("/")
         if len(parts) > segment_index:
@@ -320,7 +319,7 @@ class BeliefHandler(BaseHandler):
 
     @handle_errors("emergent traits retrieval")
     def _get_emergent_traits(
-        self, nomic_dir: Optional[Path], persona_manager, min_confidence: float, limit: int
+        self, nomic_dir: Path | None, persona_manager, min_confidence: float, limit: int
     ) -> HandlerResult:
         """Get emergent traits detected from agent performance patterns."""
         if not LABORATORY_AVAILABLE:
@@ -352,7 +351,7 @@ class BeliefHandler(BaseHandler):
 
     @handle_errors("debate cruxes retrieval")
     def _get_debate_cruxes(
-        self, nomic_dir: Optional[Path], debate_id: str, top_k: int
+        self, nomic_dir: Path | None, debate_id: str, top_k: int
     ) -> HandlerResult:
         """Get key claims that would most impact the debate outcome."""
         if not BELIEF_NETWORK_AVAILABLE:
@@ -388,7 +387,7 @@ class BeliefHandler(BaseHandler):
 
     @handle_errors("load bearing claims retrieval")
     def _get_load_bearing_claims(
-        self, nomic_dir: Optional[Path], debate_id: str, limit: int
+        self, nomic_dir: Path | None, debate_id: str, limit: int
     ) -> HandlerResult:
         """Get claims with highest centrality (most load-bearing)."""
         if not BELIEF_NETWORK_AVAILABLE:
@@ -431,7 +430,7 @@ class BeliefHandler(BaseHandler):
 
     @handle_errors("claim support retrieval")
     def _get_claim_support(
-        self, nomic_dir: Optional[Path], debate_id: str, claim_id: str
+        self, nomic_dir: Path | None, debate_id: str, claim_id: str
     ) -> HandlerResult:
         """Get verification status of all evidence supporting a claim."""
         if not PROVENANCE_AVAILABLE:
@@ -463,7 +462,7 @@ class BeliefHandler(BaseHandler):
         )
 
     @handle_errors("debate graph stats retrieval")
-    def _get_debate_graph_stats(self, nomic_dir: Optional[Path], debate_id: str) -> HandlerResult:
+    def _get_debate_graph_stats(self, nomic_dir: Path | None, debate_id: str) -> HandlerResult:
         """Get argument graph statistics for a debate."""
         from aragora.debate.traces import DebateTrace
         from aragora.visualization.mapper import ArgumentCartographer
@@ -535,7 +534,7 @@ class BeliefHandler(BaseHandler):
 
     @handle_errors("belief network graph retrieval")
     def _get_belief_network_graph(
-        self, nomic_dir: Optional[Path], debate_id: str, include_cruxes: bool = True
+        self, nomic_dir: Path | None, debate_id: str, include_cruxes: bool = True
     ) -> HandlerResult:
         """Get belief network as a graph structure for visualization.
 
@@ -656,7 +655,7 @@ class BeliefHandler(BaseHandler):
 
     @handle_errors("belief network export")
     def _export_belief_network(
-        self, nomic_dir: Optional[Path], debate_id: str, format_type: str = "json"
+        self, nomic_dir: Path | None, debate_id: str, format_type: str = "json"
     ) -> HandlerResult:
         """Export belief network in various formats.
 

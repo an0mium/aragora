@@ -11,7 +11,6 @@ from .models import CommandDefinition, CommandContext, CommandResult, CommandPer
 
 logger = logging.getLogger(__name__)
 
-
 class CommandRegistry:
     """
     Registry for slash commands.
@@ -80,7 +79,7 @@ class CommandRegistry:
         logger.info(f"Unregistered command: {name}")
         return True
 
-    def get_command(self, name: str) -> Optional[CommandDefinition]:
+    def get_command(self, name: str) -> CommandDefinition | None:
         """
         Get command definition by name or alias.
 
@@ -120,8 +119,8 @@ class CommandRegistry:
 
     def list_commands(
         self,
-        platform: Optional[str] = None,
-        permission: Optional[CommandPermission] = None,
+        platform: str | None = None,
+        permission: CommandPermission | None = None,
         include_hidden: bool = False,
     ) -> list[CommandDefinition]:
         """
@@ -155,7 +154,7 @@ class CommandRegistry:
 
         return sorted(commands, key=lambda c: c.name)
 
-    def get_help_text(self, platform: Optional[str] = None) -> str:
+    def get_help_text(self, platform: str | None = None) -> str:
         """
         Generate help text for all visible commands.
 
@@ -188,10 +187,8 @@ class CommandRegistry:
         """Number of registered commands."""
         return len(self._commands)
 
-
 # Global registry instance
-_registry: Optional[CommandRegistry] = None
-
+_registry: CommandRegistry | None = None
 
 def get_command_registry() -> CommandRegistry:
     """Get or create the global command registry."""

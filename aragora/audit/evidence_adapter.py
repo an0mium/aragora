@@ -27,10 +27,9 @@ import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class EvidenceSource:
@@ -43,7 +42,7 @@ class EvidenceSource:
     location: str  # Page, line, chunk reference
     relevance_score: float
     reliability_score: float
-    url: Optional[str] = None
+    url: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -59,7 +58,6 @@ class EvidenceSource:
             "url": self.url,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class EvidenceEnrichment:
@@ -99,7 +97,6 @@ class EvidenceEnrichment:
             "has_strong_evidence": self.has_strong_evidence,
         }
 
-
 @dataclass
 class EvidenceConfig:
     """Configuration for evidence collection."""
@@ -119,7 +116,6 @@ class EvidenceConfig:
     search_window: int = 500  # Characters around finding to search
     max_parallel_searches: int = 5
 
-
 class FindingEvidenceCollector:
     """
     Collects and associates evidence with audit findings.
@@ -132,8 +128,8 @@ class FindingEvidenceCollector:
 
     def __init__(
         self,
-        config: Optional[EvidenceConfig] = None,
-        evidence_collector: Optional[Any] = None,  # EvidenceCollector
+        config: EvidenceConfig | None = None,
+        evidence_collector: Any | None = None,  # EvidenceCollector
     ):
         """
         Initialize the finding evidence collector.
@@ -160,8 +156,8 @@ class FindingEvidenceCollector:
     async def enrich_finding(
         self,
         finding: Any,  # AuditFinding
-        document_content: Optional[str] = None,
-        related_documents: Optional[dict[str, str]] = None,
+        document_content: str | None = None,
+        related_documents: dict[str, str] | None = None,
     ) -> EvidenceEnrichment:
         """
         Enrich a finding with supporting evidence.
@@ -598,12 +594,11 @@ class FindingEvidenceCollector:
 
         return occurrences
 
-
 # Convenience function
 async def enrich_finding_with_evidence(
     finding: Any,
-    document_content: Optional[str] = None,
-    config: Optional[EvidenceConfig] = None,
+    document_content: str | None = None,
+    config: EvidenceConfig | None = None,
 ) -> EvidenceEnrichment:
     """
     Quick function to enrich a finding with evidence.
@@ -618,7 +613,6 @@ async def enrich_finding_with_evidence(
     """
     collector = FindingEvidenceCollector(config=config)
     return await collector.enrich_finding(finding, document_content)
-
 
 __all__ = [
     "FindingEvidenceCollector",

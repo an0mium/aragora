@@ -32,10 +32,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ExternalIdentity:
@@ -45,16 +44,16 @@ class ExternalIdentity:
     user_id: str  # Aragora user ID
     provider: str  # azure_ad, slack, google, github, etc.
     external_id: str  # ID from external provider (aadObjectId, etc.)
-    tenant_id: Optional[str] = None  # External tenant/workspace ID
-    email: Optional[str] = None
-    display_name: Optional[str] = None
-    raw_claims: Dict[str, Any] = field(default_factory=dict)
+    tenant_id: str | None = None  # External tenant/workspace ID
+    email: str | None = None
+    display_name: str | None = None
+    raw_claims: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
-    last_seen_at: Optional[float] = None
+    last_seen_at: float | None = None
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -70,7 +69,6 @@ class ExternalIdentity:
             "last_seen_at": self.last_seen_at,
             "is_active": self.is_active,
         }
-
 
 class ExternalIdentityRepository:
     """
@@ -107,7 +105,7 @@ class ExternalIdentityRepository:
         ON external_identities(email);
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the repository.
 
         Args:
@@ -197,7 +195,7 @@ class ExternalIdentityRepository:
         )
         return identity
 
-    def get(self, identity_id: str) -> Optional[ExternalIdentity]:
+    def get(self, identity_id: str) -> ExternalIdentity | None:
         """Get an external identity by ID."""
         conn = self._get_connection()
 
@@ -212,8 +210,8 @@ class ExternalIdentityRepository:
         return None
 
     def get_by_external_id(
-        self, provider: str, external_id: str, tenant_id: Optional[str] = None
-    ) -> Optional[ExternalIdentity]:
+        self, provider: str, external_id: str, tenant_id: str | None = None
+    ) -> ExternalIdentity | None:
         """Get identity by external provider ID.
 
         Args:
@@ -250,8 +248,8 @@ class ExternalIdentityRepository:
         return None
 
     def get_by_user_id(
-        self, user_id: str, provider: Optional[str] = None
-    ) -> List[ExternalIdentity]:
+        self, user_id: str, provider: str | None = None
+    ) -> list[ExternalIdentity]:
         """Get all external identities for a user.
 
         Args:
@@ -284,7 +282,7 @@ class ExternalIdentityRepository:
 
         return [self._row_to_identity(row) for row in cursor.fetchall()]
 
-    def get_by_email(self, email: str, provider: Optional[str] = None) -> List[ExternalIdentity]:
+    def get_by_email(self, email: str, provider: str | None = None) -> list[ExternalIdentity]:
         """Get external identities by email.
 
         Args:
@@ -403,10 +401,10 @@ class ExternalIdentityRepository:
         user_id: str,
         provider: str,
         external_id: str,
-        tenant_id: Optional[str] = None,
-        email: Optional[str] = None,
-        display_name: Optional[str] = None,
-        raw_claims: Optional[Dict[str, Any]] = None,
+        tenant_id: str | None = None,
+        email: str | None = None,
+        display_name: str | None = None,
+        raw_claims: Optional[dict[str, Any]] = None,
     ) -> ExternalIdentity:
         """Link an external identity to a user, updating if exists.
 
@@ -476,13 +474,11 @@ class ExternalIdentityRepository:
             is_active=bool(row["is_active"]),
         )
 
-
 # Singleton instance
-_repository: Optional[ExternalIdentityRepository] = None
-
+_repository: ExternalIdentityRepository | None = None
 
 def get_external_identity_repository(
-    db_path: Optional[str] = None,
+    db_path: str | None = None,
 ) -> ExternalIdentityRepository:
     """Get or create the external identity repository singleton."""
     global _repository

@@ -5,13 +5,10 @@ Provides sanitization and query processing for safe FTS5 queries
 across all Aragora storage modules.
 """
 
-from typing import Set
-
 # FTS query limits
 MAX_FTS_QUERY_LENGTH = 500
 MAX_FTS_TERMS = 20
-FTS_SPECIAL_CHARS: Set[str] = set('"*(){}[]^:?-+~')
-
+FTS_SPECIAL_CHARS: set[str] = set('"*(){}[]^:?-+~')
 
 def sanitize_fts_query(
     query: str,
@@ -61,7 +58,6 @@ def sanitize_fts_query(
 
     return " ".join(terms)
 
-
 def build_fts_match_query(
     terms: str,
     prefix_match: bool = False,
@@ -90,7 +86,6 @@ def build_fts_match_query(
         return " ".join(f"{word}*" for word in words)
 
     return sanitized
-
 
 def escape_fts_string(value: str) -> str:
     """Escape a string for use in FTS5 queries.

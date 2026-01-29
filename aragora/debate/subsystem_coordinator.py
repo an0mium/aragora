@@ -49,7 +49,6 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
     from aragora.relationships.tracker import RelationshipTracker
 
-
 @runtime_checkable
 class Resettable(Protocol):
     """Protocol for objects that can be reset."""
@@ -58,9 +57,7 @@ class Resettable(Protocol):
         """Reset internal state."""
         ...
 
-
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SubsystemCoordinator:
@@ -108,7 +105,7 @@ class SubsystemCoordinator:
     enable_calibration: bool = False
 
     # Persona management
-    persona_manager: Optional[Any] = None
+    persona_manager: Any | None = None
 
     # Memory subsystems
     consensus_memory: Optional["ConsensusMemory"] = None
@@ -125,8 +122,8 @@ class SubsystemCoordinator:
     tier_analytics_tracker: Optional["TierAnalyticsTracker"] = None
 
     # Hook system
-    hook_manager: Optional[Any] = None  # HookManager for lifecycle hooks
-    hook_handler_registry: Optional[Any] = None  # HookHandlerRegistry for auto-wiring
+    hook_manager: Any | None = None  # HookManager for lifecycle hooks
+    hook_handler_registry: Any | None = None  # HookHandlerRegistry for auto-wiring
     enable_hook_handlers: bool = True  # Auto-register default handlers if hook_manager provided
 
     # ==========================================================================
@@ -135,66 +132,66 @@ class SubsystemCoordinator:
     # ==========================================================================
 
     # Performance → Agent Router Bridge
-    performance_router_bridge: Optional[Any] = None  # PerformanceRouterBridge
+    performance_router_bridge: Any | None = None  # PerformanceRouterBridge
     enable_performance_router: bool = True  # Auto-create if performance_monitor available
-    performance_monitor: Optional[Any] = None  # AgentPerformanceMonitor (source)
-    agent_router: Optional[Any] = None  # AgentRouter (target)
+    performance_monitor: Any | None = None  # AgentPerformanceMonitor (source)
+    agent_router: Any | None = None  # AgentRouter (target)
 
     # Outcome → Complexity Governor Bridge
-    outcome_complexity_bridge: Optional[Any] = None  # OutcomeComplexityBridge
+    outcome_complexity_bridge: Any | None = None  # OutcomeComplexityBridge
     enable_outcome_complexity: bool = True  # Auto-create if outcome_tracker available
-    outcome_tracker: Optional[Any] = None  # OutcomeTracker (source)
-    complexity_governor: Optional[Any] = None  # ComplexityGovernor (target)
+    outcome_tracker: Any | None = None  # OutcomeTracker (source)
+    complexity_governor: Any | None = None  # ComplexityGovernor (target)
 
     # Analytics → Team Selection Bridge
-    analytics_selection_bridge: Optional[Any] = None  # AnalyticsSelectionBridge
+    analytics_selection_bridge: Any | None = None  # AnalyticsSelectionBridge
     enable_analytics_selection: bool = True  # Auto-create if analytics available
-    analytics_coordinator: Optional[Any] = None  # AnalyticsCoordinator (source)
-    team_selector: Optional[Any] = None  # TeamSelector (target)
+    analytics_coordinator: Any | None = None  # AnalyticsCoordinator (source)
+    team_selector: Any | None = None  # TeamSelector (target)
 
     # Novelty → Selection Feedback Bridge
-    novelty_selection_bridge: Optional[Any] = None  # NoveltySelectionBridge
+    novelty_selection_bridge: Any | None = None  # NoveltySelectionBridge
     enable_novelty_selection: bool = True  # Auto-create if novelty_tracker available
-    novelty_tracker: Optional[Any] = None  # NoveltyTracker (source)
-    selection_feedback_loop: Optional[Any] = None  # SelectionFeedbackLoop (target)
+    novelty_tracker: Any | None = None  # NoveltyTracker (source)
+    selection_feedback_loop: Any | None = None  # SelectionFeedbackLoop (target)
 
     # Relationship → Bias Mitigation Bridge
-    relationship_bias_bridge: Optional[Any] = None  # RelationshipBiasBridge
+    relationship_bias_bridge: Any | None = None  # RelationshipBiasBridge
     enable_relationship_bias: bool = True  # Auto-create if relationship_tracker available
     # relationship_tracker already defined above (source)
     # bias_mitigation target is implicit in vote processing
 
     # RLM → Selection Feedback Bridge
-    rlm_selection_bridge: Optional[Any] = None  # RLMSelectionBridge
+    rlm_selection_bridge: Any | None = None  # RLMSelectionBridge
     enable_rlm_selection: bool = True  # Auto-create if rlm_bridge available
-    rlm_bridge: Optional[Any] = None  # RLMBridge (source)
+    rlm_bridge: Any | None = None  # RLMBridge (source)
     # selection_feedback_loop already defined above (target)
 
     # Calibration → Cost Optimizer Bridge
-    calibration_cost_bridge: Optional[Any] = None  # CalibrationCostBridge
+    calibration_cost_bridge: Any | None = None  # CalibrationCostBridge
     enable_calibration_cost: bool = True  # Auto-create if calibration_tracker available
     # calibration_tracker already defined above (source)
-    cost_tracker: Optional[Any] = None  # CostTracker (target)
+    cost_tracker: Any | None = None  # CostTracker (target)
 
     # ==========================================================================
     # Phase 10: Bidirectional Knowledge Mound Integration
     # ==========================================================================
 
     # Knowledge Mound core
-    knowledge_mound: Optional[Any] = None  # KnowledgeMound instance
+    knowledge_mound: Any | None = None  # KnowledgeMound instance
     enable_km_bidirectional: bool = True  # Master switch for bidirectional sync
 
     # Bidirectional Coordinator
-    km_coordinator: Optional[Any] = None  # BidirectionalCoordinator
+    km_coordinator: Any | None = None  # BidirectionalCoordinator
     enable_km_coordinator: bool = True  # Auto-create if KM available
 
     # KM Adapters (for manual configuration)
-    km_continuum_adapter: Optional[Any] = None
-    km_elo_adapter: Optional[Any] = None
-    km_belief_adapter: Optional[Any] = None
-    km_insights_adapter: Optional[Any] = None
-    km_critique_adapter: Optional[Any] = None
-    km_pulse_adapter: Optional[Any] = None
+    km_continuum_adapter: Any | None = None
+    km_elo_adapter: Any | None = None
+    km_belief_adapter: Any | None = None
+    km_insights_adapter: Any | None = None
+    km_critique_adapter: Any | None = None
+    km_pulse_adapter: Any | None = None
 
     # KM Configuration
     km_sync_interval_seconds: int = 300  # 5 minutes
@@ -1049,7 +1046,7 @@ class SubsystemCoordinator:
                 return ""
 
             # Format memories for prompt injection
-            # ContinuumMemory.retrieve() returns List[ContinuumMemoryEntry]
+            # ContinuumMemory.retrieve() returns list[ContinuumMemoryEntry]
             lines = ["Relevant learnings from past debates:"]
             for mem in memories:
                 # ContinuumMemoryEntry has content attribute and metadata dict
@@ -1144,7 +1141,6 @@ class SubsystemCoordinator:
             "initialized": self._initialized,
         }
 
-
 @dataclass
 class SubsystemConfig:
     """Configuration for creating SubsystemCoordinator.
@@ -1169,51 +1165,51 @@ class SubsystemConfig:
     enable_calibration_cost: bool = True
 
     # Pre-configured subsystems (optional)
-    position_tracker: Optional[Any] = None
-    position_ledger: Optional[Any] = None
-    elo_system: Optional[Any] = None
-    calibration_tracker: Optional[Any] = None
-    persona_manager: Optional[Any] = None
-    consensus_memory: Optional[Any] = None
-    dissent_retriever: Optional[Any] = None
-    continuum_memory: Optional[Any] = None
-    flip_detector: Optional[Any] = None
-    moment_detector: Optional[Any] = None
-    relationship_tracker: Optional[Any] = None
-    tier_analytics_tracker: Optional[Any] = None
-    hook_manager: Optional[Any] = None
-    hook_handler_registry: Optional[Any] = None
+    position_tracker: Any | None = None
+    position_ledger: Any | None = None
+    elo_system: Any | None = None
+    calibration_tracker: Any | None = None
+    persona_manager: Any | None = None
+    consensus_memory: Any | None = None
+    dissent_retriever: Any | None = None
+    continuum_memory: Any | None = None
+    flip_detector: Any | None = None
+    moment_detector: Any | None = None
+    relationship_tracker: Any | None = None
+    tier_analytics_tracker: Any | None = None
+    hook_manager: Any | None = None
+    hook_handler_registry: Any | None = None
 
     # Phase 9: Cross-Pollination Bridge sources and pre-configured bridges
-    performance_monitor: Optional[Any] = None
-    agent_router: Optional[Any] = None
-    performance_router_bridge: Optional[Any] = None
-    outcome_tracker: Optional[Any] = None
-    complexity_governor: Optional[Any] = None
-    outcome_complexity_bridge: Optional[Any] = None
-    analytics_coordinator: Optional[Any] = None
-    team_selector: Optional[Any] = None
-    analytics_selection_bridge: Optional[Any] = None
-    novelty_tracker: Optional[Any] = None
-    selection_feedback_loop: Optional[Any] = None
-    novelty_selection_bridge: Optional[Any] = None
-    relationship_bias_bridge: Optional[Any] = None
-    rlm_bridge: Optional[Any] = None
-    rlm_selection_bridge: Optional[Any] = None
-    cost_tracker: Optional[Any] = None
-    calibration_cost_bridge: Optional[Any] = None
+    performance_monitor: Any | None = None
+    agent_router: Any | None = None
+    performance_router_bridge: Any | None = None
+    outcome_tracker: Any | None = None
+    complexity_governor: Any | None = None
+    outcome_complexity_bridge: Any | None = None
+    analytics_coordinator: Any | None = None
+    team_selector: Any | None = None
+    analytics_selection_bridge: Any | None = None
+    novelty_tracker: Any | None = None
+    selection_feedback_loop: Any | None = None
+    novelty_selection_bridge: Any | None = None
+    relationship_bias_bridge: Any | None = None
+    rlm_bridge: Any | None = None
+    rlm_selection_bridge: Any | None = None
+    cost_tracker: Any | None = None
+    calibration_cost_bridge: Any | None = None
 
     # Phase 10: Bidirectional Knowledge Mound Integration
     enable_km_bidirectional: bool = True  # Master switch for bidirectional sync
     enable_km_coordinator: bool = True  # Auto-create coordinator if KM available
-    knowledge_mound: Optional[Any] = None  # KnowledgeMound instance
-    km_coordinator: Optional[Any] = None  # BidirectionalCoordinator
-    km_continuum_adapter: Optional[Any] = None
-    km_elo_adapter: Optional[Any] = None
-    km_belief_adapter: Optional[Any] = None
-    km_insights_adapter: Optional[Any] = None
-    km_critique_adapter: Optional[Any] = None
-    km_pulse_adapter: Optional[Any] = None
+    knowledge_mound: Any | None = None  # KnowledgeMound instance
+    km_coordinator: Any | None = None  # BidirectionalCoordinator
+    km_continuum_adapter: Any | None = None
+    km_elo_adapter: Any | None = None
+    km_belief_adapter: Any | None = None
+    km_insights_adapter: Any | None = None
+    km_critique_adapter: Any | None = None
+    km_pulse_adapter: Any | None = None
     km_sync_interval_seconds: int = 300  # 5 minutes
     km_min_confidence_for_reverse: float = 0.7
     km_parallel_sync: bool = True
@@ -1293,6 +1289,5 @@ class SubsystemConfig:
             km_min_confidence_for_reverse=self.km_min_confidence_for_reverse,
             km_parallel_sync=self.km_parallel_sync,
         )
-
 
 __all__ = ["SubsystemCoordinator", "SubsystemConfig"]

@@ -16,10 +16,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class PartnerTier(Enum):
     """Partner program tiers."""
@@ -29,7 +28,6 @@ class PartnerTier(Enum):
     BUSINESS = "business"  # Enterprise features, priority support
     ENTERPRISE = "enterprise"  # Custom terms, dedicated support
 
-
 class PartnerStatus(Enum):
     """Partner account status."""
 
@@ -37,7 +35,6 @@ class PartnerStatus(Enum):
     ACTIVE = "active"
     SUSPENDED = "suspended"
     REVOKED = "revoked"
-
 
 @dataclass
 class PartnerLimits:
@@ -51,8 +48,7 @@ class PartnerLimits:
     webhook_endpoints: int
     revenue_share_percent: float  # Percentage of referred user spend
 
-
-PARTNER_TIER_LIMITS: Dict[PartnerTier, PartnerLimits] = {
+PARTNER_TIER_LIMITS: dict[PartnerTier, PartnerLimits] = {
     PartnerTier.STARTER: PartnerLimits(
         requests_per_minute=60,
         requests_per_day=1000,
@@ -91,7 +87,6 @@ PARTNER_TIER_LIMITS: Dict[PartnerTier, PartnerLimits] = {
     ),
 }
 
-
 @dataclass
 class Partner:
     """Partner account."""
@@ -99,17 +94,17 @@ class Partner:
     partner_id: str
     name: str
     email: str
-    company: Optional[str]
+    company: str | None
     tier: PartnerTier
     status: PartnerStatus
     created_at: datetime
     updated_at: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    webhook_url: Optional[str] = None
-    webhook_secret: Optional[str] = None
-    referral_code: Optional[str] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    webhook_url: str | None = None
+    webhook_secret: str | None = None
+    referral_code: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "partner_id": self.partner_id,
@@ -125,7 +120,6 @@ class Partner:
             "referral_code": self.referral_code,
         }
 
-
 @dataclass
 class APIKey:
     """Partner API key."""
@@ -135,13 +129,13 @@ class APIKey:
     key_prefix: str  # First 8 chars for identification
     key_hash: str  # SHA-256 hash of full key
     name: str
-    scopes: List[str]
+    scopes: list[str]
     created_at: datetime
-    expires_at: Optional[datetime]
-    last_used_at: Optional[datetime]
+    expires_at: datetime | None
+    last_used_at: datetime | None
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (excludes key_hash)."""
         return {
             "key_id": self.key_id,
@@ -154,7 +148,6 @@ class APIKey:
             "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
             "is_active": self.is_active,
         }
-
 
 @dataclass
 class UsageRecord:
@@ -169,8 +162,7 @@ class UsageRecord:
     latency_ms: int
     tokens_used: int
     timestamp: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class RevenueShare:
@@ -185,8 +177,7 @@ class RevenueShare:
     share_percent: float
     share_amount_usd: float
     status: str  # pending, paid, cancelled
-    paid_at: Optional[datetime] = None
-
+    paid_at: datetime | None = None
 
 # Available API scopes
 API_SCOPES = [
@@ -202,11 +193,10 @@ API_SCOPES = [
     "knowledge:write",
 ]
 
-
 class PartnerStore:
     """Storage for partner data."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize partner store."""
 
         self._db_path = db_path or ":memory:"
@@ -316,7 +306,7 @@ class PartnerStore:
             conn.commit()
         return partner
 
-    def get_partner(self, partner_id: str) -> Optional[Partner]:
+    def get_partner(self, partner_id: str) -> Partner | None:
         """Get partner by ID."""
         import json
 
@@ -343,7 +333,7 @@ class PartnerStore:
                 referral_code=row["referral_code"],
             )
 
-    def get_partner_by_email(self, email: str) -> Optional[Partner]:
+    def get_partner_by_email(self, email: str) -> Partner | None:
         """Get partner by email."""
         import json
 
@@ -427,7 +417,7 @@ class PartnerStore:
             conn.commit()
         return api_key
 
-    def get_api_key_by_hash(self, key_hash: str) -> Optional[APIKey]:
+    def get_api_key_by_hash(self, key_hash: str) -> APIKey | None:
         """Get API key by hash."""
         import json
 
@@ -454,7 +444,7 @@ class PartnerStore:
                 is_active=bool(row["is_active"]),
             )
 
-    def list_partner_keys(self, partner_id: str) -> List[APIKey]:
+    def list_partner_keys(self, partner_id: str) -> list[APIKey]:
         """List all API keys for a partner."""
         import json
 
@@ -518,7 +508,7 @@ class PartnerStore:
             )
             conn.commit()
 
-    def get_usage_stats(self, partner_id: str, start: datetime, end: datetime) -> Dict[str, Any]:
+    def get_usage_stats(self, partner_id: str, start: datetime, end: datetime) -> dict[str, Any]:
         """Get usage statistics for a partner."""
         with self._get_connection() as conn:
             row = conn.execute(
@@ -546,11 +536,10 @@ class PartnerStore:
                 ),
             }
 
-
 class PartnerAPI:
     """Partner API management."""
 
-    def __init__(self, store: Optional[PartnerStore] = None):
+    def __init__(self, store: PartnerStore | None = None):
         """Initialize partner API."""
         self._store = store or PartnerStore()
 
@@ -558,7 +547,7 @@ class PartnerAPI:
         self,
         name: str,
         email: str,
-        company: Optional[str] = None,
+        company: str | None = None,
         tier: PartnerTier = PartnerTier.STARTER,
     ) -> Partner:
         """Register a new partner."""
@@ -580,7 +569,7 @@ class PartnerAPI:
 
         return self._store.create_partner(partner)
 
-    def activate_partner(self, partner_id: str) -> Optional[Partner]:
+    def activate_partner(self, partner_id: str) -> Partner | None:
         """Activate a pending partner."""
         partner = self._store.get_partner(partner_id)
         if not partner:
@@ -593,8 +582,8 @@ class PartnerAPI:
         self,
         partner_id: str,
         name: str,
-        scopes: Optional[List[str]] = None,
-        expires_in_days: Optional[int] = None,
+        scopes: Optional[list[str]] = None,
+        expires_in_days: int | None = None,
     ) -> tuple[APIKey, str]:
         """
         Create a new API key for a partner.
@@ -637,7 +626,7 @@ class PartnerAPI:
         self._store.create_api_key(api_key)
         return api_key, raw_key
 
-    def validate_api_key(self, raw_key: str) -> Optional[tuple[APIKey, Partner]]:
+    def validate_api_key(self, raw_key: str) -> tuple[APIKey, Partner] | None:
         """
         Validate an API key.
 
@@ -661,7 +650,7 @@ class PartnerAPI:
 
         return api_key, partner
 
-    def check_rate_limit(self, partner: Partner) -> tuple[bool, Dict[str, Any]]:
+    def check_rate_limit(self, partner: Partner) -> tuple[bool, dict[str, Any]]:
         """
         Check if partner is within rate limits.
 
@@ -718,7 +707,7 @@ class PartnerAPI:
         )
         self._store.record_usage(record)
 
-    def get_partner_stats(self, partner_id: str, days: int = 30) -> Dict[str, Any]:
+    def get_partner_stats(self, partner_id: str, days: int = 30) -> dict[str, Any]:
         """Get partner statistics."""
         from datetime import timedelta
 
@@ -790,10 +779,8 @@ class PartnerAPI:
 
         return hmac.compare_digest(f"v1={expected}", signature)
 
-
 # Singleton instance
-_partner_api: Optional[PartnerAPI] = None
-
+_partner_api: PartnerAPI | None = None
 
 def get_partner_api() -> PartnerAPI:
     """Get or create the partner API singleton."""

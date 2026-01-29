@@ -4,6 +4,7 @@ Argument Cartographer - builds directed graphs of debate logic in real-time.
 This is a pure observer that reads debate events and constructs a graph
 representation. It never modifies debate state or agent prompts.
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -12,10 +13,9 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class NodeType(Enum):
     """Types of argument nodes in the debate graph."""
@@ -28,7 +28,6 @@ class NodeType(Enum):
     VOTE = "vote"
     CONSENSUS = "consensus"
 
-
 class EdgeRelation(Enum):
     """Types of logical relationships between arguments."""
 
@@ -37,7 +36,6 @@ class EdgeRelation(Enum):
     MODIFIES = "modifies"
     RESPONDS_TO = "responds_to"
     CONCEDES_TO = "concedes_to"
-
 
 @dataclass
 class ArgumentNode:
@@ -49,10 +47,10 @@ class ArgumentNode:
     summary: str  # First 100 chars or extracted claim
     round_num: int
     timestamp: float
-    full_content: Optional[str] = None  # Store full text for detailed views
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    full_content: str | None = None  # Store full text for detailed views
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "id": self.id,
@@ -64,7 +62,6 @@ class ArgumentNode:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ArgumentEdge:
     """An edge representing a logical relationship between arguments."""
@@ -73,9 +70,9 @@ class ArgumentEdge:
     target_id: str
     relation: EdgeRelation
     weight: float = 1.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "source_id": self.source_id,
@@ -84,7 +81,6 @@ class ArgumentEdge:
             "weight": self.weight,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class ArgumentCartographer:
@@ -95,15 +91,15 @@ class ArgumentCartographer:
     but never modifies debate state, prompts, or other core systems.
     """
 
-    nodes: Dict[str, ArgumentNode] = field(default_factory=dict)
-    edges: List[ArgumentEdge] = field(default_factory=list)
-    debate_id: Optional[str] = None
-    topic: Optional[str] = None
+    nodes: dict[str, ArgumentNode] = field(default_factory=dict)
+    edges: list[ArgumentEdge] = field(default_factory=list)
+    debate_id: str | None = None
+    topic: str | None = None
 
     # Internal tracking for graph construction
-    _last_proposal_id: Optional[str] = None
-    _agent_last_node: Dict[str, str] = field(default_factory=dict)
-    _round_proposals: Dict[int, str] = field(default_factory=dict)
+    _last_proposal_id: str | None = None
+    _agent_last_node: dict[str, str] = field(default_factory=dict)
+    _round_proposals: dict[int, str] = field(default_factory=dict)
 
     def set_debate_context(self, debate_id: str, topic: str) -> None:
         """Set the debate context for this cartographer instance."""
@@ -116,7 +112,7 @@ class ArgumentCartographer:
         content: str,
         role: str,
         round_num: int,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Process a debate message and update the graph.
@@ -153,8 +149,8 @@ class ArgumentCartographer:
         target_agent: str,
         severity: float,
         round_num: int,
-        critique_text: Optional[str] = None,
-    ) -> Optional[str]:
+        critique_text: str | None = None,
+    ) -> str | None:
         """
         Record a critique relationship between agents.
 
@@ -213,7 +209,7 @@ class ArgumentCartographer:
         return node_id
 
     def update_from_consensus(
-        self, result: str, round_num: int, vote_counts: Optional[Dict[str, int]] = None
+        self, result: str, round_num: int, vote_counts: Optional[dict[str, int]] = None
     ) -> str:
         """Record the consensus outcome."""
         node_id = f"consensus_{round_num}"
@@ -266,7 +262,7 @@ class ArgumentCartographer:
         lines.append("")
 
         # Group nodes by round for subgraphs
-        rounds: Dict[int, List[str]] = {}
+        rounds: dict[int, list[str]] = {}
         for nid, node in self.nodes.items():
             rounds.setdefault(node.round_num, []).append(nid)
 
@@ -326,7 +322,7 @@ class ArgumentCartographer:
             default=str,
         )
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get summary statistics about the argument graph.
 
         Returns stats matching the frontend GraphStats interface:
@@ -392,7 +388,7 @@ class ArgumentCartographer:
             return 0
 
         # Build adjacency list for traversal
-        children: Dict[str, List[str]] = {node_id: [] for node_id in self.nodes}
+        children: dict[str, list[str]] = {node_id: [] for node_id in self.nodes}
         has_parent = set()
         for edge in self.edges:
             if edge.source_id in children:

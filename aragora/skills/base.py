@@ -43,11 +43,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypeVar, Generic
+from typing import Any, Optional, TypeVar, Generic
 import uuid
 
 logger = logging.getLogger(__name__)
-
 
 class SkillCapability(str, Enum):
     """Capabilities a skill can declare."""
@@ -80,7 +79,6 @@ class SkillCapability(str, Enum):
     SYSTEM_INFO = "system_info"  # Access system information
     NETWORK = "network"  # Network operations
 
-
 class SkillStatus(str, Enum):
     """Status of a skill execution."""
 
@@ -92,7 +90,6 @@ class SkillStatus(str, Enum):
     PERMISSION_DENIED = "permission_denied"
     INVALID_INPUT = "invalid_input"
     NOT_IMPLEMENTED = "not_implemented"
-
 
 @dataclass
 class SkillManifest:
@@ -108,32 +105,32 @@ class SkillManifest:
 
     name: str
     version: str
-    capabilities: List[SkillCapability]
-    input_schema: Dict[str, Any]  # JSON Schema for input validation
+    capabilities: list[SkillCapability]
+    input_schema: dict[str, Any]  # JSON Schema for input validation
 
     # Optional metadata
     description: str = ""
     author: str = ""
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     # Requirements
-    required_permissions: List[str] = field(default_factory=list)
-    required_env_vars: List[str] = field(default_factory=list)
-    required_packages: List[str] = field(default_factory=list)
+    required_permissions: list[str] = field(default_factory=list)
+    required_env_vars: list[str] = field(default_factory=list)
+    required_packages: list[str] = field(default_factory=list)
 
     # Execution constraints
     max_execution_time_seconds: float = 60.0
     max_retries: int = 3
-    rate_limit_per_minute: Optional[int] = None
+    rate_limit_per_minute: int | None = None
 
     # Debate integration
     debate_compatible: bool = True  # Can be used during debates
     requires_debate_context: bool = False  # Needs active debate context
 
     # Output schema (optional, for structured outputs)
-    output_schema: Optional[Dict[str, Any]] = None
+    output_schema: Optional[dict[str, Any]] = None
 
-    def to_function_schema(self) -> Dict[str, Any]:
+    def to_function_schema(self) -> dict[str, Any]:
         """
         Convert manifest to LLM function calling schema.
 
@@ -153,7 +150,7 @@ class SkillManifest:
             },
         }
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize manifest to dictionary."""
         return {
             "name": self.name,
@@ -175,7 +172,7 @@ class SkillManifest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SkillManifest":
+    def from_dict(cls, data: dict[str, Any]) -> "SkillManifest":
         """Deserialize manifest from dictionary."""
         capabilities = [
             SkillCapability(c) if isinstance(c, str) else c for c in data.get("capabilities", [])
@@ -199,9 +196,7 @@ class SkillManifest:
             output_schema=data.get("output_schema"),
         )
 
-
 T = TypeVar("T")
-
 
 @dataclass
 class SkillResult(Generic[T]):
@@ -213,22 +208,22 @@ class SkillResult(Generic[T]):
     """
 
     status: SkillStatus
-    data: Optional[T] = None
-    error_message: Optional[str] = None
-    error_code: Optional[str] = None
+    data: T | None = None
+    error_message: str | None = None
+    error_code: str | None = None
 
     # Timing
     execution_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    warnings: List[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
 
     # Usage tracking
-    tokens_used: Optional[int] = None
-    cost_estimate: Optional[float] = None
+    tokens_used: int | None = None
+    cost_estimate: float | None = None
 
     @property
     def success(self) -> bool:
@@ -236,7 +231,7 @@ class SkillResult(Generic[T]):
         return self.status == SkillStatus.SUCCESS
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Get execution duration in seconds."""
         if self.started_at and self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()
@@ -256,7 +251,7 @@ class SkillResult(Generic[T]):
     def create_failure(
         cls,
         error_message: str,
-        error_code: Optional[str] = None,
+        error_code: str | None = None,
         status: SkillStatus = SkillStatus.FAILURE,
         **metadata: Any,
     ) -> "SkillResult[T]":
@@ -288,7 +283,7 @@ class SkillResult(Generic[T]):
             completed_at=datetime.now(timezone.utc),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize result to dictionary."""
         return {
             "status": self.status.value,
@@ -305,7 +300,6 @@ class SkillResult(Generic[T]):
             "cost_estimate": self.cost_estimate,
         }
 
-
 @dataclass
 class SkillContext:
     """
@@ -319,41 +313,40 @@ class SkillContext:
     """
 
     # Identity
-    user_id: Optional[str] = None
-    tenant_id: Optional[str] = None
-    session_id: Optional[str] = None
+    user_id: str | None = None
+    tenant_id: str | None = None
+    session_id: str | None = None
 
     # Permissions
-    permissions: List[str] = field(default_factory=list)
+    permissions: list[str] = field(default_factory=list)
 
     # Debate context (if invoked during debate)
-    debate_id: Optional[str] = None
-    debate_context: Optional[Dict[str, Any]] = None
-    agent_name: Optional[str] = None
+    debate_id: str | None = None
+    debate_context: Optional[dict[str, Any]] = None
+    agent_name: str | None = None
 
     # Environment
     environment: str = "development"  # development, staging, production
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
 
     # Previous results (for skill chaining)
-    previous_results: Dict[str, SkillResult] = field(default_factory=dict)
+    previous_results: dict[str, SkillResult] = field(default_factory=dict)
 
     # Request metadata
-    request_id: Optional[str] = None
-    correlation_id: Optional[str] = None
+    request_id: str | None = None
+    correlation_id: str | None = None
 
     def has_permission(self, permission: str) -> bool:
         """Check if context has a specific permission."""
         return permission in self.permissions
 
-    def has_all_permissions(self, permissions: List[str]) -> bool:
+    def has_all_permissions(self, permissions: list[str]) -> bool:
         """Check if context has all specified permissions."""
         return all(p in self.permissions for p in permissions)
 
     def get_config(self, key: str, default: Any = None) -> Any:
         """Get a configuration value."""
         return self.config.get(key, default)
-
 
 class Skill(ABC):
     """
@@ -375,7 +368,7 @@ class Skill(ABC):
     @abstractmethod
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         """
@@ -390,7 +383,7 @@ class Skill(ABC):
         """
         raise NotImplementedError
 
-    async def validate_input(self, input_data: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+    async def validate_input(self, input_data: dict[str, Any]) -> tuple[bool, str | None]:
         """
         Validate input against the manifest's input schema.
 
@@ -424,7 +417,7 @@ class Skill(ABC):
 
         return True, None
 
-    async def check_permissions(self, context: SkillContext) -> tuple[bool, Optional[str]]:
+    async def check_permissions(self, context: SkillContext) -> tuple[bool, str | None]:
         """
         Check if context has required permissions.
 
@@ -439,7 +432,6 @@ class Skill(ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.manifest.name})"
 
-
 class SyncSkill(Skill):
     """
     Base class for synchronous skills.
@@ -450,7 +442,7 @@ class SyncSkill(Skill):
     @abstractmethod
     def execute_sync(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         """Synchronous execution method."""
@@ -458,7 +450,7 @@ class SyncSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         """Wrap sync execution in async."""

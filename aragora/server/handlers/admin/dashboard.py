@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
 
@@ -31,7 +31,6 @@ _dashboard_limiter = RateLimiter(requests_per_minute=60)
 
 # Permission required for dashboard access
 DASHBOARD_PERMISSION = "dashboard.read"
-
 
 class DashboardHandler(SecureHandler):
     """Handler for dashboard endpoint.
@@ -81,7 +80,7 @@ class DashboardHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route dashboard requests to appropriate methods with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -176,7 +175,7 @@ class DashboardHandler(SecureHandler):
 
     async def handle_post(  # type: ignore[override]
         self, path: str, body: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle dashboard write actions (stub)."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -219,7 +218,7 @@ class DashboardHandler(SecureHandler):
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_debates", skip_first=True
     )
     def _get_debates_dashboard(
-        self, domain: Optional[str], limit: int, hours: int
+        self, domain: str | None, limit: int, hours: int
     ) -> HandlerResult:
         """Get consolidated debate metrics for dashboard.
 
@@ -283,7 +282,7 @@ class DashboardHandler(SecureHandler):
         return json_response(result)
 
     def _process_debates_single_pass(
-        self, debates: list, domain: Optional[str], hours: int
+        self, debates: list, domain: str | None, hours: int
     ) -> tuple[dict, dict, dict]:
         """Process all debate metrics in a single pass through the data.
 
@@ -403,7 +402,7 @@ class DashboardHandler(SecureHandler):
             activity["consensus_last_period"] = recent_consensus
             activity["domains_active"] = list(domain_counts.keys())[:10]
             if domain_counts:
-                activity["most_active_domain"] = max(domain_counts, key=domain_counts.get)
+                activity["most_active_domain"] = max(domain_counts, key=lambda k: domain_counts[k])
 
             # Build patterns
             patterns["disagreement_stats"]["with_disagreements"] = with_disagreement
@@ -424,7 +423,7 @@ class DashboardHandler(SecureHandler):
         )
         return summary, activity, patterns
 
-    def _get_summary_metrics_sql(self, storage, domain: Optional[str]) -> dict:
+    def _get_summary_metrics_sql(self, storage, domain: str | None) -> dict:
         """Get summary metrics using SQL aggregation (O(1) memory)."""
         summary = {
             "total_debates": 0,
@@ -492,7 +491,7 @@ class DashboardHandler(SecureHandler):
 
         return activity
 
-    def _get_summary_metrics(self, domain: Optional[str], debates: list) -> dict:
+    def _get_summary_metrics(self, domain: str | None, debates: list) -> dict:
         """Get high-level summary metrics (legacy, kept for compatibility)."""
         summary = {
             "total_debates": 0,
@@ -521,7 +520,7 @@ class DashboardHandler(SecureHandler):
 
         return summary
 
-    def _get_recent_activity(self, domain: Optional[str], hours: int, debates: list) -> dict:
+    def _get_recent_activity(self, domain: str | None, hours: int, debates: list) -> dict:
         """Get recent debate activity metrics."""
         activity = {
             "debates_last_period": 0,
@@ -559,7 +558,7 @@ class DashboardHandler(SecureHandler):
                 activity["domains_active"] = list(domain_counts.keys())[:10]
 
                 if domain_counts:
-                    activity["most_active_domain"] = max(domain_counts, key=domain_counts.get)
+                    activity["most_active_domain"] = max(domain_counts, key=lambda k: domain_counts[k])
         except Exception as e:
             logger.warning("Recent activity error: %s: %s", type(e).__name__, e)
 
@@ -653,7 +652,7 @@ class DashboardHandler(SecureHandler):
 
         return patterns
 
-    def _get_consensus_insights(self, domain: Optional[str]) -> dict:
+    def _get_consensus_insights(self, domain: str | None) -> dict:
         """Get consensus memory insights."""
         insights = {
             "total_consensus_topics": 0,

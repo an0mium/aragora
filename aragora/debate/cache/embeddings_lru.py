@@ -16,17 +16,16 @@ MIGRATION NOTE:
     New code should use aragora.core.embeddings for embedding operations.
     This module remains for numpy-specific caching in convergence detection.
 """
+from __future__ import annotations
 
 import hashlib
 import logging
 import threading
 from collections import OrderedDict
-from typing import Optional
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 class EmbeddingCache:
     """
@@ -45,7 +44,7 @@ class EmbeddingCache:
         self,
         max_size: int = 1024,
         persist: bool = False,
-        db_path: Optional[str] = None,
+        db_path: str | None = None,
     ):
         """
         Initialize embedding cache.
@@ -68,7 +67,7 @@ class EmbeddingCache:
         """Generate hash key for text."""
         return hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]
 
-    def get(self, text: str) -> Optional[np.ndarray]:
+    def get(self, text: str) -> np.ndarray | None:
         """Get embedding from cache."""
         key = self._hash_text(text)
 
@@ -112,7 +111,7 @@ class EmbeddingCache:
             self._cache.move_to_end(key)
         self._cache[key] = embedding
 
-    def _load_from_db(self, key: str) -> Optional[np.ndarray]:
+    def _load_from_db(self, key: str) -> np.ndarray | None:
         """Load embedding from database."""
         if not self.db_path:
             return None
@@ -186,7 +185,6 @@ class EmbeddingCache:
             self._hits = 0
             self._misses = 0
 
-
 class EmbeddingCacheManager:
     """
     Manager for per-debate embedding caches.
@@ -201,13 +199,13 @@ class EmbeddingCacheManager:
         self._lock = threading.Lock()
         self._default_max_size = 1024
         self._default_persist = False
-        self._default_db_path: Optional[str] = None
+        self._default_db_path: str | None = None
 
     def configure(
         self,
         max_size: int = 1024,
         persist: bool = False,
-        db_path: Optional[str] = None,
+        db_path: str | None = None,
     ) -> None:
         """Configure default settings for new caches."""
         with self._lock:
@@ -277,14 +275,12 @@ class EmbeddingCacheManager:
                 cache.clear()
             self._caches.clear()
 
-
 # Global cache manager instance
 _cache_manager = EmbeddingCacheManager()
 
 # Legacy: Global embedding cache instance (deprecated, use get_scoped_embedding_cache)
-_embedding_cache: Optional[EmbeddingCache] = None
+_embedding_cache: EmbeddingCache | None = None
 _embedding_cache_lock = threading.Lock()
-
 
 def get_scoped_embedding_cache(debate_id: str) -> EmbeddingCache:
     """
@@ -301,7 +297,6 @@ def get_scoped_embedding_cache(debate_id: str) -> EmbeddingCache:
     """
     return _cache_manager.get_cache(debate_id)
 
-
 def cleanup_embedding_cache(debate_id: str) -> None:
     """
     Cleanup embedding cache for a completed debate.
@@ -313,11 +308,10 @@ def cleanup_embedding_cache(debate_id: str) -> None:
     """
     _cache_manager.cleanup(debate_id)
 
-
 def get_embedding_cache(
     max_size: int = 1024,
     persist: bool = False,
-    db_path: Optional[str] = None,
+    db_path: str | None = None,
 ) -> EmbeddingCache:
     """
     Get or create global embedding cache.
@@ -358,7 +352,6 @@ def get_embedding_cache(
 
         return _embedding_cache
 
-
 def reset_embedding_cache() -> None:
     """Reset the global embedding cache (for testing)."""
     global _embedding_cache
@@ -368,7 +361,6 @@ def reset_embedding_cache() -> None:
         _embedding_cache = None
     # Also clear manager caches
     _cache_manager.clear_all()
-
 
 __all__ = [
     "EmbeddingCache",

@@ -16,7 +16,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -36,7 +36,6 @@ logger = logging.getLogger(__name__)
 # Batch Export Types
 # =============================================================================
 
-
 class BatchExportStatus(Enum):
     """Status of a batch export job."""
 
@@ -46,7 +45,6 @@ class BatchExportStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-
 @dataclass
 class BatchExportItem:
     """Single item in a batch export."""
@@ -54,21 +52,20 @@ class BatchExportItem:
     debate_id: str
     format: str
     status: BatchExportStatus = BatchExportStatus.PENDING
-    result: Optional[str] = None
-    error: Optional[str] = None
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
-
+    result: str | None = None
+    error: str | None = None
+    started_at: float | None = None
+    completed_at: float | None = None
 
 @dataclass
 class BatchExportJob:
     """Batch export job tracking."""
 
     job_id: str
-    items: List[BatchExportItem]
+    items: list[BatchExportItem]
     status: BatchExportStatus = BatchExportStatus.PENDING
     created_at: float = field(default_factory=time.time)
-    completed_at: Optional[float] = None
+    completed_at: float | None = None
     processed_count: int = 0
     success_count: int = 0
     error_count: int = 0
@@ -83,7 +80,7 @@ class BatchExportJob:
             return 100.0
         return (self.processed_count / self.total_count) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "job_id": self.job_id,
             "status": self.status.value,
@@ -96,11 +93,9 @@ class BatchExportJob:
             "completed_at": self.completed_at,
         }
 
-
 # In-memory job storage (production would use Redis)
-_batch_export_jobs: Dict[str, BatchExportJob] = {}
-_batch_export_events: Dict[str, asyncio.Queue] = {}
-
+_batch_export_jobs: dict[str, BatchExportJob] = {}
+_batch_export_events: dict[str, asyncio.Queue] = {}
 
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by ExportOperationsMixin.
@@ -109,12 +104,11 @@ class _DebatesHandlerProtocol(Protocol):
     expect to be mixed into a class providing these methods/attributes.
     """
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
-    def get_storage(self) -> Optional[Any]:
+    def get_storage(self) -> Any | None:
         """Get debate storage instance."""
         ...
-
 
 class ExportOperationsMixin:
     """Mixin providing export formatting operations for DebatesHandler."""
@@ -122,7 +116,7 @@ class ExportOperationsMixin:
     def _start_batch_export(
         self: _DebatesHandlerProtocol,
         handler: Any,
-        debate_ids: List[str],
+        debate_ids: list[str],
         format: str,
     ) -> HandlerResult:
         """
@@ -193,13 +187,31 @@ class ExportOperationsMixin:
             )
             return
 
+        # Pre-fetch all debates in a single batch query to avoid N+1 pattern
+        debate_ids = [item.debate_id for item in job.items]
+        debates_map: dict[str, dict | None] = {}
+        try:
+            if hasattr(storage, "get_debates_batch"):
+                debates_map = storage.get_debates_batch(debate_ids)
+            else:
+                # Fallback for storage backends without batch support
+                for debate_id in debate_ids:
+                    debates_map[debate_id] = storage.get_debate(debate_id)
+        except Exception as e:
+            logger.warning(f"Batch fetch failed, falling back to individual queries: {e}")
+            for debate_id in debate_ids:
+                try:
+                    debates_map[debate_id] = storage.get_debate(debate_id)
+                except Exception:
+                    debates_map[debate_id] = None
+
         for i, item in enumerate(job.items):
             try:
                 item.status = BatchExportStatus.PROCESSING
                 item.started_at = time.time()
 
-                # Export the debate
-                debate = storage.get_debate(item.debate_id)
+                # Use pre-fetched debate data
+                debate = debates_map.get(item.debate_id)
                 if not debate:
                     item.status = BatchExportStatus.FAILED
                     item.error = f"Debate not found: {item.debate_id}"
@@ -272,7 +284,7 @@ class ExportOperationsMixin:
             return json.dumps(debate, indent=2, default=str)
 
     async def _emit_export_event(
-        self: _DebatesHandlerProtocol, job_id: str, event_type: str, data: Dict[str, Any]
+        self: _DebatesHandlerProtocol, job_id: str, event_type: str, data: dict[str, Any]
     ) -> None:
         """Emit an event to all connected SSE clients."""
         queue = _batch_export_events.get(job_id)
@@ -453,7 +465,6 @@ class ExportOperationsMixin:
             logger.warning("Export failed for %s - invalid format: %s", debate_id, e)
             return error_response(f"Invalid export format: {e}", 400)
 
-
 def _format_csv(debate: dict, table: str) -> HandlerResult:
     """Format debate as CSV for the specified table type."""
     from aragora.server.debate_export import format_debate_csv
@@ -465,7 +476,6 @@ def _format_csv(debate: dict, table: str) -> HandlerResult:
         body=result.content,
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
-
 
 def _format_html(debate: dict) -> HandlerResult:
     """Format debate as standalone HTML page."""
@@ -479,7 +489,6 @@ def _format_html(debate: dict) -> HandlerResult:
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
 
-
 def _format_txt(debate: dict) -> HandlerResult:
     """Format debate as plain text transcript."""
     from aragora.server.debate_export import format_debate_txt
@@ -491,7 +500,6 @@ def _format_txt(debate: dict) -> HandlerResult:
         body=result.content,
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
-
 
 def _format_md(debate: dict) -> HandlerResult:
     """Format debate as Markdown transcript."""
@@ -505,7 +513,6 @@ def _format_md(debate: dict) -> HandlerResult:
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
 
-
 def _format_latex(debate: dict) -> HandlerResult:
     """Format debate as LaTeX document."""
     from aragora.server.debate_export import format_debate_latex
@@ -517,6 +524,5 @@ def _format_latex(debate: dict) -> HandlerResult:
         body=result.content,
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
-
 
 __all__ = ["ExportOperationsMixin"]

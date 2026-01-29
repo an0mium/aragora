@@ -3,18 +3,18 @@ Replay Reader for loading and navigating debate recordings.
 
 Provides filtering, seeking, and integrity validation for replay data.
 """
+from __future__ import annotations
 
 import hashlib
 import json
 import logging
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Iterator, Optional
 
 from .schema import ReplayEvent, ReplayMeta
 
 logger = logging.getLogger(__name__)
-
 
 class ReplayReader:
     """
@@ -53,9 +53,9 @@ class ReplayReader:
         self.session_dir = Path(session_dir)
         self.meta_path = self.session_dir / "meta.json"
         self.events_path = self.session_dir / "events.jsonl"
-        self.meta: Optional[ReplayMeta] = None
-        self._load_error: Optional[str] = None
-        self._event_index: Optional[List[Tuple[int, int, str]]] = (
+        self.meta: ReplayMeta | None = None
+        self._load_error: str | None = None
+        self._event_index: Optional[list[tuple[int, int, str]]] = (
             None  # (offset_ms, file_pos, event_id)
         )
 
@@ -82,7 +82,7 @@ class ReplayReader:
         return self._load_error is None and self.meta is not None
 
     @property
-    def load_error(self) -> Optional[str]:
+    def load_error(self) -> str | None:
         """Get the load error message if any."""
         return self._load_error
 
@@ -126,7 +126,7 @@ class ReplayReader:
             if event.event_type == event_type:
                 yield event
 
-    def filter_by_types(self, event_types: Set[str]) -> Iterator[ReplayEvent]:
+    def filter_by_types(self, event_types: set[str]) -> Iterator[ReplayEvent]:
         """
         Filter events by multiple event types.
 
@@ -154,7 +154,7 @@ class ReplayReader:
             if event.source == agent_id:
                 yield event
 
-    def filter_by_agents(self, agent_ids: Set[str]) -> Iterator[ReplayEvent]:
+    def filter_by_agents(self, agent_ids: set[str]) -> Iterator[ReplayEvent]:
         """
         Filter events by multiple agents.
 
@@ -237,7 +237,7 @@ class ReplayReader:
             elif event.offset_ms > end_ms:
                 break  # Events are chronological, no need to continue
 
-    def get_event_by_id(self, event_id: str) -> Optional[ReplayEvent]:
+    def get_event_by_id(self, event_id: str) -> ReplayEvent | None:
         """
         Get a specific event by ID.
 
@@ -263,7 +263,7 @@ class ReplayReader:
             return self.meta.event_count
         return sum(1 for _ in self.iter_events())
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get statistics about the replay.
 
@@ -275,8 +275,8 @@ class ReplayReader:
             - agents: Count by agent/source
             - events_per_second: Average events per second
         """
-        event_types: Dict[str, int] = {}
-        agents: Dict[str, int] = {}
+        event_types: dict[str, int] = {}
+        agents: dict[str, int] = {}
         total_events = 0
         min_offset = float("inf")
         max_offset = 0
@@ -301,7 +301,7 @@ class ReplayReader:
             "last_offset_ms": max_offset,
         }
 
-    def validate_integrity(self) -> Tuple[bool, List[str]]:
+    def validate_integrity(self) -> tuple[bool, list[str]]:
         """
         Validate the integrity of the replay data.
 
@@ -315,7 +315,7 @@ class ReplayReader:
         Returns:
             Tuple of (is_valid, list of error messages)
         """
-        errors: List[str] = []
+        errors: list[str] = []
 
         # Check metadata
         if not self.meta_path.exists():
@@ -329,7 +329,7 @@ class ReplayReader:
             return len(errors) == 0, errors
 
         # Validate events
-        seen_ids: Set[str] = set()
+        seen_ids: set[str] = set()
         last_offset = -1
         line_num = 0
 
@@ -401,7 +401,7 @@ class ReplayReader:
             logger.error(f"Failed to compute checksum: {e}")
             return ""
 
-    def to_bundle(self) -> Dict[str, Any]:
+    def to_bundle(self) -> dict[str, Any]:
         """
         Export the complete replay as a single dictionary.
 

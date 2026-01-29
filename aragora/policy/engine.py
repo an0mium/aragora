@@ -41,7 +41,7 @@ import operator
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Optional, Union
+from typing import Callable
 
 from aragora.policy.risk import RiskBudget
 from aragora.policy.tools import ToolRegistry, get_tool_registry
@@ -61,7 +61,6 @@ _SAFE_COMPARISON_OPS: dict[type, Callable] = {
     ast.NotIn: lambda a, b: a not in b,
 }
 
-
 class PolicyDecision(Enum):
     """The outcome of a policy check."""
 
@@ -69,7 +68,6 @@ class PolicyDecision(Enum):
     DENY = "deny"  # Action is forbidden
     ESCALATE = "escalate"  # Requires human approval
     BUDGET_EXCEEDED = "budget_exceeded"  # Risk budget exceeded
-
 
 @dataclass
 class PolicyResult:
@@ -96,14 +94,12 @@ class PolicyResult:
     # Timestamps
     checked_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
-
 class PolicyViolation(Exception):
     """Raised when a policy check fails."""
 
     def __init__(self, result: PolicyResult):
         self.result = result
         super().__init__(f"Policy violation: {result.reason}")
-
 
 @dataclass
 class Policy:
@@ -133,8 +129,8 @@ class Policy:
     conditions: list[str] = field(default_factory=list)
 
     # Rate limiting
-    max_uses_per_minute: Optional[int] = None
-    max_uses_per_session: Optional[int] = None
+    max_uses_per_minute: int | None = None
+    max_uses_per_session: int | None = None
 
     # Priority (higher = evaluated first)
     priority: int = 0
@@ -198,7 +194,7 @@ class Policy:
 
     def _eval_node(
         self, node: ast.AST, context: dict
-    ) -> Union[bool, int, float, str, list, tuple, None]:
+    ) -> bool | int | float | str | list | tuple | None:
         """Recursively evaluate AST nodes safely.
 
         Explicitly blocks:
@@ -264,7 +260,6 @@ class Policy:
 
         raise ValueError(f"Unsupported node type: {type(node).__name__}")
 
-
 class PolicyEngine:
     """The policy enforcement engine.
 
@@ -274,8 +269,8 @@ class PolicyEngine:
 
     def __init__(
         self,
-        tool_registry: Optional[ToolRegistry] = None,
-        default_budget: Optional[RiskBudget] = None,
+        tool_registry: ToolRegistry | None = None,
+        default_budget: RiskBudget | None = None,
     ):
         self.tool_registry = tool_registry or get_tool_registry()
         self.policies: list[Policy] = []
@@ -320,7 +315,7 @@ class PolicyEngine:
         agent: str,
         tool: str,
         capability: str,
-        context: Optional[dict] = None,
+        context: dict | None = None,
         session_id: str = "default",
     ) -> PolicyResult:
         """Check if an action is allowed by policy.
@@ -492,7 +487,7 @@ class PolicyEngine:
         tool: str,
         capability: str,
         success: bool,
-        context: Optional[dict] = None,
+        context: dict | None = None,
         session_id: str = "default",
     ) -> None:
         """Record that an action was taken (for auditing)."""
@@ -537,7 +532,6 @@ class PolicyEngine:
             "actions": budget.actions,
         }
 
-
 # Default policies for common scenarios
 DEFAULT_POLICIES = [
     Policy(
@@ -568,14 +562,12 @@ DEFAULT_POLICIES = [
     ),
 ]
 
-
 def create_default_engine() -> PolicyEngine:
     """Create a policy engine with default policies."""
     engine = PolicyEngine()
     for policy in DEFAULT_POLICIES:
         engine.add_policy(policy)
     return engine
-
 
 __all__ = [
     "PolicyDecision",

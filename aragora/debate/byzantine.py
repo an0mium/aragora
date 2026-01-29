@@ -53,7 +53,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ByzantinePhase(str, Enum):
     """Phases of PBFT consensus."""
 
@@ -63,7 +62,6 @@ class ByzantinePhase(str, Enum):
     REPLY = "reply"  # Final confirmation
     VIEW_CHANGE = "view_change"  # Leader failure recovery
 
-
 class ViewChangeReason(str, Enum):
     """Reasons for triggering a view change."""
 
@@ -71,7 +69,6 @@ class ViewChangeReason(str, Enum):
     LEADER_FAILURE = "leader_failure"
     INVALID_PROPOSAL = "invalid_proposal"
     CONSENSUS_STALL = "consensus_stall"
-
 
 @dataclass
 class ByzantineMessage:
@@ -82,14 +79,13 @@ class ByzantineMessage:
     sequence: int
     sender: str
     proposal_hash: str
-    proposal: Optional[str] = None  # Only included in PRE_PREPARE
+    proposal: str | None = None  # Only included in PRE_PREPARE
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def compute_hash(self) -> str:
         """Compute message hash for verification."""
         content = f"{self.phase.value}:{self.view}:{self.sequence}:{self.proposal_hash}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
-
 
 @dataclass
 class ByzantineConsensusConfig:
@@ -109,19 +105,18 @@ class ByzantineConsensusConfig:
     max_view_changes: int = 3
     max_retries_per_phase: int = 2
 
-
 @dataclass
 class ByzantineConsensusResult:
     """Result of Byzantine consensus attempt."""
 
     success: bool
-    value: Optional[str] = None
+    value: str | None = None
     confidence: float = 0.0
     view: int = 0
     sequence: int = 0
     commit_count: int = 0
     total_agents: int = 0
-    failure_reason: Optional[str] = None
+    failure_reason: str | None = None
     duration_seconds: float = 0.0
     agent_votes: dict[str, str] = field(default_factory=dict)  # agent -> vote hash
 
@@ -129,7 +124,6 @@ class ByzantineConsensusResult:
     def agreement_ratio(self) -> float:
         """Ratio of agents that committed."""
         return self.commit_count / self.total_agents if self.total_agents > 0 else 0.0
-
 
 @dataclass
 class ByzantineConsensus:
@@ -290,7 +284,7 @@ class ByzantineConsensus:
         """
         self._prepare_votes[pre_prepare.proposal_hash] = set()
 
-        async def get_prepare_vote(agent: "Agent") -> Optional[str]:
+        async def get_prepare_vote(agent: "Agent") -> str | None:
             try:
                 prompt = self._build_prepare_prompt(pre_prepare, task)
                 response = await asyncio.wait_for(
@@ -333,7 +327,7 @@ class ByzantineConsensus:
         """
         self._commit_votes[pre_prepare.proposal_hash] = set()
 
-        async def get_commit_vote(agent: "Agent") -> Optional[str]:
+        async def get_commit_vote(agent: "Agent") -> str | None:
             try:
                 prompt = self._build_commit_prompt(pre_prepare, prepare_votes, task)
                 response = await asyncio.wait_for(
@@ -440,12 +434,10 @@ REASONING: [Your brief reasoning]"""
         """Compute deterministic hash of proposal."""
         return hashlib.sha256(proposal.encode()).hexdigest()[:16]
 
-
 class ConsensusFailure(Exception):
     """Exception raised when consensus fails."""
 
     pass
-
 
 async def verify_with_byzantine_consensus(
     proposal: str,

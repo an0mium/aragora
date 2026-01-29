@@ -7,16 +7,15 @@ Document stress-testing with adversarial AI.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def run_gauntlet_tool(
     content: str,
     content_type: str = "spec",
     profile: str = "quick",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Run gauntlet stress-test on content.
 
@@ -73,6 +72,5 @@ async def run_gauntlet_tool(
         "content_type": content_type,
         "profile": profile,
     }
-
 
 __all__ = ["run_gauntlet_tool"]

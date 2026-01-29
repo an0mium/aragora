@@ -5,11 +5,12 @@ When debates hit unresolved tensions, spawns recursive sub-debates with
 evolved specialist agents to resolve specific points, then synthesizes
 results back into the parent debate.
 """
+from __future__ import annotations
 
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.consensus import UnresolvedTension
@@ -19,7 +20,6 @@ from aragora.genesis.genome import AgentGenome, GenomeStore
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class SubDebateResult:
     """Result from a sub-debate spawned to resolve a tension."""
@@ -27,12 +27,11 @@ class SubDebateResult:
     debate_id: str
     parent_debate_id: str
     tension: UnresolvedTension
-    result: Optional[DebateResult]
+    result: DebateResult | None
     specialist_genomes: list[AgentGenome]
     depth: int
     resolution: str  # Summary of how the tension was resolved
     success: bool  # Whether the sub-debate reached consensus
-
 
 @dataclass
 class FractalResult:
@@ -77,7 +76,6 @@ class FractalResult:
         """Get all debate IDs in the tree."""
         return [self.root_debate_id] + [sd.debate_id for sd in self.sub_debates]
 
-
 class FractalOrchestrator:
     """
     Orchestrates fractal debates with recursive sub-debate spawning.
@@ -93,8 +91,8 @@ class FractalOrchestrator:
         tension_threshold: float = 0.7,
         timeout_inheritance: float = 0.5,
         evolve_agents: bool = True,
-        population_manager: Optional[PopulationManager] = None,
-        event_hooks: Optional[Dict[Any, Any]] = None,
+        population_manager: PopulationManager | None = None,
+        event_hooks: Optional[dict[Any, Any]] = None,
     ):
         """
         Args:
@@ -122,10 +120,10 @@ class FractalOrchestrator:
         self,
         task: str,
         agents: list[Agent],
-        population: Optional[Population] = None,
+        population: Population | None = None,
         depth: int = 0,
-        parent_debate_id: Optional[str] = None,
-        timeout: Optional[float] = None,
+        parent_debate_id: str | None = None,
+        timeout: float | None = None,
     ) -> FractalResult:
         """
         Run a fractal debate, spawning sub-debates as needed.
@@ -235,7 +233,7 @@ class FractalOrchestrator:
         parent_debate_id: str,
         population: Population,
         depth: int,
-        timeout: Optional[float],
+        timeout: float | None,
     ) -> SubDebateResult:
         """Spawn a sub-debate to resolve a specific tension."""
         sub_debate_id = f"{parent_debate_id}-sub-{str(uuid.uuid4())[:4]}"

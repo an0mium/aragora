@@ -25,17 +25,17 @@ Usage:
     # Get current mayor info
     mayor_info = coordinator.get_mayor_info()
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 from aragora.nomic.agent_roles import AgentHierarchy, AgentRole
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class MayorInfo:
@@ -44,10 +44,10 @@ class MayorInfo:
     node_id: str
     agent_id: str
     became_mayor_at: datetime
-    region: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    region: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "node_id": self.node_id,
@@ -56,7 +56,6 @@ class MayorInfo:
             "region": self.region,
             "metadata": self.metadata,
         }
-
 
 class MayorCoordinator:
     """
@@ -69,8 +68,8 @@ class MayorCoordinator:
     def __init__(
         self,
         hierarchy: AgentHierarchy,
-        node_id: Optional[str] = None,
-        region: Optional[str] = None,
+        node_id: str | None = None,
+        region: str | None = None,
         on_become_mayor: Optional[Callable[[], Any]] = None,
         on_lose_mayor: Optional[Callable[[], Any]] = None,
     ):
@@ -89,9 +88,9 @@ class MayorCoordinator:
         self.region = region
         self._agent_id = f"mayor-{self.node_id}"
 
-        self._election: Optional[Any] = None  # LeaderElection instance
+        self._election: Any | None = None  # LeaderElection instance
         self._is_mayor = False
-        self._mayor_info: Optional[MayorInfo] = None
+        self._mayor_info: MayorInfo | None = None
         self._started = False
         self._lock = asyncio.Lock()
 
@@ -100,7 +99,7 @@ class MayorCoordinator:
         self._on_lose_mayor = on_lose_mayor
 
         # Track current mayor (even if it's another node)
-        self._current_mayor_node: Optional[str] = None
+        self._current_mayor_node: str | None = None
 
     @property
     def is_mayor(self) -> bool:
@@ -112,11 +111,11 @@ class MayorCoordinator:
         """Check if the coordinator is running."""
         return self._started
 
-    def get_mayor_info(self) -> Optional[MayorInfo]:
+    def get_mayor_info(self) -> MayorInfo | None:
         """Get information about this node's mayor role (if mayor)."""
         return self._mayor_info if self._is_mayor else None
 
-    def get_current_mayor_node(self) -> Optional[str]:
+    def get_current_mayor_node(self) -> str | None:
         """Get the node ID of the current mayor (may be another node)."""
         return self._current_mayor_node
 
@@ -191,7 +190,7 @@ class MayorCoordinator:
         """Called when this node loses leader election."""
         await self._demote_from_mayor()
 
-    async def _handle_leader_change(self, new_leader: Optional[str]) -> None:
+    async def _handle_leader_change(self, new_leader: str | None) -> None:
         """Called when any leader change occurs."""
         self._current_mayor_node = new_leader
         logger.info(f"Mayor changed to node: {new_leader or 'none'}")
@@ -279,21 +278,18 @@ class MayorCoordinator:
             except Exception as e:
                 logger.error(f"Failed to demote from MAYOR: {e}")
 
-
 # Global coordinator instance
-_mayor_coordinator: Optional[MayorCoordinator] = None
+_mayor_coordinator: MayorCoordinator | None = None
 
-
-def get_mayor_coordinator() -> Optional[MayorCoordinator]:
+def get_mayor_coordinator() -> MayorCoordinator | None:
     """Get the global mayor coordinator instance."""
     return _mayor_coordinator
 
-
 async def init_mayor_coordinator(
     hierarchy: AgentHierarchy,
-    node_id: Optional[str] = None,
-    region: Optional[str] = None,
-) -> Optional[MayorCoordinator]:
+    node_id: str | None = None,
+    region: str | None = None,
+) -> MayorCoordinator | None:
     """
     Initialize and start the global mayor coordinator.
 

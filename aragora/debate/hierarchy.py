@@ -17,13 +17,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.routing.selection import AgentProfile
 
 logger = logging.getLogger(__name__)
-
 
 class HierarchyRole(Enum):
     """Agent roles in the debate hierarchy."""
@@ -31,7 +30,6 @@ class HierarchyRole(Enum):
     ORCHESTRATOR = "orchestrator"  # Mayor: coordinates debate flow
     MONITOR = "monitor"  # Witness: observes for issues
     WORKER = "worker"  # Polecat: executes tasks
-
 
 # Default capability requirements for each role
 ROLE_CAPABILITIES = {
@@ -54,7 +52,6 @@ STANDARD_CAPABILITIES = {
     "domain_expert": "Deep expertise in specific domains",
 }
 
-
 @dataclass
 class RoleAssignment:
     """Assignment of an agent to a role for a specific debate."""
@@ -64,7 +61,6 @@ class RoleAssignment:
     assigned_at: str
     capabilities_matched: set[str] = field(default_factory=set)
     affinity_score: float = 0.0
-
 
 @dataclass
 class HierarchyConfig:
@@ -83,7 +79,6 @@ class HierarchyConfig:
     # Auto-promote workers to monitors if needed
     auto_promote: bool = True
 
-
 class AgentHierarchy:
     """
     Manages role-based agent hierarchy for debates.
@@ -100,7 +95,7 @@ class AgentHierarchy:
     - Graceful degradation when agents fail
     """
 
-    def __init__(self, config: Optional[HierarchyConfig] = None):
+    def __init__(self, config: HierarchyConfig | None = None):
         self.config = config or HierarchyConfig()
         self._assignments: dict[
             str, dict[str, RoleAssignment]
@@ -113,7 +108,7 @@ class AgentHierarchy:
         self,
         debate_id: str,
         agents: list["AgentProfile"],
-        task_type: Optional[str] = None,
+        task_type: str | None = None,
     ) -> dict[str, RoleAssignment]:
         """
         Assign roles to agents for a debate.
@@ -197,7 +192,7 @@ class AgentHierarchy:
         self,
         agents: list["AgentProfile"],
         role: HierarchyRole,
-        task_type: Optional[str] = None,
+        task_type: str | None = None,
     ) -> list[tuple["AgentProfile", float, set[str]]]:
         """Score agents for a specific role.
 
@@ -233,14 +228,14 @@ class AgentHierarchy:
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored
 
-    def get_role(self, debate_id: str, agent_name: str) -> Optional[HierarchyRole]:
+    def get_role(self, debate_id: str, agent_name: str) -> HierarchyRole | None:
         """Get the role of an agent in a debate."""
         if debate_id not in self._assignments:
             return None
         assignment = self._assignments[debate_id].get(agent_name)
         return assignment.role if assignment else None
 
-    def get_orchestrator(self, debate_id: str) -> Optional[str]:
+    def get_orchestrator(self, debate_id: str) -> str | None:
         """Get the orchestrator agent for a debate."""
         if debate_id not in self._assignments:
             return None
@@ -309,17 +304,15 @@ class AgentHierarchy:
         self._assignments.pop(debate_id, None)
         self._role_history.pop(debate_id, None)
 
-
 # Convenience function for quick role assignment
 def assign_debate_roles(
     debate_id: str,
     agents: list["AgentProfile"],
-    task_type: Optional[str] = None,
+    task_type: str | None = None,
 ) -> dict[str, RoleAssignment]:
     """Quick role assignment using default configuration."""
     hierarchy = AgentHierarchy()
     return hierarchy.assign_roles(debate_id, agents, task_type)
-
 
 __all__ = [
     "AgentHierarchy",

@@ -39,7 +39,6 @@ from aragora.debate.graph import (
 
 logger = logging.getLogger(__name__)
 
-
 # Re-export for convenience
 __all__ = [
     "GraphDebateOrchestrator",
@@ -51,14 +50,12 @@ __all__ = [
     "GraphBranch",
 ]
 
-
 class Agent(Protocol):
     """Protocol for agents that can generate responses."""
 
     name: str
 
     async def generate(self, prompt: str, context: Any = None) -> str: ...
-
 
 @dataclass
 class GraphNode:
@@ -113,7 +110,6 @@ class GraphNode:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class BranchPolicy:
     """
@@ -140,7 +136,7 @@ class BranchPolicy:
         disagreement: float,
         current_branches: int,
         alternative_confidence: float = 0.0,
-    ) -> tuple[bool, Optional[BranchReason]]:
+    ) -> tuple[bool, BranchReason | None]:
         """Determine if a branch should be created."""
         if current_branches >= self.max_branches:
             return False, None
@@ -152,7 +148,6 @@ class BranchPolicy:
             return True, BranchReason.ALTERNATIVE_APPROACH
 
         return False, None
-
 
 @dataclass
 class GraphBranch:
@@ -175,7 +170,6 @@ class GraphBranch:
             "is_merged": self.is_merged,
         }
 
-
 @dataclass
 class GraphDebateResult:
     """Result of a graph debate."""
@@ -184,8 +178,8 @@ class GraphDebateResult:
     task: str
     nodes: list[GraphNode]
     branches: list[GraphBranch]
-    winner: Optional[str] = None
-    synthesis: Optional[str] = None
+    winner: str | None = None
+    synthesis: str | None = None
     total_rounds: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -201,7 +195,6 @@ class GraphDebateResult:
             "metadata": self.metadata,
         }
 
-
 class GraphDebateOrchestrator:
     """
     Orchestrator for graph-based debates with branching.
@@ -214,7 +207,7 @@ class GraphDebateOrchestrator:
     def __init__(
         self,
         agents: list[Agent],
-        policy: Optional[BranchPolicy] = None,
+        policy: BranchPolicy | None = None,
         event_callback: Optional[Callable[[str, dict], None]] = None,
     ):
         """
@@ -228,15 +221,15 @@ class GraphDebateOrchestrator:
         self.agents = agents
         self.policy = policy or BranchPolicy()
         self.event_callback = event_callback
-        self._graph: Optional[DebateGraph] = None
+        self._graph: DebateGraph | None = None
 
     async def run_debate(
         self,
         task: str,
         max_rounds: int = 5,
         run_agent_fn: Optional[Callable[[Agent, str, Any], Any]] = None,
-        context: Optional[dict] = None,
-        event_emitter: Optional[Any] = None,
+        context: dict | None = None,
+        event_emitter: Any | None = None,
     ) -> GraphDebateResult:
         """
         Run a graph-based debate.
@@ -294,8 +287,8 @@ class GraphDebateOrchestrator:
         self,
         task: str,
         round_num: int,
-        run_agent_fn: Optional[Callable],
-        context: Optional[dict],
+        run_agent_fn: Callable | None,
+        context: dict | None,
     ) -> dict[str, str]:
         """Collect responses from all agents."""
         responses: dict[str, str] = {}
@@ -320,7 +313,7 @@ class GraphDebateOrchestrator:
 
         return responses
 
-    def _build_prompt(self, task: str, round_num: int, context: Optional[dict]) -> str:
+    def _build_prompt(self, task: str, round_num: int, context: dict | None) -> str:
         """Build prompt for an agent."""
         if round_num == 0:
             return f"Task: {task}\n\nProvide your initial proposal."
@@ -437,8 +430,8 @@ class GraphDebateOrchestrator:
 
     async def _check_convergence_and_merge(
         self,
-        run_agent_fn: Optional[Callable],
-        context: Optional[dict],
+        run_agent_fn: Callable | None,
+        context: dict | None,
     ) -> None:
         """Check for convergent branches and merge them."""
         if not self._graph:
@@ -475,8 +468,8 @@ class GraphDebateOrchestrator:
     async def _generate_merge_synthesis(
         self,
         branch_ids: list[str],
-        run_agent_fn: Optional[Callable],
-        context: Optional[dict],
+        run_agent_fn: Callable | None,
+        context: dict | None,
     ) -> str:
         """Generate synthesis content for merging branches."""
         if not self._graph or not self.agents:
@@ -502,8 +495,8 @@ class GraphDebateOrchestrator:
     async def _generate_synthesis(
         self,
         task: str,
-        run_agent_fn: Optional[Callable],
-        context: Optional[dict],
+        run_agent_fn: Callable | None,
+        context: dict | None,
     ) -> str:
         """Generate final synthesis of the debate."""
         if not self._graph or not self.agents:

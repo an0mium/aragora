@@ -15,13 +15,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ExplanationFactor:
@@ -31,9 +30,8 @@ class ExplanationFactor:
     name: str
     description: str
     weight: float
-    evidence: List[str] = field(default_factory=list)
-    source_agents: List[str] = field(default_factory=list)
-
+    evidence: list[str] = field(default_factory=list)
+    source_agents: list[str] = field(default_factory=list)
 
 @dataclass
 class EvidenceItem:
@@ -45,9 +43,8 @@ class EvidenceItem:
     confidence: float
     round_number: int
     agent_id: str
-    supporting_claims: List[str] = field(default_factory=list)
-    contradicting_claims: List[str] = field(default_factory=list)
-
+    supporting_claims: list[str] = field(default_factory=list)
+    contradicting_claims: list[str] = field(default_factory=list)
 
 @dataclass
 class VotePivot:
@@ -59,8 +56,7 @@ class VotePivot:
     influence_score: float
     reasoning: str
     changed_outcome: bool = False
-    counterfactual_result: Optional[str] = None
-
+    counterfactual_result: str | None = None
 
 @dataclass
 class Counterfactual:
@@ -71,8 +67,7 @@ class Counterfactual:
     description: str
     alternative_outcome: str
     probability: float
-    key_differences: List[str] = field(default_factory=list)
-
+    key_differences: list[str] = field(default_factory=list)
 
 @dataclass
 class DecisionExplanation:
@@ -82,12 +77,11 @@ class DecisionExplanation:
     decision: str
     confidence: float
     summary: str
-    factors: List[ExplanationFactor] = field(default_factory=list)
-    evidence_chain: List[EvidenceItem] = field(default_factory=list)
-    vote_pivots: List[VotePivot] = field(default_factory=list)
-    counterfactuals: List[Counterfactual] = field(default_factory=list)
-    generated_at: Optional[datetime] = None
-
+    factors: list[ExplanationFactor] = field(default_factory=list)
+    evidence_chain: list[EvidenceItem] = field(default_factory=list)
+    vote_pivots: list[VotePivot] = field(default_factory=list)
+    counterfactuals: list[Counterfactual] = field(default_factory=list)
+    generated_at: datetime | None = None
 
 @dataclass
 class BatchJobStatus:
@@ -100,9 +94,8 @@ class BatchJobStatus:
     success_count: int
     error_count: int
     progress_pct: float
-    created_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
 
 @dataclass
 class BatchDebateResult:
@@ -110,10 +103,9 @@ class BatchDebateResult:
 
     debate_id: str
     status: str  # success, error, not_found
-    explanation: Optional[DecisionExplanation] = None
-    error: Optional[str] = None
+    explanation: DecisionExplanation | None = None
+    error: str | None = None
     processing_time_ms: float = 0.0
-
 
 class ExplainabilityAPI:
     """API interface for decision explainability."""
@@ -143,7 +135,7 @@ class ExplainabilityAPI:
         response = await self._client._get_async(f"/api/v1/debates/{debate_id}/explanation")
         return self._parse_explanation(response, debate_id)
 
-    def get_evidence(self, debate_id: str) -> List[EvidenceItem]:
+    def get_evidence(self, debate_id: str) -> list[EvidenceItem]:
         """
         Get evidence chain for a debate decision.
 
@@ -157,13 +149,13 @@ class ExplainabilityAPI:
         evidence = response.get("evidence", response.get("evidence_chain", []))
         return [self._parse_evidence(e) for e in evidence]
 
-    async def get_evidence_async(self, debate_id: str) -> List[EvidenceItem]:
+    async def get_evidence_async(self, debate_id: str) -> list[EvidenceItem]:
         """Async version of get_evidence()."""
         response = await self._client._get_async(f"/api/v1/debates/{debate_id}/evidence")
         evidence = response.get("evidence", response.get("evidence_chain", []))
         return [self._parse_evidence(e) for e in evidence]
 
-    def get_vote_pivots(self, debate_id: str) -> List[VotePivot]:
+    def get_vote_pivots(self, debate_id: str) -> list[VotePivot]:
         """
         Get vote influence analysis for a debate.
 
@@ -177,13 +169,13 @@ class ExplainabilityAPI:
         pivots = response.get("pivots", response.get("vote_pivots", []))
         return [self._parse_vote_pivot(p) for p in pivots]
 
-    async def get_vote_pivots_async(self, debate_id: str) -> List[VotePivot]:
+    async def get_vote_pivots_async(self, debate_id: str) -> list[VotePivot]:
         """Async version of get_vote_pivots()."""
         response = await self._client._get_async(f"/api/v1/debates/{debate_id}/votes/pivots")
         pivots = response.get("pivots", response.get("vote_pivots", []))
         return [self._parse_vote_pivot(p) for p in pivots]
 
-    def get_counterfactuals(self, debate_id: str) -> List[Counterfactual]:
+    def get_counterfactuals(self, debate_id: str) -> list[Counterfactual]:
         """
         Get counterfactual analysis for a debate.
 
@@ -197,7 +189,7 @@ class ExplainabilityAPI:
         counterfactuals = response.get("counterfactuals", [])
         return [self._parse_counterfactual(c) for c in counterfactuals]
 
-    async def get_counterfactuals_async(self, debate_id: str) -> List[Counterfactual]:
+    async def get_counterfactuals_async(self, debate_id: str) -> list[Counterfactual]:
         """Async version of get_counterfactuals()."""
         response = await self._client._get_async(f"/api/v1/debates/{debate_id}/counterfactuals")
         counterfactuals = response.get("counterfactuals", [])
@@ -232,7 +224,7 @@ class ExplainabilityAPI:
 
     def create_batch(
         self,
-        debate_ids: List[str],
+        debate_ids: list[str],
         include_evidence: bool = True,
         include_counterfactuals: bool = False,
     ) -> BatchJobStatus:
@@ -259,7 +251,7 @@ class ExplainabilityAPI:
 
     async def create_batch_async(
         self,
-        debate_ids: List[str],
+        debate_ids: list[str],
         include_evidence: bool = True,
         include_counterfactuals: bool = False,
     ) -> BatchJobStatus:
@@ -292,7 +284,7 @@ class ExplainabilityAPI:
         response = await self._client._get_async(f"/api/v1/explainability/batch/{batch_id}/status")
         return self._parse_batch_status(response)
 
-    def get_batch_results(self, batch_id: str) -> List[BatchDebateResult]:
+    def get_batch_results(self, batch_id: str) -> list[BatchDebateResult]:
         """
         Get results of a completed batch job.
 
@@ -306,7 +298,7 @@ class ExplainabilityAPI:
         results = response.get("results", [])
         return [self._parse_batch_result(r) for r in results]
 
-    async def get_batch_results_async(self, batch_id: str) -> List[BatchDebateResult]:
+    async def get_batch_results_async(self, batch_id: str) -> list[BatchDebateResult]:
         """Async version of get_batch_results()."""
         response = await self._client._get_async(f"/api/v1/explainability/batch/{batch_id}/results")
         results = response.get("results", [])
@@ -316,7 +308,7 @@ class ExplainabilityAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_explanation(self, data: Dict[str, Any], debate_id: str) -> DecisionExplanation:
+    def _parse_explanation(self, data: dict[str, Any], debate_id: str) -> DecisionExplanation:
         """Parse explanation data into DecisionExplanation object."""
         generated_at = None
         if data.get("generated_at"):
@@ -342,7 +334,7 @@ class ExplainabilityAPI:
             generated_at=generated_at,
         )
 
-    def _parse_factor(self, data: Dict[str, Any]) -> ExplanationFactor:
+    def _parse_factor(self, data: dict[str, Any]) -> ExplanationFactor:
         """Parse factor data into ExplanationFactor object."""
         return ExplanationFactor(
             id=data.get("id", ""),
@@ -353,7 +345,7 @@ class ExplainabilityAPI:
             source_agents=data.get("source_agents", []),
         )
 
-    def _parse_evidence(self, data: Dict[str, Any]) -> EvidenceItem:
+    def _parse_evidence(self, data: dict[str, Any]) -> EvidenceItem:
         """Parse evidence data into EvidenceItem object."""
         return EvidenceItem(
             id=data.get("id", ""),
@@ -366,7 +358,7 @@ class ExplainabilityAPI:
             contradicting_claims=data.get("contradicting_claims", []),
         )
 
-    def _parse_vote_pivot(self, data: Dict[str, Any]) -> VotePivot:
+    def _parse_vote_pivot(self, data: dict[str, Any]) -> VotePivot:
         """Parse vote pivot data into VotePivot object."""
         return VotePivot(
             agent_id=data.get("agent_id", ""),
@@ -378,7 +370,7 @@ class ExplainabilityAPI:
             counterfactual_result=data.get("counterfactual_result"),
         )
 
-    def _parse_counterfactual(self, data: Dict[str, Any]) -> Counterfactual:
+    def _parse_counterfactual(self, data: dict[str, Any]) -> Counterfactual:
         """Parse counterfactual data into Counterfactual object."""
         return Counterfactual(
             id=data.get("id", ""),
@@ -389,7 +381,7 @@ class ExplainabilityAPI:
             key_differences=data.get("key_differences", []),
         )
 
-    def _parse_batch_status(self, data: Dict[str, Any]) -> BatchJobStatus:
+    def _parse_batch_status(self, data: dict[str, Any]) -> BatchJobStatus:
         """Parse batch status data into BatchJobStatus object."""
         created_at = None
         completed_at = None
@@ -420,7 +412,7 @@ class ExplainabilityAPI:
             completed_at=completed_at,
         )
 
-    def _parse_batch_result(self, data: Dict[str, Any]) -> BatchDebateResult:
+    def _parse_batch_result(self, data: dict[str, Any]) -> BatchDebateResult:
         """Parse batch result data into BatchDebateResult object."""
         explanation = None
         if data.get("explanation"):
@@ -433,7 +425,6 @@ class ExplainabilityAPI:
             error=data.get("error"),
             processing_time_ms=data.get("processing_time_ms", 0.0),
         )
-
 
 __all__ = [
     "ExplainabilityAPI",

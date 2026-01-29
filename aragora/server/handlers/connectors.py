@@ -8,7 +8,7 @@ sync operations, and scheduler configuration.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.audit.unified import audit_admin, audit_data
 
@@ -42,11 +42,9 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
-
 def _record_rbac_check(*args: Any, **kwargs: Any) -> None:
     """No-op fallback for when metrics module is not available."""
     pass
-
 
 # Metrics imports (optional)
 try:
@@ -54,10 +52,9 @@ try:
 except ImportError:
     record_rbac_check = _record_rbac_check
 
-
 def _check_permission(
-    auth_context: Optional[Any], permission_key: str, resource_id: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
+    auth_context: Any | None, permission_key: str, resource_id: str | None = None
+) -> Optional[dict[str, Any]]:
     """
     Check if the authorization context has the required permission.
 
@@ -88,9 +85,8 @@ def _check_permission(
 
     return None
 
-
 def _resolve_tenant_id(
-    auth_context: Optional[Any],
+    auth_context: Any | None,
     fallback_tenant_id: str = "default",
 ) -> str:
     """
@@ -116,10 +112,8 @@ def _resolve_tenant_id(
             return auth_context.org_id
     return fallback_tenant_id
 
-
 # Global scheduler instance (initialized on first use)
-_scheduler: Optional[SyncScheduler] = None
-
+_scheduler: SyncScheduler | None = None
 
 def get_scheduler() -> SyncScheduler:
     """Get or create the global sync scheduler."""
@@ -128,16 +122,14 @@ def get_scheduler() -> SyncScheduler:
         _scheduler = SyncScheduler(max_concurrent_syncs=5)
     return _scheduler
 
-
 # =============================================================================
 # Connector Management Handlers
 # =============================================================================
 
-
 async def handle_list_connectors(
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     List all registered connectors.
 
@@ -170,12 +162,11 @@ async def handle_list_connectors(
         "total": len(jobs),
     }
 
-
 async def handle_get_connector(
     connector_id: str,
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Optional[Dict[str, Any]]:
+    auth_context: Any | None = None,
+) -> Optional[dict[str, Any]]:
     """
     Get connector details.
 
@@ -209,14 +200,13 @@ async def handle_get_connector(
         "is_running": job.current_run_id is not None,
     }
 
-
 async def handle_create_connector(
     connector_type: str,
-    config: Dict[str, Any],
-    schedule: Optional[Dict[str, Any]] = None,
+    config: dict[str, Any],
+    schedule: Optional[dict[str, Any]] = None,
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Create and register a new connector.
 
@@ -268,13 +258,12 @@ async def handle_create_connector(
         "status": "registered",
     }
 
-
 async def handle_update_connector(
     connector_id: str,
-    updates: Dict[str, Any],
+    updates: dict[str, Any],
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Optional[Dict[str, Any]]:
+    auth_context: Any | None = None,
+) -> Optional[dict[str, Any]]:
     """
     Update connector configuration.
 
@@ -319,12 +308,11 @@ async def handle_update_connector(
         "schedule": job.schedule.to_dict(),
     }
 
-
 @require_permission("connectors:delete")
 async def handle_delete_connector(
     connector_id: str,
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
+    auth_context: Any | None = None,
 ) -> Any:
     """
     Delete a connector.
@@ -352,8 +340,7 @@ async def handle_delete_connector(
     )
     return True
 
-
-def _create_connector(connector_type: str, config: Dict[str, Any]):
+def _create_connector(connector_type: str, config: dict[str, Any]):
     """Create a connector instance based on type."""
     if connector_type == "github":
         # GitHubEnterpriseConnector expects repo in "owner/repo" format
@@ -412,18 +399,16 @@ def _create_connector(connector_type: str, config: Dict[str, Any]):
     else:
         raise ValueError(f"Unknown connector type: {connector_type}")
 
-
 # =============================================================================
 # Sync Operation Handlers
 # =============================================================================
-
 
 async def handle_trigger_sync(
     connector_id: str,
     full_sync: bool = False,
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Optional[Dict[str, Any]]:
+    auth_context: Any | None = None,
+) -> Optional[dict[str, Any]]:
     """
     Trigger a sync operation.
 
@@ -469,12 +454,11 @@ async def handle_trigger_sync(
         "full_sync": full_sync,
     }
 
-
 async def handle_get_sync_status(
     connector_id: str,
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Optional[Dict[str, Any]]:
+    auth_context: Any | None = None,
+) -> Optional[dict[str, Any]]:
     """
     Get current sync status.
 
@@ -506,14 +490,13 @@ async def handle_get_sync_status(
         "consecutive_failures": job.consecutive_failures,
     }
 
-
 async def handle_get_sync_history(
-    connector_id: Optional[str] = None,
+    connector_id: str | None = None,
     tenant_id: str = "default",
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 50,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Get sync history.
 
@@ -547,18 +530,16 @@ async def handle_get_sync_history(
         "total": len(history),
     }
 
-
 # =============================================================================
 # Webhook Handlers
 # =============================================================================
 
-
 async def handle_webhook(
     connector_id: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Handle incoming webhook for a connector.
 
@@ -585,15 +566,13 @@ async def handle_webhook(
         "connector_id": connector_id,
     }
 
-
 # =============================================================================
 # Scheduler Handlers
 # =============================================================================
 
-
 async def handle_start_scheduler(
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Start the sync scheduler.
 
@@ -621,10 +600,9 @@ async def handle_start_scheduler(
         "status": "started",
     }
 
-
 async def handle_stop_scheduler(
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Stop the sync scheduler.
 
@@ -652,11 +630,10 @@ async def handle_stop_scheduler(
         "status": "stopped",
     }
 
-
 async def handle_get_scheduler_stats(
-    tenant_id: Optional[str] = None,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    tenant_id: str | None = None,
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Get scheduler statistics.
 
@@ -672,16 +649,14 @@ async def handle_get_scheduler_stats(
     scheduler = get_scheduler()
     return scheduler.get_stats(tenant_id=tenant_id)
 
-
 # =============================================================================
 # Template Handlers
 # =============================================================================
 
-
 async def handle_list_workflow_templates(
-    category: Optional[str] = None,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    category: str | None = None,
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     List available workflow templates.
 
@@ -703,11 +678,10 @@ async def handle_list_workflow_templates(
         "categories": list(set(t["category"] for t in templates)),
     }
 
-
 async def handle_get_workflow_template(
     template_id: str,
-    auth_context: Optional[Any] = None,
-) -> Optional[Dict[str, Any]]:
+    auth_context: Any | None = None,
+) -> Optional[dict[str, Any]]:
     """
     Get a specific workflow template.
 
@@ -730,21 +704,19 @@ async def handle_get_workflow_template(
         "template": template,
     }
 
-
 # =============================================================================
 # MongoDB Aggregation Handlers
 # =============================================================================
 
-
 async def handle_mongodb_aggregate(
     connector_id: str,
     collection: str,
-    pipeline: list[Dict[str, Any]],
+    pipeline: list[dict[str, Any]],
     tenant_id: str = "default",
     limit: int = 1000,
     explain: bool = False,
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Execute MongoDB aggregation pipeline.
 
@@ -825,12 +797,11 @@ async def handle_mongodb_aggregate(
         "results": results,
     }
 
-
 async def handle_mongodb_collections(
     connector_id: str,
     tenant_id: str = "default",
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     List collections in MongoDB database.
 
@@ -867,15 +838,13 @@ async def handle_mongodb_collections(
         "collections": collections,
     }
 
-
 # =============================================================================
 # Health Check
 # =============================================================================
 
-
 async def handle_connector_health(
-    auth_context: Optional[Any] = None,
-) -> Dict[str, Any]:
+    auth_context: Any | None = None,
+) -> dict[str, Any]:
     """
     Health check for connector subsystem.
 

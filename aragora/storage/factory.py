@@ -32,7 +32,7 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 from aragora.storage.connection_factory import (
     get_selfhosted_postgres_dsn,
@@ -140,7 +140,7 @@ def is_postgres_configured() -> bool:
     return False
 
 
-def get_default_db_path(name: str, nomic_dir: Optional[Union[str, Path]] = None) -> Path:
+def get_default_db_path(name: str, nomic_dir: Optional[str | Path] = None) -> Path:
     """
     Get the default SQLite database path for a given store name.
 

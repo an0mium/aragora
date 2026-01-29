@@ -18,7 +18,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.connectors.exceptions import (
@@ -63,7 +63,6 @@ MIME_TYPES = {
 MAX_FILE_SIZE_MB = 25
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
-
 @dataclass
 class TranscriptionSegment:
     """A timestamped segment of transcription."""
@@ -89,7 +88,6 @@ class TranscriptionSegment:
             text=data["text"],
             confidence=data.get("confidence", 0.0),
         )
-
 
 @dataclass
 class TranscriptionResult:
@@ -150,7 +148,6 @@ class TranscriptionResult:
             confidence=data.get("confidence", 0.0),
         )
 
-
 class WhisperConnector(BaseConnector):
     """
     Connector for OpenAI Whisper API transcription.
@@ -182,11 +179,11 @@ class WhisperConnector(BaseConnector):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = DEFAULT_MODEL,
-        language: Optional[str] = None,
+        language: str | None = None,
         response_format: str = "verbose_json",
-        provenance: Optional[ProvenanceManager] = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.85,
         timeout: int = 120,
         max_cache_entries: int = 100,
@@ -271,7 +268,7 @@ class WhisperConnector(BaseConnector):
         self,
         audio_content: bytes,
         filename: str,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
         temperature: float = 0.0,
     ) -> TranscriptionResult:
         """
@@ -490,7 +487,7 @@ class WhisperConnector(BaseConnector):
             "WhisperConnector does not support search. Use transcribe() instead."
         )
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a cached transcription by ID.
 
@@ -516,26 +513,21 @@ class WhisperConnector(BaseConnector):
         self._cache_put(result.id, evidence)
         return evidence
 
-
 # Convenience functions
-
 
 def is_supported_audio(filename: str) -> bool:
     """Check if file is a supported audio format."""
     ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
     return ext in SUPPORTED_AUDIO_EXTENSIONS
 
-
 def is_supported_video(filename: str) -> bool:
     """Check if file is a supported video format."""
     ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
     return ext in SUPPORTED_VIDEO_EXTENSIONS
 
-
 def is_supported_media(filename: str) -> bool:
     """Check if file is a supported audio or video format."""
     return is_supported_audio(filename) or is_supported_video(filename)
-
 
 def get_supported_formats() -> dict:
     """Get supported file formats and limits."""

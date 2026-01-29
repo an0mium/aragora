@@ -5,9 +5,8 @@ Provides type-safe parameter extraction from query strings with support
 for defaults, bounds, and list value handling.
 """
 
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import parse_qs
-
 
 def parse_query_params(query_string: str) -> dict[str, Any]:
     """Parse query string into a dictionary."""
@@ -16,7 +15,6 @@ def parse_query_params(query_string: str) -> dict[str, Any]:
     params = parse_qs(query_string)
     # Convert single-value lists to just values
     return {k: v[0] if len(v) == 1 else v for k, v in params.items()}
-
 
 def get_int_param(params: dict[str, Any], key: str, default: int = 0) -> int:
     """Safely get an integer parameter, handling list values from query strings."""
@@ -28,7 +26,6 @@ def get_int_param(params: dict[str, Any], key: str, default: int = 0) -> int:
     except (ValueError, TypeError):
         return default
 
-
 def get_float_param(params: dict[str, Any], key: str, default: float = 0.0) -> float:
     """Safely get a float parameter, handling list values from query strings."""
     try:
@@ -38,7 +35,6 @@ def get_float_param(params: dict[str, Any], key: str, default: float = 0.0) -> f
         return float(value)
     except (ValueError, TypeError):
         return default
-
 
 def get_bool_param(params: dict[str, Any], key: str, default: bool = False) -> bool:
     """Safely get a boolean parameter, handling various input types."""
@@ -59,8 +55,7 @@ def get_bool_param(params: dict[str, Any], key: str, default: bool = False) -> b
     # Numbers (1/0) or other types
     return bool(value)
 
-
-def get_string_param(params: dict[str, Any], key: str, default: str | None = None) -> Optional[str]:
+def get_string_param(params: dict[str, Any], key: str, default: str | None = None) -> str | None:
     """Safely get a string parameter, handling list values from query strings."""
     value = params.get(key, default)
     if value is None:
@@ -68,7 +63,6 @@ def get_string_param(params: dict[str, Any], key: str, default: str | None = Non
     if isinstance(value, list):
         return value[0] if value else default
     return str(value)
-
 
 def get_clamped_int_param(
     params: dict[str, Any],
@@ -92,7 +86,6 @@ def get_clamped_int_param(
     val = get_int_param(params, key, default)
     return min(max(val, min_val), max_val)
 
-
 def get_bounded_float_param(
     params: dict[str, Any],
     key: str,
@@ -115,13 +108,12 @@ def get_bounded_float_param(
     val = get_float_param(params, key, default)
     return min(max(val, min_val), max_val)
 
-
 def get_bounded_string_param(
     params: dict[str, Any],
     key: str,
     default: str | None = None,
     max_length: int = 500,
-) -> Optional[str]:
+) -> str | None:
     """Get string parameter with length limit.
 
     Args:

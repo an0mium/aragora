@@ -12,8 +12,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
-
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -22,38 +21,33 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-def _default_agent_list() -> List[str]:
+def _default_agent_list() -> list[str]:
     return [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
-
 
 @dataclass
 class DecisionConfig:
     """Configuration for a decision request."""
 
-    agents: List[str] = field(default_factory=_default_agent_list)
+    agents: list[str] = field(default_factory=_default_agent_list)
     rounds: int = DEFAULT_ROUNDS
     consensus: str = DEFAULT_CONSENSUS
     timeout_seconds: int = 300
-
 
 @dataclass
 class DecisionContext:
     """Context for a decision request."""
 
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    user_id: str | None = None
+    workspace_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ResponseChannel:
     """A response channel for delivering results."""
 
     platform: str  # http_api, slack, email, webhook
-    target: Optional[str] = None
-    options: Dict[str, Any] = field(default_factory=dict)
-
+    target: str | None = None
+    options: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class DecisionResult:
@@ -63,12 +57,11 @@ class DecisionResult:
     status: str  # pending, processing, completed, failed
     decision_type: str  # debate, workflow, gauntlet, quick, auto
     content: str
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    created_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    result: Optional[dict[str, Any]] = None
+    error: str | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class DecisionStatus:
@@ -77,9 +70,8 @@ class DecisionStatus:
     request_id: str
     status: str  # pending, processing, completed, failed
     progress: float = 0.0
-    current_stage: Optional[str] = None
-    estimated_remaining_seconds: Optional[int] = None
-
+    current_stage: str | None = None
+    estimated_remaining_seconds: int | None = None
 
 class DecisionsAPI:
     """API interface for unified decision-making."""
@@ -95,10 +87,10 @@ class DecisionsAPI:
         self,
         content: str,
         decision_type: str = "auto",
-        config: Optional[DecisionConfig] = None,
-        context: Optional[DecisionContext] = None,
+        config: DecisionConfig | None = None,
+        context: DecisionContext | None = None,
         priority: str = "normal",
-        response_channels: Optional[List[ResponseChannel]] = None,
+        response_channels: Optional[list[ResponseChannel]] = None,
     ) -> DecisionResult:
         """
         Create a new decision request.
@@ -114,7 +106,7 @@ class DecisionsAPI:
         Returns:
             DecisionResult object.
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "content": content,
             "decision_type": decision_type,
             "priority": priority,
@@ -152,13 +144,13 @@ class DecisionsAPI:
         self,
         content: str,
         decision_type: str = "auto",
-        config: Optional[DecisionConfig] = None,
-        context: Optional[DecisionContext] = None,
+        config: DecisionConfig | None = None,
+        context: DecisionContext | None = None,
         priority: str = "normal",
-        response_channels: Optional[List[ResponseChannel]] = None,
+        response_channels: Optional[list[ResponseChannel]] = None,
     ) -> DecisionResult:
         """Async version of create()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "content": content,
             "decision_type": decision_type,
             "priority": priority,
@@ -230,11 +222,11 @@ class DecisionsAPI:
 
     def list(
         self,
-        status: Optional[str] = None,
-        decision_type: Optional[str] = None,
+        status: str | None = None,
+        decision_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[DecisionResult], int]:
+    ) -> tuple[list[DecisionResult], int]:
         """
         List recent decisions.
 
@@ -247,7 +239,7 @@ class DecisionsAPI:
         Returns:
             Tuple of (list of DecisionResult objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         if decision_type:
@@ -259,13 +251,13 @@ class DecisionsAPI:
 
     async def list_async(
         self,
-        status: Optional[str] = None,
-        decision_type: Optional[str] = None,
+        status: str | None = None,
+        decision_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[DecisionResult], int]:
+    ) -> tuple[list[DecisionResult], int]:
         """Async version of list()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         if decision_type:
@@ -282,7 +274,7 @@ class DecisionsAPI:
     def quick_decision(
         self,
         question: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
     ) -> DecisionResult:
         """
         Make a quick decision with minimal configuration.
@@ -309,7 +301,7 @@ class DecisionsAPI:
     async def quick_decision_async(
         self,
         question: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
     ) -> DecisionResult:
         """Async version of quick_decision()."""
         config = DecisionConfig(
@@ -327,7 +319,7 @@ class DecisionsAPI:
     def start_debate(
         self,
         topic: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         rounds: int = DEFAULT_ROUNDS,
     ) -> DecisionResult:
         """
@@ -356,7 +348,7 @@ class DecisionsAPI:
     async def start_debate_async(
         self,
         topic: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         rounds: int = DEFAULT_ROUNDS,
     ) -> DecisionResult:
         """Async version of start_debate()."""
@@ -376,7 +368,7 @@ class DecisionsAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_result(self, data: Dict[str, Any]) -> DecisionResult:
+    def _parse_result(self, data: dict[str, Any]) -> DecisionResult:
         """Parse result data into DecisionResult object."""
         created_at = None
         completed_at = None
@@ -405,7 +397,7 @@ class DecisionsAPI:
             metadata=data.get("metadata", {}),
         )
 
-    def _parse_status(self, data: Dict[str, Any]) -> DecisionStatus:
+    def _parse_status(self, data: dict[str, Any]) -> DecisionStatus:
         """Parse status data into DecisionStatus object."""
         return DecisionStatus(
             request_id=data.get("request_id", data.get("id", "")),
@@ -414,7 +406,6 @@ class DecisionsAPI:
             current_stage=data.get("current_stage"),
             estimated_remaining_seconds=data.get("estimated_remaining_seconds"),
         )
-
 
 __all__ = [
     "DecisionsAPI",

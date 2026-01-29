@@ -7,8 +7,7 @@ clear ownership of cached debate state.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
-
+from typing import Any
 
 @dataclass
 class DebateStateCache:
@@ -25,7 +24,7 @@ class DebateStateCache:
     historical_context: str = ""
 
     # Research context cache (computed once per debate)
-    research_context: Optional[str] = None
+    research_context: str | None = None
 
     # Evidence pack cache (for grounding verdict with citations)
     evidence_pack: Any = None
@@ -39,7 +38,7 @@ class DebateStateCache:
     similarity_backend: Any = None
 
     # Debate domain cache (computed once per debate)
-    debate_domain: Optional[str] = None
+    debate_domain: str | None = None
 
     def clear(self) -> None:
         """Reset all cached values to initial state.

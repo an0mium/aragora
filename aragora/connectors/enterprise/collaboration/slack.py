@@ -19,7 +19,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -29,7 +29,6 @@ from aragora.connectors.enterprise.base import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SlackChannel:
@@ -42,8 +41,7 @@ class SlackChannel:
     topic: str = ""
     purpose: str = ""
     member_count: int = 0
-    created: Optional[datetime] = None
-
+    created: datetime | None = None
 
 @dataclass
 class SlackMessage:
@@ -54,12 +52,11 @@ class SlackMessage:
     text: str
     user_id: str = ""
     user_name: str = ""
-    thread_ts: Optional[str] = None
+    thread_ts: str | None = None
     reply_count: int = 0
-    reactions: List[Dict[str, Any]] = field(default_factory=list)
-    files: List[Dict[str, Any]] = field(default_factory=list)
-    created_at: Optional[datetime] = None
-
+    reactions: list[dict[str, Any]] = field(default_factory=list)
+    files: list[dict[str, Any]] = field(default_factory=list)
+    created_at: datetime | None = None
 
 @dataclass
 class SlackUser:
@@ -71,7 +68,6 @@ class SlackUser:
     display_name: str = ""
     email: str = ""
     is_bot: bool = False
-
 
 class SlackConnector(EnterpriseConnector):
     """
@@ -104,7 +100,7 @@ class SlackConnector(EnterpriseConnector):
     def __init__(
         self,
         workspace_name: str = "default",
-        channels: Optional[List[str]] = None,
+        channels: Optional[list[str]] = None,
         include_private: bool = False,
         include_archived: bool = False,
         include_threads: bool = True,
@@ -139,8 +135,8 @@ class SlackConnector(EnterpriseConnector):
         self.max_messages_per_channel = max_messages_per_channel
 
         # Cache
-        self._users_cache: Dict[str, SlackUser] = {}
-        self._channels_cache: Dict[str, SlackChannel] = {}
+        self._users_cache: dict[str, SlackUser] = {}
+        self._channels_cache: dict[str, SlackChannel] = {}
 
     @property
     def source_type(self) -> SourceType:
@@ -150,7 +146,7 @@ class SlackConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"Slack ({self.workspace_name})"
 
-    async def _get_auth_header(self) -> Dict[str, str]:
+    async def _get_auth_header(self) -> dict[str, str]:
         """Get authentication header."""
         token = await self.credentials.get_credential("SLACK_BOT_TOKEN")
 
@@ -163,9 +159,9 @@ class SlackConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make a request to Slack Web API."""
         import httpx
 
@@ -191,13 +187,13 @@ class SlackConnector(EnterpriseConnector):
 
             return data
 
-    async def _get_channels(self) -> List[SlackChannel]:
+    async def _get_channels(self) -> list[SlackChannel]:
         """Get all accessible channels."""
         channels = []
         cursor = None
 
         while True:
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "limit": 200,
                 "exclude_archived": not self.include_archived,
             }
@@ -243,7 +239,7 @@ class SlackConnector(EnterpriseConnector):
 
         return channels
 
-    async def _get_user(self, user_id: str) -> Optional[SlackUser]:
+    async def _get_user(self, user_id: str) -> SlackUser | None:
         """Get user info by ID."""
         if user_id in self._users_cache:
             return self._users_cache[user_id]
@@ -270,11 +266,11 @@ class SlackConnector(EnterpriseConnector):
     async def _get_messages(
         self,
         channel_id: str,
-        oldest: Optional[str] = None,
+        oldest: str | None = None,
         limit: int = 100,
-    ) -> tuple[List[SlackMessage], bool]:
+    ) -> tuple[list[SlackMessage], bool]:
         """Get messages from a channel."""
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "channel": channel_id,
             "limit": min(limit, 200),
         }
@@ -319,7 +315,7 @@ class SlackConnector(EnterpriseConnector):
         self,
         channel_id: str,
         thread_ts: str,
-    ) -> List[SlackMessage]:
+    ) -> list[SlackMessage]:
         """Get replies in a thread."""
         if not self.include_threads:
             return []
@@ -389,8 +385,8 @@ class SlackConnector(EnterpriseConnector):
         self,
         message: SlackMessage,
         channel: SlackChannel,
-        user: Optional[SlackUser],
-        replies: List[SlackMessage] = None,
+        user: SlackUser | None,
+        replies: list[SlackMessage] = None,
     ) -> str:
         """Format a message with context."""
         parts = []
@@ -576,7 +572,7 @@ class SlackConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific Slack message."""
         from aragora.connectors.base import Evidence
 
@@ -624,7 +620,7 @@ class SlackConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle Slack Events API webhook."""
         # URL verification challenge
         if payload.get("type") == "url_verification":
@@ -648,7 +644,7 @@ class SlackConnector(EnterpriseConnector):
     # Methods for CrossChannelContextService Integration
     # =========================================================================
 
-    async def get_user_presence(self, user_id: str) -> Dict[str, Any]:
+    async def get_user_presence(self, user_id: str) -> dict[str, Any]:
         """
         Get user presence/status.
 
@@ -674,7 +670,7 @@ class SlackConnector(EnterpriseConnector):
             logger.debug(f"[{self.name}] Failed to get presence for {user_id}: {e}")
             return {"presence": "away", "online": False}
 
-    async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+    async def get_user_by_email(self, email: str) -> Optional[dict[str, Any]]:
         """
         Look up a Slack user by email address.
 
@@ -716,7 +712,7 @@ class SlackConnector(EnterpriseConnector):
         count: int = 20,
         sort: str = "timestamp",
         sort_dir: str = "desc",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Search for messages matching a query.
 
@@ -762,7 +758,7 @@ class SlackConnector(EnterpriseConnector):
             logger.debug(f"[{self.name}] Message search failed: {e}")
             return []
 
-    async def authenticate(self, token: Optional[str] = None) -> bool:
+    async def authenticate(self, token: str | None = None) -> bool:
         """
         Authenticate with Slack using a bot token.
 
@@ -791,7 +787,7 @@ class SlackConnector(EnterpriseConnector):
         self,
         user_id: str,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get channels that a user is a member of.
 
@@ -833,9 +829,9 @@ class SlackConnector(EnterpriseConnector):
         self,
         channel: str,
         text: str,
-        thread_ts: Optional[str] = None,
-        blocks: Optional[List[Dict[str, Any]]] = None,
-    ) -> Optional[str]:
+        thread_ts: str | None = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
+    ) -> str | None:
         """
         Post a message to a channel.
 
@@ -849,7 +845,7 @@ class SlackConnector(EnterpriseConnector):
             Message timestamp if successful, None otherwise
         """
         try:
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "channel": channel,
                 "text": text,
             }
@@ -871,6 +867,5 @@ class SlackConnector(EnterpriseConnector):
         except Exception as e:
             logger.error(f"[{self.name}] Failed to post message: {e}")
             return None
-
 
 __all__ = ["SlackConnector", "SlackChannel", "SlackMessage", "SlackUser"]

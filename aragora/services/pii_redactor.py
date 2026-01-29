@@ -27,10 +27,9 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Pattern, Tuple
+from typing import Any, Optional, Pattern
 
 logger = logging.getLogger(__name__)
-
 
 class PIIType(str, Enum):
     """Types of PII that can be detected and redacted."""
@@ -47,7 +46,6 @@ class PIIType(str, Enum):
     BANK_ACCOUNT = "bank_account"
     MEDICAL_ID = "medical_id"
 
-
 @dataclass
 class PIIMatch:
     """A detected PII match in text."""
@@ -59,15 +57,14 @@ class PIIMatch:
     end: int
     confidence: float = 1.0
 
-
 @dataclass
 class RedactionResult:
     """Result of PII redaction."""
 
     original_text: str
     redacted_text: str
-    matches: List[PIIMatch] = field(default_factory=list)
-    pii_types_found: List[PIIType] = field(default_factory=list)
+    matches: list[PIIMatch] = field(default_factory=list)
+    pii_types_found: list[PIIType] = field(default_factory=list)
 
     @property
     def has_pii(self) -> bool:
@@ -79,7 +76,7 @@ class RedactionResult:
         """Number of PII matches found."""
         return len(self.matches)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging/audit."""
         return {
             "has_pii": self.has_pii,
@@ -94,7 +91,6 @@ class RedactionResult:
                 for m in self.matches
             ],
         }
-
 
 class PIIRedactor:
     """
@@ -120,8 +116,8 @@ class PIIRedactor:
 
     def __init__(
         self,
-        enabled_types: Optional[List[PIIType]] = None,
-        preserve_domains: Optional[List[str]] = None,
+        enabled_types: Optional[list[PIIType]] = None,
+        preserve_domains: Optional[list[str]] = None,
         log_redactions: bool = True,
     ):
         """
@@ -137,7 +133,7 @@ class PIIRedactor:
         self.log_redactions = log_redactions
 
         # Compile regex patterns
-        self._patterns: Dict[PIIType, List[Tuple[Pattern[str], float]]] = {}
+        self._patterns: dict[PIIType, list[tuple[Pattern[str], float]]] = {}
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
@@ -267,7 +263,7 @@ class PIIRedactor:
         if not text:
             return RedactionResult(original_text="", redacted_text="", matches=[])
 
-        matches: List[PIIMatch] = []
+        matches: list[PIIMatch] = []
         redacted_text = text
 
         for pii_type in self.enabled_types:
@@ -330,7 +326,7 @@ class PIIRedactor:
         redact_subject: bool = True,
         redact_body: bool = True,
         redact_sender: bool = False,
-    ) -> Tuple[Any, Dict[str, RedactionResult]]:
+    ) -> tuple[Any, dict[str, RedactionResult]]:
         """
         Redact PII from an email message.
 
@@ -343,7 +339,7 @@ class PIIRedactor:
         Returns:
             Tuple of (modified_email, dict of field -> RedactionResult)
         """
-        results: Dict[str, RedactionResult] = {}
+        results: dict[str, RedactionResult] = {}
 
         if redact_subject and hasattr(email_message, "subject"):
             result = self.redact(email_message.subject or "")
@@ -367,9 +363,9 @@ class PIIRedactor:
 
     def redact_dict(
         self,
-        data: Dict[str, Any],
-        fields_to_redact: Optional[List[str]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, RedactionResult]]:
+        data: dict[str, Any],
+        fields_to_redact: Optional[list[str]] = None,
+    ) -> tuple[dict[str, Any], dict[str, RedactionResult]]:
         """
         Redact PII from dictionary fields.
 
@@ -380,7 +376,7 @@ class PIIRedactor:
         Returns:
             Tuple of (modified_dict, dict of field -> RedactionResult)
         """
-        results: Dict[str, RedactionResult] = {}
+        results: dict[str, RedactionResult] = {}
         modified_data = data.copy()
 
         for key, value in data.items():
@@ -397,20 +393,17 @@ class PIIRedactor:
 
         return modified_data, results
 
-
 # Singleton instance for convenience
-_default_redactor: Optional[PIIRedactor] = None
-
+_default_redactor: PIIRedactor | None = None
 
 def get_pii_redactor(
-    preserve_domains: Optional[List[str]] = None,
+    preserve_domains: Optional[list[str]] = None,
 ) -> PIIRedactor:
     """Get or create the default PII redactor."""
     global _default_redactor
     if _default_redactor is None:
         _default_redactor = PIIRedactor(preserve_domains=preserve_domains)
     return _default_redactor
-
 
 def redact_text(text: str) -> str:
     """Convenience function to redact PII from text."""

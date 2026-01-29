@@ -12,12 +12,13 @@ Arena._run_inner() method, handling:
 - DebateResult initialization
 - Proposer selection
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Knowledge query cache (TTL-based to reduce redundant semantic searches)
-_knowledge_cache: Dict[str, Tuple[str, float]] = {}
+_knowledge_cache: dict[str, tuple[str, float]] = {}
 _KNOWLEDGE_CACHE_TTL = 300.0  # 5 minutes
 
 # Check for RLM availability (prefer factory for TRUE RLM support)
@@ -37,9 +38,8 @@ except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
     get_rlm: Optional[Callable[..., Any]] = None  # type: ignore[no-redef]
-    RLMConfig: Optional[Type[Any]] = None  # type: ignore[no-redef]
-    _RLMContext: Optional[Type[Any]] = None  # type: ignore[no-redef]
-
+    RLMConfig: Optional[type[Any]] = None  # type: ignore[no-redef]
+    _RLMContext: Optional[type[Any]] = None  # type: ignore[no-redef]
 
 class ContextInitializer:
     """
@@ -63,7 +63,7 @@ class ContextInitializer:
 
     def __init__(
         self,
-        initial_messages: Optional[list] = None,
+        initial_messages: list | None = None,
         trending_topic: Any = None,
         recorder: Any = None,
         debate_embeddings: Any = None,
@@ -92,11 +92,11 @@ class ContextInitializer:
             Callable[[str, str], str]
         ] = None,  # Agent callback for compression
         # Callbacks for orchestrator methods
-        fetch_historical_context: Optional[Callable] = None,
-        format_patterns_for_prompt: Optional[Callable] = None,
-        get_successful_patterns_from_memory: Optional[Callable] = None,
-        perform_research: Optional[Callable] = None,
-        fetch_knowledge_context: Optional[Callable] = None,  # Callback to fetch knowledge context
+        fetch_historical_context: Callable | None = None,
+        format_patterns_for_prompt: Callable | None = None,
+        get_successful_patterns_from_memory: Callable | None = None,
+        perform_research: Callable | None = None,
+        fetch_knowledge_context: Callable | None = None,  # Callback to fetch knowledge context
     ):
         """
         Initialize the context initializer.
@@ -144,7 +144,7 @@ class ContextInitializer:
 
         # RLM configuration - use factory for TRUE RLM support
         self.enable_rlm_compression = enable_rlm_compression and HAS_RLM
-        self._rlm: Optional[Any] = None
+        self._rlm: Any | None = None
         if self.enable_rlm_compression and get_rlm is not None:
             try:
                 config = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
@@ -457,7 +457,7 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"[knowledge_mound] Knowledge context fetch error: {e}")
 
-    def _get_cached_knowledge(self, query_hash: str) -> Optional[str]:
+    def _get_cached_knowledge(self, query_hash: str) -> str | None:
         """Get cached knowledge context if still valid.
 
         Returns:

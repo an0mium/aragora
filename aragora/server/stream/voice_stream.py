@@ -34,7 +34,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, Optional, Set
+from typing import TYPE_CHECKING, Optional
 
 from aragora.connectors.whisper import (
     WhisperConnector,
@@ -73,7 +73,6 @@ VOICE_MAX_BYTES_PER_MINUTE = int(
 VOICE_TTS_ENABLED = os.getenv("ARAGORA_VOICE_TTS_ENABLED", "true").lower() == "true"
 VOICE_TTS_DEFAULT_VOICE = os.getenv("ARAGORA_VOICE_TTS_DEFAULT_VOICE", "narrator")
 
-
 def _get_tts_backend():
     """Lazily load and return TTS backend."""
     global _tts_backend, _tts_available
@@ -103,7 +102,6 @@ def _get_tts_backend():
         _tts_available = False
         return None
 
-
 @dataclass
 class VoiceSession:
     """Tracks state for an active voice streaming session."""
@@ -121,7 +119,7 @@ class VoiceSession:
     language: str = ""
     is_active: bool = True
     auto_synthesize: bool = True  # Auto-synthesize agent messages as TTS
-    tts_voice_map: Dict[str, str] = field(default_factory=dict)  # agent -> voice mapping
+    tts_voice_map: dict[str, str] = field(default_factory=dict)  # agent -> voice mapping
 
     def add_chunk(self, chunk: bytes) -> bool:
         """Add audio chunk to buffer, return False if buffer overflow."""
@@ -141,7 +139,6 @@ class VoiceSession:
     def elapsed_seconds(self) -> float:
         """Get session duration in seconds."""
         return time.time() - self.started_at
-
 
 class VoiceStreamHandler:
     """
@@ -178,7 +175,7 @@ class VoiceStreamHandler:
     def __init__(
         self,
         server: "ServerBase",
-        whisper: Optional[WhisperConnector] = None,
+        whisper: WhisperConnector | None = None,
     ):
         """
         Initialize VoiceStreamHandler.
@@ -191,12 +188,12 @@ class VoiceStreamHandler:
         self.whisper = whisper or WhisperConnector()
 
         # Active voice sessions
-        self._sessions: Dict[str, VoiceSession] = {}
+        self._sessions: dict[str, VoiceSession] = {}
         self._sessions_lock = asyncio.Lock()
 
         # Rate limiting by IP
-        self._ip_sessions: Dict[str, Set[str]] = {}  # ip -> set of session_ids
-        self._ip_bytes_minute: Dict[str, list[tuple[float, int]]] = {}  # ip -> [(timestamp, bytes)]
+        self._ip_sessions: dict[str, set[str]] = {}  # ip -> set of session_ids
+        self._ip_bytes_minute: dict[str, list[tuple[float, int]]] = {}  # ip -> [(timestamp, bytes)]
 
     @property
     def is_available(self) -> bool:
@@ -798,7 +795,7 @@ class VoiceStreamHandler:
         debate_id: str,
         agent_name: str,
         message: str,
-        voice: Optional[str] = None,
+        voice: str | None = None,
     ) -> int:
         """
         Synthesize and send an agent message to all active voice sessions for a debate.
@@ -867,7 +864,7 @@ class VoiceStreamHandler:
             return self.server.voice_connections.get(session_id)
         return None
 
-    def get_active_voice_debates(self) -> Set[str]:
+    def get_active_voice_debates(self) -> set[str]:
         """Get set of debate IDs with active voice sessions.
 
         Useful for checking if a debate has voice listeners before
@@ -893,7 +890,7 @@ class VoiceStreamHandler:
         """
         return debate_id in self.get_active_voice_debates()
 
-    async def get_session_info(self, session_id: str) -> Optional[dict]:
+    async def get_session_info(self, session_id: str) -> dict | None:
         """Get information about an active voice session."""
         async with self._sessions_lock:
             session = self._sessions.get(session_id)

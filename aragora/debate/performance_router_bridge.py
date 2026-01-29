@@ -35,13 +35,12 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.agent_router import AgentRouter
 
 logger = logging.getLogger(__name__)
-
 
 def _record_routing_metrics(task_type: str, selected_agent: str, latency: float) -> None:
     """Record routing decision metrics to Prometheus."""
@@ -56,7 +55,6 @@ def _record_routing_metrics(task_type: str, selected_agent: str, latency: float)
     except ImportError:
         pass  # Metrics not available
 
-
 @dataclass
 class AgentRoutingScore:
     """Routing score breakdown for an agent."""
@@ -67,13 +65,12 @@ class AgentRoutingScore:
     quality_score: float = 0.0  # 0-1, based on output quality
     consistency_score: float = 0.0  # 0-1, based on variance in performance
     data_points: int = 0  # Number of observations
-    last_updated: Optional[datetime] = None
+    last_updated: datetime | None = None
 
     @property
     def is_reliable(self) -> bool:
         """Check if we have enough data for reliable routing."""
         return self.data_points >= 5
-
 
 @dataclass
 class SyncResult:
@@ -83,8 +80,7 @@ class SyncResult:
     agents_skipped: int = 0
     timestamp: datetime = field(default_factory=datetime.now)
     success: bool = True
-    error: Optional[str] = None
-
+    error: str | None = None
 
 @dataclass
 class PerformanceRouterBridgeConfig:
@@ -116,7 +112,6 @@ class PerformanceRouterBridgeConfig:
     fast_tier_threshold: float = 0.8  # Score above this = fast tier
     slow_tier_threshold: float = 0.4  # Score below this = slow tier
 
-
 @dataclass
 class PerformanceRouterBridge:
     """Bridges AgentPerformanceMonitor into AgentRouter decisions.
@@ -128,19 +123,19 @@ class PerformanceRouterBridge:
     4. Tracks routing decisions and outcomes
     """
 
-    performance_monitor: Optional[Any] = None  # AgentPerformanceMonitor
+    performance_monitor: Any | None = None  # AgentPerformanceMonitor
     agent_router: Optional["AgentRouter"] = None
     config: PerformanceRouterBridgeConfig = field(default_factory=PerformanceRouterBridgeConfig)
 
     # Internal state
-    _routing_scores: Dict[str, AgentRoutingScore] = field(default_factory=dict, repr=False)
-    _last_sync: Optional[datetime] = field(default=None, repr=False)
-    _sync_history: List[SyncResult] = field(default_factory=list, repr=False)
+    _routing_scores: dict[str, AgentRoutingScore] = field(default_factory=dict, repr=False)
+    _last_sync: datetime | None = field(default=None, repr=False)
+    _sync_history: list[SyncResult] = field(default_factory=list, repr=False)
 
     def compute_routing_score(
         self,
         agent_name: str,
-        task_type: Optional[str] = None,
+        task_type: str | None = None,
     ) -> AgentRoutingScore:
         """Compute routing score for an agent.
 
@@ -188,7 +183,7 @@ class PerformanceRouterBridge:
 
         return score
 
-    def _get_agent_metrics(self, agent_name: str) -> Optional[Any]:
+    def _get_agent_metrics(self, agent_name: str) -> Any | None:
         """Get performance metrics from monitor."""
         if self.performance_monitor is None:
             return None
@@ -250,7 +245,7 @@ class PerformanceRouterBridge:
 
         return min(1.0, max(0.0, consistency))
 
-    def _get_weights_for_task_type(self, task_type: Optional[str]) -> Dict[str, float]:
+    def _get_weights_for_task_type(self, task_type: str | None) -> dict[str, float]:
         """Get scoring weights based on task type."""
         if task_type == "speed":
             return {"latency": 0.6, "quality": 0.2, "consistency": 0.2}
@@ -336,9 +331,9 @@ class PerformanceRouterBridge:
 
     def get_best_agent_for_task(
         self,
-        available_agents: List[str],
-        task_type: Optional[str] = None,
-    ) -> Optional[str]:
+        available_agents: list[str],
+        task_type: str | None = None,
+    ) -> str | None:
         """Get the best agent for a task based on performance.
 
         Args:
@@ -370,9 +365,9 @@ class PerformanceRouterBridge:
 
     def rank_agents_for_task(
         self,
-        available_agents: List[str],
-        task_type: Optional[str] = None,
-    ) -> List[Tuple[str, float]]:
+        available_agents: list[str],
+        task_type: str | None = None,
+    ) -> list[tuple[str, float]]:
         """Rank agents by performance for a task type.
 
         Args:
@@ -382,7 +377,7 @@ class PerformanceRouterBridge:
         Returns:
             List of (agent_name, score) tuples sorted by score descending
         """
-        rankings: List[Tuple[str, float]] = []
+        rankings: list[tuple[str, float]] = []
 
         for agent_name in available_agents:
             score = self.compute_routing_score(agent_name, task_type)
@@ -411,7 +406,7 @@ class PerformanceRouterBridge:
         else:
             return "medium"
 
-    def get_routing_score(self, agent_name: str) -> Optional[AgentRoutingScore]:
+    def get_routing_score(self, agent_name: str) -> AgentRoutingScore | None:
         """Get cached routing score for an agent.
 
         Args:
@@ -422,7 +417,7 @@ class PerformanceRouterBridge:
         """
         return self._routing_scores.get(agent_name)
 
-    def get_all_scores(self) -> Dict[str, AgentRoutingScore]:
+    def get_all_scores(self) -> dict[str, AgentRoutingScore]:
         """Get all cached routing scores.
 
         Returns:
@@ -430,7 +425,7 @@ class PerformanceRouterBridge:
         """
         return dict(self._routing_scores)
 
-    def get_sync_history(self, limit: int = 10) -> List[SyncResult]:
+    def get_sync_history(self, limit: int = 10) -> list[SyncResult]:
         """Get recent sync history.
 
         Args:
@@ -441,7 +436,7 @@ class PerformanceRouterBridge:
         """
         return self._sync_history[-limit:]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.
 
         Returns:
@@ -466,10 +461,9 @@ class PerformanceRouterBridge:
         self._routing_scores.clear()
         logger.debug("Cleared routing score cache")
 
-
 def create_performance_router_bridge(
-    performance_monitor: Optional[Any] = None,
-    agent_router: Optional[Any] = None,
+    performance_monitor: Any | None = None,
+    agent_router: Any | None = None,
     **config_kwargs: Any,
 ) -> PerformanceRouterBridge:
     """Create and configure a PerformanceRouterBridge.
@@ -488,7 +482,6 @@ def create_performance_router_bridge(
         agent_router=agent_router,
         config=config,
     )
-
 
 __all__ = [
     "PerformanceRouterBridge",

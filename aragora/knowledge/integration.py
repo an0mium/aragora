@@ -19,12 +19,11 @@ from aragora.knowledge.pipeline import KnowledgePipeline, PipelineConfig, Proces
 logger = logging.getLogger(__name__)
 
 # Global pipeline instance (lazily initialized)
-_pipeline: Optional[KnowledgePipeline] = None
+_pipeline: KnowledgePipeline | None = None
 _pipeline_lock = asyncio.Lock()
 
 # Thread pool for running async code from sync context
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="knowledge-")
-
 
 @dataclass
 class KnowledgeProcessingConfig:
@@ -44,7 +43,6 @@ class KnowledgeProcessingConfig:
     on_complete: Optional[Callable[[ProcessingResult], None]] = None
     on_error: Optional[Callable[[str, Exception], None]] = None
 
-
 @dataclass
 class ProcessingJob:
     """Tracks a knowledge processing job."""
@@ -54,15 +52,13 @@ class ProcessingJob:
     filename: str
     workspace_id: str
     status: str = "pending"  # pending, processing, completed, failed
-    result: Optional[ProcessingResult] = None
-    error: Optional[str] = None
+    result: ProcessingResult | None = None
+    error: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
-
+    completed_at: datetime | None = None
 
 # In-memory job tracking (replace with Redis/DB in production)
 _jobs: dict[str, ProcessingJob] = {}
-
 
 async def get_pipeline(workspace_id: str = "default") -> KnowledgePipeline:
     """Get or create the knowledge pipeline for a workspace.
@@ -88,20 +84,18 @@ async def get_pipeline(workspace_id: str = "default") -> KnowledgePipeline:
 
         return _pipeline
 
-
 def _should_use_weaviate() -> bool:
     """Check if Weaviate should be used based on environment."""
     import os
 
     return os.environ.get("ARAGORA_WEAVIATE_ENABLED", "false").lower() == "true"
 
-
 async def process_document_async(
     content: bytes,
     filename: str,
     workspace_id: str = "default",
-    document_id: Optional[str] = None,
-    config: Optional[KnowledgeProcessingConfig] = None,
+    document_id: str | None = None,
+    config: KnowledgeProcessingConfig | None = None,
 ) -> ProcessingResult:
     """Process a document through the knowledge pipeline.
 
@@ -139,13 +133,12 @@ async def process_document_async(
 
     return result
 
-
 def process_document_sync(
     content: bytes,
     filename: str,
     workspace_id: str = "default",
-    document_id: Optional[str] = None,
-    config: Optional[KnowledgeProcessingConfig] = None,
+    document_id: str | None = None,
+    config: KnowledgeProcessingConfig | None = None,
 ) -> ProcessingResult:
     """Synchronous wrapper for process_document_async.
 
@@ -175,13 +168,12 @@ def process_document_sync(
     finally:
         loop.close()
 
-
 def queue_document_processing(
     content: bytes,
     filename: str,
     workspace_id: str = "default",
-    document_id: Optional[str] = None,
-    config: Optional[KnowledgeProcessingConfig] = None,
+    document_id: str | None = None,
+    config: KnowledgeProcessingConfig | None = None,
 ) -> str:
     """Queue a document for background knowledge processing.
 
@@ -241,8 +233,7 @@ def queue_document_processing(
     logger.info(f"Queued knowledge processing: {job_id} for {filename}")
     return job_id
 
-
-def get_job_status(job_id: str) -> Optional[dict[str, Any]]:
+def get_job_status(job_id: str) -> dict[str, Any] | None:
     """Get the status of a knowledge processing job.
 
     Args:
@@ -276,10 +267,9 @@ def get_job_status(job_id: str) -> Optional[dict[str, Any]]:
         ),
     }
 
-
 def get_all_jobs(
-    workspace_id: Optional[str] = None,
-    status: Optional[str] = None,
+    workspace_id: str | None = None,
+    status: str | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
     """Get all knowledge processing jobs with optional filtering.
@@ -305,7 +295,6 @@ def get_all_jobs(
 
     return [get_job_status(j.job_id) for j in jobs[:limit] if get_job_status(j.job_id)]
 
-
 async def shutdown_pipeline() -> None:
     """Shutdown the knowledge pipeline gracefully."""
     global _pipeline
@@ -318,13 +307,12 @@ async def shutdown_pipeline() -> None:
 
     _executor.shutdown(wait=True)
 
-
 # Convenience function for document handlers
 def process_uploaded_document(
     content: bytes,
     filename: str,
     workspace_id: str = "default",
-    document_id: Optional[str] = None,
+    document_id: str | None = None,
     async_processing: bool = True,
 ) -> dict[str, Any]:
     """Process an uploaded document through the knowledge pipeline.

@@ -31,7 +31,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -69,29 +69,25 @@ _activity_store = LazyStoreFactory(
     logger_context="SharedInbox",
 )
 
-
 def _get_email_store():
     """Get the email store (lazy init, thread-safe)."""
     return _email_store.get()
-
 
 def _get_rules_store():
     """Get the rules store (lazy init, thread-safe)."""
     return _rules_store.get()
 
-
 def _get_activity_store():
     """Get the activity store (lazy init, thread-safe)."""
     return _activity_store.get()
-
 
 def _log_activity(
     inbox_id: str,
     org_id: str,
     actor_id: str,
     action: str,
-    target_id: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    target_id: str | None = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     """Log an inbox activity (non-blocking helper)."""
     store = _get_activity_store()
@@ -111,15 +107,12 @@ def _log_activity(
         except Exception as e:
             logger.debug(f"[SharedInbox] Failed to log activity: {e}")
 
-
 # Storage configuration
 USE_PERSISTENT_STORAGE = True  # Set to False for in-memory only (testing)
-
 
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 class MessageStatus(str, Enum):
     """Status of a message in the shared inbox."""
@@ -130,7 +123,6 @@ class MessageStatus(str, Enum):
     WAITING = "waiting"
     RESOLVED = "resolved"
     CLOSED = "closed"
-
 
 class RuleConditionField(str, Enum):
     """Fields that can be used in routing rule conditions."""
@@ -143,7 +135,6 @@ class RuleConditionField(str, Enum):
     PRIORITY = "priority"
     SENDER_DOMAIN = "sender_domain"
 
-
 class RuleConditionOperator(str, Enum):
     """Operators for routing rule conditions."""
 
@@ -155,7 +146,6 @@ class RuleConditionOperator(str, Enum):
     GREATER_THAN = "greater_than"
     LESS_THAN = "less_than"
 
-
 class RuleActionType(str, Enum):
     """Actions that routing rules can perform."""
 
@@ -166,7 +156,6 @@ class RuleActionType(str, Enum):
     NOTIFY = "notify"
     FORWARD = "forward"
 
-
 @dataclass
 class RuleCondition:
     """A single condition in a routing rule."""
@@ -175,7 +164,7 @@ class RuleCondition:
     operator: RuleConditionOperator
     value: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "field": self.field.value,
             "operator": self.operator.value,
@@ -183,23 +172,22 @@ class RuleCondition:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RuleCondition":
+    def from_dict(cls, data: dict[str, Any]) -> "RuleCondition":
         return cls(
             field=RuleConditionField(data["field"]),
             operator=RuleConditionOperator(data["operator"]),
             value=data["value"],
         )
 
-
 @dataclass
 class RuleAction:
     """An action to perform when a routing rule matches."""
 
     type: RuleActionType
-    target: Optional[str] = None
-    params: Dict[str, str] = field(default_factory=dict)
+    target: str | None = None
+    params: dict[str, str] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.type.value,
             "target": self.target,
@@ -207,13 +195,12 @@ class RuleAction:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RuleAction":
+    def from_dict(cls, data: dict[str, Any]) -> "RuleAction":
         return cls(
             type=RuleActionType(data["type"]),
             target=data.get("target"),
             params=data.get("params", {}),
         )
-
 
 @dataclass
 class RoutingRule:
@@ -222,18 +209,18 @@ class RoutingRule:
     id: str
     name: str
     workspace_id: str
-    conditions: List[RuleCondition]
+    conditions: list[RuleCondition]
     condition_logic: str  # "AND" or "OR"
-    actions: List[RuleAction]
+    actions: list[RuleAction]
     priority: int = 5
     enabled: bool = True
-    description: Optional[str] = None
+    description: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = None
-    stats: Dict[str, Any] = field(default_factory=dict)
+    created_by: str | None = None
+    stats: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -251,7 +238,7 @@ class RoutingRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RoutingRule":
+    def from_dict(cls, data: dict[str, Any]) -> "RoutingRule":
         return cls(
             id=data["id"],
             name=data["name"],
@@ -276,7 +263,6 @@ class RoutingRule:
             stats=data.get("stats", {}),
         )
 
-
 @dataclass
 class SharedInboxMessage:
     """A message in a shared inbox with collaboration metadata."""
@@ -286,21 +272,21 @@ class SharedInboxMessage:
     email_id: str  # Original email ID from connector
     subject: str
     from_address: str
-    to_addresses: List[str]
+    to_addresses: list[str]
     snippet: str
     received_at: datetime
     status: MessageStatus = MessageStatus.OPEN
-    assigned_to: Optional[str] = None
-    assigned_at: Optional[datetime] = None
-    tags: List[str] = field(default_factory=list)
-    priority: Optional[str] = None
-    notes: List[Dict[str, Any]] = field(default_factory=list)
-    thread_id: Optional[str] = None
-    sla_deadline: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
-    resolved_by: Optional[str] = None
+    assigned_to: str | None = None
+    assigned_at: datetime | None = None
+    tags: list[str] = field(default_factory=list)
+    priority: str | None = None
+    notes: list[dict[str, Any]] = field(default_factory=list)
+    thread_id: str | None = None
+    sla_deadline: datetime | None = None
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "inbox_id": self.inbox_id,
@@ -322,7 +308,6 @@ class SharedInboxMessage:
             "resolved_by": self.resolved_by,
         }
 
-
 @dataclass
 class SharedInbox:
     """A shared inbox for team collaboration."""
@@ -330,19 +315,19 @@ class SharedInbox:
     id: str
     workspace_id: str
     name: str
-    description: Optional[str] = None
-    email_address: Optional[str] = None  # Associated email address
-    connector_type: Optional[str] = None  # "gmail", "outlook", etc.
-    team_members: List[str] = field(default_factory=list)
-    admins: List[str] = field(default_factory=list)
-    settings: Dict[str, Any] = field(default_factory=dict)
+    description: str | None = None
+    email_address: str | None = None  # Associated email address
+    connector_type: str | None = None  # "gmail", "outlook", etc.
+    team_members: list[str] = field(default_factory=list)
+    admins: list[str] = field(default_factory=list)
+    settings: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = None
+    created_by: str | None = None
     message_count: int = 0
     unread_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "workspace_id": self.workspace_id,
@@ -360,16 +345,14 @@ class SharedInbox:
             "unread_count": self.unread_count,
         }
 
-
 # =============================================================================
 # In-Memory Storage (fallback when USE_PERSISTENT_STORAGE=False)
 # =============================================================================
 
-_shared_inboxes: Dict[str, SharedInbox] = {}
-_inbox_messages: Dict[str, Dict[str, SharedInboxMessage]] = {}  # inbox_id -> {msg_id -> message}
-_routing_rules: Dict[str, RoutingRule] = {}
+_shared_inboxes: dict[str, SharedInbox] = {}
+_inbox_messages: dict[str, dict[str, SharedInboxMessage]] = {}  # inbox_id -> {msg_id -> message}
+_routing_rules: dict[str, RoutingRule] = {}
 _storage_lock = threading.Lock()
-
 
 def _get_store():
     """Get the persistent storage instance if enabled."""
@@ -377,23 +360,21 @@ def _get_store():
         return None
     return _get_email_store()
 
-
 # =============================================================================
 # Shared Inbox Handlers
 # =============================================================================
 
-
 async def handle_create_shared_inbox(
     workspace_id: str,
     name: str,
-    description: Optional[str] = None,
-    email_address: Optional[str] = None,
-    connector_type: Optional[str] = None,
-    team_members: Optional[List[str]] = None,
-    admins: Optional[List[str]] = None,
-    settings: Optional[Dict[str, Any]] = None,
-    created_by: Optional[str] = None,
-) -> Dict[str, Any]:
+    description: str | None = None,
+    email_address: str | None = None,
+    connector_type: str | None = None,
+    team_members: Optional[list[str]] = None,
+    admins: Optional[list[str]] = None,
+    settings: Optional[dict[str, Any]] = None,
+    created_by: str | None = None,
+) -> dict[str, Any]:
     """
     Create a new shared inbox.
 
@@ -465,11 +446,10 @@ async def handle_create_shared_inbox(
             "error": str(e),
         }
 
-
 async def handle_list_shared_inboxes(
     workspace_id: str,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """
     List shared inboxes the user has access to.
 
@@ -520,10 +500,9 @@ async def handle_list_shared_inboxes(
             "error": str(e),
         }
 
-
 async def handle_get_shared_inbox(
     inbox_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get shared inbox details.
 
@@ -566,15 +545,14 @@ async def handle_get_shared_inbox(
             "error": str(e),
         }
 
-
 async def handle_get_inbox_messages(
     inbox_id: str,
-    status: Optional[str] = None,
-    assigned_to: Optional[str] = None,
-    tag: Optional[str] = None,
+    status: str | None = None,
+    assigned_to: str | None = None,
+    tag: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get messages in a shared inbox.
 
@@ -669,14 +647,13 @@ async def handle_get_inbox_messages(
             "error": str(e),
         }
 
-
 async def handle_assign_message(
     inbox_id: str,
     message_id: str,
     assigned_to: str,
-    assigned_by: Optional[str] = None,
-    org_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    assigned_by: str | None = None,
+    org_id: str | None = None,
+) -> dict[str, Any]:
     """
     Assign a message to a team member.
 
@@ -747,14 +724,13 @@ async def handle_assign_message(
             "error": str(e),
         }
 
-
 async def handle_update_message_status(
     inbox_id: str,
     message_id: str,
     status: str,
-    updated_by: Optional[str] = None,
-    org_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    updated_by: str | None = None,
+    org_id: str | None = None,
+) -> dict[str, Any]:
     """
     Update message status.
 
@@ -825,14 +801,13 @@ async def handle_update_message_status(
             "error": str(e),
         }
 
-
 async def handle_add_message_tag(
     inbox_id: str,
     message_id: str,
     tag: str,
-    added_by: Optional[str] = None,
-    org_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    added_by: str | None = None,
+    org_id: str | None = None,
+) -> dict[str, Any]:
     """
     Add a tag to a message.
 
@@ -877,19 +852,18 @@ async def handle_add_message_tag(
             "error": str(e),
         }
 
-
 async def handle_add_message_to_inbox(
     inbox_id: str,
     email_id: str,
     subject: str,
     from_address: str,
-    to_addresses: List[str],
+    to_addresses: list[str],
     snippet: str,
-    received_at: Optional[datetime] = None,
-    thread_id: Optional[str] = None,
-    priority: Optional[str] = None,
-    workspace_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    received_at: datetime | None = None,
+    thread_id: str | None = None,
+    priority: str | None = None,
+    workspace_id: str | None = None,
+) -> dict[str, Any]:
     """
     Add a message to a shared inbox (used by sync/routing).
 
@@ -958,24 +932,22 @@ async def handle_add_message_to_inbox(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Routing Rule Handlers
 # =============================================================================
 
-
 async def handle_create_routing_rule(
     workspace_id: str,
     name: str,
-    conditions: List[Dict[str, Any]],
-    actions: List[Dict[str, Any]],
+    conditions: list[dict[str, Any]],
+    actions: list[dict[str, Any]],
     condition_logic: str = "AND",
     priority: int = 5,
     enabled: bool = True,
-    description: Optional[str] = None,
-    created_by: Optional[str] = None,
-    inbox_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    description: str | None = None,
+    created_by: str | None = None,
+    inbox_id: str | None = None,
+) -> dict[str, Any]:
     """
     Create a routing rule.
 
@@ -1077,14 +1049,13 @@ async def handle_create_routing_rule(
             "error": str(e),
         }
 
-
 async def handle_list_routing_rules(
     workspace_id: str,
     enabled_only: bool = False,
     limit: int = 100,
     offset: int = 0,
-    inbox_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    inbox_id: str | None = None,
+) -> dict[str, Any]:
     """
     List routing rules for a workspace.
 
@@ -1172,11 +1143,10 @@ async def handle_list_routing_rules(
             "error": str(e),
         }
 
-
 async def handle_update_routing_rule(
     rule_id: str,
-    updates: Dict[str, Any],
-) -> Dict[str, Any]:
+    updates: dict[str, Any],
+) -> dict[str, Any]:
     """
     Update a routing rule.
 
@@ -1266,10 +1236,9 @@ async def handle_update_routing_rule(
             "error": str(e),
         }
 
-
 async def handle_delete_routing_rule(
     rule_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete a routing rule.
 
@@ -1320,11 +1289,10 @@ async def handle_delete_routing_rule(
             "error": str(e),
         }
 
-
 async def handle_test_routing_rule(
     rule_id: str,
     workspace_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Test a routing rule against existing messages.
 
@@ -1389,7 +1357,6 @@ async def handle_test_routing_rule(
             "error": str(e),
         }
 
-
 def _evaluate_rule(rule: RoutingRule, message: SharedInboxMessage) -> bool:
     """Evaluate if a routing rule matches a message."""
     import re
@@ -1435,12 +1402,11 @@ def _evaluate_rule(rule: RoutingRule, message: SharedInboxMessage) -> bool:
     else:  # OR
         return any(results) if results else False
 
-
 async def get_matching_rules_for_email(
     inbox_id: str,
-    email_data: Dict[str, Any],
-    workspace_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    email_data: dict[str, Any],
+    workspace_id: str | None = None,
+) -> list[dict[str, Any]]:
     """
     Get all matching routing rules for an email message.
 
@@ -1488,7 +1454,7 @@ async def get_matching_rules_for_email(
 
         # Create a message-like object for evaluation
         class _EmailMessage:
-            def __init__(self, data: Dict[str, Any]):
+            def __init__(self, data: dict[str, Any]):
                 self.from_address = data.get("from_address", "")
                 self.to_addresses = data.get("to_addresses", [])
                 self.subject = data.get("subject", "")
@@ -1503,12 +1469,11 @@ async def get_matching_rules_for_email(
 
     return matching_rules
 
-
 async def apply_routing_rules_to_message(
     inbox_id: str,
     message: SharedInboxMessage,
     workspace_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Apply matching routing rules to a message.
 
@@ -1587,11 +1552,9 @@ async def apply_routing_rules_to_message(
         "changes": changes_made,
     }
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class SharedInboxHandler(BaseHandler):
     """
@@ -1610,7 +1573,7 @@ class SharedInboxHandler(BaseHandler):
         "/api/v1/inbox/routing/rules/",
     ]
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)  # type: ignore[arg-type]
 
@@ -1624,13 +1587,13 @@ class SharedInboxHandler(BaseHandler):
         return False
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route shared inbox endpoint requests."""
         return None
 
     @require_permission("inbox:create")
-    async def handle_post_shared_inbox(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_shared_inbox(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/inbox/shared"""
         workspace_id = data.get("workspace_id")
         name = data.get("name")
@@ -1656,7 +1619,7 @@ class SharedInboxHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     @require_permission("inbox:read")
-    async def handle_get_shared_inboxes(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_shared_inboxes(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/inbox/shared"""
         workspace_id = params.get("workspace_id")
         if not workspace_id:
@@ -1673,7 +1636,7 @@ class SharedInboxHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     @require_permission("inbox:read")
-    async def handle_get_shared_inbox(self, params: Dict[str, Any], inbox_id: str) -> HandlerResult:
+    async def handle_get_shared_inbox(self, params: dict[str, Any], inbox_id: str) -> HandlerResult:
         """GET /api/v1/inbox/shared/:id"""
         result = await handle_get_shared_inbox(inbox_id)
 
@@ -1684,7 +1647,7 @@ class SharedInboxHandler(BaseHandler):
 
     @require_permission("inbox:read")
     async def handle_get_inbox_messages(
-        self, params: Dict[str, Any], inbox_id: str
+        self, params: dict[str, Any], inbox_id: str
     ) -> HandlerResult:
         """GET /api/v1/inbox/shared/:id/messages"""
         result = await handle_get_inbox_messages(
@@ -1703,7 +1666,7 @@ class SharedInboxHandler(BaseHandler):
 
     @require_permission("inbox:manage")
     async def handle_post_assign_message(
-        self, data: Dict[str, Any], inbox_id: str, message_id: str
+        self, data: dict[str, Any], inbox_id: str, message_id: str
     ) -> HandlerResult:
         """POST /api/v1/inbox/shared/:id/messages/:msg_id/assign"""
         assigned_to = data.get("assigned_to")
@@ -1724,7 +1687,7 @@ class SharedInboxHandler(BaseHandler):
 
     @require_permission("inbox:manage")
     async def handle_post_update_status(
-        self, data: Dict[str, Any], inbox_id: str, message_id: str
+        self, data: dict[str, Any], inbox_id: str, message_id: str
     ) -> HandlerResult:
         """POST /api/v1/inbox/shared/:id/messages/:msg_id/status"""
         status = data.get("status")
@@ -1745,7 +1708,7 @@ class SharedInboxHandler(BaseHandler):
 
     @require_permission("inbox:manage")
     async def handle_post_add_tag(
-        self, data: Dict[str, Any], inbox_id: str, message_id: str
+        self, data: dict[str, Any], inbox_id: str, message_id: str
     ) -> HandlerResult:
         """POST /api/v1/inbox/shared/:id/messages/:msg_id/tag"""
         tag = data.get("tag")
@@ -1764,7 +1727,7 @@ class SharedInboxHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     @require_permission("inbox:admin")
-    async def handle_post_routing_rule(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_routing_rule(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/inbox/routing/rules"""
         workspace_id = data.get("workspace_id")
         name = data.get("name")
@@ -1793,7 +1756,7 @@ class SharedInboxHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     @require_permission("inbox:read")
-    async def handle_get_routing_rules(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_routing_rules(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/inbox/routing/rules"""
         workspace_id = params.get("workspace_id")
         if not workspace_id:
@@ -1813,7 +1776,7 @@ class SharedInboxHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     @require_permission("inbox:admin")
-    async def handle_patch_routing_rule(self, data: Dict[str, Any], rule_id: str) -> HandlerResult:
+    async def handle_patch_routing_rule(self, data: dict[str, Any], rule_id: str) -> HandlerResult:
         """PATCH /api/v1/inbox/routing/rules/:id"""
         result = await handle_update_routing_rule(rule_id, data)
 
@@ -1834,7 +1797,7 @@ class SharedInboxHandler(BaseHandler):
 
     @require_permission("inbox:admin")
     async def handle_post_test_routing_rule(
-        self, data: Dict[str, Any], rule_id: str
+        self, data: dict[str, Any], rule_id: str
     ) -> HandlerResult:
         """POST /api/v1/inbox/routing/rules/:id/test"""
         workspace_id = data.get("workspace_id")

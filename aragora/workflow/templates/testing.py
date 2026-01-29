@@ -4,9 +4,9 @@ Test Generation Workflow Templates.
 Templates for automated test generation, coverage analysis, and test quality review.
 """
 
-from typing import Dict, Any
+from typing import Any
 
-TEST_GENERATION_TEMPLATE: Dict[str, Any] = {
+TEST_GENERATION_TEMPLATE: dict[str, Any] = {
     "name": "Automated Test Generation",
     "description": "Generate comprehensive tests for code with multi-agent review",
     "category": "testing",
@@ -163,8 +163,7 @@ TEST_GENERATION_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-
-COVERAGE_ANALYSIS_TEMPLATE: Dict[str, Any] = {
+COVERAGE_ANALYSIS_TEMPLATE: dict[str, Any] = {
     "name": "Test Coverage Analysis",
     "description": "Analyze and report on test coverage with improvement recommendations",
     "category": "testing",
@@ -248,8 +247,7 @@ COVERAGE_ANALYSIS_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-
-MUTATION_TESTING_TEMPLATE: Dict[str, Any] = {
+MUTATION_TESTING_TEMPLATE: dict[str, Any] = {
     "name": "Mutation Testing Analysis",
     "description": "Evaluate test effectiveness using mutation testing",
     "category": "testing",
@@ -337,7 +335,6 @@ MUTATION_TESTING_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-
 # Template registry
 TESTING_TEMPLATES = {
     "test_generation": TEST_GENERATION_TEMPLATE,
@@ -345,8 +342,7 @@ TESTING_TEMPLATES = {
     "mutation_testing": MUTATION_TESTING_TEMPLATE,
 }
 
-
-def get_testing_template(name: str) -> Dict[str, Any]:
+def get_testing_template(name: str) -> dict[str, Any]:
     """
     Get a testing workflow template by name.
 

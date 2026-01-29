@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import Optional
 
 from aragora.server.session_store import (
     DebateSession,
@@ -38,7 +37,6 @@ from aragora.server.session_store import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class DebateSessionManager:
     """Manage debate sessions across channels.
@@ -55,7 +53,7 @@ class DebateSessionManager:
         self,
         channel: str,
         user_id: str,
-        context: Optional[dict] = None,
+        context: dict | None = None,
     ) -> DebateSession:
         """Create a new debate session.
 
@@ -82,7 +80,7 @@ class DebateSessionManager:
         logger.debug(f"Created debate session: {session_id}")
         return session
 
-    async def get_session(self, session_id: str) -> Optional[DebateSession]:
+    async def get_session(self, session_id: str) -> DebateSession | None:
         """Get a session by ID.
 
         Args:
@@ -159,7 +157,7 @@ class DebateSessionManager:
         return True
 
     async def find_sessions_for_user(
-        self, user_id: str, channel: Optional[str] = None
+        self, user_id: str, channel: str | None = None
     ) -> list[DebateSession]:
         """Find all sessions for a user.
 
@@ -187,7 +185,7 @@ class DebateSessionManager:
         self,
         channel: str,
         user_id: str,
-        context: Optional[dict] = None,
+        context: dict | None = None,
     ) -> DebateSession:
         """Get an existing session or create a new one.
 
@@ -220,7 +218,7 @@ class DebateSessionManager:
         session_id: str,
         new_channel: str,
         preserve_debate: bool = True,
-    ) -> Optional[DebateSession]:
+    ) -> DebateSession | None:
         """Handoff a session to a different channel.
 
         Creates a new session on the target channel, optionally preserving
@@ -281,7 +279,7 @@ class DebateSessionManager:
         self._store.set_debate_session(session)
         return True
 
-    async def get_active_debate(self, session_id: str) -> Optional[str]:
+    async def get_active_debate(self, session_id: str) -> str | None:
         """Get the active debate ID for a session.
 
         Args:
@@ -293,10 +291,8 @@ class DebateSessionManager:
         session = self._store.get_debate_session(session_id)
         return session.debate_id if session else None
 
-
 # Singleton instance
-_manager: Optional[DebateSessionManager] = None
-
+_manager: DebateSessionManager | None = None
 
 def get_debate_session_manager() -> DebateSessionManager:
     """Get the singleton DebateSessionManager instance."""

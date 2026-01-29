@@ -12,7 +12,7 @@ import os
 import secrets
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.config import (
     DEFAULT_RATE_LIMIT,
@@ -25,7 +25,6 @@ from aragora.exceptions import AuthenticationError
 from aragora.server.cors_config import cors_config
 
 _logger = logging.getLogger(__name__)
-
 
 def _parse_cleanup_interval() -> int:
     """Parse cleanup interval with validation and bounds checking.
@@ -47,7 +46,6 @@ def _parse_cleanup_interval() -> int:
         _logger.warning(f"Invalid ARAGORA_AUTH_CLEANUP_INTERVAL='{raw}', using default 300")
         return 300
 
-
 class AuthConfig:
     """Configuration for authentication."""
 
@@ -58,14 +56,14 @@ class AuthConfig:
 
     def __init__(self):
         self.enabled = False
-        self.api_token: Optional[str] = None
+        self.api_token: str | None = None
         self.token_ttl = TOKEN_TTL_SECONDS
         self.allowed_origins: list[str] = cors_config.get_origins_list()  # Centralized CORS
         # Rate limiting
         self.rate_limit_per_minute = DEFAULT_RATE_LIMIT
         self.ip_rate_limit_per_minute = IP_RATE_LIMIT
-        self._token_request_counts: Dict[str, list] = {}  # token -> timestamps
-        self._ip_request_counts: Dict[str, list] = {}  # IP -> timestamps
+        self._token_request_counts: dict[str, list] = {}  # token -> timestamps
+        self._ip_request_counts: dict[str, list] = {}  # IP -> timestamps
         self._rate_limit_lock = threading.Lock()  # Thread-safe rate limiting
         # Get limits from config
         auth_settings = get_settings().auth
@@ -73,15 +71,15 @@ class AuthConfig:
         self._rate_limit_window = auth_settings.rate_limit_window
         self._revoked_token_ttl = auth_settings.revoked_token_ttl
         # Token revocation tracking
-        self._revoked_tokens: Dict[str, float] = {}  # token_hash -> revocation_time
+        self._revoked_tokens: dict[str, float] = {}  # token_hash -> revocation_time
         self._revocation_lock = threading.Lock()
         self._max_revoked_tokens = auth_settings.max_revoked_tokens
         # Background cleanup thread
-        self._cleanup_thread: Optional[threading.Thread] = None
+        self._cleanup_thread: threading.Thread | None = None
         self._cleanup_stop_event = threading.Event()
         # Shareable session storage (session_id -> {token, expires_at, loop_id})
         # Sessions replace direct token-in-URL for security (avoids exposure in logs/referrer)
-        self._shareable_sessions: Dict[str, Dict[str, Any]] = {}
+        self._shareable_sessions: dict[str, dict[str, Any]] = {}
         self._session_lock = threading.Lock()
         self._max_sessions = 10000  # Prevent unbounded growth
         self._start_cleanup_thread()
@@ -287,7 +285,7 @@ class AuthConfig:
         except (ValueError, IndexError):
             return False
 
-    def extract_loop_id_from_token(self, token: str) -> Optional[str]:
+    def extract_loop_id_from_token(self, token: str) -> str | None:
         """Extract the loop_id embedded in a token.
 
         Args:
@@ -438,7 +436,7 @@ class AuthConfig:
 
         return True, ""
 
-    def _cleanup_stale_entries(self, entries_dict: Dict[str, list], window_start: float) -> None:
+    def _cleanup_stale_entries(self, entries_dict: dict[str, list], window_start: float) -> None:
         """Remove stale entries to prevent memory exhaustion.
 
         Called within the rate limit lock.
@@ -611,8 +609,8 @@ class AuthConfig:
             return True, self.ip_rate_limit_per_minute - current_count - 1
 
     def extract_token_from_request(
-        self, headers: Dict[str, str], query_params: Optional[Dict[str, list]] = None
-    ) -> Optional[str]:
+        self, headers: dict[str, str], query_params: Optional[dict[str, list]] = None
+    ) -> str | None:
         """Extract token from Authorization header only.
 
         Security: Query parameter tokens are not accepted because they:
@@ -636,14 +634,12 @@ class AuthConfig:
         # Tokens in URLs appear in logs and browser history
         return None
 
-
 # Global auth config instance
 auth_config = AuthConfig()
 auth_config.configure_from_env()
 
-
 def check_auth(
-    headers: Dict[str, Any], query_string: str = "", loop_id: str = "", ip_address: str = ""
+    headers: dict[str, Any], query_string: str = "", loop_id: str = "", ip_address: str = ""
 ) -> tuple:
     """
     Check authentication and rate limiting for a request.
@@ -729,7 +725,6 @@ def check_auth(
         return True, min(remaining, ip_remaining)
     return True, remaining
 
-
 def generate_shareable_link(
     base_url: str, loop_id: str, expires_in: int = SHAREABLE_LINK_TTL
 ) -> str:
@@ -753,7 +748,6 @@ def generate_shareable_link(
 
     separator = "&" if "?" in base_url else "?"
     return f"{base_url}{separator}session={session_id}"
-
 
 def resolve_shareable_session(session_id: str) -> tuple[bool, str, str]:
     """Resolve a shareable session from URL parameter.

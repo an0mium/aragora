@@ -44,14 +44,13 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 # Default database path
 DEFAULT_METERING_DB = Path(".nomic/usage_metering.db")
-
 
 class MeteringPeriod(Enum):
     """Billing period types for usage queries."""
@@ -63,7 +62,6 @@ class MeteringPeriod(Enum):
     QUARTER = "quarter"
     YEAR = "year"
 
-
 class UsageType(Enum):
     """Types of metered usage events."""
 
@@ -73,10 +71,9 @@ class UsageType(Enum):
     STORAGE = "storage"
     CONNECTOR = "connector"
 
-
 # Provider pricing per 1M tokens (as of Jan 2026)
 # Aligned with aragora.billing.usage.PROVIDER_PRICING
-MODEL_PRICING: Dict[str, Dict[str, Decimal]] = {
+MODEL_PRICING: dict[str, dict[str, Decimal]] = {
     "anthropic": {
         "claude-opus-4": Decimal("15.00"),
         "claude-opus-4-output": Decimal("75.00"),
@@ -132,7 +129,7 @@ MODEL_PRICING: Dict[str, Dict[str, Decimal]] = {
 }
 
 # Tier-based usage caps (monthly)
-TIER_USAGE_CAPS: Dict[str, Dict[str, int]] = {
+TIER_USAGE_CAPS: dict[str, dict[str, int]] = {
     "free": {
         "max_tokens": 100_000,
         "max_debates": 10,
@@ -160,14 +157,13 @@ TIER_USAGE_CAPS: Dict[str, Dict[str, int]] = {
     },
 }
 
-
 @dataclass
 class TokenUsageRecord:
     """Record of token usage for a single API call."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
     org_id: str = ""
-    user_id: Optional[str] = None
+    user_id: str | None = None
     model: str = ""
     provider: str = ""
     input_tokens: int = 0
@@ -176,12 +172,12 @@ class TokenUsageRecord:
     input_cost: Decimal = Decimal("0")
     output_cost: Decimal = Decimal("0")
     total_cost: Decimal = Decimal("0")
-    debate_id: Optional[str] = None
-    endpoint: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    debate_id: str | None = None
+    endpoint: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -201,24 +197,23 @@ class TokenUsageRecord:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 @dataclass
 class DebateUsageRecord:
     """Record of debate usage."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
     org_id: str = ""
-    user_id: Optional[str] = None
+    user_id: str | None = None
     debate_id: str = ""
     agent_count: int = 0
     rounds: int = 0
     total_tokens: int = 0
     total_cost: Decimal = Decimal("0")
     duration_seconds: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -234,22 +229,21 @@ class DebateUsageRecord:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 @dataclass
 class ApiCallRecord:
     """Record of API call usage."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
     org_id: str = ""
-    user_id: Optional[str] = None
+    user_id: str | None = None
     endpoint: str = ""
     method: str = "GET"
     status_code: int = 200
     response_time_ms: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -262,7 +256,6 @@ class ApiCallRecord:
             "metadata": self.metadata,
             "timestamp": self.timestamp.isoformat(),
         }
-
 
 @dataclass
 class HourlyAggregate:
@@ -283,10 +276,10 @@ class HourlyAggregate:
     api_call_count: int = 0
 
     # By model/provider breakdown
-    tokens_by_model: Dict[str, int] = field(default_factory=dict)
-    cost_by_model: Dict[str, Decimal] = field(default_factory=dict)
+    tokens_by_model: dict[str, int] = field(default_factory=dict)
+    cost_by_model: dict[str, Decimal] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "org_id": self.org_id,
@@ -301,7 +294,6 @@ class HourlyAggregate:
             "tokens_by_model": self.tokens_by_model,
             "cost_by_model": {k: str(v) for k, v in self.cost_by_model.items()},
         }
-
 
 @dataclass
 class UsageSummary:
@@ -323,11 +315,11 @@ class UsageSummary:
     api_call_count: int = 0
 
     # Breakdowns
-    tokens_by_model: Dict[str, int] = field(default_factory=dict)
-    cost_by_model: Dict[str, Decimal] = field(default_factory=dict)
-    tokens_by_provider: Dict[str, int] = field(default_factory=dict)
-    cost_by_provider: Dict[str, Decimal] = field(default_factory=dict)
-    cost_by_day: Dict[str, Decimal] = field(default_factory=dict)
+    tokens_by_model: dict[str, int] = field(default_factory=dict)
+    cost_by_model: dict[str, Decimal] = field(default_factory=dict)
+    tokens_by_provider: dict[str, int] = field(default_factory=dict)
+    cost_by_provider: dict[str, Decimal] = field(default_factory=dict)
+    cost_by_day: dict[str, Decimal] = field(default_factory=dict)
 
     # Limits
     token_limit: int = 0
@@ -339,7 +331,7 @@ class UsageSummary:
     debate_usage_percent: float = 0.0
     api_call_usage_percent: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "org_id": self.org_id,
@@ -377,7 +369,6 @@ class UsageSummary:
             },
         }
 
-
 @dataclass
 class UsageLimits:
     """Current usage limits and utilization."""
@@ -405,7 +396,7 @@ class UsageLimits:
     debates_exceeded: bool = False
     api_calls_exceeded: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "org_id": self.org_id,
@@ -432,7 +423,6 @@ class UsageLimits:
             },
         }
 
-
 @dataclass
 class UsageBreakdown:
     """Detailed usage breakdown for billing."""
@@ -448,18 +438,18 @@ class UsageBreakdown:
     total_api_calls: int = 0
 
     # By model
-    by_model: List[Dict[str, Any]] = field(default_factory=list)
+    by_model: list[dict[str, Any]] = field(default_factory=list)
 
     # By provider
-    by_provider: List[Dict[str, Any]] = field(default_factory=list)
+    by_provider: list[dict[str, Any]] = field(default_factory=list)
 
     # By day
-    by_day: List[Dict[str, Any]] = field(default_factory=list)
+    by_day: list[dict[str, Any]] = field(default_factory=list)
 
     # By user (for multi-user organizations)
-    by_user: List[Dict[str, Any]] = field(default_factory=list)
+    by_user: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "org_id": self.org_id,
@@ -477,7 +467,6 @@ class UsageBreakdown:
             "by_user": self.by_user,
         }
 
-
 class UsageMeter:
     """
     Usage metering service for ENTERPRISE_PLUS tier.
@@ -486,7 +475,7 @@ class UsageMeter:
     and billing integration.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize usage meter.
 
@@ -494,14 +483,14 @@ class UsageMeter:
             db_path: Path to SQLite database
         """
         self.db_path = db_path or DEFAULT_METERING_DB
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self._lock = asyncio.Lock()
         self._initialized = False
 
         # In-memory buffer for batching writes
-        self._token_buffer: List[TokenUsageRecord] = []
-        self._debate_buffer: List[DebateUsageRecord] = []
-        self._api_buffer: List[ApiCallRecord] = []
+        self._token_buffer: list[TokenUsageRecord] = []
+        self._debate_buffer: list[DebateUsageRecord] = []
+        self._api_buffer: list[ApiCallRecord] = []
         self._buffer_size = 50
 
     async def initialize(self) -> None:
@@ -625,7 +614,7 @@ class UsageMeter:
         model: str,
         input_tokens: int,
         output_tokens: int,
-    ) -> Tuple[Decimal, Decimal]:
+    ) -> tuple[Decimal, Decimal]:
         """
         Calculate input and output costs for token usage.
 
@@ -662,10 +651,10 @@ class UsageMeter:
         output_tokens: int,
         model: str,
         provider: str = "openrouter",
-        user_id: Optional[str] = None,
-        debate_id: Optional[str] = None,
-        endpoint: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        user_id: str | None = None,
+        debate_id: str | None = None,
+        endpoint: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> TokenUsageRecord:
         """
         Record token usage for billing.
@@ -737,10 +726,10 @@ class UsageMeter:
         agent_count: int,
         rounds: int = 0,
         total_tokens: int = 0,
-        total_cost: Optional[Decimal] = None,
+        total_cost: Decimal | None = None,
         duration_seconds: int = 0,
-        user_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        user_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> DebateUsageRecord:
         """
         Record debate usage for billing.
@@ -807,8 +796,8 @@ class UsageMeter:
         method: str = "GET",
         status_code: int = 200,
         response_time_ms: int = 0,
-        user_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        user_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ApiCallRecord:
         """
         Record API call for metering.
@@ -1065,8 +1054,8 @@ class UsageMeter:
     def _get_period_dates(
         self,
         period: str,
-        reference_date: Optional[datetime] = None,
-    ) -> Tuple[datetime, datetime]:
+        reference_date: datetime | None = None,
+    ) -> tuple[datetime, datetime]:
         """
         Get start and end dates for a period.
 
@@ -1126,8 +1115,8 @@ class UsageMeter:
         org_id: str,
         period: str = "month",
         tier: str = "enterprise_plus",
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> UsageSummary:
         """
         Get usage summary for a billing period.
@@ -1263,8 +1252,8 @@ class UsageMeter:
     async def get_usage_breakdown(
         self,
         org_id: str,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> UsageBreakdown:
         """
         Get detailed usage breakdown for billing.
@@ -1509,10 +1498,8 @@ class UsageMeter:
             self._conn.close()
             self._conn = None
 
-
 # Module-level instance
-_usage_meter: Optional[UsageMeter] = None
-
+_usage_meter: UsageMeter | None = None
 
 def get_usage_meter() -> UsageMeter:
     """Get or create the global usage meter."""
@@ -1520,7 +1507,6 @@ def get_usage_meter() -> UsageMeter:
     if _usage_meter is None:
         _usage_meter = UsageMeter()
     return _usage_meter
-
 
 __all__ = [
     "UsageMeter",

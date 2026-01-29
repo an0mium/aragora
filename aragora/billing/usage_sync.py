@@ -13,7 +13,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 from aragora.billing.models import TIER_LIMITS, SubscriptionTier
@@ -26,7 +26,6 @@ from aragora.billing.usage import UsageTracker
 from aragora.persistence.db_config import DatabaseType, get_db_path, get_nomic_dir
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class UsageSyncRecord:
@@ -42,7 +41,6 @@ class UsageSyncRecord:
     success: bool = True
     error: str = ""
 
-
 @dataclass
 class OrgBillingConfig:
     """Billing configuration for an organization."""
@@ -54,10 +52,9 @@ class OrgBillingConfig:
     metered_enabled: bool = False
 
     # Subscription item IDs for metered components
-    tokens_input_item_id: Optional[str] = None
-    tokens_output_item_id: Optional[str] = None
-    debates_item_id: Optional[str] = None
-
+    tokens_input_item_id: str | None = None
+    tokens_output_item_id: str | None = None
+    debates_item_id: str | None = None
 
 class UsageSyncService:
     """
@@ -77,10 +74,10 @@ class UsageSyncService:
 
     def __init__(
         self,
-        usage_tracker: Optional[UsageTracker] = None,
-        stripe_client: Optional[StripeClient] = None,
+        usage_tracker: UsageTracker | None = None,
+        stripe_client: StripeClient | None = None,
         sync_interval: int = DEFAULT_SYNC_INTERVAL,
-        nomic_dir: Optional[Path] = None,
+        nomic_dir: Path | None = None,
     ):
         """
         Initialize usage sync service.
@@ -108,7 +105,7 @@ class UsageSyncService:
         self._synced_debates: dict[str, int] = {}
 
         # Background thread for periodic sync
-        self._sync_thread: Optional[threading.Thread] = None
+        self._sync_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
         # Org billing configs (cached)
@@ -119,7 +116,7 @@ class UsageSyncService:
         self._max_history = 1000
 
         # Track last known billing period for auto-flush on transition
-        self._last_billing_period: Optional[datetime] = None
+        self._last_billing_period: datetime | None = None
 
         # Initialize database and load persisted state
         self._init_sync_db()
@@ -205,7 +202,7 @@ class UsageSyncService:
             """)
             conn.commit()
 
-    def _load_last_billing_period(self) -> Optional[datetime]:
+    def _load_last_billing_period(self) -> datetime | None:
         """Load persisted last billing period from database."""
         try:
             with sqlite3.connect(self._db_path) as conn:
@@ -332,7 +329,7 @@ class UsageSyncService:
     def _complete_sync(
         self,
         record_id: str,
-        stripe_record_id: Optional[str],
+        stripe_record_id: str | None,
         org_id: str,
         sync_type: str,
         cumulative_total: int,
@@ -476,7 +473,7 @@ class UsageSyncService:
         except sqlite3.Error as e:
             logger.error(f"Failed to reconcile pending syncs: {e}")
 
-    def _get_billing_config(self, org_id: str) -> Optional[OrgBillingConfig]:
+    def _get_billing_config(self, org_id: str) -> OrgBillingConfig | None:
         """Get billing configuration for an organization.
 
         Args:
@@ -490,7 +487,7 @@ class UsageSyncService:
             return config
         return None
 
-    def _get_subscription_item_id(self, config: OrgBillingConfig, sync_type: str) -> Optional[str]:
+    def _get_subscription_item_id(self, config: OrgBillingConfig, sync_type: str) -> str | None:
         """Get the subscription item ID for a sync type."""
         if sync_type == "tokens_input":
             return config.tokens_input_item_id
@@ -834,7 +831,7 @@ class UsageSyncService:
 
     def get_sync_history(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """
@@ -981,7 +978,7 @@ class UsageSyncService:
 
     def flush_period(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> list[UsageSyncRecord]:
         """
         Flush all remaining usage at end of billing period.
@@ -1055,10 +1052,8 @@ class UsageSyncService:
 
         return records
 
-
 # Default service instance
-_default_service: Optional[UsageSyncService] = None
-
+_default_service: UsageSyncService | None = None
 
 def get_usage_sync_service() -> UsageSyncService:
     """Get the default usage sync service instance."""
@@ -1067,20 +1062,17 @@ def get_usage_sync_service() -> UsageSyncService:
         _default_service = UsageSyncService()
     return _default_service
 
-
 def start_usage_sync() -> UsageSyncService:
     """Start the usage sync service."""
     service = get_usage_sync_service()
     service.start()
     return service
 
-
 def stop_usage_sync() -> None:
     """Stop the usage sync service."""
     global _default_service
     if _default_service is not None:
         _default_service.stop()
-
 
 __all__ = [
     "UsageSyncService",

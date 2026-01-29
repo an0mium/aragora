@@ -5,11 +5,11 @@ Provides version management for the Aragora API including:
 - Deprecation warnings
 - Version metadata injection
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 class APIVersion(Enum):
     """Supported API versions."""
@@ -17,12 +17,11 @@ class APIVersion(Enum):
     V1 = "v1"
     V2 = "v2"
 
-
 # Current default API version
 CURRENT_VERSION = APIVersion.V2
 
 # All supported versions
-API_VERSIONS: Dict[str, APIVersion] = {
+API_VERSIONS: dict[str, APIVersion] = {
     "v1": APIVersion.V1,
     "v2": APIVersion.V2,
 }
@@ -30,19 +29,17 @@ API_VERSIONS: Dict[str, APIVersion] = {
 # V1 deprecation date (matches docs/API_VERSIONING.md)
 V1_SUNSET_DATE = "2026-06-01"
 
-
 @dataclass
 class VersionInfo:
     """Information about an API version."""
 
     version: APIVersion
     deprecated: bool = False
-    sunset_date: Optional[str] = None
+    sunset_date: str | None = None
     description: str = ""
 
-
 # Version registry
-_version_info: Dict[APIVersion, VersionInfo] = {
+_version_info: dict[APIVersion, VersionInfo] = {
     APIVersion.V1: VersionInfo(
         version=APIVersion.V1,
         deprecated=True,
@@ -54,7 +51,6 @@ _version_info: Dict[APIVersion, VersionInfo] = {
         description="Enhanced API version (current)",
     ),
 }
-
 
 def get_api_version(path: str) -> APIVersion:
     """Extract API version from request path.
@@ -72,23 +68,19 @@ def get_api_version(path: str) -> APIVersion:
             return API_VERSIONS[version_str]
     return CURRENT_VERSION
 
-
 def is_version_supported(version: APIVersion) -> bool:
     """Check if a version is currently supported."""
     return version in _version_info
 
-
-def get_version_info(version: APIVersion) -> Optional[VersionInfo]:
+def get_version_info(version: APIVersion) -> VersionInfo | None:
     """Get metadata for a specific version."""
     return _version_info.get(version)
 
-
-def get_all_versions() -> List[VersionInfo]:
+def get_all_versions() -> list[VersionInfo]:
     """Get info for all supported versions."""
     return list(_version_info.values())
 
-
-def deprecate_version(version: APIVersion, sunset_date: Optional[str] = None) -> None:
+def deprecate_version(version: APIVersion, sunset_date: str | None = None) -> None:
     """Mark a version as deprecated.
 
     Args:
@@ -99,8 +91,7 @@ def deprecate_version(version: APIVersion, sunset_date: Optional[str] = None) ->
         _version_info[version].deprecated = True
         _version_info[version].sunset_date = sunset_date
 
-
-def add_version_prefix(path: str, version: Optional[APIVersion] = None) -> str:
+def add_version_prefix(path: str, version: APIVersion | None = None) -> str:
     """Add version prefix to a path.
 
     Args:
@@ -117,7 +108,6 @@ def add_version_prefix(path: str, version: Optional[APIVersion] = None) -> str:
         path = path[1:]
     return f"/api/{version.value}/{path}"
 
-
 def normalize_path(path: str) -> str:
     """Remove version prefix from path.
 
@@ -131,7 +121,6 @@ def normalize_path(path: str) -> str:
     if len(parts) >= 2 and parts[0] == "api" and parts[1] in API_VERSIONS:
         return "/" + "/".join(parts[2:])
     return path
-
 
 def inject_version_headers(handler: Any, version: APIVersion) -> None:
     """Inject version headers into response.
@@ -148,7 +137,6 @@ def inject_version_headers(handler: Any, version: APIVersion) -> None:
             if info.sunset_date:
                 handler.send_header("X-API-Sunset", info.sunset_date)
 
-
 def log_version_usage(version: APIVersion, path: str, client_ip: str = "") -> None:
     """Log API version usage for analytics.
 
@@ -161,7 +149,6 @@ def log_version_usage(version: APIVersion, path: str, client_ip: str = "") -> No
 
     logger = logging.getLogger(__name__)
     logger.debug(f"API {version.value} request: {path} from {client_ip}")
-
 
 class APIVersionMiddleware:
     """Middleware for handling API version negotiation.
@@ -186,7 +173,6 @@ class APIVersionMiddleware:
     def extract_version(path: str) -> APIVersion:
         """Extract version from path."""
         return get_api_version(path)
-
 
 __all__ = [
     "API_VERSIONS",

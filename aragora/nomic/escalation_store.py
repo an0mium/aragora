@@ -33,6 +33,7 @@ Usage:
     # On restart, recover active escalations
     active = await store.get_active_escalations()
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -41,12 +42,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Optional
 
 from aragora.nomic.molecules import EscalationLevel
 
 logger = logging.getLogger(__name__)
-
 
 class EscalationStatus(str, Enum):
     """Status of an escalation chain."""
@@ -56,7 +56,6 @@ class EscalationStatus(str, Enum):
     EXPIRED = "expired"  # Timed out without resolution
     CANCELLED = "cancelled"  # Manually cancelled
     SUPPRESSED = "suppressed"  # Suppressed by policy
-
 
 @dataclass
 class EscalationEvent:
@@ -72,11 +71,11 @@ class EscalationEvent:
     action: str  # escalate, resolve, suppress, timeout
     timestamp: datetime
     reason: str
-    previous_level: Optional[EscalationLevel] = None
-    handler_result: Optional[Dict[str, Any]] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    previous_level: EscalationLevel | None = None
+    handler_result: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -91,7 +90,7 @@ class EscalationEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EscalationEvent":
+    def from_dict(cls, data: dict[str, Any]) -> "EscalationEvent":
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -107,13 +106,12 @@ class EscalationEvent:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class EscalationChainConfig:
     """Configuration for escalation chain behavior."""
 
     # Level progression
-    levels: List[EscalationLevel] = field(
+    levels: list[EscalationLevel] = field(
         default_factory=lambda: [
             EscalationLevel.WARN,
             EscalationLevel.THROTTLE,
@@ -131,7 +129,6 @@ class EscalationChainConfig:
     allow_skip_levels: bool = False  # Allow jumping directly to higher levels
     auto_resolve_on_success: bool = True  # Auto-resolve when handler succeeds
     suppress_duplicates_minutes: int = 10  # Suppress duplicate escalations
-
 
 @dataclass
 class EscalationChain:
@@ -151,14 +148,14 @@ class EscalationChain:
     config: EscalationChainConfig
     created_at: datetime
     updated_at: datetime
-    resolved_at: Optional[datetime] = None
-    events: List[EscalationEvent] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    auto_escalate_at: Optional[datetime] = None
-    suppress_until: Optional[datetime] = None
+    resolved_at: datetime | None = None
+    events: list[EscalationEvent] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    auto_escalate_at: datetime | None = None
+    suppress_until: datetime | None = None
     _store: Optional["EscalationStore"] = field(default=None, repr=False)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -189,7 +186,7 @@ class EscalationChain:
 
     @classmethod
     def from_dict(
-        cls, data: Dict[str, Any], store: Optional["EscalationStore"] = None
+        cls, data: dict[str, Any], store: Optional["EscalationStore"] = None
     ) -> "EscalationChain":
         """Deserialize from dictionary."""
         config_data = data.get("config", {})
@@ -249,7 +246,7 @@ class EscalationChain:
         current_idx = self._get_level_index(self.current_level)
         return current_idx >= 0 and current_idx < len(self.config.levels) - 1
 
-    def get_next_level(self) -> Optional[EscalationLevel]:
+    def get_next_level(self) -> EscalationLevel | None:
         """Get the next escalation level."""
         if not self.can_escalate():
             return None
@@ -265,7 +262,7 @@ class EscalationChain:
         current_idx = self._get_level_index(self.current_level)
         return current_idx > 0
 
-    def get_previous_level(self) -> Optional[EscalationLevel]:
+    def get_previous_level(self) -> EscalationLevel | None:
         """Get the previous escalation level."""
         if not self.can_deescalate():
             return None
@@ -275,9 +272,9 @@ class EscalationChain:
 
     async def escalate(
         self,
-        reason: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[EscalationEvent]:
+        reason: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> EscalationEvent | None:
         """
         Escalate to the next level.
 
@@ -325,8 +322,8 @@ class EscalationChain:
 
     async def resolve(
         self,
-        reason: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        reason: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> EscalationEvent:
         """
         Resolve the escalation.
@@ -366,9 +363,9 @@ class EscalationChain:
 
     async def deescalate(
         self,
-        reason: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[EscalationEvent]:
+        reason: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> EscalationEvent | None:
         """
         De-escalate to the previous level.
 
@@ -419,7 +416,7 @@ class EscalationChain:
     async def suppress(
         self,
         duration_minutes: int,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> EscalationEvent:
         """
         Suppress the escalation for a duration.
@@ -478,7 +475,6 @@ class EscalationChain:
             return False
         return datetime.now(timezone.utc) >= self.auto_escalate_at
 
-
 class EscalationStore:
     """
     Persistent storage for escalation chains.
@@ -488,8 +484,8 @@ class EscalationStore:
 
     def __init__(
         self,
-        storage_dir: Optional[Path] = None,
-        default_config: Optional[EscalationChainConfig] = None,
+        storage_dir: Path | None = None,
+        default_config: EscalationChainConfig | None = None,
     ):
         """
         Initialize the escalation store.
@@ -501,12 +497,12 @@ class EscalationStore:
         self.storage_dir = storage_dir or Path(".escalations")
         self.default_config = default_config or EscalationChainConfig()
 
-        self._chains: Dict[str, EscalationChain] = {}
-        self._by_target: Dict[str, Set[str]] = {}  # target -> chain_ids
-        self._by_source: Dict[str, Set[str]] = {}  # source -> chain_ids
+        self._chains: dict[str, EscalationChain] = {}
+        self._by_target: dict[str, set[str]] = {}  # target -> chain_ids
+        self._by_source: dict[str, set[str]] = {}  # source -> chain_ids
         self._lock = asyncio.Lock()
         self._initialized = False
-        self._handlers: Dict[EscalationLevel, Callable] = {}
+        self._handlers: dict[EscalationLevel, Callable] = {}
 
     async def initialize(self) -> None:
         """Initialize the store, loading existing chains."""
@@ -589,9 +585,9 @@ class EscalationStore:
         source: str,
         target: str,
         reason: str,
-        config: Optional[EscalationChainConfig] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        initial_level: Optional[EscalationLevel] = None,
+        config: EscalationChainConfig | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        initial_level: EscalationLevel | None = None,
     ) -> EscalationChain:
         """
         Create a new escalation chain.
@@ -676,7 +672,7 @@ class EscalationStore:
         self,
         chain: EscalationChain,
         level: EscalationLevel,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Execute the handler for an escalation level."""
         handler = self._handlers.get(level)
         if not handler:
@@ -700,11 +696,11 @@ class EscalationStore:
                 chain.events[-1].handler_result = {"error": str(e)}
             return None
 
-    async def get_chain(self, chain_id: str) -> Optional[EscalationChain]:
+    async def get_chain(self, chain_id: str) -> EscalationChain | None:
         """Get a chain by ID."""
         return self._chains.get(chain_id)
 
-    async def get_active_chain(self, source: str, target: str) -> Optional[EscalationChain]:
+    async def get_active_chain(self, source: str, target: str) -> EscalationChain | None:
         """Get an active chain for a source-target pair."""
         target_chains = self._by_target.get(target, set())
         source_chains = self._by_source.get(source, set())
@@ -717,21 +713,21 @@ class EscalationStore:
 
         return None
 
-    async def get_active_escalations(self) -> List[EscalationChain]:
+    async def get_active_escalations(self) -> list[EscalationChain]:
         """Get all active escalation chains."""
         return [c for c in self._chains.values() if c.status == EscalationStatus.ACTIVE]
 
-    async def get_chains_by_target(self, target: str) -> List[EscalationChain]:
+    async def get_chains_by_target(self, target: str) -> list[EscalationChain]:
         """Get all chains for a target."""
         chain_ids = self._by_target.get(target, set())
         return [self._chains[cid] for cid in chain_ids if cid in self._chains]
 
-    async def get_chains_by_source(self, source: str) -> List[EscalationChain]:
+    async def get_chains_by_source(self, source: str) -> list[EscalationChain]:
         """Get all chains from a source."""
         chain_ids = self._by_source.get(source, set())
         return [self._chains[cid] for cid in chain_ids if cid in self._chains]
 
-    async def process_auto_escalations(self) -> List[EscalationEvent]:
+    async def process_auto_escalations(self) -> list[EscalationEvent]:
         """
         Process all pending auto-escalations.
 
@@ -787,8 +783,8 @@ class EscalationStore:
     async def resolve_by_target(
         self,
         target: str,
-        reason: Optional[str] = None,
-    ) -> List[EscalationEvent]:
+        reason: str | None = None,
+    ) -> list[EscalationEvent]:
         """
         Resolve all active escalations for a target.
 
@@ -809,12 +805,12 @@ class EscalationStore:
 
         return events
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get statistics about escalations."""
         chains = list(self._chains.values())
-        by_status: Dict[str, int] = {}
-        by_level: Dict[str, int] = {}
-        by_source: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        by_level: dict[str, int] = {}
+        by_source: dict[str, int] = {}
 
         for chain in chains:
             status_key = chain.status.value
@@ -836,7 +832,6 @@ class EscalationStore:
             "total_events": sum(len(c.events) for c in chains),
         }
 
-
 class EscalationRecovery:
     """
     Handles recovery of escalations on startup.
@@ -853,7 +848,7 @@ class EscalationRecovery:
         """
         self.store = store
 
-    async def recover(self) -> List[EscalationChain]:
+    async def recover(self) -> list[EscalationChain]:
         """
         Recover interrupted escalations.
 
@@ -879,13 +874,11 @@ class EscalationRecovery:
 
         return recovered
 
-
 # Singleton instance
-_default_store: Optional[EscalationStore] = None
-
+_default_store: EscalationStore | None = None
 
 async def get_escalation_store(
-    storage_dir: Optional[Path] = None,
+    storage_dir: Path | None = None,
 ) -> EscalationStore:
     """Get the default escalation store instance."""
     global _default_store
@@ -893,7 +886,6 @@ async def get_escalation_store(
         _default_store = EscalationStore(storage_dir)
         await _default_store.initialize()
     return _default_store
-
 
 def reset_escalation_store() -> None:
     """Reset the default store (for testing)."""

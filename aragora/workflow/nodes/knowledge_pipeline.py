@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
-
 
 class KnowledgePipelineStep(BaseStep):
     """
@@ -27,7 +26,7 @@ class KnowledgePipelineStep(BaseStep):
     Knowledge Mound for later retrieval.
 
     Config options:
-        sources: List[str] - Document sources to process
+        sources: list[str] - Document sources to process
             Can be file paths, URLs, or connector IDs
         workspace_id: str - Target workspace for storage
         chunk_strategy: str - Chunking strategy (default: "semantic")
@@ -59,9 +58,9 @@ class KnowledgePipelineStep(BaseStep):
     CHUNK_STRATEGIES = ["semantic", "sliding", "recursive", "sentence"]
     CONNECTOR_TYPES = ["local_docs", "web", "github", "confluence", "notion"]
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
-        self._pipeline: Optional[Any] = None
+        self._pipeline: Any | None = None
         self._documents_processed = 0
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -175,8 +174,8 @@ class KnowledgePipelineStep(BaseStep):
         self,
         source: str,
         connector_type: str,
-        connector_config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        connector_config: dict[str, Any],
+    ) -> dict[str, Any]:
         """Process a single source through the pipeline."""
         source_path = Path(source) if not source.startswith(("http://", "https://")) else None
 
@@ -198,7 +197,7 @@ class KnowledgePipelineStep(BaseStep):
             connector_config=connector_config,
         )
 
-    async def _process_directory(self, directory: Path) -> Dict[str, Any]:
+    async def _process_directory(self, directory: Path) -> dict[str, Any]:
         """Process all documents in a directory."""
         documents_processed = 0
         chunks_created = 0
@@ -224,7 +223,7 @@ class KnowledgePipelineStep(BaseStep):
             "chunks": chunks_created,
         }
 
-    async def _process_file(self, file_path: Path) -> Dict[str, Any]:
+    async def _process_file(self, file_path: Path) -> dict[str, Any]:
         """Process a single file."""
         content = file_path.read_text(encoding="utf-8", errors="ignore")
         result = await self._pipeline.process_document(
@@ -243,8 +242,8 @@ class KnowledgePipelineStep(BaseStep):
     async def _process_url(
         self,
         url: str,
-        connector_config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        connector_config: dict[str, Any],
+    ) -> dict[str, Any]:
         """Process a URL source."""
         try:
             from aragora.connectors.web import WebConnector
@@ -278,8 +277,8 @@ class KnowledgePipelineStep(BaseStep):
         self,
         source: str,
         connector_type: str,
-        connector_config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        connector_config: dict[str, Any],
+    ) -> dict[str, Any]:
         """Process using a specific connector."""
         try:
             # Dynamic connector import based on type
@@ -362,13 +361,13 @@ class KnowledgePipelineStep(BaseStep):
         }
         return file_path.suffix.lower() in supported_extensions
 
-    async def checkpoint(self) -> Dict[str, Any]:
+    async def checkpoint(self) -> dict[str, Any]:
         """Save pipeline step state for checkpointing."""
         return {
             "documents_processed": self._documents_processed,
         }
 
-    async def restore(self, state: Dict[str, Any]) -> None:
+    async def restore(self, state: dict[str, Any]) -> None:
         """Restore pipeline step state from checkpoint."""
         self._documents_processed = state.get("documents_processed", 0)
 

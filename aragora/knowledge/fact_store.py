@@ -4,6 +4,7 @@ Fact Store - SQLite-based persistence for the Knowledge Base.
 Provides storage, retrieval, and search for facts extracted from
 documents and verified through multi-agent consensus.
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -12,7 +13,7 @@ import sqlite3
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.knowledge.types import (
     Fact,
@@ -25,7 +26,6 @@ from aragora.storage.base_store import SQLiteStore
 from aragora.storage.fts_utils import sanitize_fts_query
 
 logger = logging.getLogger(__name__)
-
 
 class FactStore(SQLiteStore):
     """SQLite-based fact persistence store.
@@ -92,7 +92,7 @@ class FactStore(SQLiteStore):
 
     DEFAULT_DB_PATH = Path.home() / ".aragora" / "knowledge.db"
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """Initialize the fact store.
 
         Args:
@@ -109,11 +109,11 @@ class FactStore(SQLiteStore):
         self,
         statement: str,
         workspace_id: str,
-        evidence_ids: Optional[list[str]] = None,
-        source_documents: Optional[list[str]] = None,
+        evidence_ids: list[str] | None = None,
+        source_documents: list[str] | None = None,
         confidence: float = 0.5,
-        topics: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         validation_status: ValidationStatus = ValidationStatus.UNVERIFIED,
         deduplicate: bool = True,
     ) -> Fact:
@@ -211,7 +211,7 @@ class FactStore(SQLiteStore):
             updated_at=now,
         )
 
-    def get_fact(self, fact_id: str) -> Optional[Fact]:
+    def get_fact(self, fact_id: str) -> Fact | None:
         """Get a fact by ID.
 
         Args:
@@ -234,14 +234,14 @@ class FactStore(SQLiteStore):
     def update_fact(
         self,
         fact_id: str,
-        confidence: Optional[float] = None,
-        validation_status: Optional[ValidationStatus] = None,
-        consensus_proof_id: Optional[str] = None,
-        evidence_ids: Optional[list[str]] = None,
-        topics: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        superseded_by: Optional[str] = None,
-    ) -> Optional[Fact]:
+        confidence: float | None = None,
+        validation_status: ValidationStatus | None = None,
+        consensus_proof_id: str | None = None,
+        evidence_ids: list[str] | None = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        superseded_by: str | None = None,
+    ) -> Fact | None:
         """Update a fact.
 
         Args:
@@ -325,7 +325,7 @@ class FactStore(SQLiteStore):
     def query_facts(
         self,
         query: str,
-        filters: Optional[FactFilters] = None,
+        filters: FactFilters | None = None,
     ) -> list[Fact]:
         """Search facts using full-text search.
 
@@ -391,7 +391,7 @@ class FactStore(SQLiteStore):
             cursor.execute(sql, params)
             return [self._row_to_fact(row) for row in cursor.fetchall()]
 
-    def list_facts(self, filters: Optional[FactFilters] = None) -> list[Fact]:
+    def list_facts(self, filters: FactFilters | None = None) -> list[Fact]:
         """List facts with optional filtering.
 
         Args:
@@ -485,7 +485,7 @@ class FactStore(SQLiteStore):
         relation_type: FactRelationType,
         confidence: float = 0.5,
         created_by: str = "",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FactRelation:
         """Add a relation between facts.
 
@@ -538,7 +538,7 @@ class FactStore(SQLiteStore):
     def get_relations(
         self,
         fact_id: str,
-        relation_type: Optional[FactRelationType] = None,
+        relation_type: FactRelationType | None = None,
         as_source: bool = True,
         as_target: bool = True,
     ) -> list[FactRelation]:
@@ -620,7 +620,7 @@ class FactStore(SQLiteStore):
 
             return cursor.rowcount > 0
 
-    def get_statistics(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
+    def get_statistics(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get store statistics.
 
         Args:
@@ -708,7 +708,6 @@ class FactStore(SQLiteStore):
             superseded_by=row["superseded_by"],
         )
 
-
 class InMemoryFactStore:
     """In-memory fact store for testing."""
 
@@ -727,11 +726,11 @@ class InMemoryFactStore:
         self,
         statement: str,
         workspace_id: str,
-        evidence_ids: Optional[list[str]] = None,
-        source_documents: Optional[list[str]] = None,
+        evidence_ids: list[str] | None = None,
+        source_documents: list[str] | None = None,
         confidence: float = 0.5,
-        topics: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         validation_status: ValidationStatus = ValidationStatus.UNVERIFIED,
         deduplicate: bool = True,
     ) -> Fact:
@@ -763,21 +762,21 @@ class InMemoryFactStore:
 
         return fact
 
-    def get_fact(self, fact_id: str) -> Optional[Fact]:
+    def get_fact(self, fact_id: str) -> Fact | None:
         """Get fact by ID."""
         return self._facts.get(fact_id)
 
     def update_fact(
         self,
         fact_id: str,
-        confidence: Optional[float] = None,
-        validation_status: Optional[ValidationStatus] = None,
-        consensus_proof_id: Optional[str] = None,
-        evidence_ids: Optional[list[str]] = None,
-        topics: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        superseded_by: Optional[str] = None,
-    ) -> Optional[Fact]:
+        confidence: float | None = None,
+        validation_status: ValidationStatus | None = None,
+        consensus_proof_id: str | None = None,
+        evidence_ids: list[str] | None = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        superseded_by: str | None = None,
+    ) -> Fact | None:
         """Update a fact."""
         fact = self._facts.get(fact_id)
         if not fact:
@@ -804,7 +803,7 @@ class InMemoryFactStore:
     def query_facts(
         self,
         query: str,
-        filters: Optional[FactFilters] = None,
+        filters: FactFilters | None = None,
     ) -> list[Fact]:
         """Search facts by keyword."""
         filters = filters or FactFilters()
@@ -830,7 +829,7 @@ class InMemoryFactStore:
         results.sort(key=lambda f: f.confidence, reverse=True)
         return results[filters.offset : filters.offset + filters.limit]
 
-    def list_facts(self, filters: Optional[FactFilters] = None) -> list[Fact]:
+    def list_facts(self, filters: FactFilters | None = None) -> list[Fact]:
         """List facts."""
         filters = filters or FactFilters()
 
@@ -873,7 +872,7 @@ class InMemoryFactStore:
         relation_type: FactRelationType,
         confidence: float = 0.5,
         created_by: str = "",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FactRelation:
         """Add a relation."""
         relation_id = f"rel_{uuid.uuid4().hex[:12]}"
@@ -893,7 +892,7 @@ class InMemoryFactStore:
     def get_relations(
         self,
         fact_id: str,
-        relation_type: Optional[FactRelationType] = None,
+        relation_type: FactRelationType | None = None,
         as_source: bool = True,
         as_target: bool = True,
     ) -> list[FactRelation]:
@@ -930,7 +929,7 @@ class InMemoryFactStore:
 
         return True
 
-    def get_statistics(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
+    def get_statistics(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get statistics."""
         facts = list(self._facts.values())
         if workspace_id:

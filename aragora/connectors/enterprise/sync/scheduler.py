@@ -14,13 +14,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult
 
 logger = logging.getLogger(__name__)
-
 
 class SyncStatus(Enum):
     """Status of a sync job."""
@@ -30,7 +29,6 @@ class SyncStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class RetryPolicy:
@@ -81,7 +79,7 @@ class RetryPolicy:
         Raises:
             Exception: Last exception if all retries exhausted
         """
-        last_exception: Optional[Exception] = None
+        last_exception: Exception | None = None
 
         for attempt in range(self.max_retries + 1):
             try:
@@ -108,7 +106,6 @@ class RetryPolicy:
         # This shouldn't happen, but satisfy type checker
         raise RuntimeError("Unexpected retry state")
 
-
 @dataclass
 class SyncSchedule:
     """
@@ -124,12 +121,12 @@ class SyncSchedule:
     interval_minutes: int = 60
 
     # For cron scheduling (cron expression)
-    cron_expression: Optional[str] = None
+    cron_expression: str | None = None
 
     # Schedule constraints
     enabled: bool = True
-    start_time: Optional[datetime] = None  # Don't run before this
-    end_time: Optional[datetime] = None  # Don't run after this
+    start_time: datetime | None = None  # Don't run before this
+    end_time: datetime | None = None  # Don't run after this
     max_concurrent: int = 1  # Max concurrent syncs for this job
 
     # Retry configuration
@@ -137,7 +134,7 @@ class SyncSchedule:
     max_retries: int = 3
     retry_delay_minutes: int = 5
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "schedule_type": self.schedule_type,
             "interval_minutes": self.interval_minutes,
@@ -152,7 +149,7 @@ class SyncSchedule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SyncSchedule":
+    def from_dict(cls, data: dict[str, Any]) -> "SyncSchedule":
         return cls(
             schedule_type=data.get("schedule_type", "interval"),
             interval_minutes=data.get("interval_minutes", 60),
@@ -168,7 +165,6 @@ class SyncSchedule:
             retry_delay_minutes=data.get("retry_delay_minutes", 5),
         )
 
-
 @dataclass
 class SyncHistory:
     """Record of a sync execution."""
@@ -179,19 +175,19 @@ class SyncHistory:
     tenant_id: str
     status: SyncStatus
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     items_synced: int = 0
     items_total: int = 0
-    errors: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         if self.completed_at and self.started_at:
             return (self.completed_at - self.started_at).total_seconds()
         return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "job_id": self.job_id,
@@ -207,7 +203,6 @@ class SyncHistory:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class SyncJob:
     """
@@ -221,9 +216,9 @@ class SyncJob:
     connector: Optional["EnterpriseConnector"] = None
 
     # Runtime state
-    last_run: Optional[datetime] = None
-    next_run: Optional[datetime] = None
-    current_run_id: Optional[str] = None
+    last_run: datetime | None = None
+    next_run: datetime | None = None
+    current_run_id: str | None = None
     consecutive_failures: int = 0
 
     # Callbacks
@@ -260,7 +255,7 @@ class SyncJob:
             if self.schedule.end_time and self.next_run > self.schedule.end_time:
                 self.next_run = None  # Don't schedule if past end time
 
-    def _parse_cron_next(self, cron_expr: str) -> Optional[datetime]:
+    def _parse_cron_next(self, cron_expr: str) -> datetime | None:
         """Parse cron expression and get next run time."""
         try:
             from croniter import croniter  # type: ignore[import-untyped]
@@ -274,7 +269,7 @@ class SyncJob:
             logger.error(f"Invalid cron expression '{cron_expr}': {e}")
             return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "connector_id": self.connector_id,
@@ -284,7 +279,6 @@ class SyncJob:
             "next_run": self.next_run.isoformat() if self.next_run else None,
             "consecutive_failures": self.consecutive_failures,
         }
-
 
 class SyncScheduler:
     """
@@ -300,7 +294,7 @@ class SyncScheduler:
 
     def __init__(
         self,
-        state_dir: Optional[Path] = None,
+        state_dir: Path | None = None,
         max_concurrent_syncs: int = 5,
         history_retention_days: int = 30,
     ):
@@ -308,11 +302,11 @@ class SyncScheduler:
         self.max_concurrent_syncs = max_concurrent_syncs
         self.history_retention_days = history_retention_days
 
-        self._jobs: Dict[str, SyncJob] = {}
-        self._connectors: Dict[str, "EnterpriseConnector"] = {}
-        self._history: List[SyncHistory] = []
-        self._running_syncs: Dict[str, asyncio.Task] = {}
-        self._scheduler_task: Optional[asyncio.Task] = None
+        self._jobs: dict[str, SyncJob] = {}
+        self._connectors: dict[str, "EnterpriseConnector"] = {}
+        self._history: list[SyncHistory] = []
+        self._running_syncs: dict[str, asyncio.Task] = {}
+        self._scheduler_task: asyncio.Task | None = None
         self._stop_event = asyncio.Event()
 
         # Ensure state directory exists
@@ -321,7 +315,7 @@ class SyncScheduler:
     def register_connector(
         self,
         connector: "EnterpriseConnector",
-        schedule: Optional[SyncSchedule] = None,
+        schedule: SyncSchedule | None = None,
         tenant_id: str = "default",
     ) -> SyncJob:
         """
@@ -357,11 +351,11 @@ class SyncScheduler:
 
         logger.info(f"Unregistered connector: {connector_id}")
 
-    def get_job(self, job_id: str) -> Optional[SyncJob]:
+    def get_job(self, job_id: str) -> SyncJob | None:
         """Get a sync job by ID."""
         return self._jobs.get(job_id)
 
-    def list_jobs(self, tenant_id: Optional[str] = None) -> List[SyncJob]:
+    def list_jobs(self, tenant_id: str | None = None) -> list[SyncJob]:
         """List all jobs, optionally filtered by tenant."""
         jobs = list(self._jobs.values())
         if tenant_id:
@@ -373,7 +367,7 @@ class SyncScheduler:
         connector_id: str,
         tenant_id: str = "default",
         full_sync: bool = False,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Manually trigger a sync for a connector.
 
@@ -395,7 +389,7 @@ class SyncScheduler:
     async def handle_webhook(
         self,
         connector_id: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         tenant_id: str = "default",
     ) -> bool:
         """
@@ -594,11 +588,11 @@ class SyncScheduler:
 
     def get_history(
         self,
-        job_id: Optional[str] = None,
-        tenant_id: Optional[str] = None,
-        status: Optional[SyncStatus] = None,
+        job_id: str | None = None,
+        tenant_id: str | None = None,
+        status: SyncStatus | None = None,
         limit: int = 100,
-    ) -> List[SyncHistory]:
+    ) -> list[SyncHistory]:
         """Get sync history with optional filters."""
         history = self._history
 
@@ -611,7 +605,7 @@ class SyncScheduler:
 
         return sorted(history, key=lambda h: h.started_at, reverse=True)[:limit]
 
-    def get_stats(self, tenant_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_stats(self, tenant_id: str | None = None) -> dict[str, Any]:
         """Get scheduler statistics."""
         jobs = self.list_jobs(tenant_id)
         history = self.get_history(tenant_id=tenant_id)

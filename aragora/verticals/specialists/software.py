@@ -8,7 +8,7 @@ code review, security analysis, architecture design, and best practices.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.core import Message
 from aragora.verticals.base import VerticalSpecialistAgent
@@ -22,7 +22,6 @@ from aragora.verticals.config import (
 from aragora.verticals.registry import VerticalRegistry
 
 logger = logging.getLogger(__name__)
-
 
 # Software vertical configuration
 SOFTWARE_CONFIG = VerticalConfig(
@@ -134,7 +133,6 @@ Provide clear, actionable feedback that helps developers improve their code.""",
     tags=["software", "code", "security", "engineering"],
 )
 
-
 @VerticalRegistry.register(
     "software",
     config=SOFTWARE_CONFIG,
@@ -179,8 +177,8 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
     async def _execute_tool(
         self,
         tool: ToolConfig,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute a software development tool."""
         tool_name = tool.name
 
@@ -195,7 +193,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
-    async def _code_search(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _code_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search codebase for patterns."""
         # Placeholder - would integrate with actual code search
         pattern = parameters.get("pattern", "")
@@ -205,7 +203,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
             "message": "Code search not yet implemented",
         }
 
-    async def _security_scan(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _security_scan(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Run security analysis on code."""
         import re
 
@@ -232,7 +230,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
             "scanned_lines": len(code.split("\n")),
         }
 
-    async def _dependency_check(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _dependency_check(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Check for vulnerable dependencies."""
         # Placeholder - would integrate with actual vulnerability database
         return {
@@ -240,7 +238,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
             "message": "Dependency check not yet implemented",
         }
 
-    async def _github_lookup(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _github_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up GitHub issues or PRs."""
         # Placeholder - would integrate with GitHub API
         return {
@@ -252,7 +250,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check code against security compliance frameworks."""
         violations = []
 
@@ -267,7 +265,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check OWASP Top 10 compliance."""
         import re
 
@@ -319,7 +317,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check CWE compliance."""
         import re
 
@@ -373,7 +371,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         self,
         task: str,
         system_prompt: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
         **kwargs: Any,
     ) -> Message:
         """Generate a software engineering response."""
@@ -390,8 +388,8 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         self,
         code: str,
         language: str = "python",
-        focus_areas: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        focus_areas: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
         """
         Perform comprehensive code review.
 

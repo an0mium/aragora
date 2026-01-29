@@ -19,7 +19,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
@@ -28,8 +28,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Type alias for event callbacks
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 @dataclass
 class TaskOutcome:
@@ -41,9 +40,8 @@ class TaskOutcome:
     success: bool
     duration_seconds: float
     workspace_id: str = "default"
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    error_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AgentCapabilityRecord:
@@ -57,19 +55,17 @@ class AgentCapabilityRecord:
     workspace_id: str = "default"
     confidence: float = 0.8
 
-
 @dataclass
 class CrossWorkspaceInsight:
     """Insight shared across workspaces."""
 
     insight_id: str
     source_workspace: str
-    target_workspaces: List[str]
+    target_workspaces: list[str]
     task_type: str
     content: str
     confidence: float
     created_at: str
-
 
 class ControlPlaneAdapter:
     """
@@ -98,7 +94,7 @@ class ControlPlaneAdapter:
         coordinator: Optional["ControlPlaneCoordinator"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
         workspace_id: str = "default",
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         min_task_confidence: float = 0.6,
         min_capability_sample_size: int = 5,
     ):
@@ -121,9 +117,9 @@ class ControlPlaneAdapter:
         self._min_capability_sample_size = min_capability_sample_size
 
         # Caches
-        self._capability_cache: Dict[str, List[AgentCapabilityRecord]] = {}
+        self._capability_cache: dict[str, list[AgentCapabilityRecord]] = {}
         self._cache_ttl: float = 300  # 5 minutes
-        self._cache_times: Dict[str, float] = {}
+        self._cache_times: dict[str, float] = {}
 
         # Stats
         self._stats = {
@@ -137,7 +133,7 @@ class ControlPlaneAdapter:
         """Set the event callback for WebSocket notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -152,7 +148,7 @@ class ControlPlaneAdapter:
     async def store_task_outcome(
         self,
         outcome: TaskOutcome,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a task outcome in the Knowledge Mound.
 
@@ -236,7 +232,7 @@ class ControlPlaneAdapter:
     async def store_capability_record(
         self,
         record: AgentCapabilityRecord,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store an agent capability record in the Knowledge Mound.
 
@@ -319,7 +315,7 @@ class ControlPlaneAdapter:
         capability: str,
         limit: int = 5,
         use_cache: bool = True,
-    ) -> List[AgentCapabilityRecord]:
+    ) -> list[AgentCapabilityRecord]:
         """
         Get agent recommendations for a capability from KM.
 
@@ -394,7 +390,7 @@ class ControlPlaneAdapter:
         self,
         task_type: str,
         limit: int = 20,
-    ) -> List[TaskOutcome]:
+    ) -> list[TaskOutcome]:
         """
         Get historical task outcomes for a task type.
 
@@ -517,7 +513,7 @@ class ControlPlaneAdapter:
         self,
         task_type: str,
         limit: int = 10,
-    ) -> List[CrossWorkspaceInsight]:
+    ) -> list[CrossWorkspaceInsight]:
         """
         Get insights from other workspaces for a task type.
 
@@ -576,7 +572,7 @@ class ControlPlaneAdapter:
         task_type: str,
         question: str,
         limit: int = 10,
-    ) -> List[TaskOutcome]:
+    ) -> list[TaskOutcome]:
         """
         Retrieve similar past task outcomes for learning.
 
@@ -656,9 +652,9 @@ class ControlPlaneAdapter:
     async def get_agent_success_rates(
         self,
         task_type: str,
-        agents: List[str],
+        agents: list[str],
         recency_days: int = 30,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Get historical success rates per agent for a task type.
 
@@ -685,7 +681,7 @@ class ControlPlaneAdapter:
             )
 
             # Aggregate by agent
-            agent_stats: Dict[str, Dict[str, int]] = {
+            agent_stats: dict[str, dict[str, int]] = {
                 agent: {"success": 0, "total": 0} for agent in agents
             }
 
@@ -733,10 +729,10 @@ class ControlPlaneAdapter:
     async def get_agent_recommendations_for_task(
         self,
         task_type: str,
-        available_agents: List[str],
-        required_capabilities: Optional[List[str]] = None,
+        available_agents: list[str],
+        required_capabilities: Optional[list[str]] = None,
         top_n: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get agent recommendations for a task based on KM history.
 
@@ -758,7 +754,7 @@ class ControlPlaneAdapter:
         success_rates = await self.get_agent_success_rates(task_type, available_agents)
 
         # Get capability recommendations if specified
-        capability_scores: Dict[str, float] = {}
+        capability_scores: dict[str, float] = {}
         if required_capabilities:
             for capability in required_capabilities:
                 cap_records = await self.get_capability_recommendations(capability)
@@ -797,7 +793,7 @@ class ControlPlaneAdapter:
     # Stats and Metrics
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         return {
             **self._stats,
@@ -813,7 +809,6 @@ class ControlPlaneAdapter:
         self._capability_cache.clear()
         self._cache_times.clear()
         return count
-
 
 __all__ = [
     "ControlPlaneAdapter",

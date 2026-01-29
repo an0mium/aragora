@@ -24,11 +24,12 @@ Endpoints:
 - GET /api/accounting/gusto/payrolls/{payroll_id} - Payroll run details
 - POST /api/accounting/gusto/payrolls/{payroll_id}/journal-entry - Generate journal entry
 """
+from __future__ import annotations
 
 import json
 import logging
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aiohttp import web
 
@@ -36,7 +37,6 @@ from aragora.connectors.accounting.gusto import GustoConnector
 from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
-
 
 # Mock data for demo when QBO not connected
 MOCK_COMPANY = {
@@ -147,11 +147,9 @@ MOCK_TRANSACTIONS = [
     },
 ]
 
-
-async def get_qbo_connector(request: web.Request) -> Optional[Any]:
+async def get_qbo_connector(request: web.Request) -> Any | None:
     """Get QBO connector from app state if available."""
     return request.app.get("qbo_connector")
-
 
 async def get_gusto_connector(request: web.Request) -> GustoConnector:
     """Get or create Gusto connector from app state."""
@@ -166,8 +164,7 @@ async def get_gusto_connector(request: web.Request) -> GustoConnector:
 
     return connector
 
-
-def _parse_iso_date(value: Optional[str], field_name: str) -> Optional[date]:
+def _parse_iso_date(value: str | None, field_name: str) -> date | None:
     """Parse an ISO date query param."""
     if not value:
         return None
@@ -175,7 +172,6 @@ def _parse_iso_date(value: Optional[str], field_name: str) -> Optional[date]:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise ValueError(f"Invalid {field_name}: {value}") from exc
-
 
 @require_permission("finance:read")
 async def handle_accounting_status(request: web.Request) -> web.Response:
@@ -270,7 +266,6 @@ async def handle_accounting_status(request: web.Request) -> web.Response:
             status=500,
         )
 
-
 @require_permission("admin:system")
 async def handle_accounting_connect(request: web.Request) -> web.Response:
     """
@@ -304,7 +299,6 @@ async def handle_accounting_connect(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 async def handle_accounting_callback(request: web.Request) -> web.Response:
     """
@@ -365,7 +359,6 @@ async def handle_accounting_callback(request: web.Request) -> web.Response:
             status=500,
         )
 
-
 @require_permission("admin:system")
 async def handle_accounting_disconnect(request: web.Request) -> web.Response:
     """
@@ -398,7 +391,6 @@ async def handle_accounting_disconnect(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 @require_permission("finance:read")
 async def handle_accounting_customers(request: web.Request) -> web.Response:
@@ -453,7 +445,6 @@ async def handle_accounting_customers(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 @require_permission("finance:read")
 async def handle_accounting_transactions(request: web.Request) -> web.Response:
@@ -539,7 +530,6 @@ async def handle_accounting_transactions(request: web.Request) -> web.Response:
             status=500,
         )
 
-
 @require_permission("finance:read")
 async def handle_accounting_report(request: web.Request) -> web.Response:
     """
@@ -615,10 +605,9 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
             status=500,
         )
 
-
 def _generate_mock_report(
     report_type: str, start_date: datetime, end_date: datetime
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate mock report data for demo."""
     if report_type == "profit_loss":
         return {
@@ -710,7 +699,6 @@ def _generate_mock_report(
     else:
         return {"error": f"Unknown report type: {report_type}"}
 
-
 @require_permission("hr:read")
 async def handle_gusto_status(request: web.Request) -> web.Response:
     """
@@ -747,7 +735,6 @@ async def handle_gusto_status(request: web.Request) -> web.Response:
             status=500,
         )
 
-
 @require_permission("admin:system")
 async def handle_gusto_connect(request: web.Request) -> web.Response:
     """
@@ -780,7 +767,6 @@ async def handle_gusto_connect(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 async def handle_gusto_callback(request: web.Request) -> web.Response:
     """
@@ -836,7 +822,6 @@ async def handle_gusto_callback(request: web.Request) -> web.Response:
             status=500,
         )
 
-
 @require_permission("admin:system")
 async def handle_gusto_disconnect(request: web.Request) -> web.Response:
     """
@@ -863,7 +848,6 @@ async def handle_gusto_disconnect(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 @require_permission("hr:read")
 async def handle_gusto_employees(request: web.Request) -> web.Response:
@@ -900,7 +884,6 @@ async def handle_gusto_employees(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 @require_permission("hr:read")
 async def handle_gusto_payrolls(request: web.Request) -> web.Response:
@@ -951,7 +934,6 @@ async def handle_gusto_payrolls(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 @require_permission("hr:read")
 async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
@@ -1005,7 +987,6 @@ async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 @require_permission("finance:write")
 async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
@@ -1080,7 +1061,6 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
             },
             status=500,
         )
-
 
 def register_accounting_routes(app: web.Application) -> None:
     """Register accounting routes with the application."""

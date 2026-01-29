@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class MoleculeStatus(Enum):
     """Status of a work molecule."""
 
@@ -38,7 +37,6 @@ class MoleculeStatus(Enum):
     COMPLETED = "completed"  # Successfully finished
     FAILED = "failed"  # Failed, needs reassignment
     BLOCKED = "blocked"  # Blocked by dependencies
-
 
 class MoleculeType(Enum):
     """Types of debate work molecules."""
@@ -52,7 +50,6 @@ class MoleculeType(Enum):
     QUALITY_REVIEW = "quality_review"  # Review argument quality
     FACT_CHECK = "fact_check"  # Verify claims
 
-
 # Capability requirements for each molecule type
 MOLECULE_CAPABILITIES = {
     MoleculeType.PROPOSAL: {"reasoning", "creativity"},
@@ -64,7 +61,6 @@ MOLECULE_CAPABILITIES = {
     MoleculeType.QUALITY_REVIEW: {"quality_assessment"},
     MoleculeType.FACT_CHECK: {"research"},
 }
-
 
 @dataclass
 class Molecule:
@@ -85,26 +81,26 @@ class Molecule:
 
     # Input/Output
     input_data: dict[str, Any] = field(default_factory=dict)
-    output_data: Optional[dict[str, Any]] = None
+    output_data: dict[str, Any] | None = None
 
     # Requirements
     required_capabilities: set[str] = field(default_factory=set)
     depends_on: list[str] = field(default_factory=list)  # molecule_ids
 
     # Assignment
-    assigned_agent: Optional[str] = None
+    assigned_agent: str | None = None
     assignment_history: list[str] = field(default_factory=list)
 
     # Status
     status: MoleculeStatus = MoleculeStatus.PENDING
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
 
     # Tracking
     attempts: int = 0
     max_attempts: int = 3
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     # Affinity (learned over time)
     agent_affinity: dict[str, float] = field(default_factory=dict)  # agent_name -> score
@@ -119,8 +115,8 @@ class Molecule:
         debate_id: str,
         molecule_type: MoleculeType,
         round_number: int,
-        input_data: Optional[dict[str, Any]] = None,
-        depends_on: Optional[list[str]] = None,
+        input_data: dict[str, Any] | None = None,
+        depends_on: list[str] | None = None,
     ) -> "Molecule":
         """Create a new molecule."""
         return cls(
@@ -217,7 +213,6 @@ class Molecule:
             agent_affinity=data.get("agent_affinity", {}),
         )
 
-
 class MoleculeTracker:
     """
     Tracks and manages work molecules for debates.
@@ -240,8 +235,8 @@ class MoleculeTracker:
         debate_id: str,
         molecule_type: MoleculeType,
         round_number: int,
-        input_data: Optional[dict[str, Any]] = None,
-        depends_on: Optional[list[str]] = None,
+        input_data: dict[str, Any] | None = None,
+        depends_on: list[str] | None = None,
     ) -> Molecule:
         """Create and track a new molecule."""
         molecule = Molecule.create(
@@ -265,7 +260,7 @@ class MoleculeTracker:
 
         return molecule
 
-    def get_molecule(self, molecule_id: str) -> Optional[Molecule]:
+    def get_molecule(self, molecule_id: str) -> Molecule | None:
         """Get a molecule by ID."""
         return self._molecules.get(molecule_id)
 
@@ -493,7 +488,6 @@ class MoleculeTracker:
                     0, self._agent_workload.get(mol.assigned_agent, 1) - 1
                 )
 
-
 # Convenience functions
 def create_round_molecules(
     tracker: MoleculeTracker,
@@ -543,7 +537,6 @@ def create_round_molecules(
     molecules.append(synthesis_mol)
 
     return molecules
-
 
 __all__ = [
     "Molecule",

@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ArenaDelegation:
     """
     Handles delegation of Arena methods to component subsystems.
@@ -66,7 +65,7 @@ class ArenaDelegation:
     # ==================== Checkpoint Operations ====================
 
     def store_debate_outcome(
-        self, result: "DebateResult", task: str, belief_cruxes: Optional[list] = None
+        self, result: "DebateResult", task: str, belief_cruxes: list | None = None
     ) -> None:
         """Store debate outcome. Delegates to CheckpointOperations."""
         processed_cruxes = None
@@ -174,7 +173,7 @@ class ArenaDelegation:
         agent_name: str,
         position_text: str,
         round_num: int,
-        evidence_ids: Optional[list[str]] = None,
+        evidence_ids: list[str] | None = None,
     ) -> None:
         """Record grounded position. Delegates to GroundedOperations."""
         if self._grounded_ops:
@@ -193,7 +192,7 @@ class ArenaDelegation:
 
     # ==================== Knowledge Operations ====================
 
-    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
+    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> str | None:
         """Fetch knowledge context. Delegates to KnowledgeMoundOperations."""
         if self._knowledge_ops:
             return await self._knowledge_ops.fetch_context(task, limit=limit)  # type: ignore[attr-defined]
@@ -217,6 +216,5 @@ class ArenaDelegation:
         if self._prompt_builder:
             return self._prompt_builder.get_flip_context(agent)
         return ""
-
 
 __all__ = ["ArenaDelegation"]

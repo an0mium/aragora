@@ -14,13 +14,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class StarterTemplate:
@@ -29,14 +28,13 @@ class StarterTemplate:
     id: str
     name: str
     description: str
-    use_cases: List[str]
+    use_cases: list[str]
     agents_count: int
     rounds: int
     estimated_minutes: int
     example_prompt: str
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     difficulty: str = "beginner"
-
 
 @dataclass
 class OnboardingFlow:
@@ -44,18 +42,17 @@ class OnboardingFlow:
 
     id: str
     current_step: str
-    completed_steps: List[str]
-    use_case: Optional[str] = None
-    selected_template_id: Optional[str] = None
-    first_debate_id: Optional[str] = None
-    quick_start_profile: Optional[str] = None
+    completed_steps: list[str]
+    use_case: str | None = None
+    selected_template_id: str | None = None
+    first_debate_id: str | None = None
+    quick_start_profile: str | None = None
     team_invites_count: int = 0
     progress_percentage: int = 0
-    started_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    updated_at: datetime | None = None
+    completed_at: datetime | None = None
     skipped: bool = False
-
 
 @dataclass
 class QuickStartConfig:
@@ -63,11 +60,10 @@ class QuickStartConfig:
 
     profile: str
     default_template: str
-    suggested_templates: List[str]
-    default_agents: List[str]
+    suggested_templates: list[str]
+    default_agents: list[str]
     default_rounds: int
-    focus_areas: List[str]
-
+    focus_areas: list[str]
 
 @dataclass
 class OnboardingAnalytics:
@@ -77,9 +73,8 @@ class OnboardingAnalytics:
     first_debate: int
     completed: int
     completion_rate: float
-    step_completion: Dict[str, int] = field(default_factory=dict)
+    step_completion: dict[str, int] = field(default_factory=dict)
     total_events: int = 0
-
 
 class OnboardingAPI:
     """API interface for user onboarding."""
@@ -93,9 +88,9 @@ class OnboardingAPI:
 
     def get_flow(
         self,
-        user_id: Optional[str] = None,
-        organization_id: Optional[str] = None,
-    ) -> tuple[bool, Optional[OnboardingFlow], List[StarterTemplate]]:
+        user_id: str | None = None,
+        organization_id: str | None = None,
+    ) -> tuple[bool, OnboardingFlow | None, list[StarterTemplate]]:
         """
         Get current onboarding flow state.
 
@@ -106,7 +101,7 @@ class OnboardingAPI:
         Returns:
             Tuple of (needs_onboarding, flow if exists, recommended templates).
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if user_id:
             params["user_id"] = user_id
         if organization_id:
@@ -124,11 +119,11 @@ class OnboardingAPI:
 
     async def get_flow_async(
         self,
-        user_id: Optional[str] = None,
-        organization_id: Optional[str] = None,
-    ) -> tuple[bool, Optional[OnboardingFlow], List[StarterTemplate]]:
+        user_id: str | None = None,
+        organization_id: str | None = None,
+    ) -> tuple[bool, OnboardingFlow | None, list[StarterTemplate]]:
         """Async version of get_flow()."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if user_id:
             params["user_id"] = user_id
         if organization_id:
@@ -146,9 +141,9 @@ class OnboardingAPI:
 
     def init_flow(
         self,
-        use_case: Optional[str] = None,
-        quick_start_profile: Optional[str] = None,
-        skip_to_step: Optional[str] = None,
+        use_case: str | None = None,
+        quick_start_profile: str | None = None,
+        skip_to_step: str | None = None,
     ) -> OnboardingFlow:
         """
         Initialize a new onboarding flow.
@@ -161,7 +156,7 @@ class OnboardingAPI:
         Returns:
             OnboardingFlow object.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if use_case:
             body["use_case"] = use_case
         if quick_start_profile:
@@ -174,12 +169,12 @@ class OnboardingAPI:
 
     async def init_flow_async(
         self,
-        use_case: Optional[str] = None,
-        quick_start_profile: Optional[str] = None,
-        skip_to_step: Optional[str] = None,
+        use_case: str | None = None,
+        quick_start_profile: str | None = None,
+        skip_to_step: str | None = None,
     ) -> OnboardingFlow:
         """Async version of init_flow()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if use_case:
             body["use_case"] = use_case
         if quick_start_profile:
@@ -193,9 +188,9 @@ class OnboardingAPI:
     def update_step(
         self,
         action: str = "next",
-        step_data: Optional[Dict[str, Any]] = None,
-        jump_to_step: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        step_data: Optional[dict[str, Any]] = None,
+        jump_to_step: str | None = None,
+    ) -> dict[str, Any]:
         """
         Update onboarding step progress.
 
@@ -207,7 +202,7 @@ class OnboardingAPI:
         Returns:
             Updated flow state.
         """
-        body: Dict[str, Any] = {"action": action}
+        body: dict[str, Any] = {"action": action}
         if step_data:
             body["step_data"] = step_data
         if jump_to_step:
@@ -218,11 +213,11 @@ class OnboardingAPI:
     async def update_step_async(
         self,
         action: str = "next",
-        step_data: Optional[Dict[str, Any]] = None,
-        jump_to_step: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        step_data: Optional[dict[str, Any]] = None,
+        jump_to_step: str | None = None,
+    ) -> dict[str, Any]:
         """Async version of update_step()."""
-        body: Dict[str, Any] = {"action": action}
+        body: dict[str, Any] = {"action": action}
         if step_data:
             body["step_data"] = step_data
         if jump_to_step:
@@ -230,7 +225,7 @@ class OnboardingAPI:
 
         return await self._client._put_async("/api/v1/onboarding/flow/step", body)
 
-    def skip_onboarding(self) -> Dict[str, Any]:
+    def skip_onboarding(self) -> dict[str, Any]:
         """
         Skip the onboarding flow.
 
@@ -239,11 +234,11 @@ class OnboardingAPI:
         """
         return self.update_step(action="skip")
 
-    async def skip_onboarding_async(self) -> Dict[str, Any]:
+    async def skip_onboarding_async(self) -> dict[str, Any]:
         """Async version of skip_onboarding()."""
         return await self.update_step_async(action="skip")
 
-    def complete_onboarding(self) -> Dict[str, Any]:
+    def complete_onboarding(self) -> dict[str, Any]:
         """
         Mark onboarding as complete.
 
@@ -252,7 +247,7 @@ class OnboardingAPI:
         """
         return self.update_step(action="complete")
 
-    async def complete_onboarding_async(self) -> Dict[str, Any]:
+    async def complete_onboarding_async(self) -> dict[str, Any]:
         """Async version of complete_onboarding()."""
         return await self.update_step_async(action="complete")
 
@@ -262,9 +257,9 @@ class OnboardingAPI:
 
     def get_templates(
         self,
-        use_case: Optional[str] = None,
-        profile: Optional[str] = None,
-    ) -> List[StarterTemplate]:
+        use_case: str | None = None,
+        profile: str | None = None,
+    ) -> list[StarterTemplate]:
         """
         Get recommended starter templates.
 
@@ -275,7 +270,7 @@ class OnboardingAPI:
         Returns:
             List of StarterTemplate objects.
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if use_case:
             params["use_case"] = use_case
         if profile:
@@ -286,11 +281,11 @@ class OnboardingAPI:
 
     async def get_templates_async(
         self,
-        use_case: Optional[str] = None,
-        profile: Optional[str] = None,
-    ) -> List[StarterTemplate]:
+        use_case: str | None = None,
+        profile: str | None = None,
+    ) -> list[StarterTemplate]:
         """Async version of get_templates()."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if use_case:
             params["use_case"] = use_case
         if profile:
@@ -305,10 +300,10 @@ class OnboardingAPI:
 
     def start_first_debate(
         self,
-        template_id: Optional[str] = None,
-        topic: Optional[str] = None,
+        template_id: str | None = None,
+        topic: str | None = None,
         use_example: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Start a guided first debate.
 
@@ -320,7 +315,7 @@ class OnboardingAPI:
         Returns:
             Debate creation result.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if template_id:
             body["template_id"] = template_id
         if topic:
@@ -332,12 +327,12 @@ class OnboardingAPI:
 
     async def start_first_debate_async(
         self,
-        template_id: Optional[str] = None,
-        topic: Optional[str] = None,
+        template_id: str | None = None,
+        topic: str | None = None,
         use_example: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Async version of start_first_debate()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if template_id:
             body["template_id"] = template_id
         if topic:
@@ -351,7 +346,7 @@ class OnboardingAPI:
     # Quick-Start
     # =========================================================================
 
-    def apply_quick_start(self, profile: str) -> Dict[str, Any]:
+    def apply_quick_start(self, profile: str) -> dict[str, Any]:
         """
         Apply quick-start configuration.
 
@@ -364,7 +359,7 @@ class OnboardingAPI:
         body = {"profile": profile}
         return self._client._post("/api/v1/onboarding/quick-start", body)
 
-    async def apply_quick_start_async(self, profile: str) -> Dict[str, Any]:
+    async def apply_quick_start_async(self, profile: str) -> dict[str, Any]:
         """Async version of apply_quick_start()."""
         body = {"profile": profile}
         return await self._client._post_async("/api/v1/onboarding/quick-start", body)
@@ -373,7 +368,7 @@ class OnboardingAPI:
     # Analytics
     # =========================================================================
 
-    def get_analytics(self, organization_id: Optional[str] = None) -> OnboardingAnalytics:
+    def get_analytics(self, organization_id: str | None = None) -> OnboardingAnalytics:
         """
         Get onboarding funnel analytics.
 
@@ -383,7 +378,7 @@ class OnboardingAPI:
         Returns:
             OnboardingAnalytics object.
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if organization_id:
             params["organization_id"] = organization_id
 
@@ -391,10 +386,10 @@ class OnboardingAPI:
         return self._parse_analytics(response)
 
     async def get_analytics_async(
-        self, organization_id: Optional[str] = None
+        self, organization_id: str | None = None
     ) -> OnboardingAnalytics:
         """Async version of get_analytics()."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if organization_id:
             params["organization_id"] = organization_id
 
@@ -405,7 +400,7 @@ class OnboardingAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_flow(self, data: Dict[str, Any]) -> OnboardingFlow:
+    def _parse_flow(self, data: dict[str, Any]) -> OnboardingFlow:
         """Parse flow data into OnboardingFlow object."""
         started_at = None
         updated_at = None
@@ -445,7 +440,7 @@ class OnboardingAPI:
             skipped=data.get("skipped", False),
         )
 
-    def _parse_template(self, data: Dict[str, Any]) -> StarterTemplate:
+    def _parse_template(self, data: dict[str, Any]) -> StarterTemplate:
         """Parse template data into StarterTemplate object."""
         return StarterTemplate(
             id=data.get("id", ""),
@@ -460,7 +455,7 @@ class OnboardingAPI:
             difficulty=data.get("difficulty", "beginner"),
         )
 
-    def _parse_analytics(self, data: Dict[str, Any]) -> OnboardingAnalytics:
+    def _parse_analytics(self, data: dict[str, Any]) -> OnboardingAnalytics:
         """Parse analytics data into OnboardingAnalytics object."""
         funnel = data.get("funnel", {})
         return OnboardingAnalytics(
@@ -471,7 +466,6 @@ class OnboardingAPI:
             step_completion=data.get("step_completion", {}),
             total_events=data.get("total_events", 0),
         )
-
 
 __all__ = [
     "OnboardingAPI",

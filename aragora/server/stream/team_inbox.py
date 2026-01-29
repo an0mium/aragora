@@ -19,6 +19,7 @@ Events:
 - team_inbox_note_added: Internal note added
 - team_inbox_comment: Comment on message thread
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -28,10 +29,9 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class TeamInboxEventType(str, Enum):
     """Types of team inbox collaboration events."""
@@ -62,7 +62,6 @@ class TeamInboxEventType(str, Enum):
     ACTIVITY = "team_inbox_activity"
     NOTIFICATION = "team_inbox_notification"
 
-
 @dataclass
 class TeamMember:
     """A team member in a shared inbox."""
@@ -72,9 +71,9 @@ class TeamMember:
     name: str
     role: str = "member"  # admin, member, viewer
     joined_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "userId": self.user_id,
             "email": self.email,
@@ -83,7 +82,6 @@ class TeamMember:
             "joinedAt": self.joined_at.isoformat(),
             "avatarUrl": self.avatar_url,
         }
-
 
 @dataclass
 class Mention:
@@ -97,9 +95,9 @@ class Mention:
     context: str  # The text around the mention
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     acknowledged: bool = False
-    acknowledged_at: Optional[datetime] = None
+    acknowledged_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "mentionedUserId": self.mentioned_user_id,
@@ -112,7 +110,6 @@ class Mention:
             "acknowledgedAt": self.acknowledged_at.isoformat() if self.acknowledged_at else None,
         }
 
-
 @dataclass
 class InternalNote:
     """An internal note on a message (not visible to customer)."""
@@ -123,12 +120,12 @@ class InternalNote:
     author_id: str
     author_name: str
     content: str
-    mentions: List[str] = field(default_factory=list)  # List of user IDs mentioned
+    mentions: list[str] = field(default_factory=list)  # List of user IDs mentioned
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
     is_pinned: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "messageId": self.message_id,
@@ -142,23 +139,22 @@ class InternalNote:
             "isPinned": self.is_pinned,
         }
 
-
 @dataclass
 class TeamInboxEvent:
     """A team inbox collaboration event."""
 
     type: TeamInboxEventType
     inbox_id: str
-    data: Dict[str, Any]
-    user_id: Optional[str] = None
-    message_id: Optional[str] = None
+    data: dict[str, Any]
+    user_id: str | None = None
+    message_id: str | None = None
     timestamp: str = ""
 
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.type.value if isinstance(self.type, TeamInboxEventType) else self.type,
             "inboxId": self.inbox_id,
@@ -170,7 +166,6 @@ class TeamInboxEvent:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
-
 
 class TeamInboxEmitter:
     """
@@ -185,17 +180,17 @@ class TeamInboxEmitter:
 
     def __init__(self):
         # Map inbox_id -> set of websocket connections
-        self._inbox_subscriptions: Dict[str, Set[Any]] = {}
+        self._inbox_subscriptions: dict[str, set[Any]] = {}
         # Map message_id -> set of user_ids currently viewing
-        self._message_viewers: Dict[str, Set[str]] = {}
+        self._message_viewers: dict[str, set[str]] = {}
         # Map message_id -> set of user_ids currently typing
-        self._message_typers: Dict[str, Set[str]] = {}
+        self._message_typers: dict[str, set[str]] = {}
         # In-memory storage for notes and mentions
-        self._notes: Dict[str, List[InternalNote]] = {}  # message_id -> notes
-        self._mentions: Dict[str, List[Mention]] = {}  # user_id -> mentions
-        self._team_members: Dict[str, Dict[str, TeamMember]] = {}  # inbox_id -> {user_id: member}
+        self._notes: dict[str, list[InternalNote]] = {}  # message_id -> notes
+        self._mentions: dict[str, list[Mention]] = {}  # user_id -> mentions
+        self._team_members: dict[str, dict[str, TeamMember]] = {}  # inbox_id -> {user_id: member}
         self._lock = asyncio.Lock()
-        self._event_callbacks: List[Callable[[TeamInboxEvent], None]] = []
+        self._event_callbacks: list[Callable[[TeamInboxEvent], None]] = []
 
     # =========================================================================
     # Subscription Management
@@ -280,7 +275,7 @@ class TeamInboxEmitter:
             self._team_members[inbox_id][user_id] = member
         return member
 
-    async def get_team_members(self, inbox_id: str) -> List[TeamMember]:
+    async def get_team_members(self, inbox_id: str) -> list[TeamMember]:
         """Get all team members for an inbox."""
         async with self._lock:
             members = self._team_members.get(inbox_id, {})
@@ -329,7 +324,7 @@ class TeamInboxEmitter:
         message_id: str,
         unassigned_by_user_id: str,
         unassigned_by_name: str,
-        previous_assignee_id: Optional[str] = None,
+        previous_assignee_id: str | None = None,
     ) -> int:
         """Emit message unassignment event."""
         event = TeamInboxEvent(
@@ -484,7 +479,7 @@ class TeamInboxEmitter:
         )
         return await self.emit(event)
 
-    async def get_message_viewers(self, message_id: str) -> List[str]:
+    async def get_message_viewers(self, message_id: str) -> list[str]:
         """Get list of users currently viewing a message."""
         async with self._lock:
             return list(self._message_viewers.get(message_id, set()))
@@ -493,7 +488,7 @@ class TeamInboxEmitter:
     # Mentions
     # =========================================================================
 
-    def extract_mentions(self, text: str) -> List[str]:
+    def extract_mentions(self, text: str) -> list[str]:
         """Extract @mentions from text."""
         matches = self.MENTION_PATTERN.findall(text)
         return list(set(matches))
@@ -537,7 +532,7 @@ class TeamInboxEmitter:
         self,
         user_id: str,
         unacknowledged_only: bool = False,
-    ) -> List[Mention]:
+    ) -> list[Mention]:
         """Get mentions for a user."""
         async with self._lock:
             mentions = self._mentions.get(user_id, []).copy()
@@ -601,7 +596,7 @@ class TeamInboxEmitter:
 
         return note
 
-    async def get_notes(self, message_id: str) -> List[InternalNote]:
+    async def get_notes(self, message_id: str) -> list[InternalNote]:
         """Get all internal notes for a message."""
         async with self._lock:
             return self._notes.get(message_id, []).copy()
@@ -617,8 +612,8 @@ class TeamInboxEmitter:
         description: str,
         user_id: str,
         user_name: str,
-        message_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        message_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> int:
         """Emit a generic activity event for the feed."""
         event = TeamInboxEvent(
@@ -649,10 +644,8 @@ class TeamInboxEmitter:
         if callback in self._event_callbacks:
             self._event_callbacks.remove(callback)
 
-
 # Global emitter instance
-_team_inbox_emitter: Optional[TeamInboxEmitter] = None
-
+_team_inbox_emitter: TeamInboxEmitter | None = None
 
 def get_team_inbox_emitter() -> TeamInboxEmitter:
     """Get the global team inbox emitter instance."""
@@ -661,32 +654,26 @@ def get_team_inbox_emitter() -> TeamInboxEmitter:
         _team_inbox_emitter = TeamInboxEmitter()
     return _team_inbox_emitter
 
-
 # Convenience functions
 async def emit_message_assigned(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit message assignment event."""
     return await get_team_inbox_emitter().emit_message_assigned(inbox_id, message_id, **kwargs)
 
-
 async def emit_message_unassigned(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit message unassignment event."""
     return await get_team_inbox_emitter().emit_message_unassigned(inbox_id, message_id, **kwargs)
-
 
 async def emit_status_changed(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit status change event."""
     return await get_team_inbox_emitter().emit_status_changed(inbox_id, message_id, **kwargs)
 
-
 async def emit_user_viewing(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit user viewing event."""
     return await get_team_inbox_emitter().emit_user_viewing(inbox_id, message_id, **kwargs)
 
-
 async def emit_user_typing(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit user typing event."""
     return await get_team_inbox_emitter().emit_user_typing(inbox_id, message_id, **kwargs)
-
 
 __all__ = [
     # Classes

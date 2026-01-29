@@ -19,7 +19,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 __all__ = [
     # Logging
@@ -38,11 +38,9 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Logging Handlers
 # =============================================================================
-
 
 async def log_event(
     message: str = "",
@@ -78,11 +76,10 @@ async def log_event(
     else:
         log_fn(formatted)
 
-
 async def log_metric(
     metric_name: str,
     value: Any,
-    tags: Optional[dict[str, str]] = None,
+    tags: dict[str, str] | None = None,
     **context: Any,
 ) -> None:
     """
@@ -105,17 +102,15 @@ async def log_metric(
     tag_str = ",".join(f"{k}={v}" for k, v in tags.items())
     logger.info(f"METRIC {metric_name}={value} {tag_str}")
 
-
 # =============================================================================
 # Notification Handlers
 # =============================================================================
 
-
 async def send_webhook(
     url: str,
-    payload_template: Optional[dict[str, Any]] = None,
+    payload_template: dict[str, Any] | None = None,
     method: str = "POST",
-    headers: Optional[dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
     timeout: float = 30.0,
     **context: Any,
 ) -> bool:
@@ -174,7 +169,6 @@ async def send_webhook(
         logger.error(f"Webhook error: {e}")
         return False
 
-
 async def send_slack_notification(
     channel: str,
     message_template: str,
@@ -219,18 +213,16 @@ async def send_slack_notification(
         **context,
     )
 
-
 # =============================================================================
 # Persistence Handlers
 # =============================================================================
 
-
 async def save_checkpoint(
     path: str = "checkpoints",
     filename_template: str = "checkpoint_{debate_id}_{timestamp}.json",
-    include_fields: Optional[list[str]] = None,
+    include_fields: list[str] | None = None,
     **context: Any,
-) -> Optional[str]:
+) -> str | None:
     """
     Save a checkpoint file.
 
@@ -279,7 +271,6 @@ async def save_checkpoint(
         logger.error(f"Checkpoint save error: {e}")
         return None
 
-
 async def store_fact(
     fact_type: str,
     content_field: str = "final_answer",
@@ -326,11 +317,9 @@ async def store_fact(
         logger.error(f"Fact storage error: {e}")
         return False
 
-
 # =============================================================================
 # Control Flow Handlers
 # =============================================================================
-
 
 async def set_context_var(
     var_name: str,
@@ -348,7 +337,6 @@ async def set_context_var(
         **context: Current context (modified in-place)
     """
     context[var_name] = value
-
 
 async def delay_execution(
     seconds: float = 1.0,

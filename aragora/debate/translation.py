@@ -29,7 +29,6 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-
 class Language(str, Enum):
     """Supported languages for debates."""
 
@@ -106,7 +105,6 @@ class Language(str, Enum):
         }
         return names.get(self.value, self.value)
 
-
 @dataclass
 class TranslationResult:
     """Result of a translation operation."""
@@ -142,7 +140,6 @@ class TranslationResult:
             "translation_time_ms": self.translation_time_ms,
         }
 
-
 @dataclass
 class LanguageDetectionResult:
     """Result of language detection."""
@@ -159,7 +156,6 @@ class LanguageDetectionResult:
             "confidence": self.confidence,
             "alternatives": [(lang.value, conf) for lang, conf in self.alternatives],
         }
-
 
 class TranslationCache:
     """
@@ -185,7 +181,7 @@ class TranslationCache:
         content = f"{source.value}:{target.value}:{text}"
         return hashlib.sha256(content.encode()).hexdigest()[:32]
 
-    def get(self, text: str, source: Language, target: Language) -> Optional[TranslationResult]:
+    def get(self, text: str, source: Language, target: Language) -> TranslationResult | None:
         """Get a cached translation if available."""
         key = self._make_key(text, source, target)
         with self._lock:
@@ -229,7 +225,6 @@ class TranslationCache:
         with self._lock:
             self._cache.clear()
 
-
 class TranslationBackend:
     """Base class for translation backends."""
 
@@ -249,7 +244,6 @@ class TranslationBackend:
         raise NotImplementedError(
             f"Subclass {self.__class__.__name__} must implement detect_language()"
         )
-
 
 class LLMTranslationBackend(TranslationBackend):
     """Translation backend using LLM (Claude or GPT)."""
@@ -358,7 +352,7 @@ Text:
             confidence=0.5,
         )
 
-    def _heuristic_detect(self, text: str) -> Optional[LanguageDetectionResult]:
+    def _heuristic_detect(self, text: str) -> LanguageDetectionResult | None:
         """Simple heuristic-based language detection."""
         text = text.lower()
 
@@ -397,7 +391,6 @@ Text:
 
         return None
 
-
 class TranslationService:
     """
     Main translation service for Aragora debates.
@@ -411,8 +404,8 @@ class TranslationService:
 
     def __init__(
         self,
-        backend: Optional[TranslationBackend] = None,
-        cache: Optional[TranslationCache] = None,
+        backend: TranslationBackend | None = None,
+        cache: TranslationCache | None = None,
     ):
         self.backend = backend or LLMTranslationBackend()
         self.cache = cache or TranslationCache()
@@ -421,7 +414,7 @@ class TranslationService:
         self,
         text: str,
         target: Language,
-        source: Optional[Language] = None,
+        source: Language | None = None,
     ) -> TranslationResult:
         """
         Translate text to target language.
@@ -482,7 +475,7 @@ class TranslationService:
         self,
         texts: list[str],
         target: Language,
-        source: Optional[Language] = None,
+        source: Language | None = None,
         max_concurrent: int = 5,
     ) -> list[TranslationResult]:
         """
@@ -513,7 +506,6 @@ class TranslationService:
             "cache": self.cache.get_stats(),
         }
 
-
 @dataclass
 class MultilingualDebateConfig:
     """Configuration for multilingual debate support."""
@@ -524,7 +516,6 @@ class MultilingualDebateConfig:
     translate_consensus: bool = True
     translate_messages: bool = True
     preserve_original: bool = True
-
 
 class MultilingualDebateManager:
     """
@@ -539,8 +530,8 @@ class MultilingualDebateManager:
 
     def __init__(
         self,
-        translation_service: Optional[TranslationService] = None,
-        config: Optional[MultilingualDebateConfig] = None,
+        translation_service: TranslationService | None = None,
+        config: MultilingualDebateConfig | None = None,
     ):
         self.service = translation_service or TranslationService()
         self.config = config or MultilingualDebateConfig()
@@ -619,7 +610,7 @@ class MultilingualDebateManager:
         self,
         conclusion: str,
         source_language: Language = Language.ENGLISH,
-        target_languages: Optional[list[Language]] = None,
+        target_languages: list[Language] | None = None,
     ) -> dict[str, str]:
         """
         Translate debate conclusion to multiple languages.
@@ -644,12 +635,10 @@ class MultilingualDebateManager:
 
         return translations
 
-
 # Global singleton instances
-_translation_service: Optional[TranslationService] = None
-_multilingual_manager: Optional[MultilingualDebateManager] = None
+_translation_service: TranslationService | None = None
+_multilingual_manager: MultilingualDebateManager | None = None
 _lock = threading.Lock()
-
 
 def get_translation_service() -> TranslationService:
     """Get the global translation service instance."""
@@ -659,7 +648,6 @@ def get_translation_service() -> TranslationService:
             _translation_service = TranslationService()
         return _translation_service
 
-
 def get_multilingual_manager() -> MultilingualDebateManager:
     """Get the global multilingual debate manager instance."""
     global _multilingual_manager
@@ -667,7 +655,6 @@ def get_multilingual_manager() -> MultilingualDebateManager:
         if _multilingual_manager is None:
             _multilingual_manager = MultilingualDebateManager()
         return _multilingual_manager
-
 
 __all__ = [
     "Language",

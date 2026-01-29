@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -41,7 +41,6 @@ ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN")
 # Log warnings at module load time for missing secrets
 if not ZOOM_SECRET_TOKEN:
     logger.warning("ZOOM_SECRET_TOKEN not configured - webhook signature verification disabled")
-
 
 class ZoomHandler(BotHandlerMixin, SecureHandler):
     """Handler for Zoom Bot endpoints.
@@ -65,7 +64,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
 
     def __init__(self, ctx: dict = None):  # type: ignore[assignment]
         super().__init__(ctx or {})  # type: ignore[arg-type]
-        self._bot: Optional[Any] = None
+        self._bot: Any | None = None
         self._bot_initialized = False
 
     def _is_bot_enabled(self) -> bool:
@@ -73,7 +72,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         return bool(ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET)
 
     def _build_status_response(
-        self, extra_status: Optional[Dict[str, Any]] = None
+        self, extra_status: Optional[dict[str, Any]] = None
     ) -> HandlerResult:
         """Build Zoom-specific status response."""
         status = {
@@ -88,7 +87,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
             status.update(extra_status)
         return json_response(status)
 
-    def _ensure_bot(self) -> Optional[Any]:
+    def _ensure_bot(self) -> Any | None:
         """Lazily initialize the Zoom bot."""
         if self._bot_initialized:
             return self._bot
@@ -122,8 +121,8 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=30)
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Zoom requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/zoom/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -133,8 +132,8 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=30)
     async def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/bots/zoom/events":
             return await self._handle_events(handler)
@@ -226,6 +225,5 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
 
         except Exception as e:
             return self._handle_webhook_exception(e, "Zoom event", return_200_on_error=False)
-
 
 __all__ = ["ZoomHandler"]

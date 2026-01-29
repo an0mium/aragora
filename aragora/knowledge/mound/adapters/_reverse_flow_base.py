@@ -18,16 +18,16 @@ Usage:
     class MyAdapter(ReverseFlowMixin, KnowledgeMoundAdapter):
         adapter_name = "my_adapter"
 
-        def _get_record_for_validation(self, source_id: str) -> Optional[Any]:
+        def _get_record_for_validation(self, source_id: str) -> Any | None:
             return self._source.get(source_id)
 
         def _apply_km_validation(
-            self, record: Any, km_confidence: float, cross_refs: List[str]
+            self, record: Any, km_confidence: float, cross_refs: list[str]
         ) -> bool:
             record.km_validated = True
             return True
 
-        def _extract_source_id(self, item: Dict) -> Optional[str]:
+        def _extract_source_id(self, item: Dict) -> str | None:
             meta = item.get("metadata", {})
             return meta.get("source_id")
 """
@@ -38,10 +38,9 @@ import logging
 import time
 from abc import abstractmethod
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Optional, TypedDict
 
 logger = logging.getLogger(__name__)
-
 
 class ValidationSyncResult(TypedDict):
     """Result type for reverse validation sync operations."""
@@ -49,9 +48,8 @@ class ValidationSyncResult(TypedDict):
     records_analyzed: int
     records_updated: int
     records_skipped: int
-    errors: List[str]
+    errors: list[str]
     duration_ms: float
-
 
 class ReverseFlowMixin:
     """Mixin providing reverse flow (KM -> Source) sync operations.
@@ -72,7 +70,7 @@ class ReverseFlowMixin:
     # Expected from KnowledgeMoundAdapter or subclass
     adapter_name: str
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Expected from KnowledgeMoundAdapter."""
         pass  # Will be provided by base class
 
@@ -81,7 +79,7 @@ class ReverseFlowMixin:
         pass  # Will be provided by base class
 
     @abstractmethod
-    def _get_record_for_validation(self, source_id: str) -> Optional[Any]:
+    def _get_record_for_validation(self, source_id: str) -> Any | None:
         """Get a record by its source ID for validation.
 
         Args:
@@ -97,8 +95,8 @@ class ReverseFlowMixin:
         self,
         record: Any,
         km_confidence: float,
-        cross_refs: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        cross_refs: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply KM validation to a source record.
 
@@ -113,7 +111,7 @@ class ReverseFlowMixin:
         """
         raise NotImplementedError
 
-    def _extract_source_id(self, item: Dict[str, Any]) -> Optional[str]:
+    def _extract_source_id(self, item: dict[str, Any]) -> str | None:
         """Extract the source ID from a KM item.
 
         Override to customize ID extraction for your adapter.
@@ -174,7 +172,7 @@ class ReverseFlowMixin:
 
     async def sync_validations_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
         batch_size: int = 100,
     ) -> ValidationSyncResult:
@@ -269,6 +267,5 @@ class ReverseFlowMixin:
         )
 
         return result
-
 
 __all__ = ["ReverseFlowMixin", "ValidationSyncResult"]

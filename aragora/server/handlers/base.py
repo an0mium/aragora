@@ -44,7 +44,7 @@ import os
 import re
 from functools import wraps
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, Tuple, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypedDict, Union
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
@@ -67,7 +67,6 @@ if TYPE_CHECKING:
     from aragora.storage.webhooks import WebhookStore
     from aragora.users.store import UserStore
     from aragora.billing.usage import UsageTracker
-
 
 class ServerContext(TypedDict, total=False):
     """Type definition for server context passed to handlers.
@@ -144,7 +143,6 @@ class ServerContext(TypedDict, total=False):
     raw_body: bytes  # Raw request body for signature verification
     user_id: str  # Authenticated user ID
     query: dict[str, str]  # Query string parameters
-
 
 # Import from extracted utility modules (re-exported for backwards compatibility)
 from aragora.server.errors import safe_error_message
@@ -289,10 +287,9 @@ __all__ = [
     # Note: validate_json_content_type and read_json_body_validated are BaseHandler methods
 ]
 
-
 def feature_unavailable_response(
     feature_id: str,
-    message: Optional[str] = None,
+    message: str | None = None,
 ) -> "HandlerResult":
     """
     Create a standardized response for unavailable features.
@@ -318,9 +315,7 @@ def feature_unavailable_response(
 
     return _feature_unavailable(feature_id, message)
 
-
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Database Connection Helper (imported from utils/database.py)
@@ -328,19 +323,16 @@ logger = logging.getLogger(__name__)
 # get_db_connection and table_exists are now in aragora.server.handlers.utils.database
 # and re-exported above for backwards compatibility
 
-
 # =============================================================================
 # Dict Access Helpers (imported from utils/safe_data.py)
 # =============================================================================
 # safe_get, safe_get_nested, safe_json_parse are now in
 # aragora.server.handlers.utils.safe_data and re-exported above
 
-
 # Default host from environment (used when Host header is missing)
 _DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
 
-
-def get_host_header(handler: Optional[HTTPRequestHandler], default: str | None = None) -> str:
+def get_host_header(handler: HTTPRequestHandler | None, default: str | None = None) -> str:
     """Extract Host header from request handler.
 
     Args:
@@ -364,8 +356,7 @@ def get_host_header(handler: Optional[HTTPRequestHandler], default: str | None =
         return default
     return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
 
-
-def get_agent_name(agent: Union[dict, AgentRating, Any, None]) -> Optional[str]:
+def get_agent_name(agent: dict | AgentRating | Any | None) -> str | None:
     """Extract agent name from dict or object.
 
     Handles the common pattern where agent data might be either
@@ -390,8 +381,7 @@ def get_agent_name(agent: Union[dict, AgentRating, Any, None]) -> Optional[str]:
         return agent.get("agent_name") or agent.get("name")
     return getattr(agent, "agent_name", None) or getattr(agent, "name", None)
 
-
-def agent_to_dict(agent: Union[dict, AgentRating, Any, None], include_name: bool = True) -> dict:
+def agent_to_dict(agent: dict | AgentRating | Any | None, include_name: bool = True) -> dict:
     """Convert agent object or dict to standardized dict with ELO fields.
 
     Handles the common pattern where agent data might be either a dict
@@ -441,7 +431,6 @@ def agent_to_dict(agent: Union[dict, AgentRating, Any, None], include_name: bool
 
     return result
 
-
 # =============================================================================
 # Response Builders (imported from utils/responses.py)
 # =============================================================================
@@ -458,14 +447,13 @@ from aragora.server.handlers.utils.responses import (
 # Type alias for handlers that may be sync or async.
 # This allows child classes to override with async methods while maintaining
 # type safety. The registry dynamically awaits coroutines at runtime.
-MaybeAsyncHandlerResult = Union[Optional[HandlerResult], Awaitable[Optional[HandlerResult]]]
-
+MaybeAsyncHandlerResult = Union[HandlerResult | None, Awaitable[HandlerResult | None]]
 
 def safe_error_response(
     exception: Exception,
     context: str,
     status: int = 500,
-    handler: Optional[HTTPRequestHandler] = None,
+    handler: HTTPRequestHandler | None = None,
 ) -> HandlerResult:
     """Create an error response with sanitized message.
 
@@ -506,13 +494,11 @@ def safe_error_response(
 
     return json_response(error_dict, status=status)
 
-
 # Note: Exception handling, tracing, decorators, and RBAC are all imported from
 # utils/decorators.py. See that module for: generate_trace_id, map_exception_to_status,
 # validate_params, handle_errors, auto_error_response, log_request, PERMISSION_MATRIX,
 # has_permission, require_permission, require_user_auth, require_auth, require_storage,
 # require_feature, safe_fetch, with_error_recovery
-
 
 def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
     """
@@ -671,7 +657,6 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
 
     return decorator
 
-
 def api_endpoint(
     *,
     method: str,
@@ -696,7 +681,6 @@ def api_endpoint(
 
     return decorator
 
-
 def rate_limit(*args, **kwargs) -> Callable[[Callable], Callable]:
     """Async-friendly wrapper around middleware rate limiting."""
     from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit
@@ -718,7 +702,6 @@ def rate_limit(*args, **kwargs) -> Callable[[Callable], Callable]:
         return decorated
 
     return wrapper
-
 
 def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
     """Validate JSON request body has required fields for async handlers."""
@@ -770,14 +753,12 @@ def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
 
     return decorator
 
-
 # =============================================================================
 # Handler Mixins
 # =============================================================================
 # These mixins provide reusable patterns for common handler operations.
 # Handlers can inherit from these in addition to BaseHandler to get
 # standardized implementations of common operations.
-
 
 class PaginatedHandlerMixin:
     """Mixin for standardized pagination handling.
@@ -854,7 +835,6 @@ class PaginatedHandlerMixin:
             }
         )
 
-
 class CachedHandlerMixin:
     """Mixin for cached response generation.
 
@@ -922,7 +902,6 @@ class CachedHandlerMixin:
         cache.set(cache_key, value)
         return value
 
-
 class AuthenticatedHandlerMixin:
     """Mixin for requiring authenticated access.
 
@@ -968,7 +947,6 @@ class AuthenticatedHandlerMixin:
             return error_response("Authentication required", 401)
         return user_ctx
 
-
 class BaseHandler:
     """
     Base class for endpoint handlers.
@@ -979,7 +957,7 @@ class BaseHandler:
 
     ctx: ServerContext
     _current_handler: Any = None
-    _current_query_params: dict[str, Any] = None  # type: ignore[assignment]
+    _current_query_params: dict[str, Any] | None = None
 
     def __init__(self, server_context: ServerContext):
         """
@@ -995,7 +973,7 @@ class BaseHandler:
         self._current_query_params = {}
 
     def set_request_context(
-        self, handler: Any, query_params: Optional[dict[str, Any]] = None
+        self, handler: Any, query_params: dict[str, Any] | None = None
     ) -> None:
         """Set the current request context for helper methods.
 
@@ -1012,9 +990,9 @@ class BaseHandler:
     def get_query_param(
         self,
         name_or_handler: Any,
-        name_or_default: Optional[str] = None,
-        default: Optional[str] = None,
-    ) -> Optional[str]:
+        name_or_default: str | None = None,
+        default: str | None = None,
+    ) -> str | None:
         """Get a query parameter from the current request.
 
         Supports two calling patterns for backwards compatibility:
@@ -1055,7 +1033,7 @@ class BaseHandler:
             return value[0] if value else default_value
         return value if value is not None else default_value
 
-    def get_json_body(self) -> Optional[dict[str, Any]]:
+    def get_json_body(self) -> dict[str, Any] | None:
         """Get JSON body from the current request.
 
         Returns:
@@ -1068,7 +1046,7 @@ class BaseHandler:
     def json_response(
         self,
         data: Any,
-        status: Union[int, HTTPStatus] = HTTPStatus.OK,
+        status: int | HTTPStatus = HTTPStatus.OK,
     ) -> HandlerResult:
         """Create a JSON response.
 
@@ -1085,7 +1063,7 @@ class BaseHandler:
     def success_response(
         self,
         data: Any,
-        status: Union[int, HTTPStatus] = HTTPStatus.OK,
+        status: int | HTTPStatus = HTTPStatus.OK,
     ) -> HandlerResult:
         """Create a standard success response."""
         status_code = status.value if isinstance(status, HTTPStatus) else status
@@ -1094,7 +1072,7 @@ class BaseHandler:
     def error_response(
         self,
         message: str,
-        status: Union[int, HTTPStatus] = HTTPStatus.BAD_REQUEST,
+        status: int | HTTPStatus = HTTPStatus.BAD_REQUEST,
     ) -> HandlerResult:
         """Create a standard error response."""
         status_code = status.value if isinstance(status, HTTPStatus) else status
@@ -1103,7 +1081,7 @@ class BaseHandler:
     def json_error(
         self,
         message: str,
-        status: Union[int, HTTPStatus] = HTTPStatus.BAD_REQUEST,
+        status: int | HTTPStatus = HTTPStatus.BAD_REQUEST,
     ) -> HandlerResult:
         """Create a JSON error response.
 
@@ -1123,7 +1101,7 @@ class BaseHandler:
         segment_index: int,
         param_name: str,
         pattern: re.Pattern = None,
-    ) -> Tuple[Optional[str], Optional[HandlerResult]]:
+    ) -> tuple[str | None, HandlerResult | None]:
         """Extract and validate a path segment parameter.
 
         Consolidates the common pattern of:
@@ -1179,8 +1157,8 @@ class BaseHandler:
     def extract_path_params(
         self,
         path: str,
-        param_specs: list[Tuple[int, str, Optional[re.Pattern]]],
-    ) -> Tuple[Optional[dict], Optional[HandlerResult]]:
+        param_specs: list[tuple[int, str, re.Pattern | None]],
+    ) -> tuple[dict | None, HandlerResult | None]:
         """Extract and validate multiple path parameters at once.
 
         Args:
@@ -1234,7 +1212,7 @@ class BaseHandler:
         """Get nomic directory path."""
         return self.ctx.get("nomic_dir")
 
-    def get_current_user(self, handler: HTTPRequestHandler) -> Optional[UserAuthContext]:
+    def get_current_user(self, handler: HTTPRequestHandler) -> UserAuthContext | None:
         """Get authenticated user from request, if any.
 
         Unlike @require_user_auth decorator which requires authentication,
@@ -1271,7 +1249,7 @@ class BaseHandler:
 
     def require_auth_or_error(
         self, handler: HTTPRequestHandler
-    ) -> Tuple[Optional[UserAuthContext], Optional["HandlerResult"]]:
+    ) -> tuple[UserAuthContext | None, Optional["HandlerResult"]]:
         """Require authentication and return user or error response.
 
         Alternative to @require_user_auth decorator for cases where you need
@@ -1299,7 +1277,7 @@ class BaseHandler:
 
     def require_admin_or_error(
         self, handler: HTTPRequestHandler
-    ) -> Tuple[Optional[UserAuthContext], Optional["HandlerResult"]]:
+    ) -> tuple[UserAuthContext | None, Optional["HandlerResult"]]:
         """Require admin authentication and return user or error response.
 
         Checks that the user is authenticated and has admin privileges
@@ -1337,7 +1315,7 @@ class BaseHandler:
 
     def require_permission_or_error(
         self, handler: HTTPRequestHandler, permission: str
-    ) -> Tuple[Optional[UserAuthContext], Optional["HandlerResult"]]:
+    ) -> tuple[UserAuthContext | None, Optional["HandlerResult"]]:
         """Require authentication and specific permission.
 
         Checks that the user is authenticated and has the required permission.
@@ -1400,7 +1378,7 @@ class BaseHandler:
     # Maximum request body size (10MB default)
     MAX_BODY_SIZE = 10 * 1024 * 1024
 
-    def read_json_body(self, handler, max_size: int = None) -> Optional[dict]:
+    def read_json_body(self, handler, max_size: int = None) -> dict | None:
         """Read and parse JSON body from request handler.
 
         Args:
@@ -1422,7 +1400,7 @@ class BaseHandler:
         except (json.JSONDecodeError, ValueError):
             return None
 
-    def validate_content_length(self, handler, max_size: int = None) -> Optional[int]:
+    def validate_content_length(self, handler, max_size: int = None) -> int | None:
         """Validate Content-Length header.
 
         Args:
@@ -1443,7 +1421,7 @@ class BaseHandler:
 
         return content_length
 
-    def validate_json_content_type(self, handler) -> Optional[HandlerResult]:
+    def validate_json_content_type(self, handler) -> HandlerResult | None:
         """Validate that Content-Type is application/json for JSON endpoints.
 
         Args:
@@ -1475,7 +1453,7 @@ class BaseHandler:
 
     def read_json_body_validated(
         self, handler, max_size: int = None
-    ) -> Tuple[Optional[dict], Optional[HandlerResult]]:
+    ) -> tuple[dict | None, HandlerResult | None]:
         """Read and parse JSON body with Content-Type validation.
 
         Combines Content-Type validation and body parsing into a single call.

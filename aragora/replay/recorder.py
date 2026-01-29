@@ -27,14 +27,13 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.config import MAX_REPLAY_QUEUE_SIZE
 
 from .schema import ReplayEvent, ReplayMeta
 
 logger = logging.getLogger(__name__)
-
 
 class ReplayRecorder:
     """Non-blocking append-only recorder with background writer."""
@@ -44,12 +43,12 @@ class ReplayRecorder:
         debate_id: str,
         topic: str,
         proposal: str,
-        agents: List[Dict[str, str]],
+        agents: list[dict[str, str]],
         storage_dir: str = ".nomic/replays",
     ):
         self.debate_id = debate_id
         self.storage_dir = Path(storage_dir)
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
         self._event_count = 0
         self._is_active = False
 
@@ -68,7 +67,7 @@ class ReplayRecorder:
         )
 
         self._write_queue: queue.Queue = queue.Queue(maxsize=MAX_REPLAY_QUEUE_SIZE)
-        self._writer_thread: Optional[threading.Thread] = None
+        self._writer_thread: threading.Thread | None = None
         self._stop_writer = threading.Event()
         self._event_count_lock = threading.Lock()
 
@@ -105,7 +104,7 @@ class ReplayRecorder:
         return int((time.time() - (self._start_time or time.time())) * 1000)
 
     def _record(
-        self, event_type: str, source: str, content: str, metadata: Dict[str, Any] | None = None
+        self, event_type: str, source: str, content: str, metadata: dict[str, Any] | None = None
     ) -> None:
         if not self._is_active:
             return
@@ -124,9 +123,9 @@ class ReplayRecorder:
             logger.warning(f"Replay queue full, dropping {event_type} event")
 
     def record_turn(
-        self, agent_id: str, content: str, round_num: int, loop_id: Optional[str] = None
+        self, agent_id: str, content: str, round_num: int, loop_id: str | None = None
     ) -> None:
-        meta: Dict[str, Any] = {"round": round_num}
+        meta: dict[str, Any] = {"round": round_num}
         if loop_id:
             meta["loop_id"] = loop_id
         self._record("turn", agent_id, content, meta)
@@ -135,7 +134,7 @@ class ReplayRecorder:
         self._record("vote", agent_id, vote, {"reasoning": reasoning})
 
     def record_audience_input(
-        self, user_id: str, message: str, loop_id: Optional[str] = None
+        self, user_id: str, message: str, loop_id: str | None = None
     ) -> None:
         meta = {"user_id": user_id}
         if loop_id:
@@ -148,7 +147,7 @@ class ReplayRecorder:
     def record_system(self, message: str) -> None:
         self._record("system", "system", message)
 
-    def finalize(self, verdict: str, votes: Dict[str, int]) -> str:
+    def finalize(self, verdict: str, votes: dict[str, int]) -> str:
         self._is_active = False
         self._stop_writer.set()
         if self._writer_thread:

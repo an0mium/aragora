@@ -29,7 +29,7 @@ import logging
 import os
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, AsyncGenerator, Callable, Dict, Optional
+from typing import Any, AsyncGenerator, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,6 @@ except ImportError:
     aioredis = None
     REDIS_AVAILABLE = False
     logger.debug("aioredis not available, Redis state backend disabled")
-
 
 @dataclass
 class DebateState:
@@ -91,7 +90,6 @@ class DebateState:
         data = json.loads(json_str)
         return cls(**data)
 
-
 class RedisStateManager:
     """
     Redis-backed distributed state manager.
@@ -117,8 +115,8 @@ class RedisStateManager:
             redis_url: Redis connection URL
         """
         self._redis_url = redis_url
-        self._redis: Optional[Any] = None
-        self._pubsub: Optional[Any] = None
+        self._redis: Any | None = None
+        self._pubsub: Any | None = None
         self._instance_id = INSTANCE_ID
         self._server_start_time = time.time()
         self._shutdown_callbacks: list[Callable] = []
@@ -187,7 +185,7 @@ class RedisStateManager:
         task: str,
         agents: list[str],
         total_rounds: int = 3,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> DebateState:
         """Register a new active debate.
 
@@ -230,7 +228,7 @@ class RedisStateManager:
 
         return state
 
-    async def unregister_debate(self, debate_id: str) -> Optional[DebateState]:
+    async def unregister_debate(self, debate_id: str) -> DebateState | None:
         """Unregister a debate when it completes.
 
         Args:
@@ -259,7 +257,7 @@ class RedisStateManager:
 
         return state
 
-    async def get_debate(self, debate_id: str) -> Optional[DebateState]:
+    async def get_debate(self, debate_id: str) -> DebateState | None:
         """Get a debate's state by ID."""
         if not self.is_connected:
             return None
@@ -271,7 +269,7 @@ class RedisStateManager:
             return DebateState.from_json(data)
         return None
 
-    async def get_active_debates(self) -> Dict[str, DebateState]:
+    async def get_active_debates(self) -> dict[str, DebateState]:
         """Get all active debates."""
         if not self.is_connected:
             return {}
@@ -299,8 +297,8 @@ class RedisStateManager:
     async def update_debate_status(
         self,
         debate_id: str,
-        status: Optional[str] = None,
-        current_round: Optional[int] = None,
+        status: str | None = None,
+        current_round: int | None = None,
     ) -> bool:
         """Update a debate's status.
 
@@ -438,13 +436,11 @@ class RedisStateManager:
 
         return result
 
-
 # Singleton instance
-_redis_state_manager: Optional[RedisStateManager] = None
-
+_redis_state_manager: RedisStateManager | None = None
 
 async def get_redis_state_manager(
-    redis_url: Optional[str] = None,
+    redis_url: str | None = None,
     auto_connect: bool = True,
 ) -> RedisStateManager:
     """Get or create the global Redis state manager.
@@ -466,7 +462,6 @@ async def get_redis_state_manager(
 
     return _redis_state_manager
 
-
 async def reset_redis_state_manager() -> None:
     """Reset the global Redis state manager (for testing)."""
     global _redis_state_manager
@@ -475,11 +470,9 @@ async def reset_redis_state_manager() -> None:
         await _redis_state_manager.disconnect()
         _redis_state_manager = None
 
-
 def is_redis_state_enabled() -> bool:
     """Check if Redis state backend is enabled via environment."""
     return STATE_BACKEND == "redis" and REDIS_AVAILABLE
-
 
 __all__ = [
     "DebateState",

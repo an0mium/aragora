@@ -5,16 +5,15 @@ Extracts and reports on areas of agreement and disagreement from debate
 votes and critiques, surfacing unanimous critiques (high confidence issues)
 and split opinions (risk areas requiring attention).
 """
+from __future__ import annotations
 
 __all__ = [
     "DisagreementReporter",
 ]
 
 from collections import Counter
-from typing import Optional
 
 from aragora.core import Critique, DisagreementReport, Vote
-
 
 class DisagreementReporter:
     """
@@ -49,7 +48,7 @@ class DisagreementReporter:
         self,
         votes: list[Vote],
         critiques: list[Critique],
-        winner: Optional[str] = None,
+        winner: str | None = None,
     ) -> DisagreementReport:
         """
         Generate a DisagreementReport from debate votes and critiques.
@@ -178,7 +177,7 @@ class DisagreementReporter:
         self,
         votes: list[Vote],
         critiques: list[Critique],
-        winner: Optional[str],
+        winner: str | None,
     ) -> list[str]:
         """
         Identify risk areas from low-confidence votes and unaddressed critiques.

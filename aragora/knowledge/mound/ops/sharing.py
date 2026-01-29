@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -28,22 +28,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class SharingProtocol(Protocol):
     """Protocol defining expected interface for Sharing mixin."""
 
     config: "MoundConfig"
     workspace_id: str
-    _meta_store: Optional[Any]
-    _cache: Optional[Any]
+    _meta_store: Any | None
+    _cache: Any | None
     _initialized: bool
 
     def _ensure_initialized(self) -> None: ...
 
     async def get(
-        self, node_id: str, workspace_id: Optional[str] = None
+        self, node_id: str, workspace_id: str | None = None
     ) -> Optional["KnowledgeItem"]: ...
-
 
 class KnowledgeSharingMixin:
     """Mixin providing cross-workspace sharing for KnowledgeMound."""
@@ -54,8 +52,8 @@ class KnowledgeSharingMixin:
         from_workspace_id: str,
         to_workspace_id: str,
         shared_by: str,
-        permissions: Optional[List[str]] = None,
-        expires_at: Optional[datetime] = None,
+        permissions: Optional[list[str]] = None,
+        expires_at: datetime | None = None,
     ) -> "AccessGrant":
         """
         Share a knowledge item with another workspace.
@@ -137,8 +135,8 @@ class KnowledgeSharingMixin:
         from_workspace_id: str,
         user_id: str,
         shared_by: str,
-        permissions: Optional[List[str]] = None,
-        expires_at: Optional[datetime] = None,
+        permissions: Optional[list[str]] = None,
+        expires_at: datetime | None = None,
     ) -> "AccessGrant":
         """
         Share a knowledge item with a specific user.
@@ -201,9 +199,9 @@ class KnowledgeSharingMixin:
     async def get_shared_with_me(
         self: SharingProtocol,
         workspace_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         limit: int = 50,
-    ) -> List["KnowledgeItem"]:
+    ) -> list["KnowledgeItem"]:
         """
         Get knowledge items shared with this workspace or user.
 
@@ -219,7 +217,7 @@ class KnowledgeSharingMixin:
 
         self._ensure_initialized()
 
-        items: List["KnowledgeItem"] = []
+        items: list["KnowledgeItem"] = []
         seen_ids = set()
 
         if hasattr(self._meta_store, "get_grants_for_grantee_async"):
@@ -285,7 +283,7 @@ class KnowledgeSharingMixin:
     async def get_share_grants(
         self: SharingProtocol,
         item_id: str,
-    ) -> List["AccessGrant"]:
+    ) -> list["AccessGrant"]:
         """
         Get all sharing grants for an item.
 
@@ -306,7 +304,7 @@ class KnowledgeSharingMixin:
         self: SharingProtocol,
         item_id: str,
         grantee_id: str,
-        new_permissions: List[str],
+        new_permissions: list[str],
         updated_by: str,
     ) -> Optional["AccessGrant"]:
         """
@@ -358,7 +356,7 @@ class KnowledgeSharingMixin:
         from_workspace_id: str,
         to_workspace_id: str,
         scope: str,
-        operations: List[str],
+        operations: list[str],
         granted_by: str,
     ) -> None:
         """
@@ -393,7 +391,7 @@ class KnowledgeSharingMixin:
         item_title: str,
         from_user_id: str,
         to_workspace_id: str,
-        permissions: Optional[List[str]] = None,
+        permissions: Optional[list[str]] = None,
     ) -> None:
         """
         Send notification about workspace sharing (best effort).
@@ -418,7 +416,7 @@ class KnowledgeSharingMixin:
         item_title: str,
         from_user_id: str,
         to_user_id: str,
-        permissions: Optional[List[str]] = None,
+        permissions: Optional[list[str]] = None,
     ) -> None:
         """
         Send notification to a user about item sharing (best effort).
@@ -447,7 +445,7 @@ class KnowledgeSharingMixin:
         self: SharingProtocol,
         item_id: str,
         visibility: str,
-        set_by: Optional[str] = None,
+        set_by: str | None = None,
     ) -> bool:
         """
         Set the visibility level of a knowledge item.
@@ -495,8 +493,8 @@ class KnowledgeSharingMixin:
         grantee_id: str,
         grantee_type: str,
         granted_by: str,
-        permissions: Optional[List[str]] = None,
-        expires_at: Optional[datetime] = None,
+        permissions: Optional[list[str]] = None,
+        expires_at: datetime | None = None,
     ) -> "AccessGrant":
         """
         Grant access to a knowledge item.

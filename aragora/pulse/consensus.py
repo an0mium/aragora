@@ -15,12 +15,11 @@ import logging
 import re
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TopicCluster:
@@ -28,8 +27,8 @@ class TopicCluster:
 
     id: str
     canonical_topic: str  # Representative topic text
-    topics: List[TrendingTopic] = field(default_factory=list)
-    platforms: Set[str] = field(default_factory=set)
+    topics: list[TrendingTopic] = field(default_factory=list)
+    platforms: set[str] = field(default_factory=set)
     total_volume: int = 0
     consensus_score: float = 0.0
 
@@ -47,17 +46,15 @@ class TopicCluster:
         self.platforms.add(topic.platform)
         self.total_volume += topic.volume
 
-
 @dataclass
 class ConsensusResult:
     """Result of cross-source consensus detection."""
 
-    clusters: List[TopicCluster]
+    clusters: list[TopicCluster]
     cross_platform_count: int
     single_platform_count: int
-    consensus_topics: List[TrendingTopic]  # Topics with cross-platform consensus
-    confidence_boosts: Dict[str, float]  # topic_text -> confidence boost
-
+    consensus_topics: list[TrendingTopic]  # Topics with cross-platform consensus
+    confidence_boosts: dict[str, float]  # topic_text -> confidence boost
 
 class CrossSourceConsensus:
     """
@@ -192,7 +189,7 @@ class CrossSourceConsensus:
 
     def detect_consensus(
         self,
-        topics: List[TrendingTopic],
+        topics: list[TrendingTopic],
         min_cluster_size: int = 1,
     ) -> ConsensusResult:
         """
@@ -252,7 +249,7 @@ class CrossSourceConsensus:
     def get_consensus_boost(
         self,
         topic: TrendingTopic,
-        all_topics: List[TrendingTopic],
+        all_topics: list[TrendingTopic],
     ) -> float:
         """
         Get confidence boost for a single topic based on cross-platform presence.
@@ -286,9 +283,9 @@ class CrossSourceConsensus:
     def find_related_topics(
         self,
         target: TrendingTopic,
-        candidates: List[TrendingTopic],
+        candidates: list[TrendingTopic],
         max_results: int = 5,
-    ) -> List[Tuple[TrendingTopic, float]]:
+    ) -> list[tuple[TrendingTopic, float]]:
         """
         Find topics related to a target topic.
 
@@ -315,10 +312,10 @@ class CrossSourceConsensus:
 
         return related[:max_results]
 
-    def _cluster_topics(self, topics: List[TrendingTopic]) -> List[TopicCluster]:
+    def _cluster_topics(self, topics: list[TrendingTopic]) -> list[TopicCluster]:
         """Cluster similar topics together."""
-        clusters: List[TopicCluster] = []
-        assigned: Set[int] = set()
+        clusters: list[TopicCluster] = []
+        assigned: set[int] = set()
 
         for i, topic in enumerate(topics):
             if i in assigned:
@@ -385,7 +382,7 @@ class CrossSourceConsensus:
         text = " ".join(text.split())
         return text
 
-    def _extract_keywords(self, text: str) -> Set[str]:
+    def _extract_keywords(self, text: str) -> set[str]:
         """Extract meaningful keywords from text."""
         # Normalize and split
         words = self._normalize_text(text).split()
@@ -426,7 +423,7 @@ class CrossSourceConsensus:
 
         return self.consensus_confidence_boost * platform_factor
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get detector configuration stats."""
         return {
             "similarity_threshold": self.similarity_threshold,
@@ -435,7 +432,6 @@ class CrossSourceConsensus:
             "keyword_weight": self.keyword_weight,
             "stopword_count": len(self._stopwords),
         }
-
 
 __all__ = [
     "TopicCluster",

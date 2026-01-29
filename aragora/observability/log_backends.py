@@ -15,12 +15,11 @@ import threading
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.observability.log_types import AuditEntry, DailyAnchor
 
 logger = logging.getLogger(__name__)
-
 
 class AuditLogBackend(ABC):
     """Abstract base class for audit log storage backends."""
@@ -31,17 +30,17 @@ class AuditLogBackend(ABC):
         ...
 
     @abstractmethod
-    async def get_entry(self, entry_id: str) -> Optional[AuditEntry]:
+    async def get_entry(self, entry_id: str) -> AuditEntry | None:
         """Get a specific entry by ID."""
         ...
 
     @abstractmethod
-    async def get_by_sequence(self, sequence_number: int) -> Optional[AuditEntry]:
+    async def get_by_sequence(self, sequence_number: int) -> AuditEntry | None:
         """Get entry by sequence number."""
         ...
 
     @abstractmethod
-    async def get_last_entry(self) -> Optional[AuditEntry]:
+    async def get_last_entry(self) -> AuditEntry | None:
         """Get the most recent entry."""
         ...
 
@@ -57,13 +56,13 @@ class AuditLogBackend(ABC):
     @abstractmethod
     async def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
-        actors: Optional[list[str]] = None,
-        resource_types: Optional[list[str]] = None,
-        resource_ids: Optional[list[str]] = None,
-        workspace_id: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
+        actors: list[str] | None = None,
+        resource_types: list[str] | None = None,
+        resource_ids: list[str] | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditEntry]:
@@ -73,9 +72,9 @@ class AuditLogBackend(ABC):
     @abstractmethod
     async def count(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
     ) -> int:
         """Count entries matching filters."""
         ...
@@ -86,10 +85,9 @@ class AuditLogBackend(ABC):
         ...
 
     @abstractmethod
-    async def get_anchor(self, date: str) -> Optional[DailyAnchor]:
+    async def get_anchor(self, date: str) -> DailyAnchor | None:
         """Get anchor for a specific date."""
         ...
-
 
 class LocalFileBackend(AuditLogBackend):
     """
@@ -171,7 +169,7 @@ class LocalFileBackend(AuditLogBackend):
             self._sequence_index[entry.sequence_number] = offset
             self._save_index()
 
-    async def get_entry(self, entry_id: str) -> Optional[AuditEntry]:
+    async def get_entry(self, entry_id: str) -> AuditEntry | None:
         """Get entry by ID."""
         offset = self._index.get(entry_id)
         if offset is None:
@@ -188,7 +186,7 @@ class LocalFileBackend(AuditLogBackend):
 
         return None
 
-    async def get_by_sequence(self, sequence_number: int) -> Optional[AuditEntry]:
+    async def get_by_sequence(self, sequence_number: int) -> AuditEntry | None:
         """Get entry by sequence number."""
         offset = self._sequence_index.get(sequence_number)
         if offset is None:
@@ -205,7 +203,7 @@ class LocalFileBackend(AuditLogBackend):
 
         return None
 
-    async def get_last_entry(self) -> Optional[AuditEntry]:
+    async def get_last_entry(self) -> AuditEntry | None:
         """Get most recent entry."""
         if not self._sequence_index:
             return None
@@ -228,13 +226,13 @@ class LocalFileBackend(AuditLogBackend):
 
     async def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
-        actors: Optional[list[str]] = None,
-        resource_types: Optional[list[str]] = None,
-        resource_ids: Optional[list[str]] = None,
-        workspace_id: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
+        actors: list[str] | None = None,
+        resource_types: list[str] | None = None,
+        resource_ids: list[str] | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditEntry]:
@@ -288,9 +286,9 @@ class LocalFileBackend(AuditLogBackend):
 
     async def count(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
     ) -> int:
         """Count entries matching filters."""
         if not self.log_file.exists():
@@ -332,7 +330,7 @@ class LocalFileBackend(AuditLogBackend):
         anchors[anchor.date] = anchor.to_dict()
         self.anchors_file.write_text(json.dumps(anchors, indent=2))
 
-    async def get_anchor(self, date: str) -> Optional[DailyAnchor]:
+    async def get_anchor(self, date: str) -> DailyAnchor | None:
         """Get anchor for date."""
         if not self.anchors_file.exists():
             return None
@@ -354,7 +352,6 @@ class LocalFileBackend(AuditLogBackend):
             logger.error(f"Failed to get anchor for {date}: {e}")
 
         return None
-
 
 class S3ObjectLockBackend(AuditLogBackend):
     """
@@ -416,7 +413,7 @@ class S3ObjectLockBackend(AuditLogBackend):
             logger.error(f"Failed to write audit entry to S3: {e}")
             raise
 
-    async def get_entry(self, entry_id: str) -> Optional[AuditEntry]:
+    async def get_entry(self, entry_id: str) -> AuditEntry | None:
         """Get entry by ID (requires listing)."""
         client = self._get_client()
 
@@ -434,7 +431,7 @@ class S3ObjectLockBackend(AuditLogBackend):
 
         return None
 
-    async def get_by_sequence(self, sequence_number: int) -> Optional[AuditEntry]:
+    async def get_by_sequence(self, sequence_number: int) -> AuditEntry | None:
         """Get entry by sequence number."""
         client = self._get_client()
 
@@ -467,7 +464,7 @@ class S3ObjectLockBackend(AuditLogBackend):
 
         return None
 
-    async def get_last_entry(self) -> Optional[AuditEntry]:
+    async def get_last_entry(self) -> AuditEntry | None:
         """Get most recent entry."""
         client = self._get_client()
 
@@ -504,13 +501,13 @@ class S3ObjectLockBackend(AuditLogBackend):
 
     async def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
-        actors: Optional[list[str]] = None,
-        resource_types: Optional[list[str]] = None,
-        resource_ids: Optional[list[str]] = None,
-        workspace_id: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
+        actors: list[str] | None = None,
+        resource_types: list[str] | None = None,
+        resource_ids: list[str] | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditEntry]:
@@ -573,9 +570,9 @@ class S3ObjectLockBackend(AuditLogBackend):
 
     async def count(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
     ) -> int:
         """Count entries matching filters."""
         client = self._get_client()
@@ -622,7 +619,7 @@ class S3ObjectLockBackend(AuditLogBackend):
             logger.error(f"Failed to save anchor to S3: {e}")
             raise
 
-    async def get_anchor(self, date: str) -> Optional[DailyAnchor]:
+    async def get_anchor(self, date: str) -> DailyAnchor | None:
         """Get anchor from S3."""
         client = self._get_client()
         key = f"{self.prefix}anchors/{date}.json"
@@ -645,7 +642,6 @@ class S3ObjectLockBackend(AuditLogBackend):
             logger.error(f"Failed to get anchor from S3: {e}")
             return None
 
-
 class PostgreSQLAuditBackend(AuditLogBackend):
     """
     PostgreSQL backend for immutable audit logs.
@@ -656,7 +652,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
 
     def __init__(
         self,
-        database_url: Optional[str] = None,
+        database_url: str | None = None,
         table_prefix: str = "immutable_",
     ):
         """
@@ -841,7 +837,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
             signature=row[16],
         )
 
-    async def get_entry(self, entry_id: str) -> Optional[AuditEntry]:
+    async def get_entry(self, entry_id: str) -> AuditEntry | None:
         """Get entry by ID."""
         pool = self._get_pool()
         conn = pool.getconn()
@@ -865,7 +861,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
         finally:
             pool.putconn(conn)
 
-    async def get_by_sequence(self, sequence_number: int) -> Optional[AuditEntry]:
+    async def get_by_sequence(self, sequence_number: int) -> AuditEntry | None:
         """Get entry by sequence number."""
         pool = self._get_pool()
         conn = pool.getconn()
@@ -889,7 +885,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
         finally:
             pool.putconn(conn)
 
-    async def get_last_entry(self) -> Optional[AuditEntry]:
+    async def get_last_entry(self) -> AuditEntry | None:
         """Get most recent entry."""
         pool = self._get_pool()
         conn = pool.getconn()
@@ -939,13 +935,13 @@ class PostgreSQLAuditBackend(AuditLogBackend):
 
     async def query(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
-        actors: Optional[list[str]] = None,
-        resource_types: Optional[list[str]] = None,
-        resource_ids: Optional[list[str]] = None,
-        workspace_id: Optional[str] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
+        actors: list[str] | None = None,
+        resource_types: list[str] | None = None,
+        resource_ids: list[str] | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditEntry]:
@@ -1001,9 +997,9 @@ class PostgreSQLAuditBackend(AuditLogBackend):
 
     async def count(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        event_types: Optional[list[str]] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
     ) -> int:
         """Count entries matching filters."""
         conditions = ["TRUE"]
@@ -1072,7 +1068,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
         finally:
             pool.putconn(conn)
 
-    async def get_anchor(self, date: str) -> Optional[DailyAnchor]:
+    async def get_anchor(self, date: str) -> DailyAnchor | None:
         """Get anchor for date."""
         pool = self._get_pool()
         conn = pool.getconn()
@@ -1107,7 +1103,6 @@ class PostgreSQLAuditBackend(AuditLogBackend):
         if self._pool is not None:
             self._pool.closeall()
             self._pool = None
-
 
 def create_audit_backend(
     backend_type: str = "local",

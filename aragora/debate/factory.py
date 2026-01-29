@@ -4,9 +4,10 @@ Arena factory for dependency injection.
 Centralizes the creation of Arena instances with properly injected
 dependencies, eliminating lazy imports in orchestrator.py.
 """
+from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.core import Agent, Environment
 
@@ -16,7 +17,6 @@ from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.spectate.stream import SpectatorStream
 
 logger = logging.getLogger(__name__)
-
 
 class ArenaFactory:
     """
@@ -131,63 +131,63 @@ class ArenaFactory:
                 logger.debug("ArgumentCartographer not available")
         return self._argument_cartographer_cls
 
-    def create_position_tracker(self, **kwargs: Any) -> Optional[Any]:
+    def create_position_tracker(self, **kwargs: Any) -> Any | None:
         """Create a PositionTracker instance."""
         cls = self._get_position_tracker_cls()
         if cls:
             return cls(**kwargs)
         return None
 
-    def create_calibration_tracker(self, **kwargs: Any) -> Optional[Any]:
+    def create_calibration_tracker(self, **kwargs: Any) -> Any | None:
         """Create a CalibrationTracker instance."""
         cls = self._get_calibration_tracker_cls()
         if cls:
             return cls(**kwargs)
         return None
 
-    def create_belief_network(self, **kwargs: Any) -> Optional[Any]:
+    def create_belief_network(self, **kwargs: Any) -> Any | None:
         """Create a BeliefNetwork instance."""
         cls, _ = self._get_belief_classes()
         if cls:
             return cls(**kwargs)
         return None
 
-    def create_belief_analyzer(self, **kwargs: Any) -> Optional[Any]:
+    def create_belief_analyzer(self, **kwargs: Any) -> Any | None:
         """Create a BeliefPropagationAnalyzer instance."""
         _, cls = self._get_belief_classes()
         if cls:
             return cls(**kwargs)
         return None
 
-    def create_citation_extractor(self, **kwargs: Any) -> Optional[Any]:
+    def create_citation_extractor(self, **kwargs: Any) -> Any | None:
         """Create a CitationExtractor instance."""
         cls = self._get_citation_extractor_cls()
         if cls:
             return cls(**kwargs)
         return None
 
-    def create_insight_extractor(self, **kwargs: Any) -> Optional[Any]:
+    def create_insight_extractor(self, **kwargs: Any) -> Any | None:
         """Create an InsightExtractor instance."""
         cls, _ = self._get_insight_classes()
         if cls:
             return cls(**kwargs)
         return None
 
-    def create_insight_store(self, **kwargs: Any) -> Optional[Any]:
+    def create_insight_store(self, **kwargs: Any) -> Any | None:
         """Create an InsightStore instance."""
         _, cls = self._get_insight_classes()
         if cls:
             return cls(**kwargs)
         return None
 
-    def create_critique_store(self, **kwargs: Any) -> Optional[Any]:
+    def create_critique_store(self, **kwargs: Any) -> Any | None:
         """Create a CritiqueStore instance."""
         cls = self._get_critique_store_cls()
         if cls:
             return cls(**kwargs)
         return None
 
-    def create_argument_cartographer(self, **kwargs: Any) -> Optional[Any]:
+    def create_argument_cartographer(self, **kwargs: Any) -> Any | None:
         """Create an ArgumentCartographer instance."""
         cls = self._get_argument_cartographer_cls()
         if cls:
@@ -198,7 +198,7 @@ class ArenaFactory:
         self,
         environment: Environment,
         agents: list[Agent],
-        protocol: Optional[DebateProtocol] = None,
+        protocol: DebateProtocol | None = None,
         # Optional dependencies - set to True to auto-create
         enable_position_tracking: bool = False,
         enable_calibration: bool = False,
@@ -207,29 +207,29 @@ class ArenaFactory:
         enable_critique_patterns: bool = False,
         enable_argument_mapping: bool = False,
         # Or pass explicit instances
-        memory: Optional[Any] = None,
-        event_hooks: Optional[dict] = None,
-        event_emitter: Optional[Any] = None,
-        spectator: Optional[SpectatorStream] = None,
-        debate_embeddings: Optional[Any] = None,
-        insight_store: Optional[Any] = None,
-        recorder: Optional[Any] = None,
-        agent_weights: Optional[dict[str, float]] = None,
-        position_tracker: Optional[Any] = None,
-        position_ledger: Optional[Any] = None,
-        elo_system: Optional[Any] = None,
-        persona_manager: Optional[Any] = None,
-        dissent_retriever: Optional[Any] = None,
-        flip_detector: Optional[Any] = None,
-        calibration_tracker: Optional[Any] = None,
-        continuum_memory: Optional[Any] = None,
-        relationship_tracker: Optional[Any] = None,
-        moment_detector: Optional[Any] = None,
+        memory: Any | None = None,
+        event_hooks: dict | None = None,
+        event_emitter: Any | None = None,
+        spectator: SpectatorStream | None = None,
+        debate_embeddings: Any | None = None,
+        insight_store: Any | None = None,
+        recorder: Any | None = None,
+        agent_weights: dict[str, float] | None = None,
+        position_tracker: Any | None = None,
+        position_ledger: Any | None = None,
+        elo_system: Any | None = None,
+        persona_manager: Any | None = None,
+        dissent_retriever: Any | None = None,
+        flip_detector: Any | None = None,
+        calibration_tracker: Any | None = None,
+        continuum_memory: Any | None = None,
+        relationship_tracker: Any | None = None,
+        moment_detector: Any | None = None,
         loop_id: str = "",
         strict_loop_scoping: bool = False,
-        circuit_breaker: Optional[CircuitBreaker] = None,
-        initial_messages: Optional[list] = None,
-        trending_topic: Optional[Any] = None,
+        circuit_breaker: CircuitBreaker | None = None,
+        initial_messages: list | None = None,
+        trending_topic: Any | None = None,
     ) -> "Arena":
         """
         Create an Arena instance with injected dependencies.
@@ -289,10 +289,8 @@ class ArenaFactory:
             trending_topic=trending_topic,
         )
 
-
 # Singleton factory instance
-_factory: Optional[ArenaFactory] = None
-
+_factory: ArenaFactory | None = None
 
 def get_arena_factory() -> ArenaFactory:
     """Get the singleton ArenaFactory instance."""
@@ -300,7 +298,6 @@ def get_arena_factory() -> ArenaFactory:
     if _factory is None:
         _factory = ArenaFactory()
     return _factory
-
 
 def create_arena(
     environment: Environment,

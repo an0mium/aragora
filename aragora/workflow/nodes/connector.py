@@ -27,12 +27,11 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
-
 
 class ConnectorOperation(str, Enum):
     """Standard connector operations."""
@@ -46,7 +45,6 @@ class ConnectorOperation(str, Enum):
     SYNC = "sync"
     CUSTOM = "custom"
 
-
 @dataclass
 class ConnectorMetadata:
     """Metadata about a connector type."""
@@ -55,13 +53,12 @@ class ConnectorMetadata:
     description: str
     module_path: str
     class_name: str
-    operations: List[str]
+    operations: list[str]
     auth_required: bool = True
     auth_type: str = "api_key"  # api_key, oauth2, basic, none
 
-
 # Registry of known connector types and their implementations
-_CONNECTOR_REGISTRY: Dict[str, ConnectorMetadata] = {
+_CONNECTOR_REGISTRY: dict[str, ConnectorMetadata] = {
     # Core connectors
     "github": ConnectorMetadata(
         name="GitHub",
@@ -234,7 +231,6 @@ _CONNECTOR_REGISTRY: Dict[str, ConnectorMetadata] = {
     ),
 }
 
-
 def register_connector(
     name: str,
     metadata: ConnectorMetadata,
@@ -243,20 +239,17 @@ def register_connector(
     _CONNECTOR_REGISTRY[name] = metadata
     logger.debug(f"Registered connector type: {name}")
 
-
-def get_connector_metadata(name: str) -> Optional[ConnectorMetadata]:
+def get_connector_metadata(name: str) -> ConnectorMetadata | None:
     """Get metadata for a connector type."""
     return _CONNECTOR_REGISTRY.get(name)
 
-
-def list_connectors() -> List[ConnectorMetadata]:
+def list_connectors() -> list[ConnectorMetadata]:
     """List all registered connector types."""
     return list(_CONNECTOR_REGISTRY.values())
 
-
 async def create_connector(
     connector_type: str,
-    config: Dict[str, Any],
+    config: dict[str, Any],
 ) -> Any:
     """
     Dynamically create a connector instance.
@@ -288,7 +281,6 @@ async def create_connector(
 
     # Instantiate connector
     return connector_class(**config)
-
 
 class ConnectorStep(BaseStep):
     """
@@ -350,10 +342,10 @@ class ConnectorStep(BaseStep):
     def __init__(
         self,
         name: str,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
     ):
         super().__init__(name, config)
-        self._connector_cache: Dict[str, Any] = {}
+        self._connector_cache: dict[str, Any] = {}
 
     async def execute(self, context: WorkflowContext) -> Any:
         """Execute the connector operation."""
@@ -400,7 +392,7 @@ class ConnectorStep(BaseStep):
             get_retry_delay,
         )
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for attempt in range(max_retries + 1):
             try:
                 result = await asyncio.wait_for(
@@ -432,7 +424,7 @@ class ConnectorStep(BaseStep):
 
         raise last_error or RuntimeError("Connector operation failed")
 
-    def _get_credentials(self, context: WorkflowContext) -> Dict[str, Any]:
+    def _get_credentials(self, context: WorkflowContext) -> dict[str, Any]:
         """Get credentials from config or context."""
         # Direct credentials in config (less secure, for testing)
         if "credentials" in self._config:
@@ -456,9 +448,9 @@ class ConnectorStep(BaseStep):
 
     def _interpolate_params(
         self,
-        params: Dict[str, Any],
+        params: dict[str, Any],
         context: WorkflowContext,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Interpolate parameter placeholders with context values."""
         result = {}
         for key, value in params.items():
@@ -522,7 +514,7 @@ class ConnectorStep(BaseStep):
         self,
         connector: Any,
         operation: str,
-        params: Dict[str, Any],
+        params: dict[str, Any],
     ) -> Any:
         """Execute the connector operation."""
         if operation == "search":
@@ -590,7 +582,6 @@ class ConnectorStep(BaseStep):
             return [r.to_dict() if hasattr(r, "to_dict") else r for r in result]
 
         return result
-
 
 # Alias for convenience
 Connector = ConnectorStep

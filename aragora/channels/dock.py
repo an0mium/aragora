@@ -19,7 +19,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Flag, auto
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.channels.normalized import NormalizedMessage
@@ -32,7 +32,6 @@ __all__ = [
     "MessageType",
     "SendResult",
 ]
-
 
 class ChannelCapability(Flag):
     """Capabilities that a channel platform supports."""
@@ -48,7 +47,6 @@ class ChannelCapability(Flag):
     INLINE_IMAGES = auto()  # Inline image support
     WEBHOOKS = auto()  # Webhook-based delivery
 
-
 class MessageType:
     """Types of messages that can be sent."""
 
@@ -59,14 +57,13 @@ class MessageType:
     PROGRESS = "progress"  # Progress update
     NOTIFICATION = "notification"  # General notification
 
-
 @dataclass
 class SendResult:
     """Result of a message send operation."""
 
     success: bool
-    message_id: Optional[str] = None
-    error: Optional[str] = None
+    message_id: str | None = None
+    error: str | None = None
     platform: str = ""
     channel_id: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -74,7 +71,7 @@ class SendResult:
     @classmethod
     def ok(
         cls,
-        message_id: Optional[str] = None,
+        message_id: str | None = None,
         platform: str = "",
         channel_id: str = "",
         **metadata: Any,
@@ -105,7 +102,6 @@ class SendResult:
             metadata=metadata,
         )
 
-
 class ChannelDock(ABC):
     """
     Abstract base class for platform-specific message delivery.
@@ -121,7 +117,7 @@ class ChannelDock(ABC):
     PLATFORM: str = "unknown"
     CAPABILITIES: ChannelCapability = ChannelCapability.NONE
 
-    def __init__(self, config: Optional[dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize the dock with optional configuration.
 
@@ -186,7 +182,7 @@ class ChannelDock(ABC):
         self,
         channel_id: str,
         result: dict[str, Any],
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -217,8 +213,8 @@ class ChannelDock(ABC):
         self,
         channel_id: str,
         summary: str,
-        receipt_url: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        receipt_url: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -249,7 +245,7 @@ class ChannelDock(ABC):
         self,
         channel_id: str,
         error_message: str,
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -278,8 +274,8 @@ class ChannelDock(ABC):
         self,
         channel_id: str,
         audio_data: bytes,
-        text: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        text: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """

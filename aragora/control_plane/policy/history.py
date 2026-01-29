@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.observability import get_logger
 
@@ -17,19 +17,18 @@ from .types import ControlPlanePolicy
 
 logger = get_logger(__name__)
 
-
 @dataclass
 class PolicyVersion:
     """A snapshot of a policy at a specific version."""
 
     policy_id: str
     version: int
-    policy_data: Dict[str, Any]
+    policy_data: dict[str, Any]
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = None
+    created_by: str | None = None
     change_description: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
             "policy_id": self.policy_id,
@@ -39,7 +38,6 @@ class PolicyVersion:
             "created_by": self.created_by,
             "change_description": self.change_description,
         }
-
 
 class PolicyHistory:
     """Tracks policy version history for auditing and rollback.
@@ -56,7 +54,7 @@ class PolicyHistory:
         Args:
             max_versions_per_policy: Maximum versions to retain per policy
         """
-        self._history: Dict[str, List[PolicyVersion]] = {}
+        self._history: dict[str, list[PolicyVersion]] = {}
         self._max_versions = max_versions_per_policy
         self._lock = asyncio.Lock()
 
@@ -64,7 +62,7 @@ class PolicyHistory:
         self,
         policy: ControlPlanePolicy,
         change_description: str = "",
-        changed_by: Optional[str] = None,
+        changed_by: str | None = None,
     ) -> PolicyVersion:
         """Record a new version of a policy.
 
@@ -107,7 +105,7 @@ class PolicyHistory:
         self,
         policy_id: str,
         limit: int = 10,
-    ) -> List[PolicyVersion]:
+    ) -> list[PolicyVersion]:
         """Get version history for a policy.
 
         Args:
@@ -125,7 +123,7 @@ class PolicyHistory:
         self,
         policy_id: str,
         version: int,
-    ) -> Optional[PolicyVersion]:
+    ) -> PolicyVersion | None:
         """Get a specific version of a policy.
 
         Args:
@@ -146,8 +144,8 @@ class PolicyHistory:
         self,
         policy_id: str,
         version: int,
-        rolled_back_by: Optional[str] = None,
-    ) -> Optional[ControlPlanePolicy]:
+        rolled_back_by: str | None = None,
+    ) -> ControlPlanePolicy | None:
         """Restore a policy to a previous version.
 
         Args:
@@ -191,7 +189,7 @@ class PolicyHistory:
 
         return restored_policy
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about policy history."""
         total_versions = sum(len(v) for v in self._history.values())
         return {
@@ -201,10 +199,8 @@ class PolicyHistory:
             "policies": {policy_id: len(versions) for policy_id, versions in self._history.items()},
         }
 
-
 # Global policy history instance
-_policy_history: Optional[PolicyHistory] = None
-
+_policy_history: PolicyHistory | None = None
 
 def get_policy_history() -> PolicyHistory:
     """Get the global policy history instance."""

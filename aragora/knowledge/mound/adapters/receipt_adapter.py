@@ -23,7 +23,7 @@ import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.export.decision_receipt import (
@@ -44,20 +44,17 @@ RECEIPT_SOURCE = KnowledgeSource.DEBATE  # Use DEBATE for all receipt-derived it
 logger = logging.getLogger(__name__)
 
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 class ReceiptAdapterError(Exception):
     """Base exception for receipt adapter errors."""
 
     pass
 
-
 class ReceiptNotFoundError(ReceiptAdapterError):
     """Raised when a receipt is not found in the store."""
 
     pass
-
 
 @dataclass
 class ReceiptIngestionResult:
@@ -67,15 +64,15 @@ class ReceiptIngestionResult:
     claims_ingested: int
     findings_ingested: int
     relationships_created: int
-    knowledge_item_ids: List[str]
-    errors: List[str]
+    knowledge_item_ids: list[str]
+    errors: list[str]
 
     @property
     def success(self) -> bool:
         """Check if ingestion was successful."""
         return len(self.errors) == 0 and (self.claims_ingested > 0 or self.findings_ingested > 0)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "receipt_id": self.receipt_id,
@@ -86,7 +83,6 @@ class ReceiptIngestionResult:
             "errors": self.errors,
             "success": self.success,
         }
-
 
 class ReceiptAdapter:
     """
@@ -120,9 +116,9 @@ class ReceiptAdapter:
 
     def __init__(
         self,
-        mound: Optional[Any] = None,
+        mound: Any | None = None,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         auto_ingest: bool = True,
     ):
         """
@@ -138,7 +134,7 @@ class ReceiptAdapter:
         self._enable_dual_write = enable_dual_write
         self._event_callback = event_callback
         self._auto_ingest = auto_ingest
-        self._ingested_receipts: Dict[str, ReceiptIngestionResult] = {}
+        self._ingested_receipts: dict[str, ReceiptIngestionResult] = {}
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""
@@ -148,7 +144,7 @@ class ReceiptAdapter:
         """Set the Knowledge Mound instance."""
         self._mound = mound
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -159,8 +155,8 @@ class ReceiptAdapter:
     async def ingest_receipt(
         self,
         receipt: "DecisionReceipt",
-        workspace_id: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        workspace_id: str | None = None,
+        tags: Optional[list[str]] = None,
     ) -> ReceiptIngestionResult:
         """
         Ingest a decision receipt into the Knowledge Mound.
@@ -176,8 +172,8 @@ class ReceiptAdapter:
         Returns:
             ReceiptIngestionResult with counts and any errors
         """
-        errors: List[str] = []
-        knowledge_item_ids: List[str] = []
+        errors: list[str] = []
+        knowledge_item_ids: list[str] = []
         claims_ingested = 0
         findings_ingested = 0
         relationships_created = 0
@@ -310,8 +306,8 @@ class ReceiptAdapter:
         self,
         verification: "ReceiptVerification",
         receipt: "DecisionReceipt",
-        workspace_id: Optional[str],
-        tags: List[str],
+        workspace_id: str | None,
+        tags: list[str],
     ) -> KnowledgeItem:
         """Convert a verified claim to a knowledge item."""
         # Generate deterministic ID from claim content
@@ -346,8 +342,8 @@ class ReceiptAdapter:
         self,
         finding: Any,  # Can be ReceiptFinding or dict from gauntlet receipt
         receipt: "DecisionReceipt",
-        workspace_id: Optional[str],
-        tags: List[str],
+        workspace_id: str | None,
+        tags: list[str],
     ) -> KnowledgeItem:
         """Convert a finding to a knowledge item.
 
@@ -480,8 +476,8 @@ class ReceiptAdapter:
     def _receipt_to_summary_item(
         self,
         receipt: "DecisionReceipt",
-        workspace_id: Optional[str],
-        tags: List[str],
+        workspace_id: str | None,
+        tags: list[str],
     ) -> KnowledgeItem:
         """Create a summary knowledge item for the receipt.
 
@@ -556,7 +552,7 @@ class ReceiptAdapter:
             },
         )
 
-    async def _store_item(self, item: KnowledgeItem) -> Optional[str]:
+    async def _store_item(self, item: KnowledgeItem) -> str | None:
         """Store a knowledge item in the mound."""
         if not self._mound:
             return None
@@ -600,9 +596,9 @@ class ReceiptAdapter:
     async def find_related_decisions(
         self,
         query: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         limit: int = 5,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """
         Find decisions related to a query.
 
@@ -631,11 +627,11 @@ class ReceiptAdapter:
 
         return []
 
-    def get_ingestion_result(self, receipt_id: str) -> Optional[ReceiptIngestionResult]:
+    def get_ingestion_result(self, receipt_id: str) -> ReceiptIngestionResult | None:
         """Get the ingestion result for a receipt."""
         return self._ingested_receipts.get(receipt_id)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         total_claims = sum(r.claims_ingested for r in self._ingested_receipts.values())
         total_findings = sum(r.findings_ingested for r in self._ingested_receipts.values())
@@ -649,7 +645,6 @@ class ReceiptAdapter:
             "mound_connected": self._mound is not None,
             "auto_ingest_enabled": self._auto_ingest,
         }
-
 
 __all__ = [
     "ReceiptAdapter",

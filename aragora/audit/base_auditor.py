@@ -35,7 +35,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.audit.document_auditor import (
     AuditFinding,
@@ -45,7 +45,6 @@ from aragora.audit.document_auditor import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AuditContext:
@@ -57,8 +56,8 @@ class AuditContext:
     """
 
     session: AuditSession
-    workspace_id: Optional[str] = None
-    user_id: Optional[str] = None
+    workspace_id: str | None = None
+    user_id: str | None = None
 
     # Configuration
     model: str = "claude-3.5-sonnet"
@@ -81,14 +80,14 @@ class AuditContext:
         description: str,
         severity: FindingSeverity,
         category: str,
-        chunk_id: Optional[str] = None,
+        chunk_id: str | None = None,
         confidence: float = 0.8,
         evidence_text: str = "",
         evidence_location: str = "",
         recommendation: str = "",
         affected_scope: str = "chunk",
         found_by: str = "",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> AuditFinding:
         """
         Create an audit finding with proper context.
@@ -114,7 +113,6 @@ class AuditContext:
             tags=tags or [],
         )
 
-
 @dataclass
 class ChunkData:
     """
@@ -128,9 +126,9 @@ class ChunkData:
     document_id: str
     content: str
     chunk_type: str = "text"  # text, heading, table, code, list, image, formula
-    page_number: Optional[int] = None
-    char_start: Optional[int] = None
-    char_end: Optional[int] = None
+    page_number: int | None = None
+    char_start: int | None = None
+    char_end: int | None = None
     heading_context: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -162,7 +160,6 @@ class ChunkData:
             "heading_context": self.heading_context,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class AuditorCapabilities:
@@ -202,7 +199,6 @@ class AuditorCapabilities:
             self.supported_document_types = self.supported_doc_types
         elif self.supported_document_types and not self.supported_doc_types:
             self.supported_doc_types = self.supported_document_types
-
 
 class BaseAuditor(ABC):
     """

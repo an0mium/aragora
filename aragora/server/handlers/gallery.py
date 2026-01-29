@@ -17,7 +17,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -38,7 +38,6 @@ logger = logging.getLogger(__name__)
 # Rate limiter for gallery endpoints (60 requests per minute)
 _gallery_limiter = RateLimiter(requests_per_minute=60)
 
-
 @dataclass
 class PublicDebate:
     """A debate entry for the public gallery."""
@@ -50,7 +49,7 @@ class PublicDebate:
     agents: list[str]
     rounds: int
     consensus_reached: bool
-    winner: Optional[str]
+    winner: str | None
     preview: str  # First 500 chars of final answer
 
     def to_dict(self) -> dict:
@@ -67,8 +66,7 @@ class PublicDebate:
             "preview": self.preview,
         }
 
-
-def generate_stable_id(debate_id: str, loop_id: Optional[str] = None) -> str:
+def generate_stable_id(debate_id: str, loop_id: str | None = None) -> str:
     """
     Generate a stable, shareable ID for a debate.
 
@@ -79,7 +77,6 @@ def generate_stable_id(debate_id: str, loop_id: Optional[str] = None) -> str:
     if loop_id:
         source = f"{loop_id}:{debate_id}"
     return hashlib.sha256(source.encode()).hexdigest()[:12]
-
 
 class GalleryHandler(BaseHandler):
     """Handler for public gallery endpoints."""
@@ -99,7 +96,7 @@ class GalleryHandler(BaseHandler):
         return False
 
     @require_permission("gallery:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route gallery requests to appropriate methods."""
         path = strip_version_prefix(path)
         logger.debug(f"Gallery request: {path} params={query_params}")
@@ -191,10 +188,10 @@ class GalleryHandler(BaseHandler):
 
     def _load_debates_from_replays(
         self,
-        nomic_dir: Optional[Path],
+        nomic_dir: Path | None,
         limit: int,
         offset: int,
-        agent_filter: Optional[str],
+        agent_filter: str | None,
     ) -> list[PublicDebate]:
         """Load debates from replay files."""
         debates: list[PublicDebate] = []
@@ -268,7 +265,7 @@ class GalleryHandler(BaseHandler):
         # Apply pagination
         return debates[offset : offset + limit]
 
-    def _find_debate_by_id(self, nomic_dir: Optional[Path], stable_id: str) -> Optional[dict]:
+    def _find_debate_by_id(self, nomic_dir: Path | None, stable_id: str) -> dict | None:
         """Find a specific debate by its stable ID (bounded search)."""
         if not nomic_dir:
             return None
@@ -324,7 +321,6 @@ class GalleryHandler(BaseHandler):
                 continue
 
         return None
-
 
 # Convenience function to register with handler registry
 def get_handler_class() -> type[GalleryHandler]:

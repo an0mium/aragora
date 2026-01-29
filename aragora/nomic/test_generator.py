@@ -17,10 +17,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class TestType(Enum):
     """Type of test to generate."""
@@ -34,7 +33,6 @@ class TestType(Enum):
     PROPERTY = "property"
     PERFORMANCE = "performance"
 
-
 @dataclass
 class TestCase:
     """Represents a test case to be generated."""
@@ -45,16 +43,16 @@ class TestCase:
     description: str
     test_type: TestType
     function_under_test: str
-    input_values: Dict[str, Any] = field(default_factory=dict)
+    input_values: dict[str, Any] = field(default_factory=dict)
     expected_output: Any = None
-    expected_exception: Optional[str] = None
-    setup_code: Optional[str] = None
-    teardown_code: Optional[str] = None
-    assertions: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    expected_exception: str | None = None
+    setup_code: str | None = None
+    teardown_code: str | None = None
+    assertions: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     priority: int = 1  # 1 = high, 2 = medium, 3 = low
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -71,21 +69,20 @@ class TestCase:
             "priority": self.priority,
         }
 
-
 @dataclass
 class FunctionSpec:
     """Specification for a function to test."""
 
     name: str
     module: str
-    parameters: List[Dict[str, Any]] = field(default_factory=list)
-    return_type: Optional[str] = None
-    docstring: Optional[str] = None
+    parameters: list[dict[str, Any]] = field(default_factory=list)
+    return_type: str | None = None
+    docstring: str | None = None
     is_async: bool = False
-    raises: List[str] = field(default_factory=list)
-    side_effects: List[str] = field(default_factory=list)
+    raises: list[str] = field(default_factory=list)
+    side_effects: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -98,7 +95,6 @@ class FunctionSpec:
             "side_effects": self.side_effects,
         }
 
-
 @dataclass
 class TestSuite:
     """Collection of test cases for a feature."""
@@ -107,12 +103,12 @@ class TestSuite:
 
     name: str
     description: str
-    test_cases: List[TestCase] = field(default_factory=list)
-    fixtures: Dict[str, str] = field(default_factory=dict)
-    imports: List[str] = field(default_factory=list)
+    test_cases: list[TestCase] = field(default_factory=list)
+    fixtures: dict[str, str] = field(default_factory=dict)
+    imports: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -139,7 +135,6 @@ class TestSuite:
         """Generate Python test code."""
         generator = TestCodeGenerator()
         return generator.generate_suite(self)
-
 
 class TestGenerator:
     """
@@ -181,7 +176,7 @@ class TestGenerator:
         Returns:
             TestSuite with generated test cases
         """
-        test_cases: List[TestCase] = []
+        test_cases: list[TestCase] = []
 
         # Generate happy path test
         test_cases.append(self._generate_happy_path(spec))
@@ -229,10 +224,10 @@ class TestGenerator:
     def _generate_param_tests(
         self,
         spec: FunctionSpec,
-        param: Dict[str, Any],
-    ) -> List[TestCase]:
+        param: dict[str, Any],
+    ) -> list[TestCase]:
         """Generate tests for a specific parameter."""
-        tests: List[TestCase] = []
+        tests: list[TestCase] = []
         param_name = param["name"]
         param_type = param.get("type", "Any")
 
@@ -253,9 +248,9 @@ class TestGenerator:
 
         return tests
 
-    def _generate_edge_cases(self, spec: FunctionSpec) -> List[TestCase]:
+    def _generate_edge_cases(self, spec: FunctionSpec) -> list[TestCase]:
         """Generate edge case tests."""
-        tests: List[TestCase] = []
+        tests: list[TestCase] = []
 
         for param in spec.parameters:
             param_name = param["name"]
@@ -280,9 +275,9 @@ class TestGenerator:
 
         return tests
 
-    def _generate_error_tests(self, spec: FunctionSpec) -> List[TestCase]:
+    def _generate_error_tests(self, spec: FunctionSpec) -> list[TestCase]:
         """Generate error handling tests."""
-        tests: List[TestCase] = []
+        tests: list[TestCase] = []
 
         for exception in spec.raises:
             tests.append(
@@ -309,15 +304,15 @@ class TestGenerator:
             "bool": True,
             "list": [1, 2, 3],
             "dict": {"key": "value"},
-            "List[str]": ["a", "b", "c"],
-            "Dict[str, int]": {"a": 1, "b": 2},
-            "Optional[str]": "optional_value",
+            "list[str]": ["a", "b", "c"],
+            "dict[str, int]": {"a": 1, "b": 2},
+            "str | None": "optional_value",
             "None": None,
             "Any": "any_value",
         }
         return type_map.get(type_str, None)
 
-    def _get_edge_cases(self, type_str: str) -> List[Tuple[Any, str]]:
+    def _get_edge_cases(self, type_str: str) -> list[tuple[Any, str]]:
         """Get edge case values for a type."""
         # Extract base type
         base_type = type_str.split("[")[0]
@@ -327,7 +322,7 @@ class TestGenerator:
 
         return []
 
-    def _int_edge_cases(self) -> List[Tuple[Any, str]]:
+    def _int_edge_cases(self) -> list[tuple[Any, str]]:
         """Edge cases for integers."""
         return [
             (0, "zero"),
@@ -337,7 +332,7 @@ class TestGenerator:
             (2**31 - 1, "max 32-bit int"),
         ]
 
-    def _float_edge_cases(self) -> List[Tuple[Any, str]]:
+    def _float_edge_cases(self) -> list[tuple[Any, str]]:
         """Edge cases for floats."""
         return [
             (0.0, "zero"),
@@ -348,7 +343,7 @@ class TestGenerator:
             (-1e-10, "very small negative"),
         ]
 
-    def _str_edge_cases(self) -> List[Tuple[Any, str]]:
+    def _str_edge_cases(self) -> list[tuple[Any, str]]:
         """Edge cases for strings."""
         return [
             ("", "empty string"),
@@ -359,7 +354,7 @@ class TestGenerator:
             ("a" * 1000, "long string"),
         ]
 
-    def _list_edge_cases(self) -> List[Tuple[Any, str]]:
+    def _list_edge_cases(self) -> list[tuple[Any, str]]:
         """Edge cases for lists."""
         return [
             ([], "empty list"),
@@ -368,7 +363,7 @@ class TestGenerator:
             (list(range(100)), "large list"),
         ]
 
-    def _dict_edge_cases(self) -> List[Tuple[Any, str]]:
+    def _dict_edge_cases(self) -> list[tuple[Any, str]]:
         """Edge cases for dicts."""
         return [
             ({}, "empty dict"),
@@ -376,13 +371,13 @@ class TestGenerator:
             ({None: "null key"}, "None key"),
         ]
 
-    def _optional_edge_cases(self) -> List[Tuple[Any, str]]:
+    def _optional_edge_cases(self) -> list[tuple[Any, str]]:
         """Edge cases for Optional types."""
         return [
             (None, "None value"),
         ]
 
-    def _generate_imports(self, spec: FunctionSpec) -> List[str]:
+    def _generate_imports(self, spec: FunctionSpec) -> list[str]:
         """Generate import statements for the test suite."""
         imports = [
             "import pytest",
@@ -396,7 +391,6 @@ class TestGenerator:
             imports.append("from typing import Optional")
 
         return imports
-
 
 class TestCodeGenerator:
     """Generates Python test code from TestSuite."""
@@ -437,7 +431,7 @@ class TestCodeGenerator:
 
         return "\n".join(lines)
 
-    def _generate_test_method(self, tc: TestCase) -> List[str]:
+    def _generate_test_method(self, tc: TestCase) -> list[str]:
         """Generate a test method."""
         lines = []
 
@@ -481,8 +475,7 @@ class TestCodeGenerator:
 
         return lines
 
-
-def extract_function_specs(source_code: str, module_name: str) -> List[FunctionSpec]:
+def extract_function_specs(source_code: str, module_name: str) -> list[FunctionSpec]:
     """
     Extract function specifications from source code.
 
@@ -499,7 +492,7 @@ def extract_function_specs(source_code: str, module_name: str) -> List[FunctionS
         logger.warning(f"Failed to parse {module_name}")
         return []
 
-    specs: List[FunctionSpec] = []
+    specs: list[FunctionSpec] = []
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -546,8 +539,7 @@ def extract_function_specs(source_code: str, module_name: str) -> List[FunctionS
 
     return specs
 
-
-def generate_tests_for_file(file_path: Path) -> Optional[TestSuite]:
+def generate_tests_for_file(file_path: Path) -> TestSuite | None:
     """
     Generate tests for all public functions in a file.
 
@@ -568,8 +560,8 @@ def generate_tests_for_file(file_path: Path) -> Optional[TestSuite]:
         return None
 
     generator = TestGenerator()
-    all_tests: List[TestCase] = []
-    all_imports: Set[str] = set()
+    all_tests: list[TestCase] = []
+    all_imports: set[str] = set()
 
     for spec in specs:
         suite = generator.generate_from_spec(spec)

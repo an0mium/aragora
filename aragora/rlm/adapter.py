@@ -63,7 +63,6 @@ DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_FAILURE_THRESHOLD = 5
 DEFAULT_COOLDOWN_SECONDS = 60.0
 
-
 @dataclass
 class RegisteredContent:
     """Content registered in the external environment."""
@@ -85,7 +84,6 @@ class RegisteredContent:
 
     metadata: dict[str, Any] = field(default_factory=dict)
     """Additional metadata (source, timestamp, etc.)."""
-
 
 class RLMContextAdapter:
     """
@@ -157,9 +155,9 @@ class RLMContextAdapter:
         content_id: str,
         content: str,
         content_type: str = "text",
-        summary: Optional[str] = None,
-        sections: Optional[dict[str, str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        summary: str | None = None,
+        sections: dict[str, str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Register content in the external environment.
@@ -208,7 +206,7 @@ class RLMContextAdapter:
     def get_summary(
         self,
         content_id: str,
-        max_chars: Optional[int] = None,
+        max_chars: int | None = None,
     ) -> str:
         """
         Get a minimal summary for prompt inclusion.
@@ -250,9 +248,9 @@ class RLMContextAdapter:
     def drill_down(
         self,
         content_id: str,
-        section: Optional[str] = None,
-        query: Optional[str] = None,
-        max_chars: Optional[int] = None,
+        section: str | None = None,
+        query: str | None = None,
+        max_chars: int | None = None,
     ) -> str:
         """
         Drill down to specific content section.
@@ -541,7 +539,7 @@ Answer (be specific and cite relevant parts):"""
     async def generate_summary_async(
         self,
         content_id: str,
-        max_chars: Optional[int] = None,
+        max_chars: int | None = None,
         timeout_seconds: float | None = None,
     ) -> str:
         """
@@ -752,7 +750,7 @@ Summary:"""
 
         return sections
 
-    def _search_content(self, content: str, query: str, max_chars: Optional[int] = None) -> str:
+    def _search_content(self, content: str, query: str, max_chars: int | None = None) -> str:
         """Search content for query-relevant portion."""
         if not query or not content:
             return content[:max_chars] if max_chars else content
@@ -812,11 +810,9 @@ Summary:"""
 
         return truncated + "..."
 
-
 # =============================================================================
 # REPLContextAdapter - TRUE RLM with REPL environment
 # =============================================================================
-
 
 class REPLContextAdapter(RLMContextAdapter):
     """
@@ -882,8 +878,8 @@ class REPLContextAdapter(RLMContextAdapter):
     def create_repl_for_debate(
         self,
         debate_result: Any,
-        content_id: Optional[str] = None,
-    ) -> Optional[Any]:
+        content_id: str | None = None,
+    ) -> Any | None:
         """
         Create a TRUE RLM REPL environment for a debate.
 
@@ -999,8 +995,8 @@ class REPLContextAdapter(RLMContextAdapter):
         self,
         mound: Any,
         workspace_id: str,
-        content_id: Optional[str] = None,
-    ) -> Optional[Any]:
+        content_id: str | None = None,
+    ) -> Any | None:
         """
         Create a TRUE RLM REPL environment for Knowledge Mound queries.
 
@@ -1117,7 +1113,7 @@ class REPLContextAdapter(RLMContextAdapter):
 
         return "\n".join(lines)
 
-    def get_repl_environment(self, content_id: str) -> Optional[Any]:
+    def get_repl_environment(self, content_id: str) -> Any | None:
         """
         Get an existing REPL environment by content ID.
 
@@ -1196,11 +1192,9 @@ Content ID: {content_id}
             return True
         return False
 
-
 # Global adapter instances
-_global_adapter: Optional[RLMContextAdapter] = None
-_global_repl_adapter: Optional[REPLContextAdapter] = None
-
+_global_adapter: RLMContextAdapter | None = None
+_global_repl_adapter: REPLContextAdapter | None = None
 
 def get_adapter() -> RLMContextAdapter:
     """Get the global RLMContextAdapter instance."""
@@ -1208,7 +1202,6 @@ def get_adapter() -> RLMContextAdapter:
     if _global_adapter is None:
         _global_adapter = RLMContextAdapter()
     return _global_adapter
-
 
 def get_repl_adapter() -> REPLContextAdapter:
     """
@@ -1224,7 +1217,6 @@ def get_repl_adapter() -> REPLContextAdapter:
     if _global_repl_adapter is None:
         _global_repl_adapter = REPLContextAdapter()
     return _global_repl_adapter
-
 
 __all__ = [
     "RLMContextAdapter",

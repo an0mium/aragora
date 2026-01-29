@@ -17,8 +17,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Pattern
-
+from typing import Any, Optional, Pattern
 
 class ComplianceSeverity(Enum):
     """Severity levels for compliance issues."""
@@ -28,7 +27,6 @@ class ComplianceSeverity(Enum):
     MEDIUM = "medium"  # Moderate concern
     LOW = "low"  # Minor issue or best practice
     INFO = "info"  # Informational only
-
 
 @dataclass
 class ComplianceIssue:
@@ -40,10 +38,10 @@ class ComplianceIssue:
     description: str
     recommendation: str
     matched_text: str = ""
-    line_number: Optional[int] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    line_number: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "framework": self.framework,
             "rule_id": self.rule_id,
@@ -55,34 +53,33 @@ class ComplianceIssue:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ComplianceCheckResult:
     """Result of compliance checking."""
 
     compliant: bool
-    issues: List[ComplianceIssue]
-    frameworks_checked: List[str]
+    issues: list[ComplianceIssue]
+    frameworks_checked: list[str]
     score: float  # 0.0 (fully non-compliant) to 1.0 (fully compliant)
     checked_at: datetime = field(default_factory=datetime.now)
 
     @property
-    def critical_issues(self) -> List[ComplianceIssue]:
+    def critical_issues(self) -> list[ComplianceIssue]:
         return [i for i in self.issues if i.severity == ComplianceSeverity.CRITICAL]
 
     @property
-    def high_issues(self) -> List[ComplianceIssue]:
+    def high_issues(self) -> list[ComplianceIssue]:
         return [i for i in self.issues if i.severity == ComplianceSeverity.HIGH]
 
-    def issues_by_framework(self) -> Dict[str, List[ComplianceIssue]]:
-        result: Dict[str, List[ComplianceIssue]] = {}
+    def issues_by_framework(self) -> dict[str, list[ComplianceIssue]]:
+        result: dict[str, list[ComplianceIssue]] = {}
         for issue in self.issues:
             if issue.framework not in result:
                 result[issue.framework] = []
             result[issue.framework].append(issue)
         return result
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "compliant": self.compliant,
             "score": self.score,
@@ -94,7 +91,6 @@ class ComplianceCheckResult:
             "checked_at": self.checked_at.isoformat(),
         }
 
-
 @dataclass
 class ComplianceRule:
     """A single compliance rule."""
@@ -104,16 +100,16 @@ class ComplianceRule:
     name: str
     description: str
     severity: ComplianceSeverity
-    pattern: Optional[str] = None  # Regex pattern to match
-    keywords: List[str] = field(default_factory=list)  # Keywords to detect
+    pattern: str | None = None  # Regex pattern to match
+    keywords: list[str] = field(default_factory=list)  # Keywords to detect
     recommendation: str = ""
     category: str = ""
-    references: List[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
 
     # Compiled regex (lazy)
-    _compiled_pattern: Optional[Pattern] = None
+    _compiled_pattern: Pattern | None = None
 
-    def get_pattern(self) -> Optional[Pattern]:
+    def get_pattern(self) -> Pattern | None:
         """Get compiled regex pattern."""
         if self.pattern and self._compiled_pattern is None:
             try:
@@ -122,7 +118,7 @@ class ComplianceRule:
                 return None
         return self._compiled_pattern
 
-    def check(self, content: str) -> List[ComplianceIssue]:
+    def check(self, content: str) -> list[ComplianceIssue]:
         """Check content against this rule."""
         issues = []
         content_lower = content.lower()
@@ -168,7 +164,6 @@ class ComplianceRule:
 
         return issues
 
-
 @dataclass
 class ComplianceFramework:
     """A compliance framework with its rules."""
@@ -178,17 +173,17 @@ class ComplianceFramework:
     description: str
     version: str
     category: str  # e.g., "security", "privacy", "financial"
-    rules: List[ComplianceRule] = field(default_factory=list)
-    applicable_verticals: List[str] = field(default_factory=list)
+    rules: list[ComplianceRule] = field(default_factory=list)
+    applicable_verticals: list[str] = field(default_factory=list)
 
-    def check(self, content: str) -> List[ComplianceIssue]:
+    def check(self, content: str) -> list[ComplianceIssue]:
         """Check content against all rules in this framework."""
         issues = []
         for rule in self.rules:
             issues.extend(rule.check(content))
         return issues
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -198,7 +193,6 @@ class ComplianceFramework:
             "rule_count": len(self.rules),
             "applicable_verticals": self.applicable_verticals,
         }
-
 
 # =============================================================================
 # Pre-defined Compliance Frameworks
@@ -586,7 +580,7 @@ ISO_27001_FRAMEWORK = ComplianceFramework(
 )
 
 # Collect all frameworks
-COMPLIANCE_FRAMEWORKS: Dict[str, ComplianceFramework] = {
+COMPLIANCE_FRAMEWORKS: dict[str, ComplianceFramework] = {
     "hipaa": HIPAA_FRAMEWORK,
     "gdpr": GDPR_FRAMEWORK,
     "sox": SOX_FRAMEWORK,
@@ -595,7 +589,6 @@ COMPLIANCE_FRAMEWORKS: Dict[str, ComplianceFramework] = {
     "fda_21_cfr": FDA_21_CFR_FRAMEWORK,
     "iso_27001": ISO_27001_FRAMEWORK,
 }
-
 
 class ComplianceFrameworkManager:
     """
@@ -610,28 +603,28 @@ class ComplianceFrameworkManager:
 
     def __init__(
         self,
-        frameworks: Optional[Dict[str, ComplianceFramework]] = None,
-        custom_rules: Optional[List[ComplianceRule]] = None,
+        frameworks: Optional[dict[str, ComplianceFramework]] = None,
+        custom_rules: Optional[list[ComplianceRule]] = None,
     ):
         self._frameworks = frameworks or COMPLIANCE_FRAMEWORKS.copy()
         if custom_rules:
             self._add_custom_rules(custom_rules)
 
-    def _add_custom_rules(self, rules: List[ComplianceRule]) -> None:
+    def _add_custom_rules(self, rules: list[ComplianceRule]) -> None:
         """Add custom rules to existing frameworks."""
         for rule in rules:
             if rule.framework in self._frameworks:
                 self._frameworks[rule.framework].rules.append(rule)
 
-    def get_framework(self, framework_id: str) -> Optional[ComplianceFramework]:
+    def get_framework(self, framework_id: str) -> ComplianceFramework | None:
         """Get a framework by ID."""
         return self._frameworks.get(framework_id)
 
-    def list_frameworks(self) -> List[Dict[str, Any]]:
+    def list_frameworks(self) -> list[dict[str, Any]]:
         """List all available frameworks."""
         return [f.to_dict() for f in self._frameworks.values()]
 
-    def get_frameworks_for_vertical(self, vertical: str) -> List[ComplianceFramework]:
+    def get_frameworks_for_vertical(self, vertical: str) -> list[ComplianceFramework]:
         """Get applicable frameworks for a vertical."""
         return [
             f
@@ -642,7 +635,7 @@ class ComplianceFrameworkManager:
     def check(
         self,
         content: str,
-        frameworks: Optional[List[str]] = None,
+        frameworks: Optional[list[str]] = None,
         min_severity: ComplianceSeverity = ComplianceSeverity.LOW,
     ) -> ComplianceCheckResult:
         """
@@ -706,7 +699,7 @@ class ComplianceFrameworkManager:
             score=score,
         )
 
-    def _calculate_score(self, issues: List[ComplianceIssue]) -> float:
+    def _calculate_score(self, issues: list[ComplianceIssue]) -> float:
         """Calculate compliance score from issues."""
         if not issues:
             return 1.0
@@ -737,10 +730,9 @@ class ComplianceFrameworkManager:
         self._frameworks[framework_id].rules.append(rule)
         return True
 
-
 async def check_compliance(
     content: str,
-    frameworks: Optional[List[str]] = None,
+    frameworks: Optional[list[str]] = None,
     min_severity: ComplianceSeverity = ComplianceSeverity.LOW,
 ) -> ComplianceCheckResult:
     """
@@ -756,7 +748,6 @@ async def check_compliance(
     """
     manager = ComplianceFrameworkManager()
     return manager.check(content, frameworks, min_severity)
-
 
 __all__ = [
     "ComplianceSeverity",

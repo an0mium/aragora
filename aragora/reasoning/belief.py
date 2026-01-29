@@ -11,6 +11,7 @@ Extends the Claims Kernel with probabilistic graphical model capabilities:
 
 This moves aragora from binary accept/reject to nuanced probabilistic reasoning.
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -33,7 +34,6 @@ _CRUX_EXPORTS = {
     "CruxDetector",
 }
 
-
 def __getattr__(name: str):
     if name in _CRUX_EXPORTS:
         from aragora.reasoning import crux_detector
@@ -41,12 +41,10 @@ def __getattr__(name: str):
         return getattr(crux_detector, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
 logger = logging.getLogger(__name__)
-
 
 class BeliefStatus(Enum):
     """Status of a belief node."""
@@ -55,7 +53,6 @@ class BeliefStatus(Enum):
     UPDATED = "updated"  # Updated via propagation
     CONVERGED = "converged"  # Stable after propagation
     CONTESTED = "contested"  # Multiple conflicting updates
-
 
 @dataclass
 class BeliefDistribution:
@@ -143,7 +140,6 @@ class BeliefDistribution:
             p_unknown=data.get("p_unknown", 0.0),
         )
 
-
 @dataclass
 class BeliefNode:
     """
@@ -174,7 +170,7 @@ class BeliefNode:
     # Metrics
     centrality: float = 0.0  # How important is this node
     update_count: int = 0
-    last_update: Optional[str] = None
+    last_update: str | None = None
 
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -230,7 +226,6 @@ class BeliefNode:
             child_ids=data.get("child_ids", []),
             update_count=data.get("update_count", 0),
         )
-
 
 @dataclass
 class Factor:
@@ -297,7 +292,6 @@ class Factor:
             else:
                 return 0.4
 
-
 @dataclass
 class PropagationResult:
     """Result of belief propagation."""
@@ -317,7 +311,6 @@ class PropagationResult:
             "centralities": self.centralities,
         }
 
-
 class BeliefNetwork:
     """
     Bayesian belief network for probabilistic debate reasoning.
@@ -328,11 +321,11 @@ class BeliefNetwork:
 
     def __init__(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         damping: float = 0.5,
         max_iterations: int = BELIEF_MAX_ITERATIONS,
         convergence_threshold: float = BELIEF_CONVERGENCE_THRESHOLD,
-        event_emitter: Optional[Any] = None,
+        event_emitter: Any | None = None,
         km_adapter: Optional["BeliefAdapter"] = None,
         km_min_confidence: float = 0.8,
     ):
@@ -469,7 +462,7 @@ class BeliefNetwork:
     def add_node_from_claim(
         self,
         claim: TypedClaim,
-        prior_confidence: Optional[float] = None,
+        prior_confidence: float | None = None,
     ) -> BeliefNode:
         """Add a belief node from a typed claim."""
         node_id = f"bn-{len(self.nodes):04d}"
@@ -527,7 +520,7 @@ class BeliefNetwork:
         target_claim_id: str,
         relation_type: RelationType,
         strength: float = 1.0,
-    ) -> Optional[Factor]:
+    ) -> Factor | None:
         """Add a factor representing a relationship between claims."""
         source_node_id = self.claim_to_node.get(source_claim_id)
         target_node_id = self.claim_to_node.get(target_claim_id)
@@ -810,7 +803,7 @@ class BeliefNetwork:
 
         return centralities
 
-    def get_node_by_claim(self, claim_id: str) -> Optional[BeliefNode]:
+    def get_node_by_claim(self, claim_id: str) -> BeliefNode | None:
         """Get belief node for a claim."""
         node_id = self.claim_to_node.get(claim_id)
         return self.nodes.get(node_id) if node_id else None
@@ -1004,7 +997,6 @@ class BeliefNetwork:
         network.claim_to_node = data.get("claim_to_node", {})
 
         return network
-
 
 # Re-export crux detection classes for backward compatibility
 # (extracted to aragora.reasoning.crux_detector for better modularity)

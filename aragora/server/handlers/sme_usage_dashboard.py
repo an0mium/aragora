@@ -18,7 +18,7 @@ import io
 import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .base import (
     error_response,
@@ -32,7 +32,6 @@ from .utils.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
-
 
 def _get_real_consensus_rate(
     org_id: str,
@@ -73,10 +72,8 @@ def _get_real_consensus_rate(
         logger.warning(f"Failed to get consensus rate: {e}")
         return default
 
-
 # Rate limiter for usage dashboard (60 requests per minute)
 _dashboard_limiter = RateLimiter(requests_per_minute=60)
-
 
 class SMEUsageDashboardHandler(SecureHandler):
     """Handler for SME usage dashboard endpoints.
@@ -108,7 +105,7 @@ class SMEUsageDashboardHandler(SecureHandler):
         query_params: dict,
         handler,
         method: str = "GET",
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route usage dashboard requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -373,7 +370,7 @@ class SMEUsageDashboardHandler(SecureHandler):
         workspace_stats = cost_tracker.get_workspace_stats(org.id)
 
         # Build breakdown based on dimension
-        breakdown_data: Dict[str, Any] = {
+        breakdown_data: dict[str, Any] = {
             "dimension": dimension,
             "period": {
                 "start": start_date.isoformat(),
@@ -815,6 +812,5 @@ class SMEUsageDashboardHandler(SecureHandler):
                 "Content-Disposition": f'attachment; filename="{filename}"',
             },
         )
-
 
 __all__ = ["SMEUsageDashboardHandler"]

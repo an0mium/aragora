@@ -20,10 +20,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # MFA fields that require encryption
 _MFA_SENSITIVE_FIELDS = {"mfa_secret", "mfa_backup_codes"}
-
 
 def _encrypt_mfa_field(value: str, user_id: str) -> str:
     """Encrypt MFA-related field for storage."""
@@ -40,7 +38,6 @@ def _encrypt_mfa_field(value: str, user_id: str) -> str:
     except Exception as e:
         logger.warning(f"MFA field encryption failed: {e}")
         return value
-
 
 def _decrypt_mfa_field(value: str, user_id: str) -> str:
     """Decrypt MFA-related field, handling legacy unencrypted values."""
@@ -59,7 +56,6 @@ def _decrypt_mfa_field(value: str, user_id: str) -> str:
     except Exception as e:
         logger.debug(f"MFA field decryption failed (may be legacy): {e}")
         return value
-
 
 class UserRepository:
     """
@@ -124,7 +120,7 @@ class UserRepository:
         password_hash: str,
         password_salt: str,
         name: str = "",
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         role: str = "member",
     ) -> "User":
         """
@@ -362,7 +358,7 @@ class UserRepository:
             cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
             return cursor.rowcount > 0
 
-    def get_preferences(self, user_id: str) -> Optional[dict]:
+    def get_preferences(self, user_id: str) -> dict | None:
         """
         Get user preferences (feature toggles, settings).
 
@@ -453,7 +449,7 @@ class UserRepository:
             except (IndexError, KeyError):
                 return default
 
-        def parse_datetime(value) -> Optional[datetime]:
+        def parse_datetime(value) -> datetime | None:
             """Parse datetime from ISO string or Unix timestamp."""
             if value is None:
                 return None
@@ -497,13 +493,11 @@ class UserRepository:
             token_version=safe_get("token_version", 1) or 1,
         )
 
-
-_user_repository: Optional[UserRepository] = None
-
+_user_repository: UserRepository | None = None
 
 def get_user_repository(
     store: Optional["UserStore | PostgresUserStore"] = None,
-) -> Optional[UserRepository]:
+) -> UserRepository | None:
     """Get or create the user repository from the configured user store."""
     global _user_repository
     if _user_repository is not None:
@@ -526,7 +520,6 @@ def get_user_repository(
         )
     _user_repository = repo
     return _user_repository
-
 
 def reset_user_repository() -> None:
     """Reset the cached user repository (useful for tests)."""

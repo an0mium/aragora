@@ -13,13 +13,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class Organization:
@@ -33,9 +32,8 @@ class Organization:
     member_count: int = 0
     debates_used: int = 0
     debates_limit: int = 0
-    settings: Dict[str, Any] = field(default_factory=dict)
-    created_at: Optional[datetime] = None
-
+    settings: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime | None = None
 
 @dataclass
 class OrganizationMember:
@@ -43,12 +41,11 @@ class OrganizationMember:
 
     id: str
     email: str
-    name: Optional[str] = None
+    name: str | None = None
     role: str = "member"
     is_active: bool = True
-    created_at: Optional[datetime] = None
-    last_login_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
+    last_login_at: datetime | None = None
 
 @dataclass
 class OrganizationInvitation:
@@ -61,9 +58,8 @@ class OrganizationInvitation:
     status: str
     invited_by: str
     expires_at: datetime
-    created_at: Optional[datetime] = None
-    accepted_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
+    accepted_at: datetime | None = None
 
 @dataclass
 class UserOrganizationMembership:
@@ -74,8 +70,7 @@ class UserOrganizationMembership:
     organization: Organization
     role: str
     is_default: bool = False
-    joined_at: Optional[datetime] = None
-
+    joined_at: datetime | None = None
 
 class OrganizationsAPI:
     """API interface for organization management."""
@@ -110,8 +105,8 @@ class OrganizationsAPI:
     def update(
         self,
         org_id: str,
-        name: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        settings: Optional[dict[str, Any]] = None,
     ) -> Organization:
         """
         Update organization settings.
@@ -124,7 +119,7 @@ class OrganizationsAPI:
         Returns:
             Updated Organization object.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if settings is not None:
@@ -137,11 +132,11 @@ class OrganizationsAPI:
     async def update_async(
         self,
         org_id: str,
-        name: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        settings: Optional[dict[str, Any]] = None,
     ) -> Organization:
         """Async version of update()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if settings is not None:
@@ -155,7 +150,7 @@ class OrganizationsAPI:
     # Member Management
     # =========================================================================
 
-    def list_members(self, org_id: str) -> List[OrganizationMember]:
+    def list_members(self, org_id: str) -> list[OrganizationMember]:
         """
         List members of an organization.
 
@@ -169,7 +164,7 @@ class OrganizationsAPI:
         members = response.get("members", [])
         return [self._parse_member(m) for m in members]
 
-    async def list_members_async(self, org_id: str) -> List[OrganizationMember]:
+    async def list_members_async(self, org_id: str) -> list[OrganizationMember]:
         """Async version of list_members()."""
         response = await self._client._get_async(f"/api/v1/org/{org_id}/members")
         members = response.get("members", [])
@@ -180,7 +175,7 @@ class OrganizationsAPI:
         org_id: str,
         email: str,
         role: str = "member",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Invite a user to the organization.
 
@@ -200,7 +195,7 @@ class OrganizationsAPI:
         org_id: str,
         email: str,
         role: str = "member",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Async version of invite_member()."""
         body = {"email": email, "role": role}
         return await self._client._post_async(f"/api/v1/org/{org_id}/invite", body)
@@ -224,7 +219,7 @@ class OrganizationsAPI:
         await self._client._delete_async(f"/api/v1/org/{org_id}/members/{user_id}")
         return True
 
-    def update_member_role(self, org_id: str, user_id: str, role: str) -> Dict[str, Any]:
+    def update_member_role(self, org_id: str, user_id: str, role: str) -> dict[str, Any]:
         """
         Update a member's role in the organization.
 
@@ -241,7 +236,7 @@ class OrganizationsAPI:
 
     async def update_member_role_async(
         self, org_id: str, user_id: str, role: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Async version of update_member_role()."""
         body = {"role": role}
         return await self._client._put_async(f"/api/v1/org/{org_id}/members/{user_id}/role", body)
@@ -250,7 +245,7 @@ class OrganizationsAPI:
     # Invitation Management
     # =========================================================================
 
-    def list_invitations(self, org_id: str) -> List[OrganizationInvitation]:
+    def list_invitations(self, org_id: str) -> list[OrganizationInvitation]:
         """
         List pending invitations for an organization.
 
@@ -264,7 +259,7 @@ class OrganizationsAPI:
         invitations = response.get("invitations", [])
         return [self._parse_invitation(inv) for inv in invitations]
 
-    async def list_invitations_async(self, org_id: str) -> List[OrganizationInvitation]:
+    async def list_invitations_async(self, org_id: str) -> list[OrganizationInvitation]:
         """Async version of list_invitations()."""
         response = await self._client._get_async(f"/api/v1/org/{org_id}/invitations")
         invitations = response.get("invitations", [])
@@ -289,7 +284,7 @@ class OrganizationsAPI:
         await self._client._delete_async(f"/api/v1/org/{org_id}/invitations/{invitation_id}")
         return True
 
-    def get_pending_invitations(self) -> List[OrganizationInvitation]:
+    def get_pending_invitations(self) -> list[OrganizationInvitation]:
         """
         Get pending invitations for the current user.
 
@@ -300,13 +295,13 @@ class OrganizationsAPI:
         invitations = response.get("invitations", [])
         return [self._parse_invitation(inv) for inv in invitations]
 
-    async def get_pending_invitations_async(self) -> List[OrganizationInvitation]:
+    async def get_pending_invitations_async(self) -> list[OrganizationInvitation]:
         """Async version of get_pending_invitations()."""
         response = await self._client._get_async("/api/v1/invitations/pending")
         invitations = response.get("invitations", [])
         return [self._parse_invitation(inv) for inv in invitations]
 
-    def accept_invitation(self, token: str) -> Dict[str, Any]:
+    def accept_invitation(self, token: str) -> dict[str, Any]:
         """
         Accept an organization invitation.
 
@@ -318,7 +313,7 @@ class OrganizationsAPI:
         """
         return self._client._post(f"/api/v1/invitations/{token}/accept", {})
 
-    async def accept_invitation_async(self, token: str) -> Dict[str, Any]:
+    async def accept_invitation_async(self, token: str) -> dict[str, Any]:
         """Async version of accept_invitation()."""
         return await self._client._post_async(f"/api/v1/invitations/{token}/accept", {})
 
@@ -326,7 +321,7 @@ class OrganizationsAPI:
     # User Organization Management
     # =========================================================================
 
-    def list_user_organizations(self) -> List[UserOrganizationMembership]:
+    def list_user_organizations(self) -> list[UserOrganizationMembership]:
         """
         List organizations for the current user.
 
@@ -337,7 +332,7 @@ class OrganizationsAPI:
         orgs = response.get("organizations", [])
         return [self._parse_membership(o) for o in orgs]
 
-    async def list_user_organizations_async(self) -> List[UserOrganizationMembership]:
+    async def list_user_organizations_async(self) -> list[UserOrganizationMembership]:
         """Async version of list_user_organizations()."""
         response = await self._client._get_async("/api/v1/user/organizations")
         orgs = response.get("organizations", [])
@@ -407,7 +402,7 @@ class OrganizationsAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_organization(self, data: Dict[str, Any]) -> Organization:
+    def _parse_organization(self, data: dict[str, Any]) -> Organization:
         """Parse organization data into Organization object."""
         created_at = None
         if data.get("created_at"):
@@ -429,7 +424,7 @@ class OrganizationsAPI:
             created_at=created_at,
         )
 
-    def _parse_member(self, data: Dict[str, Any]) -> OrganizationMember:
+    def _parse_member(self, data: dict[str, Any]) -> OrganizationMember:
         """Parse member data into OrganizationMember object."""
         created_at = None
         last_login_at = None
@@ -456,7 +451,7 @@ class OrganizationsAPI:
             last_login_at=last_login_at,
         )
 
-    def _parse_invitation(self, data: Dict[str, Any]) -> OrganizationInvitation:
+    def _parse_invitation(self, data: dict[str, Any]) -> OrganizationInvitation:
         """Parse invitation data into OrganizationInvitation object."""
         expires_at = datetime.now()
         created_at = None
@@ -492,7 +487,7 @@ class OrganizationsAPI:
             accepted_at=accepted_at,
         )
 
-    def _parse_membership(self, data: Dict[str, Any]) -> UserOrganizationMembership:
+    def _parse_membership(self, data: dict[str, Any]) -> UserOrganizationMembership:
         """Parse membership data into UserOrganizationMembership object."""
         joined_at = None
         if data.get("joined_at"):
@@ -511,7 +506,6 @@ class OrganizationsAPI:
             is_default=data.get("is_default", False),
             joined_at=joined_at,
         )
-
 
 __all__ = [
     "OrganizationsAPI",

@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -37,8 +37,7 @@ logger = logging.getLogger(__name__)
 # Directory containing preset YAML files
 PRESETS_DIR = Path(__file__).parent
 
-
-def list_presets() -> List[str]:
+def list_presets() -> list[str]:
     """
     List all available workflow presets.
 
@@ -47,10 +46,9 @@ def list_presets() -> List[str]:
     """
     return [f.stem for f in PRESETS_DIR.glob("*.yaml") if not f.name.startswith("_")]
 
-
 def load_preset(
     name: str,
-    overrides: Optional[Dict[str, Any]] = None,
+    overrides: Optional[dict[str, Any]] = None,
 ) -> WorkflowDefinition:
     """
     Load a workflow preset by name.
@@ -85,8 +83,7 @@ def load_preset(
     # Convert to WorkflowDefinition
     return _parse_workflow_definition(preset_data)
 
-
-def get_preset_info(name: str) -> Dict[str, Any]:
+def get_preset_info(name: str) -> dict[str, Any]:
     """
     Get metadata about a preset without fully loading it.
 
@@ -114,8 +111,7 @@ def get_preset_info(name: str) -> Dict[str, Any]:
         "step_count": len(preset_data.get("steps", [])),
     }
 
-
-def _deep_merge(base: Dict, override: Dict) -> Dict:
+def _deep_merge(base: dict, override: dict) -> dict:
     """Deep merge two dictionaries."""
     result = base.copy()
     for key, value in override.items():
@@ -125,8 +121,7 @@ def _deep_merge(base: Dict, override: Dict) -> Dict:
             result[key] = value
     return result
 
-
-def _parse_workflow_definition(data: Dict[str, Any]) -> WorkflowDefinition:
+def _parse_workflow_definition(data: dict[str, Any]) -> WorkflowDefinition:
     """Parse YAML data into WorkflowDefinition."""
     from aragora.workflow.types import StepDefinition, TransitionRule
 
@@ -177,7 +172,6 @@ def _parse_workflow_definition(data: Dict[str, Any]) -> WorkflowDefinition:
         entry_step=data.get("entry_point", steps[0].id if steps else ""),
         metadata=data.get("metadata", {}),
     )
-
 
 __all__ = [
     "list_presets",

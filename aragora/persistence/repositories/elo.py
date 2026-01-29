@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from aragora.config import (
     DB_TIMEOUT_SECONDS,
@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_ELO = ELO_INITIAL_RATING
 
-
 @dataclass
 class RatingEntity:
     """
@@ -38,7 +37,7 @@ class RatingEntity:
 
     agent_name: str
     elo: float = DEFAULT_ELO
-    domain_elos: Dict[str, float] = field(default_factory=dict)
+    domain_elos: dict[str, float] = field(default_factory=dict)
     wins: int = 0
     losses: int = 0
     draws: int = 0
@@ -48,7 +47,7 @@ class RatingEntity:
     calibration_correct: int = 0
     calibration_total: int = 0
     calibration_brier_sum: float = 0.0
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     @property
     def id(self) -> str:
@@ -73,7 +72,6 @@ class RatingEntity:
             return 0.0
         return self.critiques_accepted / self.critiques_total
 
-
 @dataclass
 class MatchEntity:
     """
@@ -84,13 +82,12 @@ class MatchEntity:
 
     id: int
     debate_id: str
-    winner: Optional[str]  # None for draw
-    participants: List[str]
-    domain: Optional[str]
-    scores: Dict[str, float]
-    elo_changes: Dict[str, float] = field(default_factory=dict)
-    created_at: Optional[datetime] = None
-
+    winner: str | None  # None for draw
+    participants: list[str]
+    domain: str | None
+    scores: dict[str, float]
+    elo_changes: dict[str, float] = field(default_factory=dict)
+    created_at: datetime | None = None
 
 @dataclass
 class LeaderboardEntry:
@@ -104,7 +101,6 @@ class LeaderboardEntry:
     draws: int
     win_rate: float
     games_played: int
-
 
 class EloRepository(BaseRepository[RatingEntity]):
     """
@@ -246,7 +242,7 @@ class EloRepository(BaseRepository[RatingEntity]):
             updated_at=updated_at,
         )
 
-    def _from_entity(self, entity: RatingEntity) -> Dict[str, Any]:
+    def _from_entity(self, entity: RatingEntity) -> dict[str, Any]:
         """Convert RatingEntity to database columns."""
         return {
             "agent_name": entity.agent_name,
@@ -266,7 +262,7 @@ class EloRepository(BaseRepository[RatingEntity]):
             ),
         }
 
-    def get(self, entity_id: str) -> Optional[RatingEntity]:
+    def get(self, entity_id: str) -> RatingEntity | None:
         """
         Get rating by agent name (overrides base to use agent_name).
 
@@ -377,7 +373,7 @@ class EloRepository(BaseRepository[RatingEntity]):
         offset: int = 0,
         min_games: int = 0,
         use_cache: bool = True,
-    ) -> List[LeaderboardEntry]:
+    ) -> list[LeaderboardEntry]:
         """
         Get the ELO leaderboard.
 
@@ -429,7 +425,7 @@ class EloRepository(BaseRepository[RatingEntity]):
 
         return entries
 
-    def get_top_agents(self, n: int = 10) -> List[Tuple[str, float]]:
+    def get_top_agents(self, n: int = 10) -> list[tuple[str, float]]:
         """
         Get top N agents by ELO.
 
@@ -491,11 +487,11 @@ class EloRepository(BaseRepository[RatingEntity]):
     def record_match(
         self,
         debate_id: str,
-        winner: Optional[str],
-        participants: List[str],
-        scores: Dict[str, float],
-        elo_changes: Dict[str, float],
-        domain: Optional[str] = None,
+        winner: str | None,
+        participants: list[str],
+        scores: dict[str, float],
+        elo_changes: dict[str, float],
+        domain: str | None = None,
     ) -> int:
         """
         Record a match result.
@@ -542,7 +538,7 @@ class EloRepository(BaseRepository[RatingEntity]):
 
             return cursor.lastrowid
 
-    def get_match(self, debate_id: str) -> Optional[MatchEntity]:
+    def get_match(self, debate_id: str) -> MatchEntity | None:
         """
         Get a match by debate ID.
 
@@ -562,8 +558,8 @@ class EloRepository(BaseRepository[RatingEntity]):
         self,
         limit: int = 20,
         offset: int = 0,
-        agent_name: Optional[str] = None,
-    ) -> List[MatchEntity]:
+        agent_name: str | None = None,
+    ) -> list[MatchEntity]:
         """
         Get recent matches, optionally filtered by agent.
 
@@ -598,7 +594,7 @@ class EloRepository(BaseRepository[RatingEntity]):
 
         return [self._match_to_dict(row) for row in rows]
 
-    def get_head_to_head(self, agent_a: str, agent_b: str) -> Dict[str, Any]:
+    def get_head_to_head(self, agent_a: str, agent_b: str) -> dict[str, Any]:
         """
         Get head-to-head statistics between two agents.
 
@@ -642,7 +638,7 @@ class EloRepository(BaseRepository[RatingEntity]):
         self,
         agent_name: str,
         limit: int = 50,
-    ) -> List[Tuple[float, str, Optional[str]]]:
+    ) -> list[tuple[float, str, str | None]]:
         """
         Get ELO history for an agent.
 
@@ -666,7 +662,7 @@ class EloRepository(BaseRepository[RatingEntity]):
 
         return [(row["elo"], row["created_at"], row["debate_id"]) for row in rows]
 
-    def get_agent_stats(self, agent_name: str) -> Dict[str, Any]:
+    def get_agent_stats(self, agent_name: str) -> dict[str, Any]:
         """
         Get comprehensive statistics for an agent.
 

@@ -7,11 +7,10 @@ Provides access to agent tournament management.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
-
 
 @dataclass
 class TournamentStanding:
@@ -26,7 +25,7 @@ class TournamentStanding:
     elo_change: float = 0.0
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TournamentStanding":
+    def from_dict(cls, data: dict[str, Any]) -> "TournamentStanding":
         return cls(
             agent_id=data.get("agent_id", ""),
             rank=data.get("rank", 0),
@@ -36,7 +35,6 @@ class TournamentStanding:
             points=data.get("points", 0.0),
             elo_change=data.get("elo_change", 0.0),
         )
-
 
 @dataclass
 class TournamentSummary:
@@ -49,11 +47,11 @@ class TournamentSummary:
     rounds_completed: int
     total_rounds: int
     created_at: str
-    completed_at: Optional[str] = None
-    winner: Optional[str] = None
+    completed_at: str | None = None
+    winner: str | None = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TournamentSummary":
+    def from_dict(cls, data: dict[str, Any]) -> "TournamentSummary":
         return cls(
             id=data.get("id", ""),
             name=data.get("name", ""),
@@ -66,7 +64,6 @@ class TournamentSummary:
             winner=data.get("winner"),
         )
 
-
 @dataclass
 class Tournament:
     """Full tournament details."""
@@ -75,20 +72,20 @@ class Tournament:
     name: str
     status: str
     format: str
-    participants: List[str]
-    standings: List[TournamentStanding]
+    participants: list[str]
+    standings: list[TournamentStanding]
     rounds_completed: int
     total_rounds: int
     created_at: str
-    completed_at: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    completed_at: str | None = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Tournament":
+    def from_dict(cls, data: dict[str, Any]) -> "Tournament":
         standings_data = data.get("standings", [])
         standings = [TournamentStanding.from_dict(s) for s in standings_data]
 
@@ -105,7 +102,6 @@ class Tournament:
             completed_at=data.get("completed_at"),
             metadata=data.get("metadata", {}),
         )
-
 
 class TournamentsAPI:
     """
@@ -135,10 +131,10 @@ class TournamentsAPI:
 
     def list(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> List[TournamentSummary]:
+    ) -> list[TournamentSummary]:
         """
         List tournaments.
 
@@ -150,7 +146,7 @@ class TournamentsAPI:
         Returns:
             List of TournamentSummary objects
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -160,12 +156,12 @@ class TournamentsAPI:
 
     async def list_async(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> List[TournamentSummary]:
+    ) -> list[TournamentSummary]:
         """Async version of list."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -191,7 +187,7 @@ class TournamentsAPI:
         response = await self._client._get_async(f"/api/tournaments/{tournament_id}")
         return Tournament.from_dict(response)
 
-    def get_standings(self, tournament_id: str) -> List[TournamentStanding]:
+    def get_standings(self, tournament_id: str) -> list[TournamentStanding]:
         """
         Get tournament standings.
 
@@ -205,7 +201,7 @@ class TournamentsAPI:
         standings = response.get("standings", [])
         return [TournamentStanding.from_dict(s) for s in standings]
 
-    async def get_standings_async(self, tournament_id: str) -> List[TournamentStanding]:
+    async def get_standings_async(self, tournament_id: str) -> list[TournamentStanding]:
         """Async version of get_standings."""
         response = await self._client._get_async(f"/api/tournaments/{tournament_id}/standings")
         standings = response.get("standings", [])
@@ -214,11 +210,11 @@ class TournamentsAPI:
     def create(
         self,
         name: str,
-        agents: List[str],
+        agents: list[str],
         format: str = "round_robin",
-        topic: Optional[str] = None,
+        topic: str | None = None,
         rounds_per_match: int = 3,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> TournamentSummary:
         """
         Create a new tournament.
@@ -251,11 +247,11 @@ class TournamentsAPI:
     async def create_async(
         self,
         name: str,
-        agents: List[str],
+        agents: list[str],
         format: str = "round_robin",
-        topic: Optional[str] = None,
+        topic: str | None = None,
         rounds_per_match: int = 3,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> TournamentSummary:
         """Async version of create."""
         data = {

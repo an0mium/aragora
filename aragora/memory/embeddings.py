@@ -29,7 +29,6 @@ import logging
 import os
 import struct
 from pathlib import Path
-from typing import Optional
 
 import aiohttp
 
@@ -49,10 +48,8 @@ from aragora.core.embeddings.cache import EmbeddingCache
 
 logger = logging.getLogger(__name__)
 
-
 # Global embedding cache (now uses unified cache from core)
-_embedding_cache: Optional[EmbeddingCache] = None
-
+_embedding_cache: EmbeddingCache | None = None
 
 def _get_embedding_cache() -> EmbeddingCache:
     """Get or create the global embedding cache."""
@@ -61,13 +58,11 @@ def _get_embedding_cache() -> EmbeddingCache:
         _embedding_cache = EmbeddingCache(ttl_seconds=CACHE_TTL_EMBEDDINGS, max_size=1000)
     return _embedding_cache
 
-
 # Default API timeout
 _API_TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 # Track registration status
 _embedding_cache_registered = False
-
 
 def _register_embedding_cache() -> None:
     """Register embedding cache with ServiceRegistry for observability."""
@@ -87,12 +82,10 @@ def _register_embedding_cache() -> None:
     except ImportError:
         pass  # Services module not available
 
-
 def get_embedding_cache() -> EmbeddingCache:
     """Get the global embedding cache, registering with ServiceRegistry if available."""
     _register_embedding_cache()
     return _get_embedding_cache()
-
 
 async def _retry_with_backoff(coro_fn, max_retries=3, base_delay=1.0):
     """Retry async function with exponential backoff."""
@@ -105,7 +98,6 @@ async def _retry_with_backoff(coro_fn, max_retries=3, base_delay=1.0):
             delay = base_delay * (2**attempt)
             logger.warning(f"API call failed (attempt {attempt + 1}), retrying in {delay}s: {e}")
             await asyncio.sleep(delay)
-
 
 class EmbeddingProvider:
     """Base class for embedding providers."""
@@ -162,7 +154,6 @@ class EmbeddingProvider:
                 embeddings.append(result)
 
         return embeddings
-
 
 class OpenAIEmbedding(EmbeddingProvider):
     """OpenAI text-embedding-3-small embeddings."""
@@ -228,7 +219,6 @@ class OpenAIEmbedding(EmbeddingProvider):
 
         return await _retry_with_backoff(_call)
 
-
 class GeminiEmbedding(EmbeddingProvider):
     """Google Gemini embeddings."""
 
@@ -269,7 +259,6 @@ class GeminiEmbedding(EmbeddingProvider):
         _get_embedding_cache().set(text, embedding)
         return embedding
 
-
 class OllamaEmbedding(EmbeddingProvider):
     """Local Ollama embeddings."""
 
@@ -305,10 +294,8 @@ class OllamaEmbedding(EmbeddingProvider):
                     reason=f"Cannot connect to Ollama at {self.base_url}. Is Ollama running? Start with: ollama serve",
                 ) from e
 
-
 # Note: cosine_similarity, pack_embedding, and unpack_embedding are now
 # imported from aragora.core.embeddings.service and re-exported above.
-
 
 class SemanticRetriever:
     """
@@ -393,7 +380,7 @@ class SemanticRetriever:
         """Generate hash for text deduplication."""
         return hashlib.sha256(text.lower().strip().encode()).hexdigest()
 
-    def _sync_get_existing_embedding(self, text_hash: str) -> Optional[bytes]:
+    def _sync_get_existing_embedding(self, text_hash: str) -> bytes | None:
         """Sync helper: Check if embedding already exists."""
         with self.db.connection() as conn:
             cursor = conn.cursor()
@@ -494,7 +481,6 @@ class SemanticRetriever:
             "total_embeddings": total,
             "by_provider": by_provider,
         }
-
 
 def get_embedding_cache_stats() -> dict:
     """Get global embedding cache statistics."""

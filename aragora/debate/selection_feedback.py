@@ -17,10 +17,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class FeedbackLoopConfig:
@@ -33,7 +32,6 @@ class FeedbackLoopConfig:
     feedback_decay_factor: float = 0.9  # Decay multiplier per day
     max_adjustment: float = 0.5  # Maximum selection weight adjustment (+/-)
     recency_window_days: int = 30  # Only consider debates within this window
-
 
 @dataclass
 class AgentFeedbackState:
@@ -49,8 +47,8 @@ class AgentFeedbackState:
     last_updated: datetime = field(default_factory=datetime.now)
 
     # Domain-specific tracking
-    domain_wins: Dict[str, int] = field(default_factory=dict)
-    domain_losses: Dict[str, int] = field(default_factory=dict)
+    domain_wins: dict[str, int] = field(default_factory=dict)
+    domain_losses: dict[str, int] = field(default_factory=dict)
 
     # Running averages
     avg_confidence: float = 0.5
@@ -81,7 +79,6 @@ class AgentFeedbackState:
         total = wins + losses
         return wins / total if total > 0 else 0.5
 
-
 @dataclass
 class FeedbackLoopMetrics:
     """Metrics for the feedback loop system."""
@@ -90,8 +87,7 @@ class FeedbackLoopMetrics:
     adjustments_computed: int = 0
     agents_tracked: int = 0
     total_adjustment_sum: float = 0.0
-    last_processed: Optional[datetime] = None
-
+    last_processed: datetime | None = None
 
 class SelectionFeedbackLoop:
     """
@@ -123,9 +119,9 @@ class SelectionFeedbackLoop:
 
     def __init__(
         self,
-        config: Optional[FeedbackLoopConfig] = None,
-        elo_system: Optional[Any] = None,
-        calibration_tracker: Optional[Any] = None,
+        config: FeedbackLoopConfig | None = None,
+        elo_system: Any | None = None,
+        calibration_tracker: Any | None = None,
     ):
         """
         Initialize the selection feedback loop.
@@ -139,19 +135,19 @@ class SelectionFeedbackLoop:
         self.elo_system = elo_system
         self.calibration_tracker = calibration_tracker
 
-        self._agent_states: Dict[str, AgentFeedbackState] = {}
-        self._selection_adjustments: Dict[str, float] = {}
+        self._agent_states: dict[str, AgentFeedbackState] = {}
+        self._selection_adjustments: dict[str, float] = {}
         self.metrics = FeedbackLoopMetrics()
 
     def process_debate_outcome(
         self,
         debate_id: str,
-        participants: List[str],
-        winner: Optional[str],
+        participants: list[str],
+        winner: str | None,
         domain: str = "general",
         confidence: float = 0.0,
-        response_times: Optional[Dict[str, float]] = None,
-    ) -> Dict[str, float]:
+        response_times: Optional[dict[str, float]] = None,
+    ) -> dict[str, float]:
         """
         Process a debate outcome and update agent feedback states.
 
@@ -169,7 +165,7 @@ class SelectionFeedbackLoop:
         if not self.config.enabled:
             return {}
 
-        adjustments: Dict[str, float] = {}
+        adjustments: dict[str, float] = {}
         response_times = response_times or {}
 
         for agent_name in participants:
@@ -368,15 +364,15 @@ class SelectionFeedbackLoop:
         decay = self.config.feedback_decay_factor**days_since
         return adjustment * decay
 
-    def get_agent_state(self, agent_name: str) -> Optional[AgentFeedbackState]:
+    def get_agent_state(self, agent_name: str) -> AgentFeedbackState | None:
         """Get feedback state for an agent."""
         return self._agent_states.get(agent_name)
 
-    def get_all_states(self) -> Dict[str, AgentFeedbackState]:
+    def get_all_states(self) -> dict[str, AgentFeedbackState]:
         """Get all agent feedback states."""
         return dict(self._agent_states)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get feedback loop metrics."""
         return {
             "debates_processed": self.metrics.debates_processed,
@@ -397,7 +393,6 @@ class SelectionFeedbackLoop:
         self._agent_states.clear()
         self._selection_adjustments.clear()
         self.metrics = FeedbackLoopMetrics()
-
 
 __all__ = [
     "SelectionFeedbackLoop",

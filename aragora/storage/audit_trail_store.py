@@ -28,7 +28,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -47,7 +47,6 @@ DEFAULT_DB_PATH = (
     Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "audit_trails.db"
 )
 
-
 @dataclass
 class StoredTrail:
     """A stored audit trail entry."""
@@ -59,10 +58,10 @@ class StoredTrail:
     confidence: float
     total_findings: int
     duration_seconds: float
-    receipt_id: Optional[str]
-    data: Dict[str, Any]  # Full trail JSON
+    receipt_id: str | None
+    data: dict[str, Any]  # Full trail JSON
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "trail_id": self.trail_id,
@@ -76,7 +75,6 @@ class StoredTrail:
             **self.data,
         }
 
-
 @dataclass
 class StoredReceipt:
     """A stored decision receipt entry."""
@@ -88,10 +86,10 @@ class StoredReceipt:
     confidence: float
     risk_level: str
     checksum: str
-    audit_trail_id: Optional[str]
-    data: Dict[str, Any]  # Full receipt JSON
+    audit_trail_id: str | None
+    data: dict[str, Any]  # Full receipt JSON
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "receipt_id": self.receipt_id,
@@ -104,7 +102,6 @@ class StoredReceipt:
             "audit_trail_id": self.audit_trail_id,
             **self.data,
         }
-
 
 class AuditTrailStore:
     """
@@ -153,9 +150,9 @@ class AuditTrailStore:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        db_path: Path | None = None,
+        backend: str | None = None,
+        database_url: str | None = None,
         retention_days: int = DEFAULT_RETENTION_DAYS,
     ):
         """
@@ -180,7 +177,7 @@ class AuditTrailStore:
             backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
 
         self.backend_type = backend
-        self._backend: Optional[DatabaseBackend] = None
+        self._backend: DatabaseBackend | None = None
 
         if backend == "postgresql":
             if not actual_url:
@@ -211,7 +208,7 @@ class AuditTrailStore:
     # Audit Trail Methods
     # =========================================================================
 
-    def save_trail(self, trail_dict: Dict[str, Any]) -> None:
+    def save_trail(self, trail_dict: dict[str, Any]) -> None:
         """
         Save an audit trail.
 
@@ -254,7 +251,7 @@ class AuditTrailStore:
         )
         logger.debug(f"Saved audit trail: {trail_id}")
 
-    def get_trail(self, trail_id: str) -> Optional[Dict[str, Any]]:
+    def get_trail(self, trail_id: str) -> Optional[dict[str, Any]]:
         """
         Get an audit trail by ID.
 
@@ -275,7 +272,7 @@ class AuditTrailStore:
             return json.loads(row[0])
         return None
 
-    def get_trail_by_gauntlet(self, gauntlet_id: str) -> Optional[Dict[str, Any]]:
+    def get_trail_by_gauntlet(self, gauntlet_id: str) -> Optional[dict[str, Any]]:
         """Get audit trail by gauntlet ID."""
         if self._backend is None:
             return None
@@ -292,8 +289,8 @@ class AuditTrailStore:
         self,
         limit: int = 20,
         offset: int = 0,
-        verdict: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        verdict: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         List audit trails with pagination.
 
@@ -346,7 +343,7 @@ class AuditTrailStore:
             for row in rows
         ]
 
-    def count_trails(self, verdict: Optional[str] = None) -> int:
+    def count_trails(self, verdict: str | None = None) -> int:
         """Get total count of audit trails."""
         if self._backend is None:
             return 0
@@ -375,7 +372,7 @@ class AuditTrailStore:
     # Decision Receipt Methods
     # =========================================================================
 
-    def save_receipt(self, receipt_dict: Dict[str, Any]) -> None:
+    def save_receipt(self, receipt_dict: dict[str, Any]) -> None:
         """
         Save a decision receipt.
 
@@ -417,7 +414,7 @@ class AuditTrailStore:
         )
         logger.debug(f"Saved decision receipt: {receipt_id}")
 
-    def get_receipt(self, receipt_id: str) -> Optional[Dict[str, Any]]:
+    def get_receipt(self, receipt_id: str) -> Optional[dict[str, Any]]:
         """
         Get a decision receipt by ID.
 
@@ -438,7 +435,7 @@ class AuditTrailStore:
             return json.loads(row[0])
         return None
 
-    def get_receipt_by_gauntlet(self, gauntlet_id: str) -> Optional[Dict[str, Any]]:
+    def get_receipt_by_gauntlet(self, gauntlet_id: str) -> Optional[dict[str, Any]]:
         """Get decision receipt by gauntlet ID."""
         if self._backend is None:
             return None
@@ -455,9 +452,9 @@ class AuditTrailStore:
         self,
         limit: int = 20,
         offset: int = 0,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        verdict: str | None = None,
+        risk_level: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         List decision receipts with pagination.
 
@@ -474,7 +471,7 @@ class AuditTrailStore:
             return []
 
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if verdict:
             conditions.append("verdict = ?")
@@ -514,15 +511,15 @@ class AuditTrailStore:
 
     def count_receipts(
         self,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
+        verdict: str | None = None,
+        risk_level: str | None = None,
     ) -> int:
         """Get total count of decision receipts."""
         if self._backend is None:
             return 0
 
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if verdict:
             conditions.append("verdict = ?")
@@ -606,16 +603,14 @@ class AuditTrailStore:
             self._backend.close()
             self._backend = None
 
-
 # Module-level singleton
-_default_store: Optional[AuditTrailStore] = None
+_default_store: AuditTrailStore | None = None
 _store_lock = threading.Lock()
 
-
 def get_audit_trail_store(
-    db_path: Optional[Path] = None,
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    db_path: Path | None = None,
+    backend: str | None = None,
+    database_url: str | None = None,
 ) -> AuditTrailStore:
     """
     Get or create the default AuditTrailStore instance.
@@ -687,7 +682,6 @@ def get_audit_trail_store(
 
     return _default_store
 
-
 def reset_audit_trail_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store
@@ -695,7 +689,6 @@ def reset_audit_trail_store() -> None:
         if _default_store is not None:
             _default_store.close()
             _default_store = None
-
 
 __all__ = [
     "AuditTrailStore",

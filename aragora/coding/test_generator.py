@@ -17,8 +17,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any, Optional
 
 class TestFramework(str, Enum):
     """Supported test frameworks."""
@@ -34,7 +33,6 @@ class TestFramework(str, Enum):
     GO_TEST = "go_test"
     RUST_TEST = "rust_test"
 
-
 class TestType(str, Enum):
     """Types of tests."""
 
@@ -48,7 +46,6 @@ class TestType(str, Enum):
     ERROR = "error"
     BOUNDARY = "boundary"
 
-
 @dataclass
 class TestCase:
     """A single test case."""
@@ -59,16 +56,16 @@ class TestCase:
     description: str
     test_type: TestType
     function_under_test: str
-    inputs: Dict[str, Any] = field(default_factory=dict)
+    inputs: dict[str, Any] = field(default_factory=dict)
     expected_output: Any = None
-    expected_error: Optional[str] = None
-    assertions: List[str] = field(default_factory=list)
-    setup: Optional[str] = None
-    teardown: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
+    expected_error: str | None = None
+    assertions: list[str] = field(default_factory=list)
+    setup: str | None = None
+    teardown: str | None = None
+    tags: list[str] = field(default_factory=list)
     priority: int = 5
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -84,7 +81,6 @@ class TestCase:
             "priority": self.priority,
         }
 
-
 @dataclass
 class TestSuite:
     """A collection of test cases."""
@@ -94,13 +90,13 @@ class TestSuite:
     name: str
     file_path: str
     framework: TestFramework
-    tests: List[TestCase] = field(default_factory=list)
-    imports: List[str] = field(default_factory=list)
-    fixtures: List[str] = field(default_factory=list)
+    tests: list[TestCase] = field(default_factory=list)
+    imports: list[str] = field(default_factory=list)
+    fixtures: list[str] = field(default_factory=list)
     generated_at: datetime = field(default_factory=datetime.now)
     coverage_target: float = 80.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "file_path": self.file_path,
@@ -298,7 +294,6 @@ class TestSuite:
 
         return "\n".join(lines)
 
-
 class TestGenerator:
     """
     Multi-agent test generator.
@@ -316,7 +311,7 @@ class TestGenerator:
         self.framework = framework
         self.coverage_target = coverage_target
 
-    def analyze_function(self, code: str, function_name: str) -> Dict[str, Any]:
+    def analyze_function(self, code: str, function_name: str) -> dict[str, Any]:
         """
         Analyze a function to understand its behavior for test generation.
 
@@ -332,7 +327,7 @@ class TestGenerator:
         except SyntaxError:
             return {"error": "Failed to parse code"}
 
-        analysis: Dict[str, Any] = {
+        analysis: dict[str, Any] = {
             "function_name": function_name,
             "parameters": [],
             "return_type": None,
@@ -379,9 +374,9 @@ class TestGenerator:
     def generate_test_cases(
         self,
         function_name: str,
-        analysis: Dict[str, Any],
-        context: Optional[str] = None,
-    ) -> List[TestCase]:
+        analysis: dict[str, Any],
+        context: str | None = None,
+    ) -> list[TestCase]:
         """
         Generate test cases from function analysis.
 
@@ -509,7 +504,7 @@ class TestGenerator:
         self,
         code: str,
         module_name: str,
-        functions: Optional[List[str]] = None,
+        functions: Optional[list[str]] = None,
     ) -> TestSuite:
         """
         Generate a complete test suite for a module.
@@ -543,7 +538,7 @@ class TestGenerator:
 
         return suite
 
-    def _extract_function_names(self, code: str) -> List[str]:
+    def _extract_function_names(self, code: str) -> list[str]:
         """Extract all function names from code."""
         try:
             tree = ast.parse(code)
@@ -557,9 +552,7 @@ class TestGenerator:
                     names.append(node.name)
         return names
 
-
 # Utility functions
-
 
 def _to_snake_case(name: str) -> str:
     """Convert string to snake_case."""
@@ -570,12 +563,10 @@ def _to_snake_case(name: str) -> str:
     name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
     return name.lower()
 
-
 def _to_pascal_case(name: str) -> str:
     """Convert string to PascalCase."""
     words = re.split(r"[_\s-]", name)
     return "".join(word.capitalize() for word in words)
-
 
 def _js_repr(value: Any) -> str:
     """Convert Python value to JavaScript representation."""
@@ -594,15 +585,13 @@ def _js_repr(value: Any) -> str:
     else:
         return str(value)
 
-
 # Convenience functions
-
 
 def generate_tests_for_function(
     code: str,
     function_name: str,
     framework: TestFramework = TestFramework.PYTEST,
-) -> Tuple[List[TestCase], str]:
+) -> tuple[list[TestCase], str]:
     """
     Generate tests for a single function.
 
@@ -621,11 +610,10 @@ def generate_tests_for_function(
 
     return test_cases, suite.to_code()
 
-
 def generate_tests_for_file(
     file_path: str,
     framework: TestFramework = TestFramework.PYTEST,
-    functions: Optional[List[str]] = None,
+    functions: Optional[list[str]] = None,
 ) -> TestSuite:
     """
     Generate tests for a file.

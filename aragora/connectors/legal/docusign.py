@@ -27,17 +27,15 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class DocuSignEnvironment(str, Enum):
     """DocuSign environment."""
 
     DEMO = "demo"
     PRODUCTION = "production"
-
 
 class EnvelopeStatus(str, Enum):
     """Envelope status values."""
@@ -50,7 +48,6 @@ class EnvelopeStatus(str, Enum):
     DECLINED = "declined"
     VOIDED = "voided"
 
-
 class RecipientType(str, Enum):
     """Types of envelope recipients."""
 
@@ -61,7 +58,6 @@ class RecipientType(str, Enum):
     EDITOR = "editor"
     AGENT = "agent"
 
-
 @dataclass
 class DocuSignCredentials:
     """OAuth credentials for DocuSign."""
@@ -70,8 +66,8 @@ class DocuSignCredentials:
     account_id: str
     base_uri: str
     token_type: str = "Bearer"
-    expires_at: Optional[datetime] = None
-    refresh_token: Optional[str] = None
+    expires_at: datetime | None = None
+    refresh_token: str | None = None
 
     @property
     def is_expired(self) -> bool:
@@ -79,7 +75,6 @@ class DocuSignCredentials:
         if not self.expires_at:
             return True
         return datetime.now(timezone.utc) >= self.expires_at
-
 
 @dataclass
 class Recipient:
@@ -92,14 +87,14 @@ class Recipient:
     recipient_id: str = ""
 
     # For in-person signing
-    host_email: Optional[str] = None
-    host_name: Optional[str] = None
+    host_email: str | None = None
+    host_name: str | None = None
 
     # Signing options
-    signing_group_id: Optional[str] = None
-    access_code: Optional[str] = None
+    signing_group_id: str | None = None
+    access_code: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "email": self.email,
             "name": self.name,
@@ -107,7 +102,6 @@ class Recipient:
             "routing_order": self.routing_order,
             "recipient_id": self.recipient_id or str(self.routing_order),
         }
-
 
 @dataclass
 class SignatureTab:
@@ -126,7 +120,7 @@ class SignatureTab:
     width: int = 100
     height: int = 20
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         base = {
             "pageNumber": str(self.page_number),
             "xPosition": str(self.x_position),
@@ -145,7 +139,6 @@ class SignatureTab:
             )
         return base
 
-
 @dataclass
 class Document:
     """A document to be signed."""
@@ -160,7 +153,6 @@ class Document:
         """Convert content to base64."""
         return base64.b64encode(self.content).decode("utf-8")
 
-
 @dataclass
 class Envelope:
     """A DocuSign envelope (signature request)."""
@@ -171,24 +163,24 @@ class Envelope:
     email_body: str = ""
 
     # Recipients
-    signers: List[Dict[str, Any]] = field(default_factory=list)
-    carbon_copies: List[Dict[str, Any]] = field(default_factory=list)
+    signers: list[dict[str, Any]] = field(default_factory=list)
+    carbon_copies: list[dict[str, Any]] = field(default_factory=list)
 
     # Documents
-    documents: List[Dict[str, Any]] = field(default_factory=list)
+    documents: list[dict[str, Any]] = field(default_factory=list)
 
     # Timestamps
-    created_at: Optional[datetime] = None
-    sent_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    voided_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    sent_at: datetime | None = None
+    completed_at: datetime | None = None
+    voided_at: datetime | None = None
 
     # Metadata
     sender_name: str = ""
     sender_email: str = ""
-    status_changed_at: Optional[datetime] = None
+    status_changed_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "envelope_id": self.envelope_id,
             "status": self.status.value,
@@ -204,25 +196,23 @@ class Envelope:
             "sender_email": self.sender_email,
         }
 
-
 @dataclass
 class EnvelopeCreateRequest:
     """Request to create an envelope."""
 
     email_subject: str
-    recipients: List[Recipient]
-    documents: List[Document]
+    recipients: list[Recipient]
+    documents: list[Document]
     email_body: str = ""
     status: str = "sent"  # 'created' for draft, 'sent' to send immediately
-    tabs: Optional[List[SignatureTab]] = None
+    tabs: Optional[list[SignatureTab]] = None
 
     # Options
     enforce_signer_visibility: bool = True
-    brand_id: Optional[str] = None
+    brand_id: str | None = None
     expire_enabled: bool = True
     expire_days: int = 30
     expire_warn: int = 5
-
 
 class DocuSignConnector:
     """
@@ -239,11 +229,11 @@ class DocuSignConnector:
 
     def __init__(
         self,
-        integration_key: Optional[str] = None,
-        user_id: Optional[str] = None,
-        account_id: Optional[str] = None,
-        private_key_path: Optional[str] = None,
-        environment: Optional[DocuSignEnvironment] = None,
+        integration_key: str | None = None,
+        user_id: str | None = None,
+        account_id: str | None = None,
+        private_key_path: str | None = None,
+        environment: DocuSignEnvironment | None = None,
     ):
         """
         Initialize DocuSign connector.
@@ -278,7 +268,7 @@ class DocuSignConnector:
             self.auth_url = self.DEMO_AUTH_URL
             self.api_url = self.DEMO_API_URL
 
-        self._credentials: Optional[DocuSignCredentials] = None
+        self._credentials: DocuSignCredentials | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -354,7 +344,7 @@ class DocuSignConnector:
 
                 return self._credentials
 
-    async def _get_user_info(self) -> Dict[str, Any]:
+    async def _get_user_info(self) -> dict[str, Any]:
         """Get user info including accounts."""
         import aiohttp
 
@@ -372,7 +362,7 @@ class DocuSignConnector:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[dict[str, Any]] = None,
         raw_response: bool = False,
     ) -> Any:
         """Make authenticated API request."""
@@ -434,7 +424,7 @@ class DocuSignConnector:
         carbon_copies = []
 
         for recipient in request.recipients:
-            recipient_data: Dict[str, Any] = {
+            recipient_data: dict[str, Any] = {
                 "email": recipient.email,
                 "name": recipient.name,
                 "recipientId": recipient.recipient_id or str(recipient.routing_order),
@@ -510,9 +500,9 @@ class DocuSignConnector:
             created_at=datetime.now(timezone.utc),
         )
 
-    def _build_tabs(self, tabs: List[SignatureTab]) -> Dict[str, List[Dict[str, Any]]]:
+    def _build_tabs(self, tabs: list[SignatureTab]) -> dict[str, list[dict[str, Any]]]:
         """Build tabs structure for DocuSign API."""
-        tabs_dict: Dict[str, List[Dict[str, Any]]] = {}
+        tabs_dict: dict[str, list[dict[str, Any]]] = {}
 
         for tab in tabs:
             tab_key = f"{tab.tab_type}Tabs"
@@ -522,7 +512,7 @@ class DocuSignConnector:
 
         return tabs_dict
 
-    async def get_envelope(self, envelope_id: str) -> Optional[Envelope]:
+    async def get_envelope(self, envelope_id: str) -> Envelope | None:
         """
         Get envelope status and details.
 
@@ -575,10 +565,10 @@ class DocuSignConnector:
 
     async def list_envelopes(
         self,
-        from_date: Optional[datetime] = None,
-        status: Optional[EnvelopeStatus] = None,
+        from_date: datetime | None = None,
+        status: EnvelopeStatus | None = None,
         limit: int = 100,
-    ) -> List[Envelope]:
+    ) -> list[Envelope]:
         """
         List envelopes.
 
@@ -720,11 +710,9 @@ class DocuSignConnector:
             raw_response=True,
         )
 
-
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
-
 
 def get_mock_envelope() -> Envelope:
     """Generate mock envelope for demo."""
@@ -756,7 +744,6 @@ def get_mock_envelope() -> Envelope:
         sender_name="Demo User",
         sender_email="demo@example.com",
     )
-
 
 __all__ = [
     "DocuSignConnector",

@@ -24,10 +24,9 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class MemoryTier(str, Enum):
     """Memory update frequency tiers.
@@ -51,15 +50,13 @@ class MemoryTier(str, Enum):
     SLOW = "slow"  # Updates per nomic cycle
     GLACIAL = "glacial"  # Updates monthly
 
-
 # Tier ordering from slowest to fastest
-TIER_ORDER: List[MemoryTier] = [
+TIER_ORDER: list[MemoryTier] = [
     MemoryTier.GLACIAL,
     MemoryTier.SLOW,
     MemoryTier.MEDIUM,
     MemoryTier.FAST,
 ]
-
 
 @dataclass
 class TierConfig:
@@ -78,9 +75,8 @@ class TierConfig:
         """Half-life in seconds."""
         return self.half_life_hours * 3600
 
-
 # Default tier configurations (HOPE-inspired nested learning)
-DEFAULT_TIER_CONFIGS: Dict[MemoryTier, TierConfig] = {
+DEFAULT_TIER_CONFIGS: dict[MemoryTier, TierConfig] = {
     MemoryTier.FAST: TierConfig(
         name="fast",
         half_life_hours=1,
@@ -122,13 +118,12 @@ DEFAULT_TIER_CONFIGS: Dict[MemoryTier, TierConfig] = {
 # Backwards compatibility alias
 TIER_CONFIGS = DEFAULT_TIER_CONFIGS
 
-
 @dataclass
 class TierTransitionMetrics:
     """Metrics for tier transition tracking."""
 
-    promotions: Dict[str, int] = field(default_factory=dict)  # tier -> count
-    demotions: Dict[str, int] = field(default_factory=dict)  # tier -> count
+    promotions: dict[str, int] = field(default_factory=dict)  # tier -> count
+    demotions: dict[str, int] = field(default_factory=dict)  # tier -> count
     total_promotions: int = 0
     total_demotions: int = 0
     last_reset: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -148,7 +143,7 @@ class TierTransitionMetrics:
             self.demotions[key] = self.demotions.get(key, 0) + 1
             self.total_demotions += 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization (thread-safe)."""
         with self._lock:
             return {
@@ -168,7 +163,6 @@ class TierTransitionMetrics:
             self.total_demotions = 0
             self.last_reset = datetime.now().isoformat()
 
-
 class TierManager:
     """
     Manager for memory tier configuration and transitions.
@@ -182,7 +176,7 @@ class TierManager:
 
     def __init__(
         self,
-        configs: Optional[Dict[MemoryTier, TierConfig]] = None,
+        configs: Optional[dict[MemoryTier, TierConfig]] = None,
         promotion_cooldown_hours: float = 24.0,
         min_updates_for_demotion: int = 10,
     ):
@@ -203,7 +197,7 @@ class TierManager:
         """Get configuration for a tier."""
         return self._configs[tier]
 
-    def get_all_configs(self) -> Dict[MemoryTier, TierConfig]:
+    def get_all_configs(self) -> dict[MemoryTier, TierConfig]:
         """Get all tier configurations."""
         return self._configs.copy()
 
@@ -216,7 +210,7 @@ class TierManager:
         """Get the index of a tier in the ordering (0=slowest, 3=fastest)."""
         return TIER_ORDER.index(tier)
 
-    def get_next_tier(self, current_tier: MemoryTier, direction: str) -> Optional[MemoryTier]:
+    def get_next_tier(self, current_tier: MemoryTier, direction: str) -> MemoryTier | None:
         """
         Get the next tier in the specified direction.
 
@@ -244,7 +238,7 @@ class TierManager:
         self,
         tier: MemoryTier,
         surprise_score: float,
-        last_promotion_at: Optional[str] = None,
+        last_promotion_at: str | None = None,
     ) -> bool:
         """
         Check if a memory entry should be promoted to a faster tier.
@@ -336,7 +330,7 @@ class TierManager:
         """Get current transition metrics."""
         return self._metrics
 
-    def get_metrics_dict(self) -> Dict[str, Any]:
+    def get_metrics_dict(self) -> dict[str, Any]:
         """Get metrics as a dictionary."""
         return self._metrics.to_dict()
 
@@ -364,10 +358,8 @@ class TierManager:
         """Set minimum updates required for demotion."""
         self._min_updates_for_demotion = max(1, value)
 
-
 # Use ServiceRegistry for singleton management
 # Backward-compatible - these functions still work but delegate to registry
-
 
 def get_tier_manager() -> TierManager:
     """Get the default TierManager instance.
@@ -380,7 +372,6 @@ def get_tier_manager() -> TierManager:
     if not registry.has(TierManager):
         registry.register(TierManager, TierManager())
     return registry.resolve(TierManager)
-
 
 def reset_tier_manager() -> None:
     """Reset the default TierManager (useful for testing).

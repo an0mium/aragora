@@ -21,23 +21,23 @@ Usage:
     # Select critics for a proposal
     critics = pool.select_critics(proposer, all_agents)
 """
+from __future__ import annotations
 
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AgentPoolConfig:
     """Configuration for agent pool behavior."""
 
     # Performance tracking
-    elo_system: Optional[Any] = None  # EloSystem
-    calibration_tracker: Optional[Any] = None  # CalibrationTracker
-    circuit_breaker: Optional[Any] = None  # CircuitBreaker
+    elo_system: Any | None = None  # EloSystem
+    calibration_tracker: Any | None = None  # CalibrationTracker
+    circuit_breaker: Any | None = None  # CircuitBreaker
 
     # Selection behavior
     use_performance_selection: bool = False
@@ -49,7 +49,6 @@ class AgentPoolConfig:
     topology: str = "full_mesh"  # full_mesh, ring, star
     critic_count: int = 2  # Default critics per proposal
 
-
 @dataclass
 class AgentMetrics:
     """Metrics for a single agent."""
@@ -60,7 +59,6 @@ class AgentMetrics:
     debates_participated: int = 0
     win_rate: float = 0.5
     is_available: bool = True
-
 
 class AgentPool:
     """
@@ -75,8 +73,8 @@ class AgentPool:
 
     def __init__(
         self,
-        agents: List[Any],  # List[Agent]
-        config: Optional[AgentPoolConfig] = None,
+        agents: list[Any],  # list[Agent]
+        config: AgentPoolConfig | None = None,
     ):
         """
         Initialize the agent pool.
@@ -89,10 +87,10 @@ class AgentPool:
         self._config = config or AgentPoolConfig()
 
         # Agent name to agent mapping
-        self._agent_map: Dict[str, Any] = {getattr(a, "name", str(a)): a for a in self._agents}
+        self._agent_map: dict[str, Any] = {getattr(a, "name", str(a)): a for a in self._agents}
 
         # Metrics cache
-        self._metrics: Dict[str, AgentMetrics] = {}
+        self._metrics: dict[str, AgentMetrics] = {}
         self._initialize_metrics()
 
     def _initialize_metrics(self) -> None:
@@ -106,23 +104,23 @@ class AgentPool:
     # =========================================================================
 
     @property
-    def agents(self) -> List[Any]:
+    def agents(self) -> list[Any]:
         """Get all agents in the pool."""
         return self._agents.copy()
 
     @property
-    def available_agents(self) -> List[Any]:
+    def available_agents(self) -> list[Any]:
         """Get all available (non-circuit-broken) agents."""
         if self._config.circuit_breaker is None:
             return self._agents.copy()
 
         return [a for a in self._agents if not self._is_circuit_broken(getattr(a, "name", str(a)))]
 
-    def get_agent(self, name: str) -> Optional[Any]:
+    def get_agent(self, name: str) -> Any | None:
         """Get an agent by name."""
         return self._agent_map.get(name)
 
-    def require_agents(self, min_count: int = 1) -> List[Any]:
+    def require_agents(self, min_count: int = 1) -> list[Any]:
         """
         Get available agents, raising if insufficient.
 
@@ -164,9 +162,9 @@ class AgentPool:
     def select_team(
         self,
         domain: str = "",
-        team_size: Optional[int] = None,
-        exclude: Optional[Set[str]] = None,
-    ) -> List[Any]:
+        team_size: int | None = None,
+        exclude: Optional[set[str]] = None,
+    ) -> list[Any]:
         """
         Select a team of agents for a debate.
 
@@ -209,12 +207,12 @@ class AgentPool:
 
     def _select_by_performance(
         self,
-        agents: List[Any],
+        agents: list[Any],
         count: int,
         domain: str = "",
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Select agents based on composite performance score."""
-        scores: List[tuple[Any, float]] = []
+        scores: list[tuple[Any, float]] = []
 
         for agent in agents:
             name = getattr(agent, "name", str(agent))
@@ -321,9 +319,9 @@ class AgentPool:
     def select_critics(
         self,
         proposer: Any,
-        candidates: Optional[List[Any]] = None,
-        count: Optional[int] = None,
-    ) -> List[Any]:
+        candidates: Optional[list[Any]] = None,
+        count: int | None = None,
+    ) -> list[Any]:
         """
         Select critics for a proposal based on topology.
 
@@ -358,9 +356,9 @@ class AgentPool:
 
     def _select_mesh_critics(
         self,
-        pool: List[Any],
+        pool: list[Any],
         count: int,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Select critics using full mesh topology (random selection)."""
         count = min(count, len(pool))
         return random.sample(pool, count)
@@ -368,9 +366,9 @@ class AgentPool:
     def _select_ring_critics(
         self,
         proposer_name: str,
-        pool: List[Any],
+        pool: list[Any],
         count: int,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Select critics using ring topology (neighbors only)."""
         # Find proposer index in original agent list
         agent_names = [getattr(a, "name", str(a)) for a in self._agents]
@@ -402,9 +400,9 @@ class AgentPool:
     def _select_star_critics(
         self,
         proposer_name: str,
-        pool: List[Any],
+        pool: list[Any],
         count: int,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Select critics using star topology (hub critiques all)."""
         # First agent is the hub
         if not self._agents:
@@ -430,8 +428,8 @@ class AgentPool:
     def update_metrics(
         self,
         agent_name: str,
-        elo_rating: Optional[float] = None,
-        calibration_score: Optional[float] = None,
+        elo_rating: float | None = None,
+        calibration_score: float | None = None,
         debate_participated: bool = False,
         won: bool = False,
     ) -> None:
@@ -461,14 +459,14 @@ class AgentPool:
                 wins = metrics.win_rate * (total - 1) + (1 if won else 0)
                 metrics.win_rate = wins / total
 
-    def get_agent_metrics(self, agent_name: str) -> Optional[AgentMetrics]:
+    def get_agent_metrics(self, agent_name: str) -> AgentMetrics | None:
         """Get metrics for an agent."""
         return self._metrics.get(agent_name)
 
     def set_scoring_systems(
         self,
-        elo_system: Optional[Any] = None,
-        calibration_tracker: Optional[Any] = None,
+        elo_system: Any | None = None,
+        calibration_tracker: Any | None = None,
     ) -> None:
         """
         Update scoring systems for performance-based selection.
@@ -514,7 +512,7 @@ class AgentPool:
                 except (KeyError, AttributeError):
                     pass
 
-    def get_pool_status(self) -> Dict[str, Any]:
+    def get_pool_status(self) -> dict[str, Any]:
         """
         Get overall pool status.
 
@@ -537,7 +535,6 @@ class AgentPool:
                 for a in self._agents
             ],
         }
-
 
 __all__ = [
     "AgentPool",

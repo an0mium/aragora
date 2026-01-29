@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.versioning.compat import strip_version_prefix
@@ -115,7 +115,6 @@ ANALYTICS_STUB_RESPONSES = {
     "/api/analytics/deliberations/performance": {"performance": []},
 }
 
-
 class AnalyticsDashboardHandler(BaseHandler):
     """Handler for analytics dashboard endpoints."""
 
@@ -148,7 +147,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_permission("analytics:read")
     @rate_limit(rpm=60)
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         normalized = strip_version_prefix(path)
         if normalized in ANALYTICS_STUB_RESPONSES:

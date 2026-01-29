@@ -9,17 +9,16 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def run_debate_tool(
     question: str,
     agents: str | None = None,
     rounds: int | None = None,
     consensus: str | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Run a decision stress-test (debate engine) on a topic.
 
@@ -102,8 +101,7 @@ async def run_debate_tool(
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-
-async def get_debate_tool(debate_id: str) -> Dict[str, Any]:
+async def get_debate_tool(debate_id: str) -> dict[str, Any]:
     """
     Get results of a previous debate.
 
@@ -130,7 +128,6 @@ async def get_debate_tool(debate_id: str) -> Dict[str, Any]:
 
     return {"error": f"Debate {debate_id} not found"}
 
-
 async def search_debates_tool(
     query: str = "",
     agent: str = "",
@@ -138,7 +135,7 @@ async def search_debates_tool(
     end_date: str = "",
     consensus_only: bool = False,
     limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Search debates by topic, date range, or participating agents.
 
@@ -154,7 +151,7 @@ async def search_debates_tool(
         Dict with matching debates and count
     """
     limit = min(max(limit, 1), 100)
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
 
     try:
         from aragora.server.storage import get_debates_db
@@ -170,7 +167,7 @@ async def search_debates_tool(
             # Apply additional filters (agent, consensus_only) in memory
             for debate_meta in all_debates:
                 # Convert DebateMetadata to dict (dataclass has typed fields)
-                debate_dict: Dict[str, Any] = {
+                debate_dict: dict[str, Any] = {
                     "debate_id": getattr(debate_meta, "debate_id", ""),
                     "task": getattr(debate_meta, "task", ""),
                     "agents": getattr(debate_meta, "agents", []),
@@ -201,12 +198,11 @@ async def search_debates_tool(
         },
     }
 
-
 async def fork_debate_tool(
     debate_id: str,
     branch_point: int = -1,
     modified_context: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fork a debate to explore counterfactual scenarios.
 
@@ -276,11 +272,10 @@ async def fork_debate_tool(
     except Exception as e:
         return {"error": f"Fork creation failed: {e}"}
 
-
 async def get_forks_tool(
     debate_id: str,
     include_nested: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get all forks of a debate.
 
@@ -302,7 +297,7 @@ async def get_forks_tool(
             return {"error": "Storage not available"}
 
         # Get forks from storage
-        forks: List[Dict[str, Any]] = []
+        forks: list[dict[str, Any]] = []
         if hasattr(db, "get_forks"):
             forks = db.get_forks(debate_id, include_nested=include_nested)
         else:
@@ -329,7 +324,6 @@ async def get_forks_tool(
 
     except Exception as e:
         return {"error": f"Failed to get forks: {e}"}
-
 
 __all__ = [
     "run_debate_tool",

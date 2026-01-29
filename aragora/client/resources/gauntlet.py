@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, TYPE_CHECKING, Optional
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
@@ -19,7 +19,6 @@ from aragora.client.models import (
     GauntletRunRequest,
     GauntletRunResponse,
 )
-
 
 class GauntletAPI:
     """API interface for gauntlet (adversarial validation)."""
@@ -164,7 +163,7 @@ class GauntletAPI:
         return {"deleted": response.get("deleted", True)}
 
     def list_personas(
-        self, category: Optional[str] = None, enabled: Optional[bool] = None
+        self, category: str | None = None, enabled: bool | None = None
     ) -> list[GauntletPersona]:
         """
         List available gauntlet personas.
@@ -186,7 +185,7 @@ class GauntletAPI:
         return [GauntletPersona(**p) for p in personas]
 
     async def list_personas_async(
-        self, category: Optional[str] = None, enabled: Optional[bool] = None
+        self, category: str | None = None, enabled: bool | None = None
     ) -> list[GauntletPersona]:
         """Async version of list_personas()."""
         params: dict[str, Any] = {}
@@ -200,8 +199,8 @@ class GauntletAPI:
 
     def list_results(
         self,
-        gauntlet_id: Optional[str] = None,
-        status: Optional[str] = None,
+        gauntlet_id: str | None = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> list[GauntletResult]:
@@ -228,8 +227,8 @@ class GauntletAPI:
 
     async def list_results_async(
         self,
-        gauntlet_id: Optional[str] = None,
-        status: Optional[str] = None,
+        gauntlet_id: str | None = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> list[GauntletResult]:
@@ -288,6 +287,5 @@ class GauntletAPI:
             f"/api/v1/gauntlet/{gauntlet_id_a}/compare/{gauntlet_id_b}"
         )
         return GauntletComparison(**response)
-
 
 __all__ = ["GauntletAPI"]

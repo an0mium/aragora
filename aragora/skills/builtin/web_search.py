@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     Skill,
@@ -21,7 +21,6 @@ from ..base import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class SearchResult:
     """A single search result."""
@@ -31,9 +30,9 @@ class SearchResult:
     snippet: str
     source: str = "web"
     relevance_score: float = 0.0
-    published_date: Optional[str] = None
+    published_date: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "url": self.url,
@@ -42,7 +41,6 @@ class SearchResult:
             "relevance_score": self.relevance_score,
             "published_date": self.published_date,
         }
-
 
 class WebSearchSkill(Skill):
     """
@@ -113,7 +111,7 @@ class WebSearchSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         """Execute web search."""
@@ -158,9 +156,9 @@ class WebSearchSkill(Skill):
         self,
         query: str,
         max_results: int,
-        region: Optional[str] = None,
-        time_range: Optional[str] = None,
-    ) -> List[SearchResult]:
+        region: str | None = None,
+        time_range: str | None = None,
+    ) -> list[SearchResult]:
         """Search using DuckDuckGo."""
         try:
             from duckduckgo_search import DDGS
@@ -168,7 +166,7 @@ class WebSearchSkill(Skill):
             logger.warning("duckduckgo-search not installed, returning empty results")
             return []
 
-        results: List[SearchResult] = []
+        results: list[SearchResult] = []
         try:
             with DDGS() as ddgs:
                 timelimit = None
@@ -206,7 +204,7 @@ class WebSearchSkill(Skill):
         self,
         query: str,
         max_results: int,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Search using Tavily (AI-optimized search)."""
         import os
 
@@ -253,7 +251,7 @@ class WebSearchSkill(Skill):
         self,
         query: str,
         max_results: int,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Search using Google Custom Search API."""
         import os
 
@@ -296,7 +294,6 @@ class WebSearchSkill(Skill):
         except Exception as e:
             logger.warning(f"Google search error: {e}")
             return await self._search_duckduckgo(query, max_results, None, None)
-
 
 # Skill instance for registration
 SKILLS = [WebSearchSkill()]

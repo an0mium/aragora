@@ -8,6 +8,7 @@ Tracks agent positions across debates and links them to outcomes:
 
 This enables persona synthesis from verifiable data rather than self-reported traits.
 """
+from __future__ import annotations
 
 __all__ = [
     "Position",
@@ -19,11 +20,9 @@ __all__ = [
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.config import resolve_db_path
 from aragora.insights.database import InsightsDatabase
-
 
 @dataclass
 class Position:
@@ -35,8 +34,8 @@ class Position:
     position_text: str
     round_num: int = 0
     confidence: float = 0.5
-    was_winning: Optional[bool] = None
-    verified_correct: Optional[bool] = None
+    was_winning: bool | None = None
+    verified_correct: bool | None = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     @classmethod
@@ -58,7 +57,6 @@ class Position:
             verified_correct=bool(row[7]) if row[7] is not None else None,
             created_at=row[8],
         )
-
 
 class PositionTracker:
     """
@@ -261,7 +259,6 @@ class PositionTracker:
 
         return [Position.from_row(row) for row in rows]
 
-
 @dataclass
 class TruthGroundedPersona:
     """A persona synthesized from verifiable data."""
@@ -290,7 +287,6 @@ class TruthGroundedPersona:
     contrarian_score: float = 0.0  # How often they disagree with eventual winners
     early_adopter_score: float = 0.0  # How often first to correct answer
 
-
 class TruthGroundedLaboratory:
     """
     Main interface for the Emergent Persona Laboratory v2.
@@ -303,7 +299,7 @@ class TruthGroundedLaboratory:
 
     def __init__(
         self,
-        position_tracker: Optional[PositionTracker] = None,
+        position_tracker: PositionTracker | None = None,
         elo_system=None,
         persona_manager=None,
         db_path: str = "aragora_positions.db",

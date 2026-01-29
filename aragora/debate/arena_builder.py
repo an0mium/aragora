@@ -69,7 +69,6 @@ from aragora.core import Agent, Environment
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.spectate.stream import SpectatorStream
 
-
 class InitPhase(Enum):
     """Initialization phases in dependency order.
 
@@ -98,7 +97,6 @@ class InitPhase(Enum):
             cls.PHASES: [cls.CORE, cls.TRACKERS, cls.ROLES, cls.CONVERGENCE],
         }
 
-
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.grounded import MomentDetector
@@ -122,7 +120,6 @@ if TYPE_CHECKING:
     from aragora.templates import DebateTemplate
 
 logger = logging.getLogger(__name__)
-
 
 class ArenaBuilder:
     """Fluent builder for Arena construction.
@@ -164,7 +161,7 @@ class ArenaBuilder:
         self._agents = agents
 
         # Protocol configuration
-        self._protocol: Optional[DebateProtocol] = None
+        self._protocol: DebateProtocol | None = None
         self._template: Optional["DebateTemplate"] = None
 
         # Memory and persistence
@@ -176,7 +173,7 @@ class ArenaBuilder:
         # Event handling
         self._event_hooks: dict = {}
         self._event_emitter = None
-        self._spectator: Optional[SpectatorStream] = None
+        self._spectator: SpectatorStream | None = None
         self._recorder: Optional["ReplayRecorder"] = None
 
         # Agent tracking and ranking
@@ -202,7 +199,7 @@ class ArenaBuilder:
         # Loop configuration
         self._loop_id: str = ""
         self._strict_loop_scoping: bool = False
-        self._circuit_breaker: Optional[CircuitBreaker] = None
+        self._circuit_breaker: CircuitBreaker | None = None
         self._initial_messages: list = []
 
         # Airlock configuration
@@ -298,7 +295,7 @@ class ArenaBuilder:
     def with_template(
         self,
         template: "DebateTemplate",
-        overrides: Optional[dict] = None,
+        overrides: dict | None = None,
     ) -> ArenaBuilder:
         """Configure arena from a DebateTemplate.
 
@@ -1103,12 +1100,11 @@ class ArenaBuilder:
             training_export_min_confidence=self._training_export_min_confidence,
         )
 
-
 # Convenience function for minimal Arena creation
 def create_arena(
     environment: Environment,
     agents: list[Agent],
-    protocol: Optional[DebateProtocol] = None,
+    protocol: DebateProtocol | None = None,
     memory: Optional["CritiqueStore"] = None,
     elo_system: Optional["EloSystem"] = None,
 ) -> "Arena":

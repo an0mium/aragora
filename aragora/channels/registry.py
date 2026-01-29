@@ -17,7 +17,7 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Type
+from typing import Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability
 
@@ -27,7 +27,6 @@ __all__ = [
     "DockRegistry",
     "get_dock_registry",
 ]
-
 
 class DockRegistry:
     """
@@ -39,14 +38,14 @@ class DockRegistry:
 
     def __init__(self):
         """Initialize the registry."""
-        self._dock_classes: dict[str, Type[ChannelDock]] = {}
+        self._dock_classes: dict[str, type[ChannelDock]] = {}
         self._dock_instances: dict[str, ChannelDock] = {}
         self._default_configs: dict[str, dict[str, Any]] = {}
 
     def register(
         self,
-        dock_class: Type[ChannelDock],
-        config: Optional[dict[str, Any]] = None,
+        dock_class: type[ChannelDock],
+        config: dict[str, Any] | None = None,
     ) -> None:
         """
         Register a dock class.
@@ -64,9 +63,9 @@ class DockRegistry:
     def get_dock(
         self,
         platform: str,
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         auto_initialize: bool = False,
-    ) -> Optional[ChannelDock]:
+    ) -> ChannelDock | None:
         """
         Get a dock instance for a platform.
 
@@ -109,8 +108,8 @@ class DockRegistry:
     async def get_initialized_dock(
         self,
         platform: str,
-        config: Optional[dict[str, Any]] = None,
-    ) -> Optional[ChannelDock]:
+        config: dict[str, Any] | None = None,
+    ) -> ChannelDock | None:
         """
         Get an initialized dock instance.
 
@@ -189,10 +188,8 @@ class DockRegistry:
         self._dock_instances.clear()
         self._default_configs.clear()
 
-
 # Global registry singleton
-_dock_registry: Optional[DockRegistry] = None
-
+_dock_registry: DockRegistry | None = None
 
 def get_dock_registry() -> DockRegistry:
     """
@@ -211,7 +208,6 @@ def get_dock_registry() -> DockRegistry:
         _register_builtin_docks(_dock_registry)
 
     return _dock_registry
-
 
 def _register_builtin_docks(registry: DockRegistry) -> None:
     """

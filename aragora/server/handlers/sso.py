@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any
 from urllib.parse import urlparse
 
 from aragora.exceptions import ConfigurationError
@@ -30,19 +30,16 @@ from .secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
-
 try:
     from aragora.auth import get_sso_provider as _get_sso_provider
 except ImportError:  # pragma: no cover - optional dependency
     _get_sso_provider = None  # type: ignore[assignment]
-
 
 def get_sso_provider() -> Any:
     """Get SSO provider, raising ImportError if not available."""
     if _get_sso_provider is None:
         raise ImportError("SSO auth module not available")
     return _get_sso_provider()
-
 
 try:
     from aragora.server.auth import auth_config as auth_config
@@ -66,7 +63,6 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     SAMLProvider = None
 
-
 class SSOHandler(SecureHandler):
     """Handler for SSO (Single Sign-On) endpoints.
 
@@ -81,7 +77,7 @@ class SSOHandler(SecureHandler):
     Supports SAML 2.0 and OpenID Connect (OIDC) providers.
     """
 
-    def __init__(self, server_context: Optional[dict] = None):
+    def __init__(self, server_context: dict | None = None):
         """Initialize SSO handler."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
         self._provider = None
@@ -119,7 +115,7 @@ class SSOHandler(SecureHandler):
                 flat[key] = error[key]
         return flat
 
-    def _to_legacy_result(self, result: Union[HandlerResult, dict]) -> dict:
+    def _to_legacy_result(self, result: HandlerResult | dict) -> dict:
         """Normalize HandlerResult to dict for legacy/tests."""
         if isinstance(result, dict):
             legacy = dict(result)
@@ -160,8 +156,8 @@ class SSOHandler(SecureHandler):
         }
 
     def _format_response(
-        self, handler: Any, result: Union[HandlerResult, dict]
-    ) -> Union[HandlerResult, dict]:
+        self, handler: Any, result: HandlerResult | dict
+    ) -> HandlerResult | dict:
         """Return handler result or legacy dict depending on context."""
         if self._should_return_handler_result(handler):
             return result
@@ -182,8 +178,8 @@ class SSOHandler(SecureHandler):
 
     @rate_limit(rpm=10)
     async def handle_login(
-        self, handler: Any, params: Dict[str, Any]
-    ) -> Union[HandlerResult, Dict[str, Any]]:
+        self, handler: Any, params: dict[str, Any]
+    ) -> HandlerResult | dict[str, Any]:
         """
         Initiate SSO login flow.
 
@@ -280,8 +276,8 @@ class SSOHandler(SecureHandler):
 
     @rate_limit(rpm=10)
     async def handle_callback(
-        self, handler: Any, params: Dict[str, Any]
-    ) -> Union[HandlerResult, Dict[str, Any]]:
+        self, handler: Any, params: dict[str, Any]
+    ) -> HandlerResult | dict[str, Any]:
         """
         Handle IdP callback after authentication.
 
@@ -439,8 +435,8 @@ class SSOHandler(SecureHandler):
 
     @rate_limit(rpm=10)
     async def handle_logout(
-        self, handler: Any, params: Dict[str, Any]
-    ) -> Union[HandlerResult, Dict[str, Any]]:
+        self, handler: Any, params: dict[str, Any]
+    ) -> HandlerResult | dict[str, Any]:
         """
         Handle SSO logout.
 
@@ -535,8 +531,8 @@ class SSOHandler(SecureHandler):
 
     @rate_limit(rpm=10)
     async def handle_metadata(
-        self, handler: Any, params: Dict[str, Any]
-    ) -> Union[HandlerResult, Dict[str, Any]]:
+        self, handler: Any, params: dict[str, Any]
+    ) -> HandlerResult | dict[str, Any]:
         """
         Get SAML SP metadata.
 
@@ -599,8 +595,8 @@ class SSOHandler(SecureHandler):
 
     @rate_limit(rpm=10)
     async def handle_status(
-        self, handler: Any, params: Dict[str, Any]
-    ) -> Union[HandlerResult, Dict[str, Any]]:
+        self, handler: Any, params: dict[str, Any]
+    ) -> HandlerResult | dict[str, Any]:
         """
         Get SSO configuration status.
 
@@ -643,7 +639,7 @@ class SSOHandler(SecureHandler):
             ),
         )
 
-    def _get_param(self, params: Dict[str, Any], key: str) -> Optional[str]:
+    def _get_param(self, params: dict[str, Any], key: str) -> str | None:
         """Extract parameter value, handling list format."""
         value = params.get(key)
         if value is None:
@@ -699,6 +695,5 @@ class SSOHandler(SecureHandler):
         except Exception as e:
             logger.warning(f"SSO redirect validation error: {e}")
             return False
-
 
 __all__ = ["SSOHandler"]

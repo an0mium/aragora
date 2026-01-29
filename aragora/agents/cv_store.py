@@ -18,7 +18,6 @@ import json
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from aragora.agents.cv import AgentCV, CVBuilder, get_cv_builder
 from aragora.persistence.db_config import DatabaseType, get_db_path
@@ -37,7 +36,6 @@ CV_SCHEMA_VERSION = 1
 
 # Default cache TTL (5 minutes)
 DEFAULT_CACHE_TTL_SECONDS = 300
-
 
 class CVStore(SQLiteStore):
     """
@@ -79,7 +77,7 @@ class CVStore(SQLiteStore):
     def __init__(
         self,
         db_path: str | Path | None = None,
-        cv_builder: Optional[CVBuilder] = None,
+        cv_builder: CVBuilder | None = None,
         cache_ttl_seconds: int = DEFAULT_CACHE_TTL_SECONDS,
     ):
         if db_path is None:
@@ -109,7 +107,7 @@ class CVStore(SQLiteStore):
         agent_id: str,
         use_cache: bool = True,
         auto_build: bool = True,
-    ) -> Optional[AgentCV]:
+    ) -> AgentCV | None:
         """
         Get CV for an agent.
 
@@ -148,7 +146,7 @@ class CVStore(SQLiteStore):
         agent_id: str,
         use_cache: bool = True,
         auto_build: bool = True,
-    ) -> Optional[AgentCV]:
+    ) -> AgentCV | None:
         """
         Synchronous version of get_cv for non-async contexts.
 
@@ -281,7 +279,7 @@ class CVStore(SQLiteStore):
             conn.commit()
             return cursor.rowcount > 0
 
-    def invalidate_cache(self, agent_id: Optional[str] = None) -> int:
+    def invalidate_cache(self, agent_id: str | None = None) -> int:
         """
         Invalidate cached CVs.
 
@@ -301,7 +299,7 @@ class CVStore(SQLiteStore):
         self._cache.clear()
         return count
 
-    def _load_from_db(self, agent_id: str) -> Optional[AgentCV]:
+    def _load_from_db(self, agent_id: str) -> AgentCV | None:
         """Load CV from database."""
         try:
             with self.connection() as conn:
@@ -394,10 +392,8 @@ class CVStore(SQLiteStore):
 
         return domain_cvs[:limit]
 
-
 # Singleton store instance
-_cv_store: Optional[CVStore] = None
-
+_cv_store: CVStore | None = None
 
 def get_cv_store() -> CVStore:
     """Get the global CVStore singleton instance."""

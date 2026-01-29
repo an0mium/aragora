@@ -11,11 +11,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class VerticalCapabilities:
@@ -38,7 +37,6 @@ class VerticalCapabilities:
     pattern_categories: list[str] = field(default_factory=list)
     compliance_frameworks: list[str] = field(default_factory=list)
     document_types: list[str] = field(default_factory=list)
-
 
 @dataclass
 class VerticalFact:
@@ -72,7 +70,7 @@ class VerticalFact:
         """Check if fact is stale enough to need reverification."""
         return self.adjusted_confidence < 0.5 * self.confidence
 
-    def refresh(self, new_confidence: Optional[float] = None) -> None:
+    def refresh(self, new_confidence: float | None = None) -> None:
         """Mark fact as freshly verified."""
         self.verified_at = datetime.now()
         self.staleness_days = 0.0
@@ -96,7 +94,6 @@ class VerticalFact:
             "verified_at": self.verified_at.isoformat(),
         }
 
-
 @dataclass
 class PatternMatch:
     """A detected pattern across facts."""
@@ -108,7 +105,6 @@ class PatternMatch:
     confidence: float
     supporting_facts: list[str]  # Fact IDs
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class ComplianceCheckResult:
@@ -123,7 +119,6 @@ class ComplianceCheckResult:
     evidence: list[str]
     recommendations: list[str]
     confidence: float
-
 
 class BaseVerticalKnowledge(ABC):
     """
@@ -185,7 +180,7 @@ class BaseVerticalKnowledge(ABC):
     async def extract_facts(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list[VerticalFact]:
         """
         Extract domain-specific facts from content.
@@ -207,7 +202,7 @@ class BaseVerticalKnowledge(ABC):
     async def validate_fact(
         self,
         fact: VerticalFact,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> tuple[bool, float]:
         """
         Validate a fact, return (is_valid, new_confidence).
@@ -301,8 +296,8 @@ class BaseVerticalKnowledge(ABC):
         content: str,
         category: str,
         confidence: float = 0.5,
-        provenance: Optional[dict[str, Any]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        provenance: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> VerticalFact:
         """Helper to create a fact with vertical-specific defaults."""
         import uuid

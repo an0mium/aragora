@@ -70,7 +70,6 @@ except ImportError:
     THREAT_INTEL_ENABLED = False
     ThreatIntelEnrichment = None  # type: ignore[misc,assignment]
 
-
 class ContextGatherer:
     """
     Gathers context from multiple sources for debate grounding.
@@ -98,17 +97,17 @@ class ContextGatherer:
     def __init__(
         self,
         evidence_store_callback: Optional[Callable[..., Any]] = None,
-        prompt_builder: Optional[Any] = None,
-        project_root: Optional[Path] = None,
+        prompt_builder: Any | None = None,
+        project_root: Path | None = None,
         enable_rlm_compression: bool = True,
         rlm_compressor: Optional["HierarchicalCompressor"] = None,
         rlm_compression_threshold: int = 3000,  # Chars above which to use RLM
         enable_knowledge_grounding: bool = True,
-        knowledge_mound: Optional[Any] = None,
-        knowledge_workspace_id: Optional[str] = None,
+        knowledge_mound: Any | None = None,
+        knowledge_workspace_id: str | None = None,
         enable_belief_guidance: bool = True,
         enable_threat_intel_enrichment: bool = True,
-        threat_intel_enrichment: Optional[Any] = None,
+        threat_intel_enrichment: Any | None = None,
         enable_trending_context: bool = True,
     ):
         """
@@ -162,7 +161,7 @@ class ContextGatherer:
         # RLM configuration - use factory for consistent initialization
         self._enable_rlm = enable_rlm_compression and HAS_RLM
         self._rlm_compressor = rlm_compressor
-        self._aragora_rlm: Optional[Any] = None
+        self._aragora_rlm: Any | None = None
         self._rlm_threshold = rlm_compression_threshold
 
         if self._enable_rlm and get_rlm is not None:
@@ -289,7 +288,7 @@ class ContextGatherer:
                 logger.info("[threat_intel] ContextGatherer: Using provided enrichment instance")
 
     @property
-    def evidence_pack(self) -> Optional[Any]:
+    def evidence_pack(self) -> Any | None:
         """Get the most recent cached evidence pack.
 
         For task-specific evidence, use get_evidence_pack(task) instead.
@@ -303,7 +302,7 @@ class ContextGatherer:
             return list(self._research_evidence_pack.values())[-1]
         return None
 
-    def get_evidence_pack(self, task: str) -> Optional[Any]:
+    def get_evidence_pack(self, task: str) -> Any | None:
         """Get the cached evidence pack for a specific task."""
         task_hash = self._get_task_hash(task)
         return self._research_evidence_pack.get(task_hash)
@@ -316,7 +315,7 @@ class ContextGatherer:
         """Generate a cache key from task to prevent cache leaks between debates."""
         return hashlib.sha256(task.encode()).hexdigest()[:16]
 
-    async def gather_all(self, task: str, timeout: Optional[float] = None) -> str:
+    async def gather_all(self, task: str, timeout: float | None = None) -> str:
         """
         Perform multi-source research and return formatted context.
 
@@ -405,7 +404,7 @@ class ContextGatherer:
         else:
             return "No research context available."
 
-    async def _gather_claude_web_search(self, task: str) -> Optional[str]:
+    async def _gather_claude_web_search(self, task: str) -> str | None:
         """
         Perform web search using Claude's built-in web_search tool.
 
@@ -454,7 +453,7 @@ class ContextGatherer:
             logger.warning(f"[research] Unexpected error in Claude web search: {e}")
             return None
 
-    async def _gather_evidence_with_timeout(self, task: str) -> Optional[str]:
+    async def _gather_evidence_with_timeout(self, task: str) -> str | None:
         """Gather evidence with timeout protection."""
         try:
             return await asyncio.wait_for(
@@ -464,7 +463,7 @@ class ContextGatherer:
             logger.warning(f"Evidence collection timed out after {EVIDENCE_TIMEOUT}s")
             return None
 
-    async def _gather_trending_with_timeout(self) -> Optional[str]:
+    async def _gather_trending_with_timeout(self) -> str | None:
         """Gather trending context with timeout protection."""
         try:
             return await asyncio.wait_for(self.gather_trending_context(), timeout=TRENDING_TIMEOUT)
@@ -472,7 +471,7 @@ class ContextGatherer:
             logger.warning(f"Trending context timed out after {TRENDING_TIMEOUT}s")
             return None
 
-    async def _gather_knowledge_mound_with_timeout(self, task: str) -> Optional[str]:
+    async def _gather_knowledge_mound_with_timeout(self, task: str) -> str | None:
         """Gather knowledge mound context with timeout protection."""
         try:
             return await asyncio.wait_for(
@@ -482,7 +481,7 @@ class ContextGatherer:
             logger.warning(f"Knowledge mound context timed out after {KNOWLEDGE_MOUND_TIMEOUT}s")
             return None
 
-    async def _gather_threat_intel_with_timeout(self, task: str) -> Optional[str]:
+    async def _gather_threat_intel_with_timeout(self, task: str) -> str | None:
         """Gather threat intelligence context with timeout protection."""
         try:
             return await asyncio.wait_for(
@@ -492,7 +491,7 @@ class ContextGatherer:
             logger.warning(f"Threat intel context timed out after {THREAT_INTEL_TIMEOUT}s")
             return None
 
-    async def gather_threat_intel_context(self, task: str) -> Optional[str]:
+    async def gather_threat_intel_context(self, task: str) -> str | None:
         """
         Gather threat intelligence context for security-related topics.
 
@@ -550,7 +549,7 @@ class ContextGatherer:
             logger.warning(f"[threat_intel] Unexpected error in enrichment: {e}")
             return None
 
-    async def gather_aragora_context(self, task: str) -> Optional[str]:
+    async def gather_aragora_context(self, task: str) -> str | None:
         """
         Gather Aragora-specific documentation context if task is relevant.
 
@@ -647,7 +646,7 @@ class ContextGatherer:
 
         return None
 
-    async def gather_evidence_context(self, task: str) -> Optional[str]:
+    async def gather_evidence_context(self, task: str) -> str | None:
         """
         Gather evidence from web, GitHub, and local docs connectors.
 
@@ -740,7 +739,7 @@ class ContextGatherer:
 
         return None
 
-    async def gather_trending_context(self) -> Optional[str]:
+    async def gather_trending_context(self) -> str | None:
         """
         Gather pulse/trending context from social platforms.
 
@@ -821,7 +820,7 @@ class ContextGatherer:
         """
         return self._trending_topics_cache
 
-    async def gather_knowledge_mound_context(self, task: str) -> Optional[str]:
+    async def gather_knowledge_mound_context(self, task: str) -> str | None:
         """
         Query Knowledge Mound for relevant facts and evidence.
 
@@ -949,9 +948,9 @@ class ContextGatherer:
     async def gather_belief_crux_context(
         self,
         task: str,
-        messages: Optional[list] = None,
+        messages: list | None = None,
         top_k_cruxes: int = 3,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Gather crux claims from belief network analysis.
 
         Analyzes debate messages (if provided) or queries historical debates
@@ -1032,7 +1031,7 @@ class ContextGatherer:
             logger.warning(f"[belief] Unexpected error gathering cruxes: {e}")
             return None
 
-    async def _gather_belief_with_timeout(self, task: str) -> Optional[str]:
+    async def _gather_belief_with_timeout(self, task: str) -> str | None:
         """Gather belief crux context with timeout protection."""
         try:
             return await asyncio.wait_for(
@@ -1043,7 +1042,7 @@ class ContextGatherer:
             logger.warning(f"[belief] Crux gathering timed out after {BELIEF_CRUX_TIMEOUT}s")
             return None
 
-    async def _gather_culture_with_timeout(self, task: str) -> Optional[str]:
+    async def _gather_culture_with_timeout(self, task: str) -> str | None:
         """Gather culture patterns context with timeout protection."""
         try:
             return await asyncio.wait_for(
@@ -1057,8 +1056,8 @@ class ContextGatherer:
     async def gather_culture_patterns_context(
         self,
         task: str,
-        workspace_id: Optional[str] = None,
-    ) -> Optional[str]:
+        workspace_id: str | None = None,
+    ) -> str | None:
         """
         Gather learned culture patterns from Knowledge Mound.
 
@@ -1156,7 +1155,7 @@ class ContextGatherer:
             logger.warning(f"[culture] Failed to gather culture patterns: {e}")
             return None
 
-    def clear_cache(self, task: Optional[str] = None) -> None:
+    def clear_cache(self, task: str | None = None) -> None:
         """Clear cached context, optionally for a specific task.
 
         Args:
@@ -1301,7 +1300,7 @@ class ContextGatherer:
         query: str,
         content: str,
         source_type: str = "documentation",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Query content using TRUE RLM (REPL-based) when available.
 
@@ -1382,7 +1381,7 @@ class ContextGatherer:
         self,
         task: str,
         max_items: int = 10,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Query Knowledge Mound using TRUE RLM for better answer quality.
 

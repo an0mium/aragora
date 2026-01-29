@@ -150,7 +150,6 @@ logger = logging.getLogger(__name__)
 # Rate limiter for knowledge endpoints (60 requests per minute)
 _knowledge_limiter = RateLimiter(requests_per_minute=60)
 
-
 class KnowledgeMoundHandler(  # type: ignore[misc]
     NodeOperationsMixin,
     RelationshipOperationsMixin,
@@ -290,7 +289,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         return path.startswith("/api/v1/knowledge/mound/")
 
     @require_permission("knowledge:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route knowledge mound requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -580,7 +579,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
 
     def _handle_node_routes(
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle /api/v1/knowledge/mound/nodes/:id routes."""
         parts = path.strip("/").split("/")
         # Path: /api/v1/knowledge/mound/nodes/:id

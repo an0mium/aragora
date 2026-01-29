@@ -32,7 +32,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,6 @@ SKIP_DIRS = {
 # Maximum file size to index (1MB per file)
 MAX_FILE_SIZE = 1_000_000
 
-
 @dataclass
 class CodebaseIndex:
     """Index of the codebase for RLM context building."""
@@ -88,7 +87,7 @@ class CodebaseIndex:
         """Estimate total tokens (rough: 1 token per 4 bytes)."""
         return self.total_bytes // 4
 
-    def get_file(self, path: str) -> Optional[IndexedFile]:
+    def get_file(self, path: str) -> IndexedFile | None:
         """Get an indexed file by relative path."""
         for f in self.files:
             if f.relative_path == path:
@@ -99,7 +98,6 @@ class CodebaseIndex:
         """Search files by path pattern (simple substring match)."""
         pattern_lower = pattern.lower()
         return [f for f in self.files if pattern_lower in f.relative_path.lower()]
-
 
 @dataclass
 class IndexedFile:
@@ -115,7 +113,6 @@ class IndexedFile:
     def token_estimate(self) -> int:
         """Estimate token count."""
         return self.size_bytes // 4
-
 
 class NomicContextBuilder:
     """
@@ -134,9 +131,9 @@ class NomicContextBuilder:
         self,
         aragora_path: Path,
         max_context_bytes: int = 0,
-        include_tests: Optional[bool] = None,
-        knowledge_mound: Optional[Any] = None,
-        full_corpus: Optional[bool] = None,
+        include_tests: bool | None = None,
+        knowledge_mound: Any | None = None,
+        full_corpus: bool | None = None,
     ) -> None:
         self._aragora_path = aragora_path
         env_max = os.environ.get("ARAGORA_NOMIC_MAX_CONTEXT_BYTES") or os.environ.get(
@@ -161,13 +158,13 @@ class NomicContextBuilder:
             self._full_corpus = os.environ.get("NOMIC_RLM_FULL_CORPUS", "1") == "1"
         else:
             self._full_corpus = full_corpus
-        self._index: Optional[CodebaseIndex] = None
-        self._rlm_context: Optional[Any] = None
+        self._index: CodebaseIndex | None = None
+        self._rlm_context: Any | None = None
         self._context_dir = self._aragora_path / ".nomic" / "context"
         self._context_dir.mkdir(parents=True, exist_ok=True)
 
     @property
-    def index(self) -> Optional[CodebaseIndex]:
+    def index(self) -> CodebaseIndex | None:
         """Get the current codebase index."""
         return self._index
 
@@ -244,7 +241,7 @@ class NomicContextBuilder:
         )
         return self._index
 
-    def _write_manifest(self) -> Optional[Path]:
+    def _write_manifest(self) -> Path | None:
         """Write a lightweight manifest for REPL-based context access."""
         if self._index is None:
             return None

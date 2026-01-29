@@ -26,10 +26,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Validation Constants
@@ -46,7 +45,6 @@ MIN_PARTICIPANTS = 2
 # Tournament name validation
 MAX_TOURNAMENT_NAME_LENGTH = 256
 
-
 class TournamentStatus(str, Enum):
     """Tournament status enumeration."""
 
@@ -54,7 +52,6 @@ class TournamentStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
-
 
 class TournamentEvent(str, Enum):
     """Types of tournament events for history tracking."""
@@ -66,36 +63,30 @@ class TournamentEvent(str, Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
-
 class TournamentError(Exception):
     """Base exception for tournament errors."""
 
     pass
-
 
 class ValidationError(TournamentError):
     """Invalid input data."""
 
     pass
 
-
 class TournamentNotFoundError(TournamentError):
     """Tournament does not exist."""
 
     pass
-
 
 class MatchNotFoundError(TournamentError):
     """Match does not exist."""
 
     pass
 
-
 class InvalidStateError(TournamentError):
     """Operation not allowed in current state."""
 
     pass
-
 
 @dataclass
 class TournamentStanding:
@@ -116,7 +107,6 @@ class TournamentStanding:
             return 0.0
         return self.wins / total
 
-
 @dataclass
 class TournamentMatch:
     """A match in a tournament."""
@@ -126,15 +116,14 @@ class TournamentMatch:
     round_num: int
     agent1: str
     agent2: str
-    winner: Optional[str] = None
+    winner: str | None = None
     score1: float = 0.0
     score2: float = 0.0
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     bracket_position: int = 0  # Position in bracket (for elimination)
     is_losers_bracket: bool = False  # For double elimination
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    completed_at: Optional[str] = None
-
+    completed_at: str | None = None
 
 @dataclass
 class TournamentHistoryEntry:
@@ -156,7 +145,6 @@ class TournamentHistoryEntry:
             "details": self.details,
         }
 
-
 @dataclass
 class Tournament:
     """A tournament configuration."""
@@ -169,7 +157,6 @@ class Tournament:
     total_rounds: int = 0
     status: str = "pending"  # pending, in_progress, completed
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
 
 class TournamentManager:
     """
@@ -245,9 +232,9 @@ class TournamentManager:
 
     def __init__(
         self,
-        db_path: Optional[str] = None,
-        nomic_dir: Optional[Path] = None,
-        elo_system: Optional[Any] = None,
+        db_path: str | None = None,
+        nomic_dir: Path | None = None,
+        elo_system: Any | None = None,
     ):
         """
         Initialize TournamentManager.
@@ -284,7 +271,7 @@ class TournamentManager:
         """
         self._elo_system = elo_system
 
-    def get_elo_system(self) -> Optional[Any]:
+    def get_elo_system(self) -> Any | None:
         """Get the current ELO system if configured."""
         return self._elo_system
 
@@ -355,7 +342,7 @@ class TournamentManager:
         conn: sqlite3.Connection,
         tournament_id: str,
         event_type: TournamentEvent,
-        details: Optional[dict] = None,
+        details: dict | None = None,
     ) -> None:
         """Log a tournament event to history."""
         entry_id = f"evt_{uuid.uuid4().hex[:12]}"
@@ -615,10 +602,10 @@ class TournamentManager:
     def record_match_result(
         self,
         match_id: str,
-        winner: Optional[str],
+        winner: str | None,
         score1: float = 0.0,
         score2: float = 0.0,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         update_elo: bool = True,
         elo_k_multiplier: float = 1.5,
     ) -> dict[str, float]:
@@ -717,11 +704,11 @@ class TournamentManager:
     def record_match_result_with_elo(
         self,
         match_id: str,
-        winner: Optional[str],
+        winner: str | None,
         score1: float = 0.0,
         score2: float = 0.0,
-        debate_id: Optional[str] = None,
-        elo_system: Optional[Any] = None,
+        debate_id: str | None = None,
+        elo_system: Any | None = None,
     ) -> dict[str, float]:
         """
         Record match result and update ELO ratings with a specific ELO system.
@@ -756,7 +743,7 @@ class TournamentManager:
             self._elo_system = original_elo
 
     def get_current_standings(
-        self, tournament_id: Optional[str] = None
+        self, tournament_id: str | None = None
     ) -> list[TournamentStanding]:
         """
         Get current tournament standings.
@@ -843,10 +830,10 @@ class TournamentManager:
 
     def get_matches(
         self,
-        tournament_id: Optional[str] = None,
-        round_num: Optional[int] = None,
+        tournament_id: str | None = None,
+        round_num: int | None = None,
         completed_only: bool = False,
-        losers_bracket: Optional[bool] = None,
+        losers_bracket: bool | None = None,
     ) -> list[TournamentMatch]:
         """
         Get matches with optional filtering.
@@ -905,7 +892,7 @@ class TournamentManager:
 
             return matches
 
-    def get_tournament(self, tournament_id: str) -> Optional[Tournament]:
+    def get_tournament(self, tournament_id: str) -> Tournament | None:
         """Get tournament by ID.
 
         Args:
@@ -934,7 +921,7 @@ class TournamentManager:
                 created_at=row["created_at"],
             )
 
-    def list_tournaments(self, limit: int = 50, status: Optional[str] = None) -> list[Tournament]:
+    def list_tournaments(self, limit: int = 50, status: str | None = None) -> list[Tournament]:
         """List all tournaments.
 
         Args:

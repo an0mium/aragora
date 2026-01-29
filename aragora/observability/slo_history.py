@@ -32,13 +32,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator
 
 logger = logging.getLogger(__name__)
 
 # Default retention: 90 days
 DEFAULT_RETENTION_DAYS = 90
-
 
 @dataclass
 class SLOViolationRecord:
@@ -53,7 +52,7 @@ class SLOViolationRecord:
     error_budget_remaining: float
     burn_rate: float
     message: str
-    metadata: Optional[str] = None
+    metadata: str | None = None
 
     def to_dict(self) -> dict:
         result = {
@@ -73,7 +72,6 @@ class SLOViolationRecord:
             except (json.JSONDecodeError, TypeError):
                 result["metadata"] = self.metadata
         return result
-
 
 class SLOHistoryStore:
     """
@@ -105,7 +103,7 @@ class SLOHistoryStore:
 
     def __init__(
         self,
-        db_path: Optional[str] = None,
+        db_path: str | None = None,
         retention_days: int = DEFAULT_RETENTION_DAYS,
     ):
         self._db_path = db_path or self._default_db_path()
@@ -147,8 +145,8 @@ class SLOHistoryStore:
         error_budget_remaining: float,
         burn_rate: float,
         message: str,
-        metadata: Optional[dict] = None,
-        timestamp: Optional[datetime] = None,
+        metadata: dict | None = None,
+        timestamp: datetime | None = None,
     ) -> int:
         """Record an SLO violation.
 
@@ -181,11 +179,11 @@ class SLOHistoryStore:
 
     def query(
         self,
-        slo_name: Optional[str] = None,
-        severity: Optional[str] = None,
-        hours: Optional[int] = None,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
+        slo_name: str | None = None,
+        severity: str | None = None,
+        hours: int | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
         limit: int = 100,
     ) -> list[SLOViolationRecord]:
         """Query SLO violations with filters.
@@ -257,9 +255,9 @@ class SLOHistoryStore:
 
     def count(
         self,
-        slo_name: Optional[str] = None,
-        severity: Optional[str] = None,
-        hours: Optional[int] = None,
+        slo_name: str | None = None,
+        severity: str | None = None,
+        hours: int | None = None,
     ) -> int:
         """Count violations matching filters."""
         conditions: list[str] = []
@@ -285,7 +283,7 @@ class SLOHistoryStore:
             row = conn.execute(sql, params).fetchone()
             return row["cnt"] if row else 0
 
-    def cleanup(self, retention_days: Optional[int] = None) -> int:
+    def cleanup(self, retention_days: int | None = None) -> int:
         """Remove violations older than retention period.
 
         Returns the number of deleted records.
@@ -349,16 +347,14 @@ class SLOHistoryStore:
             "by_severity": {row["severity"]: row["cnt"] for row in by_severity},
         }
 
-
 # ---------------------------------------------------------------------------
 # Global singleton
 # ---------------------------------------------------------------------------
 
-_global_store: Optional[SLOHistoryStore] = None
+_global_store: SLOHistoryStore | None = None
 _store_lock = threading.Lock()
 
-
-def get_slo_history_store(db_path: Optional[str] = None) -> SLOHistoryStore:
+def get_slo_history_store(db_path: str | None = None) -> SLOHistoryStore:
     """Get or create the global SLO history store."""
     global _global_store
     with _store_lock:
@@ -366,18 +362,15 @@ def get_slo_history_store(db_path: Optional[str] = None) -> SLOHistoryStore:
             _global_store = SLOHistoryStore(db_path=db_path)
         return _global_store
 
-
 def reset_slo_history_store() -> None:
     """Reset the global store (for testing)."""
     global _global_store
     with _store_lock:
         _global_store = None
 
-
 # ---------------------------------------------------------------------------
 # SLOAlertMonitor callback
 # ---------------------------------------------------------------------------
-
 
 def slo_history_callback(breach) -> None:
     """
@@ -400,7 +393,6 @@ def slo_history_callback(breach) -> None:
         )
     except Exception as e:
         logger.error(f"Failed to persist SLO violation: {e}")
-
 
 __all__ = [
     "SLOHistoryStore",

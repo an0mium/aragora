@@ -36,11 +36,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class SyncMode(str, Enum):
     """Federation sync mode."""
@@ -49,14 +48,12 @@ class SyncMode(str, Enum):
     PULL = "pull"  # Pull remote changes to local
     BIDIRECTIONAL = "bidirectional"  # Both push and pull
 
-
 class SyncScope(str, Enum):
     """Scope of data to sync."""
 
     FULL = "full"  # Full item data
     SUMMARY = "summary"  # Content summary only
     METADATA = "metadata"  # Metadata only
-
 
 class ScheduleStatus(str, Enum):
     """Status of a scheduled sync."""
@@ -67,14 +64,12 @@ class ScheduleStatus(str, Enum):
     RUNNING = "running"
     ERROR = "error"
 
-
 class TriggerType(str, Enum):
     """Types of schedule triggers."""
 
     CRON = "cron"  # Cron-based scheduling
     INTERVAL = "interval"  # Fixed interval
     MANUAL = "manual"  # Manual trigger only
-
 
 @dataclass
 class FederationScheduleConfig:
@@ -89,11 +84,11 @@ class FederationScheduleConfig:
 
     # Trigger configuration
     trigger_type: TriggerType = TriggerType.CRON
-    cron: Optional[str] = None  # Cron expression
+    cron: str | None = None  # Cron expression
     interval_minutes: int = 15  # For interval trigger
 
     # Sync options
-    visibility_levels: List[str] = field(default_factory=lambda: ["organization", "public"])
+    visibility_levels: list[str] = field(default_factory=lambda: ["organization", "public"])
     max_items_per_sync: int = 1000
     conflict_resolution: str = "remote_wins"  # remote_wins, local_wins, newest_wins
 
@@ -108,9 +103,8 @@ class FederationScheduleConfig:
 
     # Metadata
     enabled: bool = True
-    created_by: Optional[str] = None
+    created_by: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
-
 
 @dataclass
 class ScheduledSync:
@@ -119,14 +113,14 @@ class ScheduledSync:
     schedule_id: str
     config: FederationScheduleConfig
     status: ScheduleStatus = ScheduleStatus.ACTIVE
-    next_run: Optional[datetime] = None
-    last_run: Optional[datetime] = None
-    last_result: Optional[Dict[str, Any]] = None
+    next_run: datetime | None = None
+    last_run: datetime | None = None
+    last_result: Optional[dict[str, Any]] = None
     run_count: int = 0
     error_count: int = 0
     consecutive_errors: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "schedule_id": self.schedule_id,
@@ -146,7 +140,6 @@ class ScheduledSync:
             "enabled": self.config.enabled,
         }
 
-
 @dataclass
 class SyncRun:
     """Record of a single sync execution."""
@@ -157,15 +150,15 @@ class SyncRun:
     workspace_id: str
     sync_mode: SyncMode
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     status: str = "running"
     items_pushed: int = 0
     items_pulled: int = 0
     items_conflicted: int = 0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     duration_ms: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "run_id": self.run_id,
@@ -183,12 +176,11 @@ class SyncRun:
             "duration_ms": self.duration_ms,
         }
 
-
 class CronParser:
     """Simple cron expression parser."""
 
     @staticmethod
-    def next_run(cron: str, from_time: Optional[datetime] = None) -> datetime:
+    def next_run(cron: str, from_time: datetime | None = None) -> datetime:
         """
         Calculate the next run time for a cron expression.
 
@@ -216,7 +208,7 @@ class CronParser:
         return now + timedelta(hours=1)
 
     @staticmethod
-    def parse(expression: str) -> Dict[str, List[int]]:
+    def parse(expression: str) -> dict[str, list[int]]:
         """Parse a cron expression into field ranges."""
         parts = expression.strip().split()
         if len(parts) != 5:
@@ -241,7 +233,7 @@ class CronParser:
         return result
 
     @staticmethod
-    def _parse_field(field_str: str, value_range: Tuple[int, int]) -> List[int]:
+    def _parse_field(field_str: str, value_range: tuple[int, int]) -> list[int]:
         """Parse a single cron field."""
         min_val, max_val = value_range
 
@@ -266,7 +258,6 @@ class CronParser:
 
         return [int(field_str)]
 
-
 class FederationScheduler:
     """
     Manages scheduled federation sync operations.
@@ -280,7 +271,7 @@ class FederationScheduler:
 
     def __init__(
         self,
-        sync_callback: Optional[Callable] = None,
+        sync_callback: Callable | None = None,
     ):
         """
         Initialize the federation scheduler.
@@ -289,10 +280,10 @@ class FederationScheduler:
             sync_callback: Optional callback to execute sync operations.
                            If not provided, uses internal sync logic.
         """
-        self._schedules: Dict[str, ScheduledSync] = {}
-        self._sync_history: List[SyncRun] = []
+        self._schedules: dict[str, ScheduledSync] = {}
+        self._sync_history: list[SyncRun] = []
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._sync_callback = sync_callback
         self._max_history = 1000
 
@@ -366,16 +357,16 @@ class FederationScheduler:
             return True
         return False
 
-    def get_schedule(self, schedule_id: str) -> Optional[ScheduledSync]:
+    def get_schedule(self, schedule_id: str) -> ScheduledSync | None:
         """Get a schedule by ID."""
         return self._schedules.get(schedule_id)
 
     def list_schedules(
         self,
-        region_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        status: Optional[ScheduleStatus] = None,
-    ) -> List[ScheduledSync]:
+        region_id: str | None = None,
+        workspace_id: str | None = None,
+        status: ScheduleStatus | None = None,
+    ) -> list[ScheduledSync]:
         """
         List schedules with optional filters.
 
@@ -402,9 +393,9 @@ class FederationScheduler:
 
     def get_history(
         self,
-        schedule_id: Optional[str] = None,
+        schedule_id: str | None = None,
         limit: int = 50,
-    ) -> List[SyncRun]:
+    ) -> list[SyncRun]:
         """Get sync history."""
         history = self._sync_history
 
@@ -413,7 +404,7 @@ class FederationScheduler:
 
         return history[:limit]
 
-    async def trigger_sync(self, schedule_id: str) -> Optional[SyncRun]:
+    async def trigger_sync(self, schedule_id: str) -> SyncRun | None:
         """
         Manually trigger a sync for a schedule.
 
@@ -566,7 +557,7 @@ class FederationScheduler:
     async def _perform_sync(
         self,
         config: FederationScheduleConfig,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Perform the actual sync operation.
 
@@ -613,7 +604,7 @@ class FederationScheduler:
             "items_conflicted": items_conflicted,
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get scheduler statistics."""
         active = sum(1 for s in self._schedules.values() if s.status == ScheduleStatus.ACTIVE)
         paused = sum(1 for s in self._schedules.values() if s.status == ScheduleStatus.PAUSED)
@@ -647,10 +638,8 @@ class FederationScheduler:
             "running": self._running,
         }
 
-
 # Global scheduler instance
-_federation_scheduler: Optional[FederationScheduler] = None
-
+_federation_scheduler: FederationScheduler | None = None
 
 def get_federation_scheduler() -> FederationScheduler:
     """Get the global federation scheduler instance."""
@@ -659,14 +648,12 @@ def get_federation_scheduler() -> FederationScheduler:
         _federation_scheduler = FederationScheduler()
     return _federation_scheduler
 
-
 async def init_federation_scheduler() -> FederationScheduler:
     """Initialize and start the global federation scheduler."""
     scheduler = get_federation_scheduler()
     if not scheduler._running:
         await scheduler.start()
     return scheduler
-
 
 __all__ = [
     "SyncMode",

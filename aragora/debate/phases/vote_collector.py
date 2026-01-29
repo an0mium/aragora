@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.debate.bias_mitigation import (
     generate_permutations,
@@ -49,36 +49,34 @@ RLM_EARLY_TERMINATION_THRESHOLD = 0.75
 # Minimum lead over second choice to trigger early termination (as fraction of total agents)
 RLM_MAJORITY_LEAD_THRESHOLD = 0.25
 
-
 def get_complexity_governor():
     """Get the global complexity governor instance."""
     from aragora.debate.complexity_governor import get_complexity_governor as _get_governor
 
     return _get_governor()
 
-
 @dataclass
 class VoteCollectorConfig:
     """Configuration for VoteCollector."""
 
     # Required callback for voting
-    vote_with_agent: Optional[Callable] = None
+    vote_with_agent: Callable | None = None
 
     # Timeout wrapper
-    with_timeout: Optional[Callable] = None
+    with_timeout: Callable | None = None
 
     # Notifications
-    notify_spectator: Optional[Callable] = None
+    notify_spectator: Callable | None = None
 
     # Hooks
     hooks: dict = field(default_factory=dict)
 
     # Recording
-    recorder: Optional[Any] = None
-    position_tracker: Optional[Any] = None
+    recorder: Any | None = None
+    position_tracker: Any | None = None
 
     # Vote grouping
-    group_similar_votes: Optional[Callable] = None
+    group_similar_votes: Callable | None = None
 
     # Timeouts
     vote_collection_timeout: float = VOTE_COLLECTION_TIMEOUT
@@ -98,8 +96,7 @@ class VoteCollectorConfig:
     # Number of proposal permutations to vote on
     position_shuffling_permutations: int = 3
     # Random seed for reproducibility (None = random)
-    position_shuffling_seed: Optional[int] = None
-
+    position_shuffling_seed: int | None = None
 
 class VoteCollector:
     """
@@ -133,7 +130,7 @@ class VoteCollector:
         self,
         votes: list["Vote"],
         total_agents: int,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         Check if a clear majority has been reached for RLM early termination.
 
@@ -626,20 +623,18 @@ class VoteCollector:
 
         return vote_groups, choice_mapping
 
-
 # =============================================================================
 # Factory function
 # =============================================================================
 
-
 def create_vote_collector(
-    vote_with_agent: Optional[Callable] = None,
-    with_timeout: Optional[Callable] = None,
-    notify_spectator: Optional[Callable] = None,
-    hooks: Optional[dict] = None,
-    recorder: Optional[Any] = None,
-    position_tracker: Optional[Any] = None,
-    group_similar_votes: Optional[Callable] = None,
+    vote_with_agent: Callable | None = None,
+    with_timeout: Callable | None = None,
+    notify_spectator: Callable | None = None,
+    hooks: dict | None = None,
+    recorder: Any | None = None,
+    position_tracker: Any | None = None,
+    group_similar_votes: Callable | None = None,
     vote_collection_timeout: float = VOTE_COLLECTION_TIMEOUT,
     agent_timeout: float = AGENT_TIMEOUT_SECONDS,
     enable_rlm_early_termination: bool = True,
@@ -647,7 +642,7 @@ def create_vote_collector(
     rlm_majority_lead_threshold: float = RLM_MAJORITY_LEAD_THRESHOLD,
     enable_position_shuffling: bool = False,
     position_shuffling_permutations: int = 3,
-    position_shuffling_seed: Optional[int] = None,
+    position_shuffling_seed: int | None = None,
 ) -> VoteCollector:
     """Create a VoteCollector with the given configuration.
 
@@ -689,7 +684,6 @@ def create_vote_collector(
         position_shuffling_seed=position_shuffling_seed,
     )
     return VoteCollector(config)
-
 
 # =============================================================================
 # Exports

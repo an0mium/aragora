@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.config.legacy import get_db_path
 from aragora.storage.backends import POSTGRESQL_AVAILABLE, PostgreSQLBackend
@@ -24,11 +24,9 @@ from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
-
 def _get_default_db_path() -> Path:
     """Get the default database path for policy store."""
     return get_db_path("compliance/policy_store.db")
-
 
 @dataclass
 class PolicyRule:
@@ -39,10 +37,10 @@ class PolicyRule:
     description: str
     severity: str  # critical, high, medium, low
     enabled: bool = True
-    custom_threshold: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    custom_threshold: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "rule_id": self.rule_id,
             "name": self.name,
@@ -54,7 +52,7 @@ class PolicyRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PolicyRule":
+    def from_dict(cls, data: dict[str, Any]) -> "PolicyRule":
         return cls(
             rule_id=data["rule_id"],
             name=data["name"],
@@ -64,7 +62,6 @@ class PolicyRule:
             custom_threshold=data.get("custom_threshold"),
             metadata=data.get("metadata", {}),
         )
-
 
 @dataclass
 class Policy:
@@ -78,13 +75,13 @@ class Policy:
     vertical_id: str
     level: str = "recommended"  # mandatory, recommended, optional
     enabled: bool = True
-    rules: List[PolicyRule] = field(default_factory=list)
+    rules: list[PolicyRule] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    created_by: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_by: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -103,7 +100,7 @@ class Policy:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Policy":
+    def from_dict(cls, data: dict[str, Any]) -> "Policy":
         rules = [PolicyRule.from_dict(r) for r in data.get("rules", [])]
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -132,7 +129,6 @@ class Policy:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class Violation:
     """A compliance violation."""
@@ -149,12 +145,12 @@ class Violation:
     description: str
     source: str  # File/location where violation was detected
     detected_at: datetime = field(default_factory=datetime.utcnow)
-    resolved_at: Optional[datetime] = None
-    resolved_by: Optional[str] = None
-    resolution_notes: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
+    resolution_notes: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "policy_id": self.policy_id,
@@ -175,7 +171,7 @@ class Violation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Violation":
+    def from_dict(cls, data: dict[str, Any]) -> "Violation":
         detected_at = data.get("detected_at")
         if isinstance(detected_at, str):
             detected_at = datetime.fromisoformat(detected_at)
@@ -205,8 +201,7 @@ class Violation:
             metadata=data.get("metadata", {}),
         )
 
-
-def _parse_datetime(value: Any, fallback: Optional[datetime] = None) -> datetime:
+def _parse_datetime(value: Any, fallback: datetime | None = None) -> datetime:
     """Parse datetime from string or datetime, with fallback."""
     if isinstance(value, datetime):
         return value
@@ -214,8 +209,7 @@ def _parse_datetime(value: Any, fallback: Optional[datetime] = None) -> datetime
         return datetime.fromisoformat(value)
     return fallback or datetime.now(timezone.utc)
 
-
-def _parse_optional_datetime(value: Any) -> Optional[datetime]:
+def _parse_optional_datetime(value: Any) -> datetime | None:
     """Parse optional datetime from string or datetime."""
     if value is None:
         return None
@@ -224,7 +218,6 @@ def _parse_optional_datetime(value: Any) -> Optional[datetime]:
     if isinstance(value, str) and value:
         return datetime.fromisoformat(value)
     return None
-
 
 class PolicyStore(SQLiteStore):
     """
@@ -299,7 +292,7 @@ class PolicyStore(SQLiteStore):
         CREATE INDEX IF NOT EXISTS idx_audit_policy ON policy_audit(policy_id);
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         super().__init__(db_path or _get_default_db_path())
 
     # =========================================================================
@@ -335,7 +328,7 @@ class PolicyStore(SQLiteStore):
             self._log_audit(conn, policy.id, "create", None, policy.to_dict(), policy.created_by)
         return policy
 
-    def get_policy(self, policy_id: str) -> Optional[Policy]:
+    def get_policy(self, policy_id: str) -> Policy | None:
         """Get a policy by ID."""
         row = self.fetch_one("SELECT * FROM policies WHERE id = ?", (policy_id,))
         if not row:
@@ -344,16 +337,16 @@ class PolicyStore(SQLiteStore):
 
     def list_policies(
         self,
-        workspace_id: Optional[str] = None,
-        vertical_id: Optional[str] = None,
-        framework_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        vertical_id: str | None = None,
+        framework_id: str | None = None,
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Policy]:
+    ) -> list[Policy]:
         """List policies with optional filters."""
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if workspace_id:
             conditions.append("workspace_id = ?")
@@ -377,9 +370,9 @@ class PolicyStore(SQLiteStore):
     def update_policy(
         self,
         policy_id: str,
-        updates: Dict[str, Any],
-        changed_by: Optional[str] = None,
-    ) -> Optional[Policy]:
+        updates: dict[str, Any],
+        changed_by: str | None = None,
+    ) -> Policy | None:
         """Update a policy."""
         current = self.get_policy(policy_id)
         if not current:
@@ -426,7 +419,7 @@ class PolicyStore(SQLiteStore):
 
         return current
 
-    def delete_policy(self, policy_id: str, deleted_by: Optional[str] = None) -> bool:
+    def delete_policy(self, policy_id: str, deleted_by: str | None = None) -> bool:
         """Delete a policy."""
         policy = self.get_policy(policy_id)
         if not policy:
@@ -438,7 +431,7 @@ class PolicyStore(SQLiteStore):
         return True
 
     def toggle_policy(
-        self, policy_id: str, enabled: bool, changed_by: Optional[str] = None
+        self, policy_id: str, enabled: bool, changed_by: str | None = None
     ) -> bool:
         """Toggle policy enabled status."""
         result = self.update_policy(policy_id, {"enabled": enabled}, changed_by)
@@ -480,7 +473,7 @@ class PolicyStore(SQLiteStore):
             )
         return violation
 
-    def get_violation(self, violation_id: str) -> Optional[Violation]:
+    def get_violation(self, violation_id: str) -> Violation | None:
         """Get a violation by ID."""
         row = self.fetch_one("SELECT * FROM violations WHERE id = ?", (violation_id,))
         if not row:
@@ -489,18 +482,18 @@ class PolicyStore(SQLiteStore):
 
     def list_violations(
         self,
-        workspace_id: Optional[str] = None,
-        vertical_id: Optional[str] = None,
-        framework_id: Optional[str] = None,
-        policy_id: Optional[str] = None,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
+        workspace_id: str | None = None,
+        vertical_id: str | None = None,
+        framework_id: str | None = None,
+        policy_id: str | None = None,
+        status: str | None = None,
+        severity: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Violation]:
+    ) -> list[Violation]:
         """List violations with optional filters."""
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if workspace_id:
             conditions.append("workspace_id = ?")
@@ -532,9 +525,9 @@ class PolicyStore(SQLiteStore):
         self,
         violation_id: str,
         status: str,
-        resolved_by: Optional[str] = None,
-        resolution_notes: Optional[str] = None,
-    ) -> Optional[Violation]:
+        resolved_by: str | None = None,
+        resolution_notes: str | None = None,
+    ) -> Violation | None:
         """Update a violation's status."""
         violation = self.get_violation(violation_id)
         if not violation:
@@ -571,13 +564,13 @@ class PolicyStore(SQLiteStore):
 
     def count_violations(
         self,
-        workspace_id: Optional[str] = None,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
-    ) -> Dict[str, int]:
+        workspace_id: str | None = None,
+        status: str | None = None,
+        severity: str | None = None,
+    ) -> dict[str, int]:
         """Get violation counts by severity."""
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if workspace_id:
             conditions.append("workspace_id = ?")
@@ -658,9 +651,9 @@ class PolicyStore(SQLiteStore):
         conn,
         policy_id: str,
         action: str,
-        old_value: Optional[Dict],
-        new_value: Optional[Dict],
-        changed_by: Optional[str],
+        old_value: dict | None,
+        new_value: dict | None,
+        changed_by: str | None,
     ) -> None:
         """Log a policy change to the audit table."""
         audit_id = f"audit_{uuid.uuid4().hex[:12]}"
@@ -679,11 +672,9 @@ class PolicyStore(SQLiteStore):
             ),
         )
 
-
 # =============================================================================
 # PostgreSQL Backend
 # =============================================================================
-
 
 class PostgresPolicyStore:
     """
@@ -710,7 +701,7 @@ class PostgresPolicyStore:
         """Execute a write operation."""
         self._backend.execute_write(sql, params)
 
-    def _fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def _fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         """Execute a query and return one row."""
         return self._backend.fetch_one(sql, params)
 
@@ -750,7 +741,7 @@ class PostgresPolicyStore:
         self._log_audit(policy.id, "create", None, policy.to_dict(), policy.created_by)
         return policy
 
-    def get_policy(self, policy_id: str) -> Optional[Policy]:
+    def get_policy(self, policy_id: str) -> Policy | None:
         """Get a policy by ID."""
         row = self._fetch_one("SELECT * FROM policies WHERE id = ?", (policy_id,))
         if not row:
@@ -759,16 +750,16 @@ class PostgresPolicyStore:
 
     def list_policies(
         self,
-        workspace_id: Optional[str] = None,
-        vertical_id: Optional[str] = None,
-        framework_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        vertical_id: str | None = None,
+        framework_id: str | None = None,
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Policy]:
+    ) -> list[Policy]:
         """List policies with optional filters."""
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if workspace_id:
             conditions.append("workspace_id = ?")
@@ -792,9 +783,9 @@ class PostgresPolicyStore:
     def update_policy(
         self,
         policy_id: str,
-        updates: Dict[str, Any],
-        changed_by: Optional[str] = None,
-    ) -> Optional[Policy]:
+        updates: dict[str, Any],
+        changed_by: str | None = None,
+    ) -> Policy | None:
         """Update a policy."""
         current = self.get_policy(policy_id)
         if not current:
@@ -840,7 +831,7 @@ class PostgresPolicyStore:
 
         return current
 
-    def delete_policy(self, policy_id: str, deleted_by: Optional[str] = None) -> bool:
+    def delete_policy(self, policy_id: str, deleted_by: str | None = None) -> bool:
         """Delete a policy."""
         policy = self.get_policy(policy_id)
         if not policy:
@@ -851,7 +842,7 @@ class PostgresPolicyStore:
         return True
 
     def toggle_policy(
-        self, policy_id: str, enabled: bool, changed_by: Optional[str] = None
+        self, policy_id: str, enabled: bool, changed_by: str | None = None
     ) -> bool:
         """Toggle policy enabled status."""
         result = self.update_policy(policy_id, {"enabled": enabled}, changed_by)
@@ -892,7 +883,7 @@ class PostgresPolicyStore:
         )
         return violation
 
-    def get_violation(self, violation_id: str) -> Optional[Violation]:
+    def get_violation(self, violation_id: str) -> Violation | None:
         """Get a violation by ID."""
         row = self._fetch_one("SELECT * FROM violations WHERE id = ?", (violation_id,))
         if not row:
@@ -901,18 +892,18 @@ class PostgresPolicyStore:
 
     def list_violations(
         self,
-        workspace_id: Optional[str] = None,
-        vertical_id: Optional[str] = None,
-        framework_id: Optional[str] = None,
-        policy_id: Optional[str] = None,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
+        workspace_id: str | None = None,
+        vertical_id: str | None = None,
+        framework_id: str | None = None,
+        policy_id: str | None = None,
+        status: str | None = None,
+        severity: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Violation]:
+    ) -> list[Violation]:
         """List violations with optional filters."""
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if workspace_id:
             conditions.append("workspace_id = ?")
@@ -944,9 +935,9 @@ class PostgresPolicyStore:
         self,
         violation_id: str,
         status: str,
-        resolved_by: Optional[str] = None,
-        resolution_notes: Optional[str] = None,
-    ) -> Optional[Violation]:
+        resolved_by: str | None = None,
+        resolution_notes: str | None = None,
+    ) -> Violation | None:
         """Update a violation's status."""
         violation = self.get_violation(violation_id)
         if not violation:
@@ -983,13 +974,13 @@ class PostgresPolicyStore:
 
     def count_violations(
         self,
-        workspace_id: Optional[str] = None,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
-    ) -> Dict[str, int]:
+        workspace_id: str | None = None,
+        status: str | None = None,
+        severity: str | None = None,
+    ) -> dict[str, int]:
         """Get violation counts by severity."""
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if workspace_id:
             conditions.append("workspace_id = ?")
@@ -1064,9 +1055,9 @@ class PostgresPolicyStore:
         self,
         policy_id: str,
         action: str,
-        old_value: Optional[Dict],
-        new_value: Optional[Dict],
-        changed_by: Optional[str],
+        old_value: dict | None,
+        new_value: dict | None,
+        changed_by: str | None,
     ) -> None:
         """Log a policy change to the audit table."""
         audit_id = f"audit_{uuid.uuid4().hex[:12]}"
@@ -1085,12 +1076,10 @@ class PostgresPolicyStore:
             ),
         )
 
-
 # Singleton instance
-_policy_store: Optional[PolicyStore | PostgresPolicyStore] = None
+_policy_store: PolicyStore | PostgresPolicyStore | None = None
 
-
-def get_policy_store(db_path: Optional[Path] = None) -> PolicyStore | PostgresPolicyStore:
+def get_policy_store(db_path: Path | None = None) -> PolicyStore | PostgresPolicyStore:
     """Get or create the policy store singleton.
 
     Uses environment variables to configure:
@@ -1147,7 +1136,6 @@ def get_policy_store(db_path: Optional[Path] = None) -> PolicyStore | PostgresPo
 
     _policy_store = PolicyStore(db_path)
     return _policy_store
-
 
 __all__ = [
     "Policy",

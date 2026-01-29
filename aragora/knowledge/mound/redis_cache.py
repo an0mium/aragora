@@ -13,7 +13,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
-
 
 class RedisCache:
     """
@@ -56,7 +55,7 @@ class RedisCache:
         self._default_ttl = default_ttl
         self._culture_ttl = culture_ttl
         self._prefix = prefix
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
         self._connected = False
 
     async def connect(self) -> None:
@@ -122,7 +121,7 @@ class RedisCache:
         self,
         node_id: str,
         node: "KnowledgeItem",
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Cache a node."""
         self._ensure_connected()
@@ -139,7 +138,7 @@ class RedisCache:
         key = f"{self._prefix}:node:{node_id}"
         await self._client.delete(key)
 
-    async def invalidate_nodes(self, node_ids: List[str]) -> None:
+    async def invalidate_nodes(self, node_ids: list[str]) -> None:
         """Invalidate multiple cached nodes."""
         if not node_ids:
             return
@@ -182,7 +181,7 @@ class RedisCache:
         self,
         cache_key: str,
         result: "QueryResult",
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Cache a query result."""
         self._ensure_connected()
@@ -230,7 +229,7 @@ class RedisCache:
                 parsed = json.loads(data)
 
                 # Reconstruct patterns dict
-                patterns: Dict[CulturePatternType, List[CulturePattern]] = {}
+                patterns: dict[CulturePatternType, list[CulturePattern]] = {}
                 for type_str, pattern_list in parsed.get("patterns", {}).items():
                     pattern_type = CulturePatternType(type_str)
                     patterns[pattern_type] = [
@@ -266,7 +265,7 @@ class RedisCache:
         self,
         workspace_id: str,
         profile: "CultureProfile",
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Cache a culture profile."""
         self._ensure_connected()
@@ -321,7 +320,7 @@ class RedisCache:
         key = f"{self._prefix}:staleness:pending"
         await self._client.zadd(key, {node_id: staleness_score})
 
-    async def get_stale_nodes(self, limit: int = 100) -> List[tuple]:
+    async def get_stale_nodes(self, limit: int = 100) -> list[tuple]:
         """Get nodes pending revalidation, ordered by staleness."""
         self._ensure_connected()
 
@@ -342,7 +341,7 @@ class RedisCache:
     # Statistics
     # =========================================================================
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         self._ensure_connected()
 
@@ -369,7 +368,7 @@ class RedisCache:
             "cached_cultures": culture_count,
         }
 
-    async def clear_all(self, workspace_id: Optional[str] = None) -> int:
+    async def clear_all(self, workspace_id: str | None = None) -> int:
         """Clear all cached items for a workspace or all."""
         self._ensure_connected()
 

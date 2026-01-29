@@ -38,7 +38,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.debate.distributed_events import (
     AgentCritique,
@@ -51,14 +51,12 @@ from aragora.debate.distributed_events import (
 
 logger = logging.getLogger(__name__)
 
-
 class CoordinatorRole(str, Enum):
     """Role of this instance in distributed debate."""
 
     COORDINATOR = "coordinator"  # Orchestrates the debate
     PARTICIPANT = "participant"  # Provides agents only
     OBSERVER = "observer"  # Watches but doesn't participate
-
 
 @dataclass
 class DistributedDebateConfig:
@@ -75,7 +73,6 @@ class DistributedDebateConfig:
     sync_interval_seconds: float = 5.0
     failover_timeout_seconds: float = 30.0
 
-
 @dataclass
 class DistributedDebateResult:
     """Result of a distributed debate."""
@@ -83,17 +80,17 @@ class DistributedDebateResult:
     debate_id: str
     task: str
     consensus_reached: bool
-    final_answer: Optional[str]
-    winning_agent: Optional[str]
+    final_answer: str | None
+    winning_agent: str | None
     confidence: float
     rounds_completed: int
-    participating_instances: List[str]
-    participating_agents: List[str]
+    participating_instances: list[str]
+    participating_agents: list[str]
     duration_seconds: float
-    proposals: List[Dict[str, Any]]
-    votes: List[Dict[str, Any]]
+    proposals: list[dict[str, Any]]
+    votes: list[dict[str, Any]]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "debate_id": self.debate_id,
@@ -110,7 +107,6 @@ class DistributedDebateResult:
             "votes": self.votes,
         }
 
-
 class DistributedDebateCoordinator:
     """
     Coordinates debates across multiple Aragora instances.
@@ -121,11 +117,11 @@ class DistributedDebateCoordinator:
 
     def __init__(
         self,
-        event_bus: Optional[Any] = None,
-        agent_pool: Optional[Any] = None,
-        leader_elector: Optional[Any] = None,
-        config: Optional[DistributedDebateConfig] = None,
-        instance_id: Optional[str] = None,
+        event_bus: Any | None = None,
+        agent_pool: Any | None = None,
+        leader_elector: Any | None = None,
+        config: DistributedDebateConfig | None = None,
+        instance_id: str | None = None,
     ):
         """
         Initialize the distributed debate coordinator.
@@ -144,14 +140,14 @@ class DistributedDebateCoordinator:
         self._instance_id = instance_id or str(uuid.uuid4())[:8]
 
         # Active debates
-        self._debates: Dict[str, DistributedDebateState] = {}
-        self._debate_locks: Dict[str, asyncio.Lock] = {}
+        self._debates: dict[str, DistributedDebateState] = {}
+        self._debate_locks: dict[str, asyncio.Lock] = {}
 
         # Event handlers
-        self._event_handlers: Dict[DistributedDebateEventType, List[Callable]] = {}
+        self._event_handlers: dict[DistributedDebateEventType, list[Callable]] = {}
 
         # Background tasks
-        self._sync_task: Optional[asyncio.Task] = None
+        self._sync_task: asyncio.Task | None = None
         self._connected = False
 
         logger.info(f"[DistributedDebate] Coordinator initialized: {self._instance_id}")
@@ -235,7 +231,7 @@ class DistributedDebateCoordinator:
         if hasattr(self._event_bus, "publish"):
             await self._event_bus.publish(event.to_dict())
 
-    async def _handle_event(self, event_data: Dict[str, Any]) -> None:
+    async def _handle_event(self, event_data: dict[str, Any]) -> None:
         """Handle incoming debate events."""
         try:
             event = DistributedDebateEvent.from_dict(event_data)
@@ -349,8 +345,8 @@ class DistributedDebateCoordinator:
     async def start_debate(
         self,
         task: str,
-        agents: Optional[List[str]] = None,
-        context: Optional[Dict[str, Any]] = None,
+        agents: Optional[list[str]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> DistributedDebateResult:
         """
         Start a new distributed debate.
@@ -459,7 +455,7 @@ class DistributedDebateCoordinator:
 
         return result
 
-    async def _select_agents(self, debate_id: str) -> List[str]:
+    async def _select_agents(self, debate_id: str) -> list[str]:
         """Select agents for the debate from the federated pool."""
         if not self._agent_pool:
             return []
@@ -480,7 +476,7 @@ class DistributedDebateCoordinator:
         self,
         debate_id: str,
         round_num: int,
-        agents: List[str],
+        agents: list[str],
     ) -> None:
         """Collect proposals from all participating agents."""
         _state = self._debates[debate_id]  # Reserved for future implementation
@@ -497,7 +493,7 @@ class DistributedDebateCoordinator:
         self,
         debate_id: str,
         round_num: int,
-        agents: List[str],
+        agents: list[str],
     ) -> None:
         """Collect critiques from all participating agents."""
         _state = self._debates[debate_id]  # Reserved for future implementation
@@ -518,7 +514,7 @@ class DistributedDebateCoordinator:
         state = self._debates[debate_id]
 
         # Count votes for each proposal
-        vote_counts: Dict[str, int] = {}
+        vote_counts: dict[str, int] = {}
         for vote in state.votes:
             if vote.round_number == round_num and vote.vote == "support":
                 vote_counts[vote.proposal_agent_id] = vote_counts.get(vote.proposal_agent_id, 0) + 1
@@ -565,8 +561,8 @@ class DistributedDebateCoordinator:
         event_type: DistributedDebateEventType,
         debate_id: str,
         round_number: int = 0,
-        agent_id: Optional[str] = None,
-        data: Optional[Dict[str, Any]] = None,
+        agent_id: str | None = None,
+        data: Optional[dict[str, Any]] = None,
     ) -> None:
         """Publish a debate event to the event bus."""
         if not self._event_bus:
@@ -584,15 +580,15 @@ class DistributedDebateCoordinator:
         if hasattr(self._event_bus, "publish"):
             await self._event_bus.publish(event.to_dict())
 
-    def get_debate(self, debate_id: str) -> Optional[DistributedDebateState]:
+    def get_debate(self, debate_id: str) -> DistributedDebateState | None:
         """Get the state of a debate."""
         return self._debates.get(debate_id)
 
-    def list_active_debates(self) -> List[DistributedDebateState]:
+    def list_active_debates(self) -> list[DistributedDebateState]:
         """List all active (non-completed) debates."""
         return [s for s in self._debates.values() if s.status in ("created", "running", "paused")]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get coordinator statistics."""
         total = len(self._debates)
         active = len(self.list_active_debates())

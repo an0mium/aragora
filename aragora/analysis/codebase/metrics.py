@@ -15,10 +15,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from .models import CodeMetric, HotspotFinding, MetricType
-
 
 @dataclass
 class FunctionMetrics:
@@ -34,8 +33,7 @@ class FunctionMetrics:
     parameter_count: int = 0
     return_count: int = 0
     nested_depth: int = 0
-    class_name: Optional[str] = None
-
+    class_name: str | None = None
 
 @dataclass
 class FileMetrics:
@@ -46,13 +44,12 @@ class FileMetrics:
     lines_of_code: int = 0
     lines_of_comments: int = 0
     blank_lines: int = 0
-    functions: List[FunctionMetrics] = field(default_factory=list)
+    functions: list[FunctionMetrics] = field(default_factory=list)
     classes: int = 0
     imports: int = 0
     avg_complexity: float = 0.0
     max_complexity: int = 0
     maintainability_index: float = 100.0
-
 
 @dataclass
 class DuplicateBlock:
@@ -60,8 +57,7 @@ class DuplicateBlock:
 
     hash: str
     lines: int
-    occurrences: List[Tuple[str, int, int]]  # [(file_path, start_line, end_line), ...]
-
+    occurrences: list[tuple[str, int, int]]  # [(file_path, start_line, end_line), ...]
 
 @dataclass
 class MetricsReport:
@@ -80,12 +76,12 @@ class MetricsReport:
     avg_complexity: float = 0.0
     max_complexity: int = 0
     maintainability_index: float = 100.0
-    files: List[FileMetrics] = field(default_factory=list)
-    hotspots: List[HotspotFinding] = field(default_factory=list)
-    duplicates: List[DuplicateBlock] = field(default_factory=list)
-    metrics: List[CodeMetric] = field(default_factory=list)
+    files: list[FileMetrics] = field(default_factory=list)
+    hotspots: list[HotspotFinding] = field(default_factory=list)
+    duplicates: list[DuplicateBlock] = field(default_factory=list)
+    metrics: list[CodeMetric] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "repository": self.repository,
@@ -116,7 +112,6 @@ class MetricsReport:
             ],
             "metrics": [m.to_dict() for m in self.metrics],
         }
-
 
 class ComplexityVisitor(ast.NodeVisitor):
     """AST visitor for calculating complexity metrics."""
@@ -189,14 +184,13 @@ class ComplexityVisitor(ast.NodeVisitor):
         self.cognitive += 1 + self.nesting_level
         self.generic_visit(node)
 
-
 class PythonAnalyzer:
     """Analyzer for Python code metrics."""
 
     def __init__(self) -> None:
         pass
 
-    def analyze_file(self, file_path: str, content: Optional[str] = None) -> FileMetrics:
+    def analyze_file(self, file_path: str, content: str | None = None) -> FileMetrics:
         """Analyze a Python file for complexity metrics."""
         if content is None:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -292,7 +286,6 @@ class PythonAnalyzer:
             class_name=class_name,
         )
 
-
 class TypeScriptAnalyzer:
     """Basic analyzer for TypeScript/JavaScript metrics."""
 
@@ -314,7 +307,7 @@ class TypeScriptAnalyzer:
     def __init__(self) -> None:
         pass
 
-    def analyze_file(self, file_path: str, content: Optional[str] = None) -> FileMetrics:
+    def analyze_file(self, file_path: str, content: str | None = None) -> FileMetrics:
         """Analyze a TypeScript/JavaScript file for metrics."""
         if content is None:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -400,7 +393,6 @@ class TypeScriptAnalyzer:
 
         return metrics
 
-
 class DuplicateDetector:
     """Detects duplicate code blocks."""
 
@@ -408,7 +400,7 @@ class DuplicateDetector:
         self.min_lines = min_lines
         self.min_tokens = min_tokens
 
-    def detect_duplicates(self, files: List[Tuple[str, str]]) -> List[DuplicateBlock]:
+    def detect_duplicates(self, files: list[tuple[str, str]]) -> list[DuplicateBlock]:
         """Detect duplicate code blocks across files.
 
         Args:
@@ -418,7 +410,7 @@ class DuplicateDetector:
             List of duplicate blocks found
         """
         # Hash blocks of code
-        block_hashes: Dict[str, List[Tuple[str, int, int, str]]] = defaultdict(list)
+        block_hashes: dict[str, list[tuple[str, int, int, str]]] = defaultdict(list)
 
         for file_path, content in files:
             lines = content.split("\n")
@@ -452,7 +444,6 @@ class DuplicateDetector:
                     )
 
         return duplicates
-
 
 class CodeMetricsAnalyzer:
     """Main analyzer for code metrics across a codebase."""
@@ -503,9 +494,9 @@ class CodeMetricsAnalyzer:
     def analyze_repository(
         self,
         repo_path: str,
-        scan_id: Optional[str] = None,
-        include_patterns: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        scan_id: str | None = None,
+        include_patterns: Optional[list[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
     ) -> MetricsReport:
         """Analyze an entire repository for code metrics.
 
@@ -526,7 +517,7 @@ class CodeMetricsAnalyzer:
             scan_id=scan_id,
         )
 
-        files_to_analyze: List[Tuple[str, str]] = []
+        files_to_analyze: list[tuple[str, str]] = []
 
         # Walk directory and collect files
         for root, dirs, files in os.walk(repo_path):
@@ -643,7 +634,7 @@ class CodeMetricsAnalyzer:
 
         return metrics
 
-    def _find_hotspots(self, report: MetricsReport, top_n: int = 10) -> List[HotspotFinding]:
+    def _find_hotspots(self, report: MetricsReport, top_n: int = 10) -> list[HotspotFinding]:
         """Find complexity hotspots."""
         hotspots = []
 
@@ -666,7 +657,7 @@ class CodeMetricsAnalyzer:
         hotspots.sort(key=lambda h: h.risk_score, reverse=True)
         return hotspots[:top_n]
 
-    def _generate_metrics(self, report: MetricsReport) -> List[CodeMetric]:
+    def _generate_metrics(self, report: MetricsReport) -> list[CodeMetric]:
         """Generate CodeMetric objects from the report."""
         metrics = []
 

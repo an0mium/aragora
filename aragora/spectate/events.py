@@ -3,9 +3,6 @@ Centralized event type constants for Spectator Mode.
 Prevents typos and ensures consistency across the codebase.
 """
 
-from typing import Dict, Tuple
-
-
 class SpectatorEvents:
     """String constants for all spectator event types."""
 
@@ -40,10 +37,9 @@ class SpectatorEvents:
     SYSTEM = "system"
     ERROR = "error"
 
-
 # Icon and color mappings for visual styling
 # Format: (emoji_icon, ansi_color_code)
-EVENT_STYLES: Dict[str, Tuple[str, str]] = {
+EVENT_STYLES: dict[str, tuple[str, str]] = {
     SpectatorEvents.DEBATE_START: ("🎬", "\033[95m"),  # Magenta
     SpectatorEvents.DEBATE_END: ("🏁", "\033[95m"),
     SpectatorEvents.ROUND_START: ("⏱️", "\033[96m"),  # Cyan
@@ -64,7 +60,7 @@ EVENT_STYLES: Dict[str, Tuple[str, str]] = {
 }
 
 # ASCII fallbacks for non-UTF8 environments
-EVENT_ASCII: Dict[str, str] = {
+EVENT_ASCII: dict[str, str] = {
     SpectatorEvents.DEBATE_START: "[START]",
     SpectatorEvents.DEBATE_END: "[END]",
     SpectatorEvents.ROUND_START: "[ROUND]",

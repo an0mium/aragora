@@ -30,6 +30,7 @@ Usage:
     # Resume after crash
     result = await engine.resume("molecule-123")
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -40,14 +41,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.config.settings import get_settings
 from aragora.nomic.beads import BeadStore
 
 logger = logging.getLogger(__name__)
-
 
 class StepStatus(str, Enum):
     """Status of a molecule step."""
@@ -58,7 +58,6 @@ class StepStatus(str, Enum):
     FAILED = "failed"
     SKIPPED = "skipped"
 
-
 class MoleculeStatus(str, Enum):
     """Status of a molecule."""
 
@@ -68,7 +67,6 @@ class MoleculeStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     PAUSED = "paused"
-
 
 @dataclass
 class MoleculeStep:
@@ -85,26 +83,26 @@ class MoleculeStep:
     id: str
     name: str
     step_type: str  # agent, shell, parallel, conditional
-    config: Dict[str, Any]
+    config: dict[str, Any]
     status: StepStatus
-    result: Optional[Any] = None
-    error_message: Optional[str] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    result: Any | None = None
+    error_message: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     attempt_count: int = 0
     max_attempts: int = 3
     timeout_seconds: float = 300.0
-    bead_id: Optional[str] = None  # Associated bead for tracking
-    dependencies: List[str] = field(default_factory=list)  # Step IDs
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    bead_id: str | None = None  # Associated bead for tracking
+    dependencies: list[str] = field(default_factory=list)  # Step IDs
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def create(
         cls,
         name: str,
         step_type: str,
-        config: Optional[Dict[str, Any]] = None,
-        dependencies: Optional[List[str]] = None,
+        config: Optional[dict[str, Any]] = None,
+        dependencies: Optional[list[str]] = None,
         timeout_seconds: float = 300.0,
         max_attempts: int = 3,
     ) -> "MoleculeStep":
@@ -120,7 +118,7 @@ class MoleculeStep:
             max_attempts=max_attempts,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -141,7 +139,7 @@ class MoleculeStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MoleculeStep":
+    def from_dict(cls, data: dict[str, Any]) -> "MoleculeStep":
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -173,7 +171,6 @@ class MoleculeStep:
         """Check if step is in terminal state."""
         return self.status in (StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED)
 
-
 @dataclass
 class Molecule:
     """
@@ -189,26 +186,26 @@ class Molecule:
     id: str
     name: str
     description: str
-    steps: List[MoleculeStep]
+    steps: list[MoleculeStep]
     current_step_index: int
     status: MoleculeStatus
     created_at: datetime
     updated_at: datetime
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    checkpoint_dir: Optional[Path] = None
-    parent_id: Optional[str] = None  # For nested molecules
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    error_message: Optional[str] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    checkpoint_dir: Path | None = None
+    parent_id: str | None = None  # For nested molecules
+    metadata: dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
 
     @classmethod
     def create(
         cls,
         name: str,
-        steps: List[MoleculeStep],
+        steps: list[MoleculeStep],
         description: str = "",
-        checkpoint_dir: Optional[Path] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        checkpoint_dir: Path | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> "Molecule":
         """Create a new molecule."""
         now = datetime.now(timezone.utc)
@@ -225,7 +222,7 @@ class Molecule:
             metadata=metadata or {},
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -245,7 +242,7 @@ class Molecule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Molecule":
+    def from_dict(cls, data: dict[str, Any]) -> "Molecule":
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -268,7 +265,7 @@ class Molecule:
             error_message=data.get("error_message"),
         )
 
-    def get_current_step(self) -> Optional[MoleculeStep]:
+    def get_current_step(self) -> MoleculeStep | None:
         """Get the current step to execute."""
         if self.current_step_index < len(self.steps):
             return self.steps[self.current_step_index]
@@ -278,7 +275,7 @@ class Molecule:
         """Get IDs of completed steps."""
         return {s.id for s in self.steps if s.status == StepStatus.COMPLETED}
 
-    def get_next_runnable_steps(self) -> List[MoleculeStep]:
+    def get_next_runnable_steps(self) -> list[MoleculeStep]:
         """Get steps that can be run (dependencies met)."""
         completed_ids = self.get_completed_step_ids()
         return [
@@ -296,7 +293,6 @@ class Molecule:
         completed = len([s for s in self.steps if s.is_terminal()])
         return completed / len(self.steps) * 100
 
-
 @dataclass
 class MoleculeResult:
     """Result of molecule execution."""
@@ -307,14 +303,13 @@ class MoleculeResult:
     failed_steps: int
     total_steps: int
     duration_seconds: float
-    step_results: Dict[str, Any]
-    error_message: Optional[str] = None
+    step_results: dict[str, Any]
+    error_message: str | None = None
 
     @property
     def success(self) -> bool:
         """Check if molecule completed successfully."""
         return self.status == MoleculeStatus.COMPLETED
-
 
 class StepExecutor(ABC):
     """Abstract base class for step executors."""
@@ -323,7 +318,7 @@ class StepExecutor(ABC):
     async def execute(
         self,
         step: MoleculeStep,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> Any:
         """
         Execute a step.
@@ -337,22 +332,20 @@ class StepExecutor(ABC):
         """
         pass
 
-
 class AgentStepExecutor(StepExecutor):
     """Execute steps using AI agents."""
 
-    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+    async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute step via agent."""
         # This would integrate with the actual agent system
         # For now, return a placeholder
         logger.info(f"Agent executing step: {step.name}")
         return {"status": "executed", "step": step.name}
 
-
 class ShellStepExecutor(StepExecutor):
     """Execute steps as shell commands."""
 
-    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+    async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute step as shell command."""
         command = step.config.get("command", "echo 'No command'")
         logger.info(f"Shell executing: {command}")
@@ -375,7 +368,6 @@ class ShellStepExecutor(StepExecutor):
         except asyncio.TimeoutError:
             raise TimeoutError(f"Step {step.name} timed out after {step.timeout_seconds}s")
 
-
 class DebateStepExecutor(StepExecutor):
     """
     Execute steps by routing contested decisions to Arena debate.
@@ -390,7 +382,7 @@ class DebateStepExecutor(StepExecutor):
         consensus: Consensus requirement (majority, unanimous, etc.)
     """
 
-    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+    async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute step via Arena debate."""
         question = step.config.get("question", step.name)
         agents_config = step.config.get("agents", get_settings().agent.default_agent_list)
@@ -432,7 +424,6 @@ class DebateStepExecutor(StepExecutor):
             logger.error(f"Debate execution failed: {e}")
             raise
 
-
 class ParallelStepExecutor(StepExecutor):
     """
     Execute steps by fanning out to multiple agents in parallel.
@@ -445,7 +436,7 @@ class ParallelStepExecutor(StepExecutor):
         aggregate: How to combine results (all, first, majority, custom)
     """
 
-    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+    async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute step across multiple agents in parallel."""
         agents_config = step.config.get("agents", ["claude", "gpt4"])
         task = step.config.get("task", step.name)
@@ -492,7 +483,6 @@ class ParallelStepExecutor(StepExecutor):
             logger.error(f"Parallel execution failed: {e}")
             raise
 
-
 class ConditionalStepExecutor(StepExecutor):
     """
     Execute steps conditionally based on previous step results.
@@ -509,7 +499,7 @@ class ConditionalStepExecutor(StepExecutor):
         branch_step: Step ID to branch to if branching
     """
 
-    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+    async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute step conditionally based on context."""
         condition_key = step.config.get("condition_key", "status")
         expected_value = step.config.get("expected_value", "success")
@@ -575,7 +565,6 @@ class ConditionalStepExecutor(StepExecutor):
             logger.warning(f"Unknown operator: {operator}, defaulting to equality")
             return actual == expected
 
-
 class MoleculeEngine:
     """
     Executes molecules with step-level persistence.
@@ -589,8 +578,8 @@ class MoleculeEngine:
 
     def __init__(
         self,
-        bead_store: Optional[BeadStore] = None,
-        checkpoint_dir: Optional[Path] = None,
+        bead_store: BeadStore | None = None,
+        checkpoint_dir: Path | None = None,
     ):
         """
         Initialize the molecule engine.
@@ -601,11 +590,11 @@ class MoleculeEngine:
         """
         self.bead_store = bead_store
         self.checkpoint_dir = checkpoint_dir or Path(".molecules")
-        self._executors: Dict[str, StepExecutor] = {
+        self._executors: dict[str, StepExecutor] = {
             "agent": AgentStepExecutor(),
             "shell": ShellStepExecutor(),
         }
-        self._molecules: Dict[str, Molecule] = {}
+        self._molecules: dict[str, Molecule] = {}
         self._lock = asyncio.Lock()
         self._initialized = False
 
@@ -651,7 +640,7 @@ class MoleculeEngine:
     async def _execute_step(
         self,
         step: MoleculeStep,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> Any:
         """Execute a single step."""
         executor = self._executors.get(step.step_type)
@@ -700,8 +689,8 @@ class MoleculeEngine:
             self._molecules[molecule.id] = molecule
             await self._checkpoint(molecule)
 
-            context: Dict[str, Any] = {"step_results": {}}
-            step_results: Dict[str, Any] = {}
+            context: dict[str, Any] = {"step_results": {}}
+            step_results: dict[str, Any] = {}
 
             try:
                 # Execute steps in order (respecting dependencies)
@@ -814,14 +803,14 @@ class MoleculeEngine:
 
         return await self.execute(molecule)
 
-    async def get_molecule(self, molecule_id: str) -> Optional[Molecule]:
+    async def get_molecule(self, molecule_id: str) -> Molecule | None:
         """Get a molecule by ID."""
         return self._molecules.get(molecule_id)
 
     async def list_molecules(
         self,
-        status: Optional[MoleculeStatus] = None,
-    ) -> List[Molecule]:
+        status: MoleculeStatus | None = None,
+    ) -> list[Molecule]:
         """List molecules with optional status filter."""
         molecules = list(self._molecules.values())
         if status:
@@ -849,10 +838,10 @@ class MoleculeEngine:
         logger.info(f"Cancelled molecule {molecule_id}")
         return True
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get statistics about molecules."""
         molecules = list(self._molecules.values())
-        by_status: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
         for m in molecules:
             by_status[m.status.value] = by_status.get(m.status.value, 0) + 1
 
@@ -862,9 +851,7 @@ class MoleculeEngine:
             "total_steps": sum(len(m.steps) for m in molecules),
         }
 
-
 # Escalation support (Gastown pattern)
-
 
 class EscalationLevel(str, Enum):
     """Standard escalation severity levels."""
@@ -874,7 +861,6 @@ class EscalationLevel(str, Enum):
     SUSPEND = "suspend"  # Pause agent/operation
     TERMINATE = "terminate"  # Full stop with cleanup
 
-
 @dataclass
 class EscalationContext:
     """Context for escalation step execution."""
@@ -882,18 +868,17 @@ class EscalationContext:
     level: EscalationLevel
     source: str  # What triggered the escalation
     reason: str  # Why escalation was triggered
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    previous_level: Optional[EscalationLevel] = None
-    auto_escalate_at: Optional[datetime] = None
-
+    previous_level: EscalationLevel | None = None
+    auto_escalate_at: datetime | None = None
 
 class EscalationStepExecutor(StepExecutor):
     """Execute escalation steps with severity-aware handlers."""
 
     def __init__(
         self,
-        handlers: Dict[str, Any],
+        handlers: dict[str, Any],
         auto_escalate_seconds: float = 300.0,
     ):
         """
@@ -905,9 +890,9 @@ class EscalationStepExecutor(StepExecutor):
         """
         self._handlers = handlers
         self._auto_escalate_seconds = auto_escalate_seconds
-        self._current_level: Optional[EscalationLevel] = None
+        self._current_level: EscalationLevel | None = None
 
-    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+    async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute escalation step."""
         level_str = step.config.get("level", "warn")
         try:
@@ -955,15 +940,14 @@ class EscalationStepExecutor(StepExecutor):
             logger.error(f"Escalation handler failed: {e}")
             raise
 
-
 def create_escalation_molecule(
     name: str,
-    severity_levels: List[str],
-    handlers: Dict[str, Any],
+    severity_levels: list[str],
+    handlers: dict[str, Any],
     source: str = "system",
     reason: str = "threshold_exceeded",
     auto_escalate_after_seconds: float = 300.0,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> Molecule:
     """
     Create a molecule for escalation workflows (Gastown pattern).
@@ -1043,12 +1027,11 @@ def create_escalation_molecule(
         },
     )
 
-
 def create_conditional_escalation_molecule(
     name: str,
     check_fn: Any,  # Callable[[], bool] - condition to check
-    severity_levels: List[str],
-    handlers: Dict[str, Any],
+    severity_levels: list[str],
+    handlers: dict[str, Any],
     check_interval_seconds: float = 60.0,
     max_checks_per_level: int = 5,
     source: str = "conditional_monitor",
@@ -1116,14 +1099,12 @@ def create_conditional_escalation_molecule(
         },
     )
 
-
 # Singleton instance
-_default_engine: Optional[MoleculeEngine] = None
-
+_default_engine: MoleculeEngine | None = None
 
 async def get_molecule_engine(
-    bead_store: Optional[BeadStore] = None,
-    checkpoint_dir: Optional[Path] = None,
+    bead_store: BeadStore | None = None,
+    checkpoint_dir: Path | None = None,
 ) -> MoleculeEngine:
     """Get the default molecule engine instance."""
     global _default_engine
@@ -1131,7 +1112,6 @@ async def get_molecule_engine(
         _default_engine = MoleculeEngine(bead_store, checkpoint_dir)
         await _default_engine.initialize()
     return _default_engine
-
 
 def reset_molecule_engine() -> None:
     """Reset the default engine (for testing)."""

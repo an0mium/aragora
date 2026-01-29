@@ -17,7 +17,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 import aiohttp
 
@@ -26,7 +26,6 @@ from aragora.reasoning.provenance import SourceType
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
-
 
 # Google Calendar API scopes
 CALENDAR_SCOPES_READONLY = [
@@ -42,7 +41,6 @@ CALENDAR_SCOPES_FULL = [
 # Default to read-only for inbox integration
 CALENDAR_SCOPES = CALENDAR_SCOPES_READONLY
 
-
 @dataclass
 class CalendarEvent:
     """Represents a calendar event."""
@@ -50,25 +48,25 @@ class CalendarEvent:
     id: str
     calendar_id: str
     summary: str
-    description: Optional[str] = None
-    location: Optional[str] = None
-    start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    description: str | None = None
+    location: str | None = None
+    start: datetime | None = None
+    end: datetime | None = None
     all_day: bool = False
     status: str = "confirmed"  # confirmed, tentative, cancelled
-    organizer_email: Optional[str] = None
-    organizer_name: Optional[str] = None
-    attendees: List[Dict[str, Any]] = field(default_factory=list)
-    html_link: Optional[str] = None
-    hangout_link: Optional[str] = None
-    conference_data: Optional[Dict[str, Any]] = None
-    recurrence: Optional[List[str]] = None
-    recurring_event_id: Optional[str] = None
-    created: Optional[datetime] = None
-    updated: Optional[datetime] = None
-    etag: Optional[str] = None
+    organizer_email: str | None = None
+    organizer_name: str | None = None
+    attendees: list[dict[str, Any]] = field(default_factory=list)
+    html_link: str | None = None
+    hangout_link: str | None = None
+    conference_data: Optional[dict[str, Any]] = None
+    recurrence: Optional[list[str]] = None
+    recurring_event_id: str | None = None
+    created: datetime | None = None
+    updated: datetime | None = None
+    etag: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -92,7 +90,6 @@ class CalendarEvent:
             "updated": self.updated.isoformat() if self.updated else None,
         }
 
-
 @dataclass
 class FreeBusySlot:
     """Represents a busy time slot."""
@@ -100,12 +97,11 @@ class FreeBusySlot:
     start: datetime
     end: datetime
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "start": self.start.isoformat(),
             "end": self.end.isoformat(),
         }
-
 
 @dataclass
 class CalendarInfo:
@@ -113,14 +109,14 @@ class CalendarInfo:
 
     id: str
     summary: str
-    description: Optional[str] = None
-    timezone: Optional[str] = None
+    description: str | None = None
+    timezone: str | None = None
     primary: bool = False
     access_role: str = "reader"
-    background_color: Optional[str] = None
-    foreground_color: Optional[str] = None
+    background_color: str | None = None
+    foreground_color: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "summary": self.summary,
@@ -131,7 +127,6 @@ class CalendarInfo:
             "background_color": self.background_color,
             "foreground_color": self.foreground_color,
         }
-
 
 class GoogleCalendarConnector(EnterpriseConnector):
     """
@@ -175,7 +170,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        calendar_ids: Optional[List[str]] = None,
+        calendar_ids: Optional[list[str]] = None,
         max_results: int = 250,
         **kwargs,
     ):
@@ -192,9 +187,9 @@ class GoogleCalendarConnector(EnterpriseConnector):
         self.max_results = max_results
 
         # OAuth tokens
-        self._access_token: Optional[str] = None
-        self._refresh_token: Optional[str] = None
-        self._token_expiry: Optional[datetime] = None
+        self._access_token: str | None = None
+        self._refresh_token: str | None = None
+        self._token_expiry: datetime | None = None
         self._token_lock: asyncio.Lock = asyncio.Lock()
 
         # Circuit breaker for API calls
@@ -205,7 +200,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         )
 
         # HTTP session
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -312,9 +307,9 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        code: str | None = None,
+        redirect_uri: str | None = None,
+        refresh_token: str | None = None,
     ) -> bool:
         """
         Authenticate with Google Calendar.
@@ -373,9 +368,9 @@ class GoogleCalendarConnector(EnterpriseConnector):
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict] = None,
-        json_data: Optional[Dict] = None,
-    ) -> Dict[str, Any]:
+        params: dict | None = None,
+        json_data: dict | None = None,
+    ) -> dict[str, Any]:
         """Make authenticated API request."""
         token = await self._ensure_token()
         session = await self._get_session()
@@ -415,7 +410,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
         return await self._circuit_breaker.execute(_make_request)
 
-    async def get_calendars(self) -> List[CalendarInfo]:
+    async def get_calendars(self) -> list[CalendarInfo]:
         """Get list of user's calendars."""
         data = await self._api_request("GET", "/users/me/calendarList")
 
@@ -439,13 +434,13 @@ class GoogleCalendarConnector(EnterpriseConnector):
     async def get_events(
         self,
         calendar_id: str = "primary",
-        time_min: Optional[datetime] = None,
-        time_max: Optional[datetime] = None,
-        query: Optional[str] = None,
+        time_min: datetime | None = None,
+        time_max: datetime | None = None,
+        query: str | None = None,
         single_events: bool = True,
         order_by: str = "startTime",
-        max_results: Optional[int] = None,
-    ) -> List[CalendarEvent]:
+        max_results: int | None = None,
+    ) -> list[CalendarEvent]:
         """
         Get events from a calendar.
 
@@ -461,7 +456,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         Returns:
             List of calendar events
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "singleEvents": str(single_events).lower(),
             "orderBy": order_by,
             "maxResults": max_results or self.max_results,
@@ -484,7 +479,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
         return events
 
-    def _parse_event(self, item: Dict[str, Any], calendar_id: str) -> Optional[CalendarEvent]:
+    def _parse_event(self, item: dict[str, Any], calendar_id: str) -> CalendarEvent | None:
         """Parse API response into CalendarEvent."""
         try:
             # Parse start time
@@ -567,8 +562,8 @@ class GoogleCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        calendar_ids: Optional[List[str]] = None,
-    ) -> Dict[str, List[FreeBusySlot]]:
+        calendar_ids: Optional[list[str]] = None,
+    ) -> dict[str, list[FreeBusySlot]]:
         """
         Get free/busy information for calendars.
 
@@ -591,7 +586,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
         data = await self._api_request("POST", "/freeBusy", json_data=request_body)
 
-        result: Dict[str, List[FreeBusySlot]] = {}
+        result: dict[str, list[FreeBusySlot]] = {}
         for cal_id, cal_data in data.get("calendars", {}).items():
             busy_slots = []
             for busy in cal_data.get("busy", []):
@@ -606,7 +601,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        calendar_ids: Optional[List[str]] = None,
+        calendar_ids: Optional[list[str]] = None,
     ) -> bool:
         """
         Check if user is available during a time range.
@@ -630,8 +625,8 @@ class GoogleCalendarConnector(EnterpriseConnector):
     async def get_upcoming_events(
         self,
         hours: int = 24,
-        calendar_ids: Optional[List[str]] = None,
-    ) -> List[CalendarEvent]:
+        calendar_ids: Optional[list[str]] = None,
+    ) -> list[CalendarEvent]:
         """
         Get upcoming events within a time window.
 
@@ -669,8 +664,8 @@ class GoogleCalendarConnector(EnterpriseConnector):
         self,
         proposed_start: datetime,
         proposed_end: datetime,
-        calendar_ids: Optional[List[str]] = None,
-    ) -> List[CalendarEvent]:
+        calendar_ids: Optional[list[str]] = None,
+    ) -> list[CalendarEvent]:
         """
         Find events that conflict with a proposed time.
 
@@ -707,9 +702,9 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
     async def sync(  # type: ignore[override]
         self,
-        state: Optional[SyncState] = None,
+        state: SyncState | None = None,
         full_sync: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sync events from calendars.
 

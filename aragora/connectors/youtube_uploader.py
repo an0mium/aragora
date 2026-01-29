@@ -4,6 +4,7 @@ YouTube upload connector for publishing debate videos.
 Uses YouTube Data API v3 with OAuth 2.0 for uploading videos
 and managing video metadata.
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -11,7 +12,6 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlencode
 
 from aragora.connectors.exceptions import (
@@ -24,20 +24,17 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
-
 class YouTubeError(ConnectorError):
     """Base exception for YouTube connector errors."""
 
     def __init__(self, message: str = "YouTube API operation failed", **kwargs):
         super().__init__(message, connector_name="youtube", **kwargs)
 
-
 class YouTubeAuthError(YouTubeError, ConnectorAuthError):
     """Authentication/authorization failed."""
 
     def __init__(self, message: str = "YouTube authentication failed. Check OAuth credentials."):
         super().__init__(message)
-
 
 class YouTubeQuotaError(YouTubeError, ConnectorQuotaError):
     """API quota exceeded."""
@@ -52,7 +49,6 @@ class YouTubeQuotaError(YouTubeError, ConnectorQuotaError):
         self.remaining = remaining
         self.reset_hours = reset_hours
 
-
 class YouTubeUploadError(YouTubeError):
     """Video upload failed."""
 
@@ -61,24 +57,21 @@ class YouTubeUploadError(YouTubeError):
         super().__init__(full_message, is_retryable=True)
         self.video_path = video_path
 
-
 class YouTubeAPIError(YouTubeError, ConnectorAPIError):
     """General API error."""
 
     def __init__(
-        self, message: str = "YouTube API request failed", status_code: Optional[int] = None
+        self, message: str = "YouTube API request failed", status_code: int | None = None
     ):
         full_message = f"{message} (HTTP {status_code})" if status_code else message
         # Pass status_code to parent - ConnectorAPIError determines retryability
         super().__init__(full_message, status_code=status_code)
         self.status_code = status_code
 
-
 # YouTube API limits
 MAX_TITLE_LENGTH = 100
 MAX_DESCRIPTION_LENGTH = 5000
 MAX_TAGS_LENGTH = 500  # Total characters for all tags
-
 
 @dataclass
 class YouTubeVideoMetadata:
@@ -122,7 +115,6 @@ class YouTubeVideoMetadata:
             },
         }
 
-
 @dataclass
 class UploadResult:
     """Result of a YouTube upload."""
@@ -131,9 +123,8 @@ class UploadResult:
     title: str
     url: str
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
     upload_status: str = "complete"  # complete, processing, failed
-
 
 class YouTubeRateLimiter:
     """Rate limiter for YouTube API quota management."""
@@ -147,7 +138,7 @@ class YouTubeRateLimiter:
         """
         self.daily_quota = daily_quota
         self.used_quota = 0
-        self.reset_time: Optional[float] = None
+        self.reset_time: float | None = None
 
     def _check_reset(self) -> None:
         """Reset quota if a day has passed."""
@@ -183,7 +174,6 @@ class YouTubeRateLimiter:
         self._check_reset()
         return max(0, self.daily_quota - self.used_quota)
 
-
 class YouTubeUploaderConnector:
     """
     Upload videos to YouTube using the Data API v3.
@@ -214,16 +204,16 @@ class YouTubeUploaderConnector:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        refresh_token: str | None = None,
     ):
         self.client_id = client_id or os.environ.get("YOUTUBE_CLIENT_ID", "")
         self.client_secret = client_secret or os.environ.get("YOUTUBE_CLIENT_SECRET", "")
         self.refresh_token = refresh_token or os.environ.get("YOUTUBE_REFRESH_TOKEN", "")
 
-        self._access_token: Optional[str] = None
-        self._token_expiry: Optional[float] = None
+        self._access_token: str | None = None
+        self._token_expiry: float | None = None
 
         self.rate_limiter = YouTubeRateLimiter()
         # Use 5 minute cooldown for YouTube API (matches original recovery_timeout)
@@ -359,7 +349,7 @@ class YouTubeUploaderConnector:
             logger.error(f"Token refresh parse error: {e}")
             return False
 
-    async def _get_access_token(self) -> Optional[str]:
+    async def _get_access_token(self) -> str | None:
         """Get a valid access token, refreshing if necessary."""
         if self._access_token and self._token_expiry and time.time() < self._token_expiry:
             return self._access_token
@@ -592,13 +582,12 @@ class YouTubeUploaderConnector:
             logger.error(f"Failed to get video status: {e}")
             raise YouTubeAPIError(f"Failed to get video status: {e}") from e
 
-
 def create_video_metadata_from_debate(
     task: str,
     agents: list[str],
     consensus_reached: bool,
     debate_id: str,
-    duration_seconds: Optional[int] = None,
+    duration_seconds: int | None = None,
 ) -> YouTubeVideoMetadata:
     """
     Create YouTube video metadata from debate information.

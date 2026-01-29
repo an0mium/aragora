@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.observability import get_logger
 
@@ -28,7 +28,6 @@ try:
 except ImportError:
     REDIS_AVAILABLE = False
     aioredis = None  # type: ignore[assignment]  # Optional module fallback
-
 
 class RedisPolicyCache:
     """
@@ -74,7 +73,7 @@ class RedisPolicyCache:
         self._key_prefix = key_prefix
         self._ttl_seconds = ttl_seconds
         self._enabled = enabled
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._stats = {
             "hits": 0,
             "misses": 0,
@@ -122,8 +121,8 @@ class RedisPolicyCache:
         task_type: str,
         agent_id: str,
         region: str,
-        workspace: Optional[str] = None,
-        policy_version: Optional[str] = None,
+        workspace: str | None = None,
+        policy_version: str | None = None,
     ) -> str:
         """Generate a cache key from evaluation context."""
         components = [
@@ -142,9 +141,9 @@ class RedisPolicyCache:
         task_type: str,
         agent_id: str,
         region: str,
-        workspace: Optional[str] = None,
-        policy_version: Optional[str] = None,
-    ) -> Optional[PolicyEvaluationResult]:
+        workspace: str | None = None,
+        policy_version: str | None = None,
+    ) -> PolicyEvaluationResult | None:
         """
         Get cached evaluation result.
 
@@ -195,8 +194,8 @@ class RedisPolicyCache:
         task_type: str,
         agent_id: str,
         region: str,
-        workspace: Optional[str] = None,
-        policy_version: Optional[str] = None,
+        workspace: str | None = None,
+        policy_version: str | None = None,
     ) -> bool:
         """
         Cache an evaluation result.
@@ -251,7 +250,7 @@ class RedisPolicyCache:
             logger.warning("policy_cache_invalidate_error", error=str(e))
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         total = self._stats["hits"] + self._stats["misses"]
         hit_rate = self._stats["hits"] / total if total > 0 else 0.0

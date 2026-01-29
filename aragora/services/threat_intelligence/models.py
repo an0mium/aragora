@@ -8,10 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .enums import ThreatSeverity, ThreatSource, ThreatType
-
 
 @dataclass
 class ThreatResult:
@@ -23,8 +22,8 @@ class ThreatResult:
     threat_type: ThreatType
     severity: ThreatSeverity
     confidence: float  # 0.0 to 1.0
-    sources: List[ThreatSource]
-    details: Dict[str, Any] = field(default_factory=dict)
+    sources: list[ThreatSource]
+    details: dict[str, Any] = field(default_factory=dict)
     checked_at: datetime = field(default_factory=datetime.now)
     cached: bool = False
 
@@ -54,7 +53,7 @@ class ThreatResult:
 
         return sum(scores) / len(scores)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "target": self.target,
@@ -77,7 +76,6 @@ class ThreatResult:
             "phishtank_verified": self.phishtank_verified,
         }
 
-
 @dataclass
 class SourceResult:
     """Result from a single threat intelligence source."""
@@ -85,13 +83,13 @@ class SourceResult:
     source: ThreatSource
     is_malicious: bool
     confidence: float  # 0.0 to 1.0
-    threat_types: List[str] = field(default_factory=list)
+    threat_types: list[str] = field(default_factory=list)
     raw_score: float = 0.0
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     checked_at: datetime = field(default_factory=datetime.now)
-    error: Optional[str] = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "source": self.source.value,
@@ -103,7 +101,6 @@ class SourceResult:
             "checked_at": self.checked_at.isoformat(),
             "error": self.error,
         }
-
 
 @dataclass
 class ThreatAssessment:
@@ -117,8 +114,8 @@ class ThreatAssessment:
     target_type: str  # "url", "ip", "hash"
     overall_risk: float  # 0.0 to 1.0
     is_malicious: bool
-    threat_types: List[str] = field(default_factory=list)
-    sources: Dict[str, SourceResult] = field(default_factory=dict)
+    threat_types: list[str] = field(default_factory=list)
+    sources: dict[str, SourceResult] = field(default_factory=dict)
     weighted_confidence: float = 0.0
     checked_at: datetime = field(default_factory=datetime.now)
 
@@ -132,7 +129,7 @@ class ThreatAssessment:
     sources_responding: int = 0
     cache_hits: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "target": self.target,
@@ -155,7 +152,6 @@ class ThreatAssessment:
             },
         }
 
-
 @dataclass
 class IPReputationResult:
     """Result of IP reputation check."""
@@ -164,18 +160,18 @@ class IPReputationResult:
     is_malicious: bool
     abuse_score: int  # 0-100
     total_reports: int
-    last_reported: Optional[datetime]
-    country_code: Optional[str]
-    isp: Optional[str]
-    domain: Optional[str]
-    usage_type: Optional[str]
-    categories: List[str] = field(default_factory=list)
+    last_reported: datetime | None
+    country_code: str | None
+    isp: str | None
+    domain: str | None
+    usage_type: str | None
+    categories: list[str] = field(default_factory=list)
     is_tor: bool = False
     is_vpn: bool = False
     is_proxy: bool = False
     is_datacenter: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "ip_address": self.ip_address,
@@ -194,7 +190,6 @@ class IPReputationResult:
             "is_datacenter": self.is_datacenter,
         }
 
-
 @dataclass
 class FileHashResult:
     """Result of file hash lookup."""
@@ -202,15 +197,15 @@ class FileHashResult:
     hash_value: str
     hash_type: str  # "md5", "sha1", "sha256"
     is_malware: bool
-    malware_names: List[str] = field(default_factory=list)
+    malware_names: list[str] = field(default_factory=list)
     detection_ratio: str = "0/0"
-    first_seen: Optional[datetime] = None
-    last_seen: Optional[datetime] = None
-    file_type: Optional[str] = None
-    file_size: Optional[int] = None
-    tags: List[str] = field(default_factory=list)
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+    file_type: str | None = None
+    file_size: int | None = None
+    tags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "hash_value": self.hash_value,

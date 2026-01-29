@@ -39,7 +39,6 @@ logger = logging.getLogger(__name__)
 _ar_invoice_store: Optional["ARInvoiceStoreBackend"] = None
 _store_lock = threading.RLock()
 
-
 class DecimalEncoder(json.JSONEncoder):
     """JSON encoder that handles Decimal types."""
 
@@ -47,7 +46,6 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return str(obj)
         return super().default(obj)
-
 
 def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
     """JSON decoder hook that converts decimal strings back to Decimal."""
@@ -59,12 +57,11 @@ def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
                 pass
     return dct
 
-
 class ARInvoiceStoreBackend(ABC):
     """Abstract base class for AR invoice storage backends."""
 
     @abstractmethod
-    async def get(self, invoice_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, invoice_id: str) -> dict[str, Any] | None:
         """Get invoice by ID."""
         pass
 
@@ -135,8 +132,8 @@ class ARInvoiceStoreBackend(ABC):
         invoice_id: str,
         amount: Decimal,
         payment_date: datetime,
-        payment_method: Optional[str] = None,
-        reference: Optional[str] = None,
+        payment_method: str | None = None,
+        reference: str | None = None,
     ) -> bool:
         """Record a payment against an invoice."""
         pass
@@ -152,7 +149,7 @@ class ARInvoiceStoreBackend(ABC):
 
     # Customer management
     @abstractmethod
-    async def get_customer(self, customer_id: str) -> Optional[dict[str, Any]]:
+    async def get_customer(self, customer_id: str) -> dict[str, Any] | None:
         """Get customer by ID."""
         pass
 
@@ -171,7 +168,6 @@ class ARInvoiceStoreBackend(ABC):
         """Close any resources."""
         pass
 
-
 class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
     """In-memory AR invoice store for testing."""
 
@@ -180,7 +176,7 @@ class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
         self._customers: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
 
-    async def get(self, invoice_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, invoice_id: str) -> dict[str, Any] | None:
         with self._lock:
             return self._invoices.get(invoice_id)
 
@@ -314,8 +310,8 @@ class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
         invoice_id: str,
         amount: Decimal,
         payment_date: datetime,
-        payment_method: Optional[str] = None,
-        reference: Optional[str] = None,
+        payment_method: str | None = None,
+        reference: str | None = None,
     ) -> bool:
         with self._lock:
             if invoice_id not in self._invoices:
@@ -369,7 +365,7 @@ class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
             inv["last_reminder_at"] = datetime.now(timezone.utc).isoformat()
             return True
 
-    async def get_customer(self, customer_id: str) -> Optional[dict[str, Any]]:
+    async def get_customer(self, customer_id: str) -> dict[str, Any] | None:
         with self._lock:
             return self._customers.get(customer_id)
 
@@ -387,11 +383,10 @@ class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
-
 class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
     """SQLite-backed AR invoice store."""
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         if db_path is None:
             data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
             db_path = Path(data_dir) / "ar_invoices.db"
@@ -448,7 +443,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
             finally:
                 conn.close()
 
-    async def get(self, invoice_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, invoice_id: str) -> dict[str, Any] | None:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -727,8 +722,8 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
         invoice_id: str,
         amount: Decimal,
         payment_date: datetime,
-        payment_method: Optional[str] = None,
-        reference: Optional[str] = None,
+        payment_method: str | None = None,
+        reference: str | None = None,
     ) -> bool:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -836,7 +831,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
             finally:
                 conn.close()
 
-    async def get_customer(self, customer_id: str) -> Optional[dict[str, Any]]:
+    async def get_customer(self, customer_id: str) -> dict[str, Any] | None:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -903,7 +898,6 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
-
 class PostgresARInvoiceStore(ARInvoiceStoreBackend):
     """PostgreSQL-backed AR invoice store for production."""
 
@@ -952,7 +946,7 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
         self._initialized = True
 
-    async def get(self, invoice_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, invoice_id: str) -> dict[str, Any] | None:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT data_json FROM ar_invoices WHERE id = $1",
@@ -980,7 +974,7 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
         elif isinstance(balance_due, str):
             balance_due = float(Decimal(balance_due))
 
-        def parse_date(val: Any) -> Optional[datetime]:
+        def parse_date(val: Any) -> datetime | None:
             if val is None:
                 return None
             if isinstance(val, datetime):
@@ -1198,8 +1192,8 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
         invoice_id: str,
         amount: Decimal,
         payment_date: datetime,
-        payment_method: Optional[str] = None,
-        reference: Optional[str] = None,
+        payment_method: str | None = None,
+        reference: str | None = None,
     ) -> bool:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1287,7 +1281,7 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
             )
             return result != "UPDATE 0"
 
-    async def get_customer(self, customer_id: str) -> Optional[dict[str, Any]]:
+    async def get_customer(self, customer_id: str) -> dict[str, Any] | None:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT data_json FROM ar_customers WHERE customer_id = $1",
@@ -1343,7 +1337,6 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
-
 def get_ar_invoice_store() -> ARInvoiceStoreBackend:
     """
     Get the global AR invoice store instance.
@@ -1378,20 +1371,17 @@ def get_ar_invoice_store() -> ARInvoiceStoreBackend:
 
         return _ar_invoice_store
 
-
 def set_ar_invoice_store(store: ARInvoiceStoreBackend) -> None:
     """Set a custom AR invoice store instance."""
     global _ar_invoice_store
     with _store_lock:
         _ar_invoice_store = store
 
-
 def reset_ar_invoice_store() -> None:
     """Reset the global AR invoice store (for testing)."""
     global _ar_invoice_store
     with _store_lock:
         _ar_invoice_store = None
-
 
 __all__ = [
     "ARInvoiceStoreBackend",

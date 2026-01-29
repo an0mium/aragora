@@ -15,7 +15,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aiohttp import web
 
@@ -27,8 +27,7 @@ logger = logging.getLogger(__name__)
 SCAN_READ_PERMISSION = "codebase:scan:read"
 SCAN_EXECUTE_PERMISSION = "codebase:scan:execute"
 
-
-async def _check_permission(request: web.Request, permission: str) -> Optional[web.Response]:
+async def _check_permission(request: web.Request, permission: str) -> web.Response | None:
     """Check if user has required permission. Returns error response if denied."""
     try:
         # Get auth context from request
@@ -61,17 +60,15 @@ async def _check_permission(request: web.Request, permission: str) -> Optional[w
             status=401,
         )
 
-
 # In-memory storage for scan results
-_quick_scan_results: Dict[str, Dict[str, Any]] = {}
-
+_quick_scan_results: dict[str, dict[str, Any]] = {}
 
 async def run_quick_scan(
     repo_path: str,
     severity_threshold: str = "medium",
     include_secrets: bool = True,
-    scan_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    scan_id: str | None = None,
+) -> dict[str, Any]:
     """
     Run a quick security scan on a repository.
 
@@ -94,7 +91,7 @@ async def run_quick_scan(
 
     logger.info(f"[QuickScan] Starting scan {scan_id} on {repo_path}")
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "scan_id": scan_id,
         "repository": repo_path,
         "status": "running",
@@ -191,8 +188,7 @@ async def run_quick_scan(
     _quick_scan_results[scan_id] = result
     return result
 
-
-def _generate_mock_result(scan_id: str, repo_path: str, start_time: datetime) -> Dict[str, Any]:
+def _generate_mock_result(scan_id: str, repo_path: str, start_time: datetime) -> dict[str, Any]:
     """Generate mock scan result for demo/testing."""
     return {
         "scan_id": scan_id,
@@ -253,16 +249,14 @@ def _generate_mock_result(scan_id: str, repo_path: str, start_time: datetime) ->
         "error": None,
     }
 
-
-async def get_quick_scan_result(scan_id: str) -> Optional[Dict[str, Any]]:
+async def get_quick_scan_result(scan_id: str) -> Optional[dict[str, Any]]:
     """Get a quick scan result by ID."""
     return _quick_scan_results.get(scan_id)
-
 
 async def list_quick_scans(
     limit: int = 20,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """List recent quick scans."""
     scans = list(_quick_scan_results.values())
     scans.sort(key=lambda s: s.get("started_at", ""), reverse=True)
@@ -288,11 +282,9 @@ async def list_quick_scans(
         "offset": offset,
     }
 
-
 # =============================================================================
 # HTTP Handlers
 # =============================================================================
-
 
 class QuickScanHandler:
     """Handler for quick scan API endpoints."""
@@ -404,7 +396,6 @@ class QuickScanHandler:
                 {"success": False, "error": str(e)},
                 status=500,
             )
-
 
 def register_routes(app: web.Application) -> None:
     """Register quick scan routes."""

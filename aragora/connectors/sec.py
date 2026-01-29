@@ -9,11 +9,11 @@ Provides access to the SEC's EDGAR database for:
 The SEC EDGAR API is free and requires no authentication.
 Rate limit: 10 requests per second.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
@@ -27,7 +27,6 @@ try:
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
-
 
 # SEC EDGAR API endpoints
 EDGAR_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
@@ -49,7 +48,6 @@ FORM_TYPES = {
     "6-K": "Foreign private issuer report",
     "20-F": "Foreign private issuer annual report",
 }
-
 
 class SECConnector(BaseConnector):
     """
@@ -75,7 +73,7 @@ class SECConnector(BaseConnector):
 
     def __init__(
         self,
-        provenance: Optional[ProvenanceManager] = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.90,  # Regulatory filings are highly reliable
         timeout: int = 30,
         rate_limit_delay: float = 0.1,  # SEC allows 10 req/sec
@@ -139,9 +137,9 @@ class SECConnector(BaseConnector):
         self,
         query: str,
         limit: int = 10,
-        form_type: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
+        form_type: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
         **kwargs,
     ) -> list[Evidence]:
         """
@@ -171,7 +169,7 @@ class SECConnector(BaseConnector):
         # Fetch company submissions
         return await self._get_company_filings(cik, limit, form_type, date_from, date_to)
 
-    async def _resolve_to_cik(self, query: str) -> Optional[str]:
+    async def _resolve_to_cik(self, query: str) -> str | None:
         """
         Resolve ticker or company name to CIK number.
 
@@ -223,9 +221,9 @@ class SECConnector(BaseConnector):
         self,
         cik: str,
         limit: int,
-        form_type: Optional[str],
-        date_from: Optional[str],
-        date_to: Optional[str],
+        form_type: str | None,
+        date_from: str | None,
+        date_to: str | None,
     ) -> list[Evidence]:
         """Fetch filings for a specific CIK."""
         await self._rate_limit()
@@ -256,7 +254,7 @@ class SECConnector(BaseConnector):
         self,
         query: str,
         limit: int,
-        form_type: Optional[str],
+        form_type: str | None,
     ) -> list[Evidence]:
         """
         Full-text search across SEC filings.
@@ -302,7 +300,7 @@ class SECConnector(BaseConnector):
             logger.debug(f"SEC full-text search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a specific filing.
 
@@ -369,9 +367,9 @@ class SECConnector(BaseConnector):
         self,
         data: dict,
         limit: int,
-        form_type: Optional[str],
-        date_from: Optional[str],
-        date_to: Optional[str],
+        form_type: str | None,
+        date_from: str | None,
+        date_to: str | None,
     ) -> list[Evidence]:
         """Parse SEC submissions JSON into Evidence objects."""
         results: list[Evidence] = []
@@ -439,7 +437,7 @@ class SECConnector(BaseConnector):
         accession: str,
         primary_doc: str,
         description: str,
-    ) -> Optional[Evidence]:
+    ) -> Evidence | None:
         """Create Evidence object for a filing."""
         if not form or not filing_date:
             return None
@@ -489,7 +487,7 @@ class SECConnector(BaseConnector):
             },
         )
 
-    def _parse_fulltext_hit(self, hit: dict) -> Optional[Evidence]:
+    def _parse_fulltext_hit(self, hit: dict) -> Evidence | None:
         """Parse a full-text search hit into Evidence."""
         source = hit.get("_source", {})
         if not source:
@@ -514,6 +512,5 @@ class SECConnector(BaseConnector):
     def get_form_types(self) -> dict[str, str]:
         """Return available SEC form types and descriptions."""
         return FORM_TYPES.copy()
-
 
 __all__ = ["SECConnector", "FORM_TYPES"]

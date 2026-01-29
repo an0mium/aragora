@@ -18,7 +18,7 @@ Configuration:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -27,7 +27,6 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
-
 
 class SequentialPattern(WorkflowPattern):
     """
@@ -63,10 +62,10 @@ class SequentialPattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         task: str = "",
-        prompts: Optional[Dict[str, str]] = None,
-        stages: Optional[List[Dict[str, Any]]] = None,
+        prompts: Optional[dict[str, str]] = None,
+        stages: Optional[list[dict[str, Any]]] = None,
         pass_full_context: bool = True,
         timeout_per_step: float = 120.0,
         **kwargs,

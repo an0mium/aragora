@@ -10,6 +10,7 @@ Performance optimizations:
 - Async semaphore for concurrency control
 - Content-hash based deduplication
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -29,7 +30,6 @@ from .types import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class CacheEntry:
     """Entry in the compression cache with TTL."""
@@ -37,7 +37,6 @@ class CacheEntry:
     context: RLMContext
     created_at: float
     access_count: int = 0
-
 
 class LRUCompressionCache:
     """
@@ -64,7 +63,7 @@ class LRUCompressionCache:
         self._hits = 0
         self._misses = 0
 
-    def get(self, key: str) -> Optional[RLMContext]:
+    def get(self, key: str) -> RLMContext | None:
         """Get a value from the cache, returning None if expired or missing."""
         if key not in self._cache:
             self._misses += 1
@@ -111,13 +110,11 @@ class LRUCompressionCache:
             "hit_rate": self._hits / total if total > 0 else 0.0,
         }
 
-
 # Global compression cache (LRU with 1-hour TTL)
 _compression_cache = LRUCompressionCache(max_size=1000, ttl_seconds=3600.0)
 
 # Semaphore for controlling concurrent LLM calls
-_call_semaphore: Optional[asyncio.Semaphore] = None
-
+_call_semaphore: asyncio.Semaphore | None = None
 
 def get_call_semaphore(max_concurrent: int = 10) -> asyncio.Semaphore:
     """Get or create the global semaphore for LLM call concurrency control."""
@@ -125,7 +122,6 @@ def get_call_semaphore(max_concurrent: int = 10) -> asyncio.Semaphore:
     if _call_semaphore is None:
         _call_semaphore = asyncio.Semaphore(max_concurrent)
     return _call_semaphore
-
 
 @dataclass
 class ChunkInfo:
@@ -136,7 +132,6 @@ class ChunkInfo:
     token_count: int
     start_char: int
     end_char: int
-
 
 class HierarchicalCompressor:
     """
@@ -215,9 +210,9 @@ Conclusion:""",
 
     def __init__(
         self,
-        config: Optional[RLMConfig] = None,
+        config: RLMConfig | None = None,
         agent_call: Optional[Callable[[str, str], str]] = None,
-        event_emitter: Optional[Any] = None,
+        event_emitter: Any | None = None,
     ):
         """
         Initialize the compressor.
@@ -505,7 +500,7 @@ Conclusion:""",
         target_level: AbstractionLevel,
         prompt_template: str,
         context: RLMContext,
-    ) -> tuple[Optional[AbstractionNode], int]:
+    ) -> tuple[AbstractionNode | None, int]:
         """Compress a group of nodes into a single higher-level node."""
         # Combine content from nodes
         combined = "\n\n".join(node.content for node in nodes)
@@ -692,11 +687,9 @@ Conclusion:""",
         except Exception as e:
             logger.warning(f"Failed to emit compression event: {e}")
 
-
 def clear_compression_cache() -> None:
     """Clear the compression cache."""
     _compression_cache.clear()
-
 
 def get_compression_cache_stats() -> dict[str, Any]:
     """
@@ -706,7 +699,6 @@ def get_compression_cache_stats() -> dict[str, Any]:
         Dict with cache size, hit rate, and other metrics
     """
     return _compression_cache.get_stats()
-
 
 def configure_compression_cache(
     max_size: int = 1000,

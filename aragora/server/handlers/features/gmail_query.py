@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     HandlerResult,
@@ -32,17 +32,16 @@ logger = logging.getLogger(__name__)
 GMAIL_READ_PERMISSION = "gmail:read"
 GMAIL_WRITE_PERMISSION = "gmail:write"
 
-
 @dataclass
 class QueryResponse:
     """Response from email Q&A."""
 
     answer: str
-    sources: List[Dict[str, Any]] = field(default_factory=list)
+    sources: list[dict[str, Any]] = field(default_factory=list)
     confidence: float = 0.0
     query: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "answer": self.answer,
@@ -50,7 +49,6 @@ class QueryResponse:
             "confidence": self.confidence,
             "query": self.query,
         }
-
 
 class GmailQueryHandler(SecureHandler):
     """Handler for Gmail Q&A and priority inbox endpoints.
@@ -73,9 +71,9 @@ class GmailQueryHandler(SecureHandler):
     async def handle(  # type: ignore[override]
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests."""
         # RBAC: Require authentication and gmail:read permission
         try:
@@ -100,9 +98,9 @@ class GmailQueryHandler(SecureHandler):
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route POST requests."""
         # RBAC: Require authentication and gmail:read permission
         try:
@@ -126,7 +124,7 @@ class GmailQueryHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def _handle_query(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _handle_query(self, user_id: str, body: dict[str, Any]) -> HandlerResult:
         """Handle natural language query over email content."""
         state = get_user_state(user_id)
 
@@ -221,7 +219,7 @@ class GmailQueryHandler(SecureHandler):
     async def _generate_answer(
         self,
         question: str,
-        emails_content: List[str],
+        emails_content: list[str],
     ) -> str:
         """Generate answer using RLM or fallback."""
         context = "\n---\n".join(emails_content)
@@ -277,7 +275,7 @@ class GmailQueryHandler(SecureHandler):
             logger.debug(f"[GmailQuery] LLM fallback failed: {e}")
             return self._simple_answer(question, emails_content)
 
-    def _simple_answer(self, question: str, emails_content: List[str]) -> str:
+    def _simple_answer(self, question: str, emails_content: list[str]) -> str:
         """Generate simple answer without LLM."""
         # Extract key info
         email_count = len(emails_content)
@@ -308,7 +306,7 @@ class GmailQueryHandler(SecureHandler):
     async def _handle_voice_query(
         self,
         user_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
     ) -> HandlerResult:
         """Handle voice input query."""
@@ -356,7 +354,7 @@ class GmailQueryHandler(SecureHandler):
             logger.error(f"[GmailQuery] Voice query failed: {e}")
             return error_response(f"Voice query failed: {e}", 500)
 
-    async def _transcribe(self, audio_bytes: bytes) -> Optional[str]:
+    async def _transcribe(self, audio_bytes: bytes) -> str | None:
         """Transcribe audio using Whisper."""
         try:
             from aragora.connectors.whisper import WhisperConnector
@@ -376,7 +374,7 @@ class GmailQueryHandler(SecureHandler):
     async def _get_priority_inbox(
         self,
         user_id: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
     ) -> HandlerResult:
         """Get prioritized inbox list."""
         state = get_user_state(user_id)
@@ -408,7 +406,7 @@ class GmailQueryHandler(SecureHandler):
         state: Any,
         query: str,
         limit: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get emails with priority scores."""
         from aragora.analysis.email_priority import EmailPriorityAnalyzer
         from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -431,47 +429,50 @@ class GmailQueryHandler(SecureHandler):
             format="metadata",
         )
 
-        # Score emails (priority scoring still sequential as it may involve external calls)
+        # Prepare email data for batch scoring
+        email_data = [
+            {
+                "id": msg.id,
+                "subject": msg.subject,
+                "from_address": msg.from_address,
+                "snippet": msg.snippet,
+                "labels": msg.labels,
+                "is_read": msg.is_read,
+                "is_starred": msg.is_starred,
+            }
+            for msg in messages
+        ]
+
+        # Batch score emails (loads preferences once, scores in parallel)
+        # This reduces 40+ queries to 2-3 queries per request
+        scores = await analyzer.score_batch(email_data)
+
+        # Build response combining message data with scores
         emails = []
-        for msg in messages:
-            try:
-                # Score the email
-                score = await analyzer.score_email(
-                    email_id=msg.id,
-                    subject=msg.subject,
-                    from_address=msg.from_address,
-                    snippet=msg.snippet,
-                    labels=msg.labels,
-                    is_read=msg.is_read,
-                    is_starred=msg.is_starred,
-                )
-
-                emails.append(
-                    {
-                        "id": msg.id,
-                        "thread_id": msg.thread_id,
-                        "subject": msg.subject,
-                        "from": msg.from_address,
-                        "snippet": msg.snippet,
-                        "date": msg.date.isoformat() if msg.date else None,
-                        "labels": msg.labels,
-                        "is_read": msg.is_read,
-                        "is_starred": msg.is_starred,
-                        "priority_score": score.score,
-                        "priority_reason": score.reason,
-                        "url": f"https://mail.google.com/mail/u/0/#inbox/{msg.id}",
-                    }
-                )
-
-            except Exception as e:
-                logger.warning(f"[GmailQuery] Failed to score message {msg.id}: {e}")
+        for msg, score in zip(messages, scores):
+            emails.append(
+                {
+                    "id": msg.id,
+                    "thread_id": msg.thread_id,
+                    "subject": msg.subject,
+                    "from": msg.from_address,
+                    "snippet": msg.snippet,
+                    "date": msg.date.isoformat() if msg.date else None,
+                    "labels": msg.labels,
+                    "is_read": msg.is_read,
+                    "is_starred": msg.is_starred,
+                    "priority_score": score.score,
+                    "priority_reason": score.reason,
+                    "url": f"https://mail.google.com/mail/u/0/#inbox/{msg.id}",
+                }
+            )
 
         # Sort by priority score
         emails.sort(key=lambda x: float(x.get("priority_score") or 0), reverse=True)
 
         return emails[:limit]
 
-    async def _record_feedback(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _record_feedback(self, user_id: str, body: dict[str, Any]) -> HandlerResult:
         """Record user feedback on email interaction."""
         email_id = body.get("email_id")
         action = body.get("action")
@@ -509,7 +510,6 @@ class GmailQueryHandler(SecureHandler):
         except Exception as e:
             logger.error(f"[GmailQuery] Feedback recording failed: {e}")
             return error_response(f"Failed to record feedback: {e}", 500)
-
 
 # Export for handler registration
 __all__ = ["GmailQueryHandler"]

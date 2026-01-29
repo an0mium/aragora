@@ -6,7 +6,7 @@ Pre-built policies for common scenarios.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from .types import (
     ControlPlanePolicy,
@@ -15,11 +15,10 @@ from .types import (
     SLARequirements,
 )
 
-
 # Pre-built policies for common scenarios
 def create_production_policy(
-    agent_allowlist: Optional[List[str]] = None,
-    allowed_regions: Optional[List[str]] = None,
+    agent_allowlist: Optional[list[str]] = None,
+    allowed_regions: Optional[list[str]] = None,
 ) -> ControlPlanePolicy:
     """Create a policy for production task restrictions."""
     return ControlPlanePolicy(
@@ -40,10 +39,9 @@ def create_production_policy(
         priority=100,
     )
 
-
 def create_sensitive_data_policy(
-    data_regions: List[str],
-    blocked_regions: Optional[List[str]] = None,
+    data_regions: list[str],
+    blocked_regions: Optional[list[str]] = None,
 ) -> ControlPlanePolicy:
     """Create a policy for sensitive data handling with residency requirements."""
     return ControlPlanePolicy(
@@ -60,11 +58,10 @@ def create_sensitive_data_policy(
         priority=90,
     )
 
-
 def create_agent_tier_policy(
     tier: str,
-    agents: List[str],
-    task_types: Optional[List[str]] = None,
+    agents: list[str],
+    task_types: Optional[list[str]] = None,
 ) -> ControlPlanePolicy:
     """Create a policy restricting certain task types to specific agent tiers."""
     return ControlPlanePolicy(
@@ -76,10 +73,9 @@ def create_agent_tier_policy(
         priority=50,
     )
 
-
 def create_sla_policy(
     name: str,
-    task_types: List[str],
+    task_types: list[str],
     max_execution_seconds: float = 300.0,
     max_queue_seconds: float = 60.0,
 ) -> ControlPlanePolicy:

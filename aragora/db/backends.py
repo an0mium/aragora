@@ -11,6 +11,7 @@ Features:
 - Context managers for transaction handling
 - Health checks and connection validation
 """
+from __future__ import annotations
 
 import logging
 import os
@@ -20,17 +21,15 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generator, Optional, Protocol, Union
+from typing import Any, Generator, Protocol, Union
 
 from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
-
 # Type aliases
 Params = Union[tuple, dict]
 Row = tuple[Any, ...]
-
 
 class ConnectionProtocol(Protocol):
     """Protocol for database connections."""
@@ -55,11 +54,10 @@ class ConnectionProtocol(Protocol):
         """Close the connection."""
         ...
 
-
 class CursorProtocol(Protocol):
     """Protocol for database cursors."""
 
-    def fetchone(self) -> Optional[Row]:
+    def fetchone(self) -> Row | None:
         """Fetch a single row."""
         ...
 
@@ -75,7 +73,6 @@ class CursorProtocol(Protocol):
     def rowcount(self) -> int:
         """Number of affected rows."""
         ...
-
 
 @dataclass
 class DatabaseConfig:
@@ -102,7 +99,7 @@ class DatabaseConfig:
     pool_timeout: float = 30.0
 
     # Raw connection URL (takes precedence over individual settings)
-    database_url: Optional[str] = None
+    database_url: str | None = None
 
     @classmethod
     def from_env(cls) -> "DatabaseConfig":
@@ -188,7 +185,6 @@ class DatabaseConfig:
             f"user={self.pg_user} password={self.pg_password} sslmode={self.pg_ssl_mode}"
         )
 
-
 class DatabaseBackend(ABC):
     """Abstract base class for database backends."""
 
@@ -210,7 +206,7 @@ class DatabaseBackend(ABC):
     @abstractmethod
     def execute(
         self, sql: str, params: Params = (), *, fetch: bool = False
-    ) -> Union[CursorProtocol, list[Row]]:
+    ) -> CursorProtocol | list[Row]:
         """Execute a SQL statement."""
         pass
 
@@ -220,7 +216,7 @@ class DatabaseBackend(ABC):
         pass
 
     @abstractmethod
-    def fetch_one(self, sql: str, params: Params = ()) -> Optional[Row]:
+    def fetch_one(self, sql: str, params: Params = ()) -> Row | None:
         """Execute query and fetch single row."""
         pass
 
@@ -252,7 +248,6 @@ class DatabaseBackend(ABC):
     def placeholder(self) -> str:
         """Parameter placeholder for this backend (? or %s)."""
         pass
-
 
 class SQLiteBackend(DatabaseBackend):
     """SQLite database backend with WAL mode and connection pooling."""
@@ -333,7 +328,7 @@ class SQLiteBackend(DatabaseBackend):
 
     def execute(
         self, sql: str, params: Params = (), *, fetch: bool = False
-    ) -> Union[sqlite3.Cursor, list[Row]]:
+    ) -> sqlite3.Cursor | list[Row]:
         """Execute a SQL statement."""
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
@@ -347,7 +342,7 @@ class SQLiteBackend(DatabaseBackend):
             cursor = conn.executemany(sql, params_list)
             return cursor.rowcount
 
-    def fetch_one(self, sql: str, params: Params = ()) -> Optional[Row]:
+    def fetch_one(self, sql: str, params: Params = ()) -> Row | None:
         """Execute query and fetch single row."""
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
@@ -378,7 +373,6 @@ class SQLiteBackend(DatabaseBackend):
                 except sqlite3.Error:
                     pass
             self._pool.clear()
-
 
 class PostgresBackend(DatabaseBackend):
     """PostgreSQL database backend with asyncpg connection pooling.
@@ -460,7 +454,7 @@ class PostgresBackend(DatabaseBackend):
 
     def execute(
         self, sql: str, params: Params = (), *, fetch: bool = False
-    ) -> Union[Any, list[Row]]:
+    ) -> Any | list[Row]:
         """Execute a SQL statement."""
         sql = self.translate_sql(sql)
         with self.connection() as conn:
@@ -478,7 +472,7 @@ class PostgresBackend(DatabaseBackend):
             cursor.executemany(sql, params_list)
             return cursor.rowcount
 
-    def fetch_one(self, sql: str, params: Params = ()) -> Optional[Row]:
+    def fetch_one(self, sql: str, params: Params = ()) -> Row | None:
         """Execute query and fetch single row."""
         sql = self.translate_sql(sql)
         with self.connection() as conn:
@@ -513,13 +507,11 @@ class PostgresBackend(DatabaseBackend):
         if self._sync_pool:
             self._sync_pool.closeall()
 
-
 # Global database instance
-_database: Optional[DatabaseBackend] = None
+_database: DatabaseBackend | None = None
 _database_lock = threading.Lock()
 
-
-def configure_database(config: Optional[DatabaseConfig] = None) -> DatabaseBackend:
+def configure_database(config: DatabaseConfig | None = None) -> DatabaseBackend:
     """Configure and return the global database instance.
 
     Args:
@@ -544,7 +536,6 @@ def configure_database(config: Optional[DatabaseConfig] = None) -> DatabaseBacke
 
         logger.info(f"Database configured: {config.backend}")
         return _database
-
 
 def get_database() -> DatabaseBackend:
     """Get the global database instance.

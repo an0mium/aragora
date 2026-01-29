@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -57,7 +57,6 @@ try:
     TOURNAMENT_AVAILABLE = True
 except ImportError:
     pass
-
 
 class TournamentHandler(BaseHandler):
     """Handler for tournament-related endpoints."""
@@ -100,7 +99,7 @@ class TournamentHandler(BaseHandler):
         return False
 
     @require_permission("tournaments:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route tournament requests to appropriate handler methods."""
         path = strip_version_prefix(path)
         logger.debug(f"Tournament request: {path}")
@@ -149,7 +148,7 @@ class TournamentHandler(BaseHandler):
         return None
 
     @require_permission("tournaments:create")
-    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for tournament creation and updates."""
         path = strip_version_prefix(path)
         logger.debug(f"Tournament POST request: {path}")
@@ -366,7 +365,7 @@ class TournamentHandler(BaseHandler):
 
     @handle_errors("tournament matches retrieval")
     def _get_tournament_matches(
-        self, tournament_id: str, round_num: Optional[int] = None
+        self, tournament_id: str, round_num: int | None = None
     ) -> HandlerResult:
         """Get tournament match history."""
         if not TOURNAMENT_AVAILABLE:

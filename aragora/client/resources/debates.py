@@ -7,7 +7,7 @@ Provides methods for creating, managing, and querying debates.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, List
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator
 
 from ..models import (
     ConsensusType,
@@ -27,10 +27,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 def _default_agent_list() -> list[str]:
     return [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
-
 
 class DebatesAPI:
     """API interface for debates."""
@@ -117,7 +115,7 @@ class DebatesAPI:
         limit: int = 20,
         offset: int = 0,
         status: str | None = None,
-    ) -> List[Debate]:
+    ) -> list[Debate]:
         """
         List recent debates.
 
@@ -142,7 +140,7 @@ class DebatesAPI:
         limit: int = 20,
         offset: int = 0,
         status: str | None = None,
-    ) -> List[Debate]:
+    ) -> list[Debate]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -155,7 +153,7 @@ class DebatesAPI:
     def run(
         self,
         task: str,
-        agents: List[str] | None = None,
+        agents: list[str] | None = None,
         rounds: int = DEFAULT_ROUNDS,
         consensus: str = DEFAULT_CONSENSUS,
         timeout: int = 600,
@@ -194,7 +192,7 @@ class DebatesAPI:
     async def run_async(
         self,
         task: str,
-        agents: List[str] | None = None,
+        agents: list[str] | None = None,
         rounds: int = DEFAULT_ROUNDS,
         consensus: str = DEFAULT_CONSENSUS,
         timeout: int = 600,
@@ -279,8 +277,8 @@ class DebatesAPI:
 
     def compare(
         self,
-        debate_ids: List[str],
-    ) -> List[Debate]:
+        debate_ids: list[str],
+    ) -> list[Debate]:
         """
         Get multiple debates for side-by-side comparison.
 
@@ -294,8 +292,8 @@ class DebatesAPI:
 
     async def compare_async(
         self,
-        debate_ids: List[str],
-    ) -> List[Debate]:
+        debate_ids: list[str],
+    ) -> list[Debate]:
         """
         Async version of compare().
 
@@ -311,9 +309,9 @@ class DebatesAPI:
 
     def batch_get(
         self,
-        debate_ids: List[str],
+        debate_ids: list[str],
         max_concurrent: int = 10,
-    ) -> List[Debate]:
+    ) -> list[Debate]:
         """
         Batch fetch multiple debates efficiently.
 
@@ -339,9 +337,9 @@ class DebatesAPI:
 
     async def batch_get_async(
         self,
-        debate_ids: List[str],
+        debate_ids: list[str],
         max_concurrent: int = 10,
-    ) -> List[Debate]:
+    ) -> list[Debate]:
         """
         Batch fetch multiple debates with concurrency control.
 
@@ -445,7 +443,7 @@ class DebatesAPI:
         debate_id: str,
         status: str | None = None,
         metadata: dict[str, Any] | None = None,
-        tags: List[str] | None = None,
+        tags: list[str] | None = None,
         archived: bool | None = None,
         notes: str | None = None,
     ) -> Debate:
@@ -480,7 +478,7 @@ class DebatesAPI:
         debate_id: str,
         status: str | None = None,
         metadata: dict[str, Any] | None = None,
-        tags: List[str] | None = None,
+        tags: list[str] | None = None,
         archived: bool | None = None,
         notes: str | None = None,
     ) -> Debate:

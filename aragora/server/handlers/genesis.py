@@ -19,7 +19,7 @@ __all__ = [
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -58,7 +58,6 @@ GenomeStore = _genome_imports["GenomeStore"]
 AgentGenome = _genome_imports["AgentGenome"]
 
 from aragora.server.errors import safe_error_message as _safe_error_message
-
 
 class GenesisHandler(BaseHandler):
     """Handler for genesis (evolution visibility) endpoints."""
@@ -104,7 +103,7 @@ class GenesisHandler(BaseHandler):
         return False
 
     @require_permission("genesis:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route genesis requests to appropriate methods."""
         normalized = strip_version_prefix(path)
         # Rate limit check
@@ -186,7 +185,7 @@ class GenesisHandler(BaseHandler):
 
         return None
 
-    def _get_genesis_stats(self, nomic_dir: Optional[Path]) -> HandlerResult:
+    def _get_genesis_stats(self, nomic_dir: Path | None) -> HandlerResult:
         """Get overall genesis statistics for evolution visibility."""
         if not GENESIS_AVAILABLE:
             return error_response("Genesis module not available", 503)
@@ -231,7 +230,7 @@ class GenesisHandler(BaseHandler):
             return error_response(_safe_error_message(e, "genesis_stats"), 500)
 
     def _get_genesis_events(
-        self, nomic_dir: Optional[Path], limit: int, event_type: Optional[str]
+        self, nomic_dir: Path | None, limit: int, event_type: str | None
     ) -> HandlerResult:
         """Get recent genesis events."""
         if not GENESIS_AVAILABLE:
@@ -295,7 +294,7 @@ class GenesisHandler(BaseHandler):
             return error_response(_safe_error_message(e, "genesis_events"), 500)
 
     def _get_genome_lineage(
-        self, nomic_dir: Optional[Path], genome_id: str, max_depth: int = 10
+        self, nomic_dir: Path | None, genome_id: str, max_depth: int = 10
     ) -> HandlerResult:
         """Get the lineage (ancestry) of a genome.
 
@@ -393,7 +392,7 @@ class GenesisHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "genome_lineage"), 500)
 
-    def _get_debate_tree(self, nomic_dir: Optional[Path], debate_id: str) -> HandlerResult:
+    def _get_debate_tree(self, nomic_dir: Path | None, debate_id: str) -> HandlerResult:
         """Get the fractal tree structure for a debate."""
         if not GENESIS_AVAILABLE:
             return error_response("Genesis module not available", 503)
@@ -417,7 +416,7 @@ class GenesisHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "debate_tree"), 500)
 
-    def _get_genomes(self, nomic_dir: Optional[Path], limit: int, offset: int) -> HandlerResult:
+    def _get_genomes(self, nomic_dir: Path | None, limit: int, offset: int) -> HandlerResult:
         """Get all genomes with pagination."""
         if not GENOME_AVAILABLE:
             return error_response("Genesis genome module not available", 503)
@@ -446,7 +445,7 @@ class GenesisHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "genomes_list"), 500)
 
-    def _get_top_genomes(self, nomic_dir: Optional[Path], limit: int) -> HandlerResult:
+    def _get_top_genomes(self, nomic_dir: Path | None, limit: int) -> HandlerResult:
         """Get top genomes by fitness score."""
         if not GENOME_AVAILABLE:
             return error_response("Genesis genome module not available", 503)
@@ -469,7 +468,7 @@ class GenesisHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "genomes_top"), 500)
 
-    def _get_genome(self, nomic_dir: Optional[Path], genome_id: str) -> HandlerResult:
+    def _get_genome(self, nomic_dir: Path | None, genome_id: str) -> HandlerResult:
         """Get a single genome by ID."""
         if not GENOME_AVAILABLE:
             return error_response("Genesis genome module not available", 503)
@@ -494,7 +493,7 @@ class GenesisHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "genome_get"), 500)
 
-    def _get_population(self, nomic_dir: Optional[Path]) -> HandlerResult:
+    def _get_population(self, nomic_dir: Path | None) -> HandlerResult:
         """Get the active population and its status.
 
         Returns:
@@ -566,7 +565,7 @@ class GenesisHandler(BaseHandler):
             return error_response(_safe_error_message(e, "population"), 500)
 
     def _get_genome_descendants(
-        self, nomic_dir: Optional[Path], genome_id: str, max_depth: int = 5
+        self, nomic_dir: Path | None, genome_id: str, max_depth: int = 5
     ) -> HandlerResult:
         """Get all descendants of a genome (genomes that have this as ancestor).
 

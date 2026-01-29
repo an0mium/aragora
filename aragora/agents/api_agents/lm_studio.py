@@ -9,7 +9,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
 import aiohttp
 
@@ -29,7 +29,6 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
-
 
 @AgentRegistry.register(
     "lm-studio",
@@ -92,7 +91,7 @@ class LMStudioAgent(APIAgent):
                 logger.warning(f"Failed to list LM Studio models: {e}")
                 return []
 
-    async def get_loaded_model(self) -> Optional[str]:
+    async def get_loaded_model(self) -> str | None:
         """Get the currently loaded model in LM Studio.
 
         Returns:
@@ -265,6 +264,5 @@ REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
         return self._parse_critique(response, target_agent or "proposal", proposal)
-
 
 __all__ = ["LMStudioAgent"]

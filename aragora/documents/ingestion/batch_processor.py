@@ -54,7 +54,6 @@ from aragora.exceptions import DocumentChunkError, DocumentParseError
 
 logger = logging.getLogger(__name__)
 
-
 class JobStatus(Enum):
     """Status of a processing job."""
 
@@ -66,7 +65,6 @@ class JobStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-
 class JobPriority(Enum):
     """Job priority levels."""
 
@@ -74,7 +72,6 @@ class JobPriority(Enum):
     NORMAL = 1
     HIGH = 2
     URGENT = 3
-
 
 @dataclass
 class DocumentJob:
@@ -91,7 +88,7 @@ class DocumentJob:
 
     # Configuration
     priority: JobPriority = JobPriority.NORMAL
-    chunking_strategy: Optional[str] = None  # Auto-select if None
+    chunking_strategy: str | None = None  # Auto-select if None
     chunk_size: int = 512
     chunk_overlap: int = 50
     enable_ocr: bool = True
@@ -102,13 +99,13 @@ class DocumentJob:
     error_message: str = ""
 
     # Results
-    document: Optional[IngestedDocument] = None
+    document: IngestedDocument | None = None
     chunks: list[DocumentChunk] = field(default_factory=list)
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.utcnow)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     # Callbacks
     on_progress: Optional[Callable[[float, str], None]] = None
@@ -137,7 +134,6 @@ class DocumentJob:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
-
 @dataclass
 class BatchResult:
     """Result of batch processing."""
@@ -150,7 +146,6 @@ class BatchResult:
     total_tokens: int
     duration_ms: int
     jobs: list[DocumentJob]
-
 
 class BatchProcessor:
     """
@@ -244,11 +239,11 @@ class BatchProcessor:
         filename: str,
         workspace_id: str = "",
         uploaded_by: str = "",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         priority: JobPriority = JobPriority.NORMAL,
-        chunking_strategy: Optional[str] = None,
-        chunk_size: Optional[int] = None,
-        chunk_overlap: Optional[int] = None,
+        chunking_strategy: str | None = None,
+        chunk_size: int | None = None,
+        chunk_overlap: int | None = None,
         enable_ocr: bool = True,
         on_progress: Optional[Callable[[float, str], None]] = None,
         on_complete: Optional[Callable[[DocumentJob], None]] = None,
@@ -331,14 +326,14 @@ class BatchProcessor:
             job_ids.append(job_id)
         return job_ids
 
-    async def get_status(self, job_id: str) -> Optional[dict[str, Any]]:
+    async def get_status(self, job_id: str) -> dict[str, Any] | None:
         """Get job status."""
         job = self._jobs.get(job_id)
         if not job:
             return None
         return job.to_dict()
 
-    async def get_result(self, job_id: str) -> Optional[DocumentJob]:
+    async def get_result(self, job_id: str) -> DocumentJob | None:
         """Get job result (including document and chunks)."""
         return self._jobs.get(job_id)
 
@@ -355,8 +350,8 @@ class BatchProcessor:
         return False
 
     async def wait_for_job(
-        self, job_id: str, timeout: Optional[float] = None
-    ) -> Optional[DocumentJob]:
+        self, job_id: str, timeout: float | None = None
+    ) -> DocumentJob | None:
         """
         Wait for a job to complete.
 
@@ -383,7 +378,7 @@ class BatchProcessor:
             await asyncio.sleep(0.1)
 
     async def wait_for_batch(
-        self, job_ids: list[str], timeout: Optional[float] = None
+        self, job_ids: list[str], timeout: float | None = None
     ) -> BatchResult:
         """
         Wait for multiple jobs to complete.
@@ -602,10 +597,8 @@ class BatchProcessor:
             except Exception as e:
                 logger.warning(f"Error in progress callback: {e}")
 
-
 # Global processor instance
-_batch_processor: Optional[BatchProcessor] = None
-
+_batch_processor: BatchProcessor | None = None
 
 async def get_batch_processor() -> BatchProcessor:
     """Get or create the global batch processor."""
@@ -614,7 +607,6 @@ async def get_batch_processor() -> BatchProcessor:
         _batch_processor = BatchProcessor()
         await _batch_processor.start()
     return _batch_processor
-
 
 __all__ = [
     "BatchProcessor",

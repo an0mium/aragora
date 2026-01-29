@@ -29,7 +29,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.tenancy.context import get_current_tenant, get_current_tenant_id
 
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 class QuotaPeriod(Enum):
     """Time period for quota limits."""
@@ -49,7 +48,6 @@ class QuotaPeriod(Enum):
     MONTH = "month"
     UNLIMITED = "unlimited"
 
-
 class QuotaExceeded(Exception):
     """Raised when a quota limit is exceeded."""
 
@@ -60,8 +58,8 @@ class QuotaExceeded(Exception):
         limit: int,
         current: int,
         period: QuotaPeriod,
-        tenant_id: Optional[str] = None,
-        retry_after: Optional[int] = None,
+        tenant_id: str | None = None,
+        retry_after: int | None = None,
     ):
         self.resource = resource
         self.limit = limit
@@ -70,7 +68,6 @@ class QuotaExceeded(Exception):
         self.tenant_id = tenant_id
         self.retry_after = retry_after
         super().__init__(message)
-
 
 @dataclass
 class QuotaLimit:
@@ -85,10 +82,10 @@ class QuotaLimit:
     period: QuotaPeriod = QuotaPeriod.DAY
     """Time period for the limit."""
 
-    soft_limit: Optional[int] = None
+    soft_limit: int | None = None
     """Warning threshold (optional)."""
 
-    burst_limit: Optional[int] = None
+    burst_limit: int | None = None
     """Short-term burst allowance (optional)."""
 
     @property
@@ -102,7 +99,6 @@ class QuotaLimit:
             QuotaPeriod.MONTH: 2592000,  # 30 days
             QuotaPeriod.UNLIMITED: 0,
         }.get(self.period, 86400)
-
 
 @dataclass
 class QuotaConfig:
@@ -156,7 +152,6 @@ class QuotaConfig:
             ]
         )
 
-
 @dataclass
 class UsageRecord:
     """Record of resource usage."""
@@ -168,7 +163,6 @@ class UsageRecord:
     period: QuotaPeriod
     last_updated: datetime = field(default_factory=datetime.now)
 
-
 @dataclass
 class QuotaStatus:
     """Status of a quota for a tenant."""
@@ -178,11 +172,10 @@ class QuotaStatus:
     current: int
     remaining: int
     period: QuotaPeriod
-    period_resets_at: Optional[datetime]
+    period_resets_at: datetime | None
     percentage_used: float
     is_exceeded: bool
     is_warning: bool
-
 
 class QuotaManager:
     """
@@ -192,7 +185,7 @@ class QuotaManager:
     based on tenant configuration.
     """
 
-    def __init__(self, config: Optional[QuotaConfig] = None):
+    def __init__(self, config: QuotaConfig | None = None):
         """Initialize quota manager."""
         self.config = config or QuotaConfig.default_limits()
         self._usage: dict[str, dict[str, UsageRecord]] = defaultdict(dict)
@@ -300,7 +293,7 @@ class QuotaManager:
             return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         return datetime.min
 
-    def _get_period_end(self, period: QuotaPeriod) -> Optional[datetime]:
+    def _get_period_end(self, period: QuotaPeriod) -> datetime | None:
         """Get the end of the current period."""
         start = self._get_period_start(period)
         if period == QuotaPeriod.MINUTE:
@@ -322,7 +315,7 @@ class QuotaManager:
         self,
         resource: str,
         amount: int = 1,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> bool:
         """
         Check if quota allows the requested amount.
@@ -357,7 +350,7 @@ class QuotaManager:
         self,
         resource: str,
         amount: int = 1,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> None:
         """
         Consume quota for a resource.
@@ -442,7 +435,7 @@ class QuotaManager:
     async def check_rate_limit(
         self,
         resource: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> bool:
         """
         Check rate limit for a resource.
@@ -482,7 +475,7 @@ class QuotaManager:
     async def record_rate_limit(
         self,
         resource: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Record a request for rate limiting."""
         if not self.config.enable_rate_limiting:
@@ -498,7 +491,7 @@ class QuotaManager:
     async def get_quota_status(
         self,
         resource: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> QuotaStatus:
         """
         Get status of a quota.
@@ -537,7 +530,7 @@ class QuotaManager:
 
     async def get_all_quotas(
         self,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> list[QuotaStatus]:
         """Get status of all quotas for a tenant."""
         tid = tenant_id or get_current_tenant_id()
@@ -555,7 +548,7 @@ class QuotaManager:
 
     async def get_usage_stats(
         self,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Get usage statistics for a tenant.
@@ -590,7 +583,7 @@ class QuotaManager:
     async def reset_usage(
         self,
         resource: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Reset usage for a resource."""
         tid = tenant_id or get_current_tenant_id()
@@ -604,7 +597,7 @@ class QuotaManager:
             for key in keys_to_remove:
                 del self._usage[tid][key]
 
-    async def reset_all_usage(self, tenant_id: Optional[str] = None) -> None:
+    async def reset_all_usage(self, tenant_id: str | None = None) -> None:
         """Reset all usage for a tenant."""
         tid = tenant_id or get_current_tenant_id()
         if tid is None:
@@ -616,7 +609,7 @@ class QuotaManager:
             if tid in self._rate_limiters:
                 self._rate_limiters[tid].clear()
 
-    def invalidate_limits_cache(self, tenant_id: Optional[str] = None) -> None:
+    def invalidate_limits_cache(self, tenant_id: str | None = None) -> None:
         """Invalidate limits cache when tenant config changes."""
         if tenant_id:
             self._limits_cache.pop(tenant_id, None)

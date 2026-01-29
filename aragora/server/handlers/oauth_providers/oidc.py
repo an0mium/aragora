@@ -13,7 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.oauth_providers.base import (
     OAuthProvider,
@@ -25,7 +25,6 @@ from aragora.server.handlers.oauth_providers.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class OIDCProvider(OAuthProvider):
     """
@@ -43,10 +42,10 @@ class OIDCProvider(OAuthProvider):
 
     PROVIDER_NAME = "oidc"
 
-    def __init__(self, config: Optional[OAuthProviderConfig] = None):
+    def __init__(self, config: OAuthProviderConfig | None = None):
         """Initialize with optional discovery."""
         super().__init__(config)
-        self._discovery: Optional[Dict[str, Any]] = None
+        self._discovery: Optional[dict[str, Any]] = None
 
     def _load_config_from_env(self) -> OAuthProviderConfig:
         """Load OIDC configuration from environment."""
@@ -75,7 +74,7 @@ class OIDCProvider(OAuthProvider):
         """Check if OIDC has required configuration."""
         return bool(self.issuer and self._config.client_id and self._config.client_secret)
 
-    def _get_discovery(self) -> Dict[str, Any]:
+    def _get_discovery(self) -> dict[str, Any]:
         """
         Fetch and cache OIDC discovery document.
 
@@ -104,8 +103,8 @@ class OIDCProvider(OAuthProvider):
     def get_authorization_url(
         self,
         state: str,
-        redirect_uri: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        redirect_uri: str | None = None,
+        scopes: Optional[list[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -152,7 +151,7 @@ class OIDCProvider(OAuthProvider):
     def exchange_code(
         self,
         code: str,
-        redirect_uri: Optional[str] = None,
+        redirect_uri: str | None = None,
     ) -> OAuthTokens:
         """
         Exchange authorization code for tokens.
@@ -216,7 +215,7 @@ class OIDCProvider(OAuthProvider):
     def get_user_info_combined(
         self,
         access_token: str,
-        id_token: Optional[str] = None,
+        id_token: str | None = None,
     ) -> OAuthUserInfo:
         """
         Get user info from userinfo endpoint with ID token fallback.
@@ -248,7 +247,7 @@ class OIDCProvider(OAuthProvider):
 
         return self._parse_user_data(user_data)
 
-    def _parse_user_data(self, data: Dict[str, Any]) -> OAuthUserInfo:
+    def _parse_user_data(self, data: dict[str, Any]) -> OAuthUserInfo:
         """Parse user data from userinfo or ID token claims."""
         sub = data.get("sub")
         if not sub:
@@ -271,7 +270,7 @@ class OIDCProvider(OAuthProvider):
             raw_data=data,
         )
 
-    def _decode_id_token(self, id_token: str) -> Dict[str, Any]:
+    def _decode_id_token(self, id_token: str) -> dict[str, Any]:
         """
         Decode ID token claims without verification.
 
@@ -357,10 +356,10 @@ class OIDCProvider(OAuthProvider):
 
     def get_end_session_url(
         self,
-        id_token_hint: Optional[str] = None,
-        post_logout_redirect_uri: Optional[str] = None,
-        state: Optional[str] = None,
-    ) -> Optional[str]:
+        id_token_hint: str | None = None,
+        post_logout_redirect_uri: str | None = None,
+        state: str | None = None,
+    ) -> str | None:
         """
         Get the OIDC end session (logout) URL if available.
 
@@ -391,6 +390,5 @@ class OIDCProvider(OAuthProvider):
         if params:
             return f"{end_session_endpoint}?{urlencode(params)}"
         return end_session_endpoint
-
 
 __all__ = ["OIDCProvider"]

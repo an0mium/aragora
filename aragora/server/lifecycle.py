@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ServerLifecycleManager:
     """Manages server startup and shutdown lifecycle.
 
@@ -39,7 +38,7 @@ class ServerLifecycleManager:
     def __init__(
         self,
         stream_server: Optional["GauntletStreamServer"] = None,
-        get_active_debates: Optional[Callable] = None,
+        get_active_debates: Callable | None = None,
     ):
         """Initialize lifecycle manager.
 
@@ -236,6 +235,5 @@ class ServerLifecycleManager:
                     await result
             except Exception as e:
                 logger.warning(f"Shutdown callback error: {e}")
-
 
 __all__ = ["ServerLifecycleManager"]

@@ -24,7 +24,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from .base import (
     BaseHandler,
@@ -40,7 +40,6 @@ logger = logging.getLogger(__name__)
 BUDGET_READ_PERMISSION = "budget.read"
 BUDGET_WRITE_PERMISSION = "budget.write"
 BUDGET_DELETE_PERMISSION = "budget.delete"
-
 
 class BudgetHandler(BaseHandler):
     """Handler for budget management endpoints."""
@@ -64,8 +63,8 @@ class BudgetHandler(BaseHandler):
         path: str,
         method: str,
         handler: Any = None,
-        query_params: Optional[dict[str, Any]] = None,
-    ) -> Optional[HandlerResult]:
+        query_params: dict[str, Any] | None = None,
+    ) -> HandlerResult | None:
         """Route budget requests to appropriate methods."""
         # Authentication check
         from aragora.billing.jwt_auth import extract_user_from_request
@@ -212,7 +211,7 @@ class BudgetHandler(BaseHandler):
 
         return "default"
 
-    def _get_user_id(self, handler: Any) -> Optional[str]:
+    def _get_user_id(self, handler: Any) -> str | None:
         """Extract user_id from request context."""
         if handler and hasattr(handler, "user_id"):
             return handler.user_id
@@ -267,7 +266,7 @@ class BudgetHandler(BaseHandler):
             return error_response(f"Failed to list budgets: {str(e)[:100]}", 500)
 
     async def _create_budget(
-        self, org_id: str, user_id: Optional[str], handler: Any
+        self, org_id: str, user_id: str | None, handler: Any
     ) -> HandlerResult:
         """Create a new budget."""
         try:
@@ -402,7 +401,7 @@ class BudgetHandler(BaseHandler):
             return error_response(f"Failed to get summary: {str(e)[:100]}", 500)
 
     async def _check_budget(
-        self, org_id: str, user_id: Optional[str], handler: Any
+        self, org_id: str, user_id: str | None, handler: Any
     ) -> HandlerResult:
         """Pre-flight cost check."""
         try:
@@ -460,7 +459,7 @@ class BudgetHandler(BaseHandler):
             logger.error(f"Failed to get alerts: {e}")
             return error_response(f"Failed to get alerts: {str(e)[:100]}", 500)
 
-    def _acknowledge_alert(self, alert_id: str, user_id: Optional[str]) -> HandlerResult:
+    def _acknowledge_alert(self, alert_id: str, user_id: str | None) -> HandlerResult:
         """Acknowledge a budget alert."""
         try:
             if not user_id:
@@ -721,7 +720,6 @@ class BudgetHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to get org trends: {e}")
             return error_response(f"Failed to get trends: {str(e)[:100]}", 500)
-
 
 # Handler factory function
 def create_budget_handler(server_context: Any) -> BudgetHandler:

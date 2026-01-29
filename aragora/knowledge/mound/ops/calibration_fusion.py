@@ -42,10 +42,9 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class CalibrationFusionStrategy(Enum):
     """Strategy for fusing calibration predictions."""
@@ -68,7 +67,6 @@ class CalibrationFusionStrategy(Enum):
     CONSENSUS_ONLY = "consensus_only"
     """Only use predictions that agree with majority."""
 
-
 @dataclass
 class AgentPrediction:
     """A calibration prediction from a single agent."""
@@ -82,7 +80,7 @@ class AgentPrediction:
     predicted_outcome: str
     """The predicted outcome (e.g., winner agent name)."""
 
-    domain: Optional[str] = None
+    domain: str | None = None
     """Optional domain context for the prediction."""
 
     calibration_accuracy: float = 0.5
@@ -97,10 +95,10 @@ class AgentPrediction:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When the prediction was made."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional prediction metadata."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "agent_name": self.agent_name,
@@ -114,7 +112,6 @@ class AgentPrediction:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class CalibrationConsensus:
     """Result of fusing multiple calibration predictions."""
@@ -122,7 +119,7 @@ class CalibrationConsensus:
     debate_id: str
     """ID of the debate or event being predicted."""
 
-    predictions: List[AgentPrediction]
+    predictions: list[AgentPrediction]
     """All predictions that were fused."""
 
     fused_confidence: float
@@ -146,25 +143,25 @@ class CalibrationConsensus:
     strategy_used: CalibrationFusionStrategy = CalibrationFusionStrategy.WEIGHTED_AVERAGE
     """Fusion strategy that was applied."""
 
-    outliers_detected: List[str] = field(default_factory=list)
+    outliers_detected: list[str] = field(default_factory=list)
     """Agent names flagged as outliers."""
 
-    confidence_interval: Tuple[float, float] = (0.0, 1.0)
+    confidence_interval: tuple[float, float] = (0.0, 1.0)
     """95% confidence interval for fused confidence."""
 
-    participating_agents: List[str] = field(default_factory=list)
+    participating_agents: list[str] = field(default_factory=list)
     """Agents that contributed predictions."""
 
-    weights_used: Dict[str, float] = field(default_factory=dict)
+    weights_used: dict[str, float] = field(default_factory=dict)
     """Weights applied to each agent."""
 
     fused_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When the fusion was performed."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional fusion metadata."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "debate_id": self.debate_id,
@@ -202,7 +199,6 @@ class CalibrationConsensus:
             or self.krippendorff_alpha < 0.4
         )
 
-
 @dataclass
 class CalibrationFusionConfig:
     """Configuration for calibration fusion."""
@@ -228,10 +224,8 @@ class CalibrationFusionConfig:
     confidence_level: float = 0.95
     """Confidence level for interval estimation."""
 
-
 # Alias for backward compatibility
 FusionConfig = CalibrationFusionConfig
-
 
 class CalibrationFusionEngine:
     """Engine for fusing multi-party calibration predictions.
@@ -240,20 +234,20 @@ class CalibrationFusionEngine:
     outliers and computing consensus metrics for reliability assessment.
     """
 
-    def __init__(self, config: Optional[CalibrationFusionConfig] = None):
+    def __init__(self, config: CalibrationFusionConfig | None = None):
         """Initialize the calibration fusion engine.
 
         Args:
             config: Optional configuration. Uses defaults if not provided.
         """
         self.config = config or CalibrationFusionConfig()
-        self._fusion_history: List[CalibrationConsensus] = []
+        self._fusion_history: list[CalibrationConsensus] = []
 
     def fuse_predictions(
         self,
-        predictions: List[AgentPrediction],
+        predictions: list[AgentPrediction],
         debate_id: str = "",
-        weights: Optional[Dict[str, float]] = None,
+        weights: Optional[dict[str, float]] = None,
         strategy: CalibrationFusionStrategy = CalibrationFusionStrategy.WEIGHTED_AVERAGE,
     ) -> CalibrationConsensus:
         """Fuse multiple agent predictions into a consensus.
@@ -321,7 +315,7 @@ class CalibrationFusionEngine:
         self._fusion_history.append(result)
         return result
 
-    def _filter_predictions(self, predictions: List[AgentPrediction]) -> List[AgentPrediction]:
+    def _filter_predictions(self, predictions: list[AgentPrediction]) -> list[AgentPrediction]:
         """Filter predictions by minimum criteria.
 
         Args:
@@ -337,7 +331,7 @@ class CalibrationFusionEngine:
             and p.prediction_count >= self.config.min_prediction_count
         ]
 
-    def _compute_weights(self, predictions: List[AgentPrediction]) -> Dict[str, float]:
+    def _compute_weights(self, predictions: list[AgentPrediction]) -> dict[str, float]:
         """Compute weights for each agent based on calibration metrics.
 
         Args:
@@ -346,7 +340,7 @@ class CalibrationFusionEngine:
         Returns:
             Dict mapping agent name to weight.
         """
-        weights: Dict[str, float] = {}
+        weights: dict[str, float] = {}
 
         for p in predictions:
             # Base weight from calibration accuracy
@@ -371,7 +365,7 @@ class CalibrationFusionEngine:
 
         return weights
 
-    def _compute_majority_outcome(self, predictions: List[AgentPrediction]) -> Tuple[str, float]:
+    def _compute_majority_outcome(self, predictions: list[AgentPrediction]) -> tuple[str, float]:
         """Determine the majority predicted outcome.
 
         Args:
@@ -380,7 +374,7 @@ class CalibrationFusionEngine:
         Returns:
             Tuple of (majority_outcome, agreement_ratio).
         """
-        outcome_counts: Dict[str, int] = {}
+        outcome_counts: dict[str, int] = {}
         for p in predictions:
             outcome = p.predicted_outcome
             outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
@@ -396,8 +390,8 @@ class CalibrationFusionEngine:
 
     def _apply_strategy(
         self,
-        predictions: List[AgentPrediction],
-        weights: Dict[str, float],
+        predictions: list[AgentPrediction],
+        weights: dict[str, float],
         strategy: CalibrationFusionStrategy,
         majority_outcome: str,
     ) -> float:
@@ -476,7 +470,7 @@ class CalibrationFusionEngine:
         # Default fallback
         return statistics.mean(confidences) if confidences else 0.5
 
-    def _compute_disagreement(self, predictions: List[AgentPrediction]) -> float:
+    def _compute_disagreement(self, predictions: list[AgentPrediction]) -> float:
         """Compute disagreement score based on variance.
 
         Args:
@@ -493,7 +487,7 @@ class CalibrationFusionEngine:
 
     def _compute_consensus_strength(
         self,
-        predictions: List[AgentPrediction],
+        predictions: list[AgentPrediction],
         agreement_ratio: float,
         disagreement_score: float,
     ) -> float:
@@ -525,7 +519,7 @@ class CalibrationFusionEngine:
 
         return min(1.0, max(0.0, strength))
 
-    def compute_krippendorff_alpha(self, predictions: List[AgentPrediction]) -> float:
+    def compute_krippendorff_alpha(self, predictions: list[AgentPrediction]) -> float:
         """Compute Krippendorff's alpha for inter-rater agreement.
 
         This is a simplified implementation for ordinal data (confidences).
@@ -563,9 +557,9 @@ class CalibrationFusionEngine:
 
     def detect_outliers(
         self,
-        predictions: List[AgentPrediction],
-        threshold: Optional[float] = None,
-    ) -> List[str]:
+        predictions: list[AgentPrediction],
+        threshold: float | None = None,
+    ) -> list[str]:
         """Detect outlier predictions using modified Z-scores.
 
         Args:
@@ -600,9 +594,9 @@ class CalibrationFusionEngine:
 
     def _compute_confidence_interval(
         self,
-        predictions: List[AgentPrediction],
-        weights: Dict[str, float],
-    ) -> Tuple[float, float]:
+        predictions: list[AgentPrediction],
+        weights: dict[str, float],
+    ) -> tuple[float, float]:
         """Compute confidence interval for fused confidence.
 
         Uses weighted standard error for interval estimation.
@@ -639,7 +633,7 @@ class CalibrationFusionEngine:
 
     def _insufficient_predictions_result(
         self,
-        predictions: List[AgentPrediction],
+        predictions: list[AgentPrediction],
         debate_id: str,
     ) -> CalibrationConsensus:
         """Create result when insufficient predictions available.
@@ -683,8 +677,8 @@ class CalibrationFusionEngine:
     def get_fusion_history(
         self,
         limit: int = 100,
-        debate_id: Optional[str] = None,
-    ) -> List[CalibrationConsensus]:
+        debate_id: str | None = None,
+    ) -> list[CalibrationConsensus]:
         """Get recent fusion history.
 
         Args:
@@ -701,7 +695,7 @@ class CalibrationFusionEngine:
 
         return history[-limit:]
 
-    def get_agent_performance(self, agent_name: str) -> Dict[str, Any]:
+    def get_agent_performance(self, agent_name: str) -> dict[str, Any]:
         """Get performance metrics for an agent across fusions.
 
         Args:
@@ -743,7 +737,7 @@ class CalibrationFusionEngine:
             "agreement_rate": agreements / len(agent_fusions),
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get overall fusion statistics.
 
         Returns:
@@ -774,21 +768,19 @@ class CalibrationFusionEngine:
             "by_strategy": self._stats_by_strategy(),
         }
 
-    def _stats_by_strategy(self) -> Dict[str, int]:
+    def _stats_by_strategy(self) -> dict[str, int]:
         """Get counts by fusion strategy."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for f in self._fusion_history:
             strategy = f.strategy_used.value
             counts[strategy] = counts.get(strategy, 0) + 1
         return counts
 
-
 # Singleton instance
-_calibration_fusion_engine: Optional[CalibrationFusionEngine] = None
-
+_calibration_fusion_engine: CalibrationFusionEngine | None = None
 
 def get_calibration_fusion_engine(
-    config: Optional[FusionConfig] = None,
+    config: FusionConfig | None = None,
 ) -> CalibrationFusionEngine:
     """Get or create the singleton calibration fusion engine.
 
@@ -802,7 +794,6 @@ def get_calibration_fusion_engine(
     if _calibration_fusion_engine is None:
         _calibration_fusion_engine = CalibrationFusionEngine(config)
     return _calibration_fusion_engine
-
 
 __all__ = [
     # Enums

@@ -16,7 +16,7 @@ import threading
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -25,18 +25,15 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DB_NAME = "unified_inbox.db"
 
-
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
-
-def _format_dt(value: Optional[datetime]) -> Optional[str]:
+def _format_dt(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.isoformat()
 
-
-def _parse_dt(value: Any) -> Optional[datetime]:
+def _parse_dt(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -45,7 +42,6 @@ def _parse_dt(value: Any) -> Optional[datetime]:
         return datetime.fromisoformat(str(value))
     except Exception:
         return None
-
 
 def _json_loads(value: Any, default: Any) -> Any:
     if value is None:
@@ -57,20 +53,19 @@ def _json_loads(value: Any, default: Any) -> Any:
     except Exception:
         return default
 
-
 class UnifiedInboxStoreBackend(ABC):
     """Abstract base for unified inbox storage backends."""
 
     @abstractmethod
-    async def save_account(self, tenant_id: str, account: Dict[str, Any]) -> None:
+    async def save_account(self, tenant_id: str, account: dict[str, Any]) -> None:
         pass
 
     @abstractmethod
-    async def get_account(self, tenant_id: str, account_id: str) -> Optional[Dict[str, Any]]:
+    async def get_account(self, tenant_id: str, account_id: str) -> Optional[dict[str, Any]]:
         pass
 
     @abstractmethod
-    async def list_accounts(self, tenant_id: str) -> List[Dict[str, Any]]:
+    async def list_accounts(self, tenant_id: str) -> list[dict[str, Any]]:
         pass
 
     @abstractmethod
@@ -79,7 +74,7 @@ class UnifiedInboxStoreBackend(ABC):
 
     @abstractmethod
     async def update_account_fields(
-        self, tenant_id: str, account_id: str, updates: Dict[str, Any]
+        self, tenant_id: str, account_id: str, updates: dict[str, Any]
     ) -> None:
         pass
 
@@ -95,24 +90,24 @@ class UnifiedInboxStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def save_message(self, tenant_id: str, message: Dict[str, Any]) -> Tuple[str, bool]:
+    async def save_message(self, tenant_id: str, message: dict[str, Any]) -> tuple[str, bool]:
         pass
 
     @abstractmethod
-    async def get_message(self, tenant_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_message(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         pass
 
     @abstractmethod
     async def list_messages(
         self,
         tenant_id: str,
-        limit: Optional[int] = None,
+        limit: int | None = None,
         offset: int = 0,
-        priority_tier: Optional[str] = None,
-        account_id: Optional[str] = None,
+        priority_tier: str | None = None,
+        account_id: str | None = None,
         unread_only: bool = False,
-        search: Optional[str] = None,
-    ) -> Tuple[List[Dict[str, Any]], int]:
+        search: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
         pass
 
     @abstractmethod
@@ -124,8 +119,8 @@ class UnifiedInboxStoreBackend(ABC):
         self,
         tenant_id: str,
         message_id: str,
-        is_read: Optional[bool] = None,
-        is_starred: Optional[bool] = None,
+        is_read: bool | None = None,
+        is_starred: bool | None = None,
     ) -> bool:
         pass
 
@@ -134,39 +129,38 @@ class UnifiedInboxStoreBackend(ABC):
         self,
         tenant_id: str,
         message_id: str,
-        triage_action: Optional[str],
-        triage_rationale: Optional[str],
+        triage_action: str | None,
+        triage_rationale: str | None,
     ) -> None:
         pass
 
     @abstractmethod
-    async def save_triage_result(self, tenant_id: str, triage: Dict[str, Any]) -> None:
+    async def save_triage_result(self, tenant_id: str, triage: dict[str, Any]) -> None:
         pass
 
     @abstractmethod
-    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         pass
-
 
 class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
     """In-memory unified inbox store for testing."""
 
     def __init__(self) -> None:
-        self._accounts: Dict[str, Dict[str, Dict[str, Any]]] = {}
-        self._messages: Dict[str, Dict[str, Dict[str, Any]]] = {}
-        self._triage: Dict[str, Dict[str, Dict[str, Any]]] = {}
-        self._message_index: Dict[Tuple[str, str, str], str] = {}
+        self._accounts: dict[str, dict[str, dict[str, Any]]] = {}
+        self._messages: dict[str, dict[str, dict[str, Any]]] = {}
+        self._triage: dict[str, dict[str, dict[str, Any]]] = {}
+        self._message_index: dict[tuple[str, str, str], str] = {}
         self._lock = threading.Lock()
 
-    async def save_account(self, tenant_id: str, account: Dict[str, Any]) -> None:
+    async def save_account(self, tenant_id: str, account: dict[str, Any]) -> None:
         with self._lock:
             self._accounts.setdefault(tenant_id, {})[account["id"]] = dict(account)
 
-    async def get_account(self, tenant_id: str, account_id: str) -> Optional[Dict[str, Any]]:
+    async def get_account(self, tenant_id: str, account_id: str) -> Optional[dict[str, Any]]:
         with self._lock:
             return self._accounts.get(tenant_id, {}).get(account_id)
 
-    async def list_accounts(self, tenant_id: str) -> List[Dict[str, Any]]:
+    async def list_accounts(self, tenant_id: str) -> list[dict[str, Any]]:
         with self._lock:
             return list(self._accounts.get(tenant_id, {}).values())
 
@@ -187,7 +181,7 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
             return True
 
     async def update_account_fields(
-        self, tenant_id: str, account_id: str, updates: Dict[str, Any]
+        self, tenant_id: str, account_id: str, updates: dict[str, Any]
     ) -> None:
         with self._lock:
             account = self._accounts.get(tenant_id, {}).get(account_id)
@@ -210,7 +204,7 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
             account["unread_count"] = max(0, int(account.get("unread_count", 0)) + unread_delta)
             account["sync_errors"] = max(0, int(account.get("sync_errors", 0)) + sync_error_delta)
 
-    async def save_message(self, tenant_id: str, message: Dict[str, Any]) -> Tuple[str, bool]:
+    async def save_message(self, tenant_id: str, message: dict[str, Any]) -> tuple[str, bool]:
         with self._lock:
             key = (tenant_id, message["account_id"], message["external_id"])
             messages = self._messages.setdefault(tenant_id, {})
@@ -238,20 +232,20 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
             )
             return message_id, True
 
-    async def get_message(self, tenant_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_message(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         with self._lock:
             return self._messages.get(tenant_id, {}).get(message_id)
 
     async def list_messages(
         self,
         tenant_id: str,
-        limit: Optional[int] = None,
+        limit: int | None = None,
         offset: int = 0,
-        priority_tier: Optional[str] = None,
-        account_id: Optional[str] = None,
+        priority_tier: str | None = None,
+        account_id: str | None = None,
         unread_only: bool = False,
-        search: Optional[str] = None,
-    ) -> Tuple[List[Dict[str, Any]], int]:
+        search: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
         with self._lock:
             messages = list(self._messages.get(tenant_id, {}).values())
         if priority_tier:
@@ -303,8 +297,8 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
         self,
         tenant_id: str,
         message_id: str,
-        is_read: Optional[bool] = None,
-        is_starred: Optional[bool] = None,
+        is_read: bool | None = None,
+        is_starred: bool | None = None,
     ) -> bool:
         with self._lock:
             message = self._messages.get(tenant_id, {}).get(message_id)
@@ -327,8 +321,8 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
         self,
         tenant_id: str,
         message_id: str,
-        triage_action: Optional[str],
-        triage_rationale: Optional[str],
+        triage_action: str | None,
+        triage_rationale: str | None,
     ) -> None:
         with self._lock:
             message = self._messages.get(tenant_id, {}).get(message_id)
@@ -337,14 +331,13 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
             message["triage_action"] = triage_action
             message["triage_rationale"] = triage_rationale
 
-    async def save_triage_result(self, tenant_id: str, triage: Dict[str, Any]) -> None:
+    async def save_triage_result(self, tenant_id: str, triage: dict[str, Any]) -> None:
         with self._lock:
             self._triage.setdefault(tenant_id, {})[triage["message_id"]] = dict(triage)
 
-    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         with self._lock:
             return self._triage.get(tenant_id, {}).get(message_id)
-
 
 class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
     """SQLite-backed unified inbox store."""
@@ -468,7 +461,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         conn.commit()
         conn.close()
 
-    async def save_account(self, tenant_id: str, account: Dict[str, Any]) -> None:
+    async def save_account(self, tenant_id: str, account: dict[str, Any]) -> None:
         conn = self._get_conn()
         conn.execute(
             """
@@ -494,7 +487,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         conn.commit()
 
-    async def get_account(self, tenant_id: str, account_id: str) -> Optional[Dict[str, Any]]:
+    async def get_account(self, tenant_id: str, account_id: str) -> Optional[dict[str, Any]]:
         conn = self._get_conn()
         row = conn.execute(
             """
@@ -509,7 +502,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
             return None
         return self._row_to_account(row)
 
-    async def list_accounts(self, tenant_id: str) -> List[Dict[str, Any]]:
+    async def list_accounts(self, tenant_id: str) -> list[dict[str, Any]]:
         conn = self._get_conn()
         rows = conn.execute(
             """
@@ -549,12 +542,12 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         return cursor.rowcount > 0
 
     async def update_account_fields(
-        self, tenant_id: str, account_id: str, updates: Dict[str, Any]
+        self, tenant_id: str, account_id: str, updates: dict[str, Any]
     ) -> None:
         if not updates:
             return
         fields = []
-        params: List[Any] = []
+        params: list[Any] = []
         for key, value in updates.items():
             if key in ("connected_at", "last_sync"):
                 value = _format_dt(value)
@@ -594,7 +587,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         conn.commit()
 
-    async def save_message(self, tenant_id: str, message: Dict[str, Any]) -> Tuple[str, bool]:
+    async def save_message(self, tenant_id: str, message: dict[str, Any]) -> tuple[str, bool]:
         conn = self._get_conn()
         existing = conn.execute(
             """
@@ -704,7 +697,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         return message_id, True
 
-    async def get_message(self, tenant_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_message(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         conn = self._get_conn()
         row = conn.execute(
             """
@@ -725,15 +718,15 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
     async def list_messages(
         self,
         tenant_id: str,
-        limit: Optional[int] = None,
+        limit: int | None = None,
         offset: int = 0,
-        priority_tier: Optional[str] = None,
-        account_id: Optional[str] = None,
+        priority_tier: str | None = None,
+        account_id: str | None = None,
         unread_only: bool = False,
-        search: Optional[str] = None,
-    ) -> Tuple[List[Dict[str, Any]], int]:
+        search: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
         clauses = ["tenant_id = ?"]
-        params: List[Any] = [tenant_id]
+        params: list[Any] = [tenant_id]
         if priority_tier:
             clauses.append("priority_tier = ?")
             params.append(priority_tier)
@@ -815,8 +808,8 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         self,
         tenant_id: str,
         message_id: str,
-        is_read: Optional[bool] = None,
-        is_starred: Optional[bool] = None,
+        is_read: bool | None = None,
+        is_starred: bool | None = None,
     ) -> bool:
         conn = self._get_conn()
         row = conn.execute(
@@ -832,7 +825,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         account_id = row["account_id"]
         old_read = bool(row["is_read"])
         updates = []
-        params: List[Any] = []
+        params: list[Any] = []
         if is_read is not None:
             updates.append("is_read = ?")
             params.append(1 if is_read else 0)
@@ -863,8 +856,8 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         self,
         tenant_id: str,
         message_id: str,
-        triage_action: Optional[str],
-        triage_rationale: Optional[str],
+        triage_action: str | None,
+        triage_rationale: str | None,
     ) -> None:
         conn = self._get_conn()
         conn.execute(
@@ -877,7 +870,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         conn.commit()
 
-    async def save_triage_result(self, tenant_id: str, triage: Dict[str, Any]) -> None:
+    async def save_triage_result(self, tenant_id: str, triage: dict[str, Any]) -> None:
         conn = self._get_conn()
         conn.execute(
             """
@@ -902,7 +895,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         conn.commit()
 
-    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         conn = self._get_conn()
         row = conn.execute(
             """
@@ -918,7 +911,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
             return None
         return self._row_to_triage(row)
 
-    def _row_to_account(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _row_to_account(self, row: sqlite3.Row) -> dict[str, Any]:
         return {
             "id": row["account_id"],
             "provider": row["provider"],
@@ -933,7 +926,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
             "metadata": _json_loads(row["metadata_json"], {}),
         }
 
-    def _row_to_message(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _row_to_message(self, row: sqlite3.Row) -> dict[str, Any]:
         return {
             "id": row["message_id"],
             "account_id": row["account_id"],
@@ -959,7 +952,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
             "triage_rationale": row["triage_rationale"],
         }
 
-    def _row_to_triage(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _row_to_triage(self, row: sqlite3.Row) -> dict[str, Any]:
         return {
             "message_id": row["message_id"],
             "recommended_action": row["recommended_action"],
@@ -972,7 +965,6 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
             "debate_summary": row["debate_summary"],
             "created_at": _parse_dt(row["created_at"]),
         }
-
 
 class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
     """PostgreSQL-backed unified inbox store."""
@@ -1072,7 +1064,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
         self._initialized = True
         logger.debug("PostgresUnifiedInboxStore schema initialized")
 
-    async def save_account(self, tenant_id: str, account: Dict[str, Any]) -> None:
+    async def save_account(self, tenant_id: str, account: dict[str, Any]) -> None:
         await self._store.execute(
             """
             INSERT INTO unified_inbox_accounts
@@ -1105,7 +1097,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             json.dumps(account.get("metadata") or {}),
         )
 
-    async def get_account(self, tenant_id: str, account_id: str) -> Optional[Dict[str, Any]]:
+    async def get_account(self, tenant_id: str, account_id: str) -> Optional[dict[str, Any]]:
         row = await self._store.fetch_one(
             """
             SELECT tenant_id, account_id, provider, email_address, display_name, status,
@@ -1120,7 +1112,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             return None
         return self._row_to_account(row)
 
-    async def list_accounts(self, tenant_id: str) -> List[Dict[str, Any]]:
+    async def list_accounts(self, tenant_id: str) -> list[dict[str, Any]]:
         rows = await self._store.fetch_all(
             """
             SELECT tenant_id, account_id, provider, email_address, display_name, status,
@@ -1169,12 +1161,12 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
         return result != "DELETE 0"
 
     async def update_account_fields(
-        self, tenant_id: str, account_id: str, updates: Dict[str, Any]
+        self, tenant_id: str, account_id: str, updates: dict[str, Any]
     ) -> None:
         if not updates:
             return
         fields = []
-        values: List[Any] = []
+        values: list[Any] = []
         idx = 1
         for key, value in updates.items():
             if key == "metadata":
@@ -1214,7 +1206,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             account_id,
         )
 
-    async def save_message(self, tenant_id: str, message: Dict[str, Any]) -> Tuple[str, bool]:
+    async def save_message(self, tenant_id: str, message: dict[str, Any]) -> tuple[str, bool]:
         row = await self._store.fetch_one(
             """
             SELECT message_id, is_read
@@ -1314,7 +1306,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         return message_id, True
 
-    async def get_message(self, tenant_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_message(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         row = await self._store.fetch_one(
             """
             SELECT tenant_id, message_id, account_id, provider, external_id, subject,
@@ -1335,15 +1327,15 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
     async def list_messages(
         self,
         tenant_id: str,
-        limit: Optional[int] = None,
+        limit: int | None = None,
         offset: int = 0,
-        priority_tier: Optional[str] = None,
-        account_id: Optional[str] = None,
+        priority_tier: str | None = None,
+        account_id: str | None = None,
         unread_only: bool = False,
-        search: Optional[str] = None,
-    ) -> Tuple[List[Dict[str, Any]], int]:
+        search: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
         clauses = ["tenant_id = $1"]
-        params: List[Any] = [tenant_id]
+        params: list[Any] = [tenant_id]
         idx = 2
         if priority_tier:
             clauses.append(f"priority_tier = ${idx}")
@@ -1433,8 +1425,8 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
         self,
         tenant_id: str,
         message_id: str,
-        is_read: Optional[bool] = None,
-        is_starred: Optional[bool] = None,
+        is_read: bool | None = None,
+        is_starred: bool | None = None,
     ) -> bool:
         row = await self._store.fetch_one(
             """
@@ -1450,7 +1442,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
         account_id = row["account_id"]
         old_read = bool(row["is_read"])
         updates = []
-        params: List[Any] = []
+        params: list[Any] = []
         idx = 1
         if is_read is not None:
             updates.append(f"is_read = ${idx}")
@@ -1483,8 +1475,8 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
         self,
         tenant_id: str,
         message_id: str,
-        triage_action: Optional[str],
-        triage_rationale: Optional[str],
+        triage_action: str | None,
+        triage_rationale: str | None,
     ) -> None:
         await self._store.execute(
             """
@@ -1499,7 +1491,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             message_id,
         )
 
-    async def save_triage_result(self, tenant_id: str, triage: Dict[str, Any]) -> None:
+    async def save_triage_result(self, tenant_id: str, triage: dict[str, Any]) -> None:
         await self._store.execute(
             """
             INSERT INTO unified_inbox_triage_results
@@ -1530,7 +1522,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             triage.get("created_at") or _utc_now(),
         )
 
-    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         row = await self._store.fetch_one(
             """
             SELECT tenant_id, message_id, recommended_action, confidence, rationale,
@@ -1546,7 +1538,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             return None
         return self._row_to_triage(row)
 
-    def _row_to_account(self, row: Any) -> Dict[str, Any]:
+    def _row_to_account(self, row: Any) -> dict[str, Any]:
         return {
             "id": row["account_id"],
             "provider": row["provider"],
@@ -1561,7 +1553,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             "metadata": _json_loads(row["metadata_json"], {}),
         }
 
-    def _row_to_message(self, row: Any) -> Dict[str, Any]:
+    def _row_to_message(self, row: Any) -> dict[str, Any]:
         return {
             "id": row["message_id"],
             "account_id": row["account_id"],
@@ -1587,7 +1579,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             "triage_rationale": row["triage_rationale"],
         }
 
-    def _row_to_triage(self, row: Any) -> Dict[str, Any]:
+    def _row_to_triage(self, row: Any) -> dict[str, Any]:
         return {
             "message_id": row["message_id"],
             "recommended_action": row["recommended_action"],
@@ -1601,10 +1593,8 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             "created_at": row["created_at"],
         }
 
-
-_unified_inbox_store: Optional[UnifiedInboxStoreBackend] = None
+_unified_inbox_store: UnifiedInboxStoreBackend | None = None
 _store_lock = threading.Lock()
-
 
 def get_unified_inbox_store() -> UnifiedInboxStoreBackend:
     """
@@ -1640,18 +1630,15 @@ def get_unified_inbox_store() -> UnifiedInboxStoreBackend:
 
         return _unified_inbox_store
 
-
 def set_unified_inbox_store(store: UnifiedInboxStoreBackend) -> None:
     """Set a custom unified inbox store (testing or customization)."""
     global _unified_inbox_store
     _unified_inbox_store = store
 
-
 def reset_unified_inbox_store() -> None:
     """Reset the unified inbox store singleton (testing)."""
     global _unified_inbox_store
     _unified_inbox_store = None
-
 
 __all__ = [
     "UnifiedInboxStoreBackend",

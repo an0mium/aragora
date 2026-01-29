@@ -40,10 +40,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class BindingType(str, Enum):
     """Types of agent bindings."""
@@ -53,7 +52,6 @@ class BindingType(str, Enum):
     AGENT_POOL = "agent_pool"  # Select from a pool of agents
     DEBATE_TEAM = "debate_team"  # Use a full debate team
     CUSTOM = "custom"  # Custom routing logic
-
 
 @dataclass
 class MessageBinding:
@@ -76,17 +74,17 @@ class MessageBinding:
     priority: int = 0
 
     # Optional constraints
-    time_window_start: Optional[int] = None  # Hour (0-23)
-    time_window_end: Optional[int] = None  # Hour (0-23)
-    allowed_users: Optional[Set[str]] = None
-    blocked_users: Optional[Set[str]] = None
+    time_window_start: int | None = None  # Hour (0-23)
+    time_window_end: int | None = None  # Hour (0-23)
+    allowed_users: Optional[set[str]] = None
+    blocked_users: Optional[set[str]] = None
 
     # Configuration overrides
-    config_overrides: Dict[str, Any] = field(default_factory=dict)
+    config_overrides: dict[str, Any] = field(default_factory=dict)
 
     # Metadata
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
     enabled: bool = True
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -94,7 +92,7 @@ class MessageBinding:
         """Check if peer ID matches this binding's pattern."""
         return fnmatch.fnmatch(peer_id, self.peer_pattern)
 
-    def matches_time(self, hour: Optional[int] = None) -> bool:
+    def matches_time(self, hour: int | None = None) -> bool:
         """Check if current time is within the binding's time window."""
         if self.time_window_start is None or self.time_window_end is None:
             return True
@@ -109,7 +107,7 @@ class MessageBinding:
             # Wrapping range (e.g., 22-6)
             return hour >= self.time_window_start or hour < self.time_window_end
 
-    def matches_user(self, user_id: Optional[str]) -> bool:
+    def matches_user(self, user_id: str | None) -> bool:
         """Check if user is allowed by this binding."""
         if user_id is None:
             return True
@@ -122,7 +120,7 @@ class MessageBinding:
 
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "account_id": self.account_id,
@@ -142,7 +140,7 @@ class MessageBinding:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MessageBinding":
+    def from_dict(cls, data: dict[str, Any]) -> "MessageBinding":
         return cls(
             provider=data["provider"],
             account_id=data["account_id"],
@@ -165,21 +163,19 @@ class MessageBinding:
             ),
         )
 
-
 @dataclass
 class BindingResolution:
     """Result of resolving a message binding."""
 
     matched: bool
-    binding: Optional[MessageBinding] = None
-    agent_binding: Optional[str] = None
+    binding: MessageBinding | None = None
+    agent_binding: str | None = None
     binding_type: BindingType = BindingType.DEFAULT
-    config_overrides: Dict[str, Any] = field(default_factory=dict)
+    config_overrides: dict[str, Any] = field(default_factory=dict)
 
     # Resolution metadata
-    match_reason: Optional[str] = None
+    match_reason: str | None = None
     candidates_checked: int = 0
-
 
 @dataclass
 class AgentSelection:
@@ -187,9 +183,8 @@ class AgentSelection:
 
     agent_name: str
     binding: MessageBinding
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
     selection_reason: str = "default"
-
 
 class BindingRouter:
     """
@@ -206,10 +201,10 @@ class BindingRouter:
     def __init__(self):
         """Initialize the binding router."""
         # Bindings organized by provider -> account -> list
-        self._bindings: Dict[str, Dict[str, List[MessageBinding]]] = {}
+        self._bindings: dict[str, dict[str, list[MessageBinding]]] = {}
 
         # Default bindings per provider
-        self._default_bindings: Dict[str, MessageBinding] = {}
+        self._default_bindings: dict[str, MessageBinding] = {}
 
         # Global default
         self._global_default = MessageBinding(
@@ -223,7 +218,7 @@ class BindingRouter:
         )
 
         # Agent registry (for agent pool selection)
-        self._agent_pools: Dict[str, List[str]] = {}
+        self._agent_pools: dict[str, list[str]] = {}
 
     def add_binding(self, binding: MessageBinding) -> None:
         """
@@ -297,7 +292,7 @@ class BindingRouter:
     def register_agent_pool(
         self,
         pool_name: str,
-        agents: List[str],
+        agents: list[str],
     ) -> None:
         """
         Register an agent pool for pool-based routing.
@@ -313,8 +308,8 @@ class BindingRouter:
         provider: str,
         account_id: str,
         peer_id: str,
-        user_id: Optional[str] = None,
-        hour: Optional[int] = None,
+        user_id: str | None = None,
+        hour: int | None = None,
     ) -> BindingResolution:
         """
         Resolve which binding applies to a message.
@@ -414,8 +409,8 @@ class BindingRouter:
         provider: str,
         account_id: str,
         peer_id: str,
-        available_agents: List[Any],
-        user_id: Optional[str] = None,
+        available_agents: list[Any],
+        user_id: str | None = None,
     ) -> AgentSelection:
         """
         Select an agent for a message based on bindings.
@@ -499,9 +494,9 @@ class BindingRouter:
 
     def list_bindings(
         self,
-        provider: Optional[str] = None,
-        account_id: Optional[str] = None,
-    ) -> List[MessageBinding]:
+        provider: str | None = None,
+        account_id: str | None = None,
+    ) -> list[MessageBinding]:
         """
         List all bindings, optionally filtered.
 
@@ -512,7 +507,7 @@ class BindingRouter:
         Returns:
             List of matching bindings
         """
-        result: List[MessageBinding] = []
+        result: list[MessageBinding] = []
 
         for prov, accounts in self._bindings.items():
             if provider and prov != provider:
@@ -526,7 +521,7 @@ class BindingRouter:
 
         return result
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get router statistics."""
         total_bindings = sum(
             len(bindings) for accounts in self._bindings.values() for bindings in accounts.values()
@@ -539,10 +534,8 @@ class BindingRouter:
             "has_global_default": self._global_default is not None,
         }
 
-
 # Global router singleton
-_default_router: Optional[BindingRouter] = None
-
+_default_router: BindingRouter | None = None
 
 def get_binding_router() -> BindingRouter:
     """Get the default binding router instance."""
@@ -550,7 +543,6 @@ def get_binding_router() -> BindingRouter:
     if _default_router is None:
         _default_router = BindingRouter()
     return _default_router
-
 
 def reset_binding_router() -> None:
     """Reset the default router (for testing)."""

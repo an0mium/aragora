@@ -25,7 +25,7 @@ import logging
 import os
 import secrets
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
@@ -66,8 +66,7 @@ DISCORD_OAUTH_TOKEN_URL = "https://discord.com/api/oauth2/token"
 DISCORD_API_BASE = "https://discord.com/api/v10"
 
 # State token storage (in production, use Redis or database)
-_oauth_states: Dict[str, Dict[str, Any]] = {}
-
+_oauth_states: dict[str, dict[str, Any]] = {}
 
 class DiscordOAuthHandler(SecureHandler):
     """Handler for Discord OAuth bot installation flow.
@@ -94,10 +93,10 @@ class DiscordOAuthHandler(SecureHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        handler: Optional[Any] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
+        handler: Any | None = None,
     ) -> HandlerResult:
         """Route OAuth requests to appropriate methods.
 
@@ -139,7 +138,7 @@ class DiscordOAuthHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def _handle_install(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _handle_install(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Initiate Discord OAuth bot installation flow.
 
@@ -203,7 +202,7 @@ class DiscordOAuthHandler(SecureHandler):
             },
         )
 
-    async def _handle_callback(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _handle_callback(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Handle OAuth callback from Discord.
 
@@ -403,7 +402,7 @@ class DiscordOAuthHandler(SecureHandler):
             body=success_html.encode("utf-8"),
         )
 
-    async def _handle_uninstall(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _handle_uninstall(self, body: dict[str, Any]) -> HandlerResult:
         """
         Handle bot removal webhook from Discord.
 
@@ -426,7 +425,6 @@ class DiscordOAuthHandler(SecureHandler):
             logger.warning("Could not deactivate guild - store unavailable")
 
         return json_response({"ok": True, "guild_id": guild_id})
-
 
 # Handler factory function for registration
 def create_discord_oauth_handler(server_context: Any) -> DiscordOAuthHandler:

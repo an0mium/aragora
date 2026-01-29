@@ -19,11 +19,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 import uuid
 
 logger = logging.getLogger(__name__)
-
 
 class ApprovalLevel(Enum):
     """Approval requirement levels."""
@@ -31,7 +30,6 @@ class ApprovalLevel(Enum):
     INFO = "info"  # Notify, auto-approve after timeout
     REVIEW = "review"  # Require at least one approval
     CRITICAL = "critical"  # Require all approvers
-
 
 class ApprovalStatus(Enum):
     """Status of an approval request."""
@@ -42,20 +40,19 @@ class ApprovalStatus(Enum):
     TIMED_OUT = "timed_out"
     CANCELLED = "cancelled"
 
-
 @dataclass
 class FileChange:
     """Represents a change to a file."""
 
     path: str
     change_type: str  # add, modify, delete
-    content_before: Optional[str] = None
-    content_after: Optional[str] = None
+    content_before: str | None = None
+    content_after: str | None = None
     lines_added: int = 0
     lines_removed: int = 0
     is_binary: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "path": self.path,
@@ -65,17 +62,16 @@ class FileChange:
             "is_binary": self.is_binary,
         }
 
-
 @dataclass
 class ApproverVote:
     """Vote from an approver."""
 
     approver_id: str
     approved: bool
-    comment: Optional[str] = None
+    comment: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "approver_id": self.approver_id,
@@ -84,23 +80,22 @@ class ApproverVote:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 @dataclass
 class ApprovalRequest:
     """Request for approval of changes."""
 
     request_id: str
-    changes: List[FileChange]
+    changes: list[FileChange]
     level: ApprovalLevel
-    approvers: List[str]
+    approvers: list[str]
     status: ApprovalStatus = ApprovalStatus.PENDING
-    votes: List[ApproverVote] = field(default_factory=list)
+    votes: list[ApproverVote] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     timeout_seconds: int = 300  # 5 minutes default
-    description: Optional[str] = None
-    context: Dict[str, Any] = field(default_factory=dict)
+    description: str | None = None
+    context: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "request_id": self.request_id,
@@ -115,7 +110,6 @@ class ApprovalRequest:
             "context": self.context,
         }
 
-
 @dataclass
 class ApprovalResult:
     """Result of an approval request."""
@@ -123,11 +117,11 @@ class ApprovalResult:
     request_id: str
     status: ApprovalStatus
     approved: bool
-    votes: List[ApproverVote] = field(default_factory=list)
+    votes: list[ApproverVote] = field(default_factory=list)
     elapsed_seconds: float = 0.0
-    message: Optional[str] = None
+    message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "request_id": self.request_id,
@@ -138,7 +132,6 @@ class ApprovalResult:
             "message": self.message,
         }
 
-
 class ApprovalPolicy:
     """
     Policy for determining approval levels based on file paths.
@@ -148,7 +141,7 @@ class ApprovalPolicy:
 
     def __init__(self):
         # Default patterns for each level
-        self._critical_patterns: List[str] = [
+        self._critical_patterns: list[str] = [
             "CLAUDE.md",
             "*.env*",
             "credentials*",
@@ -166,7 +159,7 @@ class ApprovalPolicy:
             "**/auth/**",
             "**/crypto/**",
         ]
-        self._review_patterns: List[str] = [
+        self._review_patterns: list[str] = [
             "**/handlers/**",
             "**/api/**",
             "**/routes/**",
@@ -175,7 +168,7 @@ class ApprovalPolicy:
             "**/database/**",
             "requirements*.txt",
         ]
-        self._info_patterns: List[str] = [
+        self._info_patterns: list[str] = [
             "tests/**",
             "docs/**",
             "*.md",
@@ -239,7 +232,7 @@ class ApprovalPolicy:
         # Default to review for unknown files
         return ApprovalLevel.REVIEW
 
-    def get_max_approval_level(self, changes: List[FileChange]) -> ApprovalLevel:
+    def get_max_approval_level(self, changes: list[FileChange]) -> ApprovalLevel:
         """Get the highest approval level required for a set of changes."""
         if not changes:
             return ApprovalLevel.INFO
@@ -253,7 +246,6 @@ class ApprovalPolicy:
             return ApprovalLevel.REVIEW
         return ApprovalLevel.INFO
 
-
 class ApprovalWorkflow:
     """
     Multi-level approval gates for code changes.
@@ -263,9 +255,9 @@ class ApprovalWorkflow:
 
     def __init__(
         self,
-        policy: Optional[ApprovalPolicy] = None,
+        policy: ApprovalPolicy | None = None,
         notify_fn: Optional[Callable[[ApprovalRequest], None]] = None,
-        default_approvers: Optional[List[str]] = None,
+        default_approvers: Optional[list[str]] = None,
     ):
         """
         Initialize the approval workflow.
@@ -278,17 +270,17 @@ class ApprovalWorkflow:
         self.policy = policy or ApprovalPolicy()
         self._notify = notify_fn or (lambda r: None)
         self.default_approvers = default_approvers or []
-        self._requests: Dict[str, ApprovalRequest] = {}
-        self._pending_tasks: Dict[str, asyncio.Task] = {}
+        self._requests: dict[str, ApprovalRequest] = {}
+        self._pending_tasks: dict[str, asyncio.Task] = {}
 
     def create_request(
         self,
-        changes: List[FileChange],
-        approvers: Optional[List[str]] = None,
-        level: Optional[ApprovalLevel] = None,
-        description: Optional[str] = None,
+        changes: list[FileChange],
+        approvers: Optional[list[str]] = None,
+        level: ApprovalLevel | None = None,
+        description: str | None = None,
         timeout_seconds: int = 300,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> ApprovalRequest:
         """
         Create an approval request for changes.
@@ -333,12 +325,12 @@ class ApprovalWorkflow:
 
     async def request_approval(
         self,
-        changes: List[FileChange],
-        approvers: Optional[List[str]] = None,
-        level: Optional[ApprovalLevel] = None,
-        description: Optional[str] = None,
+        changes: list[FileChange],
+        approvers: Optional[list[str]] = None,
+        level: ApprovalLevel | None = None,
+        description: str | None = None,
         timeout_seconds: int = 300,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> ApprovalResult:
         """
         Request approval for changes and wait for result.
@@ -478,7 +470,7 @@ class ApprovalWorkflow:
         request_id: str,
         approver_id: str,
         approved: bool,
-        comment: Optional[str] = None,
+        comment: str | None = None,
     ) -> bool:
         """
         Submit a vote for an approval request.
@@ -528,7 +520,7 @@ class ApprovalWorkflow:
 
         return True
 
-    def cancel_request(self, request_id: str, reason: Optional[str] = None) -> bool:
+    def cancel_request(self, request_id: str, reason: str | None = None) -> bool:
         """Cancel an approval request."""
         if request_id not in self._requests:
             return False
@@ -541,11 +533,11 @@ class ApprovalWorkflow:
         logger.info(f"[{request_id}] Request cancelled: {reason or 'No reason given'}")
         return True
 
-    def get_request(self, request_id: str) -> Optional[ApprovalRequest]:
+    def get_request(self, request_id: str) -> ApprovalRequest | None:
         """Get an approval request by ID."""
         return self._requests.get(request_id)
 
-    def get_pending_requests(self) -> List[ApprovalRequest]:
+    def get_pending_requests(self) -> list[ApprovalRequest]:
         """Get all pending approval requests."""
         return [r for r in self._requests.values() if r.status == ApprovalStatus.PENDING]
 
@@ -553,22 +545,19 @@ class ApprovalWorkflow:
         """Get the approval policy for a file."""
         return self.policy.get_approval_level(file_path)
 
-
 # =============================================================================
 # Convenience Functions
 # =============================================================================
 
-
 def quick_approval_check(
-    changes: List[FileChange],
-    policy: Optional[ApprovalPolicy] = None,
+    changes: list[FileChange],
+    policy: ApprovalPolicy | None = None,
 ) -> ApprovalLevel:
     """Quick check of what approval level is needed for changes."""
     p = policy or ApprovalPolicy()
     return p.get_max_approval_level(changes)
 
-
-def is_protected_file(file_path: str, policy: Optional[ApprovalPolicy] = None) -> bool:
+def is_protected_file(file_path: str, policy: ApprovalPolicy | None = None) -> bool:
     """Check if a file requires critical approval."""
     p = policy or ApprovalPolicy()
     return p.get_approval_level(file_path) == ApprovalLevel.CRITICAL

@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.server.http_utils import run_async
 
@@ -95,7 +95,6 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 class WorkspaceHandler(SecureHandler):
     """Handler for workspace and privacy management endpoints.
@@ -163,7 +162,7 @@ class WorkspaceHandler(SecureHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_auth_context(self, handler, auth_ctx=None) -> Optional[AuthorizationContext]:
+    def _get_auth_context(self, handler, auth_ctx=None) -> AuthorizationContext | None:
         """Build RBAC authorization context from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
@@ -188,7 +187,7 @@ class WorkspaceHandler(SecureHandler):
 
     def _check_rbac_permission(
         self, handler, permission_key: str, auth_ctx=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """
         Check RBAC permission.
 
@@ -222,7 +221,7 @@ class WorkspaceHandler(SecureHandler):
 
     def handle(
         self, path: str, query_params: dict, handler: Any, method: str = "GET"
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests."""
         if hasattr(handler, "command"):
             method = handler.command
@@ -245,15 +244,15 @@ class WorkspaceHandler(SecureHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests."""
         return self.handle(path, query_params, handler, method="POST")
 
-    def handle_delete(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_delete(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route DELETE requests."""
         return self.handle(path, query_params, handler, method="DELETE")
 
-    def handle_put(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_put(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route PUT requests."""
         return self.handle(path, query_params, handler, method="PUT")
 
@@ -263,7 +262,7 @@ class WorkspaceHandler(SecureHandler):
 
     def _route_workspace(
         self, path: str, query_params: dict, handler: Any, method: str
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route workspace requests."""
         parts = path.strip("/").split("/")
 
@@ -319,7 +318,7 @@ class WorkspaceHandler(SecureHandler):
 
     def _route_retention(
         self, path: str, query_params: dict, handler: Any, method: str
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route retention requests."""
         parts = path.strip("/").split("/")
 
@@ -363,7 +362,7 @@ class WorkspaceHandler(SecureHandler):
 
     def _route_classify(
         self, path: str, query_params: dict, handler: Any, method: str
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route classification requests."""
         path = strip_version_prefix(path)
         parts = path.strip("/").split("/")
@@ -385,7 +384,7 @@ class WorkspaceHandler(SecureHandler):
 
     def _route_audit(
         self, path: str, query_params: dict, handler: Any, method: str
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route audit requests."""
         parts = path.strip("/").split("/")
 
@@ -1493,6 +1492,5 @@ class WorkspaceHandler(SecureHandler):
                 "days": days,
             }
         )
-
 
 __all__ = ["WorkspaceHandler"]

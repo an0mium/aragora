@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import aiohttp
 
@@ -34,14 +34,12 @@ logger = logging.getLogger(__name__)
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.resilience import CircuitBreaker
 
-
 class PlaidEnvironment(str, Enum):
     """Plaid environment."""
 
     SANDBOX = "sandbox"
     DEVELOPMENT = "development"
     PRODUCTION = "production"
-
 
 class TransactionCategory(str, Enum):
     """Transaction categories for accounting."""
@@ -55,7 +53,6 @@ class TransactionCategory(str, Enum):
     INVESTMENT = "investment"
     UNKNOWN = "unknown"
 
-
 class AccountType(str, Enum):
     """Bank account types."""
 
@@ -65,7 +62,6 @@ class AccountType(str, Enum):
     INVESTMENT = "investment"
     LOAN = "loan"
     OTHER = "other"
-
 
 @dataclass
 class PlaidCredentials(ConnectorDataclass):
@@ -80,13 +76,12 @@ class PlaidCredentials(ConnectorDataclass):
     user_id: str
     tenant_id: str
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_sync: Optional[datetime] = None
+    last_sync: datetime | None = None
 
-    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=False) -> dict[str, Any]:
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         result["access_token"] = self.access_token[:20] + "..."  # Mask token
         return result
-
 
 @dataclass
 class BankAccount(ConnectorDataclass):
@@ -96,17 +91,17 @@ class BankAccount(ConnectorDataclass):
 
     account_id: str
     name: str
-    official_name: Optional[str]
+    official_name: str | None
     account_type: AccountType
-    subtype: Optional[str]
+    subtype: str | None
     mask: str  # Last 4 digits
     current_balance: Decimal
-    available_balance: Optional[Decimal]
-    limit: Optional[Decimal]  # For credit accounts
+    available_balance: Decimal | None
+    limit: Decimal | None  # For credit accounts
     currency: str = "USD"
     institution_name: str = ""
 
-    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=False) -> dict[str, Any]:
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         # Convert Decimal to float for API compatibility
         result["current_balance"] = float(self.current_balance)
@@ -115,7 +110,6 @@ class BankAccount(ConnectorDataclass):
         )
         result["limit"] = float(self.limit) if self.limit else None
         return result
-
 
 @dataclass
 class BankTransaction(ConnectorDataclass):
@@ -129,30 +123,30 @@ class BankTransaction(ConnectorDataclass):
     amount: Decimal  # Positive = outflow, negative = inflow (Plaid convention)
     date: date
     name: str  # Merchant/description
-    merchant_name: Optional[str]
+    merchant_name: str | None
     pending: bool
 
     # Plaid categorization
-    category: List[str] = field(default_factory=list)
-    category_id: Optional[str] = None
+    category: list[str] = field(default_factory=list)
+    category_id: str | None = None
 
     # Our enriched categorization
     accounting_category: TransactionCategory = TransactionCategory.UNKNOWN
-    qbo_account_id: Optional[str] = None  # Mapped QBO account
+    qbo_account_id: str | None = None  # Mapped QBO account
     confidence: float = 0.0
     categorization_source: str = "plaid"  # plaid, rule, agent, user
 
     # Anomaly detection
     is_anomaly: bool = False
-    anomaly_reason: Optional[str] = None
+    anomaly_reason: str | None = None
     anomaly_score: float = 0.0
 
     # Metadata
-    payment_channel: Optional[str] = None  # online, in_store, other
-    location: Optional[Dict[str, Any]] = None
+    payment_channel: str | None = None  # online, in_store, other
+    location: Optional[dict[str, Any]] = None
     iso_currency_code: str = "USD"
 
-    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=False) -> dict[str, Any]:
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         # Convert Decimal to float for API compatibility
         result["amount"] = float(self.amount)
@@ -173,7 +167,6 @@ class BankTransaction(ConnectorDataclass):
         """Get absolute amount."""
         return abs(self.amount)
 
-
 @dataclass
 class CategoryMapping:
     """Mapping from Plaid category to QBO account."""
@@ -183,7 +176,6 @@ class CategoryMapping:
     qbo_account_name: str
     accounting_category: TransactionCategory
     confidence: float = 1.0
-
 
 class PlaidConnector:
     """
@@ -199,10 +191,10 @@ class PlaidConnector:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        secret: Optional[str] = None,
-        environment: Optional[PlaidEnvironment] = None,
-        circuit_breaker: Optional[CircuitBreaker] = None,
+        client_id: str | None = None,
+        secret: str | None = None,
+        environment: PlaidEnvironment | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
     ):
         """
@@ -248,11 +240,11 @@ class PlaidConnector:
             self._circuit_breaker = None
 
         # Category mappings
-        self._category_mappings: Dict[str, CategoryMapping] = {}
+        self._category_mappings: dict[str, CategoryMapping] = {}
         self._load_default_mappings()
 
         # Transaction history for anomaly detection
-        self._transaction_history: Dict[str, List[BankTransaction]] = {}
+        self._transaction_history: dict[str, list[BankTransaction]] = {}
 
     @property
     def is_configured(self) -> bool:
@@ -326,8 +318,8 @@ class PlaidConnector:
     async def _request(
         self,
         endpoint: str,
-        data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Make authenticated request to Plaid API with circuit breaker protection."""
         # Check circuit breaker before making request
         if self._circuit_breaker and not self._circuit_breaker.can_proceed():
@@ -396,11 +388,11 @@ class PlaidConnector:
         self,
         user_id: str,
         tenant_id: str,
-        products: Optional[List[str]] = None,
-        country_codes: Optional[List[str]] = None,
+        products: Optional[list[str]] = None,
+        country_codes: Optional[list[str]] = None,
         language: str = "en",
-        redirect_uri: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        redirect_uri: str | None = None,
+    ) -> dict[str, Any]:
         """
         Create a Link token for Plaid Link initialization.
 
@@ -484,7 +476,7 @@ class PlaidConnector:
     async def get_accounts(
         self,
         credentials: PlaidCredentials,
-    ) -> List[BankAccount]:
+    ) -> list[BankAccount]:
         """
         Get all accounts for a linked item.
 
@@ -551,9 +543,9 @@ class PlaidConnector:
         credentials: PlaidCredentials,
         start_date: date,
         end_date: date,
-        account_ids: Optional[List[str]] = None,
+        account_ids: Optional[list[str]] = None,
         include_pending: bool = True,
-    ) -> Tuple[List[BankTransaction], int]:
+    ) -> tuple[list[BankTransaction], int]:
         """
         Get transactions for linked accounts.
 
@@ -567,7 +559,7 @@ class PlaidConnector:
         Returns:
             Tuple of (transactions, total_count)
         """
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "access_token": credentials.access_token,
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
@@ -603,8 +595,8 @@ class PlaidConnector:
     async def sync_transactions(
         self,
         credentials: PlaidCredentials,
-        cursor: Optional[str] = None,
-    ) -> Tuple[List[BankTransaction], List[str], str]:
+        cursor: str | None = None,
+    ) -> tuple[list[BankTransaction], list[str], str]:
         """
         Sync transactions using Plaid's sync endpoint (incremental).
 
@@ -615,7 +607,7 @@ class PlaidConnector:
         Returns:
             Tuple of (added_transactions, removed_txn_ids, new_cursor)
         """
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "access_token": credentials.access_token,
             "options": {
                 "include_personal_finance_category": True,
@@ -647,7 +639,7 @@ class PlaidConnector:
 
         return added, removed, new_cursor
 
-    def _parse_transaction(self, item: Dict[str, Any]) -> BankTransaction:
+    def _parse_transaction(self, item: dict[str, Any]) -> BankTransaction:
         """Parse Plaid transaction into BankTransaction."""
         # Get personal finance category
         pfc = item.get("personal_finance_category", {})
@@ -691,8 +683,8 @@ class PlaidConnector:
     def _categorize_transaction(
         self,
         plaid_category: str,
-        category_list: List[str],
-    ) -> Tuple[TransactionCategory, Optional[str], float]:
+        category_list: list[str],
+    ) -> tuple[TransactionCategory, str | None, float]:
         """
         Categorize transaction using mapping.
 
@@ -719,9 +711,9 @@ class PlaidConnector:
 
     async def detect_anomalies(
         self,
-        transactions: List[BankTransaction],
+        transactions: list[BankTransaction],
         account_id: str,
-    ) -> List[BankTransaction]:
+    ) -> list[BankTransaction]:
         """
         Detect anomalous transactions.
 
@@ -807,9 +799,9 @@ class PlaidConnector:
 
     async def categorize_with_agents(
         self,
-        transactions: List[BankTransaction],
-        qbo_accounts: Optional[List[Dict[str, Any]]] = None,
-    ) -> List[BankTransaction]:
+        transactions: list[BankTransaction],
+        qbo_accounts: Optional[list[dict[str, Any]]] = None,
+    ) -> list[BankTransaction]:
         """
         Use multi-agent debate to categorize ambiguous transactions.
 
@@ -923,7 +915,7 @@ Provide:
     async def get_item_status(
         self,
         credentials: PlaidCredentials,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get status of linked item."""
         response = await self._request(
             "/item/get",
@@ -943,7 +935,6 @@ Provide:
             "transactions_status": status.get("transactions", {}),
         }
 
-
 class PlaidError(Exception):
     """Plaid API error."""
 
@@ -952,13 +943,11 @@ class PlaidError(Exception):
         self.error_message = error_message
         super().__init__(f"[{error_code}] {error_message}")
 
-
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
 
-
-def get_mock_accounts() -> List[BankAccount]:
+def get_mock_accounts() -> list[BankAccount]:
     """Generate mock bank account data."""
     return [
         BankAccount(
@@ -999,8 +988,7 @@ def get_mock_accounts() -> List[BankAccount]:
         ),
     ]
 
-
-def get_mock_transactions() -> List[BankTransaction]:
+def get_mock_transactions() -> list[BankTransaction]:
     """Generate mock transaction data."""
     today = date.today()
     return [
@@ -1053,7 +1041,6 @@ def get_mock_transactions() -> List[BankTransaction]:
             confidence=0.9,
         ),
     ]
-
 
 __all__ = [
     "PlaidConnector",

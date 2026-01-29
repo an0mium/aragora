@@ -13,14 +13,13 @@ Provides formatted output for debate results including:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
     from aragora.compliance.framework import ComplianceCheckResult
 
 logger = logging.getLogger(__name__)
-
 
 class ResultFormatter:
     """
@@ -144,8 +143,8 @@ class ResultFormatter:
     def validate_compliance(
         self,
         content: str,
-        vertical: Optional[str] = None,
-        frameworks: Optional[List[str]] = None,
+        vertical: str | None = None,
+        frameworks: Optional[list[str]] = None,
     ) -> "ComplianceCheckResult":
         """
         Validate content against compliance frameworks.
@@ -256,8 +255,8 @@ class ResultFormatter:
     def format_conclusion_with_compliance(
         self,
         result: "DebateResult",
-        vertical: Optional[str] = None,
-        frameworks: Optional[List[str]] = None,
+        vertical: str | None = None,
+        frameworks: Optional[list[str]] = None,
     ) -> str:
         """
         Format conclusion including compliance validation.
@@ -295,7 +294,6 @@ class ResultFormatter:
 
         return base_conclusion
 
-
 def format_conclusion(result: "DebateResult") -> str:
     """
     Convenience function to format a debate conclusion.
@@ -309,11 +307,10 @@ def format_conclusion(result: "DebateResult") -> str:
     formatter = ResultFormatter()
     return formatter.format_conclusion(result)
 
-
 def format_conclusion_with_compliance(
     result: "DebateResult",
-    vertical: Optional[str] = None,
-    frameworks: Optional[List[str]] = None,
+    vertical: str | None = None,
+    frameworks: Optional[list[str]] = None,
 ) -> str:
     """
     Convenience function to format conclusion with compliance validation.
@@ -328,7 +325,6 @@ def format_conclusion_with_compliance(
     """
     formatter = ResultFormatter()
     return formatter.format_conclusion_with_compliance(result, vertical, frameworks)
-
 
 __all__ = [
     "ResultFormatter",

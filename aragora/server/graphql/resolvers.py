@@ -22,7 +22,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
+from typing import Any, TYPE_CHECKING, cast
 
 from aragora.config import DEFAULT_ROUNDS
 
@@ -31,11 +31,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Context and Types
 # =============================================================================
-
 
 @dataclass
 class ResolverContext:
@@ -50,14 +48,13 @@ class ResolverContext:
     """
 
     server_context: "ServerContext"
-    user_id: Optional[str] = None
-    org_id: Optional[str] = None
-    trace_id: Optional[str] = None
-    variables: Dict[str, Any] = field(default_factory=dict)
+    user_id: str | None = None
+    org_id: str | None = None
+    trace_id: str | None = None
+    variables: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         pass  # variables now has proper default factory
-
 
 @dataclass
 class ResolverResult:
@@ -69,7 +66,7 @@ class ResolverResult:
     """
 
     data: Any = None
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         pass  # errors now has proper default factory
@@ -78,13 +75,11 @@ class ResolverResult:
     def success(self) -> bool:
         return len(self.errors) == 0
 
-
 # =============================================================================
 # Status Mapping Utilities
 # =============================================================================
 
-
-def _normalize_debate_status(status: Optional[str]) -> str:
+def _normalize_debate_status(status: str | None) -> str:
     """Normalize internal debate status to GraphQL enum value."""
     status_map = {
         "starting": "PENDING",
@@ -101,8 +96,7 @@ def _normalize_debate_status(status: Optional[str]) -> str:
         return "PENDING"
     return status_map.get(status.lower(), status.upper())
 
-
-def _normalize_agent_status(status: Optional[str]) -> str:
+def _normalize_agent_status(status: str | None) -> str:
     """Normalize agent status to GraphQL enum value."""
     status_map = {
         "available": "AVAILABLE",
@@ -117,8 +111,7 @@ def _normalize_agent_status(status: Optional[str]) -> str:
         return "OFFLINE"
     return status_map.get(status.lower(), status.upper())
 
-
-def _normalize_task_status(status: Optional[str]) -> str:
+def _normalize_task_status(status: str | None) -> str:
     """Normalize task status to GraphQL enum value."""
     status_map = {
         "pending": "PENDING",
@@ -136,8 +129,7 @@ def _normalize_task_status(status: Optional[str]) -> str:
         return "PENDING"
     return status_map.get(status.lower(), status.upper())
 
-
-def _normalize_priority(priority: Optional[str]) -> str:
+def _normalize_priority(priority: str | None) -> str:
     """Normalize priority to GraphQL enum value."""
     priority_map = {
         "low": "LOW",
@@ -151,8 +143,7 @@ def _normalize_priority(priority: Optional[str]) -> str:
         return "NORMAL"
     return priority_map.get(priority.lower(), priority.upper())
 
-
-def _normalize_health_status(status: Optional[str]) -> str:
+def _normalize_health_status(status: str | None) -> str:
     """Normalize health status to GraphQL enum value."""
     status_map = {
         "healthy": "HEALTHY",
@@ -167,8 +158,7 @@ def _normalize_health_status(status: Optional[str]) -> str:
         return "HEALTHY"
     return status_map.get(status.lower(), status.upper())
 
-
-def _to_iso_datetime(value: Any) -> Optional[str]:
+def _to_iso_datetime(value: Any) -> str | None:
     """Convert various datetime formats to ISO string."""
     if value is None:
         return None
@@ -180,11 +170,9 @@ def _to_iso_datetime(value: Any) -> Optional[str]:
         return datetime.fromtimestamp(value).isoformat()
     return str(value)
 
-
 # =============================================================================
 # Query Resolvers
 # =============================================================================
-
 
 class QueryResolvers:
     """Resolvers for GraphQL Query operations."""
@@ -223,7 +211,7 @@ class QueryResolvers:
     @staticmethod
     async def resolve_debates(
         ctx: ResolverContext,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> ResolverResult:
@@ -263,7 +251,7 @@ class QueryResolvers:
             debates = debates[offset : offset + limit]
 
             # Transform debates
-            transformed: List[Dict[str, Any]] = []
+            transformed: list[dict[str, Any]] = []
             for d in debates:
                 debate_dict = (
                     d
@@ -307,7 +295,7 @@ class QueryResolvers:
                 return ResolverResult(errors=["Storage not available"])
 
             # Use storage search if available
-            debates: List[Any]
+            debates: list[Any]
             if hasattr(storage, "search"):
                 debates = list(storage.search(query=query, limit=limit, org_id=ctx.org_id))
             else:
@@ -323,7 +311,7 @@ class QueryResolvers:
                     ).lower()
                 ][:limit]
 
-            transformed: List[Dict[str, Any]] = []
+            transformed: list[dict[str, Any]] = []
             for d in debates:
                 debate_dict = (
                     d
@@ -378,9 +366,9 @@ class QueryResolvers:
     @staticmethod
     async def resolve_agents(
         ctx: ResolverContext,
-        status: Optional[str] = None,
-        capability: Optional[str] = None,
-        region: Optional[str] = None,
+        status: str | None = None,
+        capability: str | None = None,
+        region: str | None = None,
     ) -> ResolverResult:
         """Resolve a list of agents with optional filtering.
 
@@ -427,7 +415,7 @@ class QueryResolvers:
     async def resolve_leaderboard(
         ctx: ResolverContext,
         limit: int = 20,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> ResolverResult:
         """Get agent leaderboard.
 
@@ -490,8 +478,8 @@ class QueryResolvers:
     @staticmethod
     async def resolve_tasks(
         ctx: ResolverContext,
-        status: Optional[str] = None,
-        type: Optional[str] = None,
+        status: str | None = None,
+        type: str | None = None,
         limit: int = 20,
     ) -> ResolverResult:
         """Resolve a list of tasks with optional filtering.
@@ -513,7 +501,7 @@ class QueryResolvers:
             # Get tasks based on status filter
             from aragora.control_plane.scheduler import TaskStatus as CPTaskStatus
 
-            tasks: List[Any] = []
+            tasks: list[Any] = []
             if status:
                 try:
                     cp_status = CPTaskStatus(status.lower())
@@ -651,7 +639,7 @@ class QueryResolvers:
         try:
             coordinator: Any = ctx.server_context.get("control_plane_coordinator")
 
-            stats: Dict[str, Any] = {
+            stats: dict[str, Any] = {
                 "activeJobs": 0,
                 "queuedJobs": 0,
                 "completedJobsToday": 0,
@@ -683,11 +671,9 @@ class QueryResolvers:
             logger.exception(f"Error resolving stats: {e}")
             return ResolverResult(errors=[f"Failed to resolve stats: {e}"])
 
-
 # =============================================================================
 # Mutation Resolvers
 # =============================================================================
-
 
 class MutationResolvers:
     """Resolvers for GraphQL Mutation operations."""
@@ -695,7 +681,7 @@ class MutationResolvers:
     @staticmethod
     async def resolve_start_debate(
         ctx: ResolverContext,
-        input: Dict[str, Any],
+        input: dict[str, Any],
     ) -> ResolverResult:
         """Start a new debate.
 
@@ -784,7 +770,7 @@ class MutationResolvers:
     async def resolve_submit_vote(
         ctx: ResolverContext,
         debate_id: str,
-        vote: Dict[str, Any],
+        vote: dict[str, Any],
     ) -> ResolverResult:
         """Submit a vote for an agent in a debate.
 
@@ -898,7 +884,7 @@ class MutationResolvers:
     @staticmethod
     async def resolve_submit_task(
         ctx: ResolverContext,
-        input: Dict[str, Any],
+        input: dict[str, Any],
     ) -> ResolverResult:
         """Submit a new task to the control plane.
 
@@ -1001,7 +987,7 @@ class MutationResolvers:
     @staticmethod
     async def resolve_register_agent(
         ctx: ResolverContext,
-        input: Dict[str, Any],
+        input: dict[str, Any],
     ) -> ResolverResult:
         """Register a new agent with the control plane.
 
@@ -1086,11 +1072,9 @@ class MutationResolvers:
             logger.exception(f"Error unregistering agent: {e}")
             return ResolverResult(errors=[f"Failed to unregister agent: {e}"])
 
-
 # =============================================================================
 # Subscription Resolvers
 # =============================================================================
-
 
 class SubscriptionResolvers:
     """Resolvers for GraphQL Subscription operations.
@@ -1142,7 +1126,7 @@ class SubscriptionResolvers:
     @staticmethod
     async def subscribe_task_updates(
         ctx: ResolverContext,
-        task_id: Optional[str] = None,
+        task_id: str | None = None,
     ):
         """Subscribe to task updates.
 
@@ -1173,19 +1157,17 @@ class SubscriptionResolvers:
         except asyncio.CancelledError:
             pass
 
-
 # =============================================================================
 # Transform Functions
 # =============================================================================
 
-
-def _transform_debate(debate: Dict[str, Any]) -> Dict[str, Any]:
+def _transform_debate(debate: dict[str, Any]) -> dict[str, Any]:
     """Transform internal debate format to GraphQL format."""
     messages = debate.get("messages", [])
     critiques = debate.get("critiques", [])
 
     # Group messages by round
-    rounds_map: Dict[int, Dict[str, Any]] = {}
+    rounds_map: dict[int, dict[str, Any]] = {}
     for msg in messages:
         round_num = msg.get("round", 1)
         if round_num not in rounds_map:
@@ -1290,8 +1272,7 @@ def _transform_debate(debate: Dict[str, Any]) -> Dict[str, Any]:
         "winner": debate.get("winner"),
     }
 
-
-def _transform_agent(agent: Any, agent_id: Optional[str] = None) -> Dict[str, Any]:
+def _transform_agent(agent: Any, agent_id: str | None = None) -> dict[str, Any]:
     """Transform internal agent format to GraphQL format."""
     if isinstance(agent, dict):
         name = agent.get("name") or agent.get("agent_name") or agent_id or "unknown"
@@ -1348,8 +1329,7 @@ def _transform_agent(agent: Any, agent_id: Optional[str] = None) -> Dict[str, An
         "provider": getattr(agent, "provider", None),
     }
 
-
-def _transform_task(task: Any) -> Dict[str, Any]:
+def _transform_task(task: Any) -> dict[str, Any]:
     """Transform internal task format to GraphQL format."""
     if isinstance(task, dict):
         return {
@@ -1386,7 +1366,6 @@ def _transform_task(task: Any) -> Dict[str, Any]:
         "payload": getattr(task, "payload", None),
         "metadata": getattr(task, "metadata", None),
     }
-
 
 # =============================================================================
 # Resolver Registry

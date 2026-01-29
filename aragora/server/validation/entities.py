@@ -7,7 +7,6 @@ and injection vulnerabilities.
 """
 
 import re
-from typing import Optional, Tuple
 
 # Safe string patterns for different entity types
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
@@ -29,12 +28,11 @@ SAFE_BATCH_ID_PATTERN = re.compile(r"^batch_[a-zA-Z0-9]{6,32}$")
 SAFE_SHARE_TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,32}$")
 SAFE_SESSION_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{8,64}$")
 
-
 def validate_path_segment(
     value: str,
     name: str,
     pattern: re.Pattern | None = None,
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """Validate a path segment against a pattern.
 
     This is the primary function for validating user-provided path segments
@@ -63,8 +61,7 @@ def validate_path_segment(
         return False, f"Invalid {name}: must match pattern {pattern.pattern}"
     return True, None
 
-
-def validate_id(value: str, name: str = "ID") -> Tuple[bool, Optional[str]]:
+def validate_id(value: str, name: str = "ID") -> tuple[bool, str | None]:
     """Validate a generic ID (alphanumeric with hyphens/underscores, 1-64 chars).
 
     Args:
@@ -76,8 +73,7 @@ def validate_id(value: str, name: str = "ID") -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(value, name, SAFE_ID_PATTERN)
 
-
-def validate_agent_name(agent: str) -> Tuple[bool, Optional[str]]:
+def validate_agent_name(agent: str) -> tuple[bool, str | None]:
     """Validate an agent name (alphanumeric with hyphens/underscores, 1-32 chars).
 
     Args:
@@ -88,8 +84,7 @@ def validate_agent_name(agent: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(agent, "agent name", SAFE_AGENT_PATTERN)
 
-
-def validate_debate_id(debate_id: str) -> Tuple[bool, Optional[str]]:
+def validate_debate_id(debate_id: str) -> tuple[bool, str | None]:
     """Validate a debate ID (alphanumeric with hyphens/underscores, 1-128 chars).
 
     Args:
@@ -100,8 +95,7 @@ def validate_debate_id(debate_id: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(debate_id, "debate ID", SAFE_SLUG_PATTERN)
 
-
-def validate_gauntlet_id(gauntlet_id: str) -> Tuple[bool, Optional[str]]:
+def validate_gauntlet_id(gauntlet_id: str) -> tuple[bool, str | None]:
     """Validate a gauntlet ID (prefixed with gauntlet-).
 
     Accepts both strict format (gauntlet-YYYYMMDDHHMMSS-xxxxxx) and
@@ -120,8 +114,7 @@ def validate_gauntlet_id(gauntlet_id: str) -> Tuple[bool, Optional[str]]:
         return True, None
     return validate_path_segment(gauntlet_id, "gauntlet ID", SAFE_SLUG_PATTERN)
 
-
-def validate_share_token(token: str) -> Tuple[bool, Optional[str]]:
+def validate_share_token(token: str) -> tuple[bool, str | None]:
     """Validate a share token.
 
     Share tokens are URL-safe base64 strings, 16-32 characters.
@@ -134,8 +127,7 @@ def validate_share_token(token: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(token, "share token", SAFE_SHARE_TOKEN_PATTERN)
 
-
-def validate_batch_id(batch_id: str) -> Tuple[bool, Optional[str]]:
+def validate_batch_id(batch_id: str) -> tuple[bool, str | None]:
     """Validate a batch ID (prefixed with batch_).
 
     Args:
@@ -148,8 +140,7 @@ def validate_batch_id(batch_id: str) -> Tuple[bool, Optional[str]]:
         return False, "Invalid batch ID: must start with 'batch_'"
     return validate_path_segment(batch_id, "batch ID", SAFE_BATCH_ID_PATTERN)
 
-
-def validate_session_id(session_id: str) -> Tuple[bool, Optional[str]]:
+def validate_session_id(session_id: str) -> tuple[bool, str | None]:
     """Validate a session ID.
 
     Args:
@@ -160,8 +151,7 @@ def validate_session_id(session_id: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(session_id, "session ID", SAFE_SESSION_ID_PATTERN)
 
-
-def validate_plugin_name(plugin_name: str) -> Tuple[bool, Optional[str]]:
+def validate_plugin_name(plugin_name: str) -> tuple[bool, str | None]:
     """Validate a plugin name.
 
     Args:
@@ -172,8 +162,7 @@ def validate_plugin_name(plugin_name: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(plugin_name, "plugin name", SAFE_ID_PATTERN)
 
-
-def validate_loop_id(loop_id: str) -> Tuple[bool, Optional[str]]:
+def validate_loop_id(loop_id: str) -> tuple[bool, str | None]:
     """Validate a nomic loop ID.
 
     Args:
@@ -184,8 +173,7 @@ def validate_loop_id(loop_id: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(loop_id, "loop ID", SAFE_ID_PATTERN)
 
-
-def validate_replay_id(replay_id: str) -> Tuple[bool, Optional[str]]:
+def validate_replay_id(replay_id: str) -> tuple[bool, str | None]:
     """Validate a replay ID.
 
     Args:
@@ -196,8 +184,7 @@ def validate_replay_id(replay_id: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(replay_id, "replay ID", SAFE_ID_PATTERN)
 
-
-def validate_genome_id(genome_id: str) -> Tuple[bool, Optional[str]]:
+def validate_genome_id(genome_id: str) -> tuple[bool, str | None]:
     """Validate a genome ID (supports dots for versioning).
 
     Args:
@@ -208,8 +195,7 @@ def validate_genome_id(genome_id: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(genome_id, "genome ID", SAFE_ID_PATTERN_WITH_DOTS)
 
-
-def validate_agent_name_with_version(agent: str) -> Tuple[bool, Optional[str]]:
+def validate_agent_name_with_version(agent: str) -> tuple[bool, str | None]:
     """Validate an agent name that may include version dots (e.g., claude-3.5-sonnet).
 
     Args:
@@ -220,8 +206,7 @@ def validate_agent_name_with_version(agent: str) -> Tuple[bool, Optional[str]]:
     """
     return validate_path_segment(agent, "agent name", SAFE_ID_PATTERN_WITH_DOTS)
 
-
-def validate_no_path_traversal(path: str) -> Tuple[bool, Optional[str]]:
+def validate_no_path_traversal(path: str) -> tuple[bool, str | None]:
     """Check that a path does not contain path traversal sequences.
 
     Blocks attempts to escape the intended directory via '..' sequences.
@@ -246,8 +231,7 @@ def validate_no_path_traversal(path: str) -> Tuple[bool, Optional[str]]:
         return False, "Path traversal not allowed"
     return True, None
 
-
-def sanitize_id(value: str) -> Optional[str]:
+def sanitize_id(value: str) -> str | None:
     """Sanitize an ID string.
 
     Args:

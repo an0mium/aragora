@@ -15,8 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
-
+from typing import Any, Literal, Optional
 
 class KnowledgeSource(str, Enum):
     """Source types for knowledge items."""
@@ -45,7 +44,6 @@ class KnowledgeSource(str, Enum):
     EXTRACTION = "extraction"  # Extracted content from documents
     CALIBRATION = "calibration"  # Multi-party calibration fusion consensus
 
-
 class RelationshipType(str, Enum):
     """Types of relationships between knowledge items."""
 
@@ -57,7 +55,6 @@ class RelationshipType(str, Enum):
     RELATED_TO = "related_to"
     CITES = "cites"
 
-
 class ConfidenceLevel(str, Enum):
     """Confidence levels for knowledge items."""
 
@@ -66,7 +63,6 @@ class ConfidenceLevel(str, Enum):
     MEDIUM = "medium"  # Moderate confidence
     LOW = "low"  # Weak evidence or contested
     UNVERIFIED = "unverified"  # Not yet verified
-
 
 @dataclass
 class KnowledgeItem:
@@ -84,16 +80,16 @@ class KnowledgeItem:
     confidence: ConfidenceLevel
     created_at: datetime
     updated_at: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Optional fields depending on source
-    importance: Optional[float] = None  # 0-1 importance score
-    embedding: Optional[List[float]] = None  # Vector embedding
+    importance: float | None = None  # 0-1 importance score
+    embedding: Optional[list[float]] = None  # Vector embedding
 
     # Cross-reference tracking
-    cross_references: List[str] = field(default_factory=list)  # IDs of related items
+    cross_references: list[str] = field(default_factory=list)  # IDs of related items
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -109,7 +105,7 @@ class KnowledgeItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "KnowledgeItem":
+    def from_dict(cls, data: dict[str, Any]) -> "KnowledgeItem":
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -123,7 +119,6 @@ class KnowledgeItem:
             importance=data.get("importance"),
             cross_references=data.get("cross_references", []),
         )
-
 
 @dataclass
 class KnowledgeLink:
@@ -140,10 +135,10 @@ class KnowledgeLink:
     relationship: RelationshipType
     confidence: float  # 0-1 confidence in the relationship
     created_at: datetime
-    created_by: Optional[str] = None  # Agent or user that created the link
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_by: str | None = None  # Agent or user that created the link
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -156,24 +151,23 @@ class KnowledgeLink:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class QueryFilters:
     """Filters for Knowledge Mound queries."""
 
-    sources: Optional[List[KnowledgeSource]] = None  # Filter by source type
-    min_confidence: Optional[ConfidenceLevel] = None
-    min_importance: Optional[float] = None
-    created_after: Optional[datetime] = None
-    created_before: Optional[datetime] = None
-    workspace_id: Optional[str] = None
-    debate_id: Optional[str] = None
-    document_ids: Optional[List[str]] = None
-    tags: Optional[List[str]] = None
+    sources: Optional[list[KnowledgeSource]] = None  # Filter by source type
+    min_confidence: ConfidenceLevel | None = None
+    min_importance: float | None = None
+    created_after: datetime | None = None
+    created_before: datetime | None = None
+    workspace_id: str | None = None
+    debate_id: str | None = None
+    document_ids: Optional[list[str]] = None
+    tags: Optional[list[str]] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API serialization."""
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         if self.sources:
             result["sources"] = [s.value for s in self.sources]
         if self.min_confidence:
@@ -194,19 +188,18 @@ class QueryFilters:
             result["tags"] = self.tags
         return result
 
-
 @dataclass
 class QueryResult:
     """Result of a Knowledge Mound query."""
 
-    items: List[KnowledgeItem]
+    items: list[KnowledgeItem]
     total_count: int  # Total matching items (may be more than returned)
     query: str
-    filters: Optional[QueryFilters] = None
+    filters: QueryFilters | None = None
     execution_time_ms: float = 0.0
-    sources_queried: List[KnowledgeSource] = field(default_factory=list)
+    sources_queried: list[KnowledgeSource] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "items": [item.to_dict() for item in self.items],
@@ -217,7 +210,6 @@ class QueryResult:
             "sources_queried": [s.value for s in self.sources_queried],
         }
 
-
 @dataclass
 class StoreResult:
     """Result of storing a knowledge item."""
@@ -226,8 +218,7 @@ class StoreResult:
     source: KnowledgeSource
     success: bool
     cross_references_created: int = 0
-    message: Optional[str] = None
-
+    message: str | None = None
 
 @dataclass
 class LinkResult:
@@ -235,8 +226,7 @@ class LinkResult:
 
     id: str
     success: bool
-    message: Optional[str] = None
-
+    message: str | None = None
 
 # Type aliases for commonly used parameter types
 SourceFilter = Literal["all", "continuum", "consensus", "fact", "vector", "document"]

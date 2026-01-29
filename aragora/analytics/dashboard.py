@@ -40,11 +40,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 import threading
 
 logger = logging.getLogger(__name__)
-
 
 class TimeRange(str, Enum):
     """Predefined time ranges for analytics."""
@@ -56,7 +55,7 @@ class TimeRange(str, Enum):
     LAST_365_DAYS = "365d"
     ALL_TIME = "all"
 
-    def to_timedelta(self) -> Optional[timedelta]:
+    def to_timedelta(self) -> timedelta | None:
         """Convert to timedelta."""
         mapping = {
             "24h": timedelta(hours=24),
@@ -68,7 +67,6 @@ class TimeRange(str, Enum):
         }
         return mapping.get(self.value)
 
-
 class Granularity(str, Enum):
     """Time granularity for trend data."""
 
@@ -76,7 +74,6 @@ class Granularity(str, Enum):
     DAILY = "day"
     WEEKLY = "week"
     MONTHLY = "month"
-
 
 @dataclass
 class FindingTrend:
@@ -97,7 +94,6 @@ class FindingTrend:
             "by_category": self.by_category,
             "by_status": self.by_status,
         }
-
 
 @dataclass
 class RemediationMetrics:
@@ -120,7 +116,6 @@ class RemediationMetrics:
             "false_positive_rate": round(self.false_positive_rate, 4),
             "accepted_risk_rate": round(self.accepted_risk_rate, 4),
         }
-
 
 @dataclass
 class AgentMetrics:
@@ -146,7 +141,6 @@ class AgentMetrics:
             "avg_response_time_ms": round(self.avg_response_time_ms, 2),
         }
 
-
 @dataclass
 class AuditCostMetrics:
     """Cost metrics for audits."""
@@ -166,7 +160,6 @@ class AuditCostMetrics:
             "cost_by_type": {k: round(v, 2) for k, v in self.cost_by_type.items()},
             "token_usage": self.token_usage,
         }
-
 
 @dataclass
 class ComplianceScore:
@@ -190,7 +183,6 @@ class ComplianceScore:
             "critical_gaps": self.critical_gaps,
         }
 
-
 @dataclass
 class RiskHeatmapCell:
     """A cell in the risk heatmap."""
@@ -208,7 +200,6 @@ class RiskHeatmapCell:
             "count": self.count,
             "trend": self.trend,
         }
-
 
 @dataclass
 class DashboardSummary:
@@ -248,7 +239,6 @@ class DashboardSummary:
             "recent_critical": self.recent_critical,
         }
 
-
 class AnalyticsDashboard:
     """
     Analytics dashboard for audit findings and performance metrics.
@@ -261,7 +251,7 @@ class AnalyticsDashboard:
         self._cache: dict[str, tuple[Any, datetime]] = {}
         self._cache_ttl = timedelta(minutes=5)
 
-    def _get_cached(self, key: str) -> Optional[Any]:
+    def _get_cached(self, key: str) -> Any | None:
         """Get cached value if not expired."""
         if key in self._cache:
             value, timestamp = self._cache[key]
@@ -621,7 +611,7 @@ class AnalyticsDashboard:
     async def get_compliance_scorecard(
         self,
         workspace_id: str,
-        frameworks: Optional[list[str]] = None,
+        frameworks: list[str] | None = None,
     ) -> list[ComplianceScore]:
         """
         Get compliance scores for specified frameworks.
@@ -712,7 +702,7 @@ class AnalyticsDashboard:
         self,
         workspace_id: str,
         time_range: TimeRange,
-        offset: Optional[timedelta] = None,
+        offset: timedelta | None = None,
     ) -> list[dict]:
         """Get findings for workspace in time range."""
         try:
@@ -913,11 +903,9 @@ class AnalyticsDashboard:
         else:  # MONTHLY
             return datetime.strptime(key + "-01", "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
-
 # Global instance
-_dashboard: Optional[AnalyticsDashboard] = None
+_dashboard: AnalyticsDashboard | None = None
 _lock = threading.Lock()
-
 
 def get_analytics_dashboard() -> AnalyticsDashboard:
     """Get the global analytics dashboard instance."""

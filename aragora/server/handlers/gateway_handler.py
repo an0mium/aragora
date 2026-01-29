@@ -22,7 +22,7 @@ Routes:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -61,7 +61,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
 class GatewayHandler(BaseHandler):
     """
     HTTP request handler for gateway API endpoints.
@@ -82,10 +81,10 @@ class GatewayHandler(BaseHandler):
 
     def __init__(self, server_context):
         super().__init__(server_context)
-        self._device_registry: Optional[DeviceRegistry] = None
-        self._agent_router: Optional[AgentRouter] = None
+        self._device_registry: DeviceRegistry | None = None
+        self._agent_router: AgentRouter | None = None
 
-    def _get_device_registry(self) -> Optional[DeviceRegistry]:
+    def _get_device_registry(self) -> DeviceRegistry | None:
         """Get or create device registry."""
         if not GATEWAY_AVAILABLE:
             return None
@@ -93,7 +92,7 @@ class GatewayHandler(BaseHandler):
             self._device_registry = DeviceRegistry()
         return self._device_registry
 
-    def _get_agent_router(self) -> Optional[AgentRouter]:
+    def _get_agent_router(self) -> AgentRouter | None:
         """Get or create agent router."""
         if not GATEWAY_AVAILABLE:
             return None
@@ -105,7 +104,7 @@ class GatewayHandler(BaseHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_auth_context(self, handler) -> Optional[AuthorizationContext]:
+    def _get_auth_context(self, handler) -> AuthorizationContext | None:
         """Build AuthorizationContext from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
@@ -125,7 +124,7 @@ class GatewayHandler(BaseHandler):
             org_id=auth_ctx.org_id,
         )
 
-    def _check_rbac_permission(self, handler, permission_key: str) -> Optional[HandlerResult]:
+    def _check_rbac_permission(self, handler, permission_key: str) -> HandlerResult | None:
         """Check RBAC permission. Returns None if allowed, error response if denied."""
         if not RBAC_AVAILABLE:
             return None
@@ -147,7 +146,7 @@ class GatewayHandler(BaseHandler):
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):
             return None
@@ -181,7 +180,7 @@ class GatewayHandler(BaseHandler):
 
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if not self.can_handle(path):
             return None
@@ -209,7 +208,7 @@ class GatewayHandler(BaseHandler):
 
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         if not self.can_handle(path):
             return None
@@ -500,6 +499,5 @@ class GatewayHandler(BaseHandler):
                 "rule_id": getattr(result, "rule_id", None),
             }
         )
-
 
 __all__ = ["GatewayHandler"]

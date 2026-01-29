@@ -20,7 +20,7 @@ import statistics
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import unquote
 
 from aragora.server.versioning.compat import strip_version_prefix
@@ -40,7 +40,6 @@ ENDPOINT_ANALYTICS_PERMISSION = "analytics.read"
 
 # Rate limiter for endpoint analytics (60 requests per minute)
 _endpoint_analytics_limiter = RateLimiter(requests_per_minute=60)
-
 
 @dataclass
 class EndpointMetrics:
@@ -101,7 +100,6 @@ class EndpointMetrics:
             },
         }
 
-
 class EndpointMetricsStore:
     """In-memory store for endpoint metrics.
 
@@ -155,7 +153,7 @@ class EndpointMetricsStore:
             results.append(metrics)
         return results
 
-    def get_endpoint(self, endpoint: str, method: str = "GET") -> Optional[EndpointMetrics]:
+    def get_endpoint(self, endpoint: str, method: str = "GET") -> EndpointMetrics | None:
         """Get metrics for a specific endpoint."""
         key = f"{method}:{endpoint}"
         metrics = self._metrics.get(key)
@@ -168,15 +166,12 @@ class EndpointMetricsStore:
         self._metrics.clear()
         self._window_start = time.time()
 
-
 # Global metrics store
 _metrics_store = EndpointMetricsStore()
-
 
 def get_metrics_store() -> EndpointMetricsStore:
     """Get the global metrics store."""
     return _metrics_store
-
 
 def record_endpoint_request(
     endpoint: str,
@@ -189,7 +184,6 @@ def record_endpoint_request(
     This should be called from middleware or request handlers.
     """
     _metrics_store.record_request(endpoint, method, status_code, latency_seconds)
-
 
 class EndpointAnalyticsHandler(SecureHandler):
     """Handler for API endpoint performance analytics.
@@ -218,7 +212,7 @@ class EndpointAnalyticsHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests to appropriate methods with RBAC."""
         normalized = strip_version_prefix(path)
 
@@ -447,7 +441,6 @@ class EndpointAnalyticsHandler(SecureHandler):
         except Exception as e:
             logger.exception(f"Error getting health summary: {e}")
             return error_response(f"Failed to get health summary: {str(e)}", 500)
-
 
 __all__ = [
     "EndpointAnalyticsHandler",

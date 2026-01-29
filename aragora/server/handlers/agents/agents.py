@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any, List, Optional
+from typing import Any
 
 from aragora.config import (
     CACHE_TTL_AGENT_FLIPS,
@@ -79,7 +79,6 @@ _OPENROUTER_FALLBACK_MODELS = {
     "mistral-api": "mistralai/mistral-large-2411",
 }
 
-
 def _secret_configured(name: str) -> bool:
     try:
         from aragora.config.secrets import get_secret
@@ -93,7 +92,6 @@ def _secret_configured(name: str) -> bool:
     env_value = os.getenv(name)
     return bool(env_value and env_value.strip())
 
-
 def _missing_required_env_vars(env_vars: str | None) -> list[str]:
     if not env_vars:
         return []
@@ -105,7 +103,6 @@ def _missing_required_env_vars(env_vars: str | None) -> list[str]:
     if any(_secret_configured(var) for var in candidates):
         return []
     return candidates
-
 
 class AgentsHandler(SecureHandler):
     """Handler for agent-related endpoints.
@@ -178,7 +175,7 @@ class AgentsHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route agent requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -269,7 +266,7 @@ class AgentsHandler(SecureHandler):
 
         return None
 
-    def _handle_agent_endpoint(self, path: str, query_params: dict) -> Optional[HandlerResult]:
+    def _handle_agent_endpoint(self, path: str, query_params: dict) -> HandlerResult | None:
         """Handle /api/agent/{name}/* endpoints."""
         path = strip_version_prefix(path)
         parts = path.split("/")
@@ -306,7 +303,7 @@ class AgentsHandler(SecureHandler):
 
     def _dispatch_agent_endpoint(
         self, agent: str, endpoint: str, params: dict
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Dispatch to specific agent endpoint handler."""
         handlers = {
             "profile": lambda: self._get_profile(agent),
@@ -642,7 +639,7 @@ class AgentsHandler(SecureHandler):
         return json_response(availability)
 
     @rate_limit(rpm=30, limiter_name="leaderboard")
-    def _get_leaderboard(self, limit: int, domain: Optional[str]) -> HandlerResult:
+    def _get_leaderboard(self, limit: int, domain: str | None) -> HandlerResult:
         """Get agent leaderboard with consistency scores (batched to avoid N+1)."""
         elo = self.get_elo_system()
         if not elo:
@@ -745,7 +742,7 @@ class AgentsHandler(SecureHandler):
             return error_response(safe_error_message(e, "get calibration leaderboard"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_RECENT_MATCHES, key_prefix="recent_matches", skip_first=True)
-    def _get_recent_matches(self, limit: int, loop_id: Optional[str]) -> HandlerResult:
+    def _get_recent_matches(self, limit: int, loop_id: str | None) -> HandlerResult:
         """Get recent matches (uses JSON snapshot cache for fast reads)."""
         elo = self.get_elo_system()
         if not elo:
@@ -761,7 +758,7 @@ class AgentsHandler(SecureHandler):
         except Exception as e:
             return error_response(safe_error_message(e, "get recent matches"), 500)
 
-    def _compare_agents(self, agents: List[str]) -> HandlerResult:
+    def _compare_agents(self, agents: list[str]) -> HandlerResult:
         """Compare multiple agents using batch rating lookups."""
         if len(agents) < 2:
             return error_response("Need at least 2 agents to compare", 400)
@@ -848,7 +845,7 @@ class AgentsHandler(SecureHandler):
         return json_response({"agent": agent, "history": history_list})
 
     @handle_errors("agent calibration")
-    def _get_calibration(self, agent: str, domain: Optional[str]) -> HandlerResult:
+    def _get_calibration(self, agent: str, domain: str | None) -> HandlerResult:
         """Get agent calibration scores."""
         elo = self.get_elo_system()
         if not elo:
@@ -1150,7 +1147,7 @@ class AgentsHandler(SecureHandler):
             raise
 
     @handle_errors("agent introspect")
-    def _get_agent_introspect(self, agent: str, debate_id: Optional[str] = None) -> HandlerResult:
+    def _get_agent_introspect(self, agent: str, debate_id: str | None = None) -> HandlerResult:
         """Get agent introspection data for self-awareness and debugging.
 
         This endpoint provides comprehensive internal state information that

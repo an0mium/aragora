@@ -10,13 +10,12 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.rbac.decorators import require_permission
 from .base import BaseHandler, HandlerResult
 
 logger = logging.getLogger(__name__)
-
 
 class CompositeHandler(BaseHandler):
     """
@@ -49,8 +48,8 @@ class CompositeHandler(BaseHandler):
 
     @require_permission("composite:read")
     def handle(
-        self, path: str, query_params: Dict[str, str], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, str], handler: Any
+    ) -> HandlerResult | None:
         """Route to appropriate handler method."""
         if path.endswith("/full-context"):
             debate_id = self._extract_id(path, "/api/v1/debates/", "/full-context")
@@ -67,7 +66,7 @@ class CompositeHandler(BaseHandler):
         """Extract ID from path pattern."""
         return path[len(prefix) : -len(suffix)]
 
-    def _handle_full_context(self, debate_id: str, query_params: Dict[str, str]) -> HandlerResult:
+    def _handle_full_context(self, debate_id: str, query_params: dict[str, str]) -> HandlerResult:
         """
         Get full context for a debate including memory, knowledge, and belief data.
 
@@ -77,7 +76,7 @@ class CompositeHandler(BaseHandler):
         - Belief network (cruxes, positions, confidence)
         """
         try:
-            context: Dict[str, Any] = {
+            context: dict[str, Any] = {
                 "debate_id": debate_id,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "memory": {},
@@ -128,7 +127,7 @@ class CompositeHandler(BaseHandler):
             logger.exception(f"Unexpected error in full-context handler: {e}")
             return self._error_response("Internal server error", 500)
 
-    def _handle_reliability(self, agent_id: str, query_params: Dict[str, str]) -> HandlerResult:
+    def _handle_reliability(self, agent_id: str, query_params: dict[str, str]) -> HandlerResult:
         """
         Get reliability metrics for an agent.
 
@@ -139,7 +138,7 @@ class CompositeHandler(BaseHandler):
         - Availability score
         """
         try:
-            metrics: Dict[str, Any] = {
+            metrics: dict[str, Any] = {
                 "agent_id": agent_id,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "circuit_breaker": {},
@@ -195,7 +194,7 @@ class CompositeHandler(BaseHandler):
             return self._error_response("Internal server error", 500)
 
     def _handle_compression_analysis(
-        self, debate_id: str, query_params: Dict[str, str]
+        self, debate_id: str, query_params: dict[str, str]
     ) -> HandlerResult:
         """
         Get RLM compression analysis for a debate.
@@ -207,7 +206,7 @@ class CompositeHandler(BaseHandler):
         - Recommendations
         """
         try:
-            analysis: Dict[str, Any] = {
+            analysis: dict[str, Any] = {
                 "debate_id": debate_id,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "compression": {
@@ -257,10 +256,10 @@ class CompositeHandler(BaseHandler):
     # Data fetching helpers
     # ==========================================================================
 
-    def _get_memory_context(self, debate_id: str) -> Dict[str, Any]:
+    def _get_memory_context(self, debate_id: str) -> dict[str, Any]:
         """Fetch memory context for a debate."""
         # Try to get from continuum memory
-        memory_data: Dict[str, Any] = {
+        memory_data: dict[str, Any] = {
             "available": False,
             "outcomes": [],
             "patterns": [],
@@ -282,9 +281,9 @@ class CompositeHandler(BaseHandler):
 
         return memory_data
 
-    def _get_knowledge_context(self, debate_id: str) -> Dict[str, Any]:
+    def _get_knowledge_context(self, debate_id: str) -> dict[str, Any]:
         """Fetch knowledge context for a debate."""
-        knowledge_data: Dict[str, Any] = {
+        knowledge_data: dict[str, Any] = {
             "available": False,
             "facts": [],
             "concepts": [],
@@ -306,9 +305,9 @@ class CompositeHandler(BaseHandler):
 
         return knowledge_data
 
-    def _get_belief_context(self, debate_id: str) -> Dict[str, Any]:
+    def _get_belief_context(self, debate_id: str) -> dict[str, Any]:
         """Fetch belief network context for a debate."""
-        belief_data: Dict[str, Any] = {
+        belief_data: dict[str, Any] = {
             "available": False,
             "cruxes": [],
             "positions": [],
@@ -329,7 +328,7 @@ class CompositeHandler(BaseHandler):
 
         return belief_data
 
-    def _get_circuit_breaker_state(self, agent_id: str) -> Dict[str, Any]:
+    def _get_circuit_breaker_state(self, agent_id: str) -> dict[str, Any]:
         """Get circuit breaker state for an agent."""
         try:
             from aragora.resilience import get_circuit_breaker_stats  # type: ignore[attr-defined]
@@ -346,7 +345,7 @@ class CompositeHandler(BaseHandler):
         except ImportError:
             return {"available": False, "state": "unknown"}
 
-    def _get_airlock_metrics(self, agent_id: str) -> Dict[str, Any]:
+    def _get_airlock_metrics(self, agent_id: str) -> dict[str, Any]:
         """Get airlock proxy metrics for an agent."""
         try:
             from aragora.agents.airlock import get_airlock_metrics  # type: ignore[attr-defined]
@@ -362,7 +361,7 @@ class CompositeHandler(BaseHandler):
         except ImportError:
             return {"available": False}
 
-    def _calculate_availability(self, agent_id: str) -> Dict[str, Any]:
+    def _calculate_availability(self, agent_id: str) -> dict[str, Any]:
         """Calculate availability metrics for an agent."""
         # Default values
         return {
@@ -372,7 +371,7 @@ class CompositeHandler(BaseHandler):
             "mean_response_time_ms": 500,
         }
 
-    def _calculate_reliability_score(self, metrics: Dict[str, Any]) -> float:
+    def _calculate_reliability_score(self, metrics: dict[str, Any]) -> float:
         """Calculate overall reliability score (0-1)."""
         score = 1.0
 
@@ -390,12 +389,12 @@ class CompositeHandler(BaseHandler):
 
         return round(score, 3)
 
-    def _get_rlm_metrics(self, debate_id: str) -> Optional[Dict[str, Any]]:
+    def _get_rlm_metrics(self, debate_id: str) -> Optional[dict[str, Any]]:
         """Get RLM compression metrics for a debate."""
         # This would integrate with the RLM handler
         return None
 
-    def _generate_compression_recommendations(self, analysis: Dict[str, Any]) -> list[str]:
+    def _generate_compression_recommendations(self, analysis: dict[str, Any]) -> list[str]:
         """Generate recommendations based on compression analysis."""
         recommendations = []
 

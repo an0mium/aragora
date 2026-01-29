@@ -13,7 +13,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import parse_qs
 
 from aragora.config import DEFAULT_ROUNDS
@@ -32,7 +32,6 @@ from .config import rate_limit
 from .blocks import BlocksMixin
 
 logger = logging.getLogger(__name__)
-
 
 class CommandsMixin(BlocksMixin):
     """Mixin providing slash command handling for the Slack handler."""
@@ -54,7 +53,7 @@ class CommandsMixin(BlocksMixin):
         subcommand = ""
         user_id = ""
         channel_id = ""
-        team_id: Optional[str] = None
+        team_id: str | None = None
 
         try:
             # Parse form-encoded body (already read and stored in handle())
@@ -234,7 +233,7 @@ class CommandsMixin(BlocksMixin):
             store = EloSystem()
             agents = store.get_all_ratings()
 
-            blocks: List[Dict[str, Any]] = [
+            blocks: list[dict[str, Any]] = [
                 {
                     "type": "header",
                     "text": {
@@ -335,8 +334,8 @@ class CommandsMixin(BlocksMixin):
         user_id: str,
         channel_id: str,
         response_url: str,
-        workspace: Optional[Any] = None,
-        team_id: Optional[str] = None,
+        workspace: Any | None = None,
+        team_id: str | None = None,
     ) -> HandlerResult:
         """Quick Q&A without full debate - uses single agent for fast answers.
 
@@ -370,7 +369,7 @@ class CommandsMixin(BlocksMixin):
             )
 
         # Acknowledge immediately
-        blocks: List[Dict[str, Any]] = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "section",
                 "text": {
@@ -553,7 +552,7 @@ class CommandsMixin(BlocksMixin):
                     response_type="ephemeral",
                 )
 
-            blocks: List[Dict[str, Any]] = [
+            blocks: list[dict[str, Any]] = [
                 {
                     "type": "header",
                     "text": {
@@ -636,7 +635,7 @@ class CommandsMixin(BlocksMixin):
             # Sort by ELO
             agents = sorted(agents, key=lambda a: getattr(a, "elo", 1500), reverse=True)
 
-            blocks: List[Dict[str, Any]] = [
+            blocks: list[dict[str, Any]] = [
                 {
                     "type": "header",
                     "text": {
@@ -723,7 +722,7 @@ class CommandsMixin(BlocksMixin):
                     response_type="ephemeral",
                 )
 
-            blocks: List[Dict[str, Any]] = [
+            blocks: list[dict[str, Any]] = [
                 {
                     "type": "header",
                     "text": {
@@ -807,8 +806,8 @@ class CommandsMixin(BlocksMixin):
         user_id: str,
         channel_id: str,
         response_url: str,
-        workspace: Optional[Any] = None,
-        team_id: Optional[str] = None,
+        workspace: Any | None = None,
+        team_id: str | None = None,
     ) -> HandlerResult:
         """Run gauntlet adversarial validation on a statement.
 
@@ -842,7 +841,7 @@ class CommandsMixin(BlocksMixin):
             )
 
         # Acknowledge immediately
-        blocks: List[Dict[str, Any]] = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "section",
                 "text": {
@@ -880,7 +879,7 @@ class CommandsMixin(BlocksMixin):
         response_url: str,
         user_id: str,
         channel_id: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> None:
         """Run gauntlet asynchronously and POST result to Slack."""
         import aiohttp
@@ -1018,8 +1017,8 @@ class CommandsMixin(BlocksMixin):
         user_id: str,
         channel_id: str,
         response_url: str,
-        workspace: Optional[Any] = None,
-        team_id: Optional[str] = None,
+        workspace: Any | None = None,
+        team_id: str | None = None,
     ) -> HandlerResult:
         """Start a debate on a topic.
 
@@ -1055,7 +1054,7 @@ class CommandsMixin(BlocksMixin):
         # Acknowledge immediately (Slack requires response within 3 seconds)
         # The actual debate will be processed asynchronously
 
-        blocks: List[Dict[str, Any]] = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "section",
                 "text": {
@@ -1093,7 +1092,7 @@ class CommandsMixin(BlocksMixin):
         response_url: str,
         user_id: str,
         channel_id: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> None:
         """Create debate asynchronously with thread-based progress updates.
 
@@ -1103,7 +1102,7 @@ class CommandsMixin(BlocksMixin):
         import uuid
 
         debate_id = f"slack-{uuid.uuid4().hex[:8]}"
-        thread_ts: Optional[str] = None
+        thread_ts: str | None = None
 
         # Register debate origin for tracking and cross-system integration
         try:
@@ -1269,8 +1268,8 @@ class CommandsMixin(BlocksMixin):
             result = await arena.run()
 
             # Generate decision receipt if enabled
-            receipt_id: Optional[str] = None
-            receipt_url: Optional[str] = None
+            receipt_id: str | None = None
+            receipt_url: str | None = None
             try:
                 from aragora.gauntlet.receipt import DecisionReceipt
 
@@ -1352,8 +1351,8 @@ class CommandsMixin(BlocksMixin):
         self,
         debate_id: str,
         status: str,
-        receipt_id: Optional[str] = None,
-        error: Optional[str] = None,
+        receipt_id: str | None = None,
+        error: str | None = None,
     ) -> None:
         """Update debate status in the store."""
         try:

@@ -10,9 +10,10 @@ Provides endpoints for managing in-app notifications:
 - GET /api/knowledge/notifications/preferences - Get notification preferences
 - PUT /api/knowledge/notifications/preferences - Update preferences
 """
+from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -43,7 +44,6 @@ except ImportError:
 # Rate limiter for notification endpoints
 _notifications_limiter = RateLimiter(requests_per_minute=60)
 
-
 class SharingNotificationsHandler(BaseHandler):
     """Handler for knowledge sharing notification endpoints.
 
@@ -66,7 +66,7 @@ class SharingNotificationsHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -118,7 +118,7 @@ class SharingNotificationsHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -178,7 +178,7 @@ class SharingNotificationsHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle PUT requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -359,6 +359,5 @@ class SharingNotificationsHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to update preferences: {e}")
             return error_response("Failed to update preferences", 500)
-
 
 __all__ = ["SharingNotificationsHandler"]

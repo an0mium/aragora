@@ -25,7 +25,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
@@ -39,13 +39,11 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
-
 class QBOEnvironment(str, Enum):
     """QuickBooks environment."""
 
     SANDBOX = "sandbox"
     PRODUCTION = "production"
-
 
 class TransactionType(str, Enum):
     """Transaction types."""
@@ -59,7 +57,6 @@ class TransactionType(str, Enum):
     PURCHASE = "Purchase"
     JOURNAL_ENTRY = "JournalEntry"
 
-
 @dataclass
 class QBOCredentials:
     """OAuth credentials for QuickBooks."""
@@ -68,7 +65,7 @@ class QBOCredentials:
     refresh_token: str
     realm_id: str  # Company ID
     token_type: str = "Bearer"
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
     @property
     def is_expired(self) -> bool:
@@ -76,7 +73,6 @@ class QBOCredentials:
         if not self.expires_at:
             return True
         return datetime.now(timezone.utc) >= self.expires_at
-
 
 @dataclass
 class QBOCustomer(ConnectorDataclass):
@@ -91,16 +87,15 @@ class QBOCustomer(ConnectorDataclass):
 
     id: str
     display_name: str
-    company_name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
+    company_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
     balance: float = 0.0
     active: bool = True
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class QBOTransaction(ConnectorDataclass):
@@ -123,24 +118,23 @@ class QBOTransaction(ConnectorDataclass):
 
     id: str
     type: TransactionType
-    doc_number: Optional[str] = None
-    txn_date: Optional[datetime] = None
-    due_date: Optional[datetime] = None
+    doc_number: str | None = None
+    txn_date: datetime | None = None
+    due_date: datetime | None = None
     total_amount: float = 0.0
     balance: float = 0.0
-    customer_id: Optional[str] = None
-    customer_name: Optional[str] = None
-    vendor_id: Optional[str] = None
-    vendor_name: Optional[str] = None
-    memo: Optional[str] = None
+    customer_id: str | None = None
+    customer_name: str | None = None
+    vendor_id: str | None = None
+    vendor_name: str | None = None
+    memo: str | None = None
     status: str = "Open"
-    line_items: List[Dict[str, Any]] = field(default_factory=list)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    line_items: list[dict[str, Any]] = field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class QBOAccount(ConnectorDataclass):
@@ -156,13 +150,12 @@ class QBOAccount(ConnectorDataclass):
     id: str
     name: str
     account_type: str
-    account_sub_type: Optional[str] = None
+    account_sub_type: str | None = None
     current_balance: float = 0.0
     active: bool = True
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 class QuickBooksConnector:
     """
@@ -178,11 +171,11 @@ class QuickBooksConnector:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        redirect_uri: str | None = None,
         environment: QBOEnvironment = QBOEnvironment.SANDBOX,
-        circuit_breaker: Optional[CircuitBreaker] = None,
+        circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
     ):
         """
@@ -211,8 +204,8 @@ class QuickBooksConnector:
             else self.BASE_URL_SANDBOX
         )
 
-        self._credentials: Optional[QBOCredentials] = None
-        self._http_client: Optional[Any] = None
+        self._credentials: QBOCredentials | None = None
+        self._http_client: Any | None = None
 
         # Circuit breaker for API resilience
         if circuit_breaker is not None:
@@ -236,7 +229,7 @@ class QuickBooksConnector:
         """Check if connector has valid credentials."""
         return self._credentials is not None and not self._credentials.is_expired
 
-    def get_authorization_url(self, state: Optional[str] = None) -> str:
+    def get_authorization_url(self, state: str | None = None) -> str:
         """
         Get OAuth authorization URL.
 
@@ -365,10 +358,10 @@ class QuickBooksConnector:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[dict[str, Any]] = None,
         max_retries: int = 3,
         base_delay: float = 0.5,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Make authenticated API request with retry logic and circuit breaker.
 
@@ -415,7 +408,7 @@ class QuickBooksConnector:
 
         # Retryable status codes
         retryable_statuses = {429, 500, 502, 503, 504}
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(max_retries + 1):
             try:
@@ -516,7 +509,7 @@ class QuickBooksConnector:
         active_only: bool = True,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[QBOCustomer]:
+    ) -> list[QBOCustomer]:
         """List customers."""
         # Validate pagination parameters to prevent injection
         limit, offset = self._validate_pagination(limit, offset)
@@ -543,7 +536,7 @@ class QuickBooksConnector:
 
         return customers
 
-    async def get_customer(self, customer_id: str) -> Optional[QBOCustomer]:
+    async def get_customer(self, customer_id: str) -> QBOCustomer | None:
         """Get customer by ID."""
         # Validate customer_id is numeric to prevent path traversal/injection
         safe_customer_id = self._validate_numeric_id(customer_id, "customer_id")
@@ -569,12 +562,12 @@ class QuickBooksConnector:
 
     async def list_invoices(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        customer_id: Optional[str] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        customer_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[QBOTransaction]:
+    ) -> list[QBOTransaction]:
         """List invoices."""
         # Validate pagination parameters to prevent injection
         limit, offset = self._validate_pagination(limit, offset)
@@ -607,11 +600,11 @@ class QuickBooksConnector:
 
     async def list_expenses(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[QBOTransaction]:
+    ) -> list[QBOTransaction]:
         """List expenses (purchases)."""
         # Validate pagination parameters to prevent injection
         limit, offset = self._validate_pagination(limit, offset)
@@ -638,7 +631,7 @@ class QuickBooksConnector:
 
         return transactions
 
-    def _parse_transaction(self, item: Dict[str, Any], txn_type: TransactionType) -> QBOTransaction:
+    def _parse_transaction(self, item: dict[str, Any], txn_type: TransactionType) -> QBOTransaction:
         """Parse transaction from API response."""
         customer_ref = item.get("CustomerRef", {})
         vendor_ref = item.get("VendorRef", {})
@@ -668,7 +661,7 @@ class QuickBooksConnector:
         self,
         start_date: datetime,
         end_date: datetime,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get profit and loss report."""
         params = (
             f"start_date={start_date.strftime('%Y-%m-%d')}&end_date={end_date.strftime('%Y-%m-%d')}"
@@ -679,19 +672,19 @@ class QuickBooksConnector:
 
     async def get_balance_sheet_report(
         self,
-        as_of_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        as_of_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get balance sheet report."""
         date_str = (as_of_date or datetime.now()).strftime("%Y-%m-%d")
         response = await self._request("GET", f"reports/BalanceSheet?as_of={date_str}")
         return response
 
-    async def get_accounts_receivable_aging(self) -> Dict[str, Any]:
+    async def get_accounts_receivable_aging(self) -> dict[str, Any]:
         """Get AR aging report."""
         response = await self._request("GET", "reports/AgedReceivables")
         return response
 
-    async def get_accounts_payable_aging(self) -> Dict[str, Any]:
+    async def get_accounts_payable_aging(self) -> dict[str, Any]:
         """Get AP aging report."""
         response = await self._request("GET", "reports/AgedPayables")
         return response
@@ -702,9 +695,9 @@ class QuickBooksConnector:
 
     async def list_accounts(
         self,
-        account_type: Optional[str] = None,
+        account_type: str | None = None,
         active_only: bool = True,
-    ) -> List[QBOAccount]:
+    ) -> list[QBOAccount]:
         """List chart of accounts."""
         # active_only is a bool - convert safely to QBO boolean literal
         active_str = "true" if active_only else "false"
@@ -738,7 +731,7 @@ class QuickBooksConnector:
     # Company Info
     # =========================================================================
 
-    async def get_company_info(self) -> Dict[str, Any]:
+    async def get_company_info(self) -> dict[str, Any]:
         """Get company information."""
         response = await self._request("GET", f"companyinfo/{self._credentials.realm_id}")
         return response.get("CompanyInfo", {})
@@ -752,7 +745,7 @@ class QuickBooksConnector:
         active_only: bool = True,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List vendors."""
         # Validate pagination parameters to prevent injection
         limit, offset = self._validate_pagination(limit, offset)
@@ -763,7 +756,7 @@ class QuickBooksConnector:
         response = await self._request("GET", f"query?query={query}")
         return response.get("QueryResponse", {}).get("Vendor", [])
 
-    async def get_vendor_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+    async def get_vendor_by_name(self, name: str) -> Optional[dict[str, Any]]:
         """
         Get vendor by display name.
 
@@ -885,9 +878,9 @@ class QuickBooksConnector:
     async def create_vendor(
         self,
         display_name: str,
-        email: Optional[str] = None,
-        phone: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        email: str | None = None,
+        phone: str | None = None,
+    ) -> dict[str, Any]:
         """
         Create a new vendor.
 
@@ -899,7 +892,7 @@ class QuickBooksConnector:
         Returns:
             Created vendor data
         """
-        vendor_data: Dict[str, Any] = {
+        vendor_data: dict[str, Any] = {
             "DisplayName": display_name,
         }
 
@@ -920,10 +913,10 @@ class QuickBooksConnector:
         vendor_id: str,
         account_id: str,
         amount: float,
-        description: Optional[str] = None,
-        txn_date: Optional[datetime] = None,
+        description: str | None = None,
+        txn_date: datetime | None = None,
         payment_type: str = "Cash",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create an expense (Purchase) in QuickBooks.
 
@@ -938,7 +931,7 @@ class QuickBooksConnector:
         Returns:
             Created purchase data
         """
-        purchase_data: Dict[str, Any] = {
+        purchase_data: dict[str, Any] = {
             "PaymentType": payment_type,
             "AccountRef": {"value": account_id},
             "TotalAmt": amount,
@@ -970,10 +963,10 @@ class QuickBooksConnector:
         vendor_id: str,
         account_id: str,
         amount: float,
-        due_date: Optional[datetime] = None,
-        description: Optional[str] = None,
-        line_items: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        due_date: datetime | None = None,
+        description: str | None = None,
+        line_items: Optional[list[dict[str, Any]]] = None,
+    ) -> dict[str, Any]:
         """
         Create a bill (accounts payable) in QuickBooks.
 
@@ -998,7 +991,7 @@ class QuickBooksConnector:
             }
         ]
 
-        bill_data: Dict[str, Any] = {
+        bill_data: dict[str, Any] = {
             "VendorRef": {"value": vendor_id},
             "Line": lines,
         }
@@ -1019,10 +1012,10 @@ class QuickBooksConnector:
     async def create_invoice(
         self,
         customer_id: str,
-        line_items: List[Dict[str, Any]],
-        due_date: Optional[datetime] = None,
-        memo: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        line_items: list[dict[str, Any]],
+        due_date: datetime | None = None,
+        memo: str | None = None,
+    ) -> dict[str, Any]:
         """
         Create an invoice in QuickBooks.
 
@@ -1035,7 +1028,7 @@ class QuickBooksConnector:
         Returns:
             Created invoice data
         """
-        invoice_data: Dict[str, Any] = {
+        invoice_data: dict[str, Any] = {
             "CustomerRef": {"value": customer_id},
             "Line": line_items,
         }
@@ -1057,9 +1050,9 @@ class QuickBooksConnector:
         self,
         customer_id: str,
         amount: float,
-        invoice_ids: Optional[List[str]] = None,
-        payment_method: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        invoice_ids: Optional[list[str]] = None,
+        payment_method: str | None = None,
+    ) -> dict[str, Any]:
         """
         Record a payment received from a customer.
 
@@ -1072,7 +1065,7 @@ class QuickBooksConnector:
         Returns:
             Created payment data
         """
-        payment_data: Dict[str, Any] = {
+        payment_data: dict[str, Any] = {
             "CustomerRef": {"value": customer_id},
             "TotalAmt": amount,
         }
@@ -1095,8 +1088,8 @@ class QuickBooksConnector:
         vendor_id: str,
         amount: float,
         bank_account_id: str,
-        bill_ids: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        bill_ids: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
         """
         Record a payment to a vendor.
 
@@ -1109,7 +1102,7 @@ class QuickBooksConnector:
         Returns:
             Created bill payment data
         """
-        payment_data: Dict[str, Any] = {
+        payment_data: dict[str, Any] = {
             "VendorRef": {"value": vendor_id},
             "TotalAmt": amount,
             "PayType": "Check",
@@ -1129,13 +1122,11 @@ class QuickBooksConnector:
         response = await self._request("POST", "billpayment", payment_data)
         return response.get("BillPayment", {})
 
-
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
 
-
-def get_mock_customers() -> List[QBOCustomer]:
+def get_mock_customers() -> list[QBOCustomer]:
     """Generate mock customer data for demo."""
     return [
         QBOCustomer(
@@ -1167,8 +1158,7 @@ def get_mock_customers() -> List[QBOCustomer]:
         ),
     ]
 
-
-def get_mock_transactions() -> List[QBOTransaction]:
+def get_mock_transactions() -> list[QBOTransaction]:
     """Generate mock transaction data for demo."""
     now = datetime.now(timezone.utc)
     return [

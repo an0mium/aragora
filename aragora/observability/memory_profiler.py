@@ -35,7 +35,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Generator, Optional, TypeVar
+from typing import Any, Callable, Generator, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 MEMORY_WARNING_MB = 100  # Warn if operation uses > 100MB
 MEMORY_CRITICAL_MB = 500  # Critical if operation uses > 500MB
 GROWTH_RATE_WARNING = 0.10  # Warn if memory grows > 10% per iteration
-
 
 class MemoryCategory(str, Enum):
     """Categories of memory-tracked operations."""
@@ -59,7 +58,6 @@ class MemoryCategory(str, Enum):
     DEBATE_CONTEXT = "debate_context"
     RLM_COMPRESSION = "rlm_compression"
     GENERAL = "general"
-
 
 @dataclass
 class MemorySnapshot:
@@ -94,7 +92,6 @@ class MemorySnapshot:
             "gc_objects": self.gc_objects,
         }
 
-
 @dataclass
 class AllocationRecord:
     """Record of a memory allocation hotspot."""
@@ -110,7 +107,6 @@ class AllocationRecord:
 
     def __str__(self) -> str:
         return f"{self.file}:{self.line} - {self.size_mb:.2f}MB ({self.count} blocks)"
-
 
 @dataclass
 class MemoryProfileResult:
@@ -186,7 +182,6 @@ class MemoryProfileResult:
         lines.append("=" * 60)
         return "\n".join(lines)
 
-
 class MemoryProfiler:
     """
     Profiles memory usage for operations.
@@ -202,7 +197,7 @@ class MemoryProfiler:
 
     def __init__(self, category: MemoryCategory = MemoryCategory.GENERAL):
         self.category = category
-        self.result: Optional[MemoryProfileResult] = None
+        self.result: MemoryProfileResult | None = None
         self._tracing_started_by_us = False
 
     def _take_snapshot(self) -> MemorySnapshot:
@@ -309,7 +304,6 @@ class MemoryProfiler:
                 tracemalloc.stop()
                 self._tracing_started_by_us = False
 
-
 @contextmanager
 def profile_memory(
     operation: str,
@@ -319,7 +313,6 @@ def profile_memory(
     profiler = MemoryProfiler(category=category)
     with profiler.profile(operation):
         yield profiler
-
 
 @dataclass
 class MemoryGrowthPoint:
@@ -333,7 +326,6 @@ class MemoryGrowthPoint:
     @property
     def memory_mb(self) -> float:
         return self.memory_bytes / (1024 * 1024)
-
 
 class MemoryGrowthTracker:
     """
@@ -457,14 +449,12 @@ class MemoryGrowthTracker:
             "has_leak": self.has_leak(),
         }
 
-
 # Type variable for decorators
 F = TypeVar("F", bound=Callable[..., Any])
 
-
 def track_memory(
     category: MemoryCategory = MemoryCategory.GENERAL,
-    operation: Optional[str] = None,
+    operation: str | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator to track memory usage of a function.
@@ -505,7 +495,6 @@ def track_memory(
         return wrapper  # type: ignore[return-value]
 
     return decorator
-
 
 class KMMemoryProfiler:
     """
@@ -571,7 +560,6 @@ class KMMemoryProfiler:
 
         return summary
 
-
 class ConsensusMemoryProfiler:
     """
     Specialized profiler for Consensus Store operations.
@@ -628,11 +616,9 @@ class ConsensusMemoryProfiler:
 
         return summary
 
-
 # Global profiler instances for convenient access
 km_profiler = KMMemoryProfiler()
 consensus_profiler = ConsensusMemoryProfiler()
-
 
 __all__ = [
     "MemoryProfiler",

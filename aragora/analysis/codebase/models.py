@@ -10,8 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 class VulnerabilitySeverity(str, Enum):
     """Severity level of a vulnerability."""
@@ -35,7 +34,6 @@ class VulnerabilitySeverity(str, Enum):
             return cls.LOW
         return cls.UNKNOWN
 
-
 class VulnerabilitySource(str, Enum):
     """Source of vulnerability data."""
 
@@ -45,15 +43,13 @@ class VulnerabilitySource(str, Enum):
     SNYK = "snyk"
     CUSTOM = "custom"
 
-
 @dataclass
 class VulnerabilityReference:
     """A reference link for a vulnerability."""
 
     url: str
     source: str
-    tags: List[str] = field(default_factory=list)
-
+    tags: list[str] = field(default_factory=list)
 
 @dataclass
 class VulnerabilityFinding:
@@ -67,32 +63,32 @@ class VulnerabilityFinding:
     title: str
     description: str
     severity: VulnerabilitySeverity
-    cvss_score: Optional[float] = None
-    cvss_vector: Optional[str] = None
+    cvss_score: float | None = None
+    cvss_vector: str | None = None
 
     # Affected package info
-    package_name: Optional[str] = None
-    package_ecosystem: Optional[str] = None  # npm, pypi, maven, etc.
-    vulnerable_versions: List[str] = field(default_factory=list)
-    patched_versions: List[str] = field(default_factory=list)
+    package_name: str | None = None
+    package_ecosystem: str | None = None  # npm, pypi, maven, etc.
+    vulnerable_versions: list[str] = field(default_factory=list)
+    patched_versions: list[str] = field(default_factory=list)
 
     # Source and metadata
     source: VulnerabilitySource = VulnerabilitySource.NVD
-    published_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    references: List[VulnerabilityReference] = field(default_factory=list)
-    cwe_ids: List[str] = field(default_factory=list)
+    published_at: datetime | None = None
+    updated_at: datetime | None = None
+    references: list[VulnerabilityReference] = field(default_factory=list)
+    cwe_ids: list[str] = field(default_factory=list)
 
     # Location in codebase
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
+    file_path: str | None = None
+    line_number: int | None = None
 
     # Remediation
     fix_available: bool = False
-    recommended_version: Optional[str] = None
-    remediation_guidance: Optional[str] = None
+    recommended_version: str | None = None
+    remediation_guidance: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -119,7 +115,6 @@ class VulnerabilityFinding:
             "remediation_guidance": self.remediation_guidance,
         }
 
-
 @dataclass
 class DependencyInfo:
     """Information about a project dependency."""
@@ -129,17 +124,17 @@ class DependencyInfo:
     ecosystem: str  # npm, pypi, maven, cargo, go, etc.
     direct: bool = True  # False if transitive
     dev_dependency: bool = False
-    license: Optional[str] = None
-    vulnerabilities: List[VulnerabilityFinding] = field(default_factory=list)
-    parent: Optional[str] = None  # Parent package for transitive deps
-    file_path: Optional[str] = None  # package.json, requirements.txt, etc.
+    license: str | None = None
+    vulnerabilities: list[VulnerabilityFinding] = field(default_factory=list)
+    parent: str | None = None  # Parent package for transitive deps
+    file_path: str | None = None  # package.json, requirements.txt, etc.
 
     @property
     def has_vulnerabilities(self) -> bool:
         return len(self.vulnerabilities) > 0
 
     @property
-    def highest_severity(self) -> Optional[VulnerabilitySeverity]:
+    def highest_severity(self) -> VulnerabilitySeverity | None:
         if not self.vulnerabilities:
             return None
         severity_order = [
@@ -153,7 +148,7 @@ class DependencyInfo:
                 return severity
         return VulnerabilitySeverity.UNKNOWN
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "name": self.name,
@@ -169,23 +164,22 @@ class DependencyInfo:
             "highest_severity": self.highest_severity.value if self.highest_severity else None,
         }
 
-
 @dataclass
 class ScanResult:
     """Result of a security scan."""
 
     scan_id: str
     repository: str
-    branch: Optional[str] = None
-    commit_sha: Optional[str] = None
+    branch: str | None = None
+    commit_sha: str | None = None
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     status: str = "running"  # running, completed, failed
-    error: Optional[str] = None
+    error: str | None = None
 
     # Findings
-    dependencies: List[DependencyInfo] = field(default_factory=list)
-    vulnerabilities: List[VulnerabilityFinding] = field(default_factory=list)
+    dependencies: list[DependencyInfo] = field(default_factory=list)
+    vulnerabilities: list[VulnerabilityFinding] = field(default_factory=list)
 
     # Summary counts
     total_dependencies: int = 0
@@ -213,7 +207,7 @@ class ScanResult:
             1 for v in self.vulnerabilities if v.severity == VulnerabilitySeverity.LOW
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "scan_id": self.scan_id,
@@ -236,7 +230,6 @@ class ScanResult:
             },
         }
 
-
 class MetricType(str, Enum):
     """Type of code quality metric."""
 
@@ -248,7 +241,6 @@ class MetricType(str, Enum):
     DOCUMENTATION = "documentation"
     SECURITY = "security"
 
-
 @dataclass
 class CodeMetric:
     """A code quality metric."""
@@ -256,14 +248,14 @@ class CodeMetric:
     type: MetricType
     value: float
     unit: str = ""
-    file_path: Optional[str] = None
-    function_name: Optional[str] = None
-    class_name: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    file_path: str | None = None
+    function_name: str | None = None
+    class_name: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
 
     # Thresholds
-    warning_threshold: Optional[float] = None
-    error_threshold: Optional[float] = None
+    warning_threshold: float | None = None
+    error_threshold: float | None = None
 
     @property
     def status(self) -> str:
@@ -274,7 +266,7 @@ class CodeMetric:
             return "warning"
         return "ok"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "type": self.type.value,
@@ -287,22 +279,21 @@ class CodeMetric:
             "status": self.status,
         }
 
-
 @dataclass
 class HotspotFinding:
     """A complexity hotspot in the codebase."""
 
     file_path: str
-    function_name: Optional[str] = None
-    class_name: Optional[str] = None
+    function_name: str | None = None
+    class_name: str | None = None
     start_line: int = 1
     end_line: int = 1
     complexity: float = 0.0
     lines_of_code: int = 0
-    cognitive_complexity: Optional[float] = None
+    cognitive_complexity: float | None = None
     change_frequency: int = 0  # Number of commits touching this code
-    last_modified: Optional[datetime] = None
-    contributors: List[str] = field(default_factory=list)
+    last_modified: datetime | None = None
+    contributors: list[str] = field(default_factory=list)
 
     @property
     def risk_score(self) -> float:
@@ -311,7 +302,7 @@ class HotspotFinding:
         change_factor = min(self.change_frequency / 50, 1.0)
         return (complexity_factor * 0.7 + change_factor * 0.3) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "file_path": self.file_path,
@@ -327,7 +318,6 @@ class HotspotFinding:
             "contributors": self.contributors,
             "risk_score": self.risk_score,
         }
-
 
 class SecretType(str, Enum):
     """Type of detected secret."""
@@ -356,7 +346,6 @@ class SecretType(str, Enum):
     GENERIC_SECRET = "generic_secret"
     HIGH_ENTROPY = "high_entropy"
 
-
 @dataclass
 class SecretFinding:
     """A detected secret or credential in the codebase."""
@@ -371,13 +360,13 @@ class SecretFinding:
     context_line: str  # The full line with secret redacted
     severity: VulnerabilitySeverity
     confidence: float  # 0.0 to 1.0
-    entropy: Optional[float] = None  # Shannon entropy if calculated
-    commit_sha: Optional[str] = None  # If found in git history
-    commit_author: Optional[str] = None
-    commit_date: Optional[datetime] = None
+    entropy: float | None = None  # Shannon entropy if calculated
+    commit_sha: str | None = None  # If found in git history
+    commit_author: str | None = None
+    commit_date: datetime | None = None
     is_in_history: bool = False  # True if found in git history (not current)
     verified: bool = False  # True if verified as active credential
-    remediation: Optional[str] = None
+    remediation: str | None = None
 
     @staticmethod
     def redact_secret(secret: str) -> str:
@@ -386,7 +375,7 @@ class SecretFinding:
             return "*" * len(secret)
         return f"{secret[:4]}{'*' * (len(secret) - 8)}{secret[-4:]}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -408,21 +397,20 @@ class SecretFinding:
             "remediation": self.remediation,
         }
 
-
 @dataclass
 class SecretsScanResult:
     """Result of a secrets scan."""
 
     scan_id: str
     repository: str
-    branch: Optional[str] = None
-    commit_sha: Optional[str] = None
+    branch: str | None = None
+    commit_sha: str | None = None
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     status: str = "running"
-    error: Optional[str] = None
+    error: str | None = None
     files_scanned: int = 0
-    secrets: List[SecretFinding] = field(default_factory=list)
+    secrets: list[SecretFinding] = field(default_factory=list)
     scanned_history: bool = False
     history_depth: int = 0
 
@@ -442,7 +430,7 @@ class SecretsScanResult:
     def low_count(self) -> int:
         return sum(1 for s in self.secrets if s.severity == VulnerabilitySeverity.LOW)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "scan_id": self.scan_id,

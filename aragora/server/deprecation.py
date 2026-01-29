@@ -24,27 +24,25 @@ import logging
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, TypeVar, cast
+from typing import Any, Callable, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-
 # =============================================================================
 # Deprecation Registry
 # =============================================================================
-
 
 @dataclass
 class DeprecationInfo:
     """Information about a deprecated item."""
 
     name: str
-    sunset: Optional[str] = None  # ISO date format
-    replacement: Optional[str] = None
-    message: Optional[str] = None
-    deprecated_since: Optional[str] = None
+    sunset: str | None = None  # ISO date format
+    replacement: str | None = None
+    message: str | None = None
+    deprecated_since: str | None = None
     category: str = "api"  # api, function, feature
 
     def format_warning(self) -> str:
@@ -58,7 +56,6 @@ class DeprecationInfo:
             parts.append(self.message)
         return " ".join(parts)
 
-
 class DeprecationRegistry:
     """Registry of deprecated items for tracking and reporting.
 
@@ -66,8 +63,8 @@ class DeprecationRegistry:
     """
 
     _instance: Optional["DeprecationRegistry"] = None
-    _deprecations: Dict[str, DeprecationInfo]
-    _call_counts: Dict[str, int]
+    _deprecations: dict[str, DeprecationInfo]
+    _call_counts: dict[str, int]
 
     def __new__(cls) -> "DeprecationRegistry":
         if cls._instance is None:
@@ -86,11 +83,11 @@ class DeprecationRegistry:
         if name in self._call_counts:
             self._call_counts[name] += 1
 
-    def get_all(self) -> List[DeprecationInfo]:
+    def get_all(self) -> list[DeprecationInfo]:
         """Get all registered deprecations."""
         return list(self._deprecations.values())
 
-    def get_by_category(self, category: str) -> List[DeprecationInfo]:
+    def get_by_category(self, category: str) -> list[DeprecationInfo]:
         """Get deprecations by category."""
         return [d for d in self._deprecations.values() if d.category == category]
 
@@ -98,7 +95,7 @@ class DeprecationRegistry:
         """Get call count for a deprecated item."""
         return self._call_counts.get(name, 0)
 
-    def get_report(self) -> Dict[str, Any]:
+    def get_report(self) -> dict[str, Any]:
         """Get a report of all deprecations and their usage."""
         return {
             "total_deprecations": len(self._deprecations),
@@ -119,10 +116,8 @@ class DeprecationRegistry:
         self._deprecations.clear()
         self._call_counts.clear()
 
-
 # Global registry instance
-_registry: Optional[DeprecationRegistry] = None
-
+_registry: DeprecationRegistry | None = None
 
 def get_deprecation_registry() -> DeprecationRegistry:
     """Get the global deprecation registry."""
@@ -131,17 +126,15 @@ def get_deprecation_registry() -> DeprecationRegistry:
         _registry = DeprecationRegistry()
     return _registry
 
-
 # =============================================================================
 # Deprecation Decorator
 # =============================================================================
 
-
 def deprecated(
-    sunset: Optional[str] = None,
-    replacement: Optional[str] = None,
-    message: Optional[str] = None,
-    deprecated_since: Optional[str] = None,
+    sunset: str | None = None,
+    replacement: str | None = None,
+    message: str | None = None,
+    deprecated_since: str | None = None,
     category: str = "function",
     warn_once: bool = True,
 ) -> Callable[[F], F]:
@@ -215,18 +208,16 @@ def deprecated(
 
     return decorator
 
-
 # =============================================================================
 # HTTP Header Utilities
 # =============================================================================
 
-
 def add_deprecation_headers(
-    headers: Dict[str, str],
-    sunset: Optional[str] = None,
-    replacement: Optional[str] = None,
-    deprecated_since: Optional[str] = None,
-) -> Dict[str, str]:
+    headers: dict[str, str],
+    sunset: str | None = None,
+    replacement: str | None = None,
+    deprecated_since: str | None = None,
+) -> dict[str, str]:
     """
     Add deprecation headers to HTTP response.
 
@@ -283,8 +274,7 @@ def add_deprecation_headers(
 
     return headers
 
-
-def parse_deprecation_headers(headers: Dict[str, str]) -> Optional[DeprecationInfo]:
+def parse_deprecation_headers(headers: dict[str, str]) -> DeprecationInfo | None:
     """
     Parse deprecation info from HTTP response headers.
 
@@ -322,23 +312,19 @@ def parse_deprecation_headers(headers: Dict[str, str]) -> Optional[DeprecationIn
         deprecated_since=deprecation if deprecation != "true" else None,
     )
 
-
 # =============================================================================
 # Deprecation Checking Utilities
 # =============================================================================
-
 
 def is_deprecated(func: Callable[..., Any]) -> bool:
     """Check if a function is marked as deprecated."""
     return getattr(func, "_deprecated", False)
 
-
-def get_deprecation_info(func: Callable[..., Any]) -> Optional[DeprecationInfo]:
+def get_deprecation_info(func: Callable[..., Any]) -> DeprecationInfo | None:
     """Get deprecation info for a function."""
     return getattr(func, "_deprecation_info", None)
 
-
-def is_past_sunset(sunset: Optional[str]) -> bool:
+def is_past_sunset(sunset: str | None) -> bool:
     """Check if a sunset date has passed."""
     if not sunset:
         return False
@@ -348,8 +334,7 @@ def is_past_sunset(sunset: Optional[str]) -> bool:
     except ValueError:
         return False
 
-
-def days_until_sunset(sunset: Optional[str]) -> Optional[int]:
+def days_until_sunset(sunset: str | None) -> int | None:
     """Calculate days until sunset date."""
     if not sunset:
         return None
@@ -360,16 +345,14 @@ def days_until_sunset(sunset: Optional[str]) -> Optional[int]:
     except ValueError:
         return None
 
-
 # =============================================================================
 # Sunset Response
 # =============================================================================
 
-
 def sunset_response(
-    replacement: Optional[str] = None,
+    replacement: str | None = None,
     message: str = "This endpoint has been removed.",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a standard 410 Gone response for sunset endpoints.
 
@@ -392,7 +375,6 @@ def sunset_response(
         response["error"]["replacement"] = replacement
         response["error"]["suggestion"] = f"Use {replacement} instead"
     return response
-
 
 __all__ = [
     # Decorator

@@ -33,10 +33,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
-
 
 class FusionStrategy(Enum):
     """Strategy for fusing multiple adapter validations."""
@@ -59,7 +58,6 @@ class FusionStrategy(Enum):
     MEDIAN = "median"
     """Use the median confidence value across adapters."""
 
-
 class ConflictResolution(Enum):
     """Strategy for resolving conflicting adapter validations."""
 
@@ -81,7 +79,6 @@ class ConflictResolution(Enum):
     ESCALATE = "escalate"
     """Escalate to human review when conflicts cannot be resolved."""
 
-
 class FusionOutcome(Enum):
     """Outcome of a fusion operation."""
 
@@ -100,7 +97,6 @@ class FusionOutcome(Enum):
     INSUFFICIENT_DATA = "insufficient_data"
     """Not enough adapter validations to perform fusion."""
 
-
 @dataclass
 class AdapterValidation:
     """A validation result from a single adapter."""
@@ -117,10 +113,10 @@ class AdapterValidation:
     is_valid: bool
     """Whether the adapter considers the item valid."""
 
-    sources: List[str] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)
     """Sources supporting this validation."""
 
-    reasoning: Optional[str] = None
+    reasoning: str | None = None
     """Optional reasoning for the validation."""
 
     priority: int = 0
@@ -132,10 +128,10 @@ class AdapterValidation:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When this validation was produced."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional adapter-specific metadata."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "adapter_name": self.adapter_name,
@@ -149,7 +145,6 @@ class AdapterValidation:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class FusedValidation:
@@ -167,7 +162,7 @@ class FusedValidation:
     strategy_used: FusionStrategy
     """The fusion strategy that was applied."""
 
-    source_validations: List[AdapterValidation]
+    source_validations: list[AdapterValidation]
     """Original validations that were fused."""
 
     outcome: FusionOutcome = FusionOutcome.SUCCESS
@@ -179,7 +174,7 @@ class FusedValidation:
     conflict_resolved: bool = False
     """Whether the conflict was successfully resolved."""
 
-    resolution_method: Optional[ConflictResolution] = None
+    resolution_method: ConflictResolution | None = None
     """Method used to resolve conflict, if any."""
 
     agreement_ratio: float = 1.0
@@ -188,19 +183,19 @@ class FusedValidation:
     confidence_variance: float = 0.0
     """Variance in confidence scores across adapters."""
 
-    participating_adapters: List[str] = field(default_factory=list)
+    participating_adapters: list[str] = field(default_factory=list)
     """Names of adapters that participated in fusion."""
 
-    escalation_reason: Optional[str] = None
+    escalation_reason: str | None = None
     """Reason for escalation, if outcome is ESCALATED."""
 
     fused_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When the fusion was performed."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional fusion metadata."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "item_id": self.item_id,
@@ -219,7 +214,6 @@ class FusedValidation:
             "fused_at": self.fused_at.isoformat(),
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class FusionConfig:
@@ -255,7 +249,6 @@ class FusionConfig:
     max_escalation_wait_seconds: float = 86400.0
     """Maximum time to wait for escalation resolution (24 hours)."""
 
-
 class AdapterFusionCapable(Protocol):
     """Protocol for adapters that support fusion operations."""
 
@@ -273,7 +266,6 @@ class AdapterFusionCapable(Protocol):
     def supports_fusion(self) -> bool:
         """Return whether this adapter supports fusion operations."""
         ...
-
 
 class AdapterFusionProtocol(ABC):
     """Abstract base class for fusion-capable adapters.
@@ -316,7 +308,7 @@ class AdapterFusionProtocol(ABC):
     async def prepare_for_fusion(
         self,
         item_id: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> AdapterValidation:
         """Prepare a validation for fusion with other adapters.
 
@@ -349,7 +341,6 @@ class AdapterFusionProtocol(ABC):
         """
         raise NotImplementedError(f"{self.adapter_name} must implement apply_fused_result()")
 
-
 class FusionCoordinator:
     """Coordinates fusion operations across multiple adapters.
 
@@ -357,21 +348,21 @@ class FusionCoordinator:
     multiple adapters and fusing them into a single consensus result.
     """
 
-    def __init__(self, config: Optional[FusionConfig] = None):
+    def __init__(self, config: FusionConfig | None = None):
         """Initialize the fusion coordinator.
 
         Args:
             config: Optional fusion configuration. Uses defaults if not provided.
         """
         self.config = config or FusionConfig()
-        self._fusion_history: List[FusedValidation] = []
-        self._escalation_queue: List[FusedValidation] = []
+        self._fusion_history: list[FusedValidation] = []
+        self._escalation_queue: list[FusedValidation] = []
 
     def fuse_validations(
         self,
-        validations: List[AdapterValidation],
-        strategy: Optional[FusionStrategy] = None,
-        conflict_resolution: Optional[ConflictResolution] = None,
+        validations: list[AdapterValidation],
+        strategy: FusionStrategy | None = None,
+        conflict_resolution: ConflictResolution | None = None,
     ) -> FusedValidation:
         """Fuse multiple adapter validations into a single result.
 
@@ -470,7 +461,7 @@ class FusionCoordinator:
 
     def _apply_strategy(
         self,
-        validations: List[AdapterValidation],
+        validations: list[AdapterValidation],
         strategy: FusionStrategy,
     ) -> float:
         """Apply the fusion strategy to compute fused confidence.
@@ -512,7 +503,7 @@ class FusionCoordinator:
             # Default to weighted average
             return self._weighted_average(validations)
 
-    def _weighted_average(self, validations: List[AdapterValidation]) -> float:
+    def _weighted_average(self, validations: list[AdapterValidation]) -> float:
         """Compute weighted average of confidences.
 
         Weights are computed from reliability and priority scores.
@@ -544,9 +535,9 @@ class FusionCoordinator:
 
     def _resolve_conflict(
         self,
-        validations: List[AdapterValidation],
+        validations: list[AdapterValidation],
         resolution: ConflictResolution,
-    ) -> Optional[AdapterValidation]:
+    ) -> AdapterValidation | None:
         """Resolve a conflict between validations.
 
         Args:
@@ -609,7 +600,7 @@ class FusionCoordinator:
 
     def _insufficient_data_result(
         self,
-        validations: List[AdapterValidation],
+        validations: list[AdapterValidation],
     ) -> FusedValidation:
         """Return result when not enough validations for fusion."""
         item_id = validations[0].item_id if validations else ""
@@ -646,8 +637,8 @@ class FusionCoordinator:
     def get_fusion_history(
         self,
         limit: int = 100,
-        item_id: Optional[str] = None,
-    ) -> List[FusedValidation]:
+        item_id: str | None = None,
+    ) -> list[FusedValidation]:
         """Get recent fusion history.
 
         Args:
@@ -664,7 +655,7 @@ class FusionCoordinator:
 
         return history[-limit:]
 
-    def get_escalation_queue(self) -> List[FusedValidation]:
+    def get_escalation_queue(self) -> list[FusedValidation]:
         """Get validations awaiting escalation resolution."""
         return list(self._escalation_queue)
 
@@ -699,7 +690,7 @@ class FusionCoordinator:
 
         return False
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get fusion statistics.
 
         Returns:
@@ -731,20 +722,18 @@ class FusionCoordinator:
             "by_strategy": self._stats_by_strategy(),
         }
 
-    def _stats_by_strategy(self) -> Dict[str, int]:
+    def _stats_by_strategy(self) -> dict[str, int]:
         """Get fusion counts by strategy."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for f in self._fusion_history:
             strategy = f.strategy_used.value
             counts[strategy] = counts.get(strategy, 0) + 1
         return counts
 
-
 # Singleton coordinator instance
-_fusion_coordinator: Optional[FusionCoordinator] = None
+_fusion_coordinator: FusionCoordinator | None = None
 
-
-def get_fusion_coordinator(config: Optional[FusionConfig] = None) -> FusionCoordinator:
+def get_fusion_coordinator(config: FusionConfig | None = None) -> FusionCoordinator:
     """Get or create the singleton fusion coordinator.
 
     Args:
@@ -757,7 +746,6 @@ def get_fusion_coordinator(config: Optional[FusionConfig] = None) -> FusionCoord
     if _fusion_coordinator is None:
         _fusion_coordinator = FusionCoordinator(config)
     return _fusion_coordinator
-
 
 __all__ = [
     # Enums

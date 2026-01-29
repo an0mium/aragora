@@ -36,7 +36,6 @@ logger = logging.getLogger(__name__)
 # Global manager instance
 _manager: Optional["CanvasManager"] = None
 
-
 def get_canvas_manager() -> "CanvasManager":
     """Get or create the canvas manager instance."""
     global _manager
@@ -45,7 +44,6 @@ def get_canvas_manager() -> "CanvasManager":
 
         _manager = CanvasManager()
     return _manager
-
 
 class MoltbotCanvasHandler(BaseHandler):
     """HTTP handler for Moltbot canvas collaboration."""
@@ -67,7 +65,7 @@ class MoltbotCanvasHandler(BaseHandler):
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/moltbot/canvas":
             return await self._handle_list_canvases(query_params, handler)
@@ -90,7 +88,7 @@ class MoltbotCanvasHandler(BaseHandler):
 
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/moltbot/canvas":
             return await self._handle_create_canvas(handler)
@@ -110,7 +108,7 @@ class MoltbotCanvasHandler(BaseHandler):
 
     async def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle PUT requests."""
         if path.startswith("/api/v1/moltbot/canvas/"):
             parts = path.split("/")
@@ -122,7 +120,7 @@ class MoltbotCanvasHandler(BaseHandler):
 
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         if path.startswith("/api/v1/moltbot/canvas/"):
             parts = path.split("/")

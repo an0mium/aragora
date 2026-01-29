@@ -19,12 +19,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from aragora.policy.risk import BlastRadius, RiskLevel
 
 logger = logging.getLogger(__name__)
-
 
 class ToolCategory(Enum):
     """Categories of tools for policy grouping."""
@@ -36,7 +34,6 @@ class ToolCategory(Enum):
     DATABASE = "database"  # Database operations
     SYSTEM = "system"  # System administration
     BILLING = "billing"  # Actions with cost
-
 
 @dataclass
 class ToolCapability:
@@ -53,9 +50,8 @@ class ToolCapability:
     risk_level: RiskLevel = RiskLevel.LOW
     blast_radius: BlastRadius = BlastRadius.LOCAL
     requires_human_approval: bool = False
-    max_uses_per_session: Optional[int] = None  # None = unlimited
+    max_uses_per_session: int | None = None  # None = unlimited
     cooldown_seconds: float = 0.0  # Minimum time between uses
-
 
 @dataclass
 class Tool:
@@ -90,7 +86,7 @@ class Tool:
     maintainer: str = "aragora"
     registered_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
-    def get_capability(self, name: str) -> Optional[ToolCapability]:
+    def get_capability(self, name: str) -> ToolCapability | None:
         """Get a capability by name."""
         for cap in self.capabilities:
             if cap.name == name:
@@ -123,7 +119,6 @@ class Tool:
             "cost_multiplier": self.cost_multiplier,
             "version": self.version,
         }
-
 
 class ToolRegistry:
     """Registry of available tools and their capabilities.
@@ -189,7 +184,7 @@ class ToolRegistry:
         logger.info(f"Unregistered tool '{name}'")
         return True
 
-    def get(self, name: str) -> Optional[Tool]:
+    def get(self, name: str) -> Tool | None:
         """Get a tool by name."""
         return self._tools.get(name)
 
@@ -213,10 +208,8 @@ class ToolRegistry:
             "capability_index": self._capability_index,
         }
 
-
 # Global registry singleton
-_global_registry: Optional[ToolRegistry] = None
-
+_global_registry: ToolRegistry | None = None
 
 def get_tool_registry() -> ToolRegistry:
     """Get the global tool registry."""
@@ -225,7 +218,6 @@ def get_tool_registry() -> ToolRegistry:
         _global_registry = ToolRegistry()
         _register_builtin_tools(_global_registry)
     return _global_registry
-
 
 def _register_builtin_tools(registry: ToolRegistry) -> None:
     """Register built-in Aragora tools."""
@@ -434,7 +426,6 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             ],
         )
     )
-
 
 __all__ = [
     "ToolCategory",

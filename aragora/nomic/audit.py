@@ -23,6 +23,7 @@ Features:
 - Artifact hashes for verification
 - Query API for analysis
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -34,10 +35,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Generator
 
 logger = logging.getLogger(__name__)
-
 
 class AuditEventType(Enum):
     """Types of audit events."""
@@ -71,7 +71,6 @@ class AuditEventType(Enum):
     # Custom events
     CUSTOM = "custom"
 
-
 @dataclass
 class AuditEvent:
     """An audit event record."""
@@ -79,14 +78,14 @@ class AuditEvent:
     event_type: AuditEventType
     cycle_id: str
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    phase: Optional[str] = None
+    phase: str | None = None
     actor: str = "system"  # system, human, agent_name
-    artifact_hash: Optional[str] = None
+    artifact_hash: str | None = None
     success: bool = True
     message: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "event_type": self.event_type.value,
@@ -101,7 +100,7 @@ class AuditEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AuditEvent":
+    def from_dict(cls, data: dict[str, Any]) -> "AuditEvent":
         """Deserialize from dictionary."""
         return cls(
             event_type=AuditEventType(data.get("event_type", "custom")),
@@ -118,7 +117,6 @@ class AuditEvent:
             message=data.get("message", ""),
             metadata=data.get("metadata", {}),
         )
-
 
 class AuditLogger:
     """
@@ -151,7 +149,7 @@ class AuditLogger:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
+        db_path: Path | None = None,
         enabled: bool = True,
         max_events: int = 100000,
     ):
@@ -277,7 +275,7 @@ class AuditLogger:
         except sqlite3.Error as e:
             logger.warning(f"Failed to prune audit events: {e}")
 
-    def log_cycle_start(self, cycle_id: str, config: Optional[Dict] = None) -> bool:
+    def log_cycle_start(self, cycle_id: str, config: dict | None = None) -> bool:
         """Log cycle start event."""
         return self.log(
             AuditEvent(
@@ -317,7 +315,7 @@ class AuditLogger:
         phase: str,
         success: bool,
         duration_seconds: float,
-        result_summary: Optional[str] = None,
+        result_summary: str | None = None,
     ) -> bool:
         """Log phase end event."""
         return self.log(
@@ -380,7 +378,7 @@ class AuditLogger:
             )
         )
 
-    def log_rollback(self, cycle_id: str, reason: str, files_affected: List[str]) -> bool:
+    def log_rollback(self, cycle_id: str, reason: str, files_affected: list[str]) -> bool:
         """Log rollback event."""
         return self.log(
             AuditEvent(
@@ -397,12 +395,12 @@ class AuditLogger:
 
     def get_events(
         self,
-        cycle_id: Optional[str] = None,
-        event_type: Optional[AuditEventType] = None,
-        phase: Optional[str] = None,
+        cycle_id: str | None = None,
+        event_type: AuditEventType | None = None,
+        phase: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[AuditEvent]:
+    ) -> list[AuditEvent]:
         """
         Query audit events.
 
@@ -421,7 +419,7 @@ class AuditLogger:
 
         try:
             query = "SELECT * FROM audit_events WHERE 1=1"
-            params: List[Any] = []
+            params: list[Any] = []
 
             if cycle_id:
                 query += " AND cycle_id = ?"
@@ -463,7 +461,7 @@ class AuditLogger:
             logger.error(f"Failed to query audit events: {e}")
             return []
 
-    def get_cycle_summary(self, cycle_id: str) -> Dict[str, Any]:
+    def get_cycle_summary(self, cycle_id: str) -> dict[str, Any]:
         """
         Get summary of a specific cycle.
 
@@ -535,13 +533,11 @@ class AuditLogger:
             self._local.conn.close()
             self._local.conn = None
 
-
 # Global audit logger instance
-_audit_logger: Optional[AuditLogger] = None
-
+_audit_logger: AuditLogger | None = None
 
 def get_audit_logger(
-    db_path: Optional[Path] = None,
+    db_path: Path | None = None,
     enabled: bool = True,
 ) -> AuditLogger:
     """
@@ -561,11 +557,9 @@ def get_audit_logger(
 
     return _audit_logger
 
-
 def hash_artifact(content: str) -> str:
     """Create SHA-256 hash of content for audit tracking."""
     return hashlib.sha256(content.encode()).hexdigest()[:16]
-
 
 __all__ = [
     "AuditLogger",

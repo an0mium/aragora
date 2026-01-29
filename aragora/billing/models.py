@@ -13,7 +13,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 from aragora.exceptions import ConfigurationError
@@ -44,7 +44,6 @@ ALLOW_INSECURE_PASSWORDS = os.environ.get("ARAGORA_ALLOW_INSECURE_PASSWORDS", ""
     "yes",
 )
 
-
 class SubscriptionTier(Enum):
     """Available subscription tiers."""
 
@@ -53,7 +52,6 @@ class SubscriptionTier(Enum):
     PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
     ENTERPRISE_PLUS = "enterprise_plus"
-
 
 @dataclass
 class TierLimits(SerializableMixin):
@@ -79,7 +77,6 @@ class TierLimits(SerializableMixin):
     token_based_billing: bool = False
 
     # to_dict() inherited from SerializableMixin
-
 
 # Tier configurations
 TIER_LIMITS: dict[SubscriptionTier, TierLimits] = {
@@ -148,8 +145,7 @@ TIER_LIMITS: dict[SubscriptionTier, TierLimits] = {
     ),
 }
 
-
-def _hash_password_sha256(password: str, salt: Optional[str] = None) -> tuple[str, str]:
+def _hash_password_sha256(password: str, salt: str | None = None) -> tuple[str, str]:
     """
     Legacy SHA-256 password hashing (for backward compatibility).
 
@@ -166,8 +162,7 @@ def _hash_password_sha256(password: str, salt: Optional[str] = None) -> tuple[st
     password_hash = hashlib.sha256(hash_input).hexdigest()
     return password_hash, salt
 
-
-def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
+def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     """
     Hash a password using bcrypt.
 
@@ -207,7 +202,6 @@ def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
             "Install it with: pip install bcrypt. "
             "For development/testing only, set ARAGORA_ALLOW_INSECURE_PASSWORDS=1",
         )
-
 
 def verify_password(password: str, password_hash: str, salt: str) -> bool:
     """
@@ -252,7 +246,6 @@ def verify_password(password: str, password_hash: str, salt: str) -> bool:
         logger.warning(f"Unknown password hash format (length={len(password_hash)})")
         return False
 
-
 def needs_rehash(password_hash: str) -> bool:
     """
     Check if a password hash should be upgraded to the current algorithm.
@@ -280,7 +273,6 @@ def needs_rehash(password_hash: str) -> bool:
 
     return False
 
-
 @dataclass
 class User:
     """A user account."""
@@ -290,42 +282,42 @@ class User:
     password_hash: str = ""
     password_salt: str = ""
     name: str = ""
-    org_id: Optional[str] = None
+    org_id: str | None = None
     role: str = "member"  # owner, admin, member
     is_active: bool = True
     email_verified: bool = False
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    last_login_at: Optional[datetime] = None
+    last_login_at: datetime | None = None
 
     # API access (secure storage: hash + prefix for identification)
-    api_key_hash: Optional[str] = None  # SHA-256 hash of the key
-    api_key_prefix: Optional[str] = None  # First 12 chars for identification (ara_xxxx...)
-    api_key_created_at: Optional[datetime] = None
-    api_key_expires_at: Optional[datetime] = None  # Expiration time
+    api_key_hash: str | None = None  # SHA-256 hash of the key
+    api_key_prefix: str | None = None  # First 12 chars for identification (ara_xxxx...)
+    api_key_created_at: datetime | None = None
+    api_key_expires_at: datetime | None = None  # Expiration time
 
     # MFA/2FA fields
-    mfa_secret: Optional[str] = None  # TOTP secret (encrypted)
+    mfa_secret: str | None = None  # TOTP secret (encrypted)
     mfa_enabled: bool = False
-    mfa_backup_codes: Optional[str] = None  # JSON-encoded list of hashed backup codes
+    mfa_backup_codes: str | None = None  # JSON-encoded list of hashed backup codes
 
     # MFA grace period tracking for newly promoted admins
     # When a user is promoted to admin, this is set to track when MFA setup must be completed
-    mfa_grace_period_started_at: Optional[datetime] = None
+    mfa_grace_period_started_at: datetime | None = None
 
     # Token revocation - increment to invalidate all existing tokens
     token_version: int = 1
 
     # Service account fields for programmatic access without MFA
     is_service_account: bool = False  # Machine/bot account indicator
-    service_account_created_by: Optional[str] = None  # User ID who created this service account
-    service_account_scopes: Optional[str] = None  # JSON list of allowed scopes
+    service_account_created_by: str | None = None  # User ID who created this service account
+    service_account_scopes: str | None = None  # JSON list of allowed scopes
 
     # MFA bypass tracking for service accounts
-    mfa_bypass_reason: Optional[str] = None  # 'service_account', 'api_integration'
-    mfa_bypass_approved_by: Optional[str] = None  # User ID who approved bypass
-    mfa_bypass_approved_at: Optional[datetime] = None  # When bypass was approved
-    mfa_bypass_expires_at: Optional[datetime] = None  # Auto-expire bypass (security)
+    mfa_bypass_reason: str | None = None  # 'service_account', 'api_integration'
+    mfa_bypass_approved_by: str | None = None  # User ID who approved bypass
+    mfa_bypass_approved_at: datetime | None = None  # When bypass was approved
+    mfa_bypass_expires_at: datetime | None = None  # Auto-expire bypass (security)
 
     def set_password(self, password: str) -> None:
         """Set user password."""
@@ -625,7 +617,6 @@ class User:
             user.mfa_enabled = data.get("mfa_enabled", False)
         return user
 
-
 @dataclass
 class Organization:
     """An organization (team/company)."""
@@ -634,13 +625,13 @@ class Organization:
     name: str = ""
     slug: str = ""  # URL-friendly name
     tier: SubscriptionTier = SubscriptionTier.FREE
-    owner_id: Optional[str] = None
+    owner_id: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Billing
-    stripe_customer_id: Optional[str] = None
-    stripe_subscription_id: Optional[str] = None
+    stripe_customer_id: str | None = None
+    stripe_subscription_id: str | None = None
 
     # Usage tracking (reset monthly)
     debates_used_this_month: int = 0
@@ -734,7 +725,6 @@ class Organization:
                 org.billing_cycle_start = data["billing_cycle_start"]
         return org
 
-
 @dataclass
 class Subscription:
     """A subscription record."""
@@ -743,8 +733,8 @@ class Subscription:
     org_id: str = ""
     tier: SubscriptionTier = SubscriptionTier.FREE
     status: str = "active"  # active, canceled, past_due, trialing
-    stripe_subscription_id: Optional[str] = None
-    stripe_price_id: Optional[str] = None
+    stripe_subscription_id: str | None = None
+    stripe_price_id: str | None = None
 
     # Billing period
     current_period_start: datetime = field(default_factory=datetime.utcnow)
@@ -754,8 +744,8 @@ class Subscription:
     cancel_at_period_end: bool = False
 
     # Trial
-    trial_start: Optional[datetime] = None
-    trial_end: Optional[datetime] = None
+    trial_start: datetime | None = None
+    trial_end: datetime | None = None
 
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
@@ -828,7 +818,6 @@ class Subscription:
                 setattr(sub, field_name, value)
         return sub
 
-
 @dataclass
 class OrganizationInvitation:
     """An organization invitation for a user.
@@ -843,14 +832,14 @@ class OrganizationInvitation:
     email: str = ""  # Email address of invitee
     role: str = "member"  # Role to assign on acceptance (member, admin)
     token: str = field(default_factory=lambda: secrets.token_urlsafe(32))
-    invited_by: Optional[str] = None  # User ID of inviter
+    invited_by: str | None = None  # User ID of inviter
     status: str = "pending"  # pending, accepted, expired, revoked
     created_at: datetime = field(default_factory=datetime.utcnow)
     expires_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7)
     )
-    accepted_by: Optional[str] = None  # User ID who accepted the invitation
-    accepted_at: Optional[datetime] = None
+    accepted_by: str | None = None  # User ID who accepted the invitation
+    accepted_at: datetime | None = None
 
     @property
     def is_expired(self) -> bool:
@@ -924,7 +913,6 @@ class OrganizationInvitation:
                 setattr(inv, field_name, value)
         return inv
 
-
 def generate_slug(name: str) -> str:
     """Generate URL-friendly slug from name."""
     import re
@@ -935,7 +923,6 @@ def generate_slug(name: str) -> str:
     slug = re.sub(r"-+", "-", slug)
     slug = slug.strip("-")
     return slug[:50] or "org"
-
 
 __all__ = [
     "SubscriptionTier",

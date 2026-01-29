@@ -30,10 +30,9 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class TemplateStatus(str, Enum):
     """Status of a template package."""
@@ -42,7 +41,6 @@ class TemplateStatus(str, Enum):
     STABLE = "stable"  # Ready for production use
     DEPRECATED = "deprecated"  # Should migrate to successor
     ARCHIVED = "archived"  # No longer maintained
-
 
 class TemplateCategory(str, Enum):
     """Template category for organization."""
@@ -63,16 +61,14 @@ class TemplateCategory(str, Enum):
     QUICKSTART = "quickstart"
     RETAIL = "retail"
 
-
 @dataclass
 class TemplateAuthor:
     """Template author information."""
 
     name: str
-    email: Optional[str] = None
-    organization: Optional[str] = None
-    url: Optional[str] = None
-
+    email: str | None = None
+    organization: str | None = None
+    url: str | None = None
 
 @dataclass
 class TemplateDependency:
@@ -81,8 +77,7 @@ class TemplateDependency:
     name: str
     type: str  # "step_type", "template", "agent"
     required: bool = True
-    version: Optional[str] = None
-
+    version: str | None = None
 
 @dataclass
 class TemplateMetadata:
@@ -103,21 +98,21 @@ class TemplateMetadata:
     status: TemplateStatus = TemplateStatus.STABLE
 
     # Authorship
-    author: Optional[TemplateAuthor] = None
+    author: TemplateAuthor | None = None
     contributors: list[TemplateAuthor] = field(default_factory=list)
     license: str = "MIT"
 
     # Version management
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    successor: Optional[str] = None  # Template ID of replacement
+    successor: str | None = None  # Template ID of replacement
 
     # Dependencies
     dependencies: list[TemplateDependency] = field(default_factory=list)
-    min_aragora_version: Optional[str] = None
+    min_aragora_version: str | None = None
 
     # Usage hints
-    estimated_duration: Optional[str] = None  # e.g., "5-10 minutes"
+    estimated_duration: str | None = None  # e.g., "5-10 minutes"
     complexity: str = "medium"  # low, medium, high
     recommended_agents: list[str] = field(default_factory=list)
 
@@ -153,7 +148,6 @@ class TemplateMetadata:
 
         return cls(**data)
 
-
 @dataclass
 class TemplatePackage:
     """
@@ -175,7 +169,7 @@ class TemplatePackage:
     examples: list[dict[str, Any]] = field(default_factory=list)
 
     # Package integrity
-    checksum: Optional[str] = None
+    checksum: str | None = None
 
     def __post_init__(self) -> None:
         """Compute checksum if not provided."""
@@ -245,7 +239,7 @@ class TemplatePackage:
         """Create package from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
-    def save(self, path: Union[str, Path]) -> Path:
+    def save(self, path: str | Path) -> Path:
         """Save package to file."""
         path = Path(path)
         path.write_text(self.to_json())
@@ -253,20 +247,19 @@ class TemplatePackage:
         return path
 
     @classmethod
-    def load(cls, path: Union[str, Path]) -> "TemplatePackage":
+    def load(cls, path: str | Path) -> "TemplatePackage":
         """Load package from file."""
         path = Path(path)
         data = json.loads(path.read_text())
         return cls.from_dict(data)
 
-
 def create_package(
     template: dict[str, Any],
     version: str = "1.0.0",
-    author: Optional[Union[str, TemplateAuthor]] = None,
-    description: Optional[str] = None,
-    category: Optional[Union[str, TemplateCategory]] = None,
-    tags: Optional[list[str]] = None,
+    author: Optional[str | TemplateAuthor] = None,
+    description: str | None = None,
+    category: Optional[str | TemplateCategory] = None,
+    tags: list[str] | None = None,
     readme: str = "",
     **kwargs: Any,
 ) -> TemplatePackage:
@@ -327,7 +320,6 @@ def create_package(
         readme=readme,
     )
 
-
 def package_all_templates() -> dict[str, TemplatePackage]:
     """
     Package all registered workflow templates.
@@ -350,10 +342,8 @@ def package_all_templates() -> dict[str, TemplatePackage]:
 
     return packages
 
-
 # Template registry with versioning support
 _template_registry: dict[str, list[TemplatePackage]] = {}
-
 
 def register_package(package: TemplatePackage) -> None:
     """Register a template package."""
@@ -367,11 +357,10 @@ def register_package(package: TemplatePackage) -> None:
         reverse=True,
     )
 
-
 def get_package(
     template_id: str,
-    version: Optional[str] = None,
-) -> Optional[TemplatePackage]:
+    version: str | None = None,
+) -> TemplatePackage | None:
     """
     Get a template package by ID and optionally version.
 
@@ -400,10 +389,9 @@ def get_package(
 
     return None
 
-
 def list_packages(
-    category: Optional[Union[str, TemplateCategory]] = None,
-    tags: Optional[list[str]] = None,
+    category: Optional[str | TemplateCategory] = None,
+    tags: list[str] | None = None,
     include_deprecated: bool = False,
 ) -> list[TemplatePackage]:
     """
@@ -451,7 +439,6 @@ def list_packages(
         results.append(pkg)
 
     return results
-
 
 __all__ = [
     "TemplatePackage",

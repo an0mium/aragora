@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 from aragora.billing.jwt_auth import extract_user_from_request
@@ -53,7 +53,6 @@ CACHE_TTL_HISTORY = 60  # History queries
 # Permission required for history endpoints (sensitive debate data)
 # Uses introspection.export_history permission from RBAC defaults
 HISTORY_PERMISSION = "introspection:export_history"
-
 
 class SystemHandler(BaseHandler):
     """Handler for system-related endpoints."""
@@ -98,7 +97,7 @@ class SystemHandler(BaseHandler):
         path = strip_version_prefix(path)
         return path in self.ROUTES
 
-    def _check_history_auth(self, handler) -> Optional[HandlerResult]:
+    def _check_history_auth(self, handler) -> HandlerResult | None:
         """Check authentication for history endpoints.
 
         History endpoints can expose sensitive debate data and require
@@ -133,7 +132,7 @@ class SystemHandler(BaseHandler):
 
         return error_response("Authentication required for history endpoints", 401)
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route system requests to appropriate methods.
 
         Uses dispatch tables to reduce cyclomatic complexity.
@@ -209,7 +208,7 @@ class SystemHandler(BaseHandler):
         limit = get_clamped_int_param(query_params, "limit", default_limit, 1, max_limit)
         return method(handler, loop_id, limit)
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle POST requests for auth endpoints."""
         path = strip_version_prefix(path)
         if path == "/api/auth/revoke":
@@ -217,7 +216,7 @@ class SystemHandler(BaseHandler):
         return None
 
     def _load_filtered_json(
-        self, file_path: Path, loop_id: Optional[str] = None, limit: int = 100
+        self, file_path: Path, loop_id: str | None = None, limit: int = 100
     ) -> list:
         """Load JSON file with optional filtering and early termination.
 
@@ -257,7 +256,7 @@ class SystemHandler(BaseHandler):
     @rate_limit(rpm=30, limiter_name="history_cycles")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_cycles", skip_first=True)
     @handle_errors("get cycles")
-    def _get_history_cycles(self, handler, loop_id: Optional[str], limit: int) -> HandlerResult:
+    def _get_history_cycles(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
         """Get cycle history from Supabase or local storage."""
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
@@ -270,7 +269,7 @@ class SystemHandler(BaseHandler):
     @rate_limit(rpm=30, limiter_name="history_events")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_events", skip_first=True)
     @handle_errors("get events")
-    def _get_history_events(self, handler, loop_id: Optional[str], limit: int) -> HandlerResult:
+    def _get_history_events(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
         """Get event history."""
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
@@ -283,7 +282,7 @@ class SystemHandler(BaseHandler):
     @rate_limit(rpm=20, limiter_name="history_debates")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_debates", skip_first=True)
     @handle_errors("get debates")
-    def _get_history_debates(self, handler, loop_id: Optional[str], limit: int) -> HandlerResult:
+    def _get_history_debates(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
         """Get debate history."""
         storage = self.get_storage()
         if not storage:
@@ -309,7 +308,7 @@ class SystemHandler(BaseHandler):
 
     @rate_limit(rpm=30, limiter_name="history_summary")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_summary", skip_first=True)
-    def _get_history_summary(self, handler, loop_id: Optional[str]) -> HandlerResult:
+    def _get_history_summary(self, handler, loop_id: str | None) -> HandlerResult:
         """Get history summary statistics."""
         storage = self.get_storage()
         elo = self.get_elo_system()

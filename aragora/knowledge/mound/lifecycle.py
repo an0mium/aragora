@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from uuid import uuid4
 
 from aragora.observability import get_logger
@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-
 class LifecycleStage(str, Enum):
     """Stages in the knowledge lifecycle."""
 
@@ -35,7 +34,6 @@ class LifecycleStage(str, Enum):
     EXPIRED = "expired"  # Past retention, pending deletion
     DELETED = "deleted"  # Marked for deletion
 
-
 class RetentionAction(str, Enum):
     """Actions for retention policy."""
 
@@ -43,7 +41,6 @@ class RetentionAction(str, Enum):
     ARCHIVE = "archive"  # Move to cold storage
     DELETE = "delete"  # Delete permanently
     REVALIDATE = "revalidate"  # Trigger revalidation
-
 
 @dataclass
 class RetentionPolicy:
@@ -54,15 +51,15 @@ class RetentionPolicy:
     description: str = ""
 
     # Target (what this policy applies to)
-    workspace_ids: List[str] = field(default_factory=list)  # Empty = all
-    knowledge_types: List[str] = field(default_factory=list)  # Empty = all
-    tiers: List[str] = field(default_factory=list)  # fast, medium, slow, glacial
+    workspace_ids: list[str] = field(default_factory=list)  # Empty = all
+    knowledge_types: list[str] = field(default_factory=list)  # Empty = all
+    tiers: list[str] = field(default_factory=list)  # fast, medium, slow, glacial
 
     # Retention periods
     active_period: timedelta = timedelta(days=30)  # How long to keep active
     warm_period: timedelta = timedelta(days=90)  # How long in warm storage
     cold_period: timedelta = timedelta(days=365)  # How long in cold storage
-    max_age: Optional[timedelta] = None  # Maximum total age (delete after)
+    max_age: timedelta | None = None  # Maximum total age (delete after)
 
     # Access-based retention
     min_access_count_for_keep: int = 0  # Minimum accesses to avoid archival
@@ -82,13 +79,13 @@ class RetentionPolicy:
 
     # Metadata
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def matches(
         self,
-        workspace_id: Optional[str] = None,
-        knowledge_type: Optional[str] = None,
-        tier: Optional[str] = None,
+        workspace_id: str | None = None,
+        knowledge_type: str | None = None,
+        tier: str | None = None,
     ) -> bool:
         """Check if this policy applies to the given knowledge."""
         if not self.enabled:
@@ -105,7 +102,7 @@ class RetentionPolicy:
 
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -125,7 +122,6 @@ class RetentionPolicy:
             "enabled": self.enabled,
         }
 
-
 @dataclass
 class LifecycleTransition:
     """Record of a lifecycle stage transition."""
@@ -135,11 +131,11 @@ class LifecycleTransition:
     from_stage: LifecycleStage = LifecycleStage.ACTIVE
     to_stage: LifecycleStage = LifecycleStage.WARM
     reason: str = ""
-    policy_id: Optional[str] = None
+    policy_id: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -151,7 +147,6 @@ class LifecycleTransition:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class LifecycleReport:
@@ -167,7 +162,7 @@ class LifecycleReport:
     expired_count: int = 0
 
     # Age distribution
-    items_by_age_bucket: Dict[str, int] = field(default_factory=dict)
+    items_by_age_bucket: dict[str, int] = field(default_factory=dict)
 
     # Quality metrics
     avg_confidence: float = 0.0
@@ -183,7 +178,7 @@ class LifecycleReport:
     recent_deletions: int = 0
     recent_revalidations: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "generated_at": self.generated_at.isoformat(),
@@ -210,7 +205,6 @@ class LifecycleReport:
                 "revalidations": self.recent_revalidations,
             },
         }
-
 
 class LifecycleManager:
     """
@@ -240,21 +234,21 @@ class LifecycleManager:
         self._staleness_detector = staleness_detector
 
         # Retention policies
-        self._policies: Dict[str, RetentionPolicy] = {}
+        self._policies: dict[str, RetentionPolicy] = {}
 
         # Lifecycle state (knowledge_id -> stage)
-        self._stages: Dict[str, LifecycleStage] = {}
+        self._stages: dict[str, LifecycleStage] = {}
 
         # Transition history (limited to recent)
-        self._transitions: List[LifecycleTransition] = []
+        self._transitions: list[LifecycleTransition] = []
         self._max_transitions = 1000
 
         # Access tracking (knowledge_id -> (last_access, access_count))
-        self._access_log: Dict[str, Dict[str, Any]] = {}
+        self._access_log: dict[str, dict[str, Any]] = {}
 
         # Callbacks
-        self._archive_callbacks: List[Callable[[str, str], None]] = []
-        self._delete_callbacks: List[Callable[[str, str], None]] = []
+        self._archive_callbacks: list[Callable[[str, str], None]] = []
+        self._delete_callbacks: list[Callable[[str, str], None]] = []
 
         logger.info("LifecycleManager initialized")
 
@@ -279,11 +273,11 @@ class LifecycleManager:
             return True
         return False
 
-    def get_policy(self, policy_id: str) -> Optional[RetentionPolicy]:
+    def get_policy(self, policy_id: str) -> RetentionPolicy | None:
         """Get a policy by ID."""
         return self._policies.get(policy_id)
 
-    def list_policies(self, enabled_only: bool = True) -> List[RetentionPolicy]:
+    def list_policies(self, enabled_only: bool = True) -> list[RetentionPolicy]:
         """List all retention policies."""
         policies = []
         for policy in self._policies.values():
@@ -315,7 +309,7 @@ class LifecycleManager:
         knowledge_id: str,
         stage: LifecycleStage,
         reason: str = "",
-        policy_id: Optional[str] = None,
+        policy_id: str | None = None,
     ) -> LifecycleTransition:
         """Set the lifecycle stage of knowledge."""
         old_stage = self._stages.get(knowledge_id, LifecycleStage.ACTIVE)
@@ -362,10 +356,10 @@ class LifecycleManager:
     def evaluate_retention(
         self,
         knowledge_id: str,
-        knowledge_type: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        tier: Optional[str] = None,
-        created_at: Optional[datetime] = None,
+        knowledge_type: str | None = None,
+        workspace_id: str | None = None,
+        tier: str | None = None,
+        created_at: datetime | None = None,
         confidence: float = 1.0,
     ) -> RetentionAction:
         """
@@ -435,9 +429,9 @@ class LifecycleManager:
 
     async def run_cleanup(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         dry_run: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Run lifecycle cleanup based on retention policies.
 
@@ -448,7 +442,7 @@ class LifecycleManager:
         Returns:
             Cleanup report
         """
-        report: Dict[str, Any] = {
+        report: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "dry_run": dry_run,
             "evaluated": 0,
@@ -526,8 +520,8 @@ class LifecycleManager:
     async def prune_versions(
         self,
         knowledge_id: str,
-        max_versions: Optional[int] = None,
-        older_than: Optional[timedelta] = None,
+        max_versions: int | None = None,
+        older_than: timedelta | None = None,
     ) -> int:
         """
         Prune old versions of knowledge.
@@ -566,7 +560,7 @@ class LifecycleManager:
 
     def generate_report(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> LifecycleReport:
         """
         Generate a lifecycle status report.
@@ -607,10 +601,10 @@ class LifecycleManager:
 
     def get_transition_history(
         self,
-        knowledge_id: Optional[str] = None,
-        stage: Optional[LifecycleStage] = None,
+        knowledge_id: str | None = None,
+        stage: LifecycleStage | None = None,
         limit: int = 100,
-    ) -> List[LifecycleTransition]:
+    ) -> list[LifecycleTransition]:
         """
         Get transition history.
 
@@ -644,7 +638,6 @@ class LifecycleManager:
     def add_delete_callback(self, callback: Callable[[str, str], None]) -> None:
         """Add callback for delete events."""
         self._delete_callbacks.append(callback)
-
 
 # Factory function
 def create_lifecycle_manager(

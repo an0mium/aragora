@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -40,7 +40,6 @@ if TYPE_CHECKING:
     from aragora.storage.expense_store import ExpenseStoreBackend
 
 logger = logging.getLogger(__name__)
-
 
 class ExpenseCategory(str, Enum):
     """Standard expense categories."""
@@ -65,7 +64,6 @@ class ExpenseCategory(str, Enum):
     BANK_FEES = "bank_fees"
     OTHER = "other"
 
-
 class ExpenseStatus(str, Enum):
     """Expense processing status."""
 
@@ -76,7 +74,6 @@ class ExpenseStatus(str, Enum):
     SYNCED = "synced"  # Synced to accounting system
     REJECTED = "rejected"  # Rejected/deleted
     DUPLICATE = "duplicate"  # Marked as duplicate
-
 
 class PaymentMethod(str, Enum):
     """Payment methods."""
@@ -92,7 +89,6 @@ class PaymentMethod(str, Enum):
     VENMO = "venmo"
     OTHER = "other"
 
-
 @dataclass
 class LineItem:
     """A line item on a receipt/invoice."""
@@ -101,9 +97,9 @@ class LineItem:
     quantity: float = 1.0
     unit_price: Decimal = Decimal("0.00")
     amount: Decimal = Decimal("0.00")
-    category: Optional[ExpenseCategory] = None
+    category: ExpenseCategory | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "description": self.description,
             "quantity": self.quantity,
@@ -111,7 +107,6 @@ class LineItem:
             "amount": float(self.amount),
             "category": self.category.value if self.category else None,
         }
-
 
 @dataclass
 class ExpenseRecord:
@@ -127,24 +122,24 @@ class ExpenseRecord:
     payment_method: PaymentMethod = PaymentMethod.CREDIT_CARD
     description: str = ""
     notes: str = ""
-    receipt_image: Optional[bytes] = None
+    receipt_image: bytes | None = None
     receipt_text: str = ""
-    line_items: List[LineItem] = field(default_factory=list)
+    line_items: list[LineItem] = field(default_factory=list)
     tax_amount: Decimal = Decimal("0.00")
     tip_amount: Decimal = Decimal("0.00")
     is_reimbursable: bool = False
     is_billable: bool = False
-    project_id: Optional[str] = None
-    client_id: Optional[str] = None
-    employee_id: Optional[str] = None
-    qbo_id: Optional[str] = None
-    duplicate_of: Optional[str] = None
+    project_id: str | None = None
+    client_id: str | None = None
+    employee_id: str | None = None
+    qbo_id: str | None = None
+    duplicate_of: str | None = None
     confidence_score: float = 0.0
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    synced_at: Optional[datetime] = None
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    synced_at: datetime | None = None
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def total_amount(self) -> Decimal:
@@ -161,7 +156,7 @@ class ExpenseRecord:
         ]
         return hashlib.md5("|".join(key_parts).encode(), usedforsecurity=False).hexdigest()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "vendorName": self.vendor_name,
@@ -190,7 +185,6 @@ class ExpenseRecord:
             "tags": self.tags,
         }
 
-
 @dataclass
 class SyncResult:
     """Result of syncing expenses to accounting system."""
@@ -198,11 +192,11 @@ class SyncResult:
     success_count: int = 0
     failed_count: int = 0
     duplicate_count: int = 0
-    synced_ids: List[str] = field(default_factory=list)
-    failed_ids: List[str] = field(default_factory=list)
-    errors: List[Dict[str, str]] = field(default_factory=list)
+    synced_ids: list[str] = field(default_factory=list)
+    failed_ids: list[str] = field(default_factory=list)
+    errors: list[dict[str, str]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "successCount": self.success_count,
             "failedCount": self.failed_count,
@@ -212,7 +206,6 @@ class SyncResult:
             "errors": self.errors,
         }
 
-
 @dataclass
 class ExpenseStats:
     """Expense statistics."""
@@ -221,12 +214,12 @@ class ExpenseStats:
     total_amount: float = 0.0
     pending_count: int = 0
     pending_amount: float = 0.0
-    by_category: Dict[str, float] = field(default_factory=dict)
-    by_month: Dict[str, float] = field(default_factory=dict)
-    top_vendors: List[Dict[str, Any]] = field(default_factory=list)
+    by_category: dict[str, float] = field(default_factory=dict)
+    by_month: dict[str, float] = field(default_factory=dict)
+    top_vendors: list[dict[str, Any]] = field(default_factory=list)
     avg_expense: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "totalExpenses": self.total_expenses,
             "totalAmount": round(self.total_amount, 2),
@@ -237,7 +230,6 @@ class ExpenseStats:
             "topVendors": self.top_vendors,
             "avgExpense": round(self.avg_expense, 2),
         }
-
 
 # Common vendor patterns for categorization
 VENDOR_CATEGORY_PATTERNS = {
@@ -341,7 +333,6 @@ VENDOR_CATEGORY_PATTERNS = {
     ],
 }
 
-
 class ExpenseTracker:
     """
     Service for tracking and managing business expenses.
@@ -353,11 +344,11 @@ class ExpenseTracker:
 
     def __init__(
         self,
-        qbo_connector: Optional[QuickBooksConnector] = None,
+        qbo_connector: QuickBooksConnector | None = None,
         enable_ocr: bool = True,
         enable_llm_categorization: bool = True,
         use_persistent_storage: bool = False,
-        store: Optional[ExpenseStoreBackend] = None,
+        store: ExpenseStoreBackend | None = None,
         enable_circuit_breakers: bool = True,
     ):
         """
@@ -379,14 +370,14 @@ class ExpenseTracker:
         self._enable_circuit_breakers = enable_circuit_breakers
 
         # In-memory storage (used when persistent storage is disabled)
-        self._expenses: Dict[str, ExpenseRecord] = {}
-        self._by_vendor: Dict[str, Set[str]] = {}
-        self._by_category: Dict[ExpenseCategory, Set[str]] = {}
-        self._by_date: Dict[str, Set[str]] = {}  # YYYY-MM-DD -> expense_ids
-        self._hash_index: Dict[str, str] = {}  # hash_key -> expense_id
+        self._expenses: dict[str, ExpenseRecord] = {}
+        self._by_vendor: dict[str, set[str]] = {}
+        self._by_category: dict[ExpenseCategory, set[str]] = {}
+        self._by_date: dict[str, set[str]] = {}  # YYYY-MM-DD -> expense_ids
+        self._hash_index: dict[str, str] = {}  # hash_key -> expense_id
 
         # Circuit breakers for external service resilience
-        self._circuit_breakers: Dict[str, Any] = {}
+        self._circuit_breakers: dict[str, Any] = {}
         if enable_circuit_breakers:
             from aragora.resilience import get_circuit_breaker
 
@@ -422,7 +413,7 @@ class ExpenseTracker:
         if service in self._circuit_breakers:
             self._circuit_breakers[service].record_failure()
 
-    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
         """Get status of all circuit breakers."""
         return {
             "enabled": self._enable_circuit_breakers,
@@ -439,7 +430,7 @@ class ExpenseTracker:
         cost_usd: float = 0.0,
         provider: str = "",
         model: str = "",
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Emit usage event for cost tracking."""
         try:
@@ -466,7 +457,7 @@ class ExpenseTracker:
     async def process_receipt(
         self,
         image_data: bytes,
-        employee_id: Optional[str] = None,
+        employee_id: str | None = None,
         payment_method: PaymentMethod = PaymentMethod.CREDIT_CARD,
     ) -> ExpenseRecord:
         """
@@ -523,7 +514,7 @@ class ExpenseTracker:
         )
         return expense
 
-    async def _extract_receipt_data(self, image_data: bytes) -> Dict[str, Any]:
+    async def _extract_receipt_data(self, image_data: bytes) -> dict[str, Any]:
         """
         Extract data from receipt image/PDF using OCR.
 
@@ -598,11 +589,11 @@ class ExpenseTracker:
 
         return result
 
-    def _parse_receipt_text(self, text: str) -> Dict[str, Any]:
+    def _parse_receipt_text(self, text: str) -> dict[str, Any]:
         """Parse extracted text to find receipt fields."""
         import re
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "vendor": "",
             "amount": 0.00,
             "date": datetime.now(),
@@ -706,13 +697,13 @@ class ExpenseTracker:
         self,
         vendor_name: str,
         amount: float,
-        date: Optional[datetime] = None,
-        category: Optional[ExpenseCategory] = None,
+        date: datetime | None = None,
+        category: ExpenseCategory | None = None,
         payment_method: PaymentMethod = PaymentMethod.CREDIT_CARD,
         description: str = "",
-        employee_id: Optional[str] = None,
+        employee_id: str | None = None,
         is_reimbursable: bool = False,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
     ) -> ExpenseRecord:
         """
         Create an expense record manually.
@@ -793,7 +784,7 @@ class ExpenseTracker:
 
         return ExpenseCategory.OTHER
 
-    async def _llm_categorize(self, expense: ExpenseRecord) -> Optional[ExpenseCategory]:
+    async def _llm_categorize(self, expense: ExpenseRecord) -> ExpenseCategory | None:
         """
         Use LLM to categorize expense.
 
@@ -909,7 +900,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
         self,
         expense: ExpenseRecord,
         tolerance_days: int = 3,
-    ) -> List[ExpenseRecord]:
+    ) -> list[ExpenseRecord]:
         """
         Detect potential duplicate expenses.
 
@@ -960,8 +951,8 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
     async def sync_to_qbo(
         self,
-        expenses: Optional[List[ExpenseRecord]] = None,
-        expense_ids: Optional[List[str]] = None,
+        expenses: Optional[list[ExpenseRecord]] = None,
+        expense_ids: Optional[list[str]] = None,
     ) -> SyncResult:
         """
         Sync expenses to QuickBooks Online.
@@ -981,7 +972,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             return result
 
         # Get expenses to sync
-        to_sync: List[ExpenseRecord] = []
+        to_sync: list[ExpenseRecord] = []
         if expenses:
             to_sync = expenses
         elif expense_ids:
@@ -1108,7 +1099,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
         if self._use_persistent and self._store:
             await self._store.save(self._expense_to_dict(expense))
 
-    def _expense_to_dict(self, expense: ExpenseRecord) -> Dict[str, Any]:
+    def _expense_to_dict(self, expense: ExpenseRecord) -> dict[str, Any]:
         """Convert expense record to dict for storage."""
         return {
             "id": expense.id,
@@ -1139,7 +1130,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             "tags": expense.tags,
         }
 
-    def _dict_to_expense(self, data: Dict[str, Any]) -> ExpenseRecord:
+    def _dict_to_expense(self, data: dict[str, Any]) -> ExpenseRecord:
         """Convert stored dict back to expense record."""
         return ExpenseRecord(
             id=data["id"],
@@ -1184,7 +1175,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             tags=data.get("tags", []),
         )
 
-    async def get_expense(self, expense_id: str) -> Optional[ExpenseRecord]:
+    async def get_expense(self, expense_id: str) -> ExpenseRecord | None:
         """Get expense by ID."""
         # Check in-memory first
         if expense_id in self._expenses:
@@ -1203,15 +1194,15 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
     async def list_expenses(
         self,
-        category: Optional[ExpenseCategory] = None,
-        vendor: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        status: Optional[ExpenseStatus] = None,
-        employee_id: Optional[str] = None,
+        category: ExpenseCategory | None = None,
+        vendor: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        status: ExpenseStatus | None = None,
+        employee_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Tuple[List[ExpenseRecord], int]:
+    ) -> tuple[list[ExpenseRecord], int]:
         """
         List expenses with filters.
 
@@ -1261,14 +1252,14 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
     async def update_expense(
         self,
         expense_id: str,
-        vendor_name: Optional[str] = None,
-        amount: Optional[float] = None,
-        category: Optional[ExpenseCategory] = None,
-        description: Optional[str] = None,
-        status: Optional[ExpenseStatus] = None,
-        is_reimbursable: Optional[bool] = None,
-        tags: Optional[List[str]] = None,
-    ) -> Optional[ExpenseRecord]:
+        vendor_name: str | None = None,
+        amount: float | None = None,
+        category: ExpenseCategory | None = None,
+        description: str | None = None,
+        status: ExpenseStatus | None = None,
+        is_reimbursable: bool | None = None,
+        tags: Optional[list[str]] = None,
+    ) -> ExpenseRecord | None:
         """Update an expense record."""
         expense = await self.get_expense(expense_id)
         if not expense:
@@ -1297,11 +1288,11 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
         return expense
 
-    async def approve_expense(self, expense_id: str) -> Optional[ExpenseRecord]:
+    async def approve_expense(self, expense_id: str) -> ExpenseRecord | None:
         """Mark expense as approved for sync."""
         return await self.update_expense(expense_id, status=ExpenseStatus.APPROVED)
 
-    async def reject_expense(self, expense_id: str, reason: str = "") -> Optional[ExpenseRecord]:
+    async def reject_expense(self, expense_id: str, reason: str = "") -> ExpenseRecord | None:
         """Reject an expense."""
         expense = await self.get_expense(expense_id)
         if expense:
@@ -1351,8 +1342,8 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
     def get_stats(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> ExpenseStats:
         """Get expense statistics."""
         expenses = list(self._expenses.values())
@@ -1376,19 +1367,19 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
         ]
 
         # By category
-        by_category: Dict[str, float] = {}
+        by_category: dict[str, float] = {}
         for expense in expenses:
             cat = expense.category.value
             by_category[cat] = by_category.get(cat, 0) + float(expense.total_amount)
 
         # By month
-        by_month: Dict[str, float] = {}
+        by_month: dict[str, float] = {}
         for expense in expenses:
             month_key = expense.date.strftime("%Y-%m")
             by_month[month_key] = by_month.get(month_key, 0) + float(expense.total_amount)
 
         # Top vendors
-        vendor_totals: Dict[str, float] = {}
+        vendor_totals: dict[str, float] = {}
         for expense in expenses:
             vendor = expense.vendor_name
             vendor_totals[vendor] = vendor_totals.get(vendor, 0) + float(expense.total_amount)
@@ -1409,18 +1400,18 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             avg_expense=total_amount / len(expenses) if expenses else 0,
         )
 
-    async def get_expenses_by_vendor(self, vendor_name: str) -> List[ExpenseRecord]:
+    async def get_expenses_by_vendor(self, vendor_name: str) -> list[ExpenseRecord]:
         """Get all expenses for a vendor."""
         vendor_lower = vendor_name.lower()
         expense_ids = self._by_vendor.get(vendor_lower, set())
         return [self._expenses[eid] for eid in expense_ids if eid in self._expenses]
 
-    async def get_expenses_by_category(self, category: ExpenseCategory) -> List[ExpenseRecord]:
+    async def get_expenses_by_category(self, category: ExpenseCategory) -> list[ExpenseRecord]:
         """Get all expenses in a category."""
         expense_ids = self._by_category.get(category, set())
         return [self._expenses[eid] for eid in expense_ids if eid in self._expenses]
 
-    async def get_pending_approval(self) -> List[ExpenseRecord]:
+    async def get_pending_approval(self) -> list[ExpenseRecord]:
         """Get expenses pending approval."""
         return [
             e
@@ -1430,8 +1421,8 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
     async def get_reimbursable_expenses(
         self,
-        employee_id: Optional[str] = None,
-    ) -> List[ExpenseRecord]:
+        employee_id: str | None = None,
+    ) -> list[ExpenseRecord]:
         """Get reimbursable expenses."""
         expenses = [e for e in self._expenses.values() if e.is_reimbursable]
         if employee_id:
@@ -1440,8 +1431,8 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
     async def bulk_categorize(
         self,
-        expense_ids: Optional[List[str]] = None,
-    ) -> Dict[str, ExpenseCategory]:
+        expense_ids: Optional[list[str]] = None,
+    ) -> dict[str, ExpenseCategory]:
         """
         Bulk categorize expenses.
 
@@ -1451,7 +1442,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
         Returns:
             Map of expense_id -> assigned category
         """
-        results: Dict[str, ExpenseCategory] = {}
+        results: dict[str, ExpenseCategory] = {}
 
         if expense_ids:
             to_categorize = [self._expenses[eid] for eid in expense_ids if eid in self._expenses]
@@ -1472,8 +1463,8 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
     async def export_expenses(
         self,
         format: str = "csv",
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> str:
         """
         Export expenses to CSV or JSON.

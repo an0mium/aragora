@@ -17,16 +17,13 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
-
 
 @click.group()
 def marketplace():
     """Manage agent template marketplace."""
     pass
-
 
 @marketplace.command("list")
 @click.option("--category", "-c", help="Filter by category")
@@ -39,7 +36,7 @@ def marketplace():
 @click.option("--limit", "-l", default=20, help="Max results to show")
 @click.option("--json-output", "-j", is_flag=True, help="Output as JSON")
 def list_templates(
-    category: Optional[str], template_type: Optional[str], limit: int, json_output: bool
+    category: str | None, template_type: str | None, limit: int, json_output: bool
 ):
     """List available templates."""
     from aragora.marketplace import TemplateRegistry, TemplateCategory
@@ -84,13 +81,12 @@ def list_templates(
 
     click.echo(f"\nTotal: {len(templates)} templates")
 
-
 @marketplace.command("search")
 @click.argument("query")
 @click.option("--category", "-c", help="Filter by category")
 @click.option("--tags", "-t", help="Comma-separated tags")
 @click.option("--limit", "-l", default=20, help="Max results")
-def search_templates(query: str, category: Optional[str], tags: Optional[str], limit: int):
+def search_templates(query: str, category: str | None, tags: str | None, limit: int):
     """Search templates by keyword."""
     from aragora.marketplace import TemplateRegistry, TemplateCategory
 
@@ -127,7 +123,6 @@ def search_templates(query: str, category: Optional[str], tags: Optional[str], l
             f"    Category: {t.metadata.category.value} | Downloads: {t.metadata.downloads} {stars}"
         )
         click.echo()
-
 
 @marketplace.command("get")
 @click.argument("template_id")
@@ -178,11 +173,10 @@ def get_template(template_id: str, json_output: bool):
 
     click.echo()
 
-
 @marketplace.command("export")
 @click.argument("template_id")
 @click.option("--output", "-o", help="Output file path")
-def export_template(template_id: str, output: Optional[str]):
+def export_template(template_id: str, output: str | None):
     """Export a template to JSON file."""
     from aragora.marketplace import TemplateRegistry
 
@@ -198,7 +192,6 @@ def export_template(template_id: str, output: Optional[str]):
         click.echo(f"Exported to {output}")
     else:
         click.echo(json_str)
-
 
 @marketplace.command("import")
 @click.argument("file_path", type=click.Path(exists=True))
@@ -219,7 +212,6 @@ def import_template(file_path: str):
         click.echo(f"Invalid template: {e}", err=True)
         sys.exit(1)
 
-
 @marketplace.command("categories")
 def list_categories():
     """List all template categories."""
@@ -234,12 +226,11 @@ def list_categories():
     for cat in categories:
         click.echo(f"  {cat['category']:<15} ({cat['count']} templates)")
 
-
 @marketplace.command("rate")
 @click.argument("template_id")
 @click.argument("score", type=click.IntRange(1, 5))
 @click.option("--review", "-r", help="Review text")
-def rate_template(template_id: str, score: int, review: Optional[str]):
+def rate_template(template_id: str, score: int, review: str | None):
     """Rate a template (1-5 stars)."""
     from aragora.marketplace import TemplateRegistry, TemplateRating
     import os
@@ -264,7 +255,6 @@ def rate_template(template_id: str, score: int, review: Optional[str]):
     avg = registry.get_average_rating(template_id)
     click.echo(f"Rated {template_id}: {'★' * score} ({score}/5)")
     click.echo(f"Average rating: {avg:.1f}")
-
 
 @marketplace.command("use")
 @click.argument("template_id")
@@ -299,7 +289,6 @@ def use_template(template_id: str, task: str, rounds: int):
     click.echo(f"Rounds: {template.protocol.get('rounds', rounds)}")
     click.echo("\nTo run this debate, use:")
     click.echo(f'  aragora debate run "{formatted_task}" --rounds {rounds}')
-
 
 if __name__ == "__main__":
     marketplace()

@@ -4,6 +4,7 @@ PostgreSQL Fact Store - PostgreSQL-based persistence for the Knowledge Base.
 Provides async storage, retrieval, and search for facts using PostgreSQL
 with tsvector-based full-text search for production deployments.
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -11,7 +12,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.knowledge.types import (
     Fact,
@@ -23,7 +24,6 @@ from aragora.knowledge.types import (
 from aragora.storage.postgres_store import PostgresStore
 
 logger = logging.getLogger(__name__)
-
 
 class PostgresFactStore(PostgresStore):
     """PostgreSQL-backed fact persistence store.
@@ -120,11 +120,11 @@ class PostgresFactStore(PostgresStore):
         self,
         statement: str,
         workspace_id: str,
-        evidence_ids: Optional[list[str]] = None,
-        source_documents: Optional[list[str]] = None,
+        evidence_ids: list[str] | None = None,
+        source_documents: list[str] | None = None,
         confidence: float = 0.5,
-        topics: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         validation_status: ValidationStatus = ValidationStatus.UNVERIFIED,
         deduplicate: bool = True,
     ) -> Fact:
@@ -143,21 +143,21 @@ class PostgresFactStore(PostgresStore):
             )
         )
 
-    def get_fact(self, fact_id: str) -> Optional[Fact]:
+    def get_fact(self, fact_id: str) -> Fact | None:
         """Get a fact by ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_fact_async(fact_id))
 
     def update_fact(
         self,
         fact_id: str,
-        confidence: Optional[float] = None,
-        validation_status: Optional[ValidationStatus] = None,
-        consensus_proof_id: Optional[str] = None,
-        evidence_ids: Optional[list[str]] = None,
-        topics: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        superseded_by: Optional[str] = None,
-    ) -> Optional[Fact]:
+        confidence: float | None = None,
+        validation_status: ValidationStatus | None = None,
+        consensus_proof_id: str | None = None,
+        evidence_ids: list[str] | None = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        superseded_by: str | None = None,
+    ) -> Fact | None:
         """Update a fact (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.update_fact_async(
@@ -175,12 +175,12 @@ class PostgresFactStore(PostgresStore):
     def query_facts(
         self,
         query: str,
-        filters: Optional[FactFilters] = None,
+        filters: FactFilters | None = None,
     ) -> list[Fact]:
         """Search facts using full-text search (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.query_facts_async(query, filters))
 
-    def list_facts(self, filters: Optional[FactFilters] = None) -> list[Fact]:
+    def list_facts(self, filters: FactFilters | None = None) -> list[Fact]:
         """List facts with optional filtering (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.list_facts_async(filters))
 
@@ -195,7 +195,7 @@ class PostgresFactStore(PostgresStore):
         relation_type: FactRelationType,
         confidence: float = 0.5,
         created_by: str = "",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FactRelation:
         """Add a relation between facts (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -212,7 +212,7 @@ class PostgresFactStore(PostgresStore):
     def get_relations(
         self,
         fact_id: str,
-        relation_type: Optional[FactRelationType] = None,
+        relation_type: FactRelationType | None = None,
         as_source: bool = True,
         as_target: bool = True,
     ) -> list[FactRelation]:
@@ -225,7 +225,7 @@ class PostgresFactStore(PostgresStore):
         """Delete a fact and its relations (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.delete_fact_async(fact_id))
 
-    def get_statistics(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
+    def get_statistics(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get store statistics (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_statistics_async(workspace_id))
 
@@ -237,11 +237,11 @@ class PostgresFactStore(PostgresStore):
         self,
         statement: str,
         workspace_id: str,
-        evidence_ids: Optional[list[str]] = None,
-        source_documents: Optional[list[str]] = None,
+        evidence_ids: list[str] | None = None,
+        source_documents: list[str] | None = None,
         confidence: float = 0.5,
-        topics: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         validation_status: ValidationStatus = ValidationStatus.UNVERIFIED,
         deduplicate: bool = True,
     ) -> Fact:
@@ -327,7 +327,7 @@ class PostgresFactStore(PostgresStore):
             updated_at=now,
         )
 
-    async def get_fact_async(self, fact_id: str) -> Optional[Fact]:
+    async def get_fact_async(self, fact_id: str) -> Fact | None:
         """Get a fact by ID asynchronously.
 
         Args:
@@ -354,14 +354,14 @@ class PostgresFactStore(PostgresStore):
     async def update_fact_async(
         self,
         fact_id: str,
-        confidence: Optional[float] = None,
-        validation_status: Optional[ValidationStatus] = None,
-        consensus_proof_id: Optional[str] = None,
-        evidence_ids: Optional[list[str]] = None,
-        topics: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        superseded_by: Optional[str] = None,
-    ) -> Optional[Fact]:
+        confidence: float | None = None,
+        validation_status: ValidationStatus | None = None,
+        consensus_proof_id: str | None = None,
+        evidence_ids: list[str] | None = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        superseded_by: str | None = None,
+    ) -> Fact | None:
         """Update a fact asynchronously.
 
         Args:
@@ -439,7 +439,7 @@ class PostgresFactStore(PostgresStore):
     async def query_facts_async(
         self,
         query: str,
-        filters: Optional[FactFilters] = None,
+        filters: FactFilters | None = None,
     ) -> list[Fact]:
         """Search facts using full-text search asynchronously.
 
@@ -513,7 +513,7 @@ class PostgresFactStore(PostgresStore):
             rows = await conn.fetch(sql, *params)
             return [self._row_to_fact(row) for row in rows]
 
-    async def list_facts_async(self, filters: Optional[FactFilters] = None) -> list[Fact]:
+    async def list_facts_async(self, filters: FactFilters | None = None) -> list[Fact]:
         """List facts with optional filtering asynchronously.
 
         Args:
@@ -618,7 +618,7 @@ class PostgresFactStore(PostgresStore):
         relation_type: FactRelationType,
         confidence: float = 0.5,
         created_by: str = "",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FactRelation:
         """Add a relation between facts asynchronously.
 
@@ -668,7 +668,7 @@ class PostgresFactStore(PostgresStore):
     async def get_relations_async(
         self,
         fact_id: str,
-        relation_type: Optional[FactRelationType] = None,
+        relation_type: FactRelationType | None = None,
         as_source: bool = True,
         as_target: bool = True,
     ) -> list[FactRelation]:
@@ -748,7 +748,7 @@ class PostgresFactStore(PostgresStore):
             result = await conn.execute("DELETE FROM facts WHERE id = $1", fact_id)
             return result != "DELETE 0"
 
-    async def get_statistics_async(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
+    async def get_statistics_async(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get store statistics asynchronously.
 
         Args:

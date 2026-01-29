@@ -11,16 +11,16 @@ Quality signals:
 - Question/statement structure
 - Hashtag/mention spam
 """
+from __future__ import annotations
 
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class QualityScore:
@@ -29,9 +29,8 @@ class QualityScore:
     topic: TrendingTopic
     overall_score: float  # 0.0 - 1.0 (higher = better quality)
     is_acceptable: bool  # Meets minimum quality threshold
-    signals: Dict[str, float] = field(default_factory=dict)
-    issues: List[str] = field(default_factory=list)
-
+    signals: dict[str, float] = field(default_factory=dict)
+    issues: list[str] = field(default_factory=list)
 
 # Clickbait patterns
 CLICKBAIT_PATTERNS = [
@@ -95,7 +94,6 @@ QUALITY_INDICATORS = [
     r"\bconsequences?\b",
 ]
 
-
 class TopicQualityFilter:
     """
     Filters and scores topics based on content quality.
@@ -116,7 +114,7 @@ class TopicQualityFilter:
         min_text_length: int = 10,
         max_hashtag_ratio: float = 0.30,
         max_emoji_ratio: float = 0.20,
-        additional_blocklist: Optional[Set[str]] = None,
+        additional_blocklist: Optional[set[str]] = None,
     ):
         """
         Initialize the quality filter.
@@ -151,8 +149,8 @@ class TopicQualityFilter:
             QualityScore with overall score and signals
         """
         text = topic.topic
-        signals: Dict[str, float] = {}
-        issues: List[str] = []
+        signals: dict[str, float] = {}
+        issues: list[str] = []
 
         # Length check
         length_score = self._score_length(text)
@@ -220,9 +218,9 @@ class TopicQualityFilter:
 
     def filter_topics(
         self,
-        topics: List[TrendingTopic],
-        min_quality: Optional[float] = None,
-    ) -> List[QualityScore]:
+        topics: list[TrendingTopic],
+        min_quality: float | None = None,
+    ) -> list[QualityScore]:
         """
         Filter topics by quality, returning only acceptable ones.
 
@@ -347,12 +345,12 @@ class TopicQualityFilter:
                 return 0.0
         return 1.0
 
-    def add_to_blocklist(self, terms: List[str]) -> None:
+    def add_to_blocklist(self, terms: list[str]) -> None:
         """Add terms to the blocklist."""
         self.blocklist.update(terms)
         logger.info(f"Added {len(terms)} terms to quality blocklist")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get filter configuration stats."""
         return {
             "min_quality_threshold": self.min_quality_threshold,
@@ -363,7 +361,6 @@ class TopicQualityFilter:
             "clickbait_pattern_count": len(self._clickbait_patterns),
             "spam_pattern_count": len(self._spam_patterns),
         }
-
 
 __all__ = [
     "QualityScore",

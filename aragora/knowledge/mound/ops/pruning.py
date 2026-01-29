@@ -7,15 +7,15 @@ or redundant knowledge items:
 - Batch prune operations
 - Pruning history and audit trail
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
-
 
 class PruningAction(str, Enum):
     """Actions that can be taken on prunable items."""
@@ -24,7 +24,6 @@ class PruningAction(str, Enum):
     DELETE = "delete"
     DEMOTE = "demote"  # Move to lower tier
     FLAG = "flag"  # Mark for review
-
 
 @dataclass
 class PruningPolicy:
@@ -55,8 +54,7 @@ class PruningPolicy:
 
     # Schedule
     auto_prune: bool = False
-    schedule_cron: Optional[str] = None  # e.g., "0 2 * * *" for 2am daily
-
+    schedule_cron: str | None = None  # e.g., "0 2 * * *" for 2am daily
 
 @dataclass
 class PrunableItem:
@@ -67,12 +65,11 @@ class PrunableItem:
     staleness_score: float
     confidence: float
     retrieval_count: int
-    last_retrieved_at: Optional[datetime]
+    last_retrieved_at: datetime | None
     tier: str
     created_at: datetime
     prune_reason: str
     recommended_action: PruningAction
-
 
 @dataclass
 class PruneResult:
@@ -80,7 +77,7 @@ class PruneResult:
 
     workspace_id: str
     executed_at: datetime
-    policy_id: Optional[str]
+    policy_id: str | None
     items_analyzed: int
     items_pruned: int
     items_archived: int
@@ -90,7 +87,6 @@ class PruneResult:
     pruned_item_ids: list[str]
     errors: list[str] = field(default_factory=list)
 
-
 @dataclass
 class PruneHistory:
     """Historical record of pruning operations."""
@@ -98,13 +94,12 @@ class PruneHistory:
     history_id: str
     workspace_id: str
     executed_at: datetime
-    policy_id: Optional[str]
+    policy_id: str | None
     action: PruningAction
     items_pruned: int
     pruned_item_ids: list[str]
     reason: str
-    executed_by: Optional[str]
-
+    executed_by: str | None
 
 class PruningOperationsMixin:
     """Mixin providing pruning operations for Knowledge Mound."""
@@ -194,7 +189,7 @@ class PruningOperationsMixin:
         item_ids: list[str],
         action: PruningAction = PruningAction.ARCHIVE,
         reason: str = "manual_prune",
-        executed_by: Optional[str] = None,
+        executed_by: str | None = None,
     ) -> PruneResult:
         """Prune specific items.
 
@@ -351,7 +346,7 @@ class PruningOperationsMixin:
         self,
         workspace_id: str,
         limit: int = 50,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
     ) -> list[PruneHistory]:
         """Get pruning history for a workspace.
 
@@ -444,7 +439,7 @@ class PruningOperationsMixin:
         action: PruningAction,
         item_ids: list[str],
         reason: str,
-        executed_by: Optional[str],
+        executed_by: str | None,
     ) -> None:
         """Record a pruning operation in history."""
         history = PruneHistory(

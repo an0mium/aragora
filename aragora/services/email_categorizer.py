@@ -33,14 +33,13 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
 logger = logging.getLogger(__name__)
-
 
 class EmailCategory(Enum):
     """Email category types for smart folders."""
@@ -57,7 +56,6 @@ class EmailCategory(Enum):
     SOCIAL = "social"  # Social media notifications
     UNCATEGORIZED = "uncategorized"  # Default
 
-
 @dataclass
 class CategoryPattern:
     """Pattern definition for category detection."""
@@ -66,9 +64,8 @@ class CategoryPattern:
     weight: float = 1.0
     field: str = "all"  # "subject", "body", "from", "all"
 
-
 # Category detection patterns
-CATEGORY_PATTERNS: Dict[EmailCategory, List[CategoryPattern]] = {
+CATEGORY_PATTERNS: dict[EmailCategory, list[CategoryPattern]] = {
     EmailCategory.INVOICES: [
         CategoryPattern(r"\binvoice\b", 0.8),
         CategoryPattern(r"\bbilling\b", 0.6),
@@ -174,9 +171,8 @@ CATEGORY_PATTERNS: Dict[EmailCategory, List[CategoryPattern]] = {
     ],
 }
 
-
 # Sender domain patterns for quick categorization
-SENDER_DOMAIN_CATEGORIES: Dict[str, EmailCategory] = {
+SENDER_DOMAIN_CATEGORIES: dict[str, EmailCategory] = {
     # HR
     "workday.com": EmailCategory.HR,
     "adp.com": EmailCategory.HR,
@@ -211,7 +207,6 @@ SENDER_DOMAIN_CATEGORIES: Dict[str, EmailCategory] = {
     "square.com": EmailCategory.INVOICES,
 }
 
-
 @dataclass
 class CategorizationResult:
     """Result of email categorization."""
@@ -219,13 +214,13 @@ class CategorizationResult:
     email_id: str
     category: EmailCategory
     confidence: float
-    secondary_category: Optional[EmailCategory] = None
-    matched_patterns: List[str] = field(default_factory=list)
+    secondary_category: EmailCategory | None = None
+    matched_patterns: list[str] = field(default_factory=list)
     suggested_label: str = ""
     auto_archive: bool = False
     rationale: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "email_id": self.email_id,
@@ -240,7 +235,6 @@ class CategorizationResult:
             "rationale": self.rationale,
         }
 
-
 @dataclass
 class EmailCategorizerConfig:
     """Configuration for email categorizer."""
@@ -254,13 +248,12 @@ class EmailCategorizerConfig:
     auto_archive_social: bool = False
 
     # Custom category mappings (sender -> category)
-    custom_sender_categories: Dict[str, str] = field(default_factory=dict)
+    custom_sender_categories: dict[str, str] = field(default_factory=dict)
 
     # Categories to enable
-    enabled_categories: Set[EmailCategory] = field(
+    enabled_categories: set[EmailCategory] = field(
         default_factory=lambda: {cat for cat in EmailCategory if cat != EmailCategory.UNCATEGORIZED}
     )
-
 
 class EmailCategorizer:
     """
@@ -272,12 +265,12 @@ class EmailCategorizer:
 
     def __init__(
         self,
-        gmail_connector: Optional[GmailConnector] = None,
-        config: Optional[EmailCategorizerConfig] = None,
+        gmail_connector: GmailConnector | None = None,
+        config: EmailCategorizerConfig | None = None,
     ):
         self.gmail = gmail_connector
         self.config = config or EmailCategorizerConfig()
-        self._compiled_patterns: Dict[EmailCategory, List[tuple]] = {}
+        self._compiled_patterns: dict[EmailCategory, list[tuple]] = {}
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
@@ -359,8 +352,8 @@ class EmailCategorizer:
             )
 
         # Pattern-based scoring
-        scores: Dict[EmailCategory, float] = {}
-        matched: Dict[EmailCategory, List[str]] = {}
+        scores: dict[EmailCategory, float] = {}
+        matched: dict[EmailCategory, list[str]] = {}
 
         for category, patterns in self._compiled_patterns.items():
             category_score = 0.0
@@ -413,9 +406,9 @@ class EmailCategorizer:
 
     async def categorize_batch(
         self,
-        emails: List[EmailMessage],
+        emails: list[EmailMessage],
         concurrency: int = 10,
-    ) -> List[CategorizationResult]:
+    ) -> list[CategorizationResult]:
         """
         Categorize multiple emails concurrently.
 
@@ -464,7 +457,7 @@ class EmailCategorizer:
     def _generate_rationale(
         self,
         category: EmailCategory,
-        patterns: List[str],
+        patterns: list[str],
     ) -> str:
         """Generate human-readable rationale for categorization."""
         descriptions = {
@@ -532,8 +525,8 @@ class EmailCategorizer:
 
     def get_category_stats(
         self,
-        results: List[CategorizationResult],
-    ) -> Dict[str, Any]:
+        results: list[CategorizationResult],
+    ) -> dict[str, Any]:
         """
         Get statistics from categorization results.
 
@@ -543,7 +536,7 @@ class EmailCategorizer:
         Returns:
             Stats dictionary with counts and distributions
         """
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "total": len(results),
             "categories": {},
             "confidence_avg": 0.0,
@@ -568,7 +561,6 @@ class EmailCategorizer:
         stats["confidence_avg"] = sum(r.confidence for r in results) / len(results)
 
         return stats
-
 
 # Convenience function for quick categorization
 async def categorize_email_quick(

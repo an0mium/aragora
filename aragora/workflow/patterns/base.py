@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 import uuid
 
 from aragora.workflow.types import (
@@ -25,7 +25,6 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 
-
 class PatternType(Enum):
     """Types of workflow patterns."""
 
@@ -38,7 +37,6 @@ class PatternType(Enum):
     DEBATE = "debate"
     CUSTOM = "custom"
 
-
 @dataclass
 class ResourceLimits:
     """Resource limits for workflow execution."""
@@ -49,7 +47,7 @@ class ResourceLimits:
     max_parallel_agents: int = 5
     max_retries: int = 3
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "max_tokens": self.max_tokens,
             "max_cost_usd": self.max_cost_usd,
@@ -58,26 +56,24 @@ class ResourceLimits:
             "max_retries": self.max_retries,
         }
 
-
 @dataclass
 class PatternConfig:
     """Configuration for a workflow pattern."""
 
     name: str
     description: str = ""
-    agents: List[str] = field(default_factory=lambda: ["claude", "gpt4"])
+    agents: list[str] = field(default_factory=lambda: ["claude", "gpt4"])
     task: str = ""
     category: WorkflowCategory = WorkflowCategory.GENERAL
     limits: ResourceLimits = field(default_factory=ResourceLimits)
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Agent configuration
-    agent_configs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    agent_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     # Output configuration
     output_format: str = "json"  # json, text, structured
-
 
 class WorkflowPattern(ABC):
     """
@@ -99,7 +95,7 @@ class WorkflowPattern(ABC):
     def __init__(
         self,
         name: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         task: str = "",
         **kwargs,
     ):
@@ -169,7 +165,7 @@ class WorkflowPattern(ABC):
         step_id: str,
         name: str,
         task_type: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         position: Position,
         category: NodeCategory = NodeCategory.TASK,
     ) -> StepDefinition:
@@ -191,7 +187,7 @@ class WorkflowPattern(ABC):
         step_id: str,
         name: str,
         topic: str,
-        agents: List[str],
+        agents: list[str],
         position: Position,
         rounds: int = 3,
         consensus_mechanism: str = "majority",

@@ -35,14 +35,13 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker, CalibrationSummary
     from aragora.billing.cost_tracker import CostTracker
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AgentCostEfficiency:
@@ -57,7 +56,6 @@ class AgentCostEfficiency:
     is_overconfident: bool = False
     is_underconfident: bool = False
     recommendation: str = ""  # "efficient", "moderate", "costly"
-
 
 @dataclass
 class CalibrationCostBridgeConfig:
@@ -88,7 +86,6 @@ class CalibrationCostBridgeConfig:
     efficient_threshold: float = 0.7
     moderate_threshold: float = 0.4
 
-
 @dataclass
 class CalibrationCostBridge:
     """Bridges CalibrationTracker into cost optimization decisions.
@@ -105,8 +102,8 @@ class CalibrationCostBridge:
     config: CalibrationCostBridgeConfig = field(default_factory=CalibrationCostBridgeConfig)
 
     # Cached efficiency data
-    _efficiency_cache: Dict[str, AgentCostEfficiency] = field(default_factory=dict, repr=False)
-    _cache_timestamp: Optional[datetime] = field(default=None, repr=False)
+    _efficiency_cache: dict[str, AgentCostEfficiency] = field(default_factory=dict, repr=False)
+    _cache_timestamp: datetime | None = field(default=None, repr=False)
     _cache_ttl_seconds: int = 300  # 5 minutes
 
     def compute_cost_efficiency(self, agent_name: str) -> AgentCostEfficiency:
@@ -274,9 +271,9 @@ class CalibrationCostBridge:
 
     def recommend_cost_efficient_agent(
         self,
-        available_agents: List[str],
+        available_agents: list[str],
         min_accuracy: float = 0.7,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Recommend the most cost-efficient agent.
 
         Args:
@@ -286,7 +283,7 @@ class CalibrationCostBridge:
         Returns:
             Name of recommended agent, or None if none meet criteria
         """
-        candidates: List[Tuple[str, float]] = []
+        candidates: list[tuple[str, float]] = []
 
         for agent_name in available_agents:
             efficiency = self.compute_cost_efficiency(agent_name)
@@ -315,8 +312,8 @@ class CalibrationCostBridge:
 
     def rank_agents_by_cost_efficiency(
         self,
-        available_agents: List[str],
-    ) -> List[Tuple[str, float]]:
+        available_agents: list[str],
+    ) -> list[tuple[str, float]]:
         """Rank agents by cost efficiency.
 
         Args:
@@ -325,7 +322,7 @@ class CalibrationCostBridge:
         Returns:
             List of (agent_name, efficiency_score) sorted by efficiency
         """
-        rankings: List[Tuple[str, float]] = []
+        rankings: list[tuple[str, float]] = []
 
         for agent_name in available_agents:
             efficiency = self.compute_cost_efficiency(agent_name)
@@ -336,10 +333,10 @@ class CalibrationCostBridge:
 
     def get_budget_aware_selection(
         self,
-        available_agents: List[str],
+        available_agents: list[str],
         budget_remaining: Decimal,
         estimated_rounds: int = 3,
-    ) -> List[str]:
+    ) -> list[str]:
         """Get agents that fit within budget constraints.
 
         Args:
@@ -350,7 +347,7 @@ class CalibrationCostBridge:
         Returns:
             List of agents that fit budget, sorted by efficiency
         """
-        candidates: List[Tuple[str, float, Decimal]] = []
+        candidates: list[tuple[str, float, Decimal]] = []
 
         for agent_name in available_agents:
             efficiency = self.compute_cost_efficiency(agent_name)
@@ -369,8 +366,8 @@ class CalibrationCostBridge:
 
     def get_overconfident_agents(
         self,
-        available_agents: Optional[List[str]] = None,
-    ) -> List[str]:
+        available_agents: Optional[list[str]] = None,
+    ) -> list[str]:
         """Get list of overconfident agents (may incur extra costs).
 
         Args:
@@ -394,8 +391,8 @@ class CalibrationCostBridge:
 
     def get_well_calibrated_agents(
         self,
-        available_agents: Optional[List[str]] = None,
-    ) -> List[str]:
+        available_agents: Optional[list[str]] = None,
+    ) -> list[str]:
         """Get list of well-calibrated agents (cost-efficient).
 
         Args:
@@ -417,7 +414,7 @@ class CalibrationCostBridge:
 
         return well_calibrated
 
-    def get_efficiency(self, agent_name: str) -> Optional[AgentCostEfficiency]:
+    def get_efficiency(self, agent_name: str) -> AgentCostEfficiency | None:
         """Get cached efficiency data for an agent.
 
         Args:
@@ -435,7 +432,7 @@ class CalibrationCostBridge:
 
         return self._efficiency_cache.get(agent_name)
 
-    def refresh_cache(self, agents: Optional[List[str]] = None) -> int:
+    def refresh_cache(self, agents: Optional[list[str]] = None) -> int:
         """Refresh efficiency cache for agents.
 
         Args:
@@ -457,7 +454,7 @@ class CalibrationCostBridge:
 
         return refreshed
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.
 
         Returns:
@@ -474,7 +471,6 @@ class CalibrationCostBridge:
             "calibration_tracker_attached": self.calibration_tracker is not None,
             "cost_tracker_attached": self.cost_tracker is not None,
         }
-
 
 def create_calibration_cost_bridge(
     calibration_tracker: Optional["CalibrationTracker"] = None,
@@ -497,7 +493,6 @@ def create_calibration_cost_bridge(
         cost_tracker=cost_tracker,
         config=config,
     )
-
 
 __all__ = [
     "CalibrationCostBridge",

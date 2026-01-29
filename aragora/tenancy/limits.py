@@ -17,12 +17,10 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aragora.tenancy.tenant import TenantConfig
 
 logger = logging.getLogger(__name__)
-
 
 class TenantLimitExceededError(Exception):
     """Raised when a tenant exceeds their resource limits."""
@@ -33,14 +31,13 @@ class TenantLimitExceededError(Exception):
         limit_type: str,
         current: int,
         limit: int,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ):
         super().__init__(message)
         self.limit_type = limit_type
         self.current = current
         self.limit = limit
         self.tenant_id = tenant_id
-
 
 class TenantLimitsEnforcer:
     """

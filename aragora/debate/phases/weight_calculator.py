@@ -30,7 +30,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class WeightFactors:
     """Individual weight factors for an agent.
@@ -59,7 +58,6 @@ class WeightFactors:
             * self.self_vote
             * self.verbosity
         )
-
 
 @dataclass
 class WeightCalculatorConfig:
@@ -115,7 +113,6 @@ class WeightCalculatorConfig:
     verbosity_penalty_threshold: float = 3.0  # Penalty starts at 3x target
     verbosity_max_penalty: float = 0.3  # Max penalty (weight floor = 0.7)
 
-
 class WeightCalculator:
     """Calculate agent voting weights from multiple sources.
 
@@ -139,10 +136,10 @@ class WeightCalculator:
         memory: Any = None,
         elo_system: Any = None,
         flip_detector: Any = None,
-        agent_weights: Optional[dict[str, float]] = None,
+        agent_weights: dict[str, float] | None = None,
         calibration_tracker: Any = None,
         get_calibration_weight: Optional[Callable[[str], float]] = None,
-        config: Optional[WeightCalculatorConfig] = None,
+        config: WeightCalculatorConfig | None = None,
         domain: str = "general",
     ):
         """Initialize the weight calculator.

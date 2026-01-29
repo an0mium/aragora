@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -33,7 +33,6 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
-
 
 class DRHandler(BaseHandler):
     """
@@ -71,9 +70,9 @@ class DRHandler(BaseHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
         query_params = query_params or {}
@@ -202,7 +201,7 @@ class DRHandler(BaseHandler):
         )
 
     @require_permission("dr:drill")
-    async def _run_drill(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _run_drill(self, body: dict[str, Any]) -> HandlerResult:
         """
         Run a DR drill (simulated recovery).
 
@@ -404,7 +403,7 @@ class DRHandler(BaseHandler):
         )
 
     @require_permission("dr:read")
-    async def _validate_configuration(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _validate_configuration(self, body: dict[str, Any]) -> HandlerResult:
         """
         Validate DR configuration.
 
@@ -418,15 +417,15 @@ class DRHandler(BaseHandler):
         check_encryption = body.get("check_encryption", True)
 
         manager = self._get_backup_manager()
-        checks: list[Dict[str, Any]] = []
-        validation_results: Dict[str, Any] = {
+        checks: list[dict[str, Any]] = []
+        validation_results: dict[str, Any] = {
             "valid": True,
             "checks": checks,
         }
 
         # Check RBAC permissions for backup operations
         if check_permissions:
-            check: Dict[str, Any] = {"name": "rbac_permissions", "status": "checking"}
+            check: dict[str, Any] = {"name": "rbac_permissions", "status": "checking"}
             try:
                 required_perms = ["dr:read", "dr:write", "dr:admin"]
                 # Verify RBAC module is available and permissions are defined
@@ -546,7 +545,6 @@ class DRHandler(BaseHandler):
         checks.append(check)
 
         return json_response(validation_results)
-
 
 # Handler factory function for registration
 def create_dr_handler(server_context: ServerContext) -> DRHandler:

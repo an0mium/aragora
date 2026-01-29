@@ -8,11 +8,12 @@ Provides webhook notifications for gauntlet receipt lifecycle events:
 - receipt_shared: Shareable link created for receipt
 - receipt_integrity_failed: Receipt integrity verification failed
 """
+from __future__ import annotations
 
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.integrations.webhooks import (
     WebhookDispatcher,
@@ -20,7 +21,6 @@ from aragora.integrations.webhooks import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ReceiptWebhookPayload:
@@ -30,15 +30,15 @@ class ReceiptWebhookPayload:
     receipt_id: str
     debate_id: str
     timestamp: float = field(default_factory=time.time)
-    verdict: Optional[str] = None
-    confidence: Optional[float] = None
-    hash: Optional[str] = None
-    export_format: Optional[str] = None
-    share_url: Optional[str] = None
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    verdict: str | None = None
+    confidence: float | None = None
+    hash: str | None = None
+    export_format: str | None = None
+    share_url: str | None = None
+    error_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for webhook payload."""
         result = {
             "event_type": self.event_type,
@@ -61,7 +61,6 @@ class ReceiptWebhookPayload:
         if self.metadata:
             result["metadata"] = self.metadata
         return result
-
 
 class ReceiptWebhookNotifier:
     """
@@ -90,7 +89,7 @@ class ReceiptWebhookNotifier:
         )
     """
 
-    def __init__(self, dispatcher: Optional[WebhookDispatcher] = None):
+    def __init__(self, dispatcher: WebhookDispatcher | None = None):
         """Initialize with optional custom dispatcher."""
         self._dispatcher = dispatcher
 
@@ -118,9 +117,9 @@ class ReceiptWebhookNotifier:
         verdict: str,
         confidence: float,
         hash: str,
-        agents: Optional[List[str]] = None,
-        rounds: Optional[int] = None,
-        findings_count: Optional[int] = None,
+        agents: Optional[list[str]] = None,
+        rounds: int | None = None,
+        findings_count: int | None = None,
     ) -> None:
         """Notify that a new receipt has been generated.
 
@@ -187,7 +186,7 @@ class ReceiptWebhookNotifier:
         receipt_id: str,
         debate_id: str,
         export_format: str,
-        file_size: Optional[int] = None,
+        file_size: int | None = None,
     ) -> None:
         """Notify that a receipt has been exported.
 
@@ -215,7 +214,7 @@ class ReceiptWebhookNotifier:
         receipt_id: str,
         debate_id: str,
         share_url: str,
-        expires_at: Optional[str] = None,
+        expires_at: str | None = None,
         allow_download: bool = True,
     ) -> None:
         """Notify that a receipt share link has been created.
@@ -246,7 +245,7 @@ class ReceiptWebhookNotifier:
         debate_id: str,
         expected_hash: str,
         computed_hash: str,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> None:
         """Notify that a receipt integrity check has failed.
 
@@ -270,10 +269,8 @@ class ReceiptWebhookNotifier:
         )
         self._emit(payload)
 
-
 # Singleton instance
-_receipt_notifier: Optional[ReceiptWebhookNotifier] = None
-
+_receipt_notifier: ReceiptWebhookNotifier | None = None
 
 def get_receipt_notifier() -> ReceiptWebhookNotifier:
     """Get the singleton receipt webhook notifier."""
@@ -281,7 +278,6 @@ def get_receipt_notifier() -> ReceiptWebhookNotifier:
     if _receipt_notifier is None:
         _receipt_notifier = ReceiptWebhookNotifier()
     return _receipt_notifier
-
 
 __all__ = [
     "ReceiptWebhookPayload",

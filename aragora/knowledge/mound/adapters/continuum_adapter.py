@@ -21,14 +21,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemory, ContinuumMemoryEntry
     from aragora.knowledge.mound.types import KnowledgeItem, IngestionRequest
 
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,6 @@ logger = logging.getLogger(__name__)
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
-
 
 @dataclass
 class KMValidationResult:
@@ -53,8 +52,7 @@ class KMValidationResult:
     was_contradicted: bool = False  # If KM found contradicting evidence
     was_supported: bool = False  # If KM found supporting evidence
     recommendation: str = "keep"  # "promote", "demote", "keep", "review"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ValidationSyncResult:
@@ -65,9 +63,8 @@ class ValidationSyncResult:
     demoted: int = 0
     updated: int = 0
     skipped: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
-
 
 @dataclass
 class ContinuumSearchResult:
@@ -75,12 +72,11 @@ class ContinuumSearchResult:
 
     entry: "ContinuumMemoryEntry"
     relevance_score: float = 0.0
-    matched_keywords: List[str] = None
+    matched_keywords: list[str] = None
 
     def __post_init__(self) -> None:
         if self.matched_keywords is None:
             self.matched_keywords = []
-
 
 class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
@@ -111,14 +107,14 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     source_type = "continuum"
 
     # FusionMixin abstract method implementations
-    def _get_fusion_sources(self) -> List[str]:
+    def _get_fusion_sources(self) -> list[str]:
         """Return list of source adapters this adapter can fuse data from."""
         return ["consensus", "elo", "evidence", "belief", "insights"]
 
     def _extract_fusible_data(
         self,
-        km_item: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        km_item: dict[str, Any],
+    ) -> Optional[dict[str, Any]]:
         """Extract fusible data from a KM item.
 
         Args:
@@ -147,7 +143,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply a fusion result to a continuum memory entry.
 
@@ -195,7 +191,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self,
         continuum: "ContinuumMemory",
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
     ):
         """
@@ -220,13 +216,13 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self._event_callback = callback
 
     # SemanticSearchMixin required methods
-    def _get_record_by_id(self, record_id: str) -> Optional[Any]:
+    def _get_record_by_id(self, record_id: str) -> Any | None:
         """Get a memory entry by ID (required by SemanticSearchMixin)."""
         if record_id.startswith("cm_"):
             record_id = record_id[3:]
         return self._continuum.get(record_id)
 
-    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> Dict[str, Any]:
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> dict[str, Any]:
         """Convert a memory entry to dict (required by SemanticSearchMixin)."""
         return {
             "id": record.id,
@@ -254,7 +250,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             return source_id[3:]
         return source_id
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -267,7 +263,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         operation: str,
         success: bool,
         latency: float,
-        extra_labels: Optional[Dict[str, str]] = None,
+        extra_labels: Optional[dict[str, str]] = None,
     ) -> None:
         """Record Prometheus metric for adapter operation and check SLOs.
 
@@ -331,9 +327,9 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self,
         query: str,
         limit: int = 10,
-        tiers: Optional[List[str]] = None,
+        tiers: Optional[list[str]] = None,
         min_importance: float = 0.0,
-    ) -> List["ContinuumMemoryEntry"]:
+    ) -> list["ContinuumMemoryEntry"]:
         """
         Search continuum memory by keyword query.
 
@@ -421,7 +417,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         confidence = tier_to_confidence.get(entry.tier.value, ConfidenceLevel.MEDIUM)
 
         # Build metadata
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "tier": entry.tier.value,
             "surprise_score": entry.surprise_score,
             "consolidation_score": entry.consolidation_score,
@@ -451,8 +447,8 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     def from_ingestion_request(
         self,
         request: "IngestionRequest",
-        entry_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        entry_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Convert an IngestionRequest to ContinuumMemory add() parameters.
 
@@ -497,8 +493,8 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         content: str,
         importance: float = 0.5,
         tier: str = "slow",
-        entry_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        entry_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Store content in continuum memory.
@@ -555,11 +551,11 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
                 metadata=entry.metadata,
             )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about the continuum memory."""
         return self._continuum.get_stats()
 
-    def get_tier_metrics(self) -> Dict[str, Any]:
+    def get_tier_metrics(self) -> dict[str, Any]:
         """Get per-tier metrics."""
         return self._continuum.get_tier_metrics()
 
@@ -568,7 +564,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         content: str,
         limit: int = 5,
         min_similarity: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find similar memory entries for deduplication.
 
@@ -793,7 +789,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     async def sync_validations_to_continuum(
         self,
         workspace_id: str,
-        validations: List[KMValidationResult],
+        validations: list[KMValidationResult],
         min_confidence: float = 0.7,
     ) -> ValidationSyncResult:
         """
@@ -860,7 +856,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self,
         limit: int = 50,
         min_km_confidence: float = 0.7,
-    ) -> List["ContinuumMemoryEntry"]:
+    ) -> list["ContinuumMemoryEntry"]:
         """
         Get continuum entries that have been validated by KM.
 
@@ -898,8 +894,8 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         workspace_id: str,
         min_importance: float = 0.7,
         limit: int = 100,
-        tiers: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        tiers: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
         """
         Sync high-importance continuum memories to the Knowledge Mound.
 
@@ -1002,7 +998,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         }
         return mapping.get(tier_name, 3)
 
-    def get_reverse_sync_stats(self) -> Dict[str, Any]:
+    def get_reverse_sync_stats(self) -> dict[str, Any]:
         """
         Get statistics about reverse sync (KM → ContinuumMemory).
 

@@ -6,12 +6,11 @@ Provides tenant isolation for real-time event streams by:
 2. Filtering events to only reach clients in the same tenant
 3. Validating tenant ownership of subscribed resources
 """
+from __future__ import annotations
 
 import logging
-from typing import Dict, Optional, Set
 
 logger = logging.getLogger(__name__)
-
 
 class TenantFilter:
     """
@@ -23,13 +22,13 @@ class TenantFilter:
 
     def __init__(self) -> None:
         # Map client_id (websocket hash) -> tenant_id
-        self._client_tenants: Dict[int, Optional[str]] = {}
+        self._client_tenants: dict[int, str | None] = {}
         # Map resource_id (debate/loop) -> tenant_id
-        self._resource_tenants: Dict[str, str] = {}
+        self._resource_tenants: dict[str, str] = {}
         # Map tenant_id -> set of resource_ids
-        self._tenant_resources: Dict[str, Set[str]] = {}
+        self._tenant_resources: dict[str, set[str]] = {}
 
-    def register_client(self, client_id: int, tenant_id: Optional[str]) -> None:
+    def register_client(self, client_id: int, tenant_id: str | None) -> None:
         """Register a client connection with their tenant.
 
         Args:
@@ -72,7 +71,7 @@ class TenantFilter:
             self._tenant_resources[tenant_id].discard(resource_id)
         logger.debug(f"Unregistered resource {resource_id}")
 
-    def get_client_tenant(self, client_id: int) -> Optional[str]:
+    def get_client_tenant(self, client_id: int) -> str | None:
         """Get the tenant ID for a client.
 
         Args:
@@ -83,7 +82,7 @@ class TenantFilter:
         """
         return self._client_tenants.get(client_id)
 
-    def get_resource_tenant(self, resource_id: str) -> Optional[str]:
+    def get_resource_tenant(self, resource_id: str) -> str | None:
         """Get the tenant ID that owns a resource.
 
         Args:
@@ -126,8 +125,8 @@ class TenantFilter:
     def should_receive_event(
         self,
         client_id: int,
-        event_tenant_id: Optional[str],
-        event_resource_id: Optional[str],
+        event_tenant_id: str | None,
+        event_resource_id: str | None,
     ) -> bool:
         """Determine if a client should receive an event.
 
@@ -168,10 +167,10 @@ class TenantFilter:
 
     def filter_clients_for_event(
         self,
-        client_ids: Set[int],
-        event_tenant_id: Optional[str],
-        event_resource_id: Optional[str],
-    ) -> Set[int]:
+        client_ids: set[int],
+        event_tenant_id: str | None,
+        event_resource_id: str | None,
+    ) -> set[int]:
         """Filter a set of clients to those who should receive an event.
 
         Args:
@@ -209,10 +208,8 @@ class TenantFilter:
             f"cannot subscribe to resource owned by tenant '{resource_tenant}'"
         )
 
-
 # Global tenant filter instance
 _tenant_filter = TenantFilter()
-
 
 def get_tenant_filter() -> TenantFilter:
     """Get the global tenant filter instance."""

@@ -4,12 +4,12 @@ Risk Heatmap - Visual risk aggregation.
 Provides a category x severity breakdown of findings
 for dashboard visualization.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from .result import GauntletResult
-
 
 @dataclass
 class HeatmapCell:
@@ -39,7 +39,6 @@ class HeatmapCell:
             "vulnerabilities": self.vulnerabilities,
         }
 
-
 @dataclass
 class RiskHeatmap:
     """
@@ -54,8 +53,8 @@ class RiskHeatmap:
 
     # Summary statistics
     total_findings: int = 0
-    highest_risk_category: Optional[str] = None
-    highest_risk_severity: Optional[str] = None
+    highest_risk_category: str | None = None
+    highest_risk_severity: str | None = None
 
     @classmethod
     def from_result(cls, result: GauntletResult) -> "RiskHeatmap":
@@ -96,7 +95,7 @@ class RiskHeatmap:
 
         # Find highest risk
         highest_category = (
-            max(category_totals, key=category_totals.get) if category_totals else None
+            max(category_totals, key=lambda k: category_totals[k]) if category_totals else None
         )
         highest_severity = (
             "critical"
@@ -146,7 +145,7 @@ class RiskHeatmap:
                 )
 
         highest_category = (
-            max(category_totals, key=category_totals.get) if category_totals else None
+            max(category_totals, key=lambda k: category_totals[k]) if category_totals else None
         )
         highest_severity = (
             "critical"
@@ -163,7 +162,7 @@ class RiskHeatmap:
             highest_risk_severity=highest_severity,
         )
 
-    def get_cell(self, category: str, severity: str) -> Optional[HeatmapCell]:
+    def get_cell(self, category: str, severity: str) -> HeatmapCell | None:
         """Get a specific cell."""
         for cell in self.cells:
             if cell.category == category and cell.severity == severity:

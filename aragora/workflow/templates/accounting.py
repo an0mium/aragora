@@ -4,9 +4,9 @@ Accounting/Financial Workflow Templates.
 Templates for financial audits and SOX compliance.
 """
 
-from typing import Dict, Any
+from typing import Any
 
-FINANCIAL_AUDIT_TEMPLATE: Dict[str, Any] = {
+FINANCIAL_AUDIT_TEMPLATE: dict[str, Any] = {
     "name": "Financial Statement Audit",
     "description": "Multi-agent financial statement audit with substantive testing",
     "category": "accounting",
@@ -215,7 +215,7 @@ FINANCIAL_AUDIT_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-SOX_COMPLIANCE_TEMPLATE: Dict[str, Any] = {
+SOX_COMPLIANCE_TEMPLATE: dict[str, Any] = {
     "name": "SOX Compliance Assessment",
     "description": "Sarbanes-Oxley Section 404 internal control assessment",
     "category": "accounting",
@@ -399,7 +399,7 @@ SOX_COMPLIANCE_TEMPLATE: Dict[str, Any] = {
 # Bank Reconciliation Workflow (Plaid + QBO Integration)
 # =============================================================================
 
-BANK_RECONCILIATION_TEMPLATE: Dict[str, Any] = {
+BANK_RECONCILIATION_TEMPLATE: dict[str, Any] = {
     "name": "Bank Reconciliation",
     "description": "Automated bank-to-book reconciliation with Plaid and QuickBooks integration",
     "category": "accounting",

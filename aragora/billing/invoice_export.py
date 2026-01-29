@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,6 @@ from reportlab.platypus import (
 
 HAS_REPORTLAB = True
 
-
 @dataclass
 class InvoiceCompanyInfo:
     """Company information for invoice header."""
@@ -60,8 +59,7 @@ class InvoiceCompanyInfo:
     email: str = ""
     phone: str = ""
     tax_id: str = ""
-    logo_path: Optional[str] = None
-
+    logo_path: str | None = None
 
 @dataclass
 class InvoiceCustomerInfo:
@@ -77,7 +75,6 @@ class InvoiceCustomerInfo:
     country: str = ""
     tax_id: str = ""
 
-
 @dataclass
 class InvoiceExportConfig:
     """Configuration for invoice export."""
@@ -90,7 +87,6 @@ class InvoiceExportConfig:
     date_format: str = "%B %d, %Y"
     footer_text: str = "Thank you for your business!"
 
-
 class InvoiceExporter:
     """
     Exports invoices to PDF and HTML formats.
@@ -102,7 +98,7 @@ class InvoiceExporter:
     - Line item details with subtotals
     """
 
-    def __init__(self, config: Optional[InvoiceExportConfig] = None):
+    def __init__(self, config: InvoiceExportConfig | None = None):
         """
         Initialize invoice exporter.
 
@@ -114,7 +110,7 @@ class InvoiceExporter:
     async def export_pdf(
         self,
         invoice: Any,
-        customer_info: Optional[InvoiceCustomerInfo] = None,
+        customer_info: InvoiceCustomerInfo | None = None,
     ) -> bytes:
         """
         Export invoice to PDF bytes.
@@ -311,7 +307,7 @@ class InvoiceExporter:
     async def export_html(
         self,
         invoice: Any,
-        customer_info: Optional[InvoiceCustomerInfo] = None,
+        customer_info: InvoiceCustomerInfo | None = None,
     ) -> str:
         """
         Export invoice to HTML string.
@@ -541,7 +537,7 @@ class InvoiceExporter:
         self,
         invoice: Any,
         output_path: str,
-        customer_info: Optional[InvoiceCustomerInfo] = None,
+        customer_info: InvoiceCustomerInfo | None = None,
     ) -> str:
         """
         Save invoice as PDF file.
@@ -561,7 +557,7 @@ class InvoiceExporter:
         logger.info(f"Invoice saved to {output_path}")
         return str(path)
 
-    def _format_date(self, dt: Optional[datetime]) -> str:
+    def _format_date(self, dt: datetime | None) -> str:
         """Format a datetime using the configured format."""
         if dt is None:
             return "N/A"
@@ -572,12 +568,11 @@ class InvoiceExporter:
                 return dt
         return dt.strftime(self.config.date_format)
 
-
 # Convenience functions
 async def export_invoice_pdf(
     invoice: Any,
-    customer_info: Optional[InvoiceCustomerInfo] = None,
-    config: Optional[InvoiceExportConfig] = None,
+    customer_info: InvoiceCustomerInfo | None = None,
+    config: InvoiceExportConfig | None = None,
 ) -> bytes:
     """
     Export an invoice to PDF bytes.
@@ -593,11 +588,10 @@ async def export_invoice_pdf(
     exporter = InvoiceExporter(config)
     return await exporter.export_pdf(invoice, customer_info)
 
-
 async def export_invoice_html(
     invoice: Any,
-    customer_info: Optional[InvoiceCustomerInfo] = None,
-    config: Optional[InvoiceExportConfig] = None,
+    customer_info: InvoiceCustomerInfo | None = None,
+    config: InvoiceExportConfig | None = None,
 ) -> str:
     """
     Export an invoice to HTML.
@@ -612,7 +606,6 @@ async def export_invoice_html(
     """
     exporter = InvoiceExporter(config)
     return await exporter.export_html(invoice, customer_info)
-
 
 __all__ = [
     "InvoiceExporter",

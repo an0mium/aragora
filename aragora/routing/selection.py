@@ -9,6 +9,7 @@ Routes tasks to best-fit agents by:
 - Maintaining a "bench" system with promotion/demotion
 - Auto-detecting domain from task text
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -20,7 +21,6 @@ from aragora.routing.domain_matcher import DOMAIN_KEYWORDS, DomainDetector
 from aragora.routing.team_builder import PHASE_ROLES, TeamBuilder
 
 logger = logging.getLogger(__name__)
-
 
 # Default agent expertise profiles
 DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
@@ -82,10 +82,8 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
     },
 }
 
-
 if TYPE_CHECKING:
     from aragora.routing.probe_filter import ProbeFilter
-
 
 @dataclass
 class AgentProfile:
@@ -140,7 +138,6 @@ class AgentProfile:
             base_score *= 0.9  # 10% penalty for overconfidence
         return base_score
 
-
 @dataclass
 class TaskRequirements:
     """Requirements for a task."""
@@ -155,7 +152,6 @@ class TaskRequirements:
     quality_priority: float = 0.5  # 0 = speed/cost, 1 = quality
     diversity_preference: float = 0.5  # 0 = homogeneous, 1 = diverse
 
-
 @dataclass
 class TeamComposition:
     """A selected team of agents."""
@@ -168,7 +164,6 @@ class TeamComposition:
     expected_cost: float
     diversity_score: float
     rationale: str
-
 
 class AgentSelector:
     """
@@ -185,11 +180,11 @@ class AgentSelector:
 
     def __init__(
         self,
-        elo_system: Optional[Any] = None,
-        persona_manager: Optional[Any] = None,
+        elo_system: Any | None = None,
+        persona_manager: Any | None = None,
         probe_filter: Optional["ProbeFilter"] = None,
-        calibration_tracker: Optional[Any] = None,
-        performance_monitor: Optional[Any] = None,
+        calibration_tracker: Any | None = None,
+        performance_monitor: Any | None = None,
     ):
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -251,7 +246,7 @@ class AgentSelector:
                 profile.probe_score = 1.0
                 profile.has_critical_probes = False
 
-    def refresh_from_elo_system(self, elo_system: Optional[Any] = None):
+    def refresh_from_elo_system(self, elo_system: Any | None = None):
         """
         Sync domain ratings from EloSystem for all agents in the pool.
 
@@ -468,7 +463,7 @@ class AgentSelector:
     def select_team(
         self,
         requirements: TaskRequirements,
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
     ) -> TeamComposition:
         """
         Select an optimal team for the task.
@@ -702,7 +697,7 @@ class AgentSelector:
             }
         )
 
-    def get_selection_history(self, limit: Optional[int] = None) -> list[dict]:
+    def get_selection_history(self, limit: int | None = None) -> list[dict]:
         """Retrieve selection history for meta-analysis."""
         history = self._selection_history.copy()
         history.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
@@ -742,7 +737,7 @@ class AgentSelector:
         results.sort(key=lambda x: x["success_rate"], reverse=True)
         return results
 
-    def get_leaderboard(self, domain: Optional[str] = None, limit: int = 10) -> list[dict]:
+    def get_leaderboard(self, domain: str | None = None, limit: int = 10) -> list[dict]:
         """Get agent leaderboard."""
         agents = list(self.agent_pool.values())
 
@@ -815,8 +810,8 @@ class AgentSelector:
     def auto_route(
         self,
         task_text: str,
-        task_id: Optional[str] = None,
-        exclude: Optional[list[str]] = None,
+        task_id: str | None = None,
+        exclude: list[str] | None = None,
     ) -> TeamComposition:
         """
         Automatically route a task to the best team based on detected domain.
@@ -907,8 +902,8 @@ class AgentSelector:
     @classmethod
     def create_with_defaults(
         cls,
-        elo_system: Optional[Any] = None,
-        persona_manager: Optional[Any] = None,
+        elo_system: Any | None = None,
+        persona_manager: Any | None = None,
     ) -> "AgentSelector":
         """
         Create an AgentSelector with default agent expertise profiles.
@@ -939,7 +934,6 @@ class AgentSelector:
             selector.refresh_from_elo_system()
 
         return selector
-
 
 __all__ = [
     # Core classes

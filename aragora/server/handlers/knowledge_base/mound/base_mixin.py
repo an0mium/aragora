@@ -8,11 +8,10 @@ structural typing instead of abstract base classes.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
-
 
 @runtime_checkable
 class KnowledgeMoundHandlerProtocol(Protocol):
@@ -29,7 +28,7 @@ class KnowledgeMoundHandlerProtocol(Protocol):
         ctx: Server context dictionary
     """
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]:
         """
@@ -40,9 +39,7 @@ class KnowledgeMoundHandlerProtocol(Protocol):
         """
         ...
 
-
 # Backward compatibility alias
 KnowledgeMoundMixinBase = KnowledgeMoundHandlerProtocol
-
 
 __all__ = ["KnowledgeMoundHandlerProtocol", "KnowledgeMoundMixinBase"]

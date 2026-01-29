@@ -27,7 +27,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.knowledge.mound.types import (
     CulturePattern,
@@ -40,7 +40,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class CultureDocumentCategory(str, Enum):
     """Categories for explicit culture documents."""
 
@@ -49,7 +48,6 @@ class CultureDocumentCategory(str, Enum):
     STANDARDS = "standards"  # Quality and technical standards
     POLICIES = "policies"  # Organizational policies
     LEARNINGS = "learnings"  # Accumulated learnings from debates
-
 
 @dataclass
 class CultureDocument:
@@ -66,18 +64,18 @@ class CultureDocument:
     category: CultureDocumentCategory
     title: str
     content: str
-    embeddings: Optional[List[float]] = None
+    embeddings: Optional[list[float]] = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     created_by: str = ""
     version: int = 1
-    supersedes: Optional[str] = None  # ID of previous version
-    source_workspace_id: Optional[str] = None  # If promoted from workspace
-    source_pattern_id: Optional[str] = None  # If promoted from pattern
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    supersedes: str | None = None  # ID of previous version
+    source_workspace_id: str | None = None  # If promoted from workspace
+    source_pattern_id: str | None = None  # If promoted from pattern
+    metadata: dict[str, Any] = field(default_factory=dict)
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -96,7 +94,6 @@ class CultureDocument:
             "is_active": self.is_active,
         }
 
-
 @dataclass
 class OrganizationCulture:
     """
@@ -106,15 +103,15 @@ class OrganizationCulture:
     """
 
     org_id: str
-    documents: List[CultureDocument]
-    aggregated_patterns: Dict[CulturePatternType, List[CulturePattern]]
-    workspace_profiles: Dict[str, CultureProfile]
+    documents: list[CultureDocument]
+    aggregated_patterns: dict[CulturePatternType, list[CulturePattern]]
+    workspace_profiles: dict[str, CultureProfile]
     generated_at: datetime = field(default_factory=datetime.now)
     total_observations: int = 0
     workspace_count: int = 0
-    dominant_traits: Dict[str, Any] = field(default_factory=dict)
+    dominant_traits: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "org_id": self.org_id,
@@ -125,22 +122,20 @@ class OrganizationCulture:
             "dominant_traits": self.dominant_traits,
         }
 
-
 @dataclass
 class DebateObservation:
     """Extracted observations from a debate."""
 
     debate_id: str
     topic: str
-    participating_agents: List[str]
-    winning_agents: List[str]
+    participating_agents: list[str]
+    winning_agents: list[str]
     rounds_to_consensus: int
     consensus_reached: bool
     consensus_strength: str
-    critique_patterns: List[str]
-    domain: Optional[str]
+    critique_patterns: list[str]
+    domain: str | None
     created_at: datetime = field(default_factory=datetime.now)
-
 
 class CultureAccumulator:
     """
@@ -167,7 +162,7 @@ class CultureAccumulator:
         self._min_observations = min_observations_for_pattern
 
         # In-memory pattern cache (synced to storage)
-        self._patterns: Dict[str, Dict[CulturePatternType, Dict[str, CulturePattern]]] = (
+        self._patterns: dict[str, dict[CulturePatternType, dict[str, CulturePattern]]] = (
             defaultdict(lambda: defaultdict(dict))
         )
 
@@ -175,7 +170,7 @@ class CultureAccumulator:
         self,
         debate_result: Any,
         workspace_id: str,
-    ) -> List[CulturePattern]:
+    ) -> list[CulturePattern]:
         """
         Extract and store cultural patterns from a completed debate.
 
@@ -186,7 +181,7 @@ class CultureAccumulator:
         Returns:
             List of patterns created or updated
         """
-        patterns_updated: List[CulturePattern] = []
+        patterns_updated: list[CulturePattern] = []
 
         try:
             # Extract observation from debate result
@@ -244,7 +239,7 @@ class CultureAccumulator:
         except (ImportError, AttributeError, TypeError):
             pass  # Events module not available
 
-    def _extract_observation(self, debate_result: Any) -> Optional[DebateObservation]:
+    def _extract_observation(self, debate_result: Any) -> DebateObservation | None:
         """Extract observation data from debate result."""
         try:
             # Extract basic info
@@ -305,7 +300,7 @@ class CultureAccumulator:
             logger.warning(f"Failed to extract observation: {e}")
             return None
 
-    def _infer_domain(self, topic: str) -> Optional[str]:
+    def _infer_domain(self, topic: str) -> str | None:
         """Infer domain from topic keywords."""
         topic_lower = topic.lower()
 
@@ -331,7 +326,7 @@ class CultureAccumulator:
         self,
         observation: DebateObservation,
         workspace_id: str,
-    ) -> List[CulturePattern]:
+    ) -> list[CulturePattern]:
         """Update agent preference patterns."""
         patterns = []
 
@@ -380,7 +375,7 @@ class CultureAccumulator:
         self,
         observation: DebateObservation,
         workspace_id: str,
-    ) -> List[CulturePattern]:
+    ) -> list[CulturePattern]:
         """Update decision style patterns."""
         patterns = []
 
@@ -438,7 +433,7 @@ class CultureAccumulator:
         self,
         observation: DebateObservation,
         workspace_id: str,
-    ) -> List[CulturePattern]:
+    ) -> list[CulturePattern]:
         """Update debate dynamics patterns."""
         patterns = []
 
@@ -484,9 +479,9 @@ class CultureAccumulator:
         self,
         observation: DebateObservation,
         workspace_id: str,
-    ) -> List[CulturePattern]:
+    ) -> list[CulturePattern]:
         """Update domain expertise patterns."""
-        patterns: List[CulturePattern] = []
+        patterns: list[CulturePattern] = []
 
         if not observation.domain:
             return patterns
@@ -529,10 +524,10 @@ class CultureAccumulator:
     def get_patterns(
         self,
         workspace_id: str,
-        pattern_type: Optional[CulturePatternType] = None,
+        pattern_type: CulturePatternType | None = None,
         min_confidence: float = 0.0,
         min_observations: int = 0,
-    ) -> List[CulturePattern]:
+    ) -> list[CulturePattern]:
         """
         Get accumulated patterns for a workspace.
 
@@ -550,7 +545,7 @@ class CultureAccumulator:
         if not workspace_patterns:
             return []
 
-        patterns: List[CulturePattern] = []
+        patterns: list[CulturePattern] = []
 
         if pattern_type is not None:
             # Get patterns of specific type
@@ -576,7 +571,7 @@ class CultureAccumulator:
     def get_patterns_summary(
         self,
         workspace_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get a summary of accumulated patterns for a workspace.
 
@@ -597,9 +592,9 @@ class CultureAccumulator:
                 "top_patterns": [],
             }
 
-        patterns_by_type: Dict[str, int] = {}
+        patterns_by_type: dict[str, int] = {}
         total_observations = 0
-        all_patterns: List[CulturePattern] = []
+        all_patterns: list[CulturePattern] = []
 
         for pattern_type, type_patterns in workspace_patterns.items():
             patterns_by_type[pattern_type.value] = len(type_patterns)
@@ -641,7 +636,7 @@ class CultureAccumulator:
         workspace_patterns = self._patterns.get(workspace_id, {})
 
         # Organize patterns by type
-        patterns_by_type: Dict[CulturePatternType, List[CulturePattern]] = {}
+        patterns_by_type: dict[CulturePatternType, list[CulturePattern]] = {}
         total_observations = 0
 
         for pattern_type in CulturePatternType:
@@ -695,7 +690,7 @@ class CultureAccumulator:
         self,
         task_type: str,
         workspace_id: str,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Recommend agents based on cultural patterns.
 
@@ -720,7 +715,6 @@ class CultureAccumulator:
         matching.sort(key=lambda x: x[1], reverse=True)
         return [agent for agent, _ in matching[:3]]
 
-
 class OrganizationCultureManager:
     """
     Manages organization-level culture (cross-workspace patterns).
@@ -739,7 +733,7 @@ class OrganizationCultureManager:
     def __init__(
         self,
         mound: "KnowledgeMound",
-        culture_accumulator: Optional[CultureAccumulator] = None,
+        culture_accumulator: CultureAccumulator | None = None,
     ):
         """
         Initialize organization culture manager.
@@ -752,10 +746,10 @@ class OrganizationCultureManager:
         self._accumulator = culture_accumulator
 
         # Document storage by org
-        self._documents: Dict[str, Dict[str, CultureDocument]] = defaultdict(dict)
+        self._documents: dict[str, dict[str, CultureDocument]] = defaultdict(dict)
 
         # Workspace to org mapping
-        self._workspace_orgs: Dict[str, str] = {}
+        self._workspace_orgs: dict[str, str] = {}
 
     def register_workspace(self, workspace_id: str, org_id: str) -> None:
         """Register a workspace's organization for culture aggregation."""
@@ -768,7 +762,7 @@ class OrganizationCultureManager:
         title: str,
         content: str,
         created_by: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> CultureDocument:
         """
         Add an explicit culture document.
@@ -871,9 +865,9 @@ class OrganizationCultureManager:
     async def get_documents(
         self,
         org_id: str,
-        category: Optional[CultureDocumentCategory] = None,
+        category: CultureDocumentCategory | None = None,
         active_only: bool = True,
-    ) -> List[CultureDocument]:
+    ) -> list[CultureDocument]:
         """
         Get culture documents for an organization.
 
@@ -900,7 +894,7 @@ class OrganizationCultureManager:
         org_id: str,
         query: str,
         limit: int = 10,
-    ) -> List[CultureDocument]:
+    ) -> list[CultureDocument]:
         """
         Query culture documents semantically.
 
@@ -949,7 +943,7 @@ class OrganizationCultureManager:
         scored.sort(key=lambda x: x[1], reverse=True)
         return [doc for doc, _ in scored[:limit]]
 
-    def _cosine_similarity(self, a: List[float], b: List[float]) -> float:
+    def _cosine_similarity(self, a: list[float], b: list[float]) -> float:
         """Calculate cosine similarity between two vectors."""
         if len(a) != len(b):
             return 0.0
@@ -968,7 +962,7 @@ class OrganizationCultureManager:
         workspace_id: str,
         pattern_id: str,
         promoted_by: str,
-        title: Optional[str] = None,
+        title: str | None = None,
     ) -> CultureDocument:
         """
         Promote a workspace pattern to an organization culture document.
@@ -1053,7 +1047,7 @@ class OrganizationCultureManager:
     async def get_organization_culture(
         self,
         org_id: str,
-        workspace_ids: Optional[List[str]] = None,
+        workspace_ids: Optional[list[str]] = None,
     ) -> OrganizationCulture:
         """
         Get the complete organization culture profile.
@@ -1071,8 +1065,8 @@ class OrganizationCultureManager:
         documents = await self.get_documents(org_id, active_only=True)
 
         # Get workspace profiles
-        workspace_profiles: Dict[str, CultureProfile] = {}
-        aggregated_patterns: Dict[CulturePatternType, List[CulturePattern]] = {
+        workspace_profiles: dict[str, CultureProfile] = {}
+        aggregated_patterns: dict[CulturePatternType, list[CulturePattern]] = {
             pt: [] for pt in CulturePatternType
         }
 
@@ -1110,15 +1104,15 @@ class OrganizationCultureManager:
 
     def _extract_dominant_traits(
         self,
-        patterns: Dict[CulturePatternType, List[CulturePattern]],
-    ) -> Dict[str, Any]:
+        patterns: dict[CulturePatternType, list[CulturePattern]],
+    ) -> dict[str, Any]:
         """Extract dominant traits from aggregated patterns."""
-        traits: Dict[str, Any] = {}
+        traits: dict[str, Any] = {}
 
         # Top agents across org
         agent_patterns = patterns.get(CulturePatternType.AGENT_PREFERENCES, [])
         if agent_patterns:
-            agent_scores: Dict[str, float] = defaultdict(float)
+            agent_scores: dict[str, float] = defaultdict(float)
             for p in agent_patterns:
                 agent = p.pattern_value.get("agent", "")
                 if agent:
@@ -1130,7 +1124,7 @@ class OrganizationCultureManager:
         # Domain expertise across org
         domain_patterns = patterns.get(CulturePatternType.DOMAIN_EXPERTISE, [])
         if domain_patterns:
-            domain_scores: Dict[str, int] = defaultdict(int)
+            domain_scores: dict[str, int] = defaultdict(int)
             for p in domain_patterns:
                 domain_scores[p.pattern_key] += p.observation_count
 

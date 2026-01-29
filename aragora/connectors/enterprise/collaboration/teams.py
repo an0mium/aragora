@@ -17,7 +17,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -28,7 +28,6 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class TeamsTeam:
     """A Microsoft Teams team."""
@@ -37,9 +36,8 @@ class TeamsTeam:
     display_name: str
     description: str = ""
     visibility: str = "private"
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
     web_url: str = ""
-
 
 @dataclass
 class TeamsChannel:
@@ -50,9 +48,8 @@ class TeamsChannel:
     display_name: str
     description: str = ""
     membership_type: str = "standard"
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
     web_url: str = ""
-
 
 @dataclass
 class TeamsMessage:
@@ -65,13 +62,12 @@ class TeamsMessage:
     content_type: str = "text"
     sender_name: str = ""
     sender_email: str = ""
-    created_at: Optional[datetime] = None
-    last_modified: Optional[datetime] = None
-    reply_to_id: Optional[str] = None
-    attachments: List[Dict[str, Any]] = field(default_factory=list)
-    reactions: List[Dict[str, Any]] = field(default_factory=list)
+    created_at: datetime | None = None
+    last_modified: datetime | None = None
+    reply_to_id: str | None = None
+    attachments: list[dict[str, Any]] = field(default_factory=list)
+    reactions: list[dict[str, Any]] = field(default_factory=list)
     web_url: str = ""
-
 
 @dataclass
 class TeamsFile:
@@ -81,11 +77,10 @@ class TeamsFile:
     name: str
     size: int
     mime_type: str = ""
-    created_at: Optional[datetime] = None
-    modified_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    modified_at: datetime | None = None
     download_url: str = ""
     web_url: str = ""
-
 
 class TeamsEnterpriseConnector(EnterpriseConnector):
     """
@@ -127,8 +122,8 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        team_ids: Optional[List[str]] = None,
-        channel_ids: Optional[List[str]] = None,
+        team_ids: Optional[list[str]] = None,
+        channel_ids: Optional[list[str]] = None,
         include_files: bool = True,
         include_replies: bool = True,
         include_reactions: bool = False,
@@ -136,7 +131,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         exclude_system_messages: bool = True,
         messages_per_channel: int = 1000,
         use_delta_sync: bool = True,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         **kwargs,
     ):
         """
@@ -167,9 +162,9 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         self.use_delta_sync = use_delta_sync
         self.tenant_id = tenant_id
 
-        self._access_token: Optional[str] = None
-        self._token_expiry: Optional[datetime] = None
-        self._delta_links: Dict[str, str] = {}
+        self._access_token: str | None = None
+        self._token_expiry: datetime | None = None
+        self._delta_links: dict[str, str] = {}
 
     @property
     def source_type(self) -> SourceType:
@@ -224,9 +219,9 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
         use_beta: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make a request to Microsoft Graph API."""
         import httpx
 
@@ -255,8 +250,8 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         self,
         endpoint: str,
         key: str = "value",
-        max_items: Optional[int] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        max_items: int | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Paginate through Graph API results."""
         items_yielded = 0
         next_link = None
@@ -342,7 +337,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         self,
         team_id: str,
         channel_id: str,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
     ) -> AsyncIterator[TeamsMessage]:
         """Get messages from a channel."""
         endpoint = f"/teams/{team_id}/channels/{channel_id}/messages"
@@ -471,7 +466,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         except Exception as e:
             logger.warning(f"[{self.name}] Failed to get files for channel {channel_id}: {e}")
 
-    def _parse_datetime(self, value: Optional[str]) -> Optional[datetime]:
+    def _parse_datetime(self, value: str | None) -> datetime | None:
         """Parse Microsoft Graph datetime string."""
         if not value:
             return None
@@ -624,7 +619,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 25,
-        team_ids: Optional[List[str]] = None,
+        team_ids: Optional[list[str]] = None,
         **kwargs,
     ) -> list:
         """Search Teams messages using Microsoft Search API."""
@@ -686,7 +681,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific Teams message."""
 
         # Parse evidence ID: teams-msg-{message_id}
@@ -698,7 +693,6 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         # to support full fetch capability.
         logger.warning(f"[{self.name}] Individual message fetch not fully implemented")
         return None
-
 
 __all__ = [
     "TeamsEnterpriseConnector",

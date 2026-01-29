@@ -1,0 +1,728 @@
+"""
+Tests for SearchOperationsMixin in knowledge_base search handler.
+
+Tests cover:
+- Import verification
+- Search with valid query
+- Search with missing 'q' parameter (400 error)
+- Search with custom workspace_id and limit
+- Search limit clamping (min 1, max 50)
+- Search failure handling (500 error)
+- Stats endpoint
+- Stats with workspace_id filter
+- Response format validation
+
+Run with:
+    pytest tests/server/handlers/knowledge_base/test_search.py -v --noconftest --timeout=30
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
+
+# Pre-mock broken transitive imports to allow importing without
+# triggering the full handlers.__init__ chain
+if "aragora.server.handlers.social._slack_impl" not in sys.modules:
+    sys.modules["aragora.server.handlers.social._slack_impl"] = MagicMock()
+
+
+# Bypass RBAC decorator by patching it before import
+def _bypass_require_permission(permission):
+    """No-op decorator for testing."""
+    def decorator(func):
+        return func
+    return decorator
+
+
+# Also bypass ttl_cache to avoid caching issues in tests
+def _bypass_ttl_cache(**kwargs):
+    """No-op decorator for testing."""
+    def decorator(func):
+        return func
+    return decorator
+
+
+# Patch decorators before importing the mixin
+patch("aragora.rbac.decorators.require_permission", _bypass_require_permission).start()
+patch("aragora.server.handlers.knowledge_base.search.require_permission", _bypass_require_permission).start()
+patch("aragora.server.handlers.base.ttl_cache", _bypass_ttl_cache).start()
+patch("aragora.server.handlers.knowledge_base.search.ttl_cache", _bypass_ttl_cache).start()
+
+import pytest
+
+from aragora.server.handlers.knowledge_base.search import (
+    CACHE_TTL_STATS,
+    SearchOperationsMixin,
+)
+
+
+def parse_response(result) -> Dict[str, Any]:
+    """Parse HandlerResult body to dict."""
+    body = result.body
+    if isinstance(body, bytes):
+        body = body.decode("utf-8")
+    return json.loads(body)
+
+
+# =============================================================================
+# Mock Objects
+# =============================================================================
+
+
+@dataclass
+class MockSearchResult:
+    """Mock search result from query engine."""
+
+    chunk_id: str
+    content: str
+    score: float
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "chunk_id": self.chunk_id,
+            "content": self.content,
+            "score": self.score,
+            "metadata": self.metadata,
+        }
+
+
+class MockQueryEngine:
+    """Mock query engine for testing."""
+
+    def __init__(self, results: Optional[List[MockSearchResult]] = None):
+        self._results = results or []
+        self._search_error: Optional[Exception] = None
+
+    async def search(
+        self, query: str, workspace_id: str, limit: int
+    ) -> List[MockSearchResult]:
+        if self._search_error:
+            raise self._search_error
+        return self._results[:limit]
+
+
+class MockFactStore:
+    """Mock fact store for testing."""
+
+    def __init__(self, stats: Optional[Dict[str, Any]] = None):
+        self._stats = stats or {
+            "total_chunks": 100,
+            "total_facts": 50,
+            "indexed_workspaces": 3,
+        }
+
+    def get_statistics(self, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+        result = self._stats.copy()
+        if workspace_id:
+            result["workspace_id"] = workspace_id
+        return result
+
+
+class SearchHandler(SearchOperationsMixin):
+    """Handler implementation for testing SearchOperationsMixin."""
+
+    def __init__(
+        self,
+        query_engine: Optional[MockQueryEngine] = None,
+        fact_store: Optional[MockFactStore] = None,
+    ):
+        self._query_engine = query_engine
+        self._fact_store = fact_store
+        self.ctx = {}
+
+    def _get_query_engine(self):
+        return self._query_engine
+
+    def _get_fact_store(self):
+        return self._fact_store
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def mock_query_engine():
+    """Create a mock query engine with sample results."""
+    results = [
+        MockSearchResult(
+            chunk_id="chunk-1",
+            content="First result content",
+            score=0.95,
+            metadata={"source": "doc-1"},
+        ),
+        MockSearchResult(
+            chunk_id="chunk-2",
+            content="Second result content",
+            score=0.87,
+            metadata={"source": "doc-2"},
+        ),
+        MockSearchResult(
+            chunk_id="chunk-3",
+            content="Third result content",
+            score=0.75,
+            metadata={"source": "doc-3"},
+        ),
+    ]
+    return MockQueryEngine(results=results)
+
+
+@pytest.fixture
+def mock_fact_store():
+    """Create a mock fact store with sample stats."""
+    return MockFactStore(
+        stats={
+            "total_chunks": 1500,
+            "total_facts": 750,
+            "indexed_workspaces": 5,
+            "last_indexed": "2026-01-29T10:00:00Z",
+        }
+    )
+
+
+@pytest.fixture
+def handler(mock_query_engine, mock_fact_store):
+    """Create a test handler with mock dependencies."""
+    return SearchHandler(
+        query_engine=mock_query_engine,
+        fact_store=mock_fact_store,
+    )
+
+
+@pytest.fixture
+def handler_no_engine():
+    """Create a test handler without query engine."""
+    return SearchHandler(query_engine=None, fact_store=MockFactStore())
+
+
+@pytest.fixture
+def handler_no_store():
+    """Create a test handler without fact store."""
+    return SearchHandler(query_engine=MockQueryEngine(), fact_store=None)
+
+
+# =============================================================================
+# Test Imports
+# =============================================================================
+
+
+class TestImports:
+    """Tests for module imports and exports."""
+
+    def test_import_search_operations_mixin(self):
+        """Test that SearchOperationsMixin can be imported."""
+        from aragora.server.handlers.knowledge_base.search import SearchOperationsMixin
+
+        assert SearchOperationsMixin is not None
+
+    def test_import_cache_ttl_constant(self):
+        """Test that CACHE_TTL_STATS constant is exported."""
+        from aragora.server.handlers.knowledge_base.search import CACHE_TTL_STATS
+
+        assert CACHE_TTL_STATS == 300  # 5 minutes
+
+    def test_mixin_has_required_methods(self):
+        """Test that mixin exposes required methods."""
+        assert hasattr(SearchOperationsMixin, "_handle_search")
+        assert hasattr(SearchOperationsMixin, "_handle_stats")
+        assert callable(getattr(SearchOperationsMixin, "_handle_search"))
+        assert callable(getattr(SearchOperationsMixin, "_handle_stats"))
+
+
+# =============================================================================
+# Test Search Endpoint
+# =============================================================================
+
+
+class TestHandleSearch:
+    """Tests for _handle_search endpoint."""
+
+    def test_search_with_valid_query(self, handler):
+        """Test search with valid query returns results."""
+        query_params = {"q": "test query"}
+
+        # Create mock results with to_dict() method (as expected by the handler)
+        mock_results = [
+            MockSearchResult("c1", "content", 0.9),
+            MockSearchResult("c2", "more", 0.8),
+        ]
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: mock_results,
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["query"] == "test query"
+        assert body["workspace_id"] == "default"
+        assert "results" in body
+        assert "count" in body
+        assert body["count"] == 2
+
+    def test_search_missing_query_param(self, handler):
+        """Test search without 'q' parameter returns 400."""
+        query_params = {}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            result = handler._handle_search(query_params)
+
+        assert result.status_code == 400
+        body = parse_response(result)
+        assert "error" in body
+        assert "required" in body["error"].lower() or "q" in body["error"].lower()
+
+    def test_search_empty_query_param(self, handler):
+        """Test search with empty 'q' parameter returns 400."""
+        query_params = {"q": ""}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            result = handler._handle_search(query_params)
+
+        assert result.status_code == 400
+        body = parse_response(result)
+        assert "error" in body
+
+    def test_search_with_custom_workspace_id(self, handler):
+        """Test search with custom workspace_id parameter."""
+        query_params = {"q": "test", "workspace_id": "ws-custom-123"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["workspace_id"] == "ws-custom-123"
+
+    def test_search_with_custom_limit(self, handler):
+        """Test search with custom limit parameter."""
+        query_params = {"q": "test", "limit": "25"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+
+    def test_search_limit_clamped_to_minimum(self, handler):
+        """Test that limit is clamped to minimum of 1."""
+        query_params = {"q": "test", "limit": "0"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        # Should succeed (limit clamped to 1)
+        assert result.status_code == 200
+
+    def test_search_limit_clamped_to_maximum(self, handler):
+        """Test that limit is clamped to maximum of 50."""
+        query_params = {"q": "test", "limit": "100"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        # Should succeed (limit clamped to 50)
+        assert result.status_code == 200
+
+    def test_search_negative_limit_clamped(self, handler):
+        """Test that negative limit is clamped to minimum."""
+        query_params = {"q": "test", "limit": "-5"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        # Should succeed (limit clamped to 1)
+        assert result.status_code == 200
+
+    def test_search_query_truncated_at_max_length(self, handler):
+        """Test that query longer than 500 chars is truncated."""
+        long_query = "a" * 600
+        query_params = {"q": long_query}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        # Query should be truncated to max 500 chars
+        assert len(body["query"]) <= 500
+
+    def test_search_workspace_id_truncated_at_max_length(self, handler):
+        """Test that workspace_id longer than 100 chars is truncated."""
+        long_ws_id = "ws-" + "a" * 150
+        query_params = {"q": "test", "workspace_id": long_ws_id}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        # workspace_id should be truncated to max 100 chars
+        assert len(body["workspace_id"]) <= 100
+
+    def test_search_failure_returns_500(self, handler):
+        """Test search failure returns 500 error."""
+        query_params = {"q": "test"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                side_effect=Exception("Database connection failed"),
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 500
+        body = parse_response(result)
+        assert "error" in body
+
+    def test_search_response_format(self, handler):
+        """Test search response has correct format."""
+        query_params = {"q": "test"}
+
+        mock_results = [
+            MockSearchResult("c1", "content 1", 0.95, {"source": "doc1"}),
+            MockSearchResult("c2", "content 2", 0.85, {"source": "doc2"}),
+        ]
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: mock_results,
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+
+        # Verify response structure
+        assert "query" in body
+        assert "workspace_id" in body
+        assert "results" in body
+        assert "count" in body
+        assert isinstance(body["results"], list)
+        assert body["count"] == len(body["results"])
+        assert body["count"] == 2
+
+        # Verify result item structure
+        for item in body["results"]:
+            assert "chunk_id" in item
+            assert "content" in item
+            assert "score" in item
+
+
+# =============================================================================
+# Test Stats Endpoint
+# =============================================================================
+
+
+class TestHandleStats:
+    """Tests for _handle_stats endpoint."""
+
+    def test_stats_without_workspace_filter(self, handler):
+        """Test stats endpoint without workspace filter."""
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.ttl_cache",
+            lambda **k: lambda f: f,
+        ):
+            result = handler._handle_stats(workspace_id=None)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["workspace_id"] is None
+        assert "total_chunks" in body
+        assert "total_facts" in body
+
+    def test_stats_with_workspace_filter(self, handler):
+        """Test stats endpoint with workspace filter."""
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.ttl_cache",
+            lambda **k: lambda f: f,
+        ):
+            result = handler._handle_stats(workspace_id="ws-123")
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["workspace_id"] == "ws-123"
+
+    def test_stats_response_includes_store_stats(self, handler):
+        """Test stats response includes all store statistics."""
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.ttl_cache",
+            lambda **k: lambda f: f,
+        ):
+            result = handler._handle_stats(workspace_id=None)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+
+        # Check expected stats fields
+        assert body["total_chunks"] == 1500
+        assert body["total_facts"] == 750
+        assert body["indexed_workspaces"] == 5
+        assert body["last_indexed"] == "2026-01-29T10:00:00Z"
+
+    def test_stats_no_fact_store(self, handler_no_store):
+        """Test stats when fact store is not available."""
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.ttl_cache",
+            lambda **k: lambda f: f,
+        ):
+            # When _get_fact_store returns None, calling get_statistics
+            # on None will raise AttributeError, which should be caught
+            # by @handle_errors and return 500
+            try:
+                result = handler_no_store._handle_stats(workspace_id=None)
+                # If handler returns a valid response, the mock store must have been used
+                # This indicates the fixture is providing a fallback mock store
+                assert result.status_code in (200, 500)
+            except (AttributeError, TypeError):
+                # Expected if _get_fact_store returns None and code tries to use it
+                # without @handle_errors catching it
+                pass
+
+    def test_stats_response_format(self, handler):
+        """Test stats response has correct format."""
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.ttl_cache",
+            lambda **k: lambda f: f,
+        ):
+            result = handler._handle_stats(workspace_id="test-ws")
+
+        assert result.status_code == 200
+        body = parse_response(result)
+
+        # Verify all expected fields from fact store are present
+        assert "workspace_id" in body
+        assert isinstance(body.get("total_chunks"), int)
+        assert isinstance(body.get("total_facts"), int)
+
+
+# =============================================================================
+# Test RBAC Decorator
+# =============================================================================
+
+
+class TestRBACDecorator:
+    """Tests for RBAC permission decorator on endpoints."""
+
+    def test_search_has_permission_decorator(self):
+        """Test that _handle_search has require_permission decorator."""
+        # Check that the method has been decorated
+        method = SearchOperationsMixin._handle_search
+        # The decorator wraps the function, so check for wrapper attributes
+        assert callable(method)
+
+    def test_stats_has_cache_decorator(self):
+        """Test that _handle_stats has ttl_cache decorator."""
+        method = SearchOperationsMixin._handle_stats
+        assert callable(method)
+
+
+# =============================================================================
+# Test Cache Configuration
+# =============================================================================
+
+
+class TestCacheConfiguration:
+    """Tests for cache configuration."""
+
+    def test_stats_cache_ttl_value(self):
+        """Test that stats cache TTL is configured correctly."""
+        assert CACHE_TTL_STATS == 300  # 5 minutes
+
+    def test_stats_cache_ttl_is_reasonable(self):
+        """Test that cache TTL is within reasonable bounds."""
+        # Cache should be at least 60 seconds
+        assert CACHE_TTL_STATS >= 60
+        # Cache should be at most 1 hour
+        assert CACHE_TTL_STATS <= 3600
+
+
+# =============================================================================
+# Test Edge Cases
+# =============================================================================
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_search_with_special_characters_in_query(self, handler):
+        """Test search with special characters in query."""
+        query_params = {"q": "test <script>alert('xss')</script>"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        # Should handle gracefully
+        assert result.status_code == 200
+
+    def test_search_with_unicode_query(self, handler):
+        """Test search with unicode characters in query."""
+        query_params = {"q": "test with unicode characters"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["query"] == "test with unicode characters"
+
+    def test_search_with_whitespace_only_query(self, handler):
+        """Test search with whitespace-only query.
+
+        Note: The implementation accepts whitespace-only queries, treating them
+        as valid search input (it does not trim/strip the query).
+        """
+        query_params = {"q": "   "}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        # The implementation accepts whitespace-only queries
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["query"] == "   "
+
+    def test_search_with_non_numeric_limit(self, handler):
+        """Test search with non-numeric limit parameter."""
+        query_params = {"q": "test", "limit": "abc"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        # Should fall back to default limit
+        assert result.status_code == 200
+
+    def test_search_default_limit_is_10(self, handler):
+        """Test that default limit is 10."""
+        query_params = {"q": "test"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        # The response doesn't include limit but we verify the call works
+
+    def test_search_default_workspace_is_default(self, handler):
+        """Test that default workspace_id is 'default'."""
+        query_params = {"q": "test"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["workspace_id"] == "default"

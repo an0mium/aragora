@@ -6,7 +6,6 @@ Provides safe path operations to prevent directory traversal attacks.
 
 import logging
 from pathlib import Path
-from typing import Union
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +17,8 @@ class PathTraversalError(ValueError):
 
 
 def safe_path(
-    base_dir: Union[Path, str],
-    user_path: Union[Path, str],
+    base_dir: Path | str,
+    user_path: Path | str,
     *,
     allow_symlinks: bool = False,
     must_exist: bool = False,
@@ -137,7 +136,7 @@ def validate_path_component(component: str) -> str:
     return component
 
 
-def is_safe_path(base_dir: Union[Path, str], user_path: Union[Path, str]) -> bool:
+def is_safe_path(base_dir: Path | str, user_path: Path | str) -> bool:
     """
     Check if a user-provided path stays within a base directory.
 

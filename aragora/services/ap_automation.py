@@ -30,14 +30,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 if TYPE_CHECKING:
     from aragora.connectors.accounting.qbo import QuickBooksConnector
 
 logger = logging.getLogger(__name__)
-
 
 class PaymentPriority(str, Enum):
     """Payment priority levels."""
@@ -48,7 +47,6 @@ class PaymentPriority(str, Enum):
     LOW = "low"  # Can delay if needed
     HOLD = "hold"  # On hold (dispute, etc.)
 
-
 class PaymentMethod(str, Enum):
     """Payment methods."""
 
@@ -57,7 +55,6 @@ class PaymentMethod(str, Enum):
     CHECK = "check"
     CREDIT_CARD = "credit_card"
     VIRTUAL_CARD = "virtual_card"
-
 
 @dataclass
 class PayableInvoice:
@@ -68,29 +65,29 @@ class PayableInvoice:
     vendor_name: str
     invoice_number: str = ""
     invoice_date: datetime = field(default_factory=datetime.now)
-    due_date: Optional[datetime] = None
+    due_date: datetime | None = None
     total_amount: Decimal = Decimal("0.00")
     amount_paid: Decimal = Decimal("0.00")
     balance: Decimal = Decimal("0.00")
     payment_terms: str = "Net 30"
     early_pay_discount: float = 0.0  # e.g., 2% = 0.02
-    discount_deadline: Optional[datetime] = None
+    discount_deadline: datetime | None = None
     priority: PaymentPriority = PaymentPriority.NORMAL
     preferred_payment_method: PaymentMethod = PaymentMethod.ACH
-    scheduled_pay_date: Optional[datetime] = None
-    paid_at: Optional[datetime] = None
+    scheduled_pay_date: datetime | None = None
+    paid_at: datetime | None = None
     is_recurring: bool = False
     notes: str = ""
 
     @property
-    def days_until_due(self) -> Optional[int]:
+    def days_until_due(self) -> int | None:
         """Days until due date."""
         if self.due_date:
             return (self.due_date - datetime.now()).days
         return None
 
     @property
-    def days_until_discount(self) -> Optional[int]:
+    def days_until_discount(self) -> int | None:
         """Days until early pay discount expires."""
         if self.discount_deadline:
             return (self.discount_deadline - datetime.now()).days
@@ -110,7 +107,7 @@ class PayableInvoice:
             return datetime.now() > self.due_date
         return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "vendorId": self.vendor_id,
@@ -137,18 +134,17 @@ class PayableInvoice:
             "isOverdue": self.is_overdue,
         }
 
-
 @dataclass
 class PaymentSchedule:
     """Optimized payment schedule."""
 
     total_amount: Decimal = Decimal("0.00")
     total_discount_captured: Decimal = Decimal("0.00")
-    payments: List[Dict[str, Any]] = field(default_factory=list)
-    by_date: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
-    optimization_notes: List[str] = field(default_factory=list)
+    payments: list[dict[str, Any]] = field(default_factory=list)
+    by_date: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    optimization_notes: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "totalAmount": float(self.total_amount),
             "totalDiscountCaptured": float(self.total_discount_captured),
@@ -156,7 +152,6 @@ class PaymentSchedule:
             "byDate": {k: v for k, v in self.by_date.items()},
             "optimizationNotes": self.optimization_notes,
         }
-
 
 @dataclass
 class BatchPayment:
@@ -167,11 +162,11 @@ class BatchPayment:
     total_amount: Decimal = Decimal("0.00")
     payment_count: int = 0
     payment_method: PaymentMethod = PaymentMethod.ACH
-    invoices: List[Dict[str, Any]] = field(default_factory=list)
+    invoices: list[dict[str, Any]] = field(default_factory=list)
     status: str = "pending"  # pending, processing, completed, failed
     created_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "paymentDate": self.payment_date.isoformat(),
@@ -183,7 +178,6 @@ class BatchPayment:
             "createdAt": self.created_at.isoformat(),
         }
 
-
 @dataclass
 class CashForecast:
     """Cash flow forecast."""
@@ -194,10 +188,10 @@ class CashForecast:
     total_payables: Decimal = Decimal("0.00")
     total_receivables: Decimal = Decimal("0.00")
     projected_balance: Decimal = Decimal("0.00")
-    daily_forecast: List[Dict[str, Any]] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    daily_forecast: list[dict[str, Any]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "forecastDate": self.forecast_date.isoformat(),
             "daysAhead": self.days_ahead,
@@ -209,7 +203,6 @@ class CashForecast:
             "warnings": self.warnings,
         }
 
-
 class APAutomation:
     """
     Service for automating accounts payable workflows.
@@ -220,7 +213,7 @@ class APAutomation:
 
     def __init__(
         self,
-        qbo_connector: Optional[QuickBooksConnector] = None,
+        qbo_connector: QuickBooksConnector | None = None,
         current_cash_balance: Decimal = Decimal("100000"),
         min_cash_reserve: Decimal = Decimal("20000"),
         enable_circuit_breakers: bool = True,
@@ -240,13 +233,13 @@ class APAutomation:
         self._enable_circuit_breakers = enable_circuit_breakers
 
         # In-memory storage
-        self._invoices: Dict[str, PayableInvoice] = {}
-        self._batches: Dict[str, BatchPayment] = {}
-        self._by_vendor: Dict[str, set] = {}
-        self._expected_receivables: List[Tuple[datetime, Decimal]] = []
+        self._invoices: dict[str, PayableInvoice] = {}
+        self._batches: dict[str, BatchPayment] = {}
+        self._by_vendor: dict[str, set] = {}
+        self._expected_receivables: list[tuple[datetime, Decimal]] = []
 
         # Circuit breakers for external service resilience
-        self._circuit_breakers: Dict[str, Any] = {}
+        self._circuit_breakers: dict[str, Any] = {}
         if enable_circuit_breakers:
             from aragora.resilience import get_circuit_breaker
 
@@ -275,7 +268,7 @@ class APAutomation:
         if service in self._circuit_breakers:
             self._circuit_breakers[service].record_failure()
 
-    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
         """Get status of all circuit breakers."""
         return {
             "enabled": self._enable_circuit_breakers,
@@ -291,8 +284,8 @@ class APAutomation:
         vendor_name: str,
         total_amount: float,
         invoice_number: str = "",
-        invoice_date: Optional[datetime] = None,
-        due_date: Optional[datetime] = None,
+        invoice_date: datetime | None = None,
+        due_date: datetime | None = None,
         payment_terms: str = "Net 30",
         early_pay_discount: float = 0.0,
         discount_days: int = 10,
@@ -365,8 +358,8 @@ class APAutomation:
 
     async def optimize_payment_timing(
         self,
-        invoices: Optional[List[PayableInvoice]] = None,
-        available_cash: Optional[Decimal] = None,
+        invoices: Optional[list[PayableInvoice]] = None,
+        available_cash: Decimal | None = None,
     ) -> PaymentSchedule:
         """
         Optimize payment timing to balance cash flow and discounts.
@@ -393,7 +386,7 @@ class APAutomation:
         # 1. Critical/overdue first
         # 2. Discount expiring soon
         # 3. By due date
-        def payment_priority(inv: PayableInvoice) -> Tuple:
+        def payment_priority(inv: PayableInvoice) -> tuple:
             is_critical = inv.priority == PaymentPriority.CRITICAL or inv.is_overdue
             discount_days = inv.days_until_discount if inv.days_until_discount else 999
             due_days = inv.days_until_due if inv.days_until_due else 999
@@ -467,8 +460,8 @@ class APAutomation:
 
     async def batch_payments(
         self,
-        invoices: Optional[List[PayableInvoice]] = None,
-        payment_date: Optional[datetime] = None,
+        invoices: Optional[list[PayableInvoice]] = None,
+        payment_date: datetime | None = None,
         payment_method: PaymentMethod = PaymentMethod.ACH,
     ) -> BatchPayment:
         """
@@ -497,7 +490,7 @@ class APAutomation:
         )
 
         # Group by vendor for efficiency
-        by_vendor: Dict[str, List[PayableInvoice]] = {}
+        by_vendor: dict[str, list[PayableInvoice]] = {}
         for invoice in invoices:
             if invoice.vendor_id not in by_vendor:
                 by_vendor[invoice.vendor_id] = []
@@ -624,17 +617,17 @@ class APAutomation:
         """Add an expected receivable for forecasting."""
         self._expected_receivables.append((expected_date, Decimal(str(amount))))
 
-    async def get_invoice(self, invoice_id: str) -> Optional[PayableInvoice]:
+    async def get_invoice(self, invoice_id: str) -> PayableInvoice | None:
         """Get invoice by ID."""
         return self._invoices.get(invoice_id)
 
     async def list_invoices(
         self,
-        vendor_id: Optional[str] = None,
-        priority: Optional[PaymentPriority] = None,
+        vendor_id: str | None = None,
+        priority: PaymentPriority | None = None,
         overdue_only: bool = False,
         with_discount: bool = False,
-    ) -> List[PayableInvoice]:
+    ) -> list[PayableInvoice]:
         """List invoices with filters."""
         invoices = list(self._invoices.values())
 
@@ -662,9 +655,9 @@ class APAutomation:
         invoices.sort(key=lambda x: x.due_date or datetime.max)
         return invoices
 
-    async def get_discount_opportunities(self) -> List[Dict[str, Any]]:
+    async def get_discount_opportunities(self) -> list[dict[str, Any]]:
         """Get invoices with available early payment discounts."""
-        opportunities: List[Dict[str, Any]] = []
+        opportunities: list[dict[str, Any]] = []
 
         for invoice in self._invoices.values():
             if invoice.balance <= 0:
@@ -709,8 +702,8 @@ class APAutomation:
         self,
         invoice_id: str,
         amount: float,
-        payment_date: Optional[datetime] = None,
-    ) -> Optional[PayableInvoice]:
+        payment_date: datetime | None = None,
+    ) -> PayableInvoice | None:
         """Record a payment against an invoice."""
         invoice = self._invoices.get(invoice_id)
         if not invoice:
@@ -725,7 +718,7 @@ class APAutomation:
 
         return invoice
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get AP statistics."""
         invoices = [i for i in self._invoices.values() if i.balance > 0]
 

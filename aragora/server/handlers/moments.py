@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -59,7 +59,6 @@ SignificantMoment = _moment_imports["SignificantMoment"]
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 
-
 class MomentsHandler(SecureHandler):
     """Handler for moments endpoints with RBAC protection."""
 
@@ -84,7 +83,7 @@ class MomentsHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route moments requests to appropriate methods."""
         # RBAC check
         try:
@@ -131,7 +130,7 @@ class MomentsHandler(SecureHandler):
 
         return None
 
-    def _get_moment_detector(self) -> Optional[object]:
+    def _get_moment_detector(self) -> object | None:
         """Get moment detector from context or return None."""
         return self.ctx.get("moment_detector")
 

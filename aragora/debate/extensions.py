@@ -17,18 +17,18 @@ Usage:
     # After debate completion, trigger extensions
     extensions.on_debate_complete(ctx, result, agents)
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.core import Agent, DebateResult
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ArenaExtensions:
@@ -49,7 +49,7 @@ class ArenaExtensions:
     workspace_id: str = ""  # For cost attribution
     usage_tracker: Any = None  # UsageTracker instance
     cost_tracker: Any = None  # CostTracker instance for per-agent costs
-    debate_budget_limit_usd: Optional[float] = None  # Per-debate cost limit
+    debate_budget_limit_usd: float | None = None  # Per-debate cost limit
     enforce_budget_limit: bool = True  # Raise error when budget exceeded
 
     # LLM-as-Judge evaluation
@@ -116,7 +116,7 @@ class ArenaExtensions:
         return self.notification_dispatcher is not None or self.auto_notify
 
     @property
-    def last_evaluation(self) -> Optional[Any]:
+    def last_evaluation(self) -> Any | None:
         """Get the last evaluation result."""
         return self._last_evaluation
 
@@ -762,7 +762,6 @@ class ArenaExtensions:
             # Don't fail the debate if training export fails
             logger.warning("training_export_failed error=%s", e)
 
-
 @dataclass
 class ExtensionsConfig:
     """Configuration for creating ArenaExtensions.
@@ -815,6 +814,5 @@ class ExtensionsConfig:
             auto_notify=self.auto_notify,
             notify_min_confidence=self.notify_min_confidence,
         )
-
 
 __all__ = ["ArenaExtensions", "ExtensionsConfig"]

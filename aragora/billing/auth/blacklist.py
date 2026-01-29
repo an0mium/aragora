@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class TokenBlacklist:
     """
     Thread-safe in-memory token blacklist with TTL cleanup.
@@ -145,10 +144,8 @@ class TokenBlacklist:
             self._blacklist.clear()
             logger.info("token_blacklist_cleared")
 
-
 # Global blacklist instance
-_token_blacklist: Optional[TokenBlacklist] = None
-
+_token_blacklist: TokenBlacklist | None = None
 
 def get_token_blacklist() -> TokenBlacklist:
     """Get the global token blacklist instance."""
@@ -156,7 +153,6 @@ def get_token_blacklist() -> TokenBlacklist:
     if _token_blacklist is None:
         _token_blacklist = TokenBlacklist()
     return _token_blacklist
-
 
 def get_persistent_blacklist():
     """
@@ -171,7 +167,6 @@ def get_persistent_blacklist():
     from aragora.storage.token_blacklist_store import get_blacklist_backend
 
     return get_blacklist_backend()
-
 
 def revoke_token_persistent(token: str) -> bool:
     """
@@ -194,7 +189,6 @@ def revoke_token_persistent(token: str) -> bool:
     logger.info(f"token_revoked_persistent jti={token_jti[:16]}...")
     return True
 
-
 def is_token_revoked_persistent(token: str) -> bool:
     """
     Check if a token has been revoked using persistent backend.
@@ -208,7 +202,6 @@ def is_token_revoked_persistent(token: str) -> bool:
     token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
     backend = get_persistent_blacklist()
     return backend.contains(token_jti)
-
 
 __all__ = [
     "TokenBlacklist",

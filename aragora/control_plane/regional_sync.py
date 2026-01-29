@@ -38,13 +38,12 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any, Callable, Coroutine
 
 # Observability
 from aragora.observability import get_logger
 
 logger = get_logger(__name__)
-
 
 class RegionalEventType(Enum):
     """Types of regional synchronization events."""
@@ -67,7 +66,6 @@ class RegionalEventType(Enum):
     REGION_JOINED = "region_joined"
     REGION_LEFT = "region_left"
 
-
 @dataclass
 class RegionalEvent:
     """
@@ -80,10 +78,10 @@ class RegionalEvent:
     source_region: str
     entity_id: str  # Agent ID or Task ID
     timestamp: float = field(default_factory=time.time)
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
     version: int = 1  # For future schema evolution
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "event_type": self.event_type.value,
@@ -95,7 +93,7 @@ class RegionalEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RegionalEvent":
+    def from_dict(cls, data: dict[str, Any]) -> "RegionalEvent":
         """Deserialize from dictionary."""
         return cls(
             event_type=RegionalEventType(data["event_type"]),
@@ -110,7 +108,6 @@ class RegionalEvent:
         """Check if this event is newer than another (for conflict resolution)."""
         return self.timestamp > other.timestamp
 
-
 @dataclass
 class RegionalSyncConfig:
     """Configuration for regional synchronization."""
@@ -119,7 +116,7 @@ class RegionalSyncConfig:
     local_region: str = field(default_factory=lambda: os.environ.get("ARAGORA_REGION", "default"))
 
     # Regions to sync with (empty = all regions via broadcast)
-    sync_regions: List[str] = field(default_factory=list)
+    sync_regions: list[str] = field(default_factory=list)
 
     # Redis channel prefix for regional events
     channel_prefix: str = "aragora:regional:"
@@ -147,10 +144,8 @@ class RegionalSyncConfig:
         """Get region-specific channel name."""
         return f"{self.channel_prefix}region:{region_id}"
 
-
 # Type alias for event handlers
 RegionalEventHandler = Callable[[RegionalEvent], Coroutine[Any, Any, None]]
-
 
 class RegionalEventBus:
     """
@@ -163,7 +158,7 @@ class RegionalEventBus:
     def __init__(
         self,
         redis_url: str = "redis://localhost:6379",
-        config: Optional[RegionalSyncConfig] = None,
+        config: RegionalSyncConfig | None = None,
     ):
         """
         Initialize the regional event bus.
@@ -174,24 +169,24 @@ class RegionalEventBus:
         """
         self._redis_url = redis_url
         self._config = config or RegionalSyncConfig()
-        self._redis: Optional[Any] = None
-        self._pubsub: Optional[Any] = None
+        self._redis: Any | None = None
+        self._pubsub: Any | None = None
         self._connected = False
         self._running = False
 
         # Event handlers
-        self._handlers: Dict[RegionalEventType, List[RegionalEventHandler]] = {}
-        self._global_handlers: List[RegionalEventHandler] = []
+        self._handlers: dict[RegionalEventType, list[RegionalEventHandler]] = {}
+        self._global_handlers: list[RegionalEventHandler] = []
 
         # Event buffer for offline operation
-        self._event_buffer: List[RegionalEvent] = []
+        self._event_buffer: list[RegionalEvent] = []
 
         # Last seen timestamps per region (for health monitoring)
-        self._region_last_seen: Dict[str, float] = {}
+        self._region_last_seen: dict[str, float] = {}
 
         # Background tasks
-        self._listener_task: Optional[asyncio.Task] = None
-        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._listener_task: asyncio.Task | None = None
+        self._heartbeat_task: asyncio.Task | None = None
 
     @property
     def local_region(self) -> str:
@@ -307,8 +302,8 @@ class RegionalEventBus:
 
     def subscribe(
         self,
-        event_type: Optional[RegionalEventType] = None,
-        handler: Optional[RegionalEventHandler] = None,
+        event_type: RegionalEventType | None = None,
+        handler: RegionalEventHandler | None = None,
     ) -> None:
         """
         Subscribe to regional events.
@@ -329,8 +324,8 @@ class RegionalEventBus:
 
     def unsubscribe(
         self,
-        event_type: Optional[RegionalEventType] = None,
-        handler: Optional[RegionalEventHandler] = None,
+        event_type: RegionalEventType | None = None,
+        handler: RegionalEventHandler | None = None,
     ) -> None:
         """Unsubscribe a handler from events."""
         if handler is None:
@@ -346,7 +341,7 @@ class RegionalEventBus:
     async def publish(
         self,
         event: RegionalEvent,
-        target_region: Optional[str] = None,
+        target_region: str | None = None,
     ) -> bool:
         """
         Publish an event to other regions.
@@ -393,7 +388,7 @@ class RegionalEventBus:
     async def publish_agent_update(
         self,
         agent_id: str,
-        agent_data: Dict[str, Any],
+        agent_data: dict[str, Any],
         event_type: RegionalEventType = RegionalEventType.AGENT_UPDATED,
     ) -> bool:
         """Convenience method to publish agent state update."""
@@ -408,7 +403,7 @@ class RegionalEventBus:
     async def publish_task_update(
         self,
         task_id: str,
-        task_data: Dict[str, Any],
+        task_data: dict[str, Any],
         event_type: RegionalEventType = RegionalEventType.TASK_SUBMITTED,
     ) -> bool:
         """Convenience method to publish task state update."""
@@ -420,7 +415,7 @@ class RegionalEventBus:
         )
         return await self.publish(event)
 
-    def get_healthy_regions(self) -> List[str]:
+    def get_healthy_regions(self) -> list[str]:
         """Get list of regions that have sent heartbeats recently."""
         now = time.time()
         timeout = self._config.region_timeout
@@ -430,7 +425,7 @@ class RegionalEventBus:
             if (now - last_seen) < timeout
         ]
 
-    def get_region_health(self) -> Dict[str, Dict[str, Any]]:
+    def get_region_health(self) -> dict[str, dict[str, Any]]:
         """Get health status for all known regions."""
         now = time.time()
         timeout = self._config.region_timeout
@@ -536,7 +531,6 @@ class RegionalEventBus:
         for event in events:
             await self.publish(event)
 
-
 @dataclass
 class RegionHealth:
     """Health status of a region."""
@@ -546,8 +540,7 @@ class RegionHealth:
     healthy: bool
     agent_count: int = 0
     task_count: int = 0
-    leader_id: Optional[str] = None
-
+    leader_id: str | None = None
 
 class RegionalStateManager:
     """
@@ -560,7 +553,7 @@ class RegionalStateManager:
     def __init__(
         self,
         event_bus: RegionalEventBus,
-        state_store: Optional[Any] = None,  # SharedControlPlaneState
+        state_store: Any | None = None,  # SharedControlPlaneState
     ):
         """
         Initialize the regional state manager.
@@ -573,7 +566,7 @@ class RegionalStateManager:
         self._state_store = state_store
 
         # Track entity versions for conflict detection
-        self._entity_versions: Dict[str, float] = {}
+        self._entity_versions: dict[str, float] = {}
 
         # Register event handlers
         self._register_handlers()
@@ -646,9 +639,9 @@ class RegionalStateManager:
     async def sync_task_state(
         self,
         task_id: str,
-        task_data: Dict[str, Any],
+        task_data: dict[str, Any],
         event_type: RegionalEventType = RegionalEventType.TASK_SUBMITTED,
-        target_region: Optional[str] = None,
+        target_region: str | None = None,
     ) -> bool:
         """
         Synchronize task state to other regions.
@@ -675,7 +668,7 @@ class RegionalStateManager:
     async def sync_agent_state(
         self,
         agent_id: str,
-        agent_data: Dict[str, Any],
+        agent_data: dict[str, Any],
         event_type: RegionalEventType = RegionalEventType.AGENT_UPDATED,
     ) -> bool:
         """
@@ -722,7 +715,7 @@ class RegionalStateManager:
         )
         return await self._event_bus.publish(event, target_region=target_region)
 
-    def get_sync_status(self) -> Dict[str, Any]:
+    def get_sync_status(self) -> dict[str, Any]:
         """Get synchronization status and metrics."""
         return {
             "local_region": self._event_bus.local_region,
@@ -732,26 +725,22 @@ class RegionalStateManager:
             "is_connected": self._event_bus.is_connected,
         }
 
-
 # Module-level singleton
-_regional_event_bus: Optional[RegionalEventBus] = None
+_regional_event_bus: RegionalEventBus | None = None
 
-
-def get_regional_event_bus() -> Optional[RegionalEventBus]:
+def get_regional_event_bus() -> RegionalEventBus | None:
     """Get the global regional event bus instance."""
     return _regional_event_bus
-
 
 def set_regional_event_bus(bus: RegionalEventBus) -> None:
     """Set the global regional event bus instance."""
     global _regional_event_bus
     _regional_event_bus = bus
 
-
 async def init_regional_sync(
     redis_url: str = "redis://localhost:6379",
-    config: Optional[RegionalSyncConfig] = None,
-) -> Optional[RegionalEventBus]:
+    config: RegionalSyncConfig | None = None,
+) -> RegionalEventBus | None:
     """
     Initialize regional synchronization.
 

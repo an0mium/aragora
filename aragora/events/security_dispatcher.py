@@ -34,7 +34,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine
 
 from aragora.events.security_events import (
     SecurityEvent,
@@ -47,8 +47,7 @@ from aragora.events.security_events import (
 logger = logging.getLogger(__name__)
 
 # Type alias for debate trigger callback
-DebateTriggerCallback = Callable[[SecurityEvent], Coroutine[Any, Any, Optional[str]]]
-
+DebateTriggerCallback = Callable[[SecurityEvent], Coroutine[Any, Any, str | None]]
 
 @dataclass
 class DispatcherConfig:
@@ -64,7 +63,7 @@ class DispatcherConfig:
     high_finding_threshold: int = 3
 
     # Event types that should always trigger a debate
-    always_trigger_types: Set[SecurityEventType] = field(
+    always_trigger_types: set[SecurityEventType] = field(
         default_factory=lambda: {
             SecurityEventType.CRITICAL_CVE,
             SecurityEventType.CRITICAL_VULNERABILITY,
@@ -89,7 +88,6 @@ class DispatcherConfig:
     # Whether to auto-start the dispatcher
     auto_start: bool = False
 
-
 @dataclass
 class DispatcherStats:
     """Statistics for the security dispatcher."""
@@ -99,9 +97,8 @@ class DispatcherStats:
     debates_triggered: int = 0
     debates_completed: int = 0
     debates_failed: int = 0
-    last_event_time: Optional[datetime] = None
-    last_debate_time: Optional[datetime] = None
-
+    last_event_time: datetime | None = None
+    last_debate_time: datetime | None = None
 
 class SecurityDispatcher:
     """
@@ -128,8 +125,8 @@ class SecurityDispatcher:
 
     def __init__(
         self,
-        config: Optional[DispatcherConfig] = None,
-        emitter: Optional[SecurityEventEmitter] = None,
+        config: DispatcherConfig | None = None,
+        emitter: SecurityEventEmitter | None = None,
     ):
         """
         Initialize the security dispatcher.
@@ -141,10 +138,10 @@ class SecurityDispatcher:
         self.config = config or DispatcherConfig()
         self._emitter = emitter
         self._running = False
-        self._pending_debates: Dict[str, asyncio.Task] = {}
-        self._repository_cooldowns: Dict[str, datetime] = {}
+        self._pending_debates: dict[str, asyncio.Task] = {}
+        self._repository_cooldowns: dict[str, datetime] = {}
         self._stats = DispatcherStats()
-        self._custom_trigger_callback: Optional[DebateTriggerCallback] = None
+        self._custom_trigger_callback: DebateTriggerCallback | None = None
 
     async def start(self) -> None:
         """
@@ -289,7 +286,7 @@ class SecurityDispatcher:
 
         return False
 
-    def _check_cooldown(self, repository: Optional[str]) -> bool:
+    def _check_cooldown(self, repository: str | None) -> bool:
         """
         Check if a repository is in cooldown period.
 
@@ -309,7 +306,7 @@ class SecurityDispatcher:
         elapsed = (datetime.now(timezone.utc) - last_debate).total_seconds()
         return elapsed >= self.config.repository_cooldown_seconds
 
-    def _set_cooldown(self, repository: Optional[str]) -> None:
+    def _set_cooldown(self, repository: str | None) -> None:
         """Set cooldown for a repository."""
         if repository:
             self._repository_cooldowns[repository] = datetime.now(timezone.utc)
@@ -340,7 +337,7 @@ class SecurityDispatcher:
             f"findings={len(event.findings)})"
         )
 
-    async def _run_debate(self, event: SecurityEvent) -> Optional[str]:
+    async def _run_debate(self, event: SecurityEvent) -> str | None:
         """
         Run the actual debate for a security event.
 
@@ -377,7 +374,7 @@ class SecurityDispatcher:
             self._stats.debates_failed += 1
             return None
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get dispatcher statistics.
 
@@ -404,7 +401,7 @@ class SecurityDispatcher:
             },
         }
 
-    def get_pending_debates(self) -> List[str]:
+    def get_pending_debates(self) -> list[str]:
         """Get list of pending debate event IDs."""
         return list(self._pending_debates.keys())
 
@@ -413,13 +410,11 @@ class SecurityDispatcher:
         """Check if the dispatcher is running."""
         return self._running
 
-
 # =============================================================================
 # Global Dispatcher Instance
 # =============================================================================
 
-_dispatcher: Optional[SecurityDispatcher] = None
-
+_dispatcher: SecurityDispatcher | None = None
 
 def get_security_dispatcher() -> SecurityDispatcher:
     """
@@ -433,7 +428,6 @@ def get_security_dispatcher() -> SecurityDispatcher:
         _dispatcher = SecurityDispatcher()
     return _dispatcher
 
-
 def set_security_dispatcher(dispatcher: SecurityDispatcher) -> None:
     """
     Set the global security dispatcher instance.
@@ -444,9 +438,8 @@ def set_security_dispatcher(dispatcher: SecurityDispatcher) -> None:
     global _dispatcher
     _dispatcher = dispatcher
 
-
 async def start_security_dispatcher(
-    config: Optional[DispatcherConfig] = None,
+    config: DispatcherConfig | None = None,
 ) -> SecurityDispatcher:
     """
     Initialize and start the global security dispatcher.
@@ -467,7 +460,6 @@ async def start_security_dispatcher(
     await _dispatcher.start()
     return _dispatcher
 
-
 async def stop_security_dispatcher() -> None:
     """
     Stop the global security dispatcher.
@@ -478,7 +470,6 @@ async def stop_security_dispatcher() -> None:
 
     if _dispatcher is not None:
         await _dispatcher.stop()
-
 
 __all__ = [
     # Main class

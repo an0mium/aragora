@@ -20,11 +20,11 @@ Each exception includes:
 - retry_after: Optional seconds to wait before retry
 - is_retryable: Whether the operation can be retried
 """
+from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from aragora.exceptions import AragoraError
-
 
 class ConnectorError(AragoraError):
     """Base exception for all connector errors.
@@ -45,7 +45,7 @@ class ConnectorError(AragoraError):
         self,
         message: str,
         connector_name: str = "unknown",
-        retry_after: Optional[float] = None,
+        retry_after: float | None = None,
         is_retryable: bool = False,
     ):
         # Build details dict for AragoraError
@@ -81,7 +81,6 @@ class ConnectorError(AragoraError):
 
         return " ".join(parts)
 
-
 class ConnectorAuthError(ConnectorError):
     """Authentication or authorization failure.
 
@@ -97,7 +96,7 @@ class ConnectorAuthError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        retry_after: Optional[float] = None,
+        retry_after: float | None = None,
     ):
         super().__init__(
             message,
@@ -105,7 +104,6 @@ class ConnectorAuthError(ConnectorError):
             retry_after=retry_after,
             is_retryable=False,  # Auth errors need credential fix
         )
-
 
 class ConnectorRateLimitError(ConnectorError):
     """Rate limit exceeded.
@@ -122,7 +120,7 @@ class ConnectorRateLimitError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        retry_after: Optional[float] = None,
+        retry_after: float | None = None,
     ):
         super().__init__(
             message,
@@ -130,7 +128,6 @@ class ConnectorRateLimitError(ConnectorError):
             retry_after=retry_after or 60.0,  # Default to 60 seconds
             is_retryable=True,
         )
-
 
 class ConnectorTimeoutError(ConnectorError):
     """Request timeout.
@@ -147,7 +144,7 @@ class ConnectorTimeoutError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        timeout_seconds: Optional[float] = None,
+        timeout_seconds: float | None = None,
     ):
         super().__init__(
             message,
@@ -156,7 +153,6 @@ class ConnectorTimeoutError(ConnectorError):
             is_retryable=True,
         )
         self.timeout_seconds = timeout_seconds
-
 
 class ConnectorNetworkError(ConnectorError):
     """Network connectivity issues.
@@ -182,7 +178,6 @@ class ConnectorNetworkError(ConnectorError):
             is_retryable=True,
         )
 
-
 class ConnectorAPIError(ConnectorError):
     """API returned an error response.
 
@@ -200,8 +195,8 @@ class ConnectorAPIError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        status_code: Optional[int] = None,
-        retry_after: Optional[float] = None,
+        status_code: int | None = None,
+        retry_after: float | None = None,
     ):
         # 5xx errors are retryable, 4xx are not
         is_retryable = status_code is not None and 500 <= status_code < 600
@@ -212,7 +207,6 @@ class ConnectorAPIError(ConnectorError):
             is_retryable=is_retryable,
         )
         self.status_code = status_code
-
 
 class ConnectorValidationError(ConnectorError):
     """Invalid input or parameters.
@@ -229,7 +223,7 @@ class ConnectorValidationError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        field: Optional[str] = None,
+        field: str | None = None,
     ):
         super().__init__(
             message,
@@ -237,7 +231,6 @@ class ConnectorValidationError(ConnectorError):
             is_retryable=False,
         )
         self.field = field
-
 
 class ConnectorNotFoundError(ConnectorError):
     """Requested resource not found.
@@ -254,7 +247,7 @@ class ConnectorNotFoundError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        resource_id: Optional[str] = None,
+        resource_id: str | None = None,
     ):
         super().__init__(
             message,
@@ -262,7 +255,6 @@ class ConnectorNotFoundError(ConnectorError):
             is_retryable=False,
         )
         self.resource_id = resource_id
-
 
 class ConnectorQuotaError(ConnectorError):
     """Quota or usage limit exhausted.
@@ -279,7 +271,7 @@ class ConnectorQuotaError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        quota_reset: Optional[float] = None,
+        quota_reset: float | None = None,
     ):
         super().__init__(
             message,
@@ -288,7 +280,6 @@ class ConnectorQuotaError(ConnectorError):
             is_retryable=False,  # Can't retry until quota resets
         )
         self.quota_reset = quota_reset
-
 
 class ConnectorParseError(ConnectorError):
     """Failed to parse response content.
@@ -305,7 +296,7 @@ class ConnectorParseError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        content_type: Optional[str] = None,
+        content_type: str | None = None,
     ):
         super().__init__(
             message,
@@ -313,7 +304,6 @@ class ConnectorParseError(ConnectorError):
             is_retryable=False,
         )
         self.content_type = content_type
-
 
 class ConnectorConfigError(ConnectorError):
     """Configuration or setup error.
@@ -330,7 +320,7 @@ class ConnectorConfigError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        config_key: Optional[str] = None,
+        config_key: str | None = None,
     ):
         super().__init__(
             message,
@@ -338,7 +328,6 @@ class ConnectorConfigError(ConnectorError):
             is_retryable=False,
         )
         self.config_key = config_key
-
 
 class ConnectorCircuitOpenError(ConnectorError):
     """Circuit breaker is open - connector temporarily unavailable.
@@ -355,7 +344,7 @@ class ConnectorCircuitOpenError(ConnectorError):
         self,
         message: str,
         connector_name: str = "unknown",
-        cooldown_remaining: Optional[float] = None,
+        cooldown_remaining: float | None = None,
     ):
         super().__init__(
             message,
@@ -365,11 +354,9 @@ class ConnectorCircuitOpenError(ConnectorError):
         )
         self.cooldown_remaining = cooldown_remaining
 
-
 # =============================================================================
 # Exception Utilities
 # =============================================================================
-
 
 def is_retryable_error(error: Exception) -> bool:
     """Check if an error is retryable.
@@ -401,7 +388,6 @@ def is_retryable_error(error: Exception) -> bool:
 
     return False
 
-
 def get_retry_delay(error: Exception, default: float = 5.0) -> float:
     """Get recommended retry delay for an error.
 
@@ -420,7 +406,6 @@ def get_retry_delay(error: Exception, default: float = 5.0) -> float:
         return 60.0
 
     return default
-
 
 def classify_exception(
     error: Exception,
@@ -543,7 +528,6 @@ def classify_exception(
         status_code=None,
     )
 
-
 class connector_error_handler:
     """
     Context manager that converts exceptions to ConnectorError types.
@@ -575,7 +559,6 @@ class connector_error_handler:
         if exc_val is not None:
             raise classify_exception(exc_val, self.connector_name) from exc_val
         return False
-
 
 __all__ = [
     # Base

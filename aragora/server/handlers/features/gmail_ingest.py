@@ -22,7 +22,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.billing.auth import extract_user_from_request
 from aragora.storage.gmail_token_store import (
@@ -49,42 +49,35 @@ logger = logging.getLogger(__name__)
 # Rate limiter for Gmail endpoints (20 requests per minute - OAuth + sync operations)
 _gmail_limiter = RateLimiter(requests_per_minute=20)
 
-
-async def get_user_state(user_id: str) -> Optional[GmailUserState]:
+async def get_user_state(user_id: str) -> GmailUserState | None:
     """Get Gmail state for a user."""
     store = get_gmail_token_store()
     return await store.get(user_id)
-
 
 async def save_user_state(state: GmailUserState) -> None:
     """Save Gmail state for a user."""
     store = get_gmail_token_store()
     await store.save(state)
 
-
 async def delete_user_state(user_id: str) -> bool:
     """Delete Gmail state for a user."""
     store = get_gmail_token_store()
     return await store.delete(user_id)
 
-
-async def get_sync_job(user_id: str) -> Optional[SyncJobState]:
+async def get_sync_job(user_id: str) -> SyncJobState | None:
     """Get sync job state for a user."""
     store = get_gmail_token_store()
     return await store.get_sync_job(user_id)
-
 
 async def save_sync_job(job: SyncJobState) -> None:
     """Save sync job state."""
     store = get_gmail_token_store()
     await store.save_sync_job(job)
 
-
 async def delete_sync_job(user_id: str) -> bool:
     """Delete sync job for a user."""
     store = get_gmail_token_store()
     return await store.delete_sync_job(user_id)
-
 
 class GmailIngestHandler(SecureHandler):
     """Handler for Gmail inbox ingestion endpoints.
@@ -116,7 +109,7 @@ class GmailIngestHandler(SecureHandler):
 
     def _get_authenticated_user(
         self, handler: Any
-    ) -> tuple[Optional[str], Optional[str], Optional[HandlerResult]]:
+    ) -> tuple[str | None, str | None, HandlerResult | None]:
         """Extract authenticated user from JWT token.
 
         SECURITY: user_id is bound to JWT context to prevent cross-tenant access.
@@ -139,9 +132,9 @@ class GmailIngestHandler(SecureHandler):
     async def handle(
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -188,9 +181,9 @@ class GmailIngestHandler(SecureHandler):
     async def handle_post(
         self,
         path: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route POST requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -263,7 +256,7 @@ class GmailIngestHandler(SecureHandler):
             or os.environ.get("GOOGLE_CLIENT_ID")
         )
 
-    def _get_auth_url(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _get_auth_url(self, query_params: dict[str, Any]) -> HandlerResult:
         """Generate OAuth authorization URL."""
         redirect_uri = query_params.get("redirect_uri", "http://localhost:3000/inbox/callback")
         state = query_params.get("state", "")
@@ -280,7 +273,7 @@ class GmailIngestHandler(SecureHandler):
             logger.error(f"[Gmail] Failed to generate auth URL: {e}")
             return error_response("Failed to generate authorization URL", 500)
 
-    def _start_connect(self, body: Dict[str, Any], user_id: str) -> HandlerResult:
+    def _start_connect(self, body: dict[str, Any], user_id: str) -> HandlerResult:
         """Start OAuth connection flow."""
         redirect_uri = body.get("redirect_uri", "http://localhost:3000/inbox/callback")
         state = body.get("state", user_id)
@@ -304,7 +297,7 @@ class GmailIngestHandler(SecureHandler):
 
     async def _handle_oauth_callback(
         self,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         user_id: str,
         org_id: str = "",
     ) -> HandlerResult:
@@ -338,7 +331,7 @@ class GmailIngestHandler(SecureHandler):
 
     async def _handle_oauth_callback_post(
         self,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         user_id: str,
         org_id: str = "",
     ) -> HandlerResult:
@@ -415,7 +408,7 @@ class GmailIngestHandler(SecureHandler):
             logger.error(f"[Gmail] OAuth completion failed: {e}")
             return error_response(safe_error_message(e, "Authentication"), 500)
 
-    async def _start_sync(self, body: Dict[str, Any], user_id: str) -> HandlerResult:
+    async def _start_sync(self, body: dict[str, Any], user_id: str) -> HandlerResult:
         """Start email sync for user."""
         state = await get_user_state(user_id)
 
@@ -471,7 +464,7 @@ class GmailIngestHandler(SecureHandler):
         state: GmailUserState,
         full_sync: bool,
         max_messages: int,
-        labels: List[str],
+        labels: list[str],
     ) -> None:
         """Run email sync (background thread).
 
@@ -591,7 +584,7 @@ class GmailIngestHandler(SecureHandler):
     async def _list_messages(
         self,
         user_id: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
     ) -> HandlerResult:
         """List indexed messages for user."""
         state = await get_user_state(user_id)
@@ -659,7 +652,7 @@ class GmailIngestHandler(SecureHandler):
             logger.error(f"[Gmail] Get message failed: {e}")
             return error_response(safe_error_message(e, "Failed to get message"), 500)
 
-    async def _search(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _search(self, user_id: str, body: dict[str, Any]) -> HandlerResult:
         """Search emails."""
         state = await get_user_state(user_id)
 
@@ -715,7 +708,6 @@ class GmailIngestHandler(SecureHandler):
                 "was_connected": deleted,
             }
         )
-
 
 # Export for handler registration
 __all__ = ["GmailIngestHandler"]

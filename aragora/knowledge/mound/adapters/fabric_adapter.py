@@ -21,7 +21,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from ._base import KnowledgeMoundAdapter
 
@@ -32,8 +32,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Type alias for event callbacks
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 @dataclass
 class PoolSnapshot:
@@ -49,8 +48,7 @@ class PoolSnapshot:
     tasks_completed: int = 0
     avg_task_duration_seconds: float = 0.0
     workspace_id: str = "default"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class TaskSchedulingOutcome:
@@ -59,15 +57,14 @@ class TaskSchedulingOutcome:
     task_id: str
     task_type: str
     agent_id: str
-    pool_id: Optional[str]
+    pool_id: str | None
     priority: int
     scheduled_at: float
-    completed_at: Optional[float] = None
+    completed_at: float | None = None
     success: bool = False
     duration_seconds: float = 0.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     workspace_id: str = "default"
-
 
 @dataclass
 class BudgetUsageSnapshot:
@@ -84,7 +81,6 @@ class BudgetUsageSnapshot:
     alerts_triggered: int = 0
     workspace_id: str = "default"
 
-
 @dataclass
 class PolicyDecisionRecord:
     """Record of a policy decision for audit trails."""
@@ -93,12 +89,11 @@ class PolicyDecisionRecord:
     agent_id: str
     action: str
     allowed: bool
-    policy_id: Optional[str]
+    policy_id: str | None
     reason: str
     timestamp: float
-    context: Dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
     workspace_id: str = "default"
-
 
 class FabricAdapter(KnowledgeMoundAdapter):
     """
@@ -129,7 +124,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
         fabric: Optional["AgentFabric"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
         workspace_id: str = "default",
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         min_confidence_threshold: float = 0.6,
         enable_dual_write: bool = False,
     ):
@@ -154,10 +149,10 @@ class FabricAdapter(KnowledgeMoundAdapter):
         self._min_confidence_threshold = min_confidence_threshold
 
         # Caches for reverse flow
-        self._pool_performance_cache: Dict[str, List[PoolSnapshot]] = {}
-        self._task_patterns_cache: Dict[str, List[TaskSchedulingOutcome]] = {}
+        self._pool_performance_cache: dict[str, list[PoolSnapshot]] = {}
+        self._task_patterns_cache: dict[str, list[TaskSchedulingOutcome]] = {}
         self._cache_ttl: float = 300  # 5 minutes
-        self._cache_times: Dict[str, float] = {}
+        self._cache_times: dict[str, float] = {}
 
         # Statistics
         self._stats = {
@@ -176,7 +171,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
     async def store_pool_snapshot(
         self,
         snapshot: PoolSnapshot,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a pool snapshot in the Knowledge Mound.
 
@@ -265,7 +260,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
     async def store_task_outcome(
         self,
         outcome: TaskSchedulingOutcome,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a task scheduling outcome in the Knowledge Mound.
 
@@ -345,7 +340,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
     async def store_budget_snapshot(
         self,
         snapshot: BudgetUsageSnapshot,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a budget usage snapshot in the Knowledge Mound.
 
@@ -425,7 +420,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
     async def store_policy_decision(
         self,
         record: PolicyDecisionRecord,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a policy decision record for audit trails.
 
@@ -502,7 +497,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
         pool_id: str,
         limit: int = 20,
         use_cache: bool = True,
-    ) -> List[PoolSnapshot]:
+    ) -> list[PoolSnapshot]:
         """
         Get historical pool performance from KM.
 
@@ -573,7 +568,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
         task_type: str,
         limit: int = 50,
         use_cache: bool = True,
-    ) -> List[TaskSchedulingOutcome]:
+    ) -> list[TaskSchedulingOutcome]:
         """
         Get historical task patterns for a task type from KM.
 
@@ -648,9 +643,9 @@ class FabricAdapter(KnowledgeMoundAdapter):
     async def get_pool_recommendations(
         self,
         task_type: str,
-        available_pools: Optional[List[str]] = None,
+        available_pools: Optional[list[str]] = None,
         top_n: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get pool recommendations for a task type based on historical performance.
 
@@ -666,7 +661,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
         patterns = await self.get_task_patterns(task_type, limit=100, use_cache=True)
 
         # Aggregate performance by pool
-        pool_stats: Dict[str, Dict[str, Any]] = {}
+        pool_stats: dict[str, dict[str, Any]] = {}
         for outcome in patterns:
             if outcome.pool_id is None:
                 continue
@@ -723,7 +718,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
         pool_id: str,
         task_type: str,
         top_n: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get agent recommendations within a pool for a specific task type.
 
@@ -738,7 +733,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
         patterns = await self.get_task_patterns(task_type, limit=200, use_cache=True)
 
         # Filter to pool and aggregate by agent
-        agent_stats: Dict[str, Dict[str, Any]] = {}
+        agent_stats: dict[str, dict[str, Any]] = {}
         for outcome in patterns:
             if outcome.pool_id != pool_id:
                 continue
@@ -784,7 +779,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
         self,
         entity_id: str,
         forecast_days: int = 7,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Forecast budget usage based on historical patterns.
 
@@ -870,7 +865,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
     # Sync from Fabric
     # =========================================================================
 
-    async def sync_from_fabric(self) -> Dict[str, Any]:
+    async def sync_from_fabric(self) -> dict[str, Any]:
         """
         Sync current fabric state to Knowledge Mound.
 
@@ -956,7 +951,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
     # Stats and Health
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         return {
             **self._stats,
@@ -974,7 +969,6 @@ class FabricAdapter(KnowledgeMoundAdapter):
         self._task_patterns_cache.clear()
         self._cache_times.clear()
         return count
-
 
 __all__ = [
     "FabricAdapter",

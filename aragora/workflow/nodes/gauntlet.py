@@ -11,12 +11,11 @@ Wraps the GauntletRunner to enable:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
-
 
 class GauntletStep(BaseStep):
     """
@@ -28,12 +27,12 @@ class GauntletStep(BaseStep):
     Config options:
         input_key: str - Context key for input content (default: "content")
         context_key: str - Context key for additional context (default: "context")
-        attack_categories: List[str] - Attack types to run (default: all)
+        attack_categories: list[str] - Attack types to run (default: all)
             Options: prompt_injection, jailbreak, data_extraction,
                      hallucination, bias, privacy, safety
-        probe_categories: List[str] - Probe types to run (default: all)
+        probe_categories: list[str] - Probe types to run (default: all)
             Options: reasoning, factuality, consistency, boundaries
-        compliance_frameworks: List[str] - Compliance checks to run
+        compliance_frameworks: list[str] - Compliance checks to run
             Options: gdpr, hipaa, soc2, pci_dss, nist_csf, ai_act
         require_passing: bool - Fail workflow on findings (default: True)
         severity_threshold: str - Minimum severity to fail (default: "medium")
@@ -41,7 +40,7 @@ class GauntletStep(BaseStep):
         max_findings: int - Maximum findings before abort (default: 100)
         timeout_seconds: float - Validation timeout (default: 300)
         parallel_attacks: int - Concurrent attack threads (default: 3)
-        agents: List[str] - Agent types for validation (default: ["claude"])
+        agents: list[str] - Agent types for validation (default: ["claude"])
 
     Usage:
         step = GauntletStep(
@@ -85,10 +84,10 @@ class GauntletStep(BaseStep):
 
     SEVERITY_LEVELS = ["low", "medium", "high", "critical"]
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
         self._findings_count = 0
-        self._highest_severity: Optional[str] = None
+        self._highest_severity: str | None = None
 
     async def execute(self, context: WorkflowContext) -> Any:
         """Execute the gauntlet validation step."""
@@ -274,9 +273,9 @@ class GauntletStep(BaseStep):
     async def _run_compliance_checks(
         self,
         input_content: str,
-        frameworks: List[str],
-        agents: List[str],
-    ) -> List[Dict[str, Any]]:
+        frameworks: list[str],
+        agents: list[str],
+    ) -> list[dict[str, Any]]:
         """Run compliance framework checks."""
         results = []
 
@@ -334,14 +333,14 @@ class GauntletStep(BaseStep):
 
         return results
 
-    async def checkpoint(self) -> Dict[str, Any]:
+    async def checkpoint(self) -> dict[str, Any]:
         """Save gauntlet step state for checkpointing."""
         return {
             "findings_count": self._findings_count,
             "highest_severity": self._highest_severity,
         }
 
-    async def restore(self, state: Dict[str, Any]) -> None:
+    async def restore(self, state: dict[str, Any]) -> None:
         """Restore gauntlet step state from checkpoint."""
         self._findings_count = state.get("findings_count", 0)
         self._highest_severity = state.get("highest_severity")

@@ -17,13 +17,12 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from statistics import mean, stdev
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.billing.cost_tracker import CostTracker
 
 logger = logging.getLogger(__name__)
-
 
 class TrendDirection(str, Enum):
     """Direction of cost trend."""
@@ -31,7 +30,6 @@ class TrendDirection(str, Enum):
     INCREASING = "increasing"
     DECREASING = "decreasing"
     STABLE = "stable"
-
 
 class SeasonalPattern(str, Enum):
     """Seasonal patterns in cost data."""
@@ -41,14 +39,12 @@ class SeasonalPattern(str, Enum):
     MONTHLY = "monthly"  # Time-of-month patterns
     NONE = "none"  # No clear pattern
 
-
 class AlertSeverity(str, Enum):
     """Severity of forecast alerts."""
 
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
-
 
 @dataclass
 class DailyForecast:
@@ -59,7 +55,6 @@ class DailyForecast:
     lower_bound: Decimal  # 95% confidence interval
     upper_bound: Decimal
     confidence: float  # 0-1
-
 
 @dataclass
 class ForecastAlert:
@@ -72,10 +67,10 @@ class ForecastAlert:
     metric: str  # e.g., "daily_cost", "monthly_projection"
     current_value: Decimal
     threshold_value: Decimal
-    projected_date: Optional[datetime] = None
+    projected_date: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -89,7 +84,6 @@ class ForecastAlert:
             "created_at": self.created_at.isoformat(),
         }
 
-
 @dataclass
 class TrendAnalysis:
     """Analysis of cost trends."""
@@ -100,7 +94,7 @@ class TrendAnalysis:
     r_squared: float  # Fit quality (0-1)
     description: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "direction": self.direction.value,
@@ -110,7 +104,6 @@ class TrendAnalysis:
             "description": self.description,
         }
 
-
 @dataclass
 class ForecastReport:
     """Complete forecast report for a workspace."""
@@ -119,13 +112,13 @@ class ForecastReport:
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Historical data used
-    history_start: Optional[datetime] = None
-    history_end: Optional[datetime] = None
+    history_start: datetime | None = None
+    history_end: datetime | None = None
     data_points: int = 0
 
     # Forecast period
-    forecast_start: Optional[datetime] = None
-    forecast_end: Optional[datetime] = None
+    forecast_start: datetime | None = None
+    forecast_end: datetime | None = None
     forecast_days: int = 30
 
     # Aggregate predictions
@@ -134,21 +127,21 @@ class ForecastReport:
     confidence_interval: float = 0.95
 
     # Trend analysis
-    trend: Optional[TrendAnalysis] = None
+    trend: TrendAnalysis | None = None
     seasonal_pattern: SeasonalPattern = SeasonalPattern.NONE
 
     # Daily forecasts
-    daily_forecasts: List[DailyForecast] = field(default_factory=list)
+    daily_forecasts: list[DailyForecast] = field(default_factory=list)
 
     # Alerts
-    alerts: List[ForecastAlert] = field(default_factory=list)
+    alerts: list[ForecastAlert] = field(default_factory=list)
 
     # Budget comparison
-    budget_limit: Optional[Decimal] = None
-    projected_budget_usage: Optional[float] = None  # Percentage
-    days_until_budget_exceeded: Optional[int] = None
+    budget_limit: Decimal | None = None
+    projected_budget_usage: float | None = None  # Percentage
+    days_until_budget_exceeded: int | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "workspace_id": self.workspace_id,
@@ -192,15 +185,13 @@ class ForecastReport:
             },
         }
 
-
 @dataclass
 class SimulationScenario:
     """A what-if simulation scenario."""
 
     name: str
     description: str
-    changes: Dict[str, Any]  # e.g., {"model_change": "haiku", "request_reduction": 0.2}
-
+    changes: dict[str, Any]  # e.g., {"model_change": "haiku", "request_reduction": 0.2}
 
 @dataclass
 class SimulationResult:
@@ -211,9 +202,9 @@ class SimulationResult:
     simulated_cost: Decimal
     cost_difference: Decimal
     percentage_change: float
-    daily_breakdown: List[Dict[str, Any]] = field(default_factory=list)
+    daily_breakdown: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "scenario": {
@@ -227,7 +218,6 @@ class SimulationResult:
             "percentage_change": round(self.percentage_change, 1),
             "daily_breakdown": self.daily_breakdown,
         }
-
 
 class CostForecaster:
     """
@@ -332,9 +322,9 @@ class CostForecaster:
         workspace_id: str,
         start: datetime,
         end: datetime,
-    ) -> List[Tuple[datetime, Decimal]]:
+    ) -> list[tuple[datetime, Decimal]]:
         """Get daily cost totals from cost tracker."""
-        daily_costs: Dict[str, Decimal] = {}
+        daily_costs: dict[str, Decimal] = {}
 
         if self._cost_tracker:
             # Get from tracker's buffer
@@ -361,7 +351,7 @@ class CostForecaster:
 
     def _analyze_trend(
         self,
-        daily_costs: List[Tuple[datetime, Decimal]],
+        daily_costs: list[tuple[datetime, Decimal]],
     ) -> TrendAnalysis:
         """Analyze trend using simple linear regression."""
         if len(daily_costs) < 2:
@@ -424,14 +414,14 @@ class CostForecaster:
 
     def _detect_seasonality(
         self,
-        daily_costs: List[Tuple[datetime, Decimal]],
+        daily_costs: list[tuple[datetime, Decimal]],
     ) -> SeasonalPattern:
         """Detect seasonal patterns in cost data."""
         if len(daily_costs) < 14:
             return SeasonalPattern.NONE
 
         # Check for weekly pattern (day-of-week effects)
-        by_weekday: Dict[int, List[float]] = {i: [] for i in range(7)}
+        by_weekday: dict[int, list[float]] = {i: [] for i in range(7)}
         for date, cost in daily_costs:
             by_weekday[date.weekday()].append(float(cost))
 
@@ -451,10 +441,10 @@ class CostForecaster:
 
     def _forecast_daily(
         self,
-        daily_costs: List[Tuple[datetime, Decimal]],
+        daily_costs: list[tuple[datetime, Decimal]],
         forecast_days: int,
         trend: TrendAnalysis,
-    ) -> List[DailyForecast]:
+    ) -> list[DailyForecast]:
         """Generate daily forecasts."""
         if not daily_costs:
             return []
@@ -509,10 +499,10 @@ class CostForecaster:
 
     def _calculate_budget_runway(
         self,
-        daily_costs: List[Tuple[datetime, Decimal]],
+        daily_costs: list[tuple[datetime, Decimal]],
         monthly_limit: Decimal,
         current_spend: Decimal,
-    ) -> Optional[int]:
+    ) -> int | None:
         """Calculate days until budget is exhausted."""
         if not daily_costs:
             return None
@@ -536,7 +526,7 @@ class CostForecaster:
         self,
         report: ForecastReport,
         budget_limit: Decimal,
-    ) -> List[ForecastAlert]:
+    ) -> list[ForecastAlert]:
         """Generate alerts based on budget projections."""
         alerts = []
 
@@ -597,10 +587,10 @@ class CostForecaster:
 
     def _detect_anomalies(
         self,
-        daily_costs: List[Tuple[datetime, Decimal]],
-    ) -> List[ForecastAlert]:
+        daily_costs: list[tuple[datetime, Decimal]],
+    ) -> list[ForecastAlert]:
         """Detect cost anomalies (spikes)."""
-        alerts: List[ForecastAlert] = []
+        alerts: list[ForecastAlert] = []
 
         if len(daily_costs) < 7:
             return alerts
@@ -699,7 +689,6 @@ class CostForecaster:
             ],
         )
 
-
 async def send_forecast_notifications(
     report: ForecastReport,
     org_id: str,
@@ -748,10 +737,8 @@ async def send_forecast_notifications(
 
     return True
 
-
 # Global forecaster instance
-_forecaster: Optional[CostForecaster] = None
-
+_forecaster: CostForecaster | None = None
 
 def get_cost_forecaster() -> CostForecaster:
     """Get or create the global cost forecaster."""
@@ -765,7 +752,6 @@ def get_cost_forecaster() -> CostForecaster:
         except ImportError:
             _forecaster = CostForecaster()
     return _forecaster
-
 
 __all__ = [
     "CostForecaster",

@@ -36,10 +36,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, Optional
+from typing import Any, Generator, Optional
 
 # Context variables for log context propagation
-_log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
+_log_context: ContextVar[dict[str, Any]] = ContextVar("log_context", default={})
 
 # Environment-based configuration
 LOG_LEVEL = os.environ.get("ARAGORA_LOG_LEVEL", "INFO").upper()
@@ -135,7 +135,6 @@ SECRET_VALUE_PATTERNS = [
     re.compile(r"https?://[^:]+:[^@]+@"),
 ]
 
-
 def _contains_secret_pattern(value: str) -> bool:
     """Check if a string value matches any secret pattern.
 
@@ -151,7 +150,6 @@ def _contains_secret_pattern(value: str) -> bool:
         if pattern.search(value):
             return True
     return False
-
 
 def redact_string(value: str) -> str:
     """Redact secrets from a string value.
@@ -173,20 +171,19 @@ def redact_string(value: str) -> str:
         return "[REDACTED]"
     return value
 
-
 @dataclass
 class LogContext:
     """Structured log context that can be attached to log records."""
 
-    request_id: Optional[str] = None
-    trace_id: Optional[str] = None
-    span_id: Optional[str] = None
-    user_id: Optional[str] = None
-    org_id: Optional[str] = None
-    debate_id: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    request_id: str | None = None
+    trace_id: str | None = None
+    span_id: str | None = None
+    user_id: str | None = None
+    org_id: str | None = None
+    debate_id: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         result = {}
         if self.request_id:
@@ -205,8 +202,7 @@ class LogContext:
             result.update(self.extra)
         return result
 
-
-def redact_sensitive(data: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
+def redact_sensitive(data: dict[str, Any], depth: int = 0) -> dict[str, Any]:
     """Recursively redact sensitive fields from a dictionary.
 
     Args:
@@ -219,7 +215,7 @@ def redact_sensitive(data: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
     if depth > 5:
         return data
 
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
     for key, value in data.items():
         key_lower = key.lower()
         is_sensitive_key = any(sensitive in key_lower for sensitive in REDACT_FIELDS)
@@ -244,7 +240,6 @@ def redact_sensitive(data: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
         else:
             result[key] = value
     return result
-
 
 class JsonFormatter(logging.Formatter):
     """JSON log formatter for structured logging.
@@ -280,7 +275,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
-        log_entry: Dict[str, Any] = {
+        log_entry: dict[str, Any] = {
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -354,7 +349,6 @@ class JsonFormatter(logging.Formatter):
 
         return json.dumps(log_entry, default=str)
 
-
 class TextFormatter(logging.Formatter):
     """Enhanced text formatter with context injection.
 
@@ -425,10 +419,9 @@ class TextFormatter(logging.Formatter):
 
         return message
 
-
 def configure_structured_logging(
     level: str = LOG_LEVEL,
-    json_output: Optional[bool] = None,
+    json_output: bool | None = None,
     service_name: str = "aragora",
 ) -> None:
     """Configure structured logging for the application.
@@ -476,7 +469,6 @@ def configure_structured_logging(
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-
 def get_logger(name: str) -> logging.Logger:
     """Get a logger with the given name.
 
@@ -487,7 +479,6 @@ def get_logger(name: str) -> logging.Logger:
         Logger instance
     """
     return logging.getLogger(name)
-
 
 @contextmanager
 def log_context(**kwargs: Any) -> Generator[None, None, None]:
@@ -510,7 +501,6 @@ def log_context(**kwargs: Any) -> Generator[None, None, None]:
     finally:
         _log_context.reset(token)
 
-
 def set_log_context(**kwargs: Any) -> None:
     """Set log context fields (persists until explicitly changed).
 
@@ -521,20 +511,17 @@ def set_log_context(**kwargs: Any) -> None:
     current.update(kwargs)
     _log_context.set(current)
 
-
 def clear_log_context() -> None:
     """Clear all log context fields."""
     _log_context.set({})
 
-
-def get_log_context() -> Dict[str, Any]:
+def get_log_context() -> dict[str, Any]:
     """Get current log context.
 
     Returns:
         Dictionary of current context fields
     """
     return _log_context.get().copy()
-
 
 class RequestLoggingMiddleware:
     """Middleware for logging HTTP requests with structured format.
@@ -571,9 +558,9 @@ class RequestLoggingMiddleware:
         method: str,
         path: str,
         client_ip: str,
-        headers: Optional[Dict[str, str]] = None,
-        request_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        headers: Optional[dict[str, str]] = None,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
         """Log request start and return context.
 
         Args:
@@ -608,7 +595,7 @@ class RequestLoggingMiddleware:
         }
 
         # Log request start
-        extra: Dict[str, Any] = {"event": "request_start"}
+        extra: dict[str, Any] = {"event": "request_start"}
         if headers:
             extra["headers"] = redact_sensitive(dict(headers))
 
@@ -618,9 +605,9 @@ class RequestLoggingMiddleware:
 
     def end_request(
         self,
-        ctx: Dict[str, Any],
+        ctx: dict[str, Any],
         status_code: int,
-        response_size: Optional[int] = None,
+        response_size: int | None = None,
     ) -> None:
         """Log request completion.
 
@@ -662,7 +649,7 @@ class RequestLoggingMiddleware:
 
     def log_error(
         self,
-        ctx: Dict[str, Any],
+        ctx: dict[str, Any],
         error: Exception,
         include_traceback: bool = True,
     ) -> None:
@@ -692,7 +679,6 @@ class RequestLoggingMiddleware:
             exc_info=True,
         )
 
-
 # Convenience function for quick logging setup
 def setup_logging(json_output: bool = True, level: str = "INFO") -> None:
     """Quick logging setup for production.
@@ -702,7 +688,6 @@ def setup_logging(json_output: bool = True, level: str = "INFO") -> None:
         level: Log level
     """
     configure_structured_logging(level=level, json_output=json_output)
-
 
 __all__ = [
     "configure_structured_logging",

@@ -7,8 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class FileChangeType(str, Enum):
     """Type of file change detected."""
@@ -16,7 +15,6 @@ class FileChangeType(str, Enum):
     ADDED = "added"
     MODIFIED = "modified"
     DELETED = "deleted"
-
 
 class SyncStatus(str, Enum):
     """Status of a sync operation."""
@@ -28,7 +26,6 @@ class SyncStatus(str, Enum):
     FAILED = "failed"
     PAUSED = "paused"
 
-
 @dataclass
 class FileChange:
     """Represents a detected file change."""
@@ -39,17 +36,17 @@ class FileChange:
     detected_at: datetime = field(default_factory=datetime.utcnow)
 
     # File metadata (not available for deleted files)
-    size_bytes: Optional[int] = None
-    mime_type: Optional[str] = None
-    extension: Optional[str] = None
+    size_bytes: int | None = None
+    mime_type: str | None = None
+    extension: str | None = None
 
     # Content hash for change detection
-    content_hash: Optional[str] = None
+    content_hash: str | None = None
 
     # Processing state
     processed: bool = False
-    document_id: Optional[str] = None
-    error: Optional[str] = None
+    document_id: str | None = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -66,7 +63,6 @@ class FileChange:
             "document_id": self.document_id,
             "error": self.error,
         }
-
 
 @dataclass
 class SyncConfig:
@@ -89,7 +85,7 @@ class SyncConfig:
             "**/*.tmp",
         ]
     )
-    include_patterns: Optional[list[str]] = None
+    include_patterns: list[str] | None = None
     max_file_size_mb: float = 50.0
 
     # Sync behavior
@@ -100,7 +96,6 @@ class SyncConfig:
     # Batch settings
     batch_size: int = 10  # Files to process per batch
     max_concurrent: int = 4  # Concurrent processing tasks
-
 
 @dataclass
 class SyncState:
@@ -116,13 +111,13 @@ class SyncState:
 
     # Statistics
     total_files: int = 0
-    last_sync_at: Optional[datetime] = None
-    last_change_at: Optional[datetime] = None
+    last_sync_at: datetime | None = None
+    last_change_at: datetime | None = None
 
     # History
     sync_count: int = 0
     error_count: int = 0
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
@@ -142,7 +137,6 @@ class SyncState:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
-
 
 @dataclass
 class SyncResult:
@@ -165,10 +159,10 @@ class SyncResult:
 
     # Timing
     started_at: datetime = field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Get sync duration in seconds."""
         if not self.completed_at:
             return None
@@ -196,7 +190,6 @@ class SyncResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "duration_seconds": self.duration_seconds,
         }
-
 
 __all__ = [
     "FileChange",

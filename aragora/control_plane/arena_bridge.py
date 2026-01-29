@@ -25,7 +25,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.control_plane.deliberation_events import DeliberationEventType
 from aragora.control_plane.deliberation import (
@@ -72,7 +72,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class AgentMetrics:
     """Intermediate metrics collected during debate for a single agent."""
@@ -82,9 +81,8 @@ class AgentMetrics:
     vote_count: int = 0
     critique_count: int = 0
     total_confidence: float = 0.0
-    position_history: List[str] = field(default_factory=list)
+    position_history: list[str] = field(default_factory=list)
     contributed_to_final: bool = False
-
 
 class ArenaEventAdapter:
     """
@@ -99,7 +97,7 @@ class ArenaEventAdapter:
         task_id: str,
         stream_server: Optional["ControlPlaneStreamServer"] = None,
         shared_state: Optional["SharedControlPlaneState"] = None,
-        sla_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        sla_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
     ):
         """
         Initialize the event adapter.
@@ -116,12 +114,12 @@ class ArenaEventAdapter:
         self.sla_callback = sla_callback
 
         # Track agent metrics during debate
-        self._agent_metrics: Dict[str, AgentMetrics] = {}
+        self._agent_metrics: dict[str, AgentMetrics] = {}
         self._current_round = 0
         self._total_rounds = 0
         self._start_time = time.time()
 
-    async def _emit(self, event_type: DeliberationEventType, data: Dict[str, Any]) -> None:
+    async def _emit(self, event_type: DeliberationEventType, data: dict[str, Any]) -> None:
         """Emit an event to the stream server."""
         if self.stream_server:
             try:
@@ -168,7 +166,7 @@ class ArenaEventAdapter:
     # Event Hook Methods (called by Arena)
     # =========================================================================
 
-    async def on_debate_start(self, task: str, agents: List[str], rounds: int) -> None:
+    async def on_debate_start(self, task: str, agents: list[str], rounds: int) -> None:
         """Called when debate starts."""
         self._total_rounds = rounds
         self._start_time = time.time()
@@ -258,7 +256,7 @@ class ArenaEventAdapter:
         self,
         critic: str,
         target: str,
-        issues: List[str],
+        issues: list[str],
         severity: float,
     ) -> None:
         """Called when an agent critiques another."""
@@ -298,7 +296,7 @@ class ArenaEventAdapter:
         self,
         reached: bool,
         confidence: float,
-        votes: Dict[str, str],
+        votes: dict[str, str],
     ) -> None:
         """Called when consensus is checked."""
         event_type = (
@@ -387,7 +385,7 @@ class ArenaEventAdapter:
         self,
         result: "DebateResult",
         success: bool,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """Called when debate completes."""
         event_type = (
@@ -409,17 +407,16 @@ class ArenaEventAdapter:
             },
         )
 
-    def _summarize_votes(self, votes: Dict[str, str]) -> Dict[str, int]:
+    def _summarize_votes(self, votes: dict[str, str]) -> dict[str, int]:
         """Summarize vote distribution."""
-        distribution: Dict[str, int] = {}
+        distribution: dict[str, int] = {}
         for choice in votes.values():
             distribution[choice] = distribution.get(choice, 0) + 1
         return distribution
 
-    def get_agent_metrics(self) -> Dict[str, AgentMetrics]:
+    def get_agent_metrics(self) -> dict[str, AgentMetrics]:
         """Get collected agent metrics."""
         return self._agent_metrics
-
 
 class ArenaControlPlaneBridge:
     """
@@ -436,8 +433,8 @@ class ArenaControlPlaneBridge:
         self,
         stream_server: Optional["ControlPlaneStreamServer"] = None,
         shared_state: Optional["SharedControlPlaneState"] = None,
-        elo_callback: Optional[Callable[[Dict[str, AgentPerformance]], None]] = None,
-        sla_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        elo_callback: Optional[Callable[[dict[str, AgentPerformance]], None]] = None,
+        sla_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
     ):
         """
         Initialize the bridge.
@@ -456,8 +453,8 @@ class ArenaControlPlaneBridge:
     async def execute_via_arena(
         self,
         task: DeliberationTask,
-        agents: List["Agent"],
-        workspace_id: Optional[str] = None,
+        agents: list["Agent"],
+        workspace_id: str | None = None,
     ) -> DeliberationOutcome:
         """
         Execute a deliberation using the Arena with full event streaming.
@@ -714,7 +711,7 @@ class ArenaControlPlaneBridge:
         self,
         adapter: ArenaEventAdapter,
         task: DeliberationTask,
-    ) -> Dict[str, Callable]:
+    ) -> dict[str, Callable]:
         """Create event_hooks dict for Arena initialization."""
 
         def sync_wrapper(coro_func):
@@ -864,10 +861,10 @@ class ArenaControlPlaneBridge:
     def _extract_agent_performance(
         self,
         result: "DebateResult",
-        adapter_metrics: Dict[str, AgentMetrics],
-    ) -> Dict[str, AgentPerformance]:
+        adapter_metrics: dict[str, AgentMetrics],
+    ) -> dict[str, AgentPerformance]:
         """Extract per-agent performance metrics from DebateResult."""
-        performances: Dict[str, AgentPerformance] = {}
+        performances: dict[str, AgentPerformance] = {}
 
         # Get winner from result
         winner = getattr(result, "winner", None)
@@ -900,26 +897,22 @@ class ArenaControlPlaneBridge:
 
         return performances
 
-
 # Singleton bridge instance
-_bridge: Optional[ArenaControlPlaneBridge] = None
+_bridge: ArenaControlPlaneBridge | None = None
 
-
-def get_arena_bridge() -> Optional[ArenaControlPlaneBridge]:
+def get_arena_bridge() -> ArenaControlPlaneBridge | None:
     """Get the global arena bridge instance."""
     return _bridge
-
 
 def set_arena_bridge(bridge: ArenaControlPlaneBridge) -> None:
     """Set the global arena bridge instance."""
     global _bridge
     _bridge = bridge
 
-
 def init_arena_bridge(
     stream_server: Optional["ControlPlaneStreamServer"] = None,
     shared_state: Optional["SharedControlPlaneState"] = None,
-    elo_callback: Optional[Callable[[Dict[str, AgentPerformance]], None]] = None,
+    elo_callback: Optional[Callable[[dict[str, AgentPerformance]], None]] = None,
 ) -> ArenaControlPlaneBridge:
     """Initialize and set the global arena bridge."""
     bridge = ArenaControlPlaneBridge(
@@ -929,7 +922,6 @@ def init_arena_bridge(
     )
     set_arena_bridge(bridge)
     return bridge
-
 
 __all__ = [
     "ArenaEventAdapter",

@@ -35,7 +35,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Optional
 
 from aragora.knowledge.mound.types import KnowledgeSource
 from aragora.memory.embeddings import (
@@ -51,7 +51,6 @@ from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class SemanticIndexEntry:
     """A semantically indexed knowledge item."""
@@ -60,7 +59,7 @@ class SemanticIndexEntry:
     source_type: str
     source_id: str
     content_hash: str
-    embedding: List[float]
+    embedding: list[float]
     embedding_model: str
     tenant_id: str
     domain: str
@@ -68,10 +67,9 @@ class SemanticIndexEntry:
     created_at: datetime
     updated_at: datetime
     retrieval_count: int = 0
-    last_retrieved_at: Optional[datetime] = None
+    last_retrieved_at: datetime | None = None
     avg_retrieval_rank: float = 0.0
     metadata: dict = field(default_factory=dict)
-
 
 @dataclass
 class SemanticSearchResult:
@@ -86,7 +84,6 @@ class SemanticSearchResult:
     importance: float
     tenant_id: str
     metadata: dict = field(default_factory=dict)
-
 
 class SemanticStore(SQLiteStore):
     """
@@ -156,8 +153,8 @@ class SemanticStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Union[str, Path],
-        embedding_provider: Optional[EmbeddingProvider] = None,
+        db_path: str | Path,
+        embedding_provider: EmbeddingProvider | None = None,
         default_tenant_id: str = "default",
     ):
         """
@@ -232,13 +229,13 @@ class SemanticStore(SQLiteStore):
 
     async def index_item(
         self,
-        source_type: Union[KnowledgeSource, str],
+        source_type: KnowledgeSource | str,
         source_id: str,
         content: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         domain: str = "general",
         importance: float = 0.5,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> str:
         """
         Index a knowledge item with mandatory embedding generation.
@@ -302,7 +299,7 @@ class SemanticStore(SQLiteStore):
         source_type: str,
         source_id: str,
         content_hash: str,
-        embedding: List[float],
+        embedding: list[float],
         tenant_id: str,
         domain: str,
         importance: float,
@@ -338,11 +335,11 @@ class SemanticStore(SQLiteStore):
                 ),
             )
 
-    async def _find_by_hash(self, content_hash: str, tenant_id: str) -> Optional[str]:
+    async def _find_by_hash(self, content_hash: str, tenant_id: str) -> str | None:
         """Find existing entry by content hash."""
         return await asyncio.to_thread(self._sync_find_by_hash, content_hash, tenant_id)
 
-    def _sync_find_by_hash(self, content_hash: str, tenant_id: str) -> Optional[str]:
+    def _sync_find_by_hash(self, content_hash: str, tenant_id: str) -> str | None:
         """Synchronous hash lookup."""
         row = self.fetch_one(
             "SELECT id FROM semantic_index WHERE content_hash = ? AND tenant_id = ?",
@@ -350,11 +347,11 @@ class SemanticStore(SQLiteStore):
         )
         return row[0] if row else None
 
-    async def get_entry(self, km_id: str) -> Optional[SemanticIndexEntry]:
+    async def get_entry(self, km_id: str) -> SemanticIndexEntry | None:
         """Get a semantic index entry by ID."""
         return await asyncio.to_thread(self._sync_get_entry, km_id)
 
-    def _sync_get_entry(self, km_id: str) -> Optional[SemanticIndexEntry]:
+    def _sync_get_entry(self, km_id: str) -> SemanticIndexEntry | None:
         """Synchronous entry lookup."""
         import json
 
@@ -436,12 +433,12 @@ class SemanticStore(SQLiteStore):
     async def search_similar(
         self,
         query: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         limit: int = 10,
-        domain_filter: Optional[str] = None,
+        domain_filter: str | None = None,
         min_similarity: float = 0.3,
-        source_types: Optional[List[str]] = None,
-    ) -> List[SemanticSearchResult]:
+        source_types: Optional[list[str]] = None,
+    ) -> list[SemanticSearchResult]:
         """
         Search for semantically similar items.
 
@@ -478,12 +475,12 @@ class SemanticStore(SQLiteStore):
 
     def _sync_search_similar(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         tenant_id: str,
         candidate_limit: int,
-        domain_filter: Optional[str],
-        source_types: Optional[List[str]],
-    ) -> List[SemanticSearchResult]:
+        domain_filter: str | None,
+        source_types: Optional[list[str]],
+    ) -> list[SemanticSearchResult]:
         """Synchronous similarity search with candidate filtering."""
         import json
 
@@ -540,7 +537,7 @@ class SemanticStore(SQLiteStore):
         self,
         km_id: str,
         rank_position: int,
-        was_useful: Optional[bool] = None,
+        was_useful: bool | None = None,
     ) -> None:
         """
         Record a retrieval event for meta-learning optimization.
@@ -601,7 +598,7 @@ class SemanticStore(SQLiteStore):
 
     async def get_retrieval_patterns(
         self,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         min_retrievals: int = 5,
     ) -> dict:
         """
@@ -654,10 +651,10 @@ class SemanticStore(SQLiteStore):
 
     async def index_batch(
         self,
-        items: List[Tuple[str, str, str]],  # (source_type, source_id, content)
-        tenant_id: Optional[str] = None,
+        items: list[tuple[str, str, str]],  # (source_type, source_id, content)
+        tenant_id: str | None = None,
         domain: str = "general",
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Index multiple items in batch (more efficient for bulk imports).
 
@@ -712,7 +709,7 @@ class SemanticStore(SQLiteStore):
     # Statistics
     # =========================================================================
 
-    async def get_stats(self, tenant_id: Optional[str] = None) -> dict:
+    async def get_stats(self, tenant_id: str | None = None) -> dict:
         """Get statistics about the semantic index."""
         return await asyncio.to_thread(self._sync_get_stats, tenant_id or self._default_tenant_id)
 
@@ -758,7 +755,7 @@ class SemanticStore(SQLiteStore):
             "tenant_id": tenant_id,
         }
 
-    def has_source(self, source_type: str, source_id: str, tenant_id: Optional[str] = None) -> bool:
+    def has_source(self, source_type: str, source_id: str, tenant_id: str | None = None) -> bool:
         """Check if a source is already indexed."""
         tenant_id = tenant_id or self._default_tenant_id
         row = self.fetch_one(
@@ -766,7 +763,6 @@ class SemanticStore(SQLiteStore):
             (source_type, source_id, tenant_id),
         )
         return row is not None
-
 
 __all__ = [
     "SemanticStore",

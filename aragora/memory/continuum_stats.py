@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.memory.tier_manager import DEFAULT_TIER_CONFIGS, MemoryTier
 
@@ -18,13 +18,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-def get_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
+def get_stats(cms: "ContinuumMemory") -> dict[str, Any]:
     """Get statistics about the continuum memory system."""
     with cms.connection() as conn:
         cursor = conn.cursor()
 
-        stats: Dict[str, Any] = {}
+        stats: dict[str, Any] = {}
 
         # Count by tier
         cursor.execute("""
@@ -59,8 +58,7 @@ def get_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
 
     return stats
 
-
-def export_for_tier(cms: "ContinuumMemory", tier: MemoryTier) -> List[Dict[str, Any]]:
+def export_for_tier(cms: "ContinuumMemory", tier: MemoryTier) -> list[dict[str, Any]]:
     """Export all memories for a specific tier."""
     entries = cms.retrieve(tiers=[tier], limit=1000)
     return [
@@ -75,7 +73,6 @@ def export_for_tier(cms: "ContinuumMemory", tier: MemoryTier) -> List[Dict[str, 
         }
         for e in entries
     ]
-
 
 def get_memory_pressure(cms: "ContinuumMemory") -> float:
     """
@@ -101,7 +98,7 @@ def get_memory_pressure(cms: "ContinuumMemory") -> float:
             FROM continuum_memory
             GROUP BY tier
         """)
-        tier_counts: Dict[str, int] = {row[0]: row[1] for row in cursor.fetchall()}
+        tier_counts: dict[str, int] = {row[0]: row[1] for row in cursor.fetchall()}
 
     # Calculate utilization for each tier
     max_pressure = 0.0
@@ -117,13 +114,12 @@ def get_memory_pressure(cms: "ContinuumMemory") -> float:
 
     return min(max_pressure, 1.0)
 
-
 def cleanup_expired_memories(
     cms: "ContinuumMemory",
-    tier: Optional[MemoryTier] = None,
+    tier: MemoryTier | None = None,
     archive: bool = True,
-    max_age_hours: Optional[float] = None,
-) -> Dict[str, Any]:
+    max_age_hours: float | None = None,
+) -> dict[str, Any]:
     """
     Remove or archive expired memories based on tier retention policies.
 
@@ -139,7 +135,7 @@ def cleanup_expired_memories(
     Returns:
         Dict with counts: {"archived": N, "deleted": N, "by_tier": {...}}
     """
-    results: Dict[str, Any] = {"archived": 0, "deleted": 0, "by_tier": {}}
+    results: dict[str, Any] = {"archived": 0, "deleted": 0, "by_tier": {}}
     tiers_to_process = [tier] if tier else list(MemoryTier)
     retention_multiplier = cms.hyperparams["retention_multiplier"]
 
@@ -212,14 +208,13 @@ def cleanup_expired_memories(
     )
     return results
 
-
 def delete_memory(
     cms: "ContinuumMemory",
     memory_id: str,
     archive: bool = True,
     reason: str = "user_deleted",
     force: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete a specific memory entry by ID.
 
@@ -233,7 +228,7 @@ def delete_memory(
     Returns:
         Dict with result: {"deleted": bool, "archived": bool, "id": str, "blocked": bool}
     """
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "deleted": False,
         "archived": False,
         "id": memory_id,
@@ -300,12 +295,11 @@ def delete_memory(
 
     return result
 
-
 def enforce_tier_limits(
     cms: "ContinuumMemory",
-    tier: Optional[MemoryTier] = None,
+    tier: MemoryTier | None = None,
     archive: bool = True,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """
     Enforce max entries per tier by removing lowest importance entries.
 
@@ -320,7 +314,7 @@ def enforce_tier_limits(
     Returns:
         Dict with counts of removed entries by tier
     """
-    results: Dict[str, int] = {}
+    results: dict[str, int] = {}
     tiers_to_process = [tier] if tier else list(MemoryTier)
     max_entries: "MaxEntriesPerTier" = cms.hyperparams["max_entries_per_tier"]
 
@@ -329,7 +323,7 @@ def enforce_tier_limits(
 
         for t in tiers_to_process:
             tier_name = t.value
-            # get() returns Optional[int] but we provide a default, so result is always int
+            # get() returns int | None but we provide a default, so result is always int
             limit = cast(int, max_entries.get(tier_name, 10000))
 
             # Count current entries
@@ -395,13 +389,12 @@ def enforce_tier_limits(
 
     return results
 
-
-def get_archive_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
+def get_archive_stats(cms: "ContinuumMemory") -> dict[str, Any]:
     """Get statistics about archived memories."""
     with cms.connection() as conn:
         cursor = conn.cursor()
 
-        stats: Dict[str, Any] = {}
+        stats: dict[str, Any] = {}
 
         # Count by tier and reason
         cursor.execute("""
@@ -409,7 +402,7 @@ def get_archive_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
             FROM continuum_memory_archive
             GROUP BY tier, archive_reason
         """)
-        by_tier_reason: Dict[str, Dict[str, int]] = {}
+        by_tier_reason: dict[str, dict[str, int]] = {}
         for row in cursor.fetchall():
             tier, reason, count = row
             if tier not in by_tier_reason:

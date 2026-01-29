@@ -10,16 +10,15 @@ Provides functions for building rich Slack messages:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Optional
 
 def build_starting_blocks(
     topic: str,
     user_id: str,
     debate_id: str,
-    agents: Optional[List[str]] = None,
-    expected_rounds: Optional[int] = None,
-) -> List[Dict[str, Any]]:
+    agents: Optional[list[str]] = None,
+    expected_rounds: int | None = None,
+) -> list[dict[str, Any]]:
     """Build Slack blocks for debate start message.
 
     Args:
@@ -32,7 +31,7 @@ def build_starting_blocks(
     Returns:
         List of Slack block elements
     """
-    blocks: List[Dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = [
         {
             "type": "header",
             "text": {
@@ -71,13 +70,12 @@ def build_starting_blocks(
 
     return blocks
 
-
 def build_round_update_blocks(
     round_num: int,
     total_rounds: int,
     agent: str,
     phase: str = "analyzing",
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Build Slack blocks for round progress update.
 
     Args:
@@ -119,7 +117,6 @@ def build_round_update_blocks(
 
     return blocks
 
-
 # Agent emoji mapping for visual distinction
 AGENT_EMOJIS = {
     "anthropic-api": ":robot_face:",
@@ -130,12 +127,11 @@ AGENT_EMOJIS = {
     "deepseek": ":mag:",
 }
 
-
 def build_agent_response_blocks(
     agent: str,
     response: str,
     round_num: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Build Slack blocks for an individual agent response.
 
     Args:
@@ -151,7 +147,7 @@ def build_agent_response_blocks(
     # Truncate response for Slack (max 3000 chars in section)
     truncated = response[:2800] + "..." if len(response) > 2800 else response
 
-    blocks: List[Dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = [
         {
             "type": "context",
             "elements": [
@@ -173,14 +169,13 @@ def build_agent_response_blocks(
 
     return blocks
 
-
 def build_result_blocks(
     topic: str,
     result: Any,
     user_id: str,
-    receipt_url: Optional[str] = None,
-    debate_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    receipt_url: str | None = None,
+    debate_id: str | None = None,
+) -> list[dict[str, Any]]:
     """Build Slack blocks for debate result message.
 
     Args:
@@ -209,7 +204,7 @@ def build_result_blocks(
     if len(result.participants) > 4:
         participants_text += f" +{len(result.participants) - 4}"
 
-    blocks: List[Dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = [
         {"type": "divider"},
         {
             "type": "header",
@@ -260,7 +255,7 @@ def build_result_blocks(
 
     # Add actions if debate_id is provided
     if debate_id:
-        actions: List[Dict[str, Any]] = []
+        actions: list[dict[str, Any]] = []
 
         # View details button
         actions.append(
@@ -342,13 +337,12 @@ def build_result_blocks(
 
     return blocks
 
-
 def build_gauntlet_result_blocks(
     statement: str,
     result: Any,
     user_id: str,
-    receipt_url: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    receipt_url: str | None = None,
+) -> list[dict[str, Any]]:
     """Build Slack blocks for gauntlet (stress-test) result message.
 
     Args:
@@ -372,7 +366,7 @@ def build_gauntlet_result_blocks(
         verdict_emoji = ":warning:"
         verdict_text = "Inconclusive"
 
-    blocks: List[Dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = [
         {"type": "divider"},
         {
             "type": "header",
@@ -454,12 +448,11 @@ def build_gauntlet_result_blocks(
 
     return blocks
 
-
 def build_search_result_blocks(
     query: str,
-    results: List[Dict[str, Any]],
+    results: list[dict[str, Any]],
     total: int = 0,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Build Slack blocks for search results.
 
     Args:
@@ -470,7 +463,7 @@ def build_search_result_blocks(
     Returns:
         List of Slack block elements
     """
-    blocks: List[Dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = [
         {
             "type": "header",
             "text": {
@@ -527,7 +520,6 @@ def build_search_result_blocks(
             )
 
     return blocks
-
 
 __all__ = [
     "build_starting_blocks",

@@ -26,7 +26,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Generator, Optional, TypedDict
 
 if TYPE_CHECKING:
     from aragora.types.protocols import EventEmitterProtocol
@@ -65,7 +65,6 @@ DEFAULT_RETENTION_MULTIPLIER = 2.0
 # Re-export for backwards compatibility (use DEFAULT_TIER_CONFIGS from tier_manager)
 TIER_CONFIGS = DEFAULT_TIER_CONFIGS
 
-
 class MaxEntriesPerTier(TypedDict):
     """Type definition for max entries per tier configuration."""
 
@@ -73,7 +72,6 @@ class MaxEntriesPerTier(TypedDict):
     medium: int
     slow: int
     glacial: int
-
 
 class ContinuumHyperparams(TypedDict):
     """
@@ -92,7 +90,6 @@ class ContinuumHyperparams(TypedDict):
     max_entries_per_tier: MaxEntriesPerTier  # Max entries per tier
     retention_multiplier: float  # multiplier * half_life for cleanup
 
-
 @dataclass
 class ContinuumMemoryEntry:
     """A single entry in the continuum memory system."""
@@ -108,7 +105,7 @@ class ContinuumMemoryEntry:
     failure_count: int
     created_at: str
     updated_at: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     red_line: bool = False  # If True, entry cannot be deleted/forgotten
     red_line_reason: str = ""  # Why this entry is protected
 
@@ -140,12 +137,12 @@ class ContinuumMemoryEntry:
     # Cross-reference support for Knowledge Mound integration
 
     @property
-    def cross_references(self) -> List[str]:
+    def cross_references(self) -> list[str]:
         """Get list of cross-reference IDs linked to this entry."""
         return self.metadata.get("cross_references", [])
 
     @cross_references.setter
-    def cross_references(self, refs: List[str]) -> None:
+    def cross_references(self, refs: list[str]) -> None:
         """Set cross-reference IDs for this entry."""
         self.metadata["cross_references"] = refs
 
@@ -169,12 +166,12 @@ class ContinuumMemoryEntry:
         return f"cm_{self.id}"
 
     @property
-    def tags(self) -> List[str]:
+    def tags(self) -> list[str]:
         """Get tags associated with this entry."""
         return self.metadata.get("tags", [])
 
     @tags.setter
-    def tags(self, tag_list: List[str]) -> None:
+    def tags(self, tag_list: list[str]) -> None:
         """Set tags for this entry."""
         self.metadata["tags"] = tag_list
 
@@ -182,7 +179,6 @@ class ContinuumMemoryEntry:
     def last_updated(self) -> str:
         """Alias for updated_at for Knowledge Mound compatibility."""
         return self.updated_at
-
 
 class AwaitableList(list):
     """List wrapper that can be awaited for async compatibility."""
@@ -192,7 +188,6 @@ class AwaitableList(list):
             return self
 
         return _wrap().__await__()
-
 
 class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin):
     """
@@ -227,7 +222,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     SCHEMA_VERSION = CONTINUUM_SCHEMA_VERSION
 
     # Type annotations for lazy-initialized attributes (HybridMemorySearch is lazy-imported)
-    _hybrid_search: Optional[Any] = None
+    _hybrid_search: Any | None = None
 
     INITIAL_SCHEMA = """
         -- Main continuum memory table
@@ -326,10 +321,10 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     def __init__(
         self,
         db_path: str | Path | None = None,
-        tier_manager: Optional[TierManager] = None,
+        tier_manager: TierManager | None = None,
         event_emitter: Optional["EventEmitterProtocol"] = None,
-        storage_path: Optional[str] = None,
-        base_dir: Optional[str] = None,
+        storage_path: str | None = None,
+        base_dir: str | None = None,
         km_adapter: Optional["ContinuumAdapter"] = None,
     ):
         if db_path is None:
@@ -357,22 +352,22 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         self.event_emitter = event_emitter
 
         # Hyperparameters (can be modified by MetaLearner)
-        self.hyperparams: ContinuumHyperparams = {  # type: ignore[assignment]
-            "surprise_weight_success": 0.3,  # Weight for success rate surprise
-            "surprise_weight_semantic": 0.3,  # Weight for semantic novelty
-            "surprise_weight_temporal": 0.2,  # Weight for timing surprise
-            "surprise_weight_agent": 0.2,  # Weight for agent prediction error
-            "consolidation_threshold": 100.0,  # Updates to reach full consolidation
-            "promotion_cooldown_hours": 24.0,  # Minimum time between promotions
+        self.hyperparams: ContinuumHyperparams = ContinuumHyperparams(
+            surprise_weight_success=0.3,  # Weight for success rate surprise
+            surprise_weight_semantic=0.3,  # Weight for semantic novelty
+            surprise_weight_temporal=0.2,  # Weight for timing surprise
+            surprise_weight_agent=0.2,  # Weight for agent prediction error
+            consolidation_threshold=100.0,  # Updates to reach full consolidation
+            promotion_cooldown_hours=24.0,  # Minimum time between promotions
             # Retention policy settings
-            "max_entries_per_tier": {
-                "fast": 1000,
-                "medium": 5000,
-                "slow": 10000,
-                "glacial": 50000,
-            },
-            "retention_multiplier": DEFAULT_RETENTION_MULTIPLIER,  # multiplier * half_life for cleanup
-        }
+            max_entries_per_tier=MaxEntriesPerTier(
+                fast=1000,
+                medium=5000,
+                slow=10000,
+                glacial=50000,
+            ),
+            retention_multiplier=DEFAULT_RETENTION_MULTIPLIER,  # multiplier * half_life for cleanup
+        )
 
         # Sync tier manager settings with hyperparams
         self._tier_manager.promotion_cooldown_hours = self.hyperparams["promotion_cooldown_hours"]
@@ -396,7 +391,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         content: str,
         limit: int = 5,
         min_similarity: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Query Knowledge Mound for similar memories (reverse flow).
 
         Uses TTL caching to avoid redundant queries for same content.
@@ -454,7 +449,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         """Get the tier manager instance."""
         return self._tier_manager
 
-    def get_tier_metrics(self) -> Dict[str, Any]:
+    def get_tier_metrics(self) -> dict[str, Any]:
         """Get tier transition metrics from the tier manager."""
         return self._tier_manager.get_metrics_dict()
 
@@ -464,7 +459,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         content: str,
         tier: MemoryTier = MemoryTier.SLOW,
         importance: float = 0.5,
-        metadata: Dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntry:
         """
         Add a new memory entry to the continuum.
@@ -547,7 +542,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         content: str,
         tier: MemoryTier = MemoryTier.SLOW,
         importance: float = 0.5,
-        metadata: Dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntry:
         """Async wrapper for add() - offloads blocking I/O to executor."""
         loop = asyncio.get_event_loop()
@@ -568,7 +563,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         content: str,
         tier: str | MemoryTier = MemoryTier.SLOW,
         importance: float = 0.5,
-        metadata: Dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntry:
         """Async wrapper for add() - offloads blocking I/O to executor."""
         normalized_tier = MemoryTier(tier) if isinstance(tier, str) else tier
@@ -584,7 +579,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             ),
         )
 
-    async def get_async(self, id: str) -> Optional[ContinuumMemoryEntry]:
+    async def get_async(self, id: str) -> ContinuumMemoryEntry | None:
         """Async wrapper for get() - offloads blocking I/O to executor."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.get, id)
@@ -592,12 +587,12 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     async def retrieve_async(
         self,
         query: str | None = None,
-        tiers: List[MemoryTier] | None = None,
+        tiers: list[MemoryTier] | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
         include_glacial: bool = True,
         tier: str | MemoryTier | None = None,
-    ) -> List[ContinuumMemoryEntry]:
+    ) -> list[ContinuumMemoryEntry]:
         """Async wrapper for retrieve() - offloads blocking I/O to executor."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -625,7 +620,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             lambda: self.update_outcome(id, success, agent_prediction_error),
         )
 
-    def get(self, id: str) -> Optional[ContinuumMemoryEntry]:
+    def get(self, id: str) -> ContinuumMemoryEntry | None:
         """Get a memory entry by ID."""
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -661,7 +656,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             red_line_reason=row[13],
         )
 
-    def get_entry(self, id: str) -> Optional[ContinuumMemoryEntry]:
+    def get_entry(self, id: str) -> ContinuumMemoryEntry | None:
         """Alias for get() for interface compatibility with OutcomeMemoryBridge."""
         return self.get(id)
 
@@ -686,11 +681,11 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     def update(
         self,
         memory_id: str,
-        content: Optional[str] = None,
-        importance: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        surprise_score: Optional[float] = None,
-        consolidation_score: Optional[float] = None,
+        content: str | None = None,
+        importance: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        surprise_score: float | None = None,
+        consolidation_score: float | None = None,
     ) -> bool:
         """Update specific fields of a memory entry.
 
@@ -709,8 +704,8 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             True if the entry was updated, False if not found
         """
         # Build update clauses dynamically
-        updates: List[str] = []
-        params: List[Any] = []
+        updates: list[str] = []
+        params: list[Any] = []
 
         if content is not None:
             updates.append("content = ?")
@@ -852,7 +847,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             conn.commit()
             return True
 
-    def get_red_line_memories(self) -> List[ContinuumMemoryEntry]:
+    def get_red_line_memories(self) -> list[ContinuumMemoryEntry]:
         """Get all red-lined memory entries.
 
         Returns:
@@ -893,12 +888,12 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     def retrieve(
         self,
         query: str | None = None,
-        tiers: List[MemoryTier] | None = None,
+        tiers: list[MemoryTier] | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
         include_glacial: bool = True,
         tier: str | MemoryTier | None = None,
-    ) -> List[ContinuumMemoryEntry]:
+    ) -> list[ContinuumMemoryEntry]:
         """
         Retrieve memories ranked by importance, surprise, and recency.
 
@@ -1004,7 +999,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             try:
                 from aragora.server.stream.events import StreamEvent, StreamEventType
 
-                tier_counts: Dict[str, int] = {}
+                tier_counts: dict[str, int] = {}
                 for e in entries:
                     tier_counts[e.tier.value] = tier_counts.get(e.tier.value, 0) + 1
 
@@ -1048,10 +1043,10 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         self,
         query: str,
         limit: int = 10,
-        tiers: List[MemoryTier] | List[str] | None = None,
+        tiers: list[MemoryTier] | list[str] | None = None,
         vector_weight: float | None = None,
         min_importance: float = 0.0,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Perform hybrid search combining vector and keyword retrieval.
 
@@ -1247,7 +1242,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
                 for row in rows:
                     entry_id = row[0]
-                    metadata: Dict[str, Any] = safe_json_loads(row[1], {})
+                    metadata: dict[str, Any] = safe_json_loads(row[1], {})
                     modified = False
 
                     # Remove km_node_id reference if present
@@ -1426,7 +1421,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         config = TIER_CONFIGS[tier]
         return config.base_learning_rate * (config.decay_rate**update_count)
 
-    def promote(self, id: str) -> Optional[MemoryTier]:
+    def promote(self, id: str) -> MemoryTier | None:
         """
         Promote a memory to a faster tier.
 
@@ -1504,7 +1499,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
         return new_tier
 
-    def demote(self, id: str) -> Optional[MemoryTier]:
+    def demote(self, id: str) -> MemoryTier | None:
         """
         Demote a memory to a slower tier.
 
@@ -1599,7 +1594,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         self,
         from_tier: MemoryTier,
         to_tier: MemoryTier,
-        ids: List[str],
+        ids: list[str],
     ) -> int:
         """
         Batch promote memories from one tier to another.
@@ -1613,7 +1608,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         self,
         from_tier: MemoryTier,
         to_tier: MemoryTier,
-        ids: List[str],
+        ids: list[str],
     ) -> int:
         """
         Batch demote memories from one tier to another.
@@ -1623,7 +1618,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         """
         return _consolidation.demote_batch(self, from_tier, to_tier, ids)
 
-    def consolidate(self) -> Dict[str, int]:
+    def consolidate(self) -> dict[str, int]:
         """
         Run tier consolidation: promote/demote memories based on surprise.
 
@@ -1632,11 +1627,11 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         """
         return _consolidation.consolidate(self)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about the continuum memory system."""
         return _stats.get_stats(self)
 
-    def export_for_tier(self, tier: MemoryTier) -> List[Dict[str, Any]]:
+    def export_for_tier(self, tier: MemoryTier) -> list[dict[str, Any]]:
         """Export all memories for a specific tier."""
         return _stats.export_for_tier(self, tier)
 
@@ -1654,10 +1649,10 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
     def cleanup_expired_memories(
         self,
-        tier: Optional[MemoryTier] = None,
+        tier: MemoryTier | None = None,
         archive: bool = True,
-        max_age_hours: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        max_age_hours: float | None = None,
+    ) -> dict[str, Any]:
         """
         Remove or archive expired memories based on tier retention policies.
 
@@ -1680,7 +1675,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         archive: bool = True,
         reason: str = "user_deleted",
         force: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a specific memory entry by ID.
 
@@ -1697,9 +1692,9 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
     def enforce_tier_limits(
         self,
-        tier: Optional[MemoryTier] = None,
+        tier: MemoryTier | None = None,
         archive: bool = True,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Enforce max entries per tier by removing lowest importance entries.
 
@@ -1715,7 +1710,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         """
         return _stats.enforce_tier_limits(self, tier, archive)
 
-    def get_archive_stats(self) -> Dict[str, Any]:
+    def get_archive_stats(self) -> dict[str, Any]:
         """Get statistics about archived memories."""
         return _stats.get_archive_stats(self)
 
@@ -1726,13 +1721,11 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     # Snapshot methods: export_snapshot, restore_snapshot
     # → moved to ContinuumSnapshotMixin
 
-
 # Singleton instance for cross-subsystem access
-_global_continuum_memory: Optional[ContinuumMemory] = None
-
+_global_continuum_memory: ContinuumMemory | None = None
 
 def get_continuum_memory(
-    db_path: Optional[str] = None,
+    db_path: str | None = None,
     event_emitter: Optional["EventEmitterProtocol"] = None,
 ) -> ContinuumMemory:
     """Get the global ContinuumMemory singleton instance.
@@ -1757,7 +1750,6 @@ def get_continuum_memory(
         logger.debug("Created global ContinuumMemory instance")
 
     return _global_continuum_memory
-
 
 def reset_continuum_memory() -> None:
     """Reset the global ContinuumMemory instance (for testing)."""

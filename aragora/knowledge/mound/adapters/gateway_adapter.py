@@ -20,7 +20,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from ._base import KnowledgeMoundAdapter
 
@@ -33,8 +33,7 @@ KnowledgeMound = Any
 logger = logging.getLogger(__name__)
 
 # Type alias for event callbacks
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 @dataclass
 class MessageRoutingRecord:
@@ -43,15 +42,14 @@ class MessageRoutingRecord:
     message_id: str
     channel: str
     sender: str
-    agent_id: Optional[str]
-    routing_rule: Optional[str]
+    agent_id: str | None
+    routing_rule: str | None
     success: bool
     latency_ms: float
     priority: str = "normal"
-    thread_id: Optional[str] = None
-    error_message: Optional[str] = None
+    thread_id: str | None = None
+    error_message: str | None = None
     workspace_id: str = "default"
-
 
 @dataclass
 class ChannelPerformanceSnapshot:
@@ -65,8 +63,7 @@ class ChannelPerformanceSnapshot:
     active_threads: int = 0
     unique_senders: int = 0
     workspace_id: str = "default"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class DeviceRegistrationRecord:
@@ -76,11 +73,10 @@ class DeviceRegistrationRecord:
     device_name: str
     device_type: str
     status: str  # DeviceStatus value
-    capabilities: List[str]
+    capabilities: list[str]
     registered_at: float
     last_seen: float
     workspace_id: str = "default"
-
 
 @dataclass
 class RoutingDecisionRecord:
@@ -89,14 +85,13 @@ class RoutingDecisionRecord:
     decision_id: str
     message_id: str
     channel: str
-    rule_matched: Optional[str]
-    agent_selected: Optional[str]
+    rule_matched: str | None
+    agent_selected: str | None
     fallback_used: bool
-    capabilities_required: List[str]
-    capabilities_available: List[str]
+    capabilities_required: list[str]
+    capabilities_available: list[str]
     timestamp: float
     workspace_id: str = "default"
-
 
 class GatewayAdapter(KnowledgeMoundAdapter):
     """
@@ -127,7 +122,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
         gateway: Optional["LocalGateway"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
         workspace_id: str = "default",
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         min_confidence_threshold: float = 0.6,
         enable_dual_write: bool = False,
     ):
@@ -152,10 +147,10 @@ class GatewayAdapter(KnowledgeMoundAdapter):
         self._min_confidence_threshold = min_confidence_threshold
 
         # Caches for reverse flow
-        self._channel_performance_cache: Dict[str, List[ChannelPerformanceSnapshot]] = {}
-        self._routing_patterns_cache: Dict[str, List[MessageRoutingRecord]] = {}
+        self._channel_performance_cache: dict[str, list[ChannelPerformanceSnapshot]] = {}
+        self._routing_patterns_cache: dict[str, list[MessageRoutingRecord]] = {}
         self._cache_ttl: float = 300  # 5 minutes
-        self._cache_times: Dict[str, float] = {}
+        self._cache_times: dict[str, float] = {}
 
         # Statistics
         self._stats = {
@@ -174,7 +169,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
     async def store_routing_record(
         self,
         record: MessageRoutingRecord,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a message routing record in the Knowledge Mound.
 
@@ -255,7 +250,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
     async def store_channel_snapshot(
         self,
         snapshot: ChannelPerformanceSnapshot,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a channel performance snapshot in the Knowledge Mound.
 
@@ -336,7 +331,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
     async def store_device_registration(
         self,
         record: DeviceRegistrationRecord,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a device registration record in the Knowledge Mound.
 
@@ -409,7 +404,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
     async def store_routing_decision(
         self,
         record: RoutingDecisionRecord,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a routing decision record for analysis.
 
@@ -481,7 +476,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
         channel: str,
         limit: int = 20,
         use_cache: bool = True,
-    ) -> List[ChannelPerformanceSnapshot]:
+    ) -> list[ChannelPerformanceSnapshot]:
         """
         Get historical channel performance from KM.
 
@@ -549,7 +544,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
         channel: str,
         limit: int = 50,
         use_cache: bool = True,
-    ) -> List[MessageRoutingRecord]:
+    ) -> list[MessageRoutingRecord]:
         """
         Get historical routing patterns for a channel from KM.
 
@@ -620,7 +615,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
         self,
         channel: str,
         top_n: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get routing recommendations for a channel based on historical performance.
 
@@ -642,8 +637,8 @@ class GatewayAdapter(KnowledgeMoundAdapter):
             ]
 
         # Analyze agent performance
-        agent_stats: Dict[str, Dict[str, Any]] = {}
-        rule_stats: Dict[str, Dict[str, int]] = {}
+        agent_stats: dict[str, dict[str, Any]] = {}
+        rule_stats: dict[str, dict[str, int]] = {}
 
         for record in patterns:
             # Track agent performance
@@ -735,7 +730,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
     async def get_device_capabilities_analysis(
         self,
         capability: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze device distribution for a specific capability.
 
@@ -800,7 +795,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
     # Sync from Gateway
     # =========================================================================
 
-    async def sync_from_gateway(self) -> Dict[str, Any]:
+    async def sync_from_gateway(self) -> dict[str, Any]:
         """
         Sync current gateway state to Knowledge Mound.
 
@@ -866,7 +861,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
     # Stats and Health
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         return {
             **self._stats,
@@ -884,7 +879,6 @@ class GatewayAdapter(KnowledgeMoundAdapter):
         self._routing_patterns_cache.clear()
         self._cache_times.clear()
         return count
-
 
 __all__ = [
     "GatewayAdapter",

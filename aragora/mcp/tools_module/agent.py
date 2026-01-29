@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
-async def list_agents_tool() -> Dict[str, Any]:
+async def list_agents_tool() -> dict[str, Any]:
     """
     List available AI agents.
 
@@ -44,12 +43,11 @@ async def list_agents_tool() -> Dict[str, Any]:
             "note": "Fallback list - some agents may not be available",
         }
 
-
 async def get_agent_history_tool(
     agent_name: str,
     include_debates: bool = True,
     limit: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get an agent's debate history, ELO rating, and performance stats.
 
@@ -64,7 +62,7 @@ async def get_agent_history_tool(
     if not agent_name:
         return {"error": "agent_name is required"}
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "agent_name": agent_name,
         "elo_rating": 1500,
         "total_debates": 0,
@@ -108,7 +106,7 @@ async def get_agent_history_tool(
             search_result = db.search(query="", limit=limit)
             # search returns tuple (list, count) - extract list and filter by agent
             all_debates = search_result[0] if isinstance(search_result, tuple) else search_result
-            filtered_debates: List[Dict[str, Any]] = []
+            filtered_debates: list[dict[str, Any]] = []
             for debate in all_debates:
                 debate_dict = debate if isinstance(debate, dict) else vars(debate)
                 agents_list = debate_dict.get("agents", [])
@@ -128,11 +126,10 @@ async def get_agent_history_tool(
 
     return result
 
-
 async def get_agent_lineage_tool(
     agent_name: str,
     depth: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get the evolutionary lineage of an agent.
 
@@ -212,12 +209,11 @@ async def get_agent_lineage_tool(
     except Exception as e:
         return {"error": f"Failed to get lineage: {e}"}
 
-
 async def breed_agents_tool(
     parent_a: str,
     parent_b: str,
     mutation_rate: float = 0.1,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Breed two agents to create a new offspring agent.
 
@@ -297,7 +293,6 @@ async def breed_agents_tool(
         return {"error": "Genesis/breeding module not available"}
     except Exception as e:
         return {"error": f"Breeding failed: {e}"}
-
 
 __all__ = [
     "list_agents_tool",

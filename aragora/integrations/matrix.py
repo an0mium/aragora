@@ -18,6 +18,7 @@ Usage:
     ))
     await matrix.post_debate_summary(debate_result)
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -25,7 +26,7 @@ import os
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
@@ -33,7 +34,6 @@ from aragora.core import DebateResult
 from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class MatrixConfig:
@@ -76,7 +76,6 @@ class MatrixConfig:
         # Ensure homeserver URL doesn't end with /
         self.homeserver_url = self.homeserver_url.rstrip("/")
 
-
 class MatrixIntegration:
     """
     Matrix/Element integration for posting debate events.
@@ -105,12 +104,12 @@ class MatrixIntegration:
     # Matrix API version
     API_VERSION = "v3"
 
-    def __init__(self, config: Optional[MatrixConfig] = None):
+    def __init__(self, config: MatrixConfig | None = None):
         self.config = config or MatrixConfig()
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._message_count = 0
         self._last_reset = datetime.now()
-        self._sync_token: Optional[str] = None
+        self._sync_token: str | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -158,8 +157,8 @@ class MatrixIntegration:
     async def send_message(
         self,
         text: str,
-        html: Optional[str] = None,
-        room_id: Optional[str] = None,
+        html: str | None = None,
+        room_id: str | None = None,
     ) -> bool:
         """Send a message to a Matrix room.
 
@@ -282,7 +281,7 @@ class MatrixIntegration:
         debate_id: str,
         answer: str,
         confidence: float,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
     ) -> bool:
         """Send a consensus reached alert.
 
@@ -328,7 +327,7 @@ class MatrixIntegration:
         self,
         debate_id: str,
         error: str,
-        phase: Optional[str] = None,
+        phase: str | None = None,
     ) -> bool:
         """Send an error notification.
 
@@ -360,7 +359,7 @@ class MatrixIntegration:
     async def send_leaderboard_update(
         self,
         rankings: list[dict[str, Any]],
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> bool:
         """Send a leaderboard update.
 

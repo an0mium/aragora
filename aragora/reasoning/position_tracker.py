@@ -18,10 +18,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class PositionStance(str, Enum):
     """Agent stance on a proposition."""
@@ -60,7 +59,6 @@ class PositionStance(str, Enum):
         }
         return values.get(self, 0.5)
 
-
 @dataclass
 class PositionRecord:
     """Record of an agent's position at a specific point in time."""
@@ -86,7 +84,6 @@ class PositionRecord:
             "evidence_cited": self.evidence_cited,
         }
 
-
 @dataclass
 class PositionPivot:
     """Record of when an agent changed their position."""
@@ -98,8 +95,8 @@ class PositionPivot:
     to_stance: PositionStance
     from_confidence: float
     to_confidence: float
-    trigger_argument: Optional[str] = None
-    trigger_agent: Optional[str] = None
+    trigger_argument: str | None = None
+    trigger_agent: str | None = None
     pivot_magnitude: float = 0.0
     pivot_type: str = "shift"  # shift, reversal, strengthening, weakening
 
@@ -134,7 +131,6 @@ class PositionPivot:
             "pivot_type": self.pivot_type,
         }
 
-
 @dataclass
 class PositionEvolution:
     """Complete evolution of positions for a debate."""
@@ -153,9 +149,9 @@ class PositionEvolution:
         stance: PositionStance,
         confidence: float,
         key_argument: str,
-        influenced_by: Optional[list[str]] = None,
-        evidence_cited: Optional[list[str]] = None,
-    ) -> Optional[PositionPivot]:
+        influenced_by: list[str] | None = None,
+        evidence_cited: list[str] | None = None,
+    ) -> PositionPivot | None:
         """
         Record an agent's position and detect pivots.
 
@@ -310,7 +306,6 @@ class PositionEvolution:
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
-
 class PositionTracker:
     """
     Service for tracking position evolution across debates.
@@ -352,7 +347,7 @@ class PositionTracker:
         self._evolutions[debate_id] = evolution
         return evolution
 
-    def get_evolution(self, debate_id: str) -> Optional[PositionEvolution]:
+    def get_evolution(self, debate_id: str) -> PositionEvolution | None:
         """Get position evolution for a debate."""
         return self._evolutions.get(debate_id)
 
@@ -363,7 +358,7 @@ class PositionTracker:
         round_number: int,
         content: str,
         sentiment_score: float = 0.5,
-    ) -> Optional[PositionPivot]:
+    ) -> PositionPivot | None:
         """
         Record position from a debate message.
 
@@ -393,7 +388,7 @@ class PositionTracker:
             key_argument=content[:200],
         )
 
-    def analyze_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def analyze_debate(self, debate_id: str) -> dict[str, Any] | None:
         """
         Generate comprehensive position analysis for a debate.
 
@@ -449,10 +444,8 @@ class PositionTracker:
         else:
             return "No convergence - agents maintain opposing positions"
 
-
 # Global tracker instance
-_position_tracker: Optional[PositionTracker] = None
-
+_position_tracker: PositionTracker | None = None
 
 def get_position_tracker() -> PositionTracker:
     """Get or create the global position tracker."""

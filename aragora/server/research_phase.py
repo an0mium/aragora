@@ -37,7 +37,6 @@ SUMMARIZATION_TIMEOUT = 60.0  # Claude summarization of search results
 # Model for research tasks (Opus 4.5 for best quality)
 RESEARCH_MODEL = "claude-opus-4-5-20251101"
 
-
 @dataclass
 class SearchResult:
     """A single search result."""
@@ -46,7 +45,6 @@ class SearchResult:
     url: str
     snippet: str
     source: str = ""
-
 
 @dataclass
 class ResearchResult:
@@ -78,7 +76,6 @@ class ResearchResult:
 
         return "\n".join(parts)
 
-
 class PreDebateResearcher:
     """Performs web search for current events before debates."""
 
@@ -109,8 +106,8 @@ class PreDebateResearcher:
 
     def __init__(
         self,
-        brave_api_key: Optional[str] = None,
-        serper_api_key: Optional[str] = None,
+        brave_api_key: str | None = None,
+        serper_api_key: str | None = None,
         anthropic_client: Optional["anthropic.Anthropic"] = None,
     ):
         """Initialize the researcher.
@@ -533,13 +530,12 @@ Note: Clearly indicate if certain information may be outdated or requires verifi
                 is_current_event=False,
             )
 
-
 async def research_question(
     question: str,
     summarize: bool = True,
     max_results: int = 5,
     force_research: bool = True,
-) -> Optional[ResearchResult]:
+) -> ResearchResult | None:
     """Research a debate question to provide current context.
 
     Always performs web search to ensure agents have current information.
@@ -567,7 +563,6 @@ async def research_question(
         return await researcher.research_and_summarize(question, max_results)
     else:
         return await researcher.search(question, max_results)
-
 
 async def research_for_debate(question: str) -> str:
     """Research a topic and return formatted context for debate agents.

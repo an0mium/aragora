@@ -31,6 +31,7 @@ Usage:
     router = RoleBasedRouter(hierarchy)
     agent_id = await router.route_task(task)
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -40,10 +41,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class AgentRole(str, Enum):
     """
@@ -60,7 +60,6 @@ class AgentRole(str, Enum):
     WITNESS = "witness"
     POLECAT = "polecat"
     CREW = "crew"
-
 
 class RoleCapability(str, Enum):
     """Capabilities that can be associated with roles."""
@@ -88,9 +87,8 @@ class RoleCapability(str, Enum):
     COLLABORATE = "collaborate"
     MENTOR = "mentor"
 
-
 # Default capabilities per role
-ROLE_CAPABILITIES: Dict[AgentRole, Set[RoleCapability]] = {
+ROLE_CAPABILITIES: dict[AgentRole, set[RoleCapability]] = {
     AgentRole.MAYOR: {
         RoleCapability.CREATE_CONVOY,
         RoleCapability.ASSIGN_WORK,
@@ -121,7 +119,6 @@ ROLE_CAPABILITIES: Dict[AgentRole, Set[RoleCapability]] = {
     },
 }
 
-
 @dataclass
 class RoleAssignment:
     """
@@ -133,12 +130,12 @@ class RoleAssignment:
     agent_id: str
     role: AgentRole
     assigned_at: datetime
-    supervised_by: Optional[str] = None  # Agent ID of supervisor
-    supervises: List[str] = field(default_factory=list)  # Agent IDs supervised
-    capabilities: Set[RoleCapability] = field(default_factory=set)
+    supervised_by: str | None = None  # Agent ID of supervisor
+    supervises: list[str] = field(default_factory=list)  # Agent IDs supervised
+    capabilities: set[RoleCapability] = field(default_factory=set)
     is_ephemeral: bool = False  # True for Polecats
-    expires_at: Optional[datetime] = None  # For ephemeral agents
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    expires_at: datetime | None = None  # For ephemeral agents
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Initialize capabilities from role if not provided."""
@@ -166,7 +163,7 @@ class RoleAssignment:
             return other_role == AgentRole.POLECAT
         return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "agent_id": self.agent_id,
@@ -181,7 +178,7 @@ class RoleAssignment:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RoleAssignment":
+    def from_dict(cls, data: dict[str, Any]) -> "RoleAssignment":
         """Deserialize from dictionary."""
         return cls(
             agent_id=data["agent_id"],
@@ -197,7 +194,6 @@ class RoleAssignment:
             metadata=data.get("metadata", {}),
         )
 
-
 class AgentHierarchy:
     """
     Manages agent role assignments and supervision hierarchy.
@@ -209,7 +205,7 @@ class AgentHierarchy:
     - Spawning ephemeral Polecats
     """
 
-    def __init__(self, hierarchy_dir: Optional[Path] = None):
+    def __init__(self, hierarchy_dir: Path | None = None):
         """
         Initialize the hierarchy manager.
 
@@ -218,7 +214,7 @@ class AgentHierarchy:
         """
         self.hierarchy_dir = hierarchy_dir or Path(".agents")
         self.hierarchy_file = self.hierarchy_dir / "hierarchy.json"
-        self._assignments: Dict[str, RoleAssignment] = {}
+        self._assignments: dict[str, RoleAssignment] = {}
         self._lock = asyncio.Lock()
         self._initialized = False
 
@@ -265,9 +261,9 @@ class AgentHierarchy:
         self,
         agent_id: str,
         role: AgentRole,
-        supervised_by: Optional[str] = None,
-        additional_capabilities: Optional[Set[RoleCapability]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        supervised_by: str | None = None,
+        additional_capabilities: Optional[set[RoleCapability]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> RoleAssignment:
         """
         Register an agent with a role.
@@ -342,26 +338,26 @@ class AgentHierarchy:
             logger.info(f"Unregistered agent {agent_id}")
             return True
 
-    async def get_assignment(self, agent_id: str) -> Optional[RoleAssignment]:
+    async def get_assignment(self, agent_id: str) -> RoleAssignment | None:
         """Get role assignment for an agent."""
         return self._assignments.get(agent_id)
 
-    async def get_agents_by_role(self, role: AgentRole) -> List[RoleAssignment]:
+    async def get_agents_by_role(self, role: AgentRole) -> list[RoleAssignment]:
         """Get all agents with a specific role."""
         return [a for a in self._assignments.values() if a.role == role]
 
-    async def get_agents_by_capability(self, capability: RoleCapability) -> List[RoleAssignment]:
+    async def get_agents_by_capability(self, capability: RoleCapability) -> list[RoleAssignment]:
         """Get all agents with a specific capability."""
         return [a for a in self._assignments.values() if a.has_capability(capability)]
 
-    async def get_supervisor(self, agent_id: str) -> Optional[RoleAssignment]:
+    async def get_supervisor(self, agent_id: str) -> RoleAssignment | None:
         """Get the supervisor of an agent."""
         assignment = self._assignments.get(agent_id)
         if assignment and assignment.supervised_by:
             return self._assignments.get(assignment.supervised_by)
         return None
 
-    async def get_supervised(self, agent_id: str) -> List[RoleAssignment]:
+    async def get_supervised(self, agent_id: str) -> list[RoleAssignment]:
         """Get agents supervised by an agent."""
         assignment = self._assignments.get(agent_id)
         if not assignment:
@@ -423,10 +419,10 @@ class AgentHierarchy:
             logger.info(f"Cleaned up {len(expired)} expired Polecats")
         return len(expired)
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get statistics about the hierarchy."""
         assignments = list(self._assignments.values())
-        by_role: Dict[str, int] = {}
+        by_role: dict[str, int] = {}
         for assignment in assignments:
             by_role[assignment.role.value] = by_role.get(assignment.role.value, 0) + 1
 
@@ -435,7 +431,6 @@ class AgentHierarchy:
             "by_role": by_role,
             "ephemeral_count": len([a for a in assignments if a.is_ephemeral]),
         }
-
 
 class RoleBasedRouter:
     """
@@ -459,9 +454,9 @@ class RoleBasedRouter:
     async def route_task(
         self,
         task_type: str,
-        required_capabilities: Optional[Set[RoleCapability]] = None,
+        required_capabilities: Optional[set[RoleCapability]] = None,
         prefer_persistent: bool = True,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Route a task to an appropriate agent.
 
@@ -505,12 +500,12 @@ class RoleBasedRouter:
         # Return first available (could add load balancing here)
         return agents[0].agent_id
 
-    async def route_to_mayor(self) -> Optional[str]:
+    async def route_to_mayor(self) -> str | None:
         """Get a Mayor agent for coordination."""
         mayors = await self.hierarchy.get_agents_by_role(AgentRole.MAYOR)
         return mayors[0].agent_id if mayors else None
 
-    async def route_to_witness(self) -> Optional[str]:
+    async def route_to_witness(self) -> str | None:
         """Get a Witness agent for monitoring."""
         witnesses = await self.hierarchy.get_agents_by_role(AgentRole.WITNESS)
         return witnesses[0].agent_id if witnesses else None
@@ -518,7 +513,7 @@ class RoleBasedRouter:
     async def spawn_worker_for_task(
         self,
         task_description: str,
-        supervised_by: Optional[str] = None,
+        supervised_by: str | None = None,
     ) -> str:
         """
         Spawn an ephemeral worker for a task.
@@ -547,19 +542,16 @@ class RoleBasedRouter:
         )
         return assignment.agent_id
 
-
 # Singleton instance
-_default_hierarchy: Optional[AgentHierarchy] = None
+_default_hierarchy: AgentHierarchy | None = None
 
-
-async def get_agent_hierarchy(hierarchy_dir: Optional[Path] = None) -> AgentHierarchy:
+async def get_agent_hierarchy(hierarchy_dir: Path | None = None) -> AgentHierarchy:
     """Get the default agent hierarchy instance."""
     global _default_hierarchy
     if _default_hierarchy is None:
         _default_hierarchy = AgentHierarchy(hierarchy_dir)
         await _default_hierarchy.initialize()
     return _default_hierarchy
-
 
 def reset_agent_hierarchy() -> None:
     """Reset the default hierarchy (for testing)."""

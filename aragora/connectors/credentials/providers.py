@@ -16,22 +16,20 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
-
 
 class CredentialProvider(Protocol):
     """Protocol for credential providers."""
 
-    async def get_credential(self, key: str) -> Optional[str]:
+    async def get_credential(self, key: str) -> str | None:
         """Get a credential by key."""
         ...
 
     async def set_credential(self, key: str, value: str) -> None:
         """Set a credential."""
         ...
-
 
 class EnvCredentialProvider:
     """
@@ -50,7 +48,7 @@ class EnvCredentialProvider:
         """
         self.prefix = prefix
 
-    async def get_credential(self, key: str) -> Optional[str]:
+    async def get_credential(self, key: str) -> str | None:
         """Get credential from environment variable."""
         # Try with prefix first
         env_key = f"{self.prefix}{key.upper()}"
@@ -67,7 +65,6 @@ class EnvCredentialProvider:
         env_key = f"{self.prefix}{key.upper()}"
         os.environ[env_key] = value
 
-
 @dataclass
 class CachedCredential:
     """A cached credential with TTL."""
@@ -80,7 +77,6 @@ class CachedCredential:
     def is_expired(self) -> bool:
         """Check if the cached credential has expired."""
         return time.time() - self.cached_at > self.ttl_seconds
-
 
 class AWSSecretsManagerProvider:
     """
@@ -101,9 +97,9 @@ class AWSSecretsManagerProvider:
     def __init__(
         self,
         secret_name: str,
-        region: Optional[str] = None,
+        region: str | None = None,
         cache_ttl_seconds: float = DEFAULT_TTL_SECONDS,
-        profile_name: Optional[str] = None,
+        profile_name: str | None = None,
     ):
         """
         Initialize AWS Secrets Manager provider.
@@ -120,8 +116,8 @@ class AWSSecretsManagerProvider:
         self.profile_name = profile_name
 
         # Cache storage
-        self._cache: Dict[str, CachedCredential] = {}
-        self._secret_cache: Optional[Dict[str, Any]] = None
+        self._cache: dict[str, CachedCredential] = {}
+        self._secret_cache: Optional[dict[str, Any]] = None
         self._secret_cached_at: float = 0
 
         # Client (lazy initialized)
@@ -149,7 +145,7 @@ class AWSSecretsManagerProvider:
 
         return self._client
 
-    async def _fetch_secret(self) -> Dict[str, Any]:
+    async def _fetch_secret(self) -> dict[str, Any]:
         """Fetch secret from AWS Secrets Manager."""
         # Check cache first
         now = time.time()
@@ -169,7 +165,7 @@ class AWSSecretsManagerProvider:
 
         return secret_value
 
-    def _fetch_secret_sync(self) -> Dict[str, Any]:
+    def _fetch_secret_sync(self) -> dict[str, Any]:
         """Synchronous secret fetch."""
         client = self._get_client()
 
@@ -193,7 +189,7 @@ class AWSSecretsManagerProvider:
             logger.error(f"Failed to fetch secret {self.secret_name}: {e}")
             raise
 
-    async def get_credential(self, key: str) -> Optional[str]:
+    async def get_credential(self, key: str) -> str | None:
         """
         Get a credential by key.
 
@@ -286,7 +282,7 @@ class AWSSecretsManagerProvider:
         if key in self._cache:
             del self._cache[key]
 
-    def _update_secret_sync(self, secret_data: Dict[str, Any]) -> None:
+    def _update_secret_sync(self, secret_data: dict[str, Any]) -> None:
         """Synchronous secret update."""
         client = self._get_client()
         client.put_secret_value(
@@ -300,7 +296,6 @@ class AWSSecretsManagerProvider:
         self._secret_cache = None
         self._secret_cached_at = 0
 
-
 class ChainedCredentialProvider:
     """
     Credential provider that chains multiple providers.
@@ -309,7 +304,7 @@ class ChainedCredentialProvider:
     Useful for fallback hierarchies (e.g., AWS SM -> Env vars).
     """
 
-    def __init__(self, providers: List[CredentialProvider]):
+    def __init__(self, providers: list[CredentialProvider]):
         """
         Initialize with ordered list of providers.
 
@@ -318,7 +313,7 @@ class ChainedCredentialProvider:
         """
         self.providers = providers
 
-    async def get_credential(self, key: str) -> Optional[str]:
+    async def get_credential(self, key: str) -> str | None:
         """Get credential from first provider that has it."""
         for provider in self.providers:
             value = await provider.get_credential(key)
@@ -330,7 +325,6 @@ class ChainedCredentialProvider:
         """Set credential in the first provider only."""
         if self.providers:
             await self.providers[0].set_credential(key, value)
-
 
 class CachedCredentialProvider:
     """
@@ -355,9 +349,9 @@ class CachedCredentialProvider:
         """
         self.provider = provider
         self.cache_ttl_seconds = cache_ttl_seconds
-        self._cache: Dict[str, CachedCredential] = {}
+        self._cache: dict[str, CachedCredential] = {}
 
-    async def get_credential(self, key: str) -> Optional[str]:
+    async def get_credential(self, key: str) -> str | None:
         """Get credential with caching."""
         # Check cache
         if key in self._cache:
@@ -389,9 +383,8 @@ class CachedCredentialProvider:
         """Clear the credential cache."""
         self._cache.clear()
 
-
 def get_credential_provider(
-    provider_type: Optional[str] = None,
+    provider_type: str | None = None,
     **kwargs,
 ) -> CredentialProvider:
     """
@@ -457,7 +450,7 @@ def get_credential_provider(
             os.environ.get("AWS_SECRET_NAME"),
         )
 
-        providers: List[CredentialProvider] = []
+        providers: list[CredentialProvider] = []
 
         # Add AWS if configured
         if secret_name:

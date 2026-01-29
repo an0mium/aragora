@@ -17,13 +17,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
 
 logger = logging.getLogger(__name__)
-
 
 class ContradictionType(str, Enum):
     """Types of contradictions detected."""
@@ -34,7 +33,6 @@ class ContradictionType(str, Enum):
     NUMERICAL = "numerical"  # Conflicting numerical values
     AUTHORITY = "authority"  # Conflicting authoritative sources
 
-
 class ResolutionStrategy(str, Enum):
     """Strategies for resolving contradictions."""
 
@@ -44,7 +42,6 @@ class ResolutionStrategy(str, Enum):
     MERGE = "merge"  # Combine into nuanced item
     HUMAN_REVIEW = "human_review"  # Flag for manual review
     KEEP_BOTH = "keep_both"  # Mark as disputed
-
 
 @dataclass
 class ValidatorVote:
@@ -71,7 +68,7 @@ class ValidatorVote:
     voted_at: datetime = field(default_factory=datetime.now)
     """When the vote was cast."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "validator_id": self.validator_id,
@@ -81,7 +78,6 @@ class ValidatorVote:
             "weight": self.weight,
             "voted_at": self.voted_at.isoformat(),
         }
-
 
 @dataclass
 class Contradiction:
@@ -102,29 +98,29 @@ class Contradiction:
     conflict_score: float  # How conflicting the claims are (0-1)
     detected_at: datetime = field(default_factory=datetime.now)
     resolved: bool = False
-    resolution: Optional[ResolutionStrategy] = None
-    resolved_at: Optional[datetime] = None
-    resolved_by: Optional[str] = None
+    resolution: ResolutionStrategy | None = None
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
     notes: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Phase A3: Multi-party validation fields
-    validator_votes: List[ValidatorVote] = field(default_factory=list)
+    validator_votes: list[ValidatorVote] = field(default_factory=list)
     """Votes from assigned validators (Phase A3)."""
 
-    validation_request_id: Optional[str] = None
+    validation_request_id: str | None = None
     """Link to multi-party validation workflow request (Phase A3)."""
 
-    validation_consensus: Optional[str] = None
+    validation_consensus: str | None = None
     """Consensus result: 'accept_a', 'accept_b', 'merge', 'keep_both', 'deadlock' (Phase A3)."""
 
-    calibrated_conflict_score: Optional[float] = None
+    calibrated_conflict_score: float | None = None
     """Conflict score adjusted by validator calibration quality (Phase A3)."""
 
-    assigned_validators: List[str] = field(default_factory=list)
+    assigned_validators: list[str] = field(default_factory=list)
     """List of validators assigned to review this contradiction (Phase A3)."""
 
-    validation_deadline: Optional[datetime] = None
+    validation_deadline: datetime | None = None
     """Deadline for validation votes (Phase A3)."""
 
     @property
@@ -139,7 +135,7 @@ class Contradiction:
             return "medium"
         return "low"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -190,14 +186,14 @@ class Contradiction:
         quorum = (total // 2) + 1
         return max(0, quorum - self.votes_received)
 
-    def get_vote_summary(self) -> Dict[str, int]:
+    def get_vote_summary(self) -> dict[str, int]:
         """Get summary of votes by type."""
-        summary: Dict[str, int] = {}
+        summary: dict[str, int] = {}
         for vote in self.validator_votes:
             summary[vote.vote] = summary.get(vote.vote, 0) + 1
         return summary
 
-    def get_weighted_consensus(self) -> Optional[str]:
+    def get_weighted_consensus(self) -> str | None:
         """Calculate weighted consensus from votes.
 
         Returns the vote type with highest weighted support,
@@ -206,7 +202,7 @@ class Contradiction:
         if not self.validator_votes:
             return None
 
-        weighted_votes: Dict[str, float] = {}
+        weighted_votes: dict[str, float] = {}
         for vote in self.validator_votes:
             weighted_score = vote.weight * vote.confidence
             weighted_votes[vote.vote] = weighted_votes.get(vote.vote, 0) + weighted_score
@@ -225,7 +221,6 @@ class Contradiction:
 
         return None
 
-
 @dataclass
 class ContradictionReport:
     """Report of contradiction detection results."""
@@ -233,13 +228,13 @@ class ContradictionReport:
     workspace_id: str
     scanned_items: int
     contradictions_found: int
-    contradictions: List[Contradiction]
-    by_type: Dict[str, int]
-    by_severity: Dict[str, int]
+    contradictions: list[Contradiction]
+    by_type: dict[str, int]
+    by_severity: dict[str, int]
     scan_duration_ms: float
     scanned_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "workspace_id": self.workspace_id,
@@ -251,7 +246,6 @@ class ContradictionReport:
             "scan_duration_ms": self.scan_duration_ms,
             "scanned_at": self.scanned_at.isoformat(),
         }
-
 
 @dataclass
 class ContradictionConfig:
@@ -273,7 +267,7 @@ class ContradictionConfig:
     default_strategy: ResolutionStrategy = ResolutionStrategy.HUMAN_REVIEW
 
     # Negation patterns for conflict detection
-    negation_patterns: List[str] = field(
+    negation_patterns: list[str] = field(
         default_factory=lambda: [
             "not",
             "never",
@@ -292,21 +286,20 @@ class ContradictionConfig:
         ]
     )
 
-
 class ContradictionDetector:
     """Detects contradictions in knowledge items."""
 
-    def __init__(self, config: Optional[ContradictionConfig] = None):
+    def __init__(self, config: ContradictionConfig | None = None):
         """Initialize the contradiction detector."""
         self.config = config or ContradictionConfig()
-        self._contradictions: Dict[str, Contradiction] = {}
+        self._contradictions: dict[str, Contradiction] = {}
         self._lock = asyncio.Lock()
 
     async def detect_contradictions(
         self,
         mound: "KnowledgeMound",
         workspace_id: str,
-        item_ids: Optional[List[str]] = None,
+        item_ids: Optional[list[str]] = None,
     ) -> ContradictionReport:
         """Detect contradictions in knowledge items.
 
@@ -339,7 +332,7 @@ class ContradictionDetector:
             )
             items = result.items if hasattr(result, "items") else []
 
-        contradictions: List[Contradiction] = []
+        contradictions: list[Contradiction] = []
         scanned_pairs = set()
 
         # Compare items pairwise
@@ -379,8 +372,8 @@ class ContradictionDetector:
         # Build report
         duration_ms = (time.time() - start_time) * 1000
 
-        by_type: Dict[str, int] = {}
-        by_severity: Dict[str, int] = {}
+        by_type: dict[str, int] = {}
+        by_severity: dict[str, int] = {}
         for c in contradictions:
             by_type[c.contradiction_type.value] = by_type.get(c.contradiction_type.value, 0) + 1
             by_severity[c.severity] = by_severity.get(c.severity, 0) + 1
@@ -445,7 +438,7 @@ class ContradictionDetector:
         union = len(topics_a | topics_b)
         return intersection / union if union > 0 else 0.0
 
-    def _cosine_similarity(self, vec_a: List[float], vec_b: List[float]) -> float:
+    def _cosine_similarity(self, vec_a: list[float], vec_b: list[float]) -> float:
         """Compute cosine similarity between two vectors."""
         import math
 
@@ -461,7 +454,7 @@ class ContradictionDetector:
 
         return dot_product / (norm_a * norm_b)
 
-    async def _detect_conflict(self, item_a: Any, item_b: Any) -> Optional[Contradiction]:
+    async def _detect_conflict(self, item_a: Any, item_b: Any) -> Contradiction | None:
         """Detect if two items have conflicting content."""
         content_a = getattr(item_a, "content", "") or ""
         content_b = getattr(item_b, "content", "") or ""
@@ -537,9 +530,9 @@ class ContradictionDetector:
         self,
         contradiction_id: str,
         strategy: ResolutionStrategy,
-        resolved_by: Optional[str] = None,
+        resolved_by: str | None = None,
         notes: str = "",
-    ) -> Optional[Contradiction]:
+    ) -> Contradiction | None:
         """Resolve a contradiction.
 
         Args:
@@ -566,9 +559,9 @@ class ContradictionDetector:
 
     async def get_unresolved(
         self,
-        workspace_id: Optional[str] = None,
-        min_severity: Optional[str] = None,
-    ) -> List[Contradiction]:
+        workspace_id: str | None = None,
+        min_severity: str | None = None,
+    ) -> list[Contradiction]:
         """Get unresolved contradictions.
 
         Args:
@@ -592,14 +585,14 @@ class ContradictionDetector:
 
             return sorted(results, key=lambda x: -severity_order.get(x.severity, 0))
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get contradiction detection statistics."""
         total = len(self._contradictions)
         resolved = sum(1 for c in self._contradictions.values() if c.resolved)
         unresolved = total - resolved
 
-        by_type: Dict[str, int] = {}
-        by_severity: Dict[str, int] = {}
+        by_type: dict[str, int] = {}
+        by_severity: dict[str, int] = {}
         for c in self._contradictions.values():
             by_type[c.contradiction_type.value] = by_type.get(c.contradiction_type.value, 0) + 1
             by_severity[c.severity] = by_severity.get(c.severity, 0) + 1
@@ -612,11 +605,10 @@ class ContradictionDetector:
             "by_severity": by_severity,
         }
 
-
 class ContradictionOperationsMixin:
     """Mixin for contradiction detection operations on KnowledgeMound."""
 
-    _contradiction_detector: Optional[ContradictionDetector] = None
+    _contradiction_detector: ContradictionDetector | None = None
 
     def _get_contradiction_detector(self) -> ContradictionDetector:
         """Get or create contradiction detector."""
@@ -627,7 +619,7 @@ class ContradictionOperationsMixin:
     async def detect_contradictions(
         self,
         workspace_id: str,
-        item_ids: Optional[List[str]] = None,
+        item_ids: Optional[list[str]] = None,
     ) -> ContradictionReport:
         """Detect contradictions in knowledge items.
 
@@ -645,23 +637,23 @@ class ContradictionOperationsMixin:
         self,
         contradiction_id: str,
         strategy: ResolutionStrategy,
-        resolved_by: Optional[str] = None,
+        resolved_by: str | None = None,
         notes: str = "",
-    ) -> Optional[Contradiction]:
+    ) -> Contradiction | None:
         """Resolve a detected contradiction."""
         detector = self._get_contradiction_detector()
         return await detector.resolve_contradiction(contradiction_id, strategy, resolved_by, notes)
 
     async def get_unresolved_contradictions(
         self,
-        workspace_id: Optional[str] = None,
-        min_severity: Optional[str] = None,
-    ) -> List[Contradiction]:
+        workspace_id: str | None = None,
+        min_severity: str | None = None,
+    ) -> list[Contradiction]:
         """Get unresolved contradictions."""
         detector = self._get_contradiction_detector()
         return await detector.get_unresolved(workspace_id, min_severity)
 
-    def get_contradiction_stats(self) -> Dict[str, Any]:
+    def get_contradiction_stats(self) -> dict[str, Any]:
         """Get contradiction detection statistics."""
         detector = self._get_contradiction_detector()
         return detector.get_stats()
@@ -669,8 +661,8 @@ class ContradictionOperationsMixin:
     async def get_contradictions(
         self,
         item_id: str,
-        workspace_id: Optional[str] = None,
-    ) -> List[Contradiction]:
+        workspace_id: str | None = None,
+    ) -> list[Contradiction]:
         """
         Get contradictions involving a specific item.
 
@@ -692,10 +684,8 @@ class ContradictionOperationsMixin:
                     results.append(c)
             return results
 
-
 # Singleton instance
-_detector: Optional[ContradictionDetector] = None
-
+_detector: ContradictionDetector | None = None
 
 def get_contradiction_detector() -> ContradictionDetector:
     """Get the global contradiction detector instance."""

@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, Coroutine, Dict, Optional
+from typing import Any, Coroutine, Optional
 
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
@@ -43,7 +43,6 @@ if not GOOGLE_CHAT_CREDENTIALS:
 MAX_TOPIC_LENGTH = 500
 MAX_STATEMENT_LENGTH = 1000
 
-
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -52,19 +51,16 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed: {exc}", exc_info=exc)
 
-
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
 
-
 # Cache for Google Chat connector
-_google_chat_connector: Optional[Any] = None
+_google_chat_connector: Any | None = None
 
-
-def get_google_chat_connector() -> Optional[Any]:
+def get_google_chat_connector() -> Any | None:
     """Get or create the Google Chat connector singleton."""
     global _google_chat_connector
     if _google_chat_connector is None:
@@ -86,7 +82,6 @@ def get_google_chat_connector() -> Optional[Any]:
             logger.exception(f"Error initializing Google Chat connector: {e}")
             return None
     return _google_chat_connector
-
 
 class GoogleChatHandler(BotHandlerMixin, SecureHandler):
     """Handler for Google Chat App webhook endpoints.
@@ -118,7 +113,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         return connector is not None
 
     def _build_status_response(
-        self, extra_status: Optional[Dict[str, Any]] = None
+        self, extra_status: Optional[dict[str, Any]] = None
     ) -> HandlerResult:
         """Build Google Chat-specific status response."""
         status = {
@@ -133,8 +128,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Google Chat GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/google-chat/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -144,8 +139,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=120)
     def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests (webhook events)."""
         if path == "/api/v1/bots/google-chat/webhook":
             return self._handle_webhook(handler)
@@ -210,7 +205,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             logger.exception(f"Google Chat webhook error: {e}")
             return json_response({"text": f"Error: {str(e)[:100]}"})
 
-    def _handle_message(self, event: Dict[str, Any]) -> HandlerResult:
+    def _handle_message(self, event: dict[str, Any]) -> HandlerResult:
         """Handle incoming Google Chat message."""
         message = event.get("message", {})
         space = event.get("space", {})
@@ -254,8 +249,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         command: str,
         args: str,
         space_name: str,
-        user: Dict[str, Any],
-        event: Dict[str, Any],
+        user: dict[str, Any],
+        event: dict[str, Any],
     ) -> HandlerResult:
         """Handle Google Chat slash command."""
         command = command.lower()
@@ -279,7 +274,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 body=f"Unknown command: /{command}\n\nUse /help for available commands.",
             )
 
-    def _handle_card_click(self, event: Dict[str, Any]) -> HandlerResult:
+    def _handle_card_click(self, event: dict[str, Any]) -> HandlerResult:
         """Handle Google Chat card button click."""
         action = event.get("action", {})
         function_name = action.get("actionMethodName", "")
@@ -376,7 +371,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             logger.error(f"View details failed: {e}")
             return self._card_response(body="Error fetching debate details")
 
-    def _handle_added_to_space(self, event: Dict[str, Any]) -> HandlerResult:
+    def _handle_added_to_space(self, event: dict[str, Any]) -> HandlerResult:
         """Handle bot added to space."""
         space = event.get("space", {})
         space.get("displayName", "this space")
@@ -394,7 +389,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             "Or just @mention me with a question!",
         )
 
-    def _handle_removed_from_space(self, event: Dict[str, Any]) -> HandlerResult:
+    def _handle_removed_from_space(self, event: dict[str, Any]) -> HandlerResult:
         """Handle bot removed from space."""
         space = event.get("space", {})
         logger.info(f"Bot removed from space: {space.get('name')}")
@@ -473,8 +468,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         self,
         topic: str,
         space_name: str,
-        user: Dict[str, Any],
-        event: Dict[str, Any],
+        user: dict[str, Any],
+        event: dict[str, Any],
     ) -> HandlerResult:
         """Start a debate."""
         if not topic.strip():
@@ -511,8 +506,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         self,
         statement: str,
         space_name: str,
-        user: Dict[str, Any],
-        event: Dict[str, Any],
+        user: dict[str, Any],
+        event: dict[str, Any],
     ) -> HandlerResult:
         """Run gauntlet validation."""
         if not statement.strip():
@@ -551,8 +546,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         self,
         text: str,
         space_name: str,
-        user: Dict[str, Any],
-        event: Dict[str, Any],
+        user: dict[str, Any],
+        event: dict[str, Any],
     ) -> HandlerResult:
         """Start a debate from a regular message or @mention."""
         # Clean up the text (remove @mentions)
@@ -805,11 +800,11 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
     def _card_response(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        context: Optional[str] = None,
-        actions: Optional[list[dict]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str] | None] = None,
+        context: str | None = None,
+        actions: list[dict] | None = None,
     ) -> HandlerResult:
         """Create a Google Chat Card v2 response."""
         sections: list[dict] = []
@@ -859,12 +854,10 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
         return json_response(response)
 
-
 # Export handler factory
 _google_chat_handler: Optional["GoogleChatHandler"] = None
 
-
-def get_google_chat_handler(server_context: Optional[Dict] = None) -> "GoogleChatHandler":
+def get_google_chat_handler(server_context: dict | None = None) -> "GoogleChatHandler":
     """Get or create the Google Chat handler instance."""
     global _google_chat_handler
     if _google_chat_handler is None:
@@ -872,6 +865,5 @@ def get_google_chat_handler(server_context: Optional[Dict] = None) -> "GoogleCha
             server_context = {}
         _google_chat_handler = GoogleChatHandler(server_context)  # type: ignore[arg-type]
     return _google_chat_handler
-
 
 __all__ = ["GoogleChatHandler", "get_google_chat_handler", "get_google_chat_connector"]

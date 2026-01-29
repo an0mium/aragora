@@ -22,7 +22,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.exceptions import RedisUnavailableError
 
@@ -33,16 +33,15 @@ REDIS_URL = os.environ.get("REDIS_URL", "")
 OAUTH_STATE_TTL_SECONDS = int(os.environ.get("OAUTH_STATE_TTL_SECONDS", "600"))  # 10 min
 MAX_OAUTH_STATES = int(os.environ.get("OAUTH_MAX_STATES", "10000"))
 
-
 @dataclass
 class OAuthState:
     """OAuth state data."""
 
-    user_id: Optional[str]
-    redirect_url: Optional[str]
+    user_id: str | None
+    redirect_url: str | None
     expires_at: float
     created_at: float = 0.0
-    metadata: Optional[dict[str, Any]] = None  # Provider-specific data (tenant_id, org_id, etc.)
+    metadata: dict[str, Any] | None = None  # Provider-specific data (tenant_id, org_id, etc.)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage."""
@@ -70,17 +69,16 @@ class OAuthState:
         """Check if state has expired."""
         return time.time() > self.expires_at
 
-
 class OAuthStateStore(ABC):
     """Abstract base class for OAuth state storage."""
 
     @abstractmethod
     def generate(
         self,
-        user_id: Optional[str] = None,
-        redirect_url: Optional[str] = None,
+        user_id: str | None = None,
+        redirect_url: str | None = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Generate and store a new state token.
 
@@ -96,7 +94,7 @@ class OAuthStateStore(ABC):
         pass
 
     @abstractmethod
-    def validate_and_consume(self, state: str) -> Optional[OAuthState]:
+    def validate_and_consume(self, state: str) -> OAuthState | None:
         """Validate state token and remove it (single use)."""
         pass
 
@@ -110,7 +108,6 @@ class OAuthStateStore(ABC):
         """Get current number of stored states."""
         pass
 
-
 class InMemoryOAuthStateStore(OAuthStateStore):
     """In-memory OAuth state storage (single-instance only)."""
 
@@ -121,10 +118,10 @@ class InMemoryOAuthStateStore(OAuthStateStore):
 
     def generate(
         self,
-        user_id: Optional[str] = None,
-        redirect_url: Optional[str] = None,
+        user_id: str | None = None,
+        redirect_url: str | None = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Generate and store a new state token."""
         self.cleanup_expired()
@@ -150,7 +147,7 @@ class InMemoryOAuthStateStore(OAuthStateStore):
 
         return state_token
 
-    def validate_and_consume(self, state: str) -> Optional[OAuthState]:
+    def validate_and_consume(self, state: str) -> OAuthState | None:
         """Validate state token and remove it (single use)."""
         self.cleanup_expired()
         with self._lock:
@@ -174,7 +171,6 @@ class InMemoryOAuthStateStore(OAuthStateStore):
         """Get current number of stored states."""
         with self._lock:
             return len(self._states)
-
 
 class SQLiteOAuthStateStore(OAuthStateStore):
     """SQLite-backed OAuth state storage (persistent, single-instance).
@@ -230,10 +226,10 @@ class SQLiteOAuthStateStore(OAuthStateStore):
 
     def generate(
         self,
-        user_id: Optional[str] = None,
-        redirect_url: Optional[str] = None,
+        user_id: str | None = None,
+        redirect_url: str | None = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Generate and store a new state token."""
         # Cleanup before adding new state
@@ -278,7 +274,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
 
         return state_token
 
-    def validate_and_consume(self, state: str) -> Optional[OAuthState]:
+    def validate_and_consume(self, state: str) -> OAuthState | None:
         """Validate state token and remove it (single use)."""
         self.cleanup_expired()
         conn = self._get_connection()
@@ -363,7 +359,6 @@ class SQLiteOAuthStateStore(OAuthStateStore):
                 pass
             delattr(self._local, "connection")
 
-
 class RedisOAuthStateStore(OAuthStateStore):
     """Redis-backed OAuth state storage (multi-instance safe)."""
 
@@ -372,10 +367,10 @@ class RedisOAuthStateStore(OAuthStateStore):
 
     def __init__(self, redis_url: str = REDIS_URL):
         self._redis_url = redis_url
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._connection_error_logged = False
 
-    def _get_redis(self) -> Optional[Any]:
+    def _get_redis(self) -> Any | None:
         """Get Redis connection with lazy initialization."""
         if self._redis is not None:
             return self._redis
@@ -410,10 +405,10 @@ class RedisOAuthStateStore(OAuthStateStore):
 
     def generate(
         self,
-        user_id: Optional[str] = None,
-        redirect_url: Optional[str] = None,
+        user_id: str | None = None,
+        redirect_url: str | None = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Generate and store a new state token in Redis."""
         redis_client = self._get_redis()
@@ -441,7 +436,7 @@ class RedisOAuthStateStore(OAuthStateStore):
 
         return state_token
 
-    def validate_and_consume(self, state: str) -> Optional[OAuthState]:
+    def validate_and_consume(self, state: str) -> OAuthState | None:
         """Validate and consume state token from Redis (atomic operation)."""
         redis_client = self._get_redis()
         if not redis_client:
@@ -497,7 +492,6 @@ class RedisOAuthStateStore(OAuthStateStore):
             logger.debug(f"Redis size() query failed: {e}")
             return 0
 
-
 class JWTOAuthStateStore(OAuthStateStore):
     """JWT-based OAuth state store that requires no server-side storage.
 
@@ -508,7 +502,7 @@ class JWTOAuthStateStore(OAuthStateStore):
     not available or practical.
     """
 
-    def __init__(self, secret_key: Optional[str] = None):
+    def __init__(self, secret_key: str | None = None):
         """Initialize with a secret key for signing JWTs.
 
         Args:
@@ -535,10 +529,10 @@ class JWTOAuthStateStore(OAuthStateStore):
 
     def generate(
         self,
-        user_id: Optional[str] = None,
-        redirect_url: Optional[str] = None,
+        user_id: str | None = None,
+        redirect_url: str | None = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Generate a signed JWT state token."""
         import base64
@@ -569,7 +563,7 @@ class JWTOAuthStateStore(OAuthStateStore):
         # State = payload.signature
         return f"{payload_b64}.{sig_b64}"
 
-    def validate_and_consume(self, state: str) -> Optional[OAuthState]:
+    def validate_and_consume(self, state: str) -> OAuthState | None:
         """Validate JWT state token and mark as consumed."""
         import base64
         import hashlib
@@ -645,7 +639,6 @@ class JWTOAuthStateStore(OAuthStateStore):
         """Return count of tracked nonces (for replay protection)."""
         return len(self._used_nonces)
 
-
 class FallbackOAuthStateStore(OAuthStateStore):
     """OAuth state store with automatic fallback chain: JWT -> Redis -> SQLite -> In-memory.
 
@@ -664,9 +657,9 @@ class FallbackOAuthStateStore(OAuthStateStore):
         use_sqlite: bool = True,
         use_jwt: bool = True,
     ):
-        self._jwt_store: Optional[JWTOAuthStateStore] = None
-        self._redis_store: Optional[RedisOAuthStateStore] = None
-        self._sqlite_store: Optional[SQLiteOAuthStateStore] = None
+        self._jwt_store: JWTOAuthStateStore | None = None
+        self._redis_store: RedisOAuthStateStore | None = None
+        self._sqlite_store: SQLiteOAuthStateStore | None = None
         self._memory_store = InMemoryOAuthStateStore(max_size=max_memory_size)
         self._redis_url = redis_url
         self._use_redis = bool(redis_url)
@@ -772,10 +765,10 @@ class FallbackOAuthStateStore(OAuthStateStore):
 
     def generate(
         self,
-        user_id: Optional[str] = None,
-        redirect_url: Optional[str] = None,
+        user_id: str | None = None,
+        redirect_url: str | None = None,
         ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Generate state using active backend."""
         store = self._get_active_store()
@@ -812,7 +805,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                 return self._memory_store.generate(user_id, redirect_url, ttl_seconds, metadata)
             raise
 
-    def validate_and_consume(self, state: str) -> Optional[OAuthState]:
+    def validate_and_consume(self, state: str) -> OAuthState | None:
         """Validate state using active backend, checking fallbacks if needed."""
         store = self._get_active_store()
         try:
@@ -893,10 +886,8 @@ class FallbackOAuthStateStore(OAuthStateStore):
             except Exception:  # noqa: BLE001 - Cleanup must not raise
                 pass
 
-
 # Global singleton
-_oauth_state_store: Optional[FallbackOAuthStateStore] = None
-
+_oauth_state_store: FallbackOAuthStateStore | None = None
 
 def get_oauth_state_store(
     sqlite_path: str = "aragora_oauth.db",
@@ -925,7 +916,6 @@ def get_oauth_state_store(
         logger.info(f"OAuth state store initialized: {backend}")
     return _oauth_state_store
 
-
 def reset_oauth_state_store() -> None:
     """Reset the global store (for testing)."""
     global _oauth_state_store
@@ -933,18 +923,16 @@ def reset_oauth_state_store() -> None:
         _oauth_state_store.close()
     _oauth_state_store = None
 
-
 # Convenience functions for backward compatibility
 def generate_oauth_state(
-    user_id: Optional[str] = None,
-    redirect_url: Optional[str] = None,
+    user_id: str | None = None,
+    redirect_url: str | None = None,
 ) -> str:
     """Generate a new OAuth state token."""
     store = get_oauth_state_store()
     return store.generate(user_id, redirect_url)
 
-
-def validate_oauth_state(state: str) -> Optional[dict[str, Any]]:
+def validate_oauth_state(state: str) -> dict[str, Any] | None:
     """Validate and consume an OAuth state token.
 
     Returns dict with state data if valid, None otherwise.
@@ -961,7 +949,6 @@ def validate_oauth_state(state: str) -> Optional[dict[str, Any]]:
         return None
     logger.debug("OAuth state validation succeeded")
     return result.to_dict()
-
 
 __all__ = [
     "OAuthState",

@@ -34,16 +34,14 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class ConditionError(Exception):
     """Error evaluating a condition."""
 
     pass
-
 
 @dataclass
 class ConditionResult:
@@ -52,14 +50,13 @@ class ConditionResult:
     satisfied: bool
     condition_name: str
     reason: str
-    details: Dict[str, Any] = field(default_factory=dict)
-
+    details: dict[str, Any] = field(default_factory=dict)
 
 class Condition(ABC):
     """Abstract base class for conditions."""
 
     @abstractmethod
-    def evaluate(self, expected: Any, context: Dict[str, Any]) -> ConditionResult:
+    def evaluate(self, expected: Any, context: dict[str, Any]) -> ConditionResult:
         """Evaluate the condition.
 
         Args:
@@ -71,14 +68,13 @@ class Condition(ABC):
         """
         pass
 
-
 class EqualityCondition(Condition):
     """Simple equality condition (default behavior)."""
 
     def __init__(self, context_key: str):
         self.context_key = context_key
 
-    def evaluate(self, expected: Any, context: Dict[str, Any]) -> ConditionResult:
+    def evaluate(self, expected: Any, context: dict[str, Any]) -> ConditionResult:
         actual = context.get(self.context_key)
         satisfied = actual == expected
         return ConditionResult(
@@ -87,7 +83,6 @@ class EqualityCondition(Condition):
             reason=f"{'Matched' if satisfied else 'Mismatched'}: {actual} {'==' if satisfied else '!='} {expected}",
             details={"expected": expected, "actual": actual},
         )
-
 
 class TimeCondition(Condition):
     """Time-based access condition.
@@ -101,11 +96,11 @@ class TimeCondition(Condition):
 
     def __init__(
         self,
-        allowed_hours: Optional[tuple[int, int]] = None,  # (start_hour, end_hour)
-        allowed_days: Optional[Set[int]] = None,  # 0=Mon, 6=Sun
+        allowed_hours: tuple[int, int] | None = None,  # (start_hour, end_hour)
+        allowed_days: Optional[set[int]] = None,  # 0=Mon, 6=Sun
         timezone_name: str = "UTC",
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ):
         self.allowed_hours = allowed_hours
         self.allowed_days = allowed_days
@@ -113,7 +108,7 @@ class TimeCondition(Condition):
         self.start_date = start_date
         self.end_date = end_date
 
-    def evaluate(self, expected: Any, context: Dict[str, Any]) -> ConditionResult:
+    def evaluate(self, expected: Any, context: dict[str, Any]) -> ConditionResult:
         # Get current time from context or use now
         current = context.get("current_time")
         if current is None:
@@ -164,7 +159,6 @@ class TimeCondition(Condition):
             reason="Time conditions satisfied",
         )
 
-
 class IPCondition(Condition):
     """IP-based access condition.
 
@@ -177,7 +171,7 @@ class IPCondition(Condition):
     def __init__(self, context_key: str = "ip_address"):
         self.context_key = context_key
 
-    def evaluate(self, expected: Any, context: Dict[str, Any]) -> ConditionResult:
+    def evaluate(self, expected: Any, context: dict[str, Any]) -> ConditionResult:
         ip_str = context.get(self.context_key)
         if not ip_str:
             return ConditionResult(
@@ -263,7 +257,7 @@ class IPCondition(Condition):
         )
 
     def _matches_pattern(
-        self, ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address], pattern: str
+        self, ip: ipaddress.IPv4Address | ipaddress.IPv6Address, pattern: str
     ) -> bool:
         """Check if IP matches a pattern (single IP or CIDR)."""
         try:
@@ -274,7 +268,6 @@ class IPCondition(Condition):
                 return ip == ipaddress.ip_address(pattern)
         except ValueError:
             return False
-
 
 class ResourceOwnerCondition(Condition):
     """Resource ownership condition.
@@ -292,7 +285,7 @@ class ResourceOwnerCondition(Condition):
         self.owner_key = owner_key
         self.group_key = group_key
 
-    def evaluate(self, expected: Any, context: Dict[str, Any]) -> ConditionResult:
+    def evaluate(self, expected: Any, context: dict[str, Any]) -> ConditionResult:
         actor = context.get(self.actor_key)
         owner = context.get(self.owner_key)
         owner_group = context.get(self.group_key, [])
@@ -326,7 +319,6 @@ class ResourceOwnerCondition(Condition):
             reason=f"Actor {actor} is not the owner ({owner}) or in group",
         )
 
-
 class ResourceStatusCondition(Condition):
     """Resource status condition.
 
@@ -336,7 +328,7 @@ class ResourceStatusCondition(Condition):
     def __init__(self, status_key: str = "resource_status"):
         self.status_key = status_key
 
-    def evaluate(self, expected: Any, context: Dict[str, Any]) -> ConditionResult:
+    def evaluate(self, expected: Any, context: dict[str, Any]) -> ConditionResult:
         status = context.get(self.status_key)
 
         if status is None:
@@ -363,7 +355,6 @@ class ResourceStatusCondition(Condition):
             reason=f"Resource status '{status}' not in allowed: {expected}",
         )
 
-
 class TagCondition(Condition):
     """Resource tag condition.
 
@@ -373,7 +364,7 @@ class TagCondition(Condition):
     def __init__(self, tags_key: str = "resource_tags"):
         self.tags_key = tags_key
 
-    def evaluate(self, expected: Any, context: Dict[str, Any]) -> ConditionResult:
+    def evaluate(self, expected: Any, context: dict[str, Any]) -> ConditionResult:
         tags = context.get(self.tags_key, [])
         if isinstance(tags, str):
             tags = [tags]
@@ -454,7 +445,6 @@ class TagCondition(Condition):
             reason="Tag conditions satisfied",
         )
 
-
 class ConditionEvaluator:
     """
     Evaluates ABAC conditions against runtime context.
@@ -463,7 +453,7 @@ class ConditionEvaluator:
     """
 
     def __init__(self):
-        self._conditions: Dict[str, Condition] = {
+        self._conditions: dict[str, Condition] = {
             # Built-in conditions
             "time": TimeCondition(),
             "business_hours": TimeCondition(
@@ -482,7 +472,7 @@ class ConditionEvaluator:
         }
 
         # Custom condition functions
-        self._custom_conditions: Dict[str, Callable[[Any, Dict[str, Any]], bool]] = {}
+        self._custom_conditions: dict[str, Callable[[Any, dict[str, Any]], bool]] = {}
 
     def register_condition(self, name: str, condition: Condition) -> None:
         """Register a condition evaluator."""
@@ -491,7 +481,7 @@ class ConditionEvaluator:
     def register_custom(
         self,
         name: str,
-        evaluator: Callable[[Any, Dict[str, Any]], bool],
+        evaluator: Callable[[Any, dict[str, Any]], bool],
     ) -> None:
         """Register a custom condition function.
 
@@ -503,9 +493,9 @@ class ConditionEvaluator:
 
     def evaluate(
         self,
-        conditions: Dict[str, Any],
-        context: Dict[str, Any],
-    ) -> tuple[bool, List[ConditionResult]]:
+        conditions: dict[str, Any],
+        context: dict[str, Any],
+    ) -> tuple[bool, list[ConditionResult]]:
         """Evaluate all conditions.
 
         Args:
@@ -515,7 +505,7 @@ class ConditionEvaluator:
         Returns:
             Tuple of (all_satisfied, list_of_results)
         """
-        results: List[ConditionResult] = []
+        results: list[ConditionResult] = []
         all_satisfied = True
 
         for name, expected in conditions.items():
@@ -530,7 +520,7 @@ class ConditionEvaluator:
         self,
         name: str,
         expected: Any,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> ConditionResult:
         """Evaluate a single condition."""
         # Check built-in conditions
@@ -571,10 +561,8 @@ class ConditionEvaluator:
             reason=f"{'Matched' if satisfied else 'Mismatched'}: {actual} {'==' if satisfied else '!='} {expected}",
         )
 
-
 # Global instance
-_condition_evaluator: Optional[ConditionEvaluator] = None
-
+_condition_evaluator: ConditionEvaluator | None = None
 
 def get_condition_evaluator() -> ConditionEvaluator:
     """Get the global condition evaluator."""
@@ -582,7 +570,6 @@ def get_condition_evaluator() -> ConditionEvaluator:
     if _condition_evaluator is None:
         _condition_evaluator = ConditionEvaluator()
     return _condition_evaluator
-
 
 __all__ = [
     "Condition",

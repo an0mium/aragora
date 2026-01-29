@@ -41,7 +41,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # PostgreSQL schema version for consensus memory
 POSTGRES_CONSENSUS_SCHEMA_VERSION = 1
 
@@ -110,7 +109,6 @@ POSTGRES_CONSENSUS_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_verified_proofs_verified ON verified_proofs(is_verified);
 """
 
-
 class PostgresConsensusMemory(PostgresStore):
     """
     PostgreSQL implementation of Consensus Memory.
@@ -169,15 +167,15 @@ class PostgresConsensusMemory(PostgresStore):
         confidence: float,
         participating_agents: list[str],
         agreeing_agents: list[str],
-        dissenting_agents: Optional[list[str]] = None,
-        key_claims: Optional[list[str]] = None,
-        supporting_evidence: Optional[list[str]] = None,
+        dissenting_agents: list[str] | None = None,
+        key_claims: list[str] | None = None,
+        supporting_evidence: list[str] | None = None,
         domain: str = "general",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         debate_duration: float = 0.0,
         rounds: int = 0,
-        supersedes: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        supersedes: str | None = None,
+        metadata: dict | None = None,
     ) -> dict[str, Any]:
         """
         Store a new consensus record.
@@ -262,7 +260,7 @@ class PostgresConsensusMemory(PostgresStore):
 
         return data
 
-    async def get_consensus(self, consensus_id: str) -> Optional[dict[str, Any]]:
+    async def get_consensus(self, consensus_id: str) -> dict[str, Any] | None:
         """
         Get a consensus record by ID.
 
@@ -286,7 +284,7 @@ class PostgresConsensusMemory(PostgresStore):
             data = json.loads(data)
         return data
 
-    async def get_by_topic_hash(self, topic_hash: str) -> Optional[dict[str, Any]]:
+    async def get_by_topic_hash(self, topic_hash: str) -> dict[str, Any] | None:
         """
         Get the most recent consensus for a topic hash.
 
@@ -320,7 +318,7 @@ class PostgresConsensusMemory(PostgresStore):
         topic: str,
         limit: int = 5,
         min_confidence: float = 0.0,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Find similar past debates by topic.
@@ -394,7 +392,7 @@ class PostgresConsensusMemory(PostgresStore):
     async def get_recent(
         self,
         limit: int = 10,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.0,
     ) -> list[dict[str, Any]]:
         """
@@ -450,7 +448,7 @@ class PostgresConsensusMemory(PostgresStore):
         """Get all consensus records for a domain."""
         return await self.get_recent(limit=limit, domain=domain, min_confidence=min_confidence)
 
-    async def count(self, domain: Optional[str] = None) -> int:  # type: ignore[override]
+    async def count(self, domain: str | None = None) -> int:  # type: ignore[override]
         """Count consensus records, optionally filtered by domain."""
         async with self.connection() as conn:
             if domain:
@@ -477,7 +475,7 @@ class PostgresConsensusMemory(PostgresStore):
         confidence: float = 0.0,
         acknowledged: bool = False,
         rebuttal: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> dict[str, Any]:
         """
         Store a dissent record.
@@ -551,7 +549,7 @@ class PostgresConsensusMemory(PostgresStore):
 
         return data
 
-    async def get_dissent(self, dissent_id: str) -> Optional[dict[str, Any]]:
+    async def get_dissent(self, dissent_id: str) -> dict[str, Any] | None:
         """Get a dissent record by ID."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -671,15 +669,15 @@ class PostgresConsensusMemory(PostgresStore):
         self,
         debate_id: str,
         proof_status: str,
-        language: Optional[str] = None,
-        formal_statement: Optional[str] = None,
+        language: str | None = None,
+        formal_statement: str | None = None,
         is_verified: bool = False,
-        proof_hash: Optional[str] = None,
-        translation_time_ms: Optional[float] = None,
-        proof_search_time_ms: Optional[float] = None,
-        prover_version: Optional[str] = None,
-        error_message: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        proof_hash: str | None = None,
+        translation_time_ms: float | None = None,
+        proof_search_time_ms: float | None = None,
+        prover_version: str | None = None,
+        error_message: str | None = None,
+        metadata: dict | None = None,
     ) -> dict[str, Any]:
         """Store a verification proof record."""
         proof_id = str(uuid.uuid4())
@@ -813,13 +811,11 @@ class PostgresConsensusMemory(PostgresStore):
             "by_domain": {row["domain"]: row["count"] for row in domain_counts},
         }
 
-
 # =========================================================================
 # Factory Function
 # =========================================================================
 
-_postgres_consensus_memory: Optional[PostgresConsensusMemory] = None
-
+_postgres_consensus_memory: PostgresConsensusMemory | None = None
 
 async def get_postgres_consensus_memory(
     pool: Optional["Pool"] = None,

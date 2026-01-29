@@ -22,7 +22,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.control_plane.notifications import NotificationDispatcher
@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 _dispatcher: Optional["NotificationDispatcher"] = None
 
-
 def set_task_event_dispatcher(dispatcher: "NotificationDispatcher") -> None:
     """Set the dispatcher for task events.
 
@@ -43,7 +42,6 @@ def set_task_event_dispatcher(dispatcher: "NotificationDispatcher") -> None:
     global _dispatcher
     _dispatcher = dispatcher
     logger.info("task_event_dispatcher_set")
-
 
 def get_task_event_dispatcher() -> Optional["NotificationDispatcher"]:
     """Get the current task event dispatcher.
@@ -60,7 +58,6 @@ def get_task_event_dispatcher() -> Optional["NotificationDispatcher"]:
 
         return get_default_notification_dispatcher()
     return _dispatcher
-
 
 def _map_priority(task_priority: str) -> NotificationPriority:
     """Map task priority string to notification priority.
@@ -79,13 +76,12 @@ def _map_priority(task_priority: str) -> NotificationPriority:
     }
     return mapping.get(task_priority.lower(), NotificationPriority.NORMAL)
 
-
 async def emit_task_submitted(
     task_id: str,
     task_type: str,
     priority: str,
-    workspace_id: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    workspace_id: str | None = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     """Emit TASK_SUBMITTED notification.
 
@@ -121,12 +117,11 @@ async def emit_task_submitted(
             "task_event_emission_failed", extra={"event": "task_submitted", "error": str(e)}
         )
 
-
 async def emit_task_claimed(
     task_id: str,
     task_type: str,
     agent_id: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> None:
     """Emit TASK_CLAIMED notification.
 
@@ -160,13 +155,12 @@ async def emit_task_claimed(
             "task_event_emission_failed", extra={"event": "task_claimed", "error": str(e)}
         )
 
-
 async def emit_task_completed(
     task_id: str,
     task_type: str,
     agent_id: str,
     duration_seconds: float,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> None:
     """Emit TASK_COMPLETED notification.
 
@@ -202,14 +196,13 @@ async def emit_task_completed(
             "task_event_emission_failed", extra={"event": "task_completed", "error": str(e)}
         )
 
-
 async def emit_task_failed(
     task_id: str,
     task_type: str,
-    agent_id: Optional[str],
+    agent_id: str | None,
     error: str,
     will_retry: bool,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> None:
     """Emit TASK_FAILED notification.
 
@@ -251,14 +244,13 @@ async def emit_task_failed(
             "task_event_emission_failed", extra={"event": "task_failed", "error": str(e)}
         )
 
-
 async def emit_task_timeout(
     task_id: str,
     task_type: str,
-    agent_id: Optional[str],
+    agent_id: str | None,
     elapsed_seconds: float,
     timeout_seconds: float,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> None:
     """Emit TASK_TIMEOUT notification.
 
@@ -298,13 +290,12 @@ async def emit_task_timeout(
             "task_event_emission_failed", extra={"event": "task_timeout", "error": str(e)}
         )
 
-
 async def emit_task_retried(
     task_id: str,
     task_type: str,
     attempt: int,
     max_retries: int,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> None:
     """Emit TASK_RETRIED notification.
 
@@ -340,12 +331,11 @@ async def emit_task_retried(
             "task_event_emission_failed", extra={"event": "task_retried", "error": str(e)}
         )
 
-
 async def emit_task_cancelled(
     task_id: str,
     task_type: str,
-    reason: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    reason: str | None = None,
+    workspace_id: str | None = None,
 ) -> None:
     """Emit TASK_CANCELLED notification.
 
@@ -380,7 +370,6 @@ async def emit_task_cancelled(
         logger.warning(
             "task_event_emission_failed", extra={"event": "task_cancelled", "error": str(e)}
         )
-
 
 __all__ = [
     # Dispatcher management

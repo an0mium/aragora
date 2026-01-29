@@ -11,13 +11,12 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Global coordinator instance (lazily initialized)
-_coordinator: Optional[Any] = None
-
+_coordinator: Any | None = None
 
 async def _get_coordinator() -> Any:
     """Get or create the control plane coordinator."""
@@ -35,18 +34,16 @@ async def _get_coordinator() -> Any:
         logger.warning(f"Could not create coordinator: {e}")
         return None
 
-
 # =============================================================================
 # Agent Operations
 # =============================================================================
-
 
 async def register_agent_tool(
     agent_id: str,
     capabilities: str = "debate",
     model: str = "unknown",
     provider: str = "unknown",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Register a new agent with the control plane.
 
@@ -94,8 +91,7 @@ async def register_agent_tool(
     except Exception as e:
         return {"error": f"Failed to register agent: {e}"}
 
-
-async def unregister_agent_tool(agent_id: str) -> Dict[str, Any]:
+async def unregister_agent_tool(agent_id: str) -> dict[str, Any]:
     """
     Unregister an agent from the control plane.
 
@@ -122,11 +118,10 @@ async def unregister_agent_tool(agent_id: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to unregister agent: {e}"}
 
-
 async def list_registered_agents_tool(
     capability: str = "",
     only_available: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List all registered agents with health status.
 
@@ -185,8 +180,7 @@ async def list_registered_agents_tool(
     except Exception as e:
         return {"error": f"Failed to list agents: {e}"}
 
-
-async def get_agent_health_tool(agent_id: str) -> Dict[str, Any]:
+async def get_agent_health_tool(agent_id: str) -> dict[str, Any]:
     """
     Get detailed health status for a specific agent.
 
@@ -234,11 +228,9 @@ async def get_agent_health_tool(agent_id: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to get agent health: {e}"}
 
-
 # =============================================================================
 # Task Operations
 # =============================================================================
-
 
 async def submit_task_tool(
     task_type: str,
@@ -246,7 +238,7 @@ async def submit_task_tool(
     required_capabilities: str = "",
     priority: str = "normal",
     timeout_seconds: int = 300,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Submit a task to the control plane for execution.
 
@@ -312,8 +304,7 @@ async def submit_task_tool(
     except Exception as e:
         return {"error": f"Failed to submit task: {e}"}
 
-
-async def get_task_status_tool(task_id: str) -> Dict[str, Any]:
+async def get_task_status_tool(task_id: str) -> dict[str, Any]:
     """
     Get the status of a task.
 
@@ -355,8 +346,7 @@ async def get_task_status_tool(task_id: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to get task status: {e}"}
 
-
-async def cancel_task_tool(task_id: str) -> Dict[str, Any]:
+async def cancel_task_tool(task_id: str) -> dict[str, Any]:
     """
     Cancel a pending or running task.
 
@@ -383,11 +373,10 @@ async def cancel_task_tool(task_id: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to cancel task: {e}"}
 
-
 async def list_pending_tasks_tool(
     task_type: str = "",
     limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List tasks in the pending queue.
 
@@ -429,13 +418,11 @@ async def list_pending_tasks_tool(
     except Exception as e:
         return {"error": f"Failed to list pending tasks: {e}"}
 
-
 # =============================================================================
 # Health & Status
 # =============================================================================
 
-
-async def get_control_plane_status_tool() -> Dict[str, Any]:
+async def get_control_plane_status_tool() -> dict[str, Any]:
     """
     Get overall control plane health and status.
 
@@ -468,8 +455,7 @@ async def get_control_plane_status_tool() -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to get control plane status: {e}"}
 
-
-async def trigger_health_check_tool(agent_id: str = "") -> Dict[str, Any]:
+async def trigger_health_check_tool(agent_id: str = "") -> dict[str, Any]:
     """
     Trigger a health check for an agent or all agents.
 
@@ -514,8 +500,7 @@ async def trigger_health_check_tool(agent_id: str = "") -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to trigger health check: {e}"}
 
-
-async def get_resource_utilization_tool() -> Dict[str, Any]:
+async def get_resource_utilization_tool() -> dict[str, Any]:
     """
     Get resource utilization metrics for the control plane.
 
@@ -550,7 +535,6 @@ async def get_resource_utilization_tool() -> Dict[str, Any]:
         }
     except Exception as e:
         return {"error": f"Failed to get resource utilization: {e}"}
-
 
 __all__ = [
     # Agent operations

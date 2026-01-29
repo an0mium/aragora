@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.core import Message
 from aragora.verticals.base import VerticalSpecialistAgent
@@ -23,7 +23,6 @@ from aragora.verticals.config import (
 from aragora.verticals.registry import VerticalRegistry
 
 logger = logging.getLogger(__name__)
-
 
 # Legal vertical configuration
 LEGAL_CONFIG = VerticalConfig(
@@ -139,7 +138,6 @@ legal counsel for specific legal matters.""",
     tags=["legal", "contract", "compliance", "regulatory"],
 )
 
-
 @VerticalRegistry.register(
     "legal",
     config=LEGAL_CONFIG,
@@ -189,8 +187,8 @@ class LegalSpecialist(VerticalSpecialistAgent):
     async def _execute_tool(
         self,
         tool: ToolConfig,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute a legal research tool."""
         tool_name = tool.name
 
@@ -203,21 +201,21 @@ class LegalSpecialist(VerticalSpecialistAgent):
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
-    async def _case_search(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _case_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search legal case databases."""
         return {
             "cases": [],
             "message": "Case search not yet implemented - requires Westlaw integration",
         }
 
-    async def _statute_lookup(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _statute_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up statutes and regulations."""
         return {
             "statutes": [],
             "message": "Statute lookup not yet implemented",
         }
 
-    async def _contract_compare(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _contract_compare(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Compare contract versions."""
         return {
             "differences": [],
@@ -228,7 +226,7 @@ class LegalSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check document against legal compliance frameworks."""
         violations = []
 
@@ -245,7 +243,7 @@ class LegalSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check GDPR compliance."""
         violations = []
         content_lower = content.lower()
@@ -294,7 +292,7 @@ class LegalSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check CCPA compliance."""
         violations = []
         content_lower = content.lower()
@@ -331,7 +329,7 @@ class LegalSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check HIPAA compliance."""
         violations = []
         content_lower = content.lower()
@@ -368,7 +366,7 @@ class LegalSpecialist(VerticalSpecialistAgent):
         self,
         task: str,
         system_prompt: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
         **kwargs: Any,
     ) -> Message:
         """Generate a legal analysis response."""
@@ -384,8 +382,8 @@ class LegalSpecialist(VerticalSpecialistAgent):
     async def analyze_contract(
         self,
         contract_text: str,
-        focus_areas: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        focus_areas: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
         """
         Analyze a contract for risks and issues.
 

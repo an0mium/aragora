@@ -4,12 +4,11 @@ Data models for capability probing.
 Defines probe types, results, and vulnerability reports used across
 the probing system.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
-
 
 class ProbeType(Enum):
     """Types of capability probes."""
@@ -24,7 +23,6 @@ class ProbeType(Enum):
     INSTRUCTION_INJECTION = "instruction_injection"  # Test for prompt injection
     CAPABILITY_EXAGGERATION = "capability_exaggeration"  # Test for overclaiming
 
-
 class VulnerabilitySeverity(Enum):
     """Severity levels for discovered vulnerabilities."""
 
@@ -32,7 +30,6 @@ class VulnerabilitySeverity(Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 @dataclass
 class ProbeResult:
@@ -53,7 +50,7 @@ class ProbeResult:
 
     # Evidence
     evidence: str = ""
-    contradiction_with: Optional[str] = None  # Previous statement if contradicting
+    contradiction_with: str | None = None  # Previous statement if contradicting
 
     # Timing
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -72,7 +69,6 @@ class ProbeResult:
             "evidence": self.evidence,
             "created_at": self.created_at,
         }
-
 
 @dataclass
 class VulnerabilityReport:

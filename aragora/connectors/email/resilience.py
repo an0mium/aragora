@@ -40,17 +40,15 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
-
 
 @dataclass
 class RetryConfig:
@@ -68,7 +66,6 @@ class RetryConfig:
     )
     retryable_status_codes: tuple = (429, 500, 502, 503, 504)
 
-
 @dataclass
 class CircuitBreakerConfig:
     """Configuration for circuit breaker."""
@@ -78,7 +75,6 @@ class CircuitBreakerConfig:
     half_open_max_calls: int = 3
     success_threshold: int = 2
 
-
 @dataclass
 class RateLimitConfig:
     """Configuration for rate limiting."""
@@ -87,11 +83,9 @@ class RateLimitConfig:
     burst_size: int = 10
     window_seconds: float = 60.0
 
-
 # =============================================================================
 # Circuit Breaker
 # =============================================================================
-
 
 class CircuitState(Enum):
     """Circuit breaker states."""
@@ -99,7 +93,6 @@ class CircuitState(Enum):
     CLOSED = "closed"  # Normal operation
     OPEN = "open"  # Failing, reject calls
     HALF_OPEN = "half_open"  # Testing recovery
-
 
 class EmailCircuitBreaker:
     """
@@ -111,7 +104,7 @@ class EmailCircuitBreaker:
     def __init__(
         self,
         name: str,
-        config: Optional[CircuitBreakerConfig] = None,
+        config: CircuitBreakerConfig | None = None,
     ):
         """Initialize circuit breaker."""
         self.name = name
@@ -120,7 +113,7 @@ class EmailCircuitBreaker:
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._half_open_calls = 0
         self._lock = asyncio.Lock()
 
@@ -196,7 +189,7 @@ class EmailCircuitBreaker:
                         f"{self._failure_count} failures: {error}"
                     )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get circuit breaker statistics."""
         return {
             "name": self.name,
@@ -206,16 +199,14 @@ class EmailCircuitBreaker:
             "last_failure_time": self._last_failure_time,
         }
 
-
 # =============================================================================
 # Retry with Exponential Backoff
 # =============================================================================
 
-
 class RetryExecutor:
     """Executes operations with retry and exponential backoff."""
 
-    def __init__(self, config: Optional[RetryConfig] = None):
+    def __init__(self, config: RetryConfig | None = None):
         """Initialize retry executor."""
         self.config = config or RetryConfig()
 
@@ -266,7 +257,7 @@ class RetryExecutor:
         Raises:
             Last exception if all retries fail
         """
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(self.config.max_retries + 1):
             try:
@@ -301,11 +292,9 @@ class RetryExecutor:
             raise last_error
         raise RuntimeError(f"Retry loop exited unexpectedly for {operation_name}")
 
-
 # =============================================================================
 # OAuth Token Store
 # =============================================================================
-
 
 @dataclass
 class OAuthToken:
@@ -325,7 +314,7 @@ class OAuthToken:
         """Check if token is expired (with 5 minute buffer)."""
         return datetime.now(timezone.utc) >= (self.expires_at - timedelta(minutes=5))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "access_token": self.access_token,
@@ -339,7 +328,7 @@ class OAuthToken:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OAuthToken":
+    def from_dict(cls, data: dict[str, Any]) -> "OAuthToken":
         """Create from dictionary."""
         return cls(
             access_token=data["access_token"],
@@ -352,7 +341,6 @@ class OAuthToken:
             user_id=data.get("user_id", ""),
         )
 
-
 class OAuthTokenStore:
     """
     Persistent storage for OAuth tokens.
@@ -363,8 +351,8 @@ class OAuthTokenStore:
 
     def __init__(
         self,
-        storage_path: Optional[str] = None,
-        encryption_key: Optional[str] = None,
+        storage_path: str | None = None,
+        encryption_key: str | None = None,
     ):
         """
         Initialize token store.
@@ -510,7 +498,7 @@ class OAuthTokenStore:
         provider: str,
         tenant_id: str,
         user_id: str,
-    ) -> Optional[OAuthToken]:
+    ) -> OAuthToken | None:
         """Retrieve an OAuth token."""
         conn = self._get_conn()
         key = self._token_key(provider, tenant_id, user_id)
@@ -555,7 +543,7 @@ class OAuthTokenStore:
     async def get_expiring_tokens(
         self,
         within_minutes: int = 60,
-    ) -> List[OAuthToken]:
+    ) -> list[OAuthToken]:
         """Get tokens expiring soon (for proactive refresh)."""
         conn = self._get_conn()
         cutoff = (datetime.now(timezone.utc) + timedelta(minutes=within_minutes)).isoformat()
@@ -582,11 +570,9 @@ class OAuthTokenStore:
 
         return tokens
 
-
 # =============================================================================
 # Resilient Email Client
 # =============================================================================
-
 
 class ResilientEmailClient:
     """
@@ -601,10 +587,10 @@ class ResilientEmailClient:
         provider: str,
         tenant_id: str = "",
         user_id: str = "",
-        token_store: Optional[OAuthTokenStore] = None,
-        retry_config: Optional[RetryConfig] = None,
-        circuit_breaker_config: Optional[CircuitBreakerConfig] = None,
-        rate_limit_config: Optional[RateLimitConfig] = None,
+        token_store: OAuthTokenStore | None = None,
+        retry_config: RetryConfig | None = None,
+        circuit_breaker_config: CircuitBreakerConfig | None = None,
+        rate_limit_config: RateLimitConfig | None = None,
     ):
         """
         Initialize resilient email client.
@@ -631,7 +617,7 @@ class ResilientEmailClient:
         self._rate_limit_config = rate_limit_config or RateLimitConfig()
 
         # Rate limiting state
-        self._request_times: List[float] = []
+        self._request_times: list[float] = []
         self._rate_lock = asyncio.Lock()
 
     async def _check_rate_limit(self) -> None:
@@ -654,7 +640,7 @@ class ResilientEmailClient:
 
             self._request_times.append(time.time())
 
-    async def get_valid_token(self) -> Optional[OAuthToken]:
+    async def get_valid_token(self) -> OAuthToken | None:
         """Get a valid (non-expired) access token."""
         if not self._token_store:
             return None
@@ -713,7 +699,7 @@ class ResilientEmailClient:
             await self._circuit_breaker.record_failure(e)
             raise
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get client statistics."""
         return {
             "provider": self.provider,
@@ -723,12 +709,10 @@ class ResilientEmailClient:
             "requests_in_window": len(self._request_times),
         }
 
-
 class CircuitBreakerOpenError(Exception):
     """Raised when circuit breaker is open and blocking calls."""
 
     pass
-
 
 # =============================================================================
 # Exports

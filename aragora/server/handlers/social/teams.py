@@ -23,12 +23,11 @@ import json
 import logging
 import os
 import re
-from typing import Any, Coroutine, Dict, List, Optional
+from typing import Any, Coroutine, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 logger = logging.getLogger(__name__)
-
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
@@ -38,13 +37,11 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
 
-
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
-
 
 from ..base import (
     BaseHandler,
@@ -83,10 +80,9 @@ COMMAND_PATTERN = re.compile(r"^(?:@\w+\s+)?(\w+)(?:\s+(.*))?$", re.IGNORECASE)
 TOPIC_PATTERN = re.compile(r'^["\']?(.+?)["\']?$')
 
 # Singleton connector
-_teams_connector: Optional[Any] = None
+_teams_connector: Any | None = None
 
-
-def get_teams_connector() -> Optional[Any]:
+def get_teams_connector() -> Any | None:
     """Get or create the Teams connector singleton."""
     global _teams_connector
     if _teams_connector is None:
@@ -110,7 +106,6 @@ def get_teams_connector() -> Optional[Any]:
             return None
     return _teams_connector
 
-
 class TeamsIntegrationHandler(BaseHandler):
     """Handler for Microsoft Teams integration endpoints."""
 
@@ -124,7 +119,7 @@ class TeamsIntegrationHandler(BaseHandler):
     def __init__(self, server_context: Any):
         super().__init__(server_context)
         # Track active debates by conversation ID
-        self._active_debates: Dict[str, Dict[str, Any]] = {}
+        self._active_debates: dict[str, dict[str, Any]] = {}
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
@@ -134,7 +129,7 @@ class TeamsIntegrationHandler(BaseHandler):
     # RBAC Helper Methods
     # =========================================================================
 
-    def _get_auth_context(self, handler: Any) -> Optional[Any]:
+    def _get_auth_context(self, handler: Any) -> Any | None:
         """Extract authorization context from the request."""
         if not RBAC_AVAILABLE or extract_user_from_request is None:
             return None
@@ -153,7 +148,7 @@ class TeamsIntegrationHandler(BaseHandler):
             logger.debug(f"Could not extract auth context: {e}")
             return None
 
-    def _check_permission(self, handler: Any, permission_key: str) -> Optional[HandlerResult]:
+    def _check_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
         """Check if current user has permission. Returns error response if denied."""
         if not RBAC_AVAILABLE or check_permission is None:
             return None
@@ -174,8 +169,8 @@ class TeamsIntegrationHandler(BaseHandler):
         return None
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Teams requests to appropriate methods."""
         logger.debug(f"Teams integration request: {path}")
 
@@ -190,8 +185,8 @@ class TeamsIntegrationHandler(BaseHandler):
 
     @rate_limit(rpm=30, limiter_name="teams_commands")
     async def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/integrations/teams/commands":
             # Note: Commands from Teams Bot Framework use bot auth, not user RBAC
@@ -355,9 +350,9 @@ class TeamsIntegrationHandler(BaseHandler):
     async def _start_debate(
         self,
         topic: str,
-        conversation: Dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
-        user: Dict[str, Any],
+        user: dict[str, Any],
     ) -> HandlerResult:
         """Start a new debate in the conversation."""
         if not topic:
@@ -421,7 +416,7 @@ class TeamsIntegrationHandler(BaseHandler):
         conv_id: str,
         topic: str,
         service_url: str,
-        thread_ts: Optional[str],
+        thread_ts: str | None,
     ) -> None:
         """Run a debate asynchronously and post updates."""
         import uuid
@@ -539,7 +534,7 @@ class TeamsIntegrationHandler(BaseHandler):
             await asyncio.sleep(300)  # Keep for 5 minutes
             self._active_debates.pop(conv_id, None)
 
-    def _get_debate_status(self, conversation: Dict[str, Any]) -> HandlerResult:
+    def _get_debate_status(self, conversation: dict[str, Any]) -> HandlerResult:
         """Get status of active debate in conversation."""
         conv_id = conversation.get("id", "")
         debate = self._active_debates.get(conv_id)
@@ -561,7 +556,7 @@ class TeamsIntegrationHandler(BaseHandler):
             }
         )
 
-    def _cancel_debate(self, conversation: Dict[str, Any]) -> HandlerResult:
+    def _cancel_debate(self, conversation: dict[str, Any]) -> HandlerResult:
         """Cancel an active debate."""
         conv_id = conversation.get("id", "")
         debate = self._active_debates.pop(conv_id, None)
@@ -583,7 +578,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
     async def _get_leaderboard(
         self,
-        conversation: Dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """Get agent ELO leaderboard rankings."""
@@ -594,7 +589,7 @@ class TeamsIntegrationHandler(BaseHandler):
             raw_rankings = store.get_leaderboard(limit=10) if store else []
 
             # Convert to dicts for consistent handling
-            rankings: List[Dict[str, Any]] = []
+            rankings: list[dict[str, Any]] = []
             if raw_rankings:
                 for r in raw_rankings:
                     rankings.append(
@@ -631,7 +626,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
     async def _list_agents(
         self,
-        conversation: Dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """List available AI agents."""
@@ -639,7 +634,7 @@ class TeamsIntegrationHandler(BaseHandler):
             from aragora.agents import list_available_agents
 
             agents_dict = list_available_agents()
-            agent_list: List[Dict[str, Any]] = []
+            agent_list: list[dict[str, Any]] = []
             if agents_dict:
                 for name, info in list(agents_dict.items())[:10]:
                     agent_list.append(
@@ -675,7 +670,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
     async def _get_recent_debates(
         self,
-        conversation: Dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """Get recent debates."""
@@ -686,7 +681,7 @@ class TeamsIntegrationHandler(BaseHandler):
             raw_debates = db.list_recent(limit=5) if db else []
 
             # Convert to dicts for consistent handling
-            debates: List[Dict[str, Any]] = []
+            debates: list[dict[str, Any]] = []
             if raw_debates:
                 for d in raw_debates:
                     debates.append(
@@ -718,7 +713,7 @@ class TeamsIntegrationHandler(BaseHandler):
     async def _search_debates(
         self,
         query: str,
-        conversation: Dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """Search past debates."""
@@ -736,7 +731,7 @@ class TeamsIntegrationHandler(BaseHandler):
             raw_results = db.search(query, limit=5) if db else []
 
             # Convert to dicts for consistent handling
-            results: List[Dict[str, Any]] = []
+            results: list[dict[str, Any]] = []
             for r in raw_results:
                 results.append(
                     {
@@ -768,7 +763,7 @@ class TeamsIntegrationHandler(BaseHandler):
             logger.exception(f"Search error: {e}")
             return error_response(f"Error: {str(e)[:100]}", 500)
 
-    def _build_leaderboard_blocks(self, rankings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _build_leaderboard_blocks(self, rankings: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for leaderboard display."""
         rows = []
         for i, entry in enumerate(rankings[:10], 1):
@@ -798,7 +793,7 @@ class TeamsIntegrationHandler(BaseHandler):
             }
         ]
 
-    def _build_agents_blocks(self, agents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _build_agents_blocks(self, agents: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for agents list."""
         rows = [
             {
@@ -826,7 +821,7 @@ class TeamsIntegrationHandler(BaseHandler):
             }
         ]
 
-    def _build_recent_blocks(self, debates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _build_recent_blocks(self, debates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for recent debates."""
         rows = [
             {
@@ -855,8 +850,8 @@ class TeamsIntegrationHandler(BaseHandler):
         ]
 
     def _build_search_results_blocks(
-        self, query: str, results: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, query: str, results: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for search results."""
         rows = [
             {
@@ -886,10 +881,10 @@ class TeamsIntegrationHandler(BaseHandler):
 
     def _handle_vote(
         self,
-        value: Dict[str, Any],
-        conversation: Dict[str, Any],
+        value: dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
-        from_user: Optional[Dict[str, Any]] = None,
+        from_user: Optional[dict[str, Any]] = None,
     ) -> HandlerResult:
         """Handle a vote action from Adaptive Card."""
         vote_value = value.get("vote")
@@ -935,8 +930,8 @@ class TeamsIntegrationHandler(BaseHandler):
 
     def _handle_view_receipt(
         self,
-        value: Dict[str, Any],
-        conversation: Dict[str, Any],
+        value: dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """Handle view receipt action."""
@@ -949,7 +944,7 @@ class TeamsIntegrationHandler(BaseHandler):
             }
         )
 
-    def _build_voting_card(self, topic: str, verdict: str, debate_id: str) -> List[Dict[str, Any]]:
+    def _build_voting_card(self, topic: str, verdict: str, debate_id: str) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for voting."""
         try:
             from aragora.connectors.chat.teams_adaptive_cards import TeamsAdaptiveCards
@@ -993,8 +988,8 @@ class TeamsIntegrationHandler(BaseHandler):
             ]
 
     def _build_error_card(
-        self, title: str, message: str, suggestions: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+        self, title: str, message: str, suggestions: Optional[list[str]] = None
+    ) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for errors."""
         try:
             from aragora.connectors.chat.teams_adaptive_cards import TeamsAdaptiveCards
@@ -1022,7 +1017,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
     async def _send_help_response(
         self,
-        conversation: Dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """Send help message with available commands."""
@@ -1084,7 +1079,7 @@ class TeamsIntegrationHandler(BaseHandler):
     async def _send_error(
         self,
         message: str,
-        conversation: Dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """Send error message to conversation."""
@@ -1101,7 +1096,7 @@ class TeamsIntegrationHandler(BaseHandler):
     async def _send_unknown_command(
         self,
         command: str,
-        conversation: Dict[str, Any],
+        conversation: dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """Send unknown command message."""
@@ -1115,9 +1110,9 @@ class TeamsIntegrationHandler(BaseHandler):
         self,
         topic: str,
         user_name: str,
-        agents: Optional[List[str]] = None,
-        debate_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        agents: Optional[list[str]] = None,
+        debate_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for debate start."""
         try:
             from aragora.connectors.chat.teams_adaptive_cards import TeamsAdaptiveCards
@@ -1168,8 +1163,8 @@ class TeamsIntegrationHandler(BaseHandler):
             ]
 
     def _build_result_blocks(
-        self, topic: str, result: Any, debate_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, topic: str, result: Any, debate_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for debate result."""
         consensus = (
             getattr(result, "consensus", None)
@@ -1232,7 +1227,7 @@ class TeamsIntegrationHandler(BaseHandler):
             return card.get("body", [])
         except ImportError:
             # Fallback to basic blocks
-            blocks: List[Dict[str, Any]] = [
+            blocks: list[dict[str, Any]] = [
                 {
                     "type": "TextBlock",
                     "text": "Debate Complete",
@@ -1276,7 +1271,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return blocks
 
-    def _read_json_body(self, handler: Any) -> Optional[Dict[str, Any]]:
+    def _read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:
         """Read and parse JSON body from request."""
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1286,6 +1281,5 @@ class TeamsIntegrationHandler(BaseHandler):
             return json.loads(body.decode("utf-8"))
         except (json.JSONDecodeError, ValueError):
             return None
-
 
 __all__ = ["TeamsIntegrationHandler", "get_teams_connector"]

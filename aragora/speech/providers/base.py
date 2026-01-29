@@ -7,8 +7,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import BinaryIO, Optional
-
+from typing import BinaryIO
 
 @dataclass
 class STTProviderConfig:
@@ -18,7 +17,7 @@ class STTProviderConfig:
     provider_name: str = "base"
 
     # Language settings
-    default_language: Optional[str] = None  # None = auto-detect
+    default_language: str | None = None  # None = auto-detect
 
     # Model settings
     model: str = "default"
@@ -30,7 +29,6 @@ class STTProviderConfig:
     # Additional provider-specific options
     extra_options: dict = field(default_factory=dict)
 
-
 @dataclass
 class TranscriptionSegment:
     """A segment of transcribed text with timing information."""
@@ -38,9 +36,8 @@ class TranscriptionSegment:
     text: str
     start: float  # Start time in seconds
     end: float  # End time in seconds
-    confidence: Optional[float] = None
-    words: Optional[list[dict]] = None  # Word-level timestamps if available
-
+    confidence: float | None = None
+    words: list[dict] | None = None  # Word-level timestamps if available
 
 @dataclass
 class TranscriptionResult:
@@ -75,11 +72,10 @@ class TranscriptionResult:
             "model": self.model,
         }
 
-
 class STTProvider(ABC):
     """Abstract base class for speech-to-text providers."""
 
-    def __init__(self, config: Optional[STTProviderConfig] = None):
+    def __init__(self, config: STTProviderConfig | None = None):
         self.config = config or STTProviderConfig()
 
     @property
@@ -92,8 +88,8 @@ class STTProvider(ABC):
     async def transcribe(
         self,
         audio_file: Path | BinaryIO,
-        language: Optional[str] = None,
-        prompt: Optional[str] = None,
+        language: str | None = None,
+        prompt: str | None = None,
     ) -> TranscriptionResult:
         """
         Transcribe audio to text.

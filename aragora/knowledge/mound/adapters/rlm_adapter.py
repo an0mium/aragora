@@ -24,13 +24,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CompressionPattern:
@@ -39,12 +38,11 @@ class CompressionPattern:
     id: str
     compression_ratio: float
     value_score: float
-    content_markers: List[str]
+    content_markers: list[str]
     content_type: str = "general"
     usage_count: int = 0
     created_at: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ContentPriority:
@@ -55,7 +53,6 @@ class ContentPriority:
     last_accessed: str
     priority_score: float
     content_type: str = "general"
-
 
 class RlmAdapter:
     """
@@ -94,7 +91,7 @@ class RlmAdapter:
 
     def __init__(
         self,
-        compressor: Optional[Any] = None,
+        compressor: Any | None = None,
         enable_dual_write: bool = False,
     ):
         """
@@ -108,15 +105,15 @@ class RlmAdapter:
         self._enable_dual_write = enable_dual_write
 
         # In-memory storage for queries (will be replaced by KM backend)
-        self._patterns: Dict[str, Dict[str, Any]] = {}
-        self._priorities: Dict[str, Dict[str, Any]] = {}  # {content_id: priority_data}
+        self._patterns: dict[str, dict[str, Any]] = {}
+        self._priorities: dict[str, dict[str, Any]] = {}  # {content_id: priority_data}
 
         # Statistics
         self._total_compressions = 0
         self._successful_compressions = 0
 
     @property
-    def compressor(self) -> Optional[Any]:
+    def compressor(self) -> Any | None:
         """Access the underlying RLM Compressor."""
         return self._compressor
 
@@ -128,10 +125,10 @@ class RlmAdapter:
         self,
         compression_ratio: float,
         value_score: float,
-        content_markers: List[str],
+        content_markers: list[str],
         content_type: str = "general",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> str | None:
         """
         Store a compression pattern in the Knowledge Mound.
 
@@ -195,7 +192,7 @@ class RlmAdapter:
         )
         return pattern_id
 
-    def get_pattern(self, pattern_id: str) -> Optional[Dict[str, Any]]:
+    def get_pattern(self, pattern_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific pattern by ID.
 
@@ -211,9 +208,9 @@ class RlmAdapter:
 
     def get_patterns_for_content(
         self,
-        content_markers: List[str],
+        content_markers: list[str],
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find patterns that match content markers.
 
@@ -279,9 +276,9 @@ class RlmAdapter:
     def get_priority_content(
         self,
         limit: int = 20,
-        content_type: Optional[str] = None,
-        min_access_count: Optional[int] = None,
-    ) -> List[ContentPriority]:
+        content_type: str | None = None,
+        min_access_count: int | None = None,
+    ) -> list[ContentPriority]:
         """
         Get high-priority content IDs for compression decisions.
 
@@ -320,8 +317,8 @@ class RlmAdapter:
 
     def get_compression_hints(
         self,
-        content_markers: List[str],
-    ) -> Dict[str, Any]:
+        content_markers: list[str],
+    ) -> dict[str, Any]:
         """
         Get compression strategy hints based on stored patterns.
 
@@ -366,9 +363,9 @@ class RlmAdapter:
             "top_pattern_id": patterns[0]["id"] if patterns else None,
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored patterns and priorities."""
-        pattern_types: Dict[str, int] = {}
+        pattern_types: dict[str, int] = {}
         for pattern in self._patterns.values():
             ct = pattern.get("content_type", "general")
             pattern_types[ct] = pattern_types.get(ct, 0) + 1
@@ -399,7 +396,7 @@ class RlmAdapter:
         self,
         mound: Any,
         workspace_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Persist compression patterns to the Knowledge Mound.
 
@@ -412,7 +409,7 @@ class RlmAdapter:
         """
         from aragora.knowledge.mound.types import IngestionRequest, SourceType
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "patterns_synced": 0,
             "errors": [],
         }
@@ -465,7 +462,7 @@ class RlmAdapter:
         self,
         mound: Any,
         workspace_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Load compression patterns from the Knowledge Mound.
 
@@ -478,7 +475,7 @@ class RlmAdapter:
         Returns:
             Dict with load statistics
         """
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "patterns_loaded": 0,
             "errors": [],
         }
@@ -530,7 +527,6 @@ class RlmAdapter:
             f"RLM load from KM: loaded={result['patterns_loaded']}, errors={len(result['errors'])}"
         )
         return result
-
 
 __all__ = [
     "RlmAdapter",

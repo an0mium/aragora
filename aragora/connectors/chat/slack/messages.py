@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,6 @@ from .client import (
     _is_retryable_error,
 )
 
-
 class SlackMessagesMixin:
     """Mixin providing message send/update/delete, formatting, and file operations."""
 
@@ -45,8 +44,8 @@ class SlackMessagesMixin:
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
-        thread_id: Optional[str] = None,
+        blocks: list[dict[str, Any] | None] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send message to Slack channel with retry and circuit breaker."""
@@ -85,7 +84,7 @@ class SlackMessagesMixin:
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Update a Slack message with retry and circuit breaker."""
@@ -130,7 +129,7 @@ class SlackMessagesMixin:
         channel_id: str,
         user_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send ephemeral message visible only to one user with retry."""
@@ -149,7 +148,7 @@ class SlackMessagesMixin:
         if blocks:
             payload["blocks"] = blocks
 
-        last_error: Optional[str] = None
+        last_error: str | None = None
 
         for attempt in range(self._max_retries):
             try:
@@ -212,7 +211,7 @@ class SlackMessagesMixin:
         self,
         command: Any,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -248,7 +247,7 @@ class SlackMessagesMixin:
         self,
         interaction: Any,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -282,7 +281,7 @@ class SlackMessagesMixin:
         self,
         response_url: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         response_type: str = "ephemeral",
         replace_original: bool = False,
     ) -> SendMessageResponse:
@@ -347,8 +346,8 @@ class SlackMessagesMixin:
         content: bytes,
         filename: str,
         content_type: str = "application/octet-stream",
-        title: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        title: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """Upload file to Slack with timeout and retry.
@@ -461,7 +460,7 @@ class SlackMessagesMixin:
     # Channel and User Info (implements abstract methods)
     # ==========================================================================
 
-    async def get_channel_info(self, channel_id: str, **kwargs: Any) -> Optional[ChatChannel]:
+    async def get_channel_info(self, channel_id: str, **kwargs: Any) -> ChatChannel | None:
         """Get channel information from Slack with retry and circuit breaker."""
         success, data, error = await self._slack_api_request(
             "conversations.info",
@@ -489,7 +488,7 @@ class SlackMessagesMixin:
             logger.debug(f"get_channel_info failed: {error}")
         return None
 
-    async def get_user_info(self, user_id: str, **kwargs: Any) -> Optional[ChatUser]:
+    async def get_user_info(self, user_id: str, **kwargs: Any) -> ChatUser | None:
         """Get user information from Slack with retry and circuit breaker."""
         success, data, error = await self._slack_api_request(
             "users.info",
@@ -521,10 +520,10 @@ class SlackMessagesMixin:
 
     def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        actions: Optional[list[MessageButton]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str] | None] = None,
+        actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Format content as Slack Block Kit blocks."""
@@ -587,9 +586,9 @@ class SlackMessagesMixin:
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
+        value: str | None = None,
         style: str = "default",
-        url: Optional[str] = None,
+        url: str | None = None,
     ) -> dict[str, Any]:
         """Format a Slack button element."""
         if url:
@@ -851,7 +850,7 @@ class SlackMessagesMixin:
         trigger_id: str,
         view: dict[str, Any],
         **kwargs: Any,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Open a modal view.
 
         Uses _slack_api_request for circuit breaker, retry, and timeout handling.
@@ -874,7 +873,7 @@ class SlackMessagesMixin:
         )
 
         if success and data:
-            view_id: Optional[str] = data.get("view", {}).get("id")
+            view_id: str | None = data.get("view", {}).get("id")
             return view_id
 
         if error:
@@ -885,7 +884,7 @@ class SlackMessagesMixin:
         self,
         view_id: str,
         view: dict[str, Any],
-        view_hash: Optional[str] = None,
+        view_hash: str | None = None,
         **kwargs: Any,
     ) -> bool:
         """Update an existing modal view.
@@ -1050,8 +1049,8 @@ class SlackMessagesMixin:
         self,
         channel_id: str,
         limit: int = 100,
-        oldest: Optional[str] = None,
-        latest: Optional[str] = None,
+        oldest: str | None = None,
+        latest: str | None = None,
         **kwargs: Any,
     ) -> list[ChatMessage]:
         """
@@ -1133,7 +1132,7 @@ class SlackMessagesMixin:
     async def collect_evidence(
         self,
         channel_id: str,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 100,
         include_threads: bool = True,
         min_relevance: float = 0.0,
@@ -1241,7 +1240,7 @@ class SlackMessagesMixin:
     async def search_messages(
         self,
         query: str,
-        channel_id: Optional[str] = None,
+        channel_id: str | None = None,
         limit: int = 20,
         **kwargs: Any,
     ) -> list[ChatEvidence]:
@@ -1319,7 +1318,7 @@ class SlackMessagesMixin:
 
         return evidence_list
 
-    def _format_timestamp_for_api(self, timestamp: Any) -> Optional[str]:
+    def _format_timestamp_for_api(self, timestamp: Any) -> str | None:
         """
         Format a datetime for Slack's API (Unix timestamp).
 

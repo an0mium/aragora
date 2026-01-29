@@ -4,10 +4,11 @@ Revision phase module for debate rounds.
 Handles parallel revision generation with bounded concurrency.
 This module is extracted from debate_rounds.py for better modularity.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import (
     AGENT_TIMEOUT_SECONDS,
@@ -27,7 +28,6 @@ logger = logging.getLogger(__name__)
 # Base timeout for the entire revision phase gather (prevents indefinite stalls)
 REVISION_PHASE_BASE_TIMEOUT = 120.0
 
-
 def calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
     """Calculate dynamic phase timeout based on agent count.
 
@@ -45,7 +45,6 @@ def calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
     # Add 60s buffer for gather overhead and safety margin
     calculated = (num_agents / MAX_CONCURRENT_REVISIONS) * agent_timeout + 60.0
     return max(calculated, REVISION_PHASE_BASE_TIMEOUT)
-
 
 class RevisionGenerator:
     """
@@ -73,16 +72,16 @@ class RevisionGenerator:
 
     def __init__(
         self,
-        generate_with_agent: Optional[Callable] = None,
-        build_revision_prompt: Optional[Callable] = None,
-        with_timeout: Optional[Callable] = None,
-        circuit_breaker: Optional[Any] = None,
-        hooks: Optional[dict] = None,
-        recorder: Optional[Any] = None,
-        notify_spectator: Optional[Callable] = None,
-        heartbeat_callback: Optional[Callable] = None,
-        record_grounded_position: Optional[Callable] = None,
-        rhetorical_observer: Optional[Any] = None,
+        generate_with_agent: Callable | None = None,
+        build_revision_prompt: Callable | None = None,
+        with_timeout: Callable | None = None,
+        circuit_breaker: Any | None = None,
+        hooks: dict | None = None,
+        recorder: Any | None = None,
+        notify_spectator: Callable | None = None,
+        heartbeat_callback: Callable | None = None,
+        record_grounded_position: Callable | None = None,
+        rhetorical_observer: Any | None = None,
         max_concurrent: int = MAX_CONCURRENT_REVISIONS,
         # Molecule tracking for work unit management (Gastown pattern)
         molecule_tracker: Optional["MoleculeTracker"] = None,
@@ -118,15 +117,15 @@ class RevisionGenerator:
 
         # Molecule tracking for work unit management
         self._molecule_tracker = molecule_tracker
-        self._active_molecules: Dict[str, str] = {}  # agent_name -> molecule_id
+        self._active_molecules: dict[str, str] = {}  # agent_name -> molecule_id
 
     async def execute_revision_phase(
         self,
         ctx: "DebateContext",
         round_num: int,
-        all_critiques: List["Critique"],
-        partial_messages: List["Message"],
-    ) -> Dict[str, str]:
+        all_critiques: list["Critique"],
+        partial_messages: list["Message"],
+    ) -> dict[str, str]:
         """
         Execute revision phase with parallel generation.
 
@@ -143,7 +142,7 @@ class RevisionGenerator:
 
         result = ctx.result
         proposals = ctx.proposals
-        updated_proposals: Dict[str, str] = {}
+        updated_proposals: dict[str, str] = {}
 
         if not self._generate_with_agent or not self._build_revision_prompt:
             logger.warning("Missing callbacks for revision phase")
@@ -369,7 +368,7 @@ class RevisionGenerator:
         self,
         debate_id: str,
         round_num: int,
-        agents: List["Agent"],
+        agents: list["Agent"],
     ) -> None:
         """Create revision molecules for all agents.
 
@@ -418,7 +417,7 @@ class RevisionGenerator:
             except Exception as e:
                 logger.debug(f"[molecule] Failed to start molecule: {e}")
 
-    def _complete_molecule(self, agent_name: str, output: Dict[str, Any]) -> None:
+    def _complete_molecule(self, agent_name: str, output: dict[str, Any]) -> None:
         """Mark a revision molecule as completed.
 
         Args:

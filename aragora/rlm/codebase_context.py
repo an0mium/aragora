@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.nomic.context_builder import NomicContextBuilder
 
@@ -27,9 +27,9 @@ class CodebaseContextBuilder(NomicContextBuilder):
         self,
         root_path: Path,
         max_context_bytes: int = 0,
-        include_tests: Optional[bool] = None,
-        knowledge_mound: Optional[Any] = None,
-        full_corpus: Optional[bool] = None,
+        include_tests: bool | None = None,
+        knowledge_mound: Any | None = None,
+        full_corpus: bool | None = None,
     ) -> None:
         env_max = (
             os.environ.get("ARAGORA_CODEBASE_MAX_CONTEXT_BYTES")
@@ -57,6 +57,5 @@ class CodebaseContextBuilder(NomicContextBuilder):
             knowledge_mound=knowledge_mound,
             full_corpus=full_corpus,
         )
-
 
 __all__ = ["CodebaseContextBuilder"]

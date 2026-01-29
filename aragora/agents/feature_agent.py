@@ -16,10 +16,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
-
 
 class FeatureStatus(Enum):
     """Status of feature development."""
@@ -33,21 +32,20 @@ class FeatureStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
-
 @dataclass
 class FeatureSpec:
     """Specification for a feature to implement."""
 
     name: str
     description: str
-    requirements: List[str] = field(default_factory=list)
-    acceptance_criteria: List[str] = field(default_factory=list)
-    affected_files: List[str] = field(default_factory=list)
-    dependencies: List[str] = field(default_factory=list)
+    requirements: list[str] = field(default_factory=list)
+    acceptance_criteria: list[str] = field(default_factory=list)
+    affected_files: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
     priority: str = "medium"  # low, medium, high, critical
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -60,7 +58,6 @@ class FeatureSpec:
             "tags": self.tags,
         }
 
-
 @dataclass
 class DesignDecision:
     """A design decision made during feature development."""
@@ -68,11 +65,11 @@ class DesignDecision:
     question: str
     decision: str
     rationale: str
-    alternatives: List[str] = field(default_factory=list)
-    votes: Dict[str, str] = field(default_factory=dict)
+    alternatives: list[str] = field(default_factory=list)
+    votes: dict[str, str] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "question": self.question,
@@ -83,7 +80,6 @@ class DesignDecision:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 @dataclass
 class ImplementationStep:
     """A step in the implementation process."""
@@ -91,12 +87,12 @@ class ImplementationStep:
     step_id: str
     description: str
     status: str = "pending"  # pending, in_progress, completed, failed
-    files_modified: List[str] = field(default_factory=list)
-    tests_added: List[str] = field(default_factory=list)
-    verification_results: Dict[str, bool] = field(default_factory=dict)
-    error_message: Optional[str] = None
+    files_modified: list[str] = field(default_factory=list)
+    tests_added: list[str] = field(default_factory=list)
+    verification_results: dict[str, bool] = field(default_factory=dict)
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "step_id": self.step_id,
@@ -108,24 +104,23 @@ class ImplementationStep:
             "error_message": self.error_message,
         }
 
-
 @dataclass
 class FeatureImplementation:
     """Result of feature development."""
 
     spec: FeatureSpec
     status: FeatureStatus
-    design_decisions: List[DesignDecision] = field(default_factory=list)
-    implementation_steps: List[ImplementationStep] = field(default_factory=list)
+    design_decisions: list[DesignDecision] = field(default_factory=list)
+    implementation_steps: list[ImplementationStep] = field(default_factory=list)
     tests_pass: bool = False
-    implementation_files: List[str] = field(default_factory=list)
-    test_files: List[str] = field(default_factory=list)
-    approval_id: Optional[str] = None
+    implementation_files: list[str] = field(default_factory=list)
+    test_files: list[str] = field(default_factory=list)
+    approval_id: str | None = None
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
-    error_message: Optional[str] = None
+    completed_at: datetime | None = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "spec": self.spec.to_dict(),
@@ -140,7 +135,6 @@ class FeatureImplementation:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "error_message": self.error_message,
         }
-
 
 class FeatureDevelopmentAgent:
     """
@@ -227,7 +221,7 @@ class FeatureDevelopmentAgent:
     async def develop_feature(
         self,
         spec: FeatureSpec,
-        approvers: Optional[List[str]] = None,
+        approvers: Optional[list[str]] = None,
     ) -> FeatureImplementation:
         """
         Develop a feature end-to-end.
@@ -314,9 +308,9 @@ class FeatureDevelopmentAgent:
         self,
         spec: FeatureSpec,
         implementation: FeatureImplementation,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Gather codebase context for the feature."""
-        context: Dict[str, Any] = {
+        context: dict[str, Any] = {
             "relevant_files": [],
             "existing_patterns": [],
             "dependencies": [],
@@ -367,9 +361,9 @@ class FeatureDevelopmentAgent:
     async def _design_feature(
         self,
         spec: FeatureSpec,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         implementation: FeatureImplementation,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Design the feature architecture."""
         design = {
             "approach": "",
@@ -420,7 +414,7 @@ class FeatureDevelopmentAgent:
 
         # Suggest new file locations based on existing patterns
         if context.get("existing_patterns"):
-            files_to_create = cast(List[str], design["files_to_create"])
+            files_to_create = cast(list[str], design["files_to_create"])
             for pattern in context["existing_patterns"]:
                 if pattern.get("files"):
                     # Use same directory as existing similar files
@@ -439,7 +433,7 @@ class FeatureDevelopmentAgent:
     async def _generate_tests(
         self,
         spec: FeatureSpec,
-        design: Dict[str, Any],
+        design: dict[str, Any],
         implementation: FeatureImplementation,
     ) -> None:
         """Generate test cases using TDD approach."""
@@ -464,7 +458,7 @@ class FeatureDevelopmentAgent:
     async def _implement_feature(
         self,
         spec: FeatureSpec,
-        design: Dict[str, Any],
+        design: dict[str, Any],
         implementation: FeatureImplementation,
     ) -> None:
         """Implement the feature in increments."""
@@ -520,7 +514,7 @@ class FeatureDevelopmentAgent:
     async def _request_approval(
         self,
         implementation: FeatureImplementation,
-        approvers: List[str],
+        approvers: list[str],
     ) -> None:
         """Request approval for the implementation."""
         if not self.approval_workflow:
@@ -559,7 +553,7 @@ class FeatureDevelopmentAgent:
     async def understand_context(
         self,
         question: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Answer a question about the codebase context.
 
@@ -578,7 +572,7 @@ class FeatureDevelopmentAgent:
     async def audit_implementation(
         self,
         implementation: FeatureImplementation,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Audit an implementation for security and code quality.
 

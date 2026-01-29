@@ -20,10 +20,9 @@ import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, List, Optional, cast
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class WebhookConfig:
@@ -31,25 +30,25 @@ class WebhookConfig:
 
     id: str
     url: str
-    events: List[str]
+    events: list[str]
     secret: str  # Used for HMAC signature
     active: bool = True
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
     # Optional metadata
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
 
     # Delivery tracking
-    last_delivery_at: Optional[float] = None
-    last_delivery_status: Optional[int] = None
+    last_delivery_at: float | None = None
+    last_delivery_status: int | None = None
     delivery_count: int = 0
     failure_count: int = 0
 
     # Owner (for multi-tenant)
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    user_id: str | None = None
+    workspace_id: str | None = None
 
     def to_dict(self, include_secret: bool = False) -> dict:
         """Convert to dict, optionally excluding secret."""
@@ -66,7 +65,6 @@ class WebhookConfig:
         if "*" in self.events:
             return True
         return event_type in self.events
-
 
 class SQLiteWebhookRegistry:
     """
@@ -180,11 +178,11 @@ class SQLiteWebhookRegistry:
     def register(
         self,
         url: str,
-        events: List[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        events: list[str],
+        name: str | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         """Register a new webhook."""
         webhook_id = str(uuid.uuid4())
@@ -227,7 +225,7 @@ class SQLiteWebhookRegistry:
             updated_at=now,
         )
 
-    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
+    def get(self, webhook_id: str) -> WebhookConfig | None:
         """Get webhook by ID."""
         conn = self._get_conn()
         cursor = conn.execute(
@@ -239,15 +237,15 @@ class SQLiteWebhookRegistry:
 
     def list(
         self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
-    ) -> List[WebhookConfig]:
+    ) -> list[WebhookConfig]:
         """List webhooks with optional filtering."""
         conn = self._get_conn()
 
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if user_id:
             conditions.append("user_id = ?")
@@ -267,9 +265,9 @@ class SQLiteWebhookRegistry:
     # Alias for interface compatibility
     def list_all(
         self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> List[WebhookConfig]:
+        user_id: str | None = None,
+        workspace_id: str | None = None,
+    ) -> list[WebhookConfig]:
         """List all webhooks (alias for list())."""
         return self.list(user_id=user_id, workspace_id=workspace_id)
 
@@ -290,12 +288,12 @@ class SQLiteWebhookRegistry:
     def update(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Optional[WebhookConfig]:
+        url: str | None = None,
+        events: Optional[list[str]] = None,
+        active: bool | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> WebhookConfig | None:
         """Update webhook configuration."""
         webhook = self.get(webhook_id)
         if not webhook:
@@ -303,7 +301,7 @@ class SQLiteWebhookRegistry:
 
         conn = self._get_conn()
         updates = ["updated_at = ?"]
-        params: List[Any] = [time.time()]
+        params: list[Any] = [time.time()]
 
         if url is not None:
             updates.append("url = ?")
@@ -364,14 +362,14 @@ class SQLiteWebhookRegistry:
     def get_for_event(
         self,
         event_type: str,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> List[WebhookConfig]:
+        user_id: str | None = None,
+        workspace_id: str | None = None,
+    ) -> list[WebhookConfig]:
         """Get all active webhooks that should receive the given event."""
         conn = self._get_conn()
 
         conditions = ["active = 1"]
-        params: List[Any] = []
+        params: list[Any] = []
 
         if user_id:
             conditions.append("user_id = ?")
@@ -400,10 +398,8 @@ class SQLiteWebhookRegistry:
             self._local.conn.close()
             del self._local.conn
 
-
 # Global webhook registry instance
-_webhook_registry: Optional[SQLiteWebhookRegistry] = None
-
+_webhook_registry: SQLiteWebhookRegistry | None = None
 
 def get_webhook_registry() -> SQLiteWebhookRegistry:
     """
@@ -431,18 +427,15 @@ def get_webhook_registry() -> SQLiteWebhookRegistry:
     _webhook_registry = SQLiteWebhookRegistry(data_dir / "webhook_registry.db")
     return _webhook_registry
 
-
 def set_webhook_registry(registry: SQLiteWebhookRegistry) -> None:
     """Set custom webhook registry (for testing)."""
     global _webhook_registry
     _webhook_registry = registry
 
-
 def reset_webhook_registry() -> None:
     """Reset the global webhook registry (for testing)."""
     global _webhook_registry
     _webhook_registry = None
-
 
 __all__ = [
     "WebhookConfig",

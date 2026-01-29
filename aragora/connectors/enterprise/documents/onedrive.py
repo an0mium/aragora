@@ -17,7 +17,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Optional
 from urllib.parse import quote
 
 from aragora.connectors.enterprise.base import (
@@ -35,9 +35,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 # Office MIME types and their export formats
-OFFICE_MIMES: Dict[str, str] = {
+OFFICE_MIMES: dict[str, str] = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
@@ -46,7 +45,7 @@ OFFICE_MIMES: Dict[str, str] = {
 }
 
 # Supported file types for indexing
-SUPPORTED_EXTENSIONS: Set[str] = {
+SUPPORTED_EXTENSIONS: set[str] = {
     ".txt",
     ".md",
     ".json",
@@ -70,7 +69,6 @@ SUPPORTED_EXTENSIONS: Set[str] = {
     ".h",
 }
 
-
 @dataclass
 class OneDriveFile:
     """A OneDrive file."""
@@ -79,15 +77,14 @@ class OneDriveFile:
     name: str
     mime_type: str
     size: int = 0
-    created_time: Optional[datetime] = None
-    modified_time: Optional[datetime] = None
+    created_time: datetime | None = None
+    modified_time: datetime | None = None
     web_url: str = ""
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     parent_path: str = ""
-    download_url: Optional[str] = None
+    download_url: str | None = None
     shared: bool = False
-    drive_id: Optional[str] = None
-
+    drive_id: str | None = None
 
 @dataclass
 class OneDriveFolder:
@@ -95,10 +92,9 @@ class OneDriveFolder:
 
     id: str
     name: str
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     path: str = ""
     child_count: int = 0
-
 
 class OneDriveConnector(EnterpriseConnector):
     """
@@ -141,14 +137,14 @@ class OneDriveConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        tenant_id: Optional[str] = None,
-        access_token: Optional[str] = None,
-        refresh_token: Optional[str] = None,
-        drive_id: Optional[str] = None,  # Specific drive to use
-        include_patterns: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        tenant_id: str | None = None,
+        access_token: str | None = None,
+        refresh_token: str | None = None,
+        drive_id: str | None = None,  # Specific drive to use
+        include_patterns: Optional[list[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
     ):
         """
         Initialize OneDrive connector.
@@ -174,8 +170,8 @@ class OneDriveConnector(EnterpriseConnector):
         self.include_patterns = include_patterns or ["*"]
         self.exclude_patterns = exclude_patterns or []
 
-        self._session: Optional[Any] = None
-        self._token_expires: Optional[datetime] = None
+        self._session: Any | None = None
+        self._token_expires: datetime | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -205,9 +201,9 @@ class OneDriveConnector(EnterpriseConnector):
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        code: str | None = None,
+        redirect_uri: str | None = None,
+        refresh_token: str | None = None,
     ) -> bool:
         """
         Authenticate with Microsoft Graph.
@@ -305,7 +301,7 @@ class OneDriveConnector(EnterpriseConnector):
         method: str,
         endpoint: str,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make an authenticated API request."""
         await self._ensure_valid_token()
         session = await self._get_session()
@@ -354,11 +350,11 @@ class OneDriveConnector(EnterpriseConnector):
             return f"/drives/{self.drive_id}"
         return "/me/drive"
 
-    async def get_user_info(self) -> Dict[str, Any]:
+    async def get_user_info(self) -> dict[str, Any]:
         """Get current user info."""
         return await self._api_request("GET", "/me")
 
-    async def list_drives(self) -> List[Dict[str, Any]]:
+    async def list_drives(self) -> list[dict[str, Any]]:
         """List available drives for the user."""
         result = await self._api_request("GET", "/me/drives")
         return result.get("value", [])
@@ -565,7 +561,7 @@ class OneDriveConnector(EnterpriseConnector):
 
     async def sync_items(  # type: ignore[override]
         self,
-        state: Optional[SyncState] = None,
+        state: SyncState | None = None,
     ) -> AsyncIterator[SyncItem]:
         """
         Incremental sync using delta API.
@@ -638,7 +634,7 @@ class OneDriveConnector(EnterpriseConnector):
             else:
                 endpoint = None
 
-    def _parse_datetime(self, dt_str: Optional[str]) -> Optional[datetime]:
+    def _parse_datetime(self, dt_str: str | None) -> datetime | None:
         """Parse ISO datetime string."""
         if not dt_str:
             return None

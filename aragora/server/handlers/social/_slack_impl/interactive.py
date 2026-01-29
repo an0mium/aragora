@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict
+from typing import Any
 from urllib.parse import parse_qs
 
 from .config import (
@@ -24,7 +24,6 @@ from .config import rate_limit
 from .messaging import MessagingMixin
 
 logger = logging.getLogger(__name__)
-
 
 class InteractiveMixin(MessagingMixin):
     """Mixin providing interactive component handling for the Slack handler."""
@@ -92,7 +91,7 @@ class InteractiveMixin(MessagingMixin):
             logger.exception(f"Unexpected interactive handler error: {e}")
             return json_response({"text": f"Error: {str(e)[:100]}"})
 
-    def _handle_vote_action(self, payload: Dict[str, Any], action: Dict[str, Any]) -> HandlerResult:
+    def _handle_vote_action(self, payload: dict[str, Any], action: dict[str, Any]) -> HandlerResult:
         """Handle vote button clicks."""
         action_id = action.get("action_id", "")
         user = payload.get("user", {})
@@ -145,7 +144,7 @@ class InteractiveMixin(MessagingMixin):
         return json_response({"text": "Vote recorded"})
 
     def _handle_view_details(
-        self, payload: Dict[str, Any], action: Dict[str, Any]
+        self, payload: dict[str, Any], action: dict[str, Any]
     ) -> HandlerResult:
         """Handle view details button clicks."""
         debate_id = action.get("value", "")

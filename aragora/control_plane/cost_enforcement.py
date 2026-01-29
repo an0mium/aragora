@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.observability import get_logger
 
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-
 class CostEnforcementMode(str, Enum):
     """How to handle cost limit violations."""
 
@@ -30,7 +29,6 @@ class CostEnforcementMode(str, Enum):
     SOFT = "soft"  # Allow with warning
     THROTTLE = "throttle"  # Queue with reduced priority
     ESTIMATE = "estimate"  # Warn based on estimated cost
-
 
 class ThrottleLevel(str, Enum):
     """Throttle severity based on budget consumption."""
@@ -41,7 +39,6 @@ class ThrottleLevel(str, Enum):
     HEAVY = "heavy"  # 90-100% - reduce priority significantly
     BLOCKED = "blocked"  # > 100% - block new tasks
 
-
 @dataclass
 class CostEstimate:
     """Estimated cost for a task before execution."""
@@ -51,10 +48,10 @@ class CostEstimate:
     estimated_tokens: int
     confidence: float  # 0.0-1.0, how confident we are in estimate
     based_on_samples: int  # How many historical samples used
-    model_suggestion: Optional[str] = None  # Cheaper model that could work
-    estimated_savings_usd: Optional[Decimal] = None
+    model_suggestion: str | None = None  # Cheaper model that could work
+    estimated_savings_usd: Decimal | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "task_type": self.task_type,
@@ -68,21 +65,20 @@ class CostEstimate:
             ),
         }
 
-
 @dataclass
 class CostConstraintResult:
     """Result of a cost constraint check."""
 
     allowed: bool
-    reason: Optional[str] = None
+    reason: str | None = None
     throttle_level: ThrottleLevel = ThrottleLevel.NONE
     enforcement_mode: CostEnforcementMode = CostEnforcementMode.SOFT
     budget_percentage_used: float = 0.0
-    remaining_budget_usd: Optional[Decimal] = None
-    estimated_cost: Optional[CostEstimate] = None
+    remaining_budget_usd: Decimal | None = None
+    estimated_cost: CostEstimate | None = None
     priority_adjustment: int = 0  # Negative = lower priority
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "allowed": self.allowed,
@@ -97,9 +93,8 @@ class CostConstraintResult:
             "priority_adjustment": self.priority_adjustment,
         }
 
-
 # Default cost estimates by task type (USD per task)
-DEFAULT_TASK_COST_ESTIMATES: Dict[str, Decimal] = {
+DEFAULT_TASK_COST_ESTIMATES: dict[str, Decimal] = {
     "debate": Decimal("0.50"),
     "analysis": Decimal("0.10"),
     "summary": Decimal("0.05"),
@@ -109,7 +104,6 @@ DEFAULT_TASK_COST_ESTIMATES: Dict[str, Decimal] = {
     "embedding": Decimal("0.01"),
     "default": Decimal("0.10"),
 }
-
 
 @dataclass
 class CostEnforcementConfig:
@@ -141,7 +135,6 @@ class CostEnforcementConfig:
     # Grace period after budget reset (hours)
     grace_period_hours: float = 1.0
 
-
 class CostEnforcer:
     """
     Enforces cost constraints for task scheduling.
@@ -156,7 +149,7 @@ class CostEnforcer:
     def __init__(
         self,
         cost_tracker: Optional["CostTracker"] = None,
-        config: Optional[CostEnforcementConfig] = None,
+        config: CostEnforcementConfig | None = None,
     ):
         """
         Initialize cost enforcer.
@@ -169,12 +162,12 @@ class CostEnforcer:
         self._config = config or CostEnforcementConfig()
 
         # Historical cost data for estimation (task_type -> list of costs)
-        self._task_cost_history: Dict[str, List[Decimal]] = {}
+        self._task_cost_history: dict[str, list[Decimal]] = {}
         self._max_history_per_type = 100
 
         # Callbacks for enforcement events
-        self._throttle_callbacks: List[Callable[[str, ThrottleLevel], None]] = []
-        self._block_callbacks: List[Callable[[str, str], None]] = []
+        self._throttle_callbacks: list[Callable[[str, ThrottleLevel], None]] = []
+        self._block_callbacks: list[Callable[[str, str], None]] = []
 
         logger.info(
             "CostEnforcer initialized",
@@ -194,10 +187,10 @@ class CostEnforcer:
 
     def check_budget_constraint(
         self,
-        workspace_id: Optional[str] = None,
-        org_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        org_id: str | None = None,
         task_type: str = "default",
-        estimated_cost: Optional[Decimal] = None,
+        estimated_cost: Decimal | None = None,
     ) -> CostConstraintResult:
         """
         Check if a task can be submitted given budget constraints.
@@ -315,8 +308,8 @@ class CostEnforcer:
         return 0
 
     def _estimate_task_cost(
-        self, task_type: str, provided_cost: Optional[Decimal] = None
-    ) -> Optional[CostEstimate]:
+        self, task_type: str, provided_cost: Decimal | None = None
+    ) -> CostEstimate | None:
         """Estimate cost for a task type."""
         if not self._config.enable_cost_estimation:
             return None
@@ -418,8 +411,8 @@ class CostEnforcer:
                 logger.error(f"Block callback error: {e}")
 
     def get_budget_status(
-        self, workspace_id: Optional[str] = None, org_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, workspace_id: str | None = None, org_id: str | None = None
+    ) -> dict[str, Any]:
         """Get current budget status for a workspace/org."""
         if not self._cost_tracker:
             return {"error": "No cost tracker configured"}
@@ -462,7 +455,6 @@ class CostEnforcer:
             "enforcement_mode": self._config.mode.value,
         }
 
-
 class BudgetAwareSchedulerMixin:
     """
     Mixin for TaskScheduler to add cost-aware scheduling.
@@ -475,7 +467,7 @@ class BudgetAwareSchedulerMixin:
         scheduler._cost_enforcer = CostEnforcer(cost_tracker)
     """
 
-    _cost_enforcer: Optional[CostEnforcer] = None
+    _cost_enforcer: CostEnforcer | None = None
 
     def set_cost_enforcer(self, enforcer: CostEnforcer) -> None:
         """Set the cost enforcer for budget checks."""
@@ -484,8 +476,8 @@ class BudgetAwareSchedulerMixin:
     async def check_cost_constraint_before_submit(
         self,
         task_type: str,
-        workspace_id: Optional[str] = None,
-        estimated_cost: Optional[Decimal] = None,
+        workspace_id: str | None = None,
+        estimated_cost: Decimal | None = None,
     ) -> CostConstraintResult:
         """
         Check cost constraints before submitting a task.
@@ -500,7 +492,6 @@ class BudgetAwareSchedulerMixin:
             task_type=task_type,
             estimated_cost=estimated_cost,
         )
-
 
 # Exception for cost-related rejections
 class CostLimitExceededError(Exception):

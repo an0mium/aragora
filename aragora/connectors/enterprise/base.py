@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class SyncStatus(Enum):
     """Status of a sync operation."""
 
@@ -36,7 +35,6 @@ class SyncStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class SyncState:
@@ -50,22 +48,22 @@ class SyncState:
     tenant_id: str = "default"
 
     # Cursor tracking
-    cursor: Optional[str] = None  # Opaque cursor for pagination
-    last_sync_at: Optional[datetime] = None
-    last_item_id: Optional[str] = None  # Last processed item ID
-    last_item_timestamp: Optional[datetime] = None
+    cursor: str | None = None  # Opaque cursor for pagination
+    last_sync_at: datetime | None = None
+    last_item_id: str | None = None  # Last processed item ID
+    last_item_timestamp: datetime | None = None
 
     # Sync metadata
     items_synced: int = 0
     items_total: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     # Status
     status: SyncStatus = SyncStatus.IDLE
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "connector_id": self.connector_id,
@@ -85,7 +83,7 @@ class SyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SyncState":
+    def from_dict(cls, data: dict[str, Any]) -> "SyncState":
         """Deserialize from dictionary."""
         return cls(
             connector_id=data["connector_id"],
@@ -130,7 +128,6 @@ class SyncState:
             logger.warning(f"Failed to load sync state from {path}: {e}")
             return None
 
-
 @dataclass
 class SyncResult:
     """Result of a sync operation."""
@@ -142,15 +139,15 @@ class SyncResult:
     items_skipped: int
     items_failed: int
     duration_ms: float
-    errors: List[str] = field(default_factory=list)
-    new_cursor: Optional[str] = None
+    errors: list[str] = field(default_factory=list)
+    new_cursor: str | None = None
 
     @property
     def items_total(self) -> int:
         """Total items processed (synced + updated + skipped + failed)."""
         return self.items_synced + self.items_updated + self.items_skipped + self.items_failed
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "connector_id": self.connector_id,
@@ -163,7 +160,6 @@ class SyncResult:
             "errors": self.errors,
             "new_cursor": self.new_cursor,
         }
-
 
 # Import credential providers from dedicated module
 try:
@@ -178,7 +174,7 @@ except ImportError:
     class CredentialProvider(CredentialProtocol):  # type: ignore[no-redef]  # Stub when creds module unavailable
         """Protocol for credential providers."""
 
-        async def get_credential(self, key: str) -> Optional[str]:
+        async def get_credential(self, key: str) -> str | None:
             """Get a credential by key."""
             ...
 
@@ -189,14 +185,13 @@ except ImportError:
     def get_credential_provider(**kwargs) -> "EnvCredentialProvider":  # type: ignore[misc,no-redef]
         return EnvCredentialProvider()
 
-
 class EnvCredentialProvider:
     """Credential provider using environment variables (backwards compatibility)."""
 
     def __init__(self, prefix: str = "ARAGORA_"):
         self.prefix = prefix
 
-    async def get_credential(self, key: str) -> Optional[str]:
+    async def get_credential(self, key: str) -> str | None:
         """Get credential from environment variable."""
         env_key = f"{self.prefix}{key.upper()}"
         return os.environ.get(env_key)
@@ -205,7 +200,6 @@ class EnvCredentialProvider:
         """Set credential as environment variable (in-memory only)."""
         env_key = f"{self.prefix}{key.upper()}"
         os.environ[env_key] = value
-
 
 @dataclass
 class SyncItem:
@@ -218,13 +212,13 @@ class SyncItem:
     title: str = ""
     url: str = ""
     author: str = ""
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     domain: str = "general"
     confidence: float = 0.7
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     # Content hash for change detection (e.g., S3 ETag, GDrive md5Checksum)
-    content_hash: Optional[str] = None
+    content_hash: str | None = None
 
     def to_evidence(self, connector_source_type: SourceType) -> Evidence:
         """Convert to Evidence for compatibility with base connector."""
@@ -241,7 +235,7 @@ class SyncItem:
             metadata=self.metadata,
         )
 
-    def has_changed(self, previous_hash: Optional[str]) -> bool:
+    def has_changed(self, previous_hash: str | None) -> bool:
         """
         Check if the item has changed based on content hash.
 
@@ -276,7 +270,6 @@ class SyncItem:
             return self.content_hash
         return hashlib.sha256(self.content.encode("utf-8")).hexdigest()
 
-
 class EnterpriseConnector(BaseConnector):
     """
     Extended connector for enterprise data sources.
@@ -306,8 +299,8 @@ class EnterpriseConnector(BaseConnector):
         self,
         connector_id: str,
         tenant_id: str = "default",
-        credentials: Optional[CredentialProvider] = None,
-        state_dir: Optional[Path] = None,
+        credentials: CredentialProvider | None = None,
+        state_dir: Path | None = None,
         enable_circuit_breaker: bool = True,
         circuit_breaker_failures: int = DEFAULT_CIRCUIT_BREAKER_FAILURES,
         circuit_breaker_cooldown: float = DEFAULT_CIRCUIT_BREAKER_COOLDOWN,
@@ -333,7 +326,7 @@ class EnterpriseConnector(BaseConnector):
             )
 
         # Sync state
-        self._state: Optional[SyncState] = None
+        self._state: SyncState | None = None
         self._is_syncing = False
         self._cancel_requested = False
 
@@ -383,7 +376,7 @@ class EnterpriseConnector(BaseConnector):
         if self._circuit_breaker is not None:
             self._circuit_breaker.record_failure()
 
-    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
         """Get current circuit breaker status."""
         if self._circuit_breaker is None:
             return {"enabled": False}
@@ -460,7 +453,7 @@ class EnterpriseConnector(BaseConnector):
         self,
         full_sync: bool = False,
         batch_size: int = 100,
-        max_items: Optional[int] = None,
+        max_items: int | None = None,
     ) -> SyncResult:
         """
         Run incremental sync from this connector to Knowledge Mound.
@@ -634,7 +627,7 @@ class EnterpriseConnector(BaseConnector):
         """Register callback for progress updates."""
         self._on_progress = callback
 
-    async def get_sync_status(self) -> Dict[str, Any]:
+    async def get_sync_status(self) -> dict[str, Any]:
         """Get current sync status."""
         state = self.load_state()
         return {
@@ -651,7 +644,7 @@ class EnterpriseConnector(BaseConnector):
 
     # Webhook support for real-time sync
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """
         Handle incoming webhook for real-time sync.
 
@@ -666,7 +659,7 @@ class EnterpriseConnector(BaseConnector):
         logger.debug(f"[{self.name}] Webhook received but not implemented")
         return False
 
-    def get_webhook_secret(self) -> Optional[str]:
+    def get_webhook_secret(self) -> str | None:
         """Get webhook secret for signature verification."""
         return None
 

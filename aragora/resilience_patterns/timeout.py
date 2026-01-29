@@ -40,7 +40,7 @@ else:
     except ImportError:
 
         @asynccontextmanager
-        async def asyncio_timeout(delay: Optional[float]) -> AsyncIterator[None]:  # type: ignore[misc]
+        async def asyncio_timeout(delay: float | None) -> AsyncIterator[None]:  # type: ignore[misc]
             """Fallback timeout context manager (no actual timeout)."""
             if delay is not None:
                 logger.warning(
@@ -49,20 +49,18 @@ else:
                 )
             yield
 
-
 class TimeoutError(asyncio.TimeoutError):
     """Timeout error with additional context."""
 
     def __init__(
         self,
         message: str = "Operation timed out",
-        timeout_seconds: Optional[float] = None,
-        operation: Optional[str] = None,
+        timeout_seconds: float | None = None,
+        operation: str | None = None,
     ):
         super().__init__(message)
         self.timeout_seconds = timeout_seconds
         self.operation = operation
-
 
 @dataclass
 class TimeoutConfig:
@@ -78,14 +76,13 @@ class TimeoutConfig:
     seconds: float
     on_timeout: Optional[Callable[[str], None]] = None
     error_class: type = TimeoutError
-    message: Optional[str] = None
+    message: str | None = None
 
     def get_message(self, operation: str) -> str:
         """Get the error message for a timeout."""
         if self.message:
             return self.message
         return f"Operation '{operation}' timed out after {self.seconds}s"
-
 
 def with_timeout(
     timeout: float | TimeoutConfig,
@@ -135,7 +132,6 @@ def with_timeout(
         return wrapper
 
     return decorator
-
 
 def with_timeout_sync(
     timeout: float | TimeoutConfig,
@@ -194,7 +190,6 @@ def with_timeout_sync(
 
     return decorator
 
-
 @asynccontextmanager
 async def timeout_context(
     seconds: float,
@@ -227,7 +222,6 @@ async def timeout_context(
                 logger.warning(f"Timeout callback error for {context_name}: {e}")
         logger.warning(message)
         raise TimeoutError(message, timeout_seconds=seconds, operation=context_name) from None
-
 
 @contextmanager
 def timeout_context_sync(

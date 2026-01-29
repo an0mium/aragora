@@ -15,7 +15,7 @@ import json
 import logging
 import threading
 import time
-from typing import Any, ClassVar, Dict, List, Optional, Tuple
+from typing import Any, ClassVar, Optional
 
 from aragora.server.handlers.oauth_providers.base import (
     OAuthProvider,
@@ -36,7 +36,6 @@ APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
 APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"
 APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_REVOCATION_URL = "https://appleid.apple.com/auth/revoke"
-
 
 class AppleOAuthProvider(OAuthProvider):
     """
@@ -61,7 +60,7 @@ class AppleOAuthProvider(OAuthProvider):
     PROVIDER_NAME = "apple"
 
     # Class-level JWKS cache (shared across instances)
-    _jwks_cache: ClassVar[Optional[Dict[str, Any]]] = None
+    _jwks_cache: ClassVar[Optional[dict[str, Any]]] = None
     _jwks_cache_expiry: ClassVar[float] = 0
     _jwks_lock: ClassVar[threading.Lock] = threading.Lock()
 
@@ -134,8 +133,8 @@ class AppleOAuthProvider(OAuthProvider):
     def get_authorization_url(
         self,
         state: str,
-        redirect_uri: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        redirect_uri: str | None = None,
+        scopes: Optional[list[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -170,7 +169,7 @@ class AppleOAuthProvider(OAuthProvider):
     def exchange_code(
         self,
         code: str,
-        redirect_uri: Optional[str] = None,
+        redirect_uri: str | None = None,
     ) -> OAuthTokens:
         """
         Exchange authorization code for tokens.
@@ -219,7 +218,7 @@ class AppleOAuthProvider(OAuthProvider):
     def get_user_info_from_id_token(
         self,
         id_token: str,
-        user_data: Optional[Dict[str, Any]] = None,
+        user_data: Optional[dict[str, Any]] = None,
     ) -> OAuthUserInfo:
         """
         Extract user info from ID token and optional user data.
@@ -273,7 +272,7 @@ class AppleOAuthProvider(OAuthProvider):
     def get_user_info_from_callback(
         self,
         tokens: OAuthTokens,
-        user_json: Optional[str] = None,
+        user_json: str | None = None,
     ) -> OAuthUserInfo:
         """
         Extract user info from callback response.
@@ -300,7 +299,7 @@ class AppleOAuthProvider(OAuthProvider):
 
         return self.get_user_info_from_id_token(tokens.id_token, user_data)
 
-    def _fetch_apple_jwks(self) -> Dict[str, Any]:
+    def _fetch_apple_jwks(self) -> dict[str, Any]:
         """
         Fetch Apple's public keys from JWKS endpoint with caching.
 
@@ -343,7 +342,7 @@ class AppleOAuthProvider(OAuthProvider):
                 return AppleOAuthProvider._jwks_cache
             raise RuntimeError(f"Unable to fetch Apple JWKS: {e}") from e
 
-    def _get_signing_key(self, id_token: str) -> Tuple[Any, str]:
+    def _get_signing_key(self, id_token: str) -> tuple[Any, str]:
         """
         Get the signing key for verifying an ID token.
 
@@ -392,8 +391,8 @@ class AppleOAuthProvider(OAuthProvider):
     def _verify_id_token(
         self,
         id_token: str,
-        nonce: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        nonce: str | None = None,
+    ) -> dict[str, Any]:
         """
         Verify Apple ID token signature and validate claims.
 
@@ -461,8 +460,8 @@ class AppleOAuthProvider(OAuthProvider):
         self,
         id_token: str,
         verify: bool = True,
-        nonce: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        nonce: str | None = None,
+    ) -> dict[str, Any]:
         """
         Decode and optionally verify Apple ID token claims.
 
@@ -549,6 +548,5 @@ class AppleOAuthProvider(OAuthProvider):
         except Exception as e:
             logger.warning(f"[{self.PROVIDER_NAME}] Token revocation failed: {e}")
             return False
-
 
 __all__ = ["AppleOAuthProvider"]

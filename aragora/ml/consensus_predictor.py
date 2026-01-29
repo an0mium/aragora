@@ -22,13 +22,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Optional, Sequence
 from collections import defaultdict
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ConsensusPrediction:
@@ -38,7 +37,7 @@ class ConsensusPrediction:
     confidence: float  # Prediction confidence
     estimated_rounds: int  # Estimated rounds to consensus
     convergence_trend: str  # "converging", "diverging", "stable"
-    key_factors: List[str]  # Factors influencing prediction
+    key_factors: list[str]  # Factors influencing prediction
     features: dict[str, float] = field(default_factory=dict)
 
     @property
@@ -66,7 +65,6 @@ class ConsensusPrediction:
             "key_factors": self.key_factors,
         }
 
-
 @dataclass
 class ConsensusPredictorConfig:
     """Configuration for consensus predictor."""
@@ -86,18 +84,16 @@ class ConsensusPredictorConfig:
     # Use embeddings for semantic similarity
     use_embeddings: bool = True
 
-
 @dataclass
 class ResponseFeatures:
     """Features extracted from a single response."""
 
     agent_id: str
     text: str
-    stance: Optional[str] = None  # "agree", "disagree", "neutral"
+    stance: str | None = None  # "agree", "disagree", "neutral"
     confidence: float = 0.5
     quality_score: float = 0.5
-    embedding: Optional[List[float]] = None
-
+    embedding: Optional[list[float]] = None
 
 class ConsensusPredictor:
     """Predicts consensus likelihood in multi-agent debates.
@@ -112,17 +108,17 @@ class ConsensusPredictor:
     Can help decide when to terminate debates early or intervene.
     """
 
-    def __init__(self, config: Optional[ConsensusPredictorConfig] = None):
+    def __init__(self, config: ConsensusPredictorConfig | None = None):
         """Initialize the consensus predictor.
 
         Args:
             config: Predictor configuration
         """
         self.config = config or ConsensusPredictorConfig()
-        self._embedding_service: Optional[Any] = None
-        self._quality_scorer: Optional[Any] = None
-        self._historical_outcomes: Dict[str, bool] = {}
-        self._prediction_accuracy: List[tuple[float, bool]] = []
+        self._embedding_service: Any | None = None
+        self._quality_scorer: Any | None = None
+        self._historical_outcomes: dict[str, bool] = {}
+        self._prediction_accuracy: list[tuple[float, bool]] = []
 
     def _get_embedding_service(self):
         """Lazy load embedding service."""
@@ -150,8 +146,8 @@ class ConsensusPredictor:
     def _extract_response_features(
         self,
         responses: Sequence[tuple[str, str]],  # (agent_id, text) pairs
-        context: Optional[str] = None,
-    ) -> List[ResponseFeatures]:
+        context: str | None = None,
+    ) -> list[ResponseFeatures]:
         """Extract features from responses."""
         features = []
         embedding_service = self._get_embedding_service()
@@ -225,7 +221,7 @@ class ConsensusPredictor:
 
     def _calculate_semantic_similarity(
         self,
-        features: List[ResponseFeatures],
+        features: list[ResponseFeatures],
     ) -> float:
         """Calculate pairwise semantic similarity between responses."""
         embeddings = [f.embedding for f in features if f.embedding is not None]
@@ -246,7 +242,7 @@ class ConsensusPredictor:
 
     def _calculate_stance_alignment(
         self,
-        features: List[ResponseFeatures],
+        features: list[ResponseFeatures],
     ) -> float:
         """Calculate stance alignment score."""
         if not features:
@@ -273,7 +269,7 @@ class ConsensusPredictor:
 
     def _calculate_quality_variance(
         self,
-        features: List[ResponseFeatures],
+        features: list[ResponseFeatures],
     ) -> float:
         """Calculate variance in quality scores (lower is better for consensus)."""
         scores = [f.quality_score for f in features]
@@ -288,7 +284,7 @@ class ConsensusPredictor:
     def _estimate_convergence_trend(
         self,
         current_similarity: float,
-        previous_similarities: Optional[List[float]] = None,
+        previous_similarities: Optional[list[float]] = None,
     ) -> str:
         """Estimate convergence trend."""
         if previous_similarities is None or len(previous_similarities) < 2:
@@ -309,7 +305,7 @@ class ConsensusPredictor:
             return "diverging"
         return "stable"
 
-    def _get_historical_factor(self, task_type: Optional[str] = None) -> float:
+    def _get_historical_factor(self, task_type: str | None = None) -> float:
         """Get historical consensus rate factor."""
         if not self._prediction_accuracy:
             return 0.5
@@ -326,10 +322,10 @@ class ConsensusPredictor:
     def predict(
         self,
         responses: Sequence[tuple[str, str]],
-        context: Optional[str] = None,
+        context: str | None = None,
         current_round: int = 1,
         total_rounds: int = 3,
-        previous_similarities: Optional[List[float]] = None,
+        previous_similarities: Optional[list[float]] = None,
     ) -> ConsensusPrediction:
         """Predict consensus likelihood.
 
@@ -433,7 +429,7 @@ class ConsensusPredictor:
     def predict_batch(
         self,
         debate_states: Sequence[dict[str, Any]],
-    ) -> List[ConsensusPrediction]:
+    ) -> list[ConsensusPrediction]:
         """Predict consensus for multiple debates.
 
         Args:
@@ -462,7 +458,7 @@ class ConsensusPredictor:
         self,
         debate_id: str,
         reached_consensus: bool,
-        prediction: Optional[ConsensusPrediction] = None,
+        prediction: ConsensusPrediction | None = None,
     ) -> None:
         """Record actual debate outcome for calibration.
 
@@ -510,10 +506,8 @@ class ConsensusPredictor:
             "samples": total,
         }
 
-
 # Global instance
-_consensus_predictor: Optional[ConsensusPredictor] = None
-
+_consensus_predictor: ConsensusPredictor | None = None
 
 def get_consensus_predictor() -> ConsensusPredictor:
     """Get or create the global consensus predictor instance."""

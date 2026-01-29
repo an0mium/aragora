@@ -16,12 +16,13 @@ Handlers are organized by domain:
 - Replays (debate replay generation)
 - Debate control (start debate)
 """
+from __future__ import annotations
 
 import json
 import logging
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.server.validation import safe_query_float, safe_query_int
 
@@ -38,41 +39,40 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class StreamAPIHandlersMixin:
     """
     Mixin class providing HTTP API handlers for the streaming server.
 
     This mixin expects the following attributes/methods from the parent class:
-    - nomic_dir: Optional[Path]
-    - elo_system: Optional[EloSystem]
-    - insight_store: Optional[InsightStore]
-    - flip_detector: Optional[FlipDetector]
-    - persona_manager: Optional[PersonaManager]
-    - debate_embeddings: Optional[DebateEmbeddingsDatabase]
+    - nomic_dir: Path | None
+    - elo_system: EloSystem | None
+    - insight_store: InsightStore | None
+    - flip_detector: FlipDetector | None
+    - persona_manager: PersonaManager | None
+    - debate_embeddings: DebateEmbeddingsDatabase | None
     - active_loops: dict[str, LoopInstance]
     - _active_loops_lock: threading.Lock
     - cartographers: dict[str, ArgumentCartographer]
     - _cartographers_lock: threading.Lock
     - audience_inbox: AudienceInbox
     - emitter: SyncEventEmitter
-    - _cors_headers(origin: Optional[str]) -> dict
+    - _cors_headers(origin: str | None) -> dict
     """
 
     # Type stubs for attributes expected from the parent class
-    nomic_dir: Optional[Path]
+    nomic_dir: Path | None
     elo_system: Optional["EloSystem"]
     insight_store: Optional["InsightStore"]
     flip_detector: Optional["FlipDetector"]
     persona_manager: Optional["PersonaManager"]
     debate_embeddings: Optional["DebateEmbeddingsDatabase"]
-    active_loops: Dict[str, Any]
+    active_loops: dict[str, Any]
     _active_loops_lock: threading.Lock
-    cartographers: Dict[str, "ArgumentCartographer"]
+    cartographers: dict[str, "ArgumentCartographer"]
     _cartographers_lock: threading.Lock
     audience_inbox: Optional["AudienceInbox"]
     emitter: "SyncEventEmitter"
-    _cors_headers: Callable[[Optional[str]], Dict[str, str]]
+    _cors_headers: Callable[[str | None], dict[str, str]]
 
     # =========================================================================
     # CORS Handler
@@ -1028,7 +1028,7 @@ class StreamAPIHandlersMixin:
             )
 
             # Group events by round
-            round_events: Dict[int, list] = {}
+            round_events: dict[int, list] = {}
             for event in events:
                 round_num = event.get("round", 0)
                 round_events.setdefault(round_num, []).append(event)
@@ -1065,6 +1065,5 @@ class StreamAPIHandlersMixin:
                 status=500,
                 headers=self._cors_headers(origin),
             )
-
 
 __all__ = ["StreamAPIHandlersMixin"]

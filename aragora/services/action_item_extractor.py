@@ -35,13 +35,12 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Pattern, Set, Tuple
+from typing import TYPE_CHECKING, Any, Pattern
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
 logger = logging.getLogger(__name__)
-
 
 class ActionItemPriority(Enum):
     """Priority levels for action items."""
@@ -51,7 +50,6 @@ class ActionItemPriority(Enum):
     MEDIUM = 3  # Standard priority
     LOW = 4  # Can wait
 
-
 class ActionItemStatus(Enum):
     """Status of an action item."""
 
@@ -60,7 +58,6 @@ class ActionItemStatus(Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     DEFERRED = "deferred"
-
 
 class ActionType(Enum):
     """Types of action items."""
@@ -79,7 +76,6 @@ class ActionType(Enum):
     CREATE = "create"  # Create document/resource
     OTHER = "other"
 
-
 @dataclass
 class ActionItem:
     """Represents an extracted action item."""
@@ -96,28 +92,28 @@ class ActionItem:
     context: str = ""  # Surrounding context
 
     # Assignment
-    assignee_email: Optional[str] = None
-    assignee_name: Optional[str] = None
-    requester_email: Optional[str] = None
-    requester_name: Optional[str] = None
+    assignee_email: str | None = None
+    assignee_name: str | None = None
+    requester_email: str | None = None
+    requester_name: str | None = None
 
     # Timing
-    deadline: Optional[datetime] = None
-    deadline_text: Optional[str] = None  # Original deadline text
+    deadline: datetime | None = None
+    deadline_text: str | None = None  # Original deadline text
     is_urgent: bool = False
     is_explicit_deadline: bool = False
 
     # Metadata
     confidence: float = 0.0
     extracted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
-    tags: List[str] = field(default_factory=list)
+    completed_at: datetime | None = None
+    tags: list[str] = field(default_factory=list)
 
     # Integration
-    external_task_id: Optional[str] = None  # ID in external system (Jira, Asana, etc.)
-    external_system: Optional[str] = None
+    external_task_id: str | None = None  # ID in external system (Jira, Asana, etc.)
+    external_system: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "id": self.id,
@@ -145,21 +141,20 @@ class ActionItem:
             "external_system": self.external_system,
         }
 
-
 @dataclass
 class ExtractionResult:
     """Result of action item extraction from an email."""
 
     email_id: str
-    action_items: List[ActionItem]
+    action_items: list[ActionItem]
     total_count: int
     high_priority_count: int
     has_deadlines: bool
-    earliest_deadline: Optional[datetime] = None
+    earliest_deadline: datetime | None = None
     extraction_confidence: float = 0.0
     processing_time_ms: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "email_id": self.email_id,
             "action_items": [item.to_dict() for item in self.action_items],
@@ -172,7 +167,6 @@ class ExtractionResult:
             "extraction_confidence": self.extraction_confidence,
             "processing_time_ms": self.processing_time_ms,
         }
-
 
 # Action item patterns with types and weights
 ACTION_PATTERNS = {
@@ -304,7 +298,6 @@ DEADLINE_PATTERNS = [
     (r"before\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)", "time"),
 ]
 
-
 class ActionItemExtractor:
     """
     Intelligent action item extraction from emails.
@@ -315,8 +308,8 @@ class ActionItemExtractor:
 
     def __init__(
         self,
-        user_email: Optional[str] = None,
-        user_name: Optional[str] = None,
+        user_email: str | None = None,
+        user_name: str | None = None,
     ):
         """
         Initialize action item extractor.
@@ -329,8 +322,8 @@ class ActionItemExtractor:
         self.user_name = user_name
 
         # Compile patterns
-        self._compiled_action_patterns: Dict[ActionType, List[Tuple[Pattern[str], float]]] = {}
-        self._compiled_urgency_patterns: List[Tuple[Pattern[str], float]] = []
+        self._compiled_action_patterns: dict[ActionType, list[tuple[Pattern[str], float]]] = {}
+        self._compiled_urgency_patterns: list[tuple[Pattern[str], float]] = []
         self._compile_patterns()
 
         self._action_counter = 0
@@ -387,8 +380,8 @@ class ActionItemExtractor:
         # Split into sentences for context
         sentences = self._split_sentences(full_text)
 
-        action_items: List[ActionItem] = []
-        seen_descriptions: Set[str] = set()
+        action_items: list[ActionItem] = []
+        seen_descriptions: set[str] = set()
 
         for sentence in sentences:
             # Check each action type pattern
@@ -482,7 +475,7 @@ class ActionItemExtractor:
             processing_time_ms=processing_time,
         )
 
-    def _split_sentences(self, text: str) -> List[str]:
+    def _split_sentences(self, text: str) -> list[str]:
         """Split text into sentences."""
         # Simple sentence splitting
         # Handle common abbreviations
@@ -550,7 +543,7 @@ class ActionItemExtractor:
         self,
         sentence: str,
         full_text: str,
-    ) -> tuple[Optional[datetime], Optional[str], bool]:
+    ) -> tuple[datetime | None, str | None, bool]:
         """Extract deadline from text."""
         now = datetime.now(timezone.utc)
 
@@ -574,7 +567,7 @@ class ActionItemExtractor:
         match: re.Match[str],
         pattern_type: str,
         now: datetime,
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         """Parse deadline from regex match."""
         try:
             if pattern_type == "today":
@@ -662,7 +655,7 @@ class ActionItemExtractor:
 
         return None
 
-    def _next_weekday(self, from_date: datetime, weekday_name: str) -> Optional[datetime]:
+    def _next_weekday(self, from_date: datetime, weekday_name: str) -> datetime | None:
         """Get the next occurrence of a weekday."""
         weekday_map = {
             "monday": 0,
@@ -695,9 +688,9 @@ class ActionItemExtractor:
     def _detect_assignee(
         self,
         sentence: str,
-        to_addresses: List[str],
+        to_addresses: list[str],
         sender: str,
-    ) -> tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """Detect who the action item is assigned to."""
         # Check for explicit mentions
         mention_patterns = [
@@ -734,7 +727,7 @@ class ActionItemExtractor:
 
         return None, None
 
-    def _get_context(self, sentences: List[str], current: str) -> str:
+    def _get_context(self, sentences: list[str], current: str) -> str:
         """Get surrounding context for an action item."""
         try:
             idx = sentences.index(current)
@@ -745,7 +738,7 @@ class ActionItemExtractor:
         except ValueError:
             return current
 
-    def _extract_tags(self, sentence: str, action_type: ActionType) -> List[str]:
+    def _extract_tags(self, sentence: str, action_type: ActionType) -> list[str]:
         """Extract relevant tags from sentence."""
         tags = [action_type.value]
 
@@ -768,8 +761,8 @@ class ActionItemExtractor:
 
     async def extract_batch(
         self,
-        emails: List[EmailMessage],
-    ) -> List[ExtractionResult]:
+        emails: list[EmailMessage],
+    ) -> list[ExtractionResult]:
         """Extract action items from multiple emails."""
         import asyncio
 
@@ -784,9 +777,9 @@ class ActionItemExtractor:
 
     def get_pending_items(
         self,
-        items: List[ActionItem],
-        due_within_hours: Optional[int] = None,
-    ) -> List[ActionItem]:
+        items: list[ActionItem],
+        due_within_hours: int | None = None,
+    ) -> list[ActionItem]:
         """
         Get pending action items, optionally filtered by deadline.
 
@@ -819,7 +812,6 @@ class ActionItemExtractor:
 
         return pending
 
-
 # Convenience function
 async def extract_action_items_quick(
     subject: str,
@@ -844,12 +836,11 @@ async def extract_action_items_quick(
             self.subject = subject
             self.body_text = body
             self.from_address = sender
-            self.to_addresses: List[str] = []
+            self.to_addresses: list[str] = []
 
     email = SimpleEmail(subject, body, sender)
     extractor = ActionItemExtractor()
     return await extractor.extract_action_items(email)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
-
 
 __all__ = [
     "ActionItemExtractor",

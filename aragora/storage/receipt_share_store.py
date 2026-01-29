@@ -12,14 +12,13 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 # Global singleton with thread-safe initialization
 _store: Optional["ReceiptShareStore"] = None
 _store_lock = threading.Lock()
-
 
 def get_receipt_share_store() -> "ReceiptShareStore":
     """Get the global receipt share store instance."""
@@ -32,7 +31,6 @@ def get_receipt_share_store() -> "ReceiptShareStore":
                 db_path = DATA_DIR / "receipt_shares.db"
                 _store = ReceiptShareStore(db_path)
     return _store
-
 
 class ReceiptShareStore:
     """SQLite-backed store for receipt share tokens."""
@@ -91,8 +89,8 @@ class ReceiptShareStore:
         token: str,
         receipt_id: str,
         expires_at: float,
-        max_accesses: Optional[int] = None,
-        created_by: Optional[str] = None,
+        max_accesses: int | None = None,
+        created_by: str | None = None,
     ) -> None:
         """
         Save a new share token.
@@ -123,7 +121,7 @@ class ReceiptShareStore:
         conn.commit()
         logger.debug(f"Saved share token for receipt {receipt_id}")
 
-    def get_by_token(self, token: str) -> Optional[Dict[str, Any]]:
+    def get_by_token(self, token: str) -> Optional[dict[str, Any]]:
         """
         Get share info by token.
 
@@ -156,7 +154,7 @@ class ReceiptShareStore:
             "created_by": row["created_by"],
         }
 
-    def get_by_receipt(self, receipt_id: str) -> list[Dict[str, Any]]:
+    def get_by_receipt(self, receipt_id: str) -> list[dict[str, Any]]:
         """
         Get all share tokens for a receipt.
 
@@ -275,6 +273,5 @@ class ReceiptShareStore:
         if count > 0:
             logger.info(f"Cleaned up {count} expired receipt share tokens")
         return count
-
 
 __all__ = ["ReceiptShareStore", "get_receipt_share_store"]

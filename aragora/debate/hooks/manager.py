@@ -58,7 +58,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class HookPriority(IntEnum):
     """Hook execution priority (lower values run first)."""
 
@@ -67,7 +66,6 @@ class HookPriority(IntEnum):
     NORMAL = 50  # Default priority
     LOW = 90  # Logging/telemetry
     CLEANUP = 100  # Cleanup handlers
-
 
 class HookType(str, Enum):
     """Standard hook types for debate and audit lifecycle."""
@@ -116,13 +114,11 @@ class HookType(str, Enum):
     ON_ESCALATE = "on_escalate"  # Escalation trigger (severity threshold crossed)
     ON_MOLECULE_COMPLETE = "on_molecule_complete"  # Multi-step workflow completed
 
-
 # Type alias for hook callbacks
 HookCallback = Union[
     Callable[..., None],
     Callable[..., Coroutine[Any, Any, None]],
 ]
-
 
 @dataclass
 class RegisteredHook:
@@ -132,7 +128,6 @@ class RegisteredHook:
     priority: HookPriority
     name: str
     once: bool = False  # If True, unregister after first call
-
 
 class DebateHooks(Protocol):
     """Protocol for debate lifecycle hooks."""
@@ -165,7 +160,6 @@ class DebateHooks(Protocol):
         self, ctx: "DebateContext", vote: "Vote"
     ) -> Optional[Coroutine[Any, Any, None]]: ...
 
-
 class AuditHooks(Protocol):
     """Protocol for audit-specific hooks."""
 
@@ -186,7 +180,6 @@ class AuditHooks(Protocol):
     def on_progress(
         self, phase: str, completed: int, total: int
     ) -> Optional[Coroutine[Any, Any, None]]: ...
-
 
 class PropulsionHooks(Protocol):
     """Protocol for propulsion hooks (Gastown pattern - push-based work assignment)."""
@@ -213,7 +206,6 @@ class PropulsionHooks(Protocol):
         """Called when a multi-step workflow (molecule) completes."""
         ...
 
-
 @dataclass
 class HookManager:
     """
@@ -233,11 +225,11 @@ class HookManager:
 
     def register(
         self,
-        hook_type: Union[str, HookType],
+        hook_type: str | HookType,
         callback: HookCallback,
         *,
         priority: HookPriority = HookPriority.NORMAL,
-        name: Optional[str] = None,
+        name: str | None = None,
         once: bool = False,
     ) -> Callable[[], None]:
         """
@@ -276,7 +268,7 @@ class HookManager:
 
         return unregister
 
-    def unregister(self, hook_type: Union[str, HookType], name: str) -> bool:
+    def unregister(self, hook_type: str | HookType, name: str) -> bool:
         """
         Unregister a hook by name.
 
@@ -296,7 +288,7 @@ class HookManager:
                 return True
         return False
 
-    def clear(self, hook_type: Optional[Union[str, HookType]] = None) -> None:
+    def clear(self, hook_type: Optional[str | HookType] = None) -> None:
         """
         Clear all hooks of a type, or all hooks if type is None.
 
@@ -313,7 +305,7 @@ class HookManager:
 
     async def trigger(
         self,
-        hook_type: Union[str, HookType],
+        hook_type: str | HookType,
         **kwargs: Any,
     ) -> list[Any]:
         """
@@ -383,7 +375,7 @@ class HookManager:
 
     def trigger_sync(
         self,
-        hook_type: Union[str, HookType],
+        hook_type: str | HookType,
         **kwargs: Any,
     ) -> list[Any]:
         """
@@ -466,12 +458,12 @@ class HookManager:
         """Set a custom error handler for hook failures."""
         self._error_handler = handler
 
-    def get_hooks(self, hook_type: Union[str, HookType]) -> list[str]:
+    def get_hooks(self, hook_type: str | HookType) -> list[str]:
         """Get names of all registered hooks for a type."""
         hook_key = hook_type.value if isinstance(hook_type, HookType) else hook_type
         return [h.name for h in self._hooks.get(hook_key, [])]
 
-    def has_hooks(self, hook_type: Union[str, HookType]) -> bool:
+    def has_hooks(self, hook_type: str | HookType) -> bool:
         """Check if any hooks are registered for a type."""
         hook_key = hook_type.value if isinstance(hook_type, HookType) else hook_type
         return bool(self._hooks.get(hook_key))
@@ -480,7 +472,6 @@ class HookManager:
     def stats(self) -> dict[str, int]:
         """Get count of hooks per type."""
         return {k: len(v) for k, v in self._hooks.items() if v}
-
 
 def create_hook_manager(
     *,
@@ -500,9 +491,7 @@ def create_hook_manager(
         manager.set_error_handler(error_handler)
     return manager
 
-
 # Default hooks for common patterns
-
 
 def create_logging_hooks(
     manager: HookManager,
@@ -536,7 +525,6 @@ def create_logging_hooks(
             name=f"logging_{hook_type.value}",
         )
 
-
 def create_checkpoint_hooks(
     manager: HookManager,
     checkpoint_fn: Callable[["DebateContext", int], None],
@@ -558,7 +546,6 @@ def create_checkpoint_hooks(
         priority=HookPriority.HIGH,
         name="checkpoint_post_round",
     )
-
 
 def create_finding_hooks(
     manager: HookManager,

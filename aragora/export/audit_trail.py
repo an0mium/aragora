@@ -30,8 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Protocol, runtime_checkable
-
+from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class GauntletResultProtocol(Protocol):
@@ -56,7 +55,6 @@ class GauntletResultProtocol(Protocol):
     robustness_score: float
     checksum: str
 
-
 class AuditEventType(Enum):
     """Types of audit events."""
 
@@ -79,7 +77,6 @@ class AuditEventType(Enum):
     VERDICT_DETERMINED = "verdict_determined"
     RECEIPT_GENERATED = "receipt_generated"
 
-
 @dataclass
 class AuditEvent:
     """A single event in the audit trail."""
@@ -90,9 +87,9 @@ class AuditEvent:
     source: str  # Component that generated the event
     description: str
     details: dict = field(default_factory=dict)
-    severity: Optional[str] = None  # "info", "warning", "error"
-    agent: Optional[str] = None
-    parent_event_id: Optional[str] = None  # For hierarchical events
+    severity: str | None = None  # "info", "warning", "error"
+    agent: str | None = None
+    parent_event_id: str | None = None  # For hierarchical events
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -107,7 +104,6 @@ class AuditEvent:
             "agent": self.agent,
             "parent_event_id": self.parent_event_id,
         }
-
 
 @dataclass
 class AuditTrail:
@@ -145,7 +141,7 @@ class AuditTrail:
     verifications_successful: int = 0
 
     # Cross-reference to decision receipt (bidirectional link)
-    receipt_id: Optional[str] = None
+    receipt_id: str | None = None
 
     def __post_init__(self):
         self._event_counter = 0
@@ -160,10 +156,10 @@ class AuditTrail:
         event_type: AuditEventType,
         source: str,
         description: str,
-        details: Optional[dict] = None,
+        details: dict | None = None,
         severity: str = "info",
-        agent: Optional[str] = None,
-        parent_event_id: Optional[str] = None,
+        agent: str | None = None,
+        parent_event_id: str | None = None,
     ) -> str:
         """Add an event to the trail."""
         event = AuditEvent(
@@ -393,7 +389,6 @@ class AuditTrail:
         """Load trail from file."""
         return cls.from_json(path.read_text())
 
-
 class AuditTrailGenerator:
     """
     Generates audit trails from Gauntlet results.
@@ -592,7 +587,6 @@ class AuditTrailGenerator:
         )
 
         return trail
-
 
 def generate_audit_trail(result: GauntletResultProtocol) -> AuditTrail:
     """

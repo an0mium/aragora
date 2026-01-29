@@ -8,6 +8,7 @@ Provides:
 - Built-in error handling
 - Cache invalidation hooks
 """
+from __future__ import annotations
 
 __all__ = [
     "DatabaseRepository",
@@ -18,7 +19,7 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Generator, Optional, TypeVar, Union
+from typing import Any, Callable, Generator, TypeVar
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.schema import get_wal_connection
@@ -27,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 # SQL identifier validation pattern (alphanumeric + underscore, starts with letter/underscore)
 _SQL_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-
 
 def _validate_column_name(name: str) -> str:
     """Validate column name to prevent SQL injection.
@@ -47,9 +47,7 @@ def _validate_column_name(name: str) -> str:
         raise ValueError(f"Invalid column name: {name!r}")
     return name
 
-
 T = TypeVar("T")
-
 
 class DatabaseRepository:
     """
@@ -69,7 +67,7 @@ class DatabaseRepository:
 
     TABLE_NAME: str = ""  # Override in subclasses
 
-    def __init__(self, db_path: Union[str, Path], auto_init: bool = True):
+    def __init__(self, db_path: str | Path, auto_init: bool = True):
         """
         Initialize the repository.
 
@@ -173,7 +171,7 @@ class DatabaseRepository:
             row = cursor.fetchone()
             return row[0] if row else 0
 
-    def get_by_id(self, id_value: Any, id_column: str = "id") -> Optional[dict]:
+    def get_by_id(self, id_value: Any, id_column: str = "id") -> dict | None:
         """
         Get a single record by ID.
 

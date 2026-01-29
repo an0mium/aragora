@@ -17,7 +17,6 @@ import secrets
 import struct
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -36,20 +35,18 @@ CHUNK_SIZE = 64 * 1024  # 64KB chunks for streaming
 HEADER_MAGIC = b"ABKP"
 HEADER_SIZE = 4 + 1 + NONCE_SIZE + 32
 
-
 @dataclass
 class EncryptionKey:
     """Encryption key with metadata."""
 
     key_id: str
     key: bytes
-    created_at: Optional[str] = None
-    description: Optional[str] = None
+    created_at: str | None = None
+    description: str | None = None
 
     def __post_init__(self):
         if len(self.key) != KEY_SIZE:
             raise ValueError(f"Key must be {KEY_SIZE} bytes, got {len(self.key)}")
-
 
 @dataclass
 class EncryptionMetadata:
@@ -60,7 +57,6 @@ class EncryptionMetadata:
     nonce: bytes
     original_size: int = 0
     encrypted_size: int = 0
-
 
 class BackupEncryption:
     """
@@ -80,7 +76,7 @@ class BackupEncryption:
         self._key_id_hash = hashlib.sha256(key.key_id.encode()).digest()
 
     @classmethod
-    def generate_key(cls, key_id: str, description: Optional[str] = None) -> EncryptionKey:
+    def generate_key(cls, key_id: str, description: str | None = None) -> EncryptionKey:
         """
         Generate a new random encryption key.
 
@@ -291,7 +287,6 @@ class BackupEncryption:
 
         return aesgcm.decrypt(nonce, ciphertext, None)
 
-
 class KeyManager:
     """
     Simple key manager for backup encryption keys.
@@ -303,7 +298,7 @@ class KeyManager:
     - Google Cloud KMS
     """
 
-    def __init__(self, key_store_path: Optional[Path] = None):
+    def __init__(self, key_store_path: Path | None = None):
         """
         Initialize the key manager.
 
@@ -312,7 +307,7 @@ class KeyManager:
         """
         self._keys: dict[str, EncryptionKey] = {}
         self._key_store_path = key_store_path
-        self._master_key: Optional[bytes] = None
+        self._master_key: bytes | None = None
 
     def set_master_key(self, master_key: bytes) -> None:
         """
@@ -325,7 +320,7 @@ class KeyManager:
             raise ValueError(f"Master key must be {KEY_SIZE} bytes")
         self._master_key = master_key
 
-    def generate_key(self, key_id: str, description: Optional[str] = None) -> EncryptionKey:
+    def generate_key(self, key_id: str, description: str | None = None) -> EncryptionKey:
         """
         Generate and store a new encryption key.
 
@@ -340,7 +335,7 @@ class KeyManager:
         self._keys[key_id] = key
         return key
 
-    def get_key(self, key_id: str) -> Optional[EncryptionKey]:
+    def get_key(self, key_id: str) -> EncryptionKey | None:
         """
         Get an encryption key by ID.
 
@@ -395,9 +390,7 @@ class KeyManager:
             description=f"Rotation of {old_key_id}",
         )
 
-
 # Module-level convenience functions
-
 
 def encrypt_backup(
     source_path: Path,
@@ -418,7 +411,6 @@ def encrypt_backup(
     enc = BackupEncryption(key)
     return enc.encrypt_file(source_path, dest_path)
 
-
 def decrypt_backup(
     source_path: Path,
     dest_path: Path,
@@ -437,7 +429,6 @@ def decrypt_backup(
     """
     enc = BackupEncryption(key)
     return enc.decrypt_file(source_path, dest_path)
-
 
 __all__ = [
     "BackupEncryption",

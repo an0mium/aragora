@@ -9,13 +9,12 @@ agent responses, and starting messages.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .config import SLACK_BOT_TOKEN
 from .messaging import MessagingMixin
 
 logger = logging.getLogger(__name__)
-
 
 class BlocksMixin(MessagingMixin):
     """Mixin providing Slack Block Kit message building."""
@@ -25,11 +24,11 @@ class BlocksMixin(MessagingMixin):
         topic: str,
         user_id: str,
         debate_id: str,
-        agents: Optional[List[str]] = None,
-        expected_rounds: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        agents: Optional[list[str]] = None,
+        expected_rounds: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Build Slack blocks for debate start message."""
-        blocks: List[Dict[str, Any]] = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "header",
                 "text": {
@@ -75,8 +74,8 @@ class BlocksMixin(MessagingMixin):
         round_num: int,
         total_rounds: int,
         agent: str,
-        channel_id: Optional[str] = None,
-        thread_ts: Optional[str] = None,
+        channel_id: str | None = None,
+        thread_ts: str | None = None,
         phase: str = "analyzing",
     ) -> None:
         """Post a round progress update to the thread with visual progress bar.
@@ -146,8 +145,8 @@ class BlocksMixin(MessagingMixin):
         agent: str,
         response: str,
         round_num: int,
-        channel_id: Optional[str] = None,
-        thread_ts: Optional[str] = None,
+        channel_id: str | None = None,
+        thread_ts: str | None = None,
     ) -> None:
         """Post an individual agent response to the thread.
 
@@ -174,7 +173,7 @@ class BlocksMixin(MessagingMixin):
         truncated = response[:2800] + "..." if len(response) > 2800 else response
 
         text = f"{agent} (Round {round_num})"
-        blocks: List[Dict[str, Any]] = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "context",
                 "elements": [
@@ -219,8 +218,8 @@ class BlocksMixin(MessagingMixin):
         topic: str,
         result: Any,
         user_id: str,
-        receipt_url: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        receipt_url: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Build Slack blocks for debate result message with rich formatting."""
         # Status indicators
         status_emoji = ":white_check_mark:" if result.consensus_reached else ":warning:"
@@ -238,7 +237,7 @@ class BlocksMixin(MessagingMixin):
         if len(result.participants) > 4:
             participants_text += f" +{len(result.participants) - 4}"
 
-        blocks: List[Dict[str, Any]] = [
+        blocks: list[dict[str, Any]] = [
             {"type": "divider"},
             {
                 "type": "header",
@@ -296,7 +295,7 @@ class BlocksMixin(MessagingMixin):
         )
 
         # Add action buttons
-        action_elements: List[Dict[str, Any]] = [
+        action_elements: list[dict[str, Any]] = [
             {
                 "type": "button",
                 "text": {"type": "plain_text", "text": "Agree", "emoji": True},

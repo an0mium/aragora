@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from .base import (
     BaseHandler,
@@ -30,7 +30,6 @@ from .utils.decorators import require_permission
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
 
 class RLMContextHandler(BaseHandler):
     """Handler for RLM context compression and query endpoints.
@@ -65,8 +64,8 @@ class RLMContextHandler(BaseHandler):
         super().__init__(ctx)  # type: ignore[arg-type]
         # In-memory context storage (could be backed by a store in production)
         self._contexts: dict[str, dict[str, Any]] = {}
-        self._compressor: Optional[Any] = None
-        self._rlm: Optional[Any] = None
+        self._compressor: Any | None = None
+        self._rlm: Any | None = None
 
     def _get_compressor(self) -> Any:
         """Get or create the hierarchical compressor using factory."""
@@ -113,7 +112,7 @@ class RLMContextHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         # Check static routes first (GET-only routes)
         if path == "/api/v1/rlm/stats":
@@ -137,7 +136,7 @@ class RLMContextHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/rlm/compress":
             return self.handle_compress(path, query_params, handler)
@@ -153,7 +152,7 @@ class RLMContextHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
         if path.startswith(self.CONTEXT_ROUTE_PREFIX):
             context_id = path[len(self.CONTEXT_ROUTE_PREFIX) :]
@@ -167,7 +166,7 @@ class RLMContextHandler(BaseHandler):
         path: str,
         query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route context-specific requests."""
         # Extract context_id from path: /api/rlm/context/{context_id}
         context_id = path[len(self.CONTEXT_ROUTE_PREFIX) :]
@@ -717,7 +716,7 @@ class RLMContextHandler(BaseHandler):
     # Utility Methods
     # ============================================================================
 
-    def read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:  # type: ignore[override]
+    def read_json_body(self, handler: Any) -> dict[str, Any] | None:  # type: ignore[override]
         """Read and parse JSON body from request."""
         if handler is None:
             return None

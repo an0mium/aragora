@@ -23,7 +23,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Coroutine, Optional, TYPE_CHECKING
 
 from aragora.exceptions import ConfigurationError
 from aragora.pulse.ingestor import PulseManager, TrendingTopic
@@ -34,7 +34,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class SchedulerState(str, Enum):
     """State of the pulse debate scheduler."""
 
@@ -42,14 +41,13 @@ class SchedulerState(str, Enum):
     RUNNING = "running"
     PAUSED = "paused"
 
-
 @dataclass
 class SchedulerConfig:
     """Configuration for the PulseDebateScheduler."""
 
     # Polling
     poll_interval_seconds: int = 300  # 5 minutes
-    platforms: List[str] = field(default_factory=lambda: ["hackernews", "reddit"])
+    platforms: list[str] = field(default_factory=lambda: ["hackernews", "reddit"])
 
     # Rate limiting
     max_debates_per_hour: int = 6
@@ -58,10 +56,10 @@ class SchedulerConfig:
     # Topic filtering
     min_volume_threshold: int = 100
     min_controversy_score: float = 0.3
-    allowed_categories: List[str] = field(
+    allowed_categories: list[str] = field(
         default_factory=lambda: ["tech", "ai", "science", "programming"]
     )
-    blocked_categories: List[str] = field(default_factory=lambda: ["politics", "religion"])
+    blocked_categories: list[str] = field(default_factory=lambda: ["politics", "religion"])
 
     # Deduplication
     dedup_window_hours: int = 24
@@ -70,7 +68,7 @@ class SchedulerConfig:
     debate_rounds: int = 3
     consensus_threshold: float = 0.7
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return {
             "poll_interval_seconds": self.poll_interval_seconds,
@@ -87,7 +85,7 @@ class SchedulerConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SchedulerConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "SchedulerConfig":
         """Create from dictionary."""
         return cls(
             poll_interval_seconds=data.get("poll_interval_seconds", 300),
@@ -105,20 +103,18 @@ class SchedulerConfig:
             consensus_threshold=data.get("consensus_threshold", 0.7),
         )
 
-
 @dataclass
 class TopicScore:
     """Scored topic for debate selection."""
 
     topic: TrendingTopic
     score: float
-    reasons: List[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
 
     @property
     def is_viable(self) -> bool:
         """Check if the topic is viable for debate."""
         return self.score > 0
-
 
 @dataclass
 class SchedulerMetrics:
@@ -130,11 +126,11 @@ class SchedulerMetrics:
     debates_created: int = 0
     debates_failed: int = 0
     duplicates_skipped: int = 0
-    last_poll_at: Optional[float] = None
-    last_debate_at: Optional[float] = None
-    start_time: Optional[float] = None
+    last_poll_at: float | None = None
+    last_debate_at: float | None = None
+    start_time: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         uptime = None
         if self.start_time:
@@ -152,13 +148,11 @@ class SchedulerMetrics:
             "uptime_seconds": uptime,
         }
 
-
 # Type alias for debate creator callback
 DebateCreatorFn = Callable[
     [str, int, float],  # topic_text, rounds, consensus_threshold
-    Coroutine[Any, Any, Optional[Dict[str, Any]]],  # Returns debate result or None
+    Coroutine[Any, Any, Optional[dict[str, Any]]],  # Returns debate result or None
 ]
-
 
 class TopicSelector:
     """Selects and scores topics for debate suitability."""
@@ -208,7 +202,7 @@ class TopicSelector:
             TopicScore with score and reasons
         """
         score = 0.0
-        reasons: List[str] = []
+        reasons: list[str] = []
 
         # Check category filters
         if self.config.allowed_categories:
@@ -269,9 +263,9 @@ class TopicSelector:
 
     def select_best_topics(
         self,
-        topics: List[TrendingTopic],
+        topics: list[TrendingTopic],
         limit: int = 5,
-    ) -> List[TopicScore]:
+    ) -> list[TopicScore]:
         """Select the best topics for debate.
 
         Args:
@@ -290,7 +284,6 @@ class TopicSelector:
         viable.sort(key=lambda x: x.score, reverse=True)
 
         return viable[:limit]
-
 
 class PulseDebateScheduler:
     """
@@ -326,7 +319,7 @@ class PulseDebateScheduler:
         self,
         pulse_manager: PulseManager,
         store: ScheduledDebateStore,
-        config: Optional[SchedulerConfig] = None,
+        config: SchedulerConfig | None = None,
         km_adapter: Optional["PulseAdapter"] = None,
     ):
         """Initialize the scheduler.
@@ -343,13 +336,13 @@ class PulseDebateScheduler:
         self._km_adapter = km_adapter
 
         self._state = SchedulerState.STOPPED
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._stop_event = asyncio.Event()
         self._metrics = SchedulerMetrics()
         self._topic_selector = TopicSelector(self.config)
-        self._debate_creator: Optional[DebateCreatorFn] = None
+        self._debate_creator: DebateCreatorFn | None = None
         self._run_id = ""
-        self._debates_this_hour: List[float] = []
+        self._debates_this_hour: list[float] = []
 
         logger.info("PulseDebateScheduler initialized")
 
@@ -365,7 +358,7 @@ class PulseDebateScheduler:
         self,
         topic: str,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Query Knowledge Mound for past debates on a topic (reverse flow).
 
         This enables cross-session deduplication - avoid re-debating
@@ -492,7 +485,7 @@ class PulseDebateScheduler:
         self._state = SchedulerState.RUNNING
         logger.info("PulseDebateScheduler resumed")
 
-    def update_config(self, updates: Dict[str, Any]) -> None:
+    def update_config(self, updates: dict[str, Any]) -> None:
         """Update scheduler configuration.
 
         Args:
@@ -504,7 +497,7 @@ class PulseDebateScheduler:
         self._topic_selector = TopicSelector(self.config)
         logger.info(f"Scheduler config updated: {list(updates.keys())}")
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get current scheduler status.
 
         Returns:
@@ -731,7 +724,6 @@ class PulseDebateScheduler:
                 return False
 
         return True
-
 
 __all__ = [
     "PulseDebateScheduler",

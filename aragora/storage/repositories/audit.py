@@ -11,8 +11,7 @@ import json
 import sqlite3
 from contextlib import AbstractContextManager
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
-
+from typing import Any, Callable
 
 class AuditRepository:
     """
@@ -42,14 +41,14 @@ class AuditRepository:
         self,
         action: str,
         resource_type: str,
-        resource_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        old_value: Optional[dict] = None,
-        new_value: Optional[dict] = None,
-        metadata: Optional[dict] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        resource_id: str | None = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
+        old_value: dict | None = None,
+        new_value: dict | None = None,
+        metadata: dict | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> int:
         """
         Log an audit event.
@@ -97,12 +96,12 @@ class AuditRepository:
 
     def get_log(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
@@ -181,10 +180,10 @@ class AuditRepository:
 
     def get_log_count(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
     ) -> int:
         """Get count of audit log entries matching filters."""
         conditions: list[str] = []

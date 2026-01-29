@@ -24,10 +24,9 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class HealthStatus:
@@ -45,11 +44,11 @@ class HealthStatus:
     healthy: bool
     last_check: datetime
     consecutive_failures: int = 0
-    last_error: Optional[str] = None
-    latency_ms: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    last_error: str | None = None
+    latency_ms: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "healthy": self.healthy,
@@ -61,7 +60,7 @@ class HealthStatus:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HealthStatus":
+    def from_dict(cls, data: dict[str, Any]) -> "HealthStatus":
         """Create from dictionary."""
         return cls(
             healthy=data["healthy"],
@@ -76,7 +75,6 @@ class HealthStatus:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class HealthReport:
     """Aggregated health report for multiple components.
@@ -89,11 +87,11 @@ class HealthReport:
     """
 
     overall_healthy: bool
-    components: Dict[str, HealthStatus]
+    components: dict[str, HealthStatus]
     checked_at: datetime
     summary: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "overall_healthy": self.overall_healthy,
@@ -101,7 +99,6 @@ class HealthReport:
             "checked_at": self.checked_at.isoformat(),
             "summary": self.summary,
         }
-
 
 class HealthChecker:
     """Health checker for a single component.
@@ -131,12 +128,12 @@ class HealthChecker:
         self._healthy = True
         self._consecutive_failures = 0
         self._consecutive_successes = 0
-        self._last_error: Optional[str] = None
+        self._last_error: str | None = None
         self._last_check: datetime = datetime.now(timezone.utc)
-        self._latencies: List[float] = []
-        self._metadata: Dict[str, Any] = {}
+        self._latencies: list[float] = []
+        self._metadata: dict[str, Any] = {}
 
-    def record_success(self, latency_ms: Optional[float] = None) -> None:
+    def record_success(self, latency_ms: float | None = None) -> None:
         """Record a successful health check.
 
         Args:
@@ -160,7 +157,7 @@ class HealthChecker:
                     f"[{self.name}] Health recovered after {self._consecutive_successes} successes"
                 )
 
-    def record_failure(self, error: Optional[str] = None) -> None:
+    def record_failure(self, error: str | None = None) -> None:
         """Record a failed health check.
 
         Args:
@@ -211,7 +208,6 @@ class HealthChecker:
             self._latencies.clear()
             self._metadata.clear()
 
-
 class HealthRegistry:
     """Registry for managing multiple health checkers.
 
@@ -230,7 +226,7 @@ class HealthRegistry:
     """
 
     def __init__(self):
-        self._checkers: Dict[str, HealthChecker] = {}
+        self._checkers: dict[str, HealthChecker] = {}
         self._lock = threading.Lock()
 
     def register(
@@ -264,7 +260,7 @@ class HealthRegistry:
             self._checkers[name] = checker
             return checker
 
-    def get(self, name: str) -> Optional[HealthChecker]:
+    def get(self, name: str) -> HealthChecker | None:
         """Get a health checker by name."""
         with self._lock:
             return self._checkers.get(name)
@@ -318,22 +314,20 @@ class HealthRegistry:
             summary=summary,
         )
 
-    def get_all_statuses(self) -> Dict[str, HealthStatus]:
+    def get_all_statuses(self) -> dict[str, HealthStatus]:
         """Get status for all registered components."""
         with self._lock:
             return {name: checker.get_status() for name, checker in self._checkers.items()}
 
     @property
-    def registered_components(self) -> List[str]:
+    def registered_components(self) -> list[str]:
         """List of registered component names."""
         with self._lock:
             return list(self._checkers.keys())
 
-
 # Global health registry for convenience
-_global_registry: Optional[HealthRegistry] = None
+_global_registry: HealthRegistry | None = None
 _global_registry_lock = threading.Lock()
-
 
 def get_global_health_registry() -> HealthRegistry:
     """Get the global health registry."""

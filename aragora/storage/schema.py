@@ -38,13 +38,12 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Generator, Optional, Union
+from typing import Callable, Generator, Optional
 
 from aragora.exceptions import DatabaseError
 from aragora.utils.timeouts import timed_lock
 
 logger = logging.getLogger(__name__)
-
 
 def _safe_log(level: int, msg: str) -> None:
     """Log a message safely, handling Python shutdown gracefully.
@@ -60,7 +59,6 @@ def _safe_log(level: int, msg: str) -> None:
     except Exception:
         # Logging failed (likely during shutdown), ignore silently
         pass
-
 
 # Valid SQL column types (whitelist)
 VALID_COLUMN_TYPES = frozenset(
@@ -78,7 +76,6 @@ VALID_COLUMN_TYPES = frozenset(
     }
 )
 
-
 def _validate_sql_identifier(name: str) -> bool:
     """Validate SQL identifier to prevent injection.
 
@@ -90,13 +87,11 @@ def _validate_sql_identifier(name: str) -> bool:
         return False
     return bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name))
 
-
 def _validate_column_type(col_type: str) -> bool:
     """Validate column type against whitelist."""
     # Normalize and check base type (handles "VARCHAR(255)" etc.)
     base_type = col_type.split("(")[0].strip().upper()
     return base_type in VALID_COLUMN_TYPES
-
 
 def _validate_default_value(default: str) -> bool:
     """Validate default value to prevent injection.
@@ -130,13 +125,11 @@ def _validate_default_value(default: str) -> bool:
 
     return False
 
-
 # Default database connection timeout in seconds
 DB_TIMEOUT = 30.0
 
-
 def get_wal_connection(
-    db_path: Union[str, Path],
+    db_path: str | Path,
     timeout: float = DB_TIMEOUT,
     check_same_thread: bool = True,
 ) -> sqlite3.Connection:
@@ -166,14 +159,13 @@ def get_wal_connection(
     conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)}")
     return conn
 
-
 @dataclass
 class Migration:
     """A database migration from one version to another."""
 
     from_version: int
     to_version: int
-    sql: Optional[str] = None
+    sql: str | None = None
     function: Optional[Callable[[sqlite3.Connection], None]] = None
     description: str = ""
 
@@ -185,7 +177,6 @@ class Migration:
             self.function(conn)
         else:
             raise ValueError("Migration must have either sql or function")
-
 
 class SchemaManager:
     """
@@ -252,7 +243,7 @@ class SchemaManager:
         self,
         from_version: int,
         to_version: int,
-        sql: Optional[str] = None,
+        sql: str | None = None,
         function: Optional[Callable[[sqlite3.Connection], None]] = None,
         description: str = "",
     ) -> None:
@@ -288,7 +279,7 @@ class SchemaManager:
 
         return pending
 
-    def ensure_schema(self, initial_schema: Optional[str] = None) -> bool:
+    def ensure_schema(self, initial_schema: str | None = None) -> bool:
         """
         Ensure the database schema is up to date.
 
@@ -376,13 +367,12 @@ class SchemaManager:
             "version": self.get_version(),
         }
 
-
 def safe_add_column(
     conn: sqlite3.Connection,
     table: str,
     column: str,
     column_type: str,
-    default: Optional[str] = None,
+    default: str | None = None,
 ) -> bool:
     """
     Safely add a column to a table if it doesn't exist.
@@ -429,7 +419,6 @@ def safe_add_column(
     logger.debug(f"Added column {column} to {table}")
     return True
 
-
 class DatabaseManager:
     """
     Centralized database connection manager with singleton pattern.
@@ -468,7 +457,7 @@ class DatabaseManager:
 
     def __init__(
         self,
-        db_path: Union[str, Path],
+        db_path: str | Path,
         timeout: float = DB_TIMEOUT,
         pool_size: int = DEFAULT_POOL_SIZE,
     ):
@@ -484,7 +473,7 @@ class DatabaseManager:
         """
         self.db_path = str(Path(db_path).resolve())
         self.timeout = timeout
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self._lock = threading.Lock()
         self._thread_local = threading.local()
 
@@ -570,7 +559,7 @@ class DatabaseManager:
 
     @classmethod
     def get_instance(
-        cls, db_path: Union[str, Path], timeout: float = DB_TIMEOUT
+        cls, db_path: str | Path, timeout: float = DB_TIMEOUT
     ) -> "DatabaseManager":
         """Get or create a DatabaseManager instance for the given path.
 
@@ -738,7 +727,7 @@ class DatabaseManager:
         """
         return self.get_connection().executemany(sql, params_list)
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         """Execute query and fetch single row.
 
         Convenience method for simple SELECT queries that expect one row.
@@ -832,7 +821,6 @@ class DatabaseManager:
     def __repr__(self) -> str:
         return f"DatabaseManager({self.db_path!r})"
 
-
 # ============================================================================
 # Performance Indexes
 # ============================================================================
@@ -862,7 +850,6 @@ PERFORMANCE_INDEXES = [
     # ELO ratings for domain-specific queries
     ("ratings", "idx_ratings_elo", "elo"),
 ]
-
 
 def create_performance_indexes(
     conn: sqlite3.Connection, tables_to_index: list[str] | None = None
@@ -936,7 +923,6 @@ def create_performance_indexes(
         "errors": errors,
     }
 
-
 def analyze_tables(conn: sqlite3.Connection) -> None:
     """
     Run ANALYZE on all tables to update query planner statistics.
@@ -947,7 +933,6 @@ def analyze_tables(conn: sqlite3.Connection) -> None:
     conn.execute("ANALYZE")
     conn.commit()
     logger.info("Ran ANALYZE on database")
-
 
 class ConnectionPool:
     """
@@ -977,7 +962,7 @@ class ConnectionPool:
 
     def __init__(
         self,
-        db_path: Union[str, Path],
+        db_path: str | Path,
         max_connections: int = 10,
         timeout: float = DB_TIMEOUT,
     ):
@@ -998,7 +983,7 @@ class ConnectionPool:
         self._condition = threading.Condition(self._lock)
         self._closed = False
 
-    def acquire(self, timeout: Optional[float] = None) -> sqlite3.Connection:
+    def acquire(self, timeout: float | None = None) -> sqlite3.Connection:
         """Acquire a connection from the pool.
 
         Blocks if no connections are available and pool is at max capacity.

@@ -36,7 +36,7 @@ import os
 import random
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +46,11 @@ REPLICA_DSNS_RAW = os.environ.get("ARAGORA_POSTGRES_REPLICAS", "")
 POOL_MIN_SIZE = int(os.environ.get("ARAGORA_POSTGRES_POOL_MIN", "2"))
 POOL_MAX_SIZE = int(os.environ.get("ARAGORA_POSTGRES_POOL_MAX", "10"))
 
-
-def _parse_replica_dsns(raw: str) -> List[str]:
+def _parse_replica_dsns(raw: str) -> list[str]:
     """Parse comma-separated replica DSNs."""
     if not raw.strip():
         return []
     return [dsn.strip() for dsn in raw.split(",") if dsn.strip()]
-
 
 @dataclass
 class PoolStats:
@@ -66,7 +64,7 @@ class PoolStats:
     read_queries: int = 0
     write_queries: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_connections": self.total_connections,
@@ -78,7 +76,6 @@ class PoolStats:
             "write_queries": self.write_queries,
         }
 
-
 @dataclass
 class ReplicaHealth:
     """Health status of a replica."""
@@ -88,7 +85,6 @@ class ReplicaHealth:
     last_check: float = 0.0
     consecutive_failures: int = 0
     latency_ms: float = 0.0
-
 
 class ConnectionWrapper:
     """Wrapper around a database connection for metrics and tracing."""
@@ -140,7 +136,6 @@ class ConnectionWrapper:
         """Forward other attributes to underlying connection."""
         return getattr(self._conn, name)
 
-
 class ReplicaAwarePool:
     """
     Connection pool with automatic read replica routing.
@@ -152,7 +147,7 @@ class ReplicaAwarePool:
     def __init__(
         self,
         primary_dsn: str = "",
-        replica_dsns: Optional[List[str]] = None,
+        replica_dsns: Optional[list[str]] = None,
         min_size: int = POOL_MIN_SIZE,
         max_size: int = POOL_MAX_SIZE,
         health_check_interval: float = 30.0,
@@ -173,13 +168,13 @@ class ReplicaAwarePool:
         self._max_size = max_size
         self._health_check_interval = health_check_interval
 
-        self._primary_pool: Optional[Any] = None
-        self._replica_pools: List[Any] = []
-        self._replica_health: Dict[str, ReplicaHealth] = {}
+        self._primary_pool: Any | None = None
+        self._replica_pools: list[Any] = []
+        self._replica_health: dict[str, ReplicaHealth] = {}
         self._stats = PoolStats()
         self._initialized = False
         self._lock = asyncio.Lock()
-        self._health_task: Optional[asyncio.Task] = None
+        self._health_task: asyncio.Task | None = None
 
     async def initialize(self) -> None:
         """Initialize connection pools."""
@@ -256,7 +251,7 @@ class ReplicaAwarePool:
     async def acquire(
         self,
         readonly: bool = False,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> AsyncGenerator[ConnectionWrapper, None]:
         """
         Acquire a database connection.
@@ -313,7 +308,7 @@ class ReplicaAwarePool:
             logger.warning(f"Connection acquire timeout after {timeout}s")
             raise
 
-    def _select_healthy_replica(self) -> Optional[Any]:
+    def _select_healthy_replica(self) -> Any | None:
         """Select a healthy replica using weighted random selection."""
         if not self._replica_pools:
             return None
@@ -397,7 +392,7 @@ class ReplicaAwarePool:
         """Get number of healthy replicas."""
         return sum(1 for h in self._replica_health.values() if h.healthy)
 
-    def get_health_status(self) -> Dict[str, Any]:
+    def get_health_status(self) -> dict[str, Any]:
         """Get detailed health status."""
         return {
             "initialized": self._initialized,
@@ -415,14 +410,12 @@ class ReplicaAwarePool:
             },
         }
 
-
 # Global pool instance
-_pool: Optional[ReplicaAwarePool] = None
-
+_pool: ReplicaAwarePool | None = None
 
 def configure_pool(
     primary_dsn: str = "",
-    replica_dsns: Optional[List[str]] = None,
+    replica_dsns: Optional[list[str]] = None,
     min_size: int = POOL_MIN_SIZE,
     max_size: int = POOL_MAX_SIZE,
 ) -> ReplicaAwarePool:
@@ -447,7 +440,6 @@ def configure_pool(
     )
     return _pool
 
-
 def get_pool() -> ReplicaAwarePool:
     """
     Get the global PostgreSQL pool.
@@ -460,14 +452,12 @@ def get_pool() -> ReplicaAwarePool:
         _pool = ReplicaAwarePool()
     return _pool
 
-
 async def close_pool() -> None:
     """Close the global pool."""
     global _pool
     if _pool:
         await _pool.close()
         _pool = None
-
 
 __all__ = [
     "ReplicaAwarePool",

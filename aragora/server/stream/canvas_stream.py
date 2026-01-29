@@ -24,10 +24,9 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class CanvasStreamServer:
     """
@@ -47,12 +46,12 @@ class CanvasStreamServer:
         """
         self.port = port
         self.host = host
-        self._clients: Dict[str, Set[Any]] = {}  # canvas_id -> websockets
-        self._user_info: Dict[Any, Dict[str, Any]] = {}  # websocket -> user info
+        self._clients: dict[str, set[Any]] = {}  # canvas_id -> websockets
+        self._user_info: dict[Any, dict[str, Any]] = {}  # websocket -> user info
         self._lock = asyncio.Lock()
         self._running = False
-        self._server: Optional[Any] = None
-        self._manager: Optional[Any] = None
+        self._server: Any | None = None
+        self._manager: Any | None = None
 
     def _get_manager(self) -> Any:
         """Get or create the canvas state manager."""
@@ -109,7 +108,7 @@ class CanvasStreamServer:
         self,
         websocket: Any,
         canvas_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ):
         """
         Handle a WebSocket connection for a canvas.
@@ -274,7 +273,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle node creation."""
         from aragora.canvas import CanvasNodeType, Position
@@ -297,7 +296,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle node update."""
         node_id = data.get("node_id")
@@ -316,7 +315,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle node move."""
         node_id = data.get("node_id")
@@ -336,7 +335,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle node resize."""
         node_id = data.get("node_id")
@@ -356,7 +355,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle node deletion."""
         node_id = data.get("node_id")
@@ -373,7 +372,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle node selection."""
         node_id = data.get("node_id")
@@ -392,7 +391,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle edge creation."""
         from aragora.canvas import EdgeType
@@ -416,7 +415,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle edge update."""
         edge_id = data.get("edge_id")
@@ -435,7 +434,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle edge deletion."""
         edge_id = data.get("edge_id")
@@ -452,7 +451,7 @@ class CanvasStreamServer:
         manager,
         canvas_id: str,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ):
         """Handle canvas action execution."""
         action = data.get("action")
@@ -466,7 +465,7 @@ class CanvasStreamServer:
                 user_id=user_id,
             )
 
-    async def _send_message(self, websocket, message: Dict[str, Any]):
+    async def _send_message(self, websocket, message: dict[str, Any]):
         """Send a message to a client."""
         try:
             await websocket.send(json.dumps(message))
@@ -491,7 +490,7 @@ class CanvasStreamServer:
         except Exception as e:
             logger.debug(f"Failed to send event: {e}")
 
-    async def broadcast_to_canvas(self, canvas_id: str, message: Dict[str, Any]):
+    async def broadcast_to_canvas(self, canvas_id: str, message: dict[str, Any]):
         """
         Broadcast a message to all clients connected to a canvas.
 
@@ -516,7 +515,7 @@ class CanvasStreamServer:
         except Exception as e:
             logger.debug(f"Failed to send to client: {e}")
 
-    def get_connected_users(self, canvas_id: str) -> list[Dict[str, Any]]:
+    def get_connected_users(self, canvas_id: str) -> list[dict[str, Any]]:
         """Get list of users connected to a canvas."""
         clients = self._clients.get(canvas_id, set())
         users = []
@@ -531,10 +530,8 @@ class CanvasStreamServer:
                 )
         return users
 
-
 # Global server instance
-_canvas_server: Optional[CanvasStreamServer] = None
-
+_canvas_server: CanvasStreamServer | None = None
 
 def get_canvas_stream_server() -> CanvasStreamServer:
     """Get or create the global canvas stream server."""
@@ -542,7 +539,6 @@ def get_canvas_stream_server() -> CanvasStreamServer:
     if _canvas_server is None:
         _canvas_server = CanvasStreamServer()
     return _canvas_server
-
 
 __all__ = [
     "CanvasStreamServer",

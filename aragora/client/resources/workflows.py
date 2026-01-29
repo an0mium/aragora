@@ -14,13 +14,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 class WorkflowStatus(str, Enum):
     """Workflow execution status."""
@@ -33,21 +32,19 @@ class WorkflowStatus(str, Enum):
     PAUSED = "paused"
     AWAITING_APPROVAL = "awaiting_approval"
 
-
 @dataclass
 class Workflow:
     """A workflow definition."""
 
     id: str
     name: str
-    description: Optional[str] = None
-    steps: List[Dict[str, Any]] = field(default_factory=list)
-    triggers: List[Dict[str, Any]] = field(default_factory=list)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    workspace_id: Optional[str] = None
+    description: str | None = None
+    steps: list[dict[str, Any]] = field(default_factory=list)
+    triggers: list[dict[str, Any]] = field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    workspace_id: str | None = None
     is_active: bool = True
-
 
 @dataclass
 class WorkflowExecution:
@@ -56,13 +53,12 @@ class WorkflowExecution:
     id: str
     workflow_id: str
     status: WorkflowStatus
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    current_step: Optional[int] = None
-    inputs: Dict[str, Any] = field(default_factory=dict)
-    outputs: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
-
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    current_step: int | None = None
+    inputs: dict[str, Any] = field(default_factory=dict)
+    outputs: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
 
 @dataclass
 class WorkflowTemplate:
@@ -72,11 +68,10 @@ class WorkflowTemplate:
     name: str
     description: str
     category: str
-    pattern: Optional[str] = None
-    steps: List[Dict[str, Any]] = field(default_factory=list)
-    inputs_schema: Dict[str, Any] = field(default_factory=dict)
+    pattern: str | None = None
+    steps: list[dict[str, Any]] = field(default_factory=list)
+    inputs_schema: dict[str, Any] = field(default_factory=dict)
     is_public: bool = True
-
 
 @dataclass
 class WorkflowApproval:
@@ -86,12 +81,11 @@ class WorkflowApproval:
     workflow_id: str
     execution_id: str
     step_name: str
-    approvers: List[str] = field(default_factory=list)
+    approvers: list[str] = field(default_factory=list)
     status: str = "pending"
-    created_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
-    resolved_by: Optional[str] = None
-
+    created_at: datetime | None = None
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
 
 class WorkflowsAPI:
     """API interface for workflow management."""
@@ -105,10 +99,10 @@ class WorkflowsAPI:
 
     def list(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[Workflow]:
+    ) -> list[Workflow]:
         """
         List workflows.
 
@@ -120,7 +114,7 @@ class WorkflowsAPI:
         Returns:
             List of workflows
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workspace_id:
             params["workspace_id"] = workspace_id
 
@@ -130,12 +124,12 @@ class WorkflowsAPI:
 
     async def list_async(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[Workflow]:
+    ) -> list[Workflow]:
         """Async version of list()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workspace_id:
             params["workspace_id"] = workspace_id
 
@@ -156,10 +150,10 @@ class WorkflowsAPI:
     def create(
         self,
         name: str,
-        steps: List[Dict[str, Any]],
-        description: Optional[str] = None,
-        triggers: Optional[List[Dict[str, Any]]] = None,
-        workspace_id: Optional[str] = None,
+        steps: list[dict[str, Any]],
+        description: str | None = None,
+        triggers: Optional[list[dict[str, Any]]] = None,
+        workspace_id: str | None = None,
     ) -> Workflow:
         """
         Create a new workflow.
@@ -174,7 +168,7 @@ class WorkflowsAPI:
         Returns:
             Created workflow
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "steps": steps,
         }
@@ -191,13 +185,13 @@ class WorkflowsAPI:
     async def create_async(
         self,
         name: str,
-        steps: List[Dict[str, Any]],
-        description: Optional[str] = None,
-        triggers: Optional[List[Dict[str, Any]]] = None,
-        workspace_id: Optional[str] = None,
+        steps: list[dict[str, Any]],
+        description: str | None = None,
+        triggers: Optional[list[dict[str, Any]]] = None,
+        workspace_id: str | None = None,
     ) -> Workflow:
         """Async version of create()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "steps": steps,
         }
@@ -214,13 +208,13 @@ class WorkflowsAPI:
     def update(
         self,
         workflow_id: str,
-        name: Optional[str] = None,
-        steps: Optional[List[Dict[str, Any]]] = None,
-        description: Optional[str] = None,
-        is_active: Optional[bool] = None,
+        name: str | None = None,
+        steps: Optional[list[dict[str, Any]]] = None,
+        description: str | None = None,
+        is_active: bool | None = None,
     ) -> Workflow:
         """Update a workflow."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if steps is not None:
@@ -236,13 +230,13 @@ class WorkflowsAPI:
     async def update_async(
         self,
         workflow_id: str,
-        name: Optional[str] = None,
-        steps: Optional[List[Dict[str, Any]]] = None,
-        description: Optional[str] = None,
-        is_active: Optional[bool] = None,
+        name: str | None = None,
+        steps: Optional[list[dict[str, Any]]] = None,
+        description: str | None = None,
+        is_active: bool | None = None,
     ) -> Workflow:
         """Async version of update()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if steps is not None:
@@ -272,7 +266,7 @@ class WorkflowsAPI:
     def execute(
         self,
         workflow_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
+        inputs: Optional[dict[str, Any]] = None,
     ) -> WorkflowExecution:
         """
         Execute a workflow.
@@ -284,7 +278,7 @@ class WorkflowsAPI:
         Returns:
             Workflow execution instance
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if inputs:
             body["inputs"] = inputs
 
@@ -299,10 +293,10 @@ class WorkflowsAPI:
     async def execute_async(
         self,
         workflow_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
+        inputs: Optional[dict[str, Any]] = None,
     ) -> WorkflowExecution:
         """Async version of execute()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if inputs:
             body["inputs"] = inputs
 
@@ -326,13 +320,13 @@ class WorkflowsAPI:
 
     def list_executions(
         self,
-        workflow_id: Optional[str] = None,
-        status: Optional[WorkflowStatus] = None,
+        workflow_id: str | None = None,
+        status: WorkflowStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[WorkflowExecution]:
+    ) -> list[WorkflowExecution]:
         """List workflow executions."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workflow_id:
             params["workflow_id"] = workflow_id
         if status:
@@ -344,13 +338,13 @@ class WorkflowsAPI:
 
     async def list_executions_async(
         self,
-        workflow_id: Optional[str] = None,
-        status: Optional[WorkflowStatus] = None,
+        workflow_id: str | None = None,
+        status: WorkflowStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[WorkflowExecution]:
+    ) -> list[WorkflowExecution]:
         """Async version of list_executions()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workflow_id:
             params["workflow_id"] = workflow_id
         if status:
@@ -373,8 +367,8 @@ class WorkflowsAPI:
     def simulate(
         self,
         workflow_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        inputs: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Simulate (dry-run) a workflow without executing.
 
@@ -385,7 +379,7 @@ class WorkflowsAPI:
         Returns:
             Simulation result showing what would happen
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if inputs:
             body["inputs"] = inputs
 
@@ -394,10 +388,10 @@ class WorkflowsAPI:
     async def simulate_async(
         self,
         workflow_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        inputs: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Async version of simulate()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if inputs:
             body["inputs"] = inputs
 
@@ -409,13 +403,13 @@ class WorkflowsAPI:
 
     def list_templates(
         self,
-        category: Optional[str] = None,
-        pattern: Optional[str] = None,
+        category: str | None = None,
+        pattern: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[WorkflowTemplate]:
+    ) -> list[WorkflowTemplate]:
         """List workflow templates."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if category:
             params["category"] = category
         if pattern:
@@ -427,13 +421,13 @@ class WorkflowsAPI:
 
     async def list_templates_async(
         self,
-        category: Optional[str] = None,
-        pattern: Optional[str] = None,
+        category: str | None = None,
+        pattern: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[WorkflowTemplate]:
+    ) -> list[WorkflowTemplate]:
         """Async version of list_templates()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if category:
             params["category"] = category
         if pattern:
@@ -456,9 +450,9 @@ class WorkflowsAPI:
     def run_template(
         self,
         template_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
-        workspace_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        inputs: Optional[dict[str, Any]] = None,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Run a workflow template directly.
 
@@ -470,7 +464,7 @@ class WorkflowsAPI:
         Returns:
             Execution result
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if inputs:
             body["inputs"] = inputs
         if workspace_id:
@@ -481,11 +475,11 @@ class WorkflowsAPI:
     async def run_template_async(
         self,
         template_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
-        workspace_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        inputs: Optional[dict[str, Any]] = None,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
         """Async version of run_template()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if inputs:
             body["inputs"] = inputs
         if workspace_id:
@@ -493,22 +487,22 @@ class WorkflowsAPI:
 
         return await self._client._post_async(f"/api/workflow/templates/{template_id}/run", body)
 
-    def list_categories(self) -> List[str]:
+    def list_categories(self) -> list[str]:
         """List available workflow categories."""
         response = self._client._get("/api/workflow/categories")
         return response.get("categories", [])
 
-    async def list_categories_async(self) -> List[str]:
+    async def list_categories_async(self) -> list[str]:
         """Async version of list_categories()."""
         response = await self._client._get_async("/api/workflow/categories")
         return response.get("categories", [])
 
-    def list_patterns(self) -> List[str]:
+    def list_patterns(self) -> list[str]:
         """List available workflow patterns."""
         response = self._client._get("/api/workflow/patterns")
         return response.get("patterns", [])
 
-    async def list_patterns_async(self) -> List[str]:
+    async def list_patterns_async(self) -> list[str]:
         """Async version of list_patterns()."""
         response = await self._client._get_async("/api/workflow/patterns")
         return response.get("patterns", [])
@@ -519,13 +513,13 @@ class WorkflowsAPI:
 
     def list_approvals(
         self,
-        workflow_id: Optional[str] = None,
+        workflow_id: str | None = None,
         status: str = "pending",
         limit: int = 50,
         offset: int = 0,
-    ) -> List[WorkflowApproval]:
+    ) -> list[WorkflowApproval]:
         """List pending workflow approvals."""
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "status": status,
             "limit": limit,
             "offset": offset,
@@ -539,13 +533,13 @@ class WorkflowsAPI:
 
     async def list_approvals_async(
         self,
-        workflow_id: Optional[str] = None,
+        workflow_id: str | None = None,
         status: str = "pending",
         limit: int = 50,
         offset: int = 0,
-    ) -> List[WorkflowApproval]:
+    ) -> list[WorkflowApproval]:
         """Async version of list_approvals()."""
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "status": status,
             "limit": limit,
             "offset": offset,
@@ -561,8 +555,8 @@ class WorkflowsAPI:
         self,
         approval_id: str,
         decision: str,
-        comment: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        comment: str | None = None,
+    ) -> dict[str, Any]:
         """
         Resolve a workflow approval.
 
@@ -574,7 +568,7 @@ class WorkflowsAPI:
         Returns:
             Resolution result
         """
-        body: Dict[str, Any] = {"decision": decision}
+        body: dict[str, Any] = {"decision": decision}
         if comment:
             body["comment"] = comment
 
@@ -584,17 +578,16 @@ class WorkflowsAPI:
         self,
         approval_id: str,
         decision: str,
-        comment: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        comment: str | None = None,
+    ) -> dict[str, Any]:
         """Async version of resolve_approval()."""
-        body: Dict[str, Any] = {"decision": decision}
+        body: dict[str, Any] = {"decision": decision}
         if comment:
             body["comment"] = comment
 
         return await self._client._post_async(
             f"/api/v1/workflow-approvals/{approval_id}/resolve", body
         )
-
 
 __all__ = [
     "WorkflowsAPI",

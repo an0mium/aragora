@@ -14,14 +14,14 @@ Key concepts:
 - CitationGraph: Dependencies between claims and evidence
 - ProvenanceVerifier: Validates evidence integrity
 """
+from __future__ import annotations
 
 import hashlib
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class SourceType(Enum):
     """Type of evidence source."""
@@ -38,7 +38,6 @@ class SourceType(Enum):
     AUDIO_TRANSCRIPT = "audio_transcript"  # Transcribed audio/video content
     UNKNOWN = "unknown"
 
-
 class TransformationType(Enum):
     """How evidence was transformed."""
 
@@ -52,7 +51,6 @@ class TransformationType(Enum):
     VERIFIED = "verified"
     REFUTED = "refuted"
     AMENDED = "amended"
-
 
 @dataclass
 class ProvenanceRecord:
@@ -71,7 +69,7 @@ class ProvenanceRecord:
     timestamp: datetime = field(default_factory=datetime.now)
 
     # Chain linkage
-    previous_hash: Optional[str] = None  # Hash of previous record in chain
+    previous_hash: str | None = None  # Hash of previous record in chain
     parent_ids: list[str] = field(default_factory=list)  # Multi-source synthesis
 
     # Transformation
@@ -82,7 +80,7 @@ class ProvenanceRecord:
     metadata: dict[str, Any] = field(default_factory=dict)
     confidence: float = 1.0  # Confidence in provenance accuracy
     verified: bool = False
-    verifier_id: Optional[str] = None
+    verifier_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -140,7 +138,6 @@ class ProvenanceRecord:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class Citation:
     """A citation linking a claim to evidence."""
@@ -152,7 +149,6 @@ class Citation:
     citation_text: str = ""  # The specific quoted portion
     metadata: dict[str, Any] = field(default_factory=dict)
 
-
 class ProvenanceChain:
     """
     Chain of evidence records with cryptographic linking.
@@ -161,10 +157,10 @@ class ProvenanceChain:
     creating an immutable audit trail.
     """
 
-    def __init__(self, chain_id: Optional[str] = None):
+    def __init__(self, chain_id: str | None = None):
         self.chain_id = chain_id or str(uuid.uuid4())
         self.records: list[ProvenanceRecord] = []
-        self.genesis_hash: Optional[str] = None
+        self.genesis_hash: str | None = None
         self.created_at = datetime.now()
 
     def add_record(
@@ -173,7 +169,7 @@ class ProvenanceChain:
         source_type: SourceType,
         source_id: str,
         transformation: TransformationType = TransformationType.ORIGINAL,
-        parent_ids: Optional[list[str]] = None,
+        parent_ids: list[str] | None = None,
         **kwargs,
     ) -> ProvenanceRecord:
         """Add a new record to the chain."""
@@ -231,7 +227,7 @@ class ProvenanceChain:
 
         return len(errors) == 0, errors
 
-    def get_record(self, record_id: str) -> Optional[ProvenanceRecord]:
+    def get_record(self, record_id: str) -> ProvenanceRecord | None:
         """Get a record by ID."""
         for record in self.records:
             if record.id == record_id:
@@ -277,7 +273,6 @@ class ProvenanceChain:
         chain.created_at = datetime.fromisoformat(data["created_at"])
         chain.records = [ProvenanceRecord.from_dict(r) for r in data.get("records", [])]
         return chain
-
 
 class CitationGraph:
     """
@@ -380,7 +375,7 @@ class CitationGraph:
         visited = set()
         rec_stack = set()
 
-        def dfs(node: str, path: list[str]) -> Optional[list[str]]:
+        def dfs(node: str, path: list[str]) -> list[str] | None:
             visited.add(node)
             rec_stack.add(node)
             path.append(node)
@@ -406,14 +401,13 @@ class CitationGraph:
 
         return cycles
 
-
 class MerkleTree:
     """Merkle tree for efficient batch verification of evidence."""
 
-    def __init__(self, records: Optional[list[ProvenanceRecord]] = None):
+    def __init__(self, records: list[ProvenanceRecord] | None = None):
         self.leaves: list[str] = []
         self.tree: list[list[str]] = []
-        self.root: Optional[str] = None
+        self.root: str | None = None
 
         if records:
             self.build(records)
@@ -481,11 +475,10 @@ class MerkleTree:
 
         return current == root
 
-
 class ProvenanceVerifier:
     """Verifies evidence provenance and integrity."""
 
-    def __init__(self, chain: ProvenanceChain, graph: Optional[CitationGraph] = None):
+    def __init__(self, chain: ProvenanceChain, graph: CitationGraph | None = None):
         self.chain = chain
         self.graph = graph or CitationGraph()
 
@@ -592,11 +585,10 @@ class ProvenanceVerifier:
             "confidence": record.confidence,
         }
 
-
 class ProvenanceManager:
     """High-level manager for evidence provenance in debates."""
 
-    def __init__(self, debate_id: Optional[str] = None):
+    def __init__(self, debate_id: str | None = None):
         self.debate_id = debate_id or str(uuid.uuid4())
         self.chain = ProvenanceChain()
         self.graph = CitationGraph()

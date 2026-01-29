@@ -19,7 +19,7 @@ import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterator, Optional
 
 from aragora.config import DB_KNOWLEDGE_PATH
 from aragora.knowledge.mound.types import (
@@ -53,8 +53,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-def _to_iso_string(value: Any) -> Optional[str]:
+def _to_iso_string(value: Any) -> str | None:
     """Safely convert datetime or string to ISO format string.
 
     Handles both datetime objects and ISO format strings to ensure
@@ -67,7 +66,6 @@ def _to_iso_string(value: Any) -> Optional[str]:
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return str(value)
-
 
 def _to_enum_value(value: Any) -> Any:
     """Safely extract value from enum or return string as-is.
@@ -83,7 +81,6 @@ def _to_enum_value(value: Any) -> Any:
         return value.value
     return str(value)
 
-
 class KnowledgeMoundCore:
     """
     Core foundation for the Knowledge Mound facade.
@@ -94,8 +91,8 @@ class KnowledgeMoundCore:
 
     def __init__(
         self,
-        config: Optional[MoundConfig] = None,
-        workspace_id: Optional[str] = None,
+        config: MoundConfig | None = None,
+        workspace_id: str | None = None,
         event_emitter: Optional["EventEmitterProtocol"] = None,
     ) -> None:
         """
@@ -111,11 +108,11 @@ class KnowledgeMoundCore:
         self.event_emitter = event_emitter
 
         # Storage backends (initialized lazily)
-        self._meta_store: Optional[Any] = None  # SQLite or Postgres
-        self._store: Optional[Any] = None  # Alias for mixin compatibility
-        self._cache: Optional[Any] = None  # Redis cache
-        self._vector_store: Optional[Any] = None  # Weaviate
-        self._semantic_store: Optional[Any] = None  # Local semantic index
+        self._meta_store: Any | None = None  # SQLite or Postgres
+        self._store: Any | None = None  # Alias for mixin compatibility
+        self._cache: Any | None = None  # Redis cache
+        self._vector_store: Any | None = None  # Weaviate
+        self._semantic_store: Any | None = None  # Local semantic index
 
         # Connected memory systems
         self._continuum: Optional["ContinuumMemory"] = None
@@ -125,8 +122,8 @@ class KnowledgeMoundCore:
         self._critique: Optional["CritiqueStore"] = None
 
         # Staleness detector and culture accumulator
-        self._staleness_detector: Optional[Any] = None
-        self._culture_accumulator: Optional[Any] = None
+        self._staleness_detector: Any | None = None
+        self._culture_accumulator: Any | None = None
         self._org_culture_manager: Optional["OrganizationCultureManager"] = None
 
         # State
@@ -360,7 +357,7 @@ class KnowledgeMoundCore:
     # Statistics
     # =========================================================================
 
-    async def get_stats(self, workspace_id: Optional[str] = None) -> MoundStats:
+    async def get_stats(self, workspace_id: str | None = None) -> MoundStats:
         """Get statistics about the Knowledge Mound."""
         self._ensure_initialized()
 
@@ -389,7 +386,7 @@ class KnowledgeMoundCore:
     # Private Storage Adapter Methods
     # =========================================================================
 
-    async def _save_node(self, node_data: Dict[str, Any]) -> None:
+    async def _save_node(self, node_data: dict[str, Any]) -> None:
         """Save node to storage."""
         if hasattr(self._meta_store, "save_node_async"):
             await self._meta_store.save_node_async(node_data)
@@ -432,7 +429,7 @@ class KnowledgeMoundCore:
                 )
             self._meta_store.save_node(node)
 
-    async def _get_node(self, node_id: str) -> Optional[KnowledgeItem]:
+    async def _get_node(self, node_id: str) -> KnowledgeItem | None:
         """Get node from storage."""
         if hasattr(self._meta_store, "get_node_async"):
             return await self._meta_store.get_node_async(node_id)
@@ -442,7 +439,7 @@ class KnowledgeMoundCore:
                 return self._node_to_item(node)
             return None
 
-    async def _update_node(self, node_id: str, updates: Dict[str, Any]) -> None:
+    async def _update_node(self, node_id: str, updates: dict[str, Any]) -> None:
         """Update node in storage."""
         # For SQLite, get then save
         if hasattr(self._meta_store, "update_node_async"):
@@ -572,8 +569,8 @@ class KnowledgeMoundCore:
             self._meta_store.save_relationship(rel)
 
     async def _get_relationships(
-        self, node_id: str, types: Optional[List[RelationshipType]] = None
-    ) -> List[KnowledgeLink]:
+        self, node_id: str, types: Optional[list[RelationshipType]] = None
+    ) -> list[KnowledgeLink]:
         """Get relationships for a node."""
         if hasattr(self._meta_store, "get_relationships_async"):
             return await self._meta_store.get_relationships_async(node_id, types)
@@ -581,7 +578,7 @@ class KnowledgeMoundCore:
             rels = self._meta_store.get_relationships(node_id)
             return [self._rel_to_link(r) for r in rels]
 
-    async def _find_by_content_hash(self, content_hash: str, workspace_id: str) -> Optional[str]:
+    async def _find_by_content_hash(self, content_hash: str, workspace_id: str) -> str | None:
         """Find node by content hash."""
         if hasattr(self._meta_store, "find_by_content_hash_async"):
             return await self._meta_store.find_by_content_hash_async(content_hash, workspace_id)
@@ -597,7 +594,7 @@ class KnowledgeMoundCore:
     # Ops Mixin Adapter Methods (for dedup/pruning operations)
     # =========================================================================
 
-    async def _get_nodes_for_workspace(self, workspace_id: str, limit: int = 1000) -> List[Any]:
+    async def _get_nodes_for_workspace(self, workspace_id: str, limit: int = 1000) -> list[Any]:
         """Get all nodes for a workspace (used by dedup/pruning)."""
         if hasattr(self._meta_store, "get_nodes_for_workspace_async"):
             return await self._meta_store.get_nodes_for_workspace_async(workspace_id, limit)
@@ -609,11 +606,11 @@ class KnowledgeMoundCore:
     async def _search_similar(
         self,
         workspace_id: str,
-        embedding: Optional[List[float]] = None,
-        query: Optional[str] = None,
+        embedding: Optional[list[float]] = None,
+        query: str | None = None,
         top_k: int = 20,
         min_score: float = 0.8,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Search for similar nodes by embedding or content (used by dedup)."""
         if hasattr(self._meta_store, "search_similar_async"):
             return await self._meta_store.search_similar_async(
@@ -647,7 +644,7 @@ class KnowledgeMoundCore:
             return len(nodes)
         return 0
 
-    async def _get_node_relationships_for_ops(self, node_id: str, workspace_id: str) -> List[Any]:
+    async def _get_node_relationships_for_ops(self, node_id: str, workspace_id: str) -> list[Any]:
         """Get relationships for node (used by dedup merge)."""
         return await self._get_relationships(node_id)
 
@@ -771,9 +768,9 @@ class KnowledgeMoundCore:
             logger.warning(f"Failed to restore node {node_id}: {e}")
             return False
 
-    async def _get_nodes_by_content_hash(self, workspace_id: str) -> Dict[str, List[str]]:
+    async def _get_nodes_by_content_hash(self, workspace_id: str) -> dict[str, list[str]]:
         """Get nodes grouped by content hash (used by dedup auto-merge)."""
-        result: Dict[str, List[str]] = {}
+        result: dict[str, list[str]] = {}
         if hasattr(self._meta_store, "get_nodes_by_content_hash_async"):
             return await self._meta_store.get_nodes_by_content_hash_async(workspace_id)
         elif hasattr(self._meta_store, "query_nodes"):
@@ -789,8 +786,8 @@ class KnowledgeMoundCore:
         self,
         workspace_id: str,
         limit: int = 50,
-        since: Optional[datetime] = None,
-    ) -> List[Any]:
+        since: datetime | None = None,
+    ) -> list[Any]:
         """Get pruning history (used by pruning operations)."""
         from aragora.knowledge.mound.ops.pruning import PruneHistory, PruningAction
 
@@ -885,10 +882,10 @@ class KnowledgeMoundCore:
     async def _query_local(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
         workspace_id: str,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query local mound storage."""
         if hasattr(self._meta_store, "query_async"):
             return await self._meta_store.query_async(query, filters, limit, workspace_id)
@@ -908,8 +905,8 @@ class KnowledgeMoundCore:
             return [self._node_to_item(n) for _, n in scored[:limit]]
 
     async def _query_continuum(
-        self, query: str, filters: Optional[QueryFilters], limit: int
-    ) -> List[KnowledgeItem]:
+        self, query: str, filters: QueryFilters | None, limit: int
+    ) -> list[KnowledgeItem]:
         """Query ContinuumMemory."""
         if not self._continuum:
             return []
@@ -924,8 +921,8 @@ class KnowledgeMoundCore:
             return []
 
     async def _query_consensus(
-        self, query: str, filters: Optional[QueryFilters], limit: int
-    ) -> List[KnowledgeItem]:
+        self, query: str, filters: QueryFilters | None, limit: int
+    ) -> list[KnowledgeItem]:
         """Query ConsensusMemory."""
         if not self._consensus:
             return []
@@ -942,10 +939,10 @@ class KnowledgeMoundCore:
     async def _query_facts(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
         workspace_id: str,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query FactStore."""
         if not self._facts:
             return []
@@ -962,10 +959,10 @@ class KnowledgeMoundCore:
     async def _query_evidence(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
         workspace_id: str,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query EvidenceStore."""
         if not self._evidence:
             return []
@@ -983,9 +980,9 @@ class KnowledgeMoundCore:
     async def _query_critique(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query CritiqueStore for successful patterns."""
         if not self._critique:
             return []

@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
@@ -38,7 +38,6 @@ from aragora.connectors.model_base import ConnectorDataclass
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 class WooOrderStatus(str, Enum):
     """WooCommerce order status."""
@@ -52,7 +51,6 @@ class WooOrderStatus(str, Enum):
     FAILED = "failed"
     TRASH = "trash"
 
-
 class WooProductStatus(str, Enum):
     """WooCommerce product status."""
 
@@ -60,7 +58,6 @@ class WooProductStatus(str, Enum):
     DRAFT = "draft"
     PENDING = "pending"
     PRIVATE = "private"
-
 
 class WooProductType(str, Enum):
     """WooCommerce product type."""
@@ -70,14 +67,12 @@ class WooProductType(str, Enum):
     GROUPED = "grouped"
     EXTERNAL = "external"
 
-
 class WooStockStatus(str, Enum):
     """WooCommerce stock status."""
 
     IN_STOCK = "instock"
     OUT_OF_STOCK = "outofstock"
     ON_BACKORDER = "onbackorder"
-
 
 @dataclass
 class WooCommerceCredentials:
@@ -99,7 +94,6 @@ class WooCommerceCredentials:
             api_version=os.environ.get("WOOCOMMERCE_VERSION", "wc/v3"),
         )
 
-
 @dataclass
 class WooAddress(ConnectorDataclass):
     """WooCommerce address."""
@@ -112,21 +106,20 @@ class WooAddress(ConnectorDataclass):
     }
     _include_none = True
 
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    company: Optional[str] = None
-    address_1: Optional[str] = None
-    address_2: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    postcode: Optional[str] = None
-    country: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    company: str | None = None
+    address_1: str | None = None
+    address_2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    postcode: str | None = None
+    country: str | None = None
+    email: str | None = None
+    phone: str | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class WooLineItem(ConnectorDataclass):
@@ -148,15 +141,14 @@ class WooLineItem(ConnectorDataclass):
     quantity: int
     subtotal: Decimal
     total: Decimal
-    sku: Optional[str] = None
+    sku: str | None = None
     price: Decimal = Decimal("0.00")
-    tax_class: Optional[str] = None
-    taxes: List[Dict[str, Any]] = field(default_factory=list)
-    meta_data: List[Dict[str, Any]] = field(default_factory=list)
+    tax_class: str | None = None
+    taxes: list[dict[str, Any]] = field(default_factory=list)
+    meta_data: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class WooOrder(ConnectorDataclass):
@@ -198,16 +190,15 @@ class WooOrder(ConnectorDataclass):
     customer_id: int
     billing: WooAddress
     shipping: WooAddress
-    line_items: List[WooLineItem] = field(default_factory=list)
-    customer_note: Optional[str] = None
-    date_paid: Optional[datetime] = None
-    date_completed: Optional[datetime] = None
-    cart_hash: Optional[str] = None
-    transaction_id: Optional[str] = None
+    line_items: list[WooLineItem] = field(default_factory=list)
+    customer_note: str | None = None
+    date_paid: datetime | None = None
+    date_completed: datetime | None = None
+    cart_hash: str | None = None
+    transaction_id: str | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class WooProductVariation(ConnectorDataclass):
@@ -223,19 +214,18 @@ class WooProductVariation(ConnectorDataclass):
     _include_none = True
 
     id: int
-    sku: Optional[str]
+    sku: str | None
     price: Decimal
     regular_price: Decimal
-    sale_price: Optional[Decimal]
-    stock_quantity: Optional[int]
+    sale_price: Decimal | None
+    stock_quantity: int | None
     stock_status: WooStockStatus
     manage_stock: bool
-    attributes: List[Dict[str, str]] = field(default_factory=list)
-    image: Optional[str] = None
+    attributes: list[dict[str, str]] = field(default_factory=list)
+    image: str | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class WooProduct(ConnectorDataclass):
@@ -258,26 +248,25 @@ class WooProduct(ConnectorDataclass):
     slug: str
     type: WooProductType
     status: WooProductStatus
-    sku: Optional[str]
+    sku: str | None
     price: Decimal
     regular_price: Decimal
-    sale_price: Optional[Decimal]
+    sale_price: Decimal | None
     date_created: datetime
     date_modified: datetime
-    description: Optional[str]
-    short_description: Optional[str]
-    stock_quantity: Optional[int]
+    description: str | None
+    short_description: str | None
+    stock_quantity: int | None
     stock_status: WooStockStatus
     manage_stock: bool
-    categories: List[Dict[str, Any]] = field(default_factory=list)
-    tags: List[Dict[str, Any]] = field(default_factory=list)
-    images: List[str] = field(default_factory=list)
-    variations: List[WooProductVariation] = field(default_factory=list)
-    attributes: List[Dict[str, Any]] = field(default_factory=list)
+    categories: list[dict[str, Any]] = field(default_factory=list)
+    tags: list[dict[str, Any]] = field(default_factory=list)
+    images: list[str] = field(default_factory=list)
+    variations: list[WooProductVariation] = field(default_factory=list)
+    attributes: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 @dataclass
 class WooCustomer(ConnectorDataclass):
@@ -307,11 +296,10 @@ class WooCustomer(ConnectorDataclass):
     is_paying_customer: bool = False
     orders_count: int = 0
     total_spent: Decimal = Decimal("0.00")
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
 
-    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+    def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
-
 
 class WooCommerceConnector(EnterpriseConnector):
     """
@@ -404,8 +392,8 @@ class WooCommerceConnector(EnterpriseConnector):
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
     ) -> Any:
         """Make an API request.
 
@@ -438,8 +426,8 @@ class WooCommerceConnector(EnterpriseConnector):
 
     async def sync_orders(
         self,
-        since: Optional[datetime] = None,
-        status: Optional[WooOrderStatus] = None,
+        since: datetime | None = None,
+        status: WooOrderStatus | None = None,
         per_page: int = 100,
     ) -> AsyncIterator[WooOrder]:
         """Sync orders from WooCommerce.
@@ -452,7 +440,7 @@ class WooCommerceConnector(EnterpriseConnector):
         Yields:
             WooOrder objects
         """
-        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+        params: dict[str, Any] = {"per_page": per_page, "page": 1}
         if since:
             params["modified_after"] = since.isoformat()
         if status:
@@ -472,7 +460,7 @@ class WooCommerceConnector(EnterpriseConnector):
 
             params["page"] += 1
 
-    def _parse_order(self, data: Dict[str, Any]) -> WooOrder:
+    def _parse_order(self, data: dict[str, Any]) -> WooOrder:
         """Parse order from API response."""
         line_items = [
             WooLineItem(
@@ -523,7 +511,7 @@ class WooCommerceConnector(EnterpriseConnector):
             transaction_id=data.get("transaction_id"),
         )
 
-    def _parse_address(self, data: Dict[str, Any]) -> WooAddress:
+    def _parse_address(self, data: dict[str, Any]) -> WooAddress:
         """Parse address from API response."""
         return WooAddress(
             first_name=data.get("first_name"),
@@ -539,7 +527,7 @@ class WooCommerceConnector(EnterpriseConnector):
             phone=data.get("phone"),
         )
 
-    async def get_order(self, order_id: int) -> Optional[WooOrder]:
+    async def get_order(self, order_id: int) -> WooOrder | None:
         """Get a single order by ID."""
         try:
             data = await self._request("GET", f"orders/{order_id}")
@@ -575,15 +563,15 @@ class WooCommerceConnector(EnterpriseConnector):
 
     async def create_order(
         self,
-        customer_id: Optional[int] = None,
-        billing: Optional[WooAddress] = None,
-        shipping: Optional[WooAddress] = None,
-        line_items: Optional[List[Dict[str, Any]]] = None,
+        customer_id: int | None = None,
+        billing: WooAddress | None = None,
+        shipping: WooAddress | None = None,
+        line_items: Optional[list[dict[str, Any]]] = None,
         payment_method: str = "",
         payment_method_title: str = "",
         set_paid: bool = False,
-        note: Optional[str] = None,
-    ) -> Optional[WooOrder]:
+        note: str | None = None,
+    ) -> WooOrder | None:
         """Create a new order.
 
         Args:
@@ -600,7 +588,7 @@ class WooCommerceConnector(EnterpriseConnector):
             Created WooOrder or None on failure
         """
         try:
-            order_data: Dict[str, Any] = {
+            order_data: dict[str, Any] = {
                 "payment_method": payment_method,
                 "payment_method_title": payment_method_title,
                 "set_paid": set_paid,
@@ -647,9 +635,9 @@ class WooCommerceConnector(EnterpriseConnector):
 
     async def get_order_stats(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get order statistics.
 
         Args:
@@ -664,7 +652,7 @@ class WooCommerceConnector(EnterpriseConnector):
         completed_orders = 0
         cancelled_orders = 0
         refunded_orders = 0
-        status_counts: Dict[str, int] = {}
+        status_counts: dict[str, int] = {}
 
         async for order in self.sync_orders(since=start_date):
             if end_date and order.date_created > end_date:
@@ -702,8 +690,8 @@ class WooCommerceConnector(EnterpriseConnector):
 
     async def sync_products(
         self,
-        since: Optional[datetime] = None,
-        status: Optional[WooProductStatus] = None,
+        since: datetime | None = None,
+        status: WooProductStatus | None = None,
         per_page: int = 100,
     ) -> AsyncIterator[WooProduct]:
         """Sync products from WooCommerce.
@@ -716,7 +704,7 @@ class WooCommerceConnector(EnterpriseConnector):
         Yields:
             WooProduct objects
         """
-        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+        params: dict[str, Any] = {"per_page": per_page, "page": 1}
         if since:
             params["modified_after"] = since.isoformat()
         if status:
@@ -736,7 +724,7 @@ class WooCommerceConnector(EnterpriseConnector):
 
             params["page"] += 1
 
-    def _parse_product(self, data: Dict[str, Any]) -> WooProduct:
+    def _parse_product(self, data: dict[str, Any]) -> WooProduct:
         """Parse product from API response."""
         return WooProduct(
             id=data["id"],
@@ -761,7 +749,7 @@ class WooCommerceConnector(EnterpriseConnector):
             attributes=data.get("attributes", []),
         )
 
-    async def get_product(self, product_id: int) -> Optional[WooProduct]:
+    async def get_product(self, product_id: int) -> WooProduct | None:
         """Get a single product by ID."""
         try:
             data = await self._request("GET", f"products/{product_id}")
@@ -774,7 +762,7 @@ class WooCommerceConnector(EnterpriseConnector):
         self,
         product_id: int,
         quantity: int,
-        stock_status: Optional[WooStockStatus] = None,
+        stock_status: WooStockStatus | None = None,
     ) -> bool:
         """Update product stock.
 
@@ -787,7 +775,7 @@ class WooCommerceConnector(EnterpriseConnector):
             True if successful
         """
         try:
-            update_data: Dict[str, Any] = {
+            update_data: dict[str, Any] = {
                 "stock_quantity": quantity,
                 "manage_stock": True,
             }
@@ -807,7 +795,7 @@ class WooCommerceConnector(EnterpriseConnector):
     async def get_low_stock_products(
         self,
         threshold: int = 5,
-    ) -> List[WooProduct]:
+    ) -> list[WooProduct]:
         """Get products with low stock.
 
         Args:
@@ -837,7 +825,7 @@ class WooCommerceConnector(EnterpriseConnector):
         Yields:
             WooProductVariation objects
         """
-        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+        params: dict[str, Any] = {"per_page": per_page, "page": 1}
 
         while True:
             data = await self._request("GET", f"products/{product_id}/variations", params=params)
@@ -853,7 +841,7 @@ class WooCommerceConnector(EnterpriseConnector):
 
             params["page"] += 1
 
-    def _parse_variation(self, data: Dict[str, Any]) -> WooProductVariation:
+    def _parse_variation(self, data: dict[str, Any]) -> WooProductVariation:
         """Parse variation from API response."""
         return WooProductVariation(
             id=data["id"],
@@ -873,7 +861,7 @@ class WooCommerceConnector(EnterpriseConnector):
         product_id: int,
         variation_id: int,
         quantity: int,
-        stock_status: Optional[WooStockStatus] = None,
+        stock_status: WooStockStatus | None = None,
     ) -> bool:
         """Update variation stock.
 
@@ -887,7 +875,7 @@ class WooCommerceConnector(EnterpriseConnector):
             True if successful
         """
         try:
-            update_data: Dict[str, Any] = {
+            update_data: dict[str, Any] = {
                 "stock_quantity": quantity,
                 "manage_stock": True,
             }
@@ -910,7 +898,7 @@ class WooCommerceConnector(EnterpriseConnector):
 
     async def sync_customers(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         per_page: int = 100,
     ) -> AsyncIterator[WooCustomer]:
         """Sync customers from WooCommerce.
@@ -922,7 +910,7 @@ class WooCommerceConnector(EnterpriseConnector):
         Yields:
             WooCustomer objects
         """
-        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+        params: dict[str, Any] = {"per_page": per_page, "page": 1}
         if since:
             params["modified_after"] = since.isoformat()
 
@@ -940,7 +928,7 @@ class WooCommerceConnector(EnterpriseConnector):
 
             params["page"] += 1
 
-    def _parse_customer(self, data: Dict[str, Any]) -> WooCustomer:
+    def _parse_customer(self, data: dict[str, Any]) -> WooCustomer:
         """Parse customer from API response."""
         return WooCustomer(
             id=data["id"],
@@ -965,11 +953,11 @@ class WooCommerceConnector(EnterpriseConnector):
     async def create_refund(
         self,
         order_id: int,
-        amount: Optional[Decimal] = None,
+        amount: Decimal | None = None,
         reason: str = "",
-        line_items: Optional[List[Dict[str, Any]]] = None,
+        line_items: Optional[list[dict[str, Any]]] = None,
         restock_items: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Create a refund for an order.
 
         Args:
@@ -983,7 +971,7 @@ class WooCommerceConnector(EnterpriseConnector):
             Refund data or None on failure
         """
         try:
-            refund_data: Dict[str, Any] = {
+            refund_data: dict[str, Any] = {
                 "reason": reason,
                 "restock_items": restock_items,
             }
@@ -1003,7 +991,7 @@ class WooCommerceConnector(EnterpriseConnector):
             logger.error(f"Failed to create refund for order {order_id}: {e}")
             return None
 
-    async def get_refunds(self, order_id: int) -> List[Dict[str, Any]]:
+    async def get_refunds(self, order_id: int) -> list[dict[str, Any]]:
         """Get refunds for an order.
 
         Args:
@@ -1026,7 +1014,7 @@ class WooCommerceConnector(EnterpriseConnector):
     async def get_coupons(
         self,
         per_page: int = 100,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Sync coupons from WooCommerce.
 
         Args:
@@ -1035,7 +1023,7 @@ class WooCommerceConnector(EnterpriseConnector):
         Yields:
             Coupon data dictionaries
         """
-        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+        params: dict[str, Any] = {"per_page": per_page, "page": 1}
 
         while True:
             data = await self._request("GET", "coupons", params=params)
@@ -1057,15 +1045,15 @@ class WooCommerceConnector(EnterpriseConnector):
         discount_type: str = "percent",
         amount: str = "0",
         description: str = "",
-        date_expires: Optional[datetime] = None,
+        date_expires: datetime | None = None,
         individual_use: bool = False,
-        usage_limit: Optional[int] = None,
-        product_ids: Optional[List[int]] = None,
-        excluded_product_ids: Optional[List[int]] = None,
-        minimum_amount: Optional[str] = None,
-        maximum_amount: Optional[str] = None,
+        usage_limit: int | None = None,
+        product_ids: Optional[list[int]] = None,
+        excluded_product_ids: Optional[list[int]] = None,
+        minimum_amount: str | None = None,
+        maximum_amount: str | None = None,
         free_shipping: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Create a new coupon.
 
         Args:
@@ -1086,7 +1074,7 @@ class WooCommerceConnector(EnterpriseConnector):
             Created coupon data or None on failure
         """
         try:
-            coupon_data: Dict[str, Any] = {
+            coupon_data: dict[str, Any] = {
                 "code": code,
                 "discount_type": discount_type,
                 "amount": amount,
@@ -1139,7 +1127,7 @@ class WooCommerceConnector(EnterpriseConnector):
     # Webhooks
     # =========================================================================
 
-    async def get_webhooks(self) -> List[Dict[str, Any]]:
+    async def get_webhooks(self) -> list[dict[str, Any]]:
         """Get all registered webhooks.
 
         Returns:
@@ -1159,7 +1147,7 @@ class WooCommerceConnector(EnterpriseConnector):
         delivery_url: str,
         secret: str = "",
         status: str = "active",
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Register a new webhook.
 
         Args:
@@ -1236,7 +1224,7 @@ class WooCommerceConnector(EnterpriseConnector):
     # Shipping
     # =========================================================================
 
-    async def get_shipping_zones(self) -> List[Dict[str, Any]]:
+    async def get_shipping_zones(self) -> list[dict[str, Any]]:
         """Get all shipping zones.
 
         Returns:
@@ -1249,7 +1237,7 @@ class WooCommerceConnector(EnterpriseConnector):
             logger.error(f"Failed to get shipping zones: {e}")
             return []
 
-    async def get_shipping_methods(self, zone_id: int) -> List[Dict[str, Any]]:
+    async def get_shipping_methods(self, zone_id: int) -> list[dict[str, Any]]:
         """Get shipping methods for a zone.
 
         Args:
@@ -1269,7 +1257,7 @@ class WooCommerceConnector(EnterpriseConnector):
     # Tax
     # =========================================================================
 
-    async def get_tax_classes(self) -> List[Dict[str, Any]]:
+    async def get_tax_classes(self) -> list[dict[str, Any]]:
         """Get all tax classes.
 
         Returns:
@@ -1282,7 +1270,7 @@ class WooCommerceConnector(EnterpriseConnector):
             logger.error(f"Failed to get tax classes: {e}")
             return []
 
-    async def get_tax_rates(self, per_page: int = 100) -> AsyncIterator[Dict[str, Any]]:
+    async def get_tax_rates(self, per_page: int = 100) -> AsyncIterator[dict[str, Any]]:
         """Get tax rates.
 
         Args:
@@ -1291,7 +1279,7 @@ class WooCommerceConnector(EnterpriseConnector):
         Yields:
             Tax rate data dictionaries
         """
-        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+        params: dict[str, Any] = {"per_page": per_page, "page": 1}
 
         while True:
             data = await self._request("GET", "taxes", params=params)
@@ -1314,9 +1302,9 @@ class WooCommerceConnector(EnterpriseConnector):
     async def get_sales_report(
         self,
         period: str = "month",
-        date_min: Optional[str] = None,
-        date_max: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        date_min: str | None = None,
+        date_max: str | None = None,
+    ) -> dict[str, Any]:
         """Get sales report.
 
         Args:
@@ -1327,7 +1315,7 @@ class WooCommerceConnector(EnterpriseConnector):
         Returns:
             Sales report data
         """
-        params: Dict[str, Any] = {"period": period}
+        params: dict[str, Any] = {"period": period}
         if date_min:
             params["date_min"] = date_min
         if date_max:
@@ -1343,7 +1331,7 @@ class WooCommerceConnector(EnterpriseConnector):
     async def get_top_sellers_report(
         self,
         period: str = "month",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get top selling products report.
 
         Args:
@@ -1372,7 +1360,7 @@ class WooCommerceConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         **kwargs,
-    ) -> List[Evidence]:
+    ) -> list[Evidence]:
         """Search WooCommerce for relevant data.
 
         Searches across orders, products, and customers.
@@ -1385,7 +1373,7 @@ class WooCommerceConnector(EnterpriseConnector):
         Returns:
             List of Evidence objects
         """
-        results: List[Evidence] = []
+        results: list[Evidence] = []
         entity_type = kwargs.get("entity_type", "all")
 
         try:
@@ -1427,7 +1415,7 @@ class WooCommerceConnector(EnterpriseConnector):
 
         return results[:limit]
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """Fetch a specific piece of evidence by ID.
 
         Args:
@@ -1540,8 +1528,8 @@ class WooCommerceConnector(EnterpriseConnector):
 
     async def incremental_sync(
         self,
-        state: Optional[SyncState] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        state: SyncState | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Perform incremental sync of WooCommerce data.
 
         Args:
@@ -1568,7 +1556,7 @@ class WooCommerceConnector(EnterpriseConnector):
         """Perform full sync of WooCommerce data."""
         start_time = datetime.now(timezone.utc)
         items_synced = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             async for _ in self.incremental_sync():
@@ -1589,13 +1577,11 @@ class WooCommerceConnector(EnterpriseConnector):
             errors=errors,
         )
 
-
 # =========================================================================
 # Mock data for testing
 # =========================================================================
 
-
-def get_mock_woo_orders() -> List[WooOrder]:
+def get_mock_woo_orders() -> list[WooOrder]:
     """Get mock WooCommerce orders for testing."""
     now = datetime.now(timezone.utc)
     return [
@@ -1639,8 +1625,7 @@ def get_mock_woo_orders() -> List[WooOrder]:
         ),
     ]
 
-
-def get_mock_woo_products() -> List[WooProduct]:
+def get_mock_woo_products() -> list[WooProduct]:
     """Get mock WooCommerce products for testing."""
     now = datetime.now(timezone.utc)
     return [
@@ -1663,7 +1648,6 @@ def get_mock_woo_products() -> List[WooProduct]:
             manage_stock=True,
         ),
     ]
-
 
 __all__ = [
     "WooCommerceConnector",

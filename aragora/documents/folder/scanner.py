@@ -1,12 +1,13 @@
 """
 Folder scanner for recursive directory traversal with filtering.
 """
+from __future__ import annotations
 
 import asyncio
 import mimetypes
 import time
 from pathlib import Path
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 
 from .config import (
     ExcludedFile,
@@ -16,7 +17,6 @@ from .config import (
     FolderUploadConfig,
 )
 from .filters import PatternMatcher, SizeFilter
-
 
 class FolderScanner:
     """
@@ -31,7 +31,7 @@ class FolderScanner:
     - Timeout protection
     """
 
-    def __init__(self, config: Optional[FolderUploadConfig] = None):
+    def __init__(self, config: FolderUploadConfig | None = None):
         """
         Initialize the folder scanner.
 
@@ -412,8 +412,7 @@ class FolderScanner:
                     details="Permission denied",
                 )
 
-
-def get_folder_scanner(config: Optional[FolderUploadConfig] = None) -> FolderScanner:
+def get_folder_scanner(config: FolderUploadConfig | None = None) -> FolderScanner:
     """
     Get a folder scanner instance.
 

@@ -17,6 +17,7 @@ Usage:
     async with AsyncWebhookDispatcher() as dispatcher:
         result = await dispatcher.dispatch(webhook, payload)
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -24,13 +25,12 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.storage.webhook_config_store import WebhookConfig
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Configuration
@@ -52,11 +52,9 @@ CONNECT_TIMEOUT = float(os.environ.get("ARAGORA_WEBHOOK_CONNECT_TIMEOUT", "10.0"
 # User agent for webhook requests
 USER_AGENT = "Aragora-Webhooks/1.0 (async)"
 
-
 # =============================================================================
 # Result Types
 # =============================================================================
-
 
 @dataclass
 class AsyncDeliveryResult:
@@ -64,15 +62,13 @@ class AsyncDeliveryResult:
 
     success: bool
     status_code: int
-    error: Optional[str] = None
+    error: str | None = None
     retry_count: int = 0
     duration_ms: float = 0.0
-
 
 # =============================================================================
 # Async Dispatcher
 # =============================================================================
-
 
 class AsyncWebhookDispatcher:
     """
@@ -94,7 +90,7 @@ class AsyncWebhookDispatcher:
         self.max_connections_per_host = max_connections_per_host
         self.timeout = timeout
         self.connect_timeout = connect_timeout
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
 
     async def __aenter__(self) -> "AsyncWebhookDispatcher":
         """Enter async context and create HTTP client."""
@@ -139,8 +135,8 @@ class AsyncWebhookDispatcher:
     async def dispatch(
         self,
         webhook: "WebhookConfig",
-        payload: Dict[str, Any],
-    ) -> Tuple[bool, int, Optional[str]]:
+        payload: dict[str, Any],
+    ) -> tuple[bool, int, str | None]:
         """
         Dispatch a single webhook asynchronously.
 
@@ -208,7 +204,7 @@ class AsyncWebhookDispatcher:
     async def dispatch_with_retry(
         self,
         webhook: "WebhookConfig",
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         max_retries: int = MAX_RETRIES,
         initial_delay: float = INITIAL_RETRY_DELAY,
         max_delay: float = MAX_RETRY_DELAY,
@@ -309,13 +305,11 @@ class AsyncWebhookDispatcher:
         else:
             return await _deliver_with_trace()
 
-
 # =============================================================================
 # Global Async Dispatcher
 # =============================================================================
 
-_async_dispatcher: Optional[AsyncWebhookDispatcher] = None
-
+_async_dispatcher: AsyncWebhookDispatcher | None = None
 
 async def get_async_dispatcher() -> AsyncWebhookDispatcher:
     """Get or create the global async dispatcher."""
@@ -327,11 +321,10 @@ async def get_async_dispatcher() -> AsyncWebhookDispatcher:
 
     return _async_dispatcher
 
-
 async def dispatch_webhook_async(
     webhook: "WebhookConfig",
-    payload: Dict[str, Any],
-) -> Tuple[bool, int, Optional[str]]:
+    payload: dict[str, Any],
+) -> tuple[bool, int, str | None]:
     """
     Dispatch a webhook asynchronously using the global dispatcher.
 
@@ -347,10 +340,9 @@ async def dispatch_webhook_async(
     dispatcher = await get_async_dispatcher()
     return await dispatcher.dispatch(webhook, payload)
 
-
 async def dispatch_webhook_async_with_retry(
     webhook: "WebhookConfig",
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     max_retries: int = MAX_RETRIES,
 ) -> AsyncDeliveryResult:
     """
@@ -367,7 +359,6 @@ async def dispatch_webhook_async_with_retry(
     dispatcher = await get_async_dispatcher()
     return await dispatcher.dispatch_with_retry(webhook, payload, max_retries=max_retries)
 
-
 async def shutdown_async_dispatcher() -> None:
     """Shutdown the global async dispatcher."""
     global _async_dispatcher
@@ -375,7 +366,6 @@ async def shutdown_async_dispatcher() -> None:
     if _async_dispatcher is not None:
         await _async_dispatcher.close()
         _async_dispatcher = None
-
 
 # =============================================================================
 # Exports

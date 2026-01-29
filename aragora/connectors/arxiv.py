@@ -8,13 +8,13 @@ Provides access to ArXiv's preprint repository for:
 
 The ArXiv API is free and requires no authentication.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 import re
 import xml.etree.ElementTree as StdET  # For type hints only
 import defusedxml.ElementTree as ET  # Safe XML parsing to prevent XXE attacks
-from typing import Optional
 from urllib.parse import quote_plus
 
 from aragora.connectors.base import BaseConnector, Evidence
@@ -29,7 +29,6 @@ try:
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
-
 
 # ArXiv API endpoint (HTTPS for security)
 ARXIV_API_URL = "https://export.arxiv.org/api/query"
@@ -51,7 +50,6 @@ ARXIV_CATEGORIES = {
     "eess": "Electrical Engineering and Systems Science",
 }
 
-
 class ArXivConnector(BaseConnector):
     """
     Connector for ArXiv preprint repository.
@@ -72,7 +70,7 @@ class ArXivConnector(BaseConnector):
 
     def __init__(
         self,
-        provenance: Optional[ProvenanceManager] = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.85,
         timeout: int = 30,
         rate_limit_delay: float = 3.0,  # ArXiv recommends 3s between requests
@@ -129,7 +127,7 @@ class ArXivConnector(BaseConnector):
         self,
         query: str,
         limit: int = 10,
-        category: Optional[str] = None,
+        category: str | None = None,
         sort_by: str = "relevance",
         sort_order: str = "descending",
         **kwargs,
@@ -209,7 +207,7 @@ class ArXivConnector(BaseConnector):
             logger.error(f"ArXiv search failed unexpectedly ({type(e).__name__}): {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a specific paper by ArXiv ID.
 
@@ -299,7 +297,7 @@ class ArXivConnector(BaseConnector):
 
         return results
 
-    def _parse_entry(self, entry: StdET.Element, namespaces: dict) -> Optional[Evidence]:
+    def _parse_entry(self, entry: StdET.Element, namespaces: dict) -> Evidence | None:
         """Parse a single ArXiv entry into Evidence."""
         # Extract ArXiv ID from entry ID URL
         entry_id = entry.find("atom:id", namespaces)
@@ -432,6 +430,5 @@ class ArXivConnector(BaseConnector):
     def get_categories(self) -> dict[str, str]:
         """Return available ArXiv category codes and descriptions."""
         return ARXIV_CATEGORIES.copy()
-
 
 __all__ = ["ArXivConnector", "ARXIV_CATEGORIES"]

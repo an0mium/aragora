@@ -32,13 +32,12 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
 K = TypeVar("K")
 V = TypeVar("V")
-
 
 @dataclass
 class AccessPattern:
@@ -48,7 +47,7 @@ class AccessPattern:
     access_count: int = 0
     last_access: float = 0.0
     first_access: float = 0.0
-    access_times: List[float] = field(default_factory=list)
+    access_times: list[float] = field(default_factory=list)
 
     # Adaptive TTL
     current_ttl: float = 0.0
@@ -91,7 +90,6 @@ class AccessPattern:
         if len(self.access_times) > max_history:
             self.access_times = self.access_times[-max_history:]
 
-
 @dataclass
 class CacheEntry(Generic[V]):
     """A cached value with metadata."""
@@ -100,7 +98,6 @@ class CacheEntry(Generic[V]):
     created_at: float
     expires_at: float
     access_pattern: AccessPattern
-
 
 @dataclass
 class CacheStats:
@@ -121,7 +118,7 @@ class CacheStats:
             return 0.0
         return (self.hits / total) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "hits": self.hits,
@@ -132,7 +129,6 @@ class CacheStats:
             "hot_spots": self.hot_spots,
             "avg_ttl_seconds": round(self.avg_ttl_seconds, 1),
         }
-
 
 class AdaptiveTTLCache(Generic[K, V]):
     """
@@ -179,7 +175,7 @@ class AdaptiveTTLCache(Generic[K, V]):
         self._adjustment_factor = ttl_adjustment_factor
         self._cleanup_interval = cleanup_interval
 
-        self._cache: Dict[str, CacheEntry[V]] = {}
+        self._cache: dict[str, CacheEntry[V]] = {}
         self._lock = threading.RLock()
         self._stats = CacheStats()
 
@@ -269,7 +265,7 @@ class AdaptiveTTLCache(Generic[K, V]):
                 del self._cache[key]
                 self._stats.evictions += 1
 
-    async def get(self, key: K) -> Optional[V]:
+    async def get(self, key: K) -> V | None:
         """
         Get value from cache.
 
@@ -315,7 +311,7 @@ class AdaptiveTTLCache(Generic[K, V]):
         self,
         key: K,
         value: V,
-        ttl: Optional[float] = None,
+        ttl: float | None = None,
     ) -> None:
         """
         Set value in cache.
@@ -387,11 +383,10 @@ class AdaptiveTTLCache(Generic[K, V]):
         """Current cache size."""
         return len(self._cache)
 
-    def get_hot_spots(self) -> List[str]:
+    def get_hot_spots(self) -> list[str]:
         """Get list of hot spot keys."""
         with self._lock:
             return [key for key, entry in self._cache.items() if entry.access_pattern.is_hot]
-
 
 class CacheOptimizer:
     """
@@ -401,9 +396,9 @@ class CacheOptimizer:
     def __init__(self, cache: AdaptiveTTLCache[Any, Any]):
         """Initialize optimizer with a cache to monitor."""
         self._cache = cache
-        self._history: List[Dict[str, Any]] = []
+        self._history: list[dict[str, Any]] = []
 
-    def record_snapshot(self) -> Dict[str, Any]:
+    def record_snapshot(self) -> dict[str, Any]:
         """Record current cache state."""
         snapshot = {
             "timestamp": time.time(),
@@ -417,7 +412,7 @@ class CacheOptimizer:
             self._history = self._history[-100:]
         return snapshot
 
-    def get_recommendations(self) -> List[str]:
+    def get_recommendations(self) -> list[str]:
         """Get optimization recommendations based on cache behavior."""
         recommendations = []
         stats = self._cache.stats
@@ -447,7 +442,6 @@ class CacheOptimizer:
             recommendations.append("No TTL adjustments made. Access patterns may be too uniform.")
 
         return recommendations
-
 
 __all__ = [
     "AccessPattern",

@@ -38,10 +38,9 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, Optional, Set
+from typing import Any, AsyncIterator, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class HTTPPoolConfig:
@@ -71,7 +70,6 @@ class HTTPPoolConfig:
     # Health checking
     health_check_interval: float = 60.0
 
-
 @dataclass
 class ProviderMetrics:
     """Metrics for a single provider's connection pool."""
@@ -87,12 +85,11 @@ class ProviderMetrics:
     connections_created: int = 0
     last_request_time: float = 0.0
 
-
 @dataclass
 class HTTPPoolMetrics:
     """Aggregated metrics for all pools."""
 
-    providers: Dict[str, ProviderMetrics] = field(default_factory=dict)
+    providers: dict[str, ProviderMetrics] = field(default_factory=dict)
     pool_exhaustion_count: int = 0
     total_wait_time_ms: float = 0.0
 
@@ -101,9 +98,8 @@ class HTTPPoolMetrics:
             self.providers[provider] = ProviderMetrics()
         return self.providers[provider]
 
-
 # Provider-specific configurations
-PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
+PROVIDER_CONFIGS: dict[str, dict[str, Any]] = {
     "anthropic": {
         "base_url": "https://api.anthropic.com",
         "pool_size": 25,  # Higher for primary provider
@@ -136,7 +132,6 @@ PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-
 class HTTPClientPool:
     """
     Manages HTTP connection pools for external API providers.
@@ -148,14 +143,14 @@ class HTTPClientPool:
     _instance: Optional["HTTPClientPool"] = None
     _lock = threading.Lock()
 
-    def __init__(self, config: Optional[HTTPPoolConfig] = None):
+    def __init__(self, config: HTTPPoolConfig | None = None):
         """Initialize the HTTP client pool."""
         self.config = config or self._load_config_from_env()
         self.metrics = HTTPPoolMetrics()
-        self._sync_sessions: Dict[str, Any] = {}
-        self._async_clients: Dict[str, Any] = {}
+        self._sync_sessions: dict[str, Any] = {}
+        self._async_clients: dict[str, Any] = {}
         self._session_lock = threading.Lock()
-        self._initialized_providers: Set[str] = set()
+        self._initialized_providers: set[str] = set()
         self._closed = False
 
     @classmethod
@@ -185,7 +180,7 @@ class HTTPClientPool:
             max_retries=int(os.getenv("ARAGORA_HTTP_MAX_RETRIES", "3")),
         )
 
-    def _get_provider_config(self, provider: str) -> Dict[str, Any]:
+    def _get_provider_config(self, provider: str) -> dict[str, Any]:
         """Get merged configuration for a provider."""
         base_config = {
             "pool_size": self.config.pool_size,
@@ -379,7 +374,7 @@ class HTTPClientPool:
             Exception: If all retries fail
         """
         provider_metrics = self.metrics.get_provider_metrics(provider)
-        last_exception: Optional[Exception] = None
+        last_exception: Exception | None = None
         delay = self.config.retry_delay
 
         for attempt in range(self.config.max_retries + 1):
@@ -414,7 +409,7 @@ class HTTPClientPool:
             raise last_exception
         raise RuntimeError("Request failed after all retries")
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get current pool metrics."""
         return {
             "providers": {
@@ -479,12 +474,10 @@ class HTTPClientPool:
         # Close sync sessions
         self.close()
 
-
 # Convenience function for getting the global pool
 def get_http_pool() -> HTTPClientPool:
     """Get the global HTTP client pool instance."""
     return HTTPClientPool.get_instance()
-
 
 __all__ = [
     "HTTPClientPool",

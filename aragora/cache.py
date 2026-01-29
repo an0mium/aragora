@@ -55,17 +55,15 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-
 # =============================================================================
 # Cache Protocol
 # =============================================================================
-
 
 @dataclass
 class CacheStats:
@@ -97,7 +95,6 @@ class CacheStats:
             or None,
         )
 
-
 @runtime_checkable
 class CacheBackend(Protocol[T]):
     """Protocol defining the interface for cache backends.
@@ -106,7 +103,7 @@ class CacheBackend(Protocol[T]):
     consistent behavior across the codebase.
     """
 
-    def get(self, key: str) -> Optional[T]:
+    def get(self, key: str) -> T | None:
         """Get a value from cache if not expired.
 
         Args:
@@ -165,14 +162,12 @@ class CacheBackend(Protocol[T]):
         """
         ...
 
-
 # =============================================================================
 # Cache Registry
 # =============================================================================
 
 _cache_registry: dict[str, CacheBackend] = {}
 _registry_lock = threading.Lock()
-
 
 def register_cache(name: str, cache: CacheBackend) -> None:
     """Register a cache instance in the global registry.
@@ -185,8 +180,7 @@ def register_cache(name: str, cache: CacheBackend) -> None:
         _cache_registry[name] = cache
         logger.debug(f"Registered cache: {name}")
 
-
-def get_cache(name: str) -> Optional[CacheBackend]:
+def get_cache(name: str) -> CacheBackend | None:
     """Get a cache instance from the registry.
 
     Args:
@@ -197,7 +191,6 @@ def get_cache(name: str) -> Optional[CacheBackend]:
     """
     with _registry_lock:
         return _cache_registry.get(name)
-
 
 def get_all_cache_stats() -> dict[str, CacheStats]:
     """Get statistics for all registered caches.
@@ -215,7 +208,6 @@ def get_all_cache_stats() -> dict[str, CacheStats]:
                 logger.warning(f"Failed to get stats for cache {name}: {e}")
         return result
 
-
 def list_caches() -> list[str]:
     """List all registered cache names.
 
@@ -224,7 +216,6 @@ def list_caches() -> list[str]:
     """
     with _registry_lock:
         return list(_cache_registry.keys())
-
 
 # =============================================================================
 # Re-exports from implementations
@@ -255,7 +246,6 @@ from aragora.utils.redis_cache import HybridTTLCache, RedisTTLCache
 # Auto-register global caches
 # =============================================================================
 
-
 def _auto_register_global_caches() -> None:
     """Auto-register the global caches from utils.cache."""
     try:
@@ -264,10 +254,8 @@ def _auto_register_global_caches() -> None:
     except Exception as e:
         logger.debug(f"Failed to auto-register global caches: {e}")
 
-
 # Register on import
 _auto_register_global_caches()
-
 
 __all__ = [
     # Protocol and types

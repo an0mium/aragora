@@ -4,6 +4,7 @@ RLM Streaming Mixin.
 Provides streaming query and compression methods for AragoraRLM.
 Extracted from bridge.py for better modularity.
 """
+from __future__ import annotations
 
 import logging
 import time
@@ -21,7 +22,6 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 class RLMStreamingMixin:
     """
@@ -137,7 +137,7 @@ class RLMStreamingMixin:
         """
         refinement_history: list[str] = []
         iteration = 0
-        result: Optional[RLMResult] = None
+        result: RLMResult | None = None
 
         # Emit query start
         yield RLMStreamEvent(
@@ -154,7 +154,7 @@ class RLMStreamingMixin:
             )
 
             # Generate feedback for iterations > 0
-            feedback: Optional[str] = None
+            feedback: str | None = None
             if iteration > 0 and result:
                 if feedback_generator:
                     feedback = feedback_generator(result)
@@ -325,6 +325,5 @@ class RLMStreamingMixin:
                 error=str(e),
             )
             raise
-
 
 __all__ = ["RLMStreamingMixin"]

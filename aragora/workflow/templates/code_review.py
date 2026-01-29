@@ -10,9 +10,9 @@ Multi-agent workflows for automated code review:
 Integrates with CodeReviewOrchestrator for comprehensive reviews.
 """
 
-from typing import Any, Dict
+from typing import Any
 
-CODE_REVIEW_WORKFLOW: Dict[str, Any] = {
+CODE_REVIEW_WORKFLOW: dict[str, Any] = {
     "name": "Automated Code Review",
     "description": "Multi-agent code review with specialized reviewers",
     "category": "development",
@@ -219,7 +219,7 @@ CODE_REVIEW_WORKFLOW: Dict[str, Any] = {
     ],
 }
 
-QUICK_SECURITY_SCAN: Dict[str, Any] = {
+QUICK_SECURITY_SCAN: dict[str, Any] = {
     "name": "Quick Security Scan",
     "description": "Fast security-focused code review",
     "category": "security",
@@ -257,7 +257,7 @@ QUICK_SECURITY_SCAN: Dict[str, Any] = {
     ],
 }
 
-ARCHITECTURE_REVIEW_WORKFLOW: Dict[str, Any] = {
+ARCHITECTURE_REVIEW_WORKFLOW: dict[str, Any] = {
     "name": "Architecture Review",
     "description": "Review architectural impact of code changes",
     "category": "development",

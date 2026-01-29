@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 
 # Supported integration types
 SUPPORTED_INTEGRATIONS = {"slack", "teams", "discord", "email"}
-
 
 class IntegrationsHandler(BaseHandler):
     """
@@ -85,9 +84,9 @@ class IntegrationsHandler(BaseHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
         query_params = query_params or {}
@@ -152,7 +151,7 @@ class IntegrationsHandler(BaseHandler):
 
     @require_permission("integrations.read")
     async def _list_integrations(
-        self, tenant_id: Optional[str], query_params: Dict[str, str]
+        self, tenant_id: str | None, query_params: dict[str, str]
     ) -> HandlerResult:
         """
         List all integrations for a tenant.
@@ -168,7 +167,7 @@ class IntegrationsHandler(BaseHandler):
         filter_type = query_params.get("type")
         filter_status = query_params.get("status")
 
-        integrations: List[Dict[str, Any]] = []
+        integrations: list[dict[str, Any]] = []
 
         # Get Slack integrations
         if not filter_type or filter_type == "slack":
@@ -248,8 +247,8 @@ class IntegrationsHandler(BaseHandler):
     async def _get_integration(
         self,
         integration_type: str,
-        workspace_id: Optional[str],
-        tenant_id: Optional[str],
+        workspace_id: str | None,
+        tenant_id: str | None,
     ) -> HandlerResult:
         """Get specific integration details."""
         if integration_type == "slack":
@@ -346,8 +345,8 @@ class IntegrationsHandler(BaseHandler):
     async def _disconnect_integration(
         self,
         integration_type: str,
-        workspace_id: Optional[str],
-        tenant_id: Optional[str],
+        workspace_id: str | None,
+        tenant_id: str | None,
     ) -> HandlerResult:
         """Disconnect an integration."""
         if not workspace_id:
@@ -404,8 +403,8 @@ class IntegrationsHandler(BaseHandler):
     async def _test_integration(
         self,
         integration_type: str,
-        workspace_id: Optional[str],
-        tenant_id: Optional[str],
+        workspace_id: str | None,
+        tenant_id: str | None,
     ) -> HandlerResult:
         """Test integration connectivity."""
         if integration_type == "slack":
@@ -474,8 +473,8 @@ class IntegrationsHandler(BaseHandler):
     async def _get_health(
         self,
         integration_type: str,
-        workspace_id: Optional[str],
-        tenant_id: Optional[str],
+        workspace_id: str | None,
+        tenant_id: str | None,
     ) -> HandlerResult:
         """
         Get health status for an integration.
@@ -613,7 +612,7 @@ class IntegrationsHandler(BaseHandler):
         return error_response(f"Unknown integration type: {integration_type}", 400)
 
     @require_permission("integrations.read")
-    async def _get_stats(self, tenant_id: Optional[str]) -> HandlerResult:
+    async def _get_stats(self, tenant_id: str | None) -> HandlerResult:
         """Get integration statistics."""
         slack_store = self._get_slack_store()
         teams_store = self._get_teams_store()
@@ -635,7 +634,7 @@ class IntegrationsHandler(BaseHandler):
             }
         )
 
-    async def _check_slack_health(self, workspace) -> Dict[str, Any]:
+    async def _check_slack_health(self, workspace) -> dict[str, Any]:
         """Check Slack workspace health."""
         try:
             import json
@@ -664,7 +663,7 @@ class IntegrationsHandler(BaseHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    async def _check_teams_health(self, workspace) -> Dict[str, Any]:
+    async def _check_teams_health(self, workspace) -> dict[str, Any]:
         """Check Teams workspace health."""
         try:
             import json
@@ -691,7 +690,7 @@ class IntegrationsHandler(BaseHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    async def _check_discord_health(self) -> Dict[str, Any]:
+    async def _check_discord_health(self) -> dict[str, Any]:
         """Check Discord bot health."""
         import os
 
@@ -720,7 +719,7 @@ class IntegrationsHandler(BaseHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    async def _check_email_health(self) -> Dict[str, Any]:
+    async def _check_email_health(self) -> dict[str, Any]:
         """Check email/SMTP health."""
         import os
         import socket
@@ -752,7 +751,6 @@ class IntegrationsHandler(BaseHandler):
 
         except Exception as e:
             return {"status": "error", "error": str(e)}
-
 
 # Handler factory function for registration
 def create_integrations_handler(server_context: ServerContext) -> IntegrationsHandler:

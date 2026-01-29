@@ -16,7 +16,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.verticals.base import (
     BaseVerticalKnowledge,
@@ -28,7 +28,6 @@ from aragora.knowledge.mound.verticals.base import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class FinancialPattern:
     """Pattern for detecting financial terms."""
@@ -39,7 +38,6 @@ class FinancialPattern:
     risk_level: str  # high, medium, low
     description: str
 
-
 @dataclass
 class AuditPattern:
     """Pattern for detecting audit-related terms."""
@@ -49,7 +47,6 @@ class AuditPattern:
     category: str  # finding, control, test, etc.
     severity: str
     description: str
-
 
 class AccountingKnowledge(BaseVerticalKnowledge):
     """
@@ -259,7 +256,7 @@ class AccountingKnowledge(BaseVerticalKnowledge):
     async def extract_facts(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list[VerticalFact]:
         """Extract accounting facts from financial documents."""
         facts = []
@@ -347,7 +344,7 @@ class AccountingKnowledge(BaseVerticalKnowledge):
     async def validate_fact(
         self,
         fact: VerticalFact,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> tuple[bool, float]:
         """
         Validate an accounting fact.

@@ -4,6 +4,7 @@ Database connection resilience with retry logic.
 Provides ResilientConnection for automatic retry on transient SQLite errors
 like "database is locked" and "database is busy".
 """
+from __future__ import annotations
 
 __all__ = [
     "TRANSIENT_ERRORS",
@@ -20,7 +21,7 @@ import threading
 import time
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Callable, TypeVar
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.exceptions import InfrastructureError
@@ -38,12 +39,10 @@ TRANSIENT_ERRORS = (
     "disk i/o error",
 )
 
-
 def is_transient_error(error: Exception) -> bool:
     """Check if an error is transient and can be retried."""
     error_msg = str(error).lower()
     return any(te in error_msg for te in TRANSIENT_ERRORS)
-
 
 class ResilientConnection:
     """
@@ -113,10 +112,10 @@ class ResilientConnection:
         Raises:
             sqlite3.Error: If all retry attempts fail
         """
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(self.max_retries + 1):
-            conn: Optional[sqlite3.Connection] = None
+            conn: sqlite3.Connection | None = None
             try:
                 conn = self._create_connection()
                 cursor = conn.cursor()
@@ -195,7 +194,6 @@ class ResilientConnection:
             cursor.executemany(query, params_list)
             return cursor.rowcount
 
-
 def with_retry(
     max_retries: int = 3,
     base_delay: float = 0.1,
@@ -221,7 +219,7 @@ def with_retry(
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(*args, **kwargs) -> T:
-            last_error: Optional[Exception] = None
+            last_error: Exception | None = None
 
             for attempt in range(max_retries + 1):
                 try:
@@ -250,7 +248,6 @@ def with_retry(
         return wrapper
 
     return decorator
-
 
 @contextmanager
 def atomic_transaction(
@@ -289,10 +286,10 @@ def atomic_transaction(
     """
     from aragora.storage.schema import get_wal_connection
 
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
 
     for attempt in range(max_retries + 1):
-        conn: Optional[sqlite3.Connection] = None
+        conn: sqlite3.Connection | None = None
         try:
             conn = get_wal_connection(db_path)
             # BEGIN IMMEDIATE acquires a write lock immediately,
@@ -329,7 +326,6 @@ def atomic_transaction(
     # Should not reach here, but just in case
     if last_error:
         raise last_error
-
 
 class ConnectionPool:
     """
@@ -411,7 +407,7 @@ class ConnectionPool:
 
         The connection is automatically returned to the pool when done.
         """
-        conn: Optional[sqlite3.Connection] = None
+        conn: sqlite3.Connection | None = None
 
         with self._lock:
             # Try to get an existing connection from pool
@@ -468,7 +464,7 @@ class ConnectionPool:
                     logger.debug(f"Failed to close in-use connection: {close_err}")
             self._in_use.clear()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get connection pool statistics for observability."""
         with self._lock:
             return {

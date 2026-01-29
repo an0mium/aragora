@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 import time
-
 
 class DistributedDebateEventType(str, Enum):
     """Event types for distributed debate coordination."""
@@ -56,7 +55,6 @@ class DistributedDebateEventType(str, Enum):
     STATE_SYNC_REQUEST = "state.sync_request"
     STATE_SYNC_RESPONSE = "state.sync_response"
 
-
 @dataclass
 class DistributedDebateEvent:
     """
@@ -70,11 +68,11 @@ class DistributedDebateEvent:
     source_instance: str
     timestamp: float = field(default_factory=time.time)
     round_number: int = 0
-    agent_id: Optional[str] = None
-    data: Dict[str, Any] = field(default_factory=dict)
+    agent_id: str | None = None
+    data: dict[str, Any] = field(default_factory=dict)
     version: int = 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "event_type": self.event_type.value,
@@ -88,7 +86,7 @@ class DistributedDebateEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DistributedDebateEvent":
+    def from_dict(cls, data: dict[str, Any]) -> "DistributedDebateEvent":
         """Deserialize from dictionary."""
         return cls(
             event_type=DistributedDebateEventType(data["event_type"]),
@@ -101,7 +99,6 @@ class DistributedDebateEvent:
             version=data.get("version", 1),
         )
 
-
 @dataclass
 class AgentProposal:
     """An agent's proposal in a distributed debate."""
@@ -112,10 +109,10 @@ class AgentProposal:
     round_number: int
     timestamp: float = field(default_factory=time.time)
     confidence: float = 0.0
-    reasoning: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    reasoning: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "agent_id": self.agent_id,
@@ -128,7 +125,6 @@ class AgentProposal:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class AgentCritique:
     """An agent's critique in a distributed debate."""
@@ -140,10 +136,10 @@ class AgentCritique:
     round_number: int
     timestamp: float = field(default_factory=time.time)
     rating: float = 0.0
-    strengths: List[str] = field(default_factory=list)
-    weaknesses: List[str] = field(default_factory=list)
+    strengths: list[str] = field(default_factory=list)
+    weaknesses: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "agent_id": self.agent_id,
@@ -157,7 +153,6 @@ class AgentCritique:
             "weaknesses": self.weaknesses,
         }
 
-
 @dataclass
 class ConsensusVote:
     """A vote for consensus in a distributed debate."""
@@ -169,9 +164,9 @@ class ConsensusVote:
     round_number: int
     timestamp: float = field(default_factory=time.time)
     confidence: float = 0.0
-    reasoning: Optional[str] = None
+    reasoning: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "agent_id": self.agent_id,
@@ -183,7 +178,6 @@ class ConsensusVote:
             "confidence": self.confidence,
             "reasoning": self.reasoning,
         }
-
 
 @dataclass
 class DistributedDebateState:
@@ -200,25 +194,25 @@ class DistributedDebateState:
     current_round: int = 0
     max_rounds: int = 5
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    started_at: float | None = None
+    completed_at: float | None = None
 
     # Participating instances and agents
-    instances: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    agents: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    instances: dict[str, dict[str, Any]] = field(default_factory=dict)
+    agents: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     # Round data
-    proposals: List[AgentProposal] = field(default_factory=list)
-    critiques: List[AgentCritique] = field(default_factory=list)
-    votes: List[ConsensusVote] = field(default_factory=list)
+    proposals: list[AgentProposal] = field(default_factory=list)
+    critiques: list[AgentCritique] = field(default_factory=list)
+    votes: list[ConsensusVote] = field(default_factory=list)
 
     # Result
     consensus_reached: bool = False
-    final_answer: Optional[str] = None
-    winning_agent: Optional[str] = None
+    final_answer: str | None = None
+    winning_agent: str | None = None
     confidence: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "debate_id": self.debate_id,

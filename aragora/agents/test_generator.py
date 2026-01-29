@@ -17,12 +17,11 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.agents.base import BaseDebateAgent
 
 logger = logging.getLogger(__name__)
-
 
 class TestType(str, Enum):
     """Types of tests that can be generated."""
@@ -35,18 +34,17 @@ class TestType(str, Enum):
     PERFORMANCE = "performance"
     SECURITY = "security"
 
-
 @dataclass
 class FunctionSignature:
     """Extracted function signature for test generation."""
 
     name: str
-    parameters: List[Dict[str, str]]
-    return_type: Optional[str]
-    docstring: Optional[str]
-    decorators: List[str] = field(default_factory=list)
+    parameters: list[dict[str, str]]
+    return_type: str | None
+    docstring: str | None
+    decorators: list[str] = field(default_factory=list)
     is_async: bool = False
-    class_name: Optional[str] = None
+    class_name: str | None = None
 
     @property
     def full_name(self) -> str:
@@ -54,7 +52,6 @@ class FunctionSignature:
         if self.class_name:
             return f"{self.class_name}.{self.name}"
         return self.name
-
 
 @dataclass
 class TestSuggestion:
@@ -64,12 +61,11 @@ class TestSuggestion:
     test_name: str
     test_type: TestType
     description: str
-    input_values: Dict[str, Any]
-    expected_output: Optional[Any] = None
+    input_values: dict[str, Any]
+    expected_output: Any | None = None
     edge_case: bool = False
     priority: int = 1  # 1 = high, 5 = low
     rationale: str = ""
-
 
 @dataclass
 class CoverageGap:
@@ -79,9 +75,8 @@ class CoverageGap:
     function_name: str
     gap_type: str  # "no_tests", "missing_edge_cases", "low_coverage"
     description: str
-    suggested_tests: List[str] = field(default_factory=list)
+    suggested_tests: list[str] = field(default_factory=list)
     priority: int = 1
-
 
 class TestGeneratorAgent(BaseDebateAgent):
     """
@@ -135,7 +130,7 @@ Follow testing best practices:
             **kwargs,
         )
 
-    async def generate(self, prompt: str, context: Optional[List[Any]] = None) -> str:
+    async def generate(self, prompt: str, context: Optional[list[Any]] = None) -> str:
         """Generate test suggestions for the given prompt.
 
         TestGeneratorAgent uses structured methods like suggest_tests()
@@ -148,7 +143,7 @@ Follow testing best practices:
         self,
         proposal: str,
         task: str,
-        context: Optional[List[Any]] = None,
+        context: Optional[list[Any]] = None,
         **kwargs: Any,
     ) -> str:
         """Critique is not supported for TestGeneratorAgent.
@@ -157,7 +152,7 @@ Follow testing best practices:
         """
         return ""
 
-    def extract_function_signatures(self, code: str) -> List[FunctionSignature]:
+    def extract_function_signatures(self, code: str) -> list[FunctionSignature]:
         """
         Extract function signatures from Python code.
 
@@ -227,7 +222,7 @@ Follow testing best practices:
 
         return signatures
 
-    def _parse_parameters(self, params_str: str) -> List[Dict[str, str]]:
+    def _parse_parameters(self, params_str: str) -> list[dict[str, str]]:
         """Parse function parameters from string."""
         if not params_str.strip():
             return []
@@ -265,7 +260,7 @@ Follow testing best practices:
 
         return params
 
-    def _extract_docstring(self, lines: List[str], func_line: int) -> Optional[str]:
+    def _extract_docstring(self, lines: list[str], func_line: int) -> str | None:
         """Extract docstring following function definition."""
         if func_line + 1 >= len(lines):
             return None
@@ -287,7 +282,7 @@ Follow testing best practices:
                     docstring.append(lines[j].strip())
         return None
 
-    def _extract_decorators(self, lines: List[str], func_line: int) -> List[str]:
+    def _extract_decorators(self, lines: list[str], func_line: int) -> list[str]:
         """Extract decorators above function definition."""
         decorators = []
         for i in range(func_line - 1, max(func_line - 10, -1), -1):
@@ -298,7 +293,7 @@ Follow testing best practices:
                 break
         return list(reversed(decorators))
 
-    def suggest_tests(self, signature: FunctionSignature) -> List[TestSuggestion]:
+    def suggest_tests(self, signature: FunctionSignature) -> list[TestSuggestion]:
         """
         Suggest test cases for a function signature.
 
@@ -443,9 +438,9 @@ Follow testing best practices:
 
         return suggestions
 
-    def _generate_sample_inputs(self, parameters: List[Dict[str, str]]) -> Dict[str, Any]:
+    def _generate_sample_inputs(self, parameters: list[dict[str, str]]) -> dict[str, Any]:
         """Generate sample input values for parameters."""
-        inputs: Dict[str, Any] = {}
+        inputs: dict[str, Any] = {}
         for param in parameters:
             name = param["name"]
             type_hint = param.get("type", "")
@@ -472,7 +467,7 @@ Follow testing best practices:
 
     def generate_pytest_code(
         self,
-        suggestions: List[TestSuggestion],
+        suggestions: list[TestSuggestion],
         module_name: str = "module_under_test",
     ) -> str:
         """
@@ -536,7 +531,7 @@ Follow testing best practices:
         code: str,
         existing_tests: str,
         file_path: str = "unknown",
-    ) -> List[CoverageGap]:
+    ) -> list[CoverageGap]:
         """
         Identify gaps in test coverage.
 
@@ -608,7 +603,6 @@ Follow testing best practices:
 
         return gaps
 
-
 # Convenience function for quick test generation
 def generate_tests_for_code(code: str, module_name: str = "module") -> str:
     """
@@ -630,7 +624,6 @@ def generate_tests_for_code(code: str, module_name: str = "module") -> str:
         all_suggestions.extend(suggestions)
 
     return agent.generate_pytest_code(all_suggestions, module_name)
-
 
 # Agent configuration
 AGENT_CONFIGS = {

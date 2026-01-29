@@ -12,12 +12,11 @@ import concurrent.futures
 import logging
 import os
 import time
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 class ProbesMixin:
     """Mixin providing K8s liveness and readiness probes.
@@ -95,7 +94,7 @@ class ProbesMixin:
 
         start_time = time.time()
         ready = True
-        checks: Dict[str, Any] = {}
+        checks: dict[str, Any] = {}
 
         # Check for degraded mode first - return 503 immediately
         try:
@@ -163,8 +162,8 @@ class ProbesMixin:
         return json_response(result, status=status_code)
 
     def _check_redis_readiness(
-        self, ready: bool, checks: Dict[str, Any]
-    ) -> tuple[bool, Dict[str, Any]]:
+        self, ready: bool, checks: dict[str, Any]
+    ) -> tuple[bool, dict[str, Any]]:
         """Check Redis connectivity for readiness probe."""
         try:
             from aragora.control_plane.leader import is_distributed_state_required
@@ -235,8 +234,8 @@ class ProbesMixin:
         return ready, checks
 
     def _check_postgresql_readiness(
-        self, ready: bool, checks: Dict[str, Any]
-    ) -> tuple[bool, Dict[str, Any]]:
+        self, ready: bool, checks: dict[str, Any]
+    ) -> tuple[bool, dict[str, Any]]:
         """Check PostgreSQL connectivity for readiness probe."""
         require_database = False
         try:

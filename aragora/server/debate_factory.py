@@ -4,6 +4,7 @@ Factory for creating and configuring debate arenas.
 Extracts agent creation and arena setup logic from unified_server.py
 for better modularity and testability.
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -54,10 +55,8 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
     from aragora.server.stream.emitter import SyncEventEmitter
 
-
 # Import the unified AgentSpec from agents.spec
 from aragora.agents.spec import AgentSpec
-
 
 @dataclass
 class AgentCreationResult:
@@ -79,7 +78,6 @@ class AgentCreationResult:
         """Check if minimum number of agents were created."""
         return self.success_count >= 2
 
-
 @dataclass
 class DebateConfig:
     """Configuration for debate creation."""
@@ -89,9 +87,9 @@ class DebateConfig:
     rounds: int = DEFAULT_ROUNDS  # 9-round format (0-8), default for all debates
     consensus: str = DEFAULT_CONSENSUS  # Default consensus for final decisions
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
-    metadata: Optional[dict] = None  # Custom metadata (e.g., is_onboarding)
+    metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
     auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
 
     def parse_agent_specs(self) -> list[AgentSpec]:
@@ -148,7 +146,6 @@ class DebateConfig:
             raise ValueError("At least 2 agents required for a debate")
 
         return specs
-
 
 class DebateFactory:
     """
@@ -213,7 +210,7 @@ class DebateFactory:
         self,
         specs: list[AgentSpec],
         stream_wrapper: Optional[Callable[..., Any]] = None,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> AgentCreationResult:
         """Create agents from specifications.
 
@@ -302,7 +299,7 @@ class DebateFactory:
         except Exception as e:
             logger.warning(f"Failed to emit agent error event: {e}")
 
-    def _get_persona_prompt(self, persona: str) -> Optional[str]:
+    def _get_persona_prompt(self, persona: str) -> str | None:
         """Get system prompt modifier for a persona.
 
         DEPRECATED: Use aragora.agents.personas.get_persona_prompt() instead.
@@ -409,9 +406,9 @@ class DebateFactory:
     def create_arena(
         self,
         config: DebateConfig,
-        event_hooks: Optional[dict] = None,
+        event_hooks: dict | None = None,
         stream_wrapper: Optional[Callable[..., Any]] = None,
-        enable_rlm_training: Optional[bool] = None,
+        enable_rlm_training: bool | None = None,
     ) -> "Arena":
         """Create a fully configured debate arena.
 

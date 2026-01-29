@@ -14,7 +14,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.config.legacy import get_db_path
 from aragora.observability import get_logger
@@ -25,11 +25,9 @@ from .policy import ControlPlanePolicy, PolicyViolation
 
 logger = get_logger(__name__)
 
-
 def _get_default_db_path() -> Path:
     """Get the default database path for control plane policy store."""
     return get_db_path("control_plane/policies.db")
-
 
 class ControlPlanePolicyStore(SQLiteStore):
     """
@@ -89,7 +87,7 @@ class ControlPlanePolicyStore(SQLiteStore):
         CREATE INDEX IF NOT EXISTS idx_cp_violations_status ON control_plane_violations(status);
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """Initialize the policy store."""
         self.db_path = db_path or _get_default_db_path()
 
@@ -159,7 +157,7 @@ class ControlPlanePolicyStore(SQLiteStore):
         logger.info("control_plane_policy_created", policy_id=policy.id, name=policy.name)
         return policy
 
-    def get_policy(self, policy_id: str) -> Optional[ControlPlanePolicy]:
+    def get_policy(self, policy_id: str) -> ControlPlanePolicy | None:
         """Get a policy by ID."""
         row = self.execute(
             "SELECT * FROM control_plane_policies WHERE id = ?",
@@ -172,13 +170,13 @@ class ControlPlanePolicyStore(SQLiteStore):
     def list_policies(
         self,
         enabled_only: bool = False,
-        workspace: Optional[str] = None,
+        workspace: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[ControlPlanePolicy]:
+    ) -> list[ControlPlanePolicy]:
         """List policies with optional filters."""
         query = "SELECT * FROM control_plane_policies WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if enabled_only:
             query += " AND enabled = 1"
@@ -198,8 +196,8 @@ class ControlPlanePolicyStore(SQLiteStore):
     def update_policy(
         self,
         policy_id: str,
-        updates: Dict[str, Any],
-    ) -> Optional[ControlPlanePolicy]:
+        updates: dict[str, Any],
+    ) -> ControlPlanePolicy | None:
         """Update a policy."""
         policy = self.get_policy(policy_id)
         if not policy:
@@ -320,16 +318,16 @@ class ControlPlanePolicyStore(SQLiteStore):
 
     def list_violations(
         self,
-        policy_id: Optional[str] = None,
-        violation_type: Optional[str] = None,
-        status: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        policy_id: str | None = None,
+        violation_type: str | None = None,
+        status: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List violations with optional filters."""
         query = "SELECT * FROM control_plane_violations WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if policy_id:
             query += " AND policy_id = ?"
@@ -355,16 +353,16 @@ class ControlPlanePolicyStore(SQLiteStore):
 
     def count_violations(
         self,
-        status: Optional[str] = None,
-        policy_id: Optional[str] = None,
-    ) -> Dict[str, int]:
+        status: str | None = None,
+        policy_id: str | None = None,
+    ) -> dict[str, int]:
         """Count violations by type."""
         query = """
             SELECT violation_type, COUNT(*) as count
             FROM control_plane_violations
             WHERE 1=1
         """
-        params: List[Any] = []
+        params: list[Any] = []
 
         if status:
             query += " AND status = ?"
@@ -383,8 +381,8 @@ class ControlPlanePolicyStore(SQLiteStore):
         self,
         violation_id: str,
         status: str,
-        resolved_by: Optional[str] = None,
-        resolution_notes: Optional[str] = None,
+        resolved_by: str | None = None,
+        resolution_notes: str | None = None,
     ) -> bool:
         """Update violation status."""
         resolved_at = datetime.now(timezone.utc).isoformat() if status == "resolved" else None
@@ -428,7 +426,7 @@ class ControlPlanePolicyStore(SQLiteStore):
             }
         )
 
-    def _row_to_violation_dict(self, row: Any) -> Dict[str, Any]:
+    def _row_to_violation_dict(self, row: Any) -> dict[str, Any]:
         """Convert a database row to a violation dict."""
         return {
             "id": row["id"],
@@ -449,7 +447,6 @@ class ControlPlanePolicyStore(SQLiteStore):
             "resolution_notes": row["resolution_notes"],
             "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
         }
-
 
 class PostgresControlPlanePolicyStore:
     """PostgreSQL-backed store for control plane policies (production)."""
@@ -549,7 +546,7 @@ class PostgresControlPlanePolicyStore:
         logger.info("control_plane_policy_created", policy_id=policy.id, name=policy.name)
         return policy
 
-    def get_policy(self, policy_id: str) -> Optional[ControlPlanePolicy]:
+    def get_policy(self, policy_id: str) -> ControlPlanePolicy | None:
         """Get a policy by ID."""
         rows = self._backend.execute_read(  # type: ignore[attr-defined]
             "SELECT * FROM control_plane_policies WHERE id = $1",
@@ -562,13 +559,13 @@ class PostgresControlPlanePolicyStore:
     def list_policies(
         self,
         enabled_only: bool = False,
-        workspace: Optional[str] = None,
+        workspace: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[ControlPlanePolicy]:
+    ) -> list[ControlPlanePolicy]:
         """List policies with optional filters."""
         query = "SELECT * FROM control_plane_policies WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
         param_idx = 1
 
         if enabled_only:
@@ -591,8 +588,8 @@ class PostgresControlPlanePolicyStore:
     def update_policy(
         self,
         policy_id: str,
-        updates: Dict[str, Any],
-    ) -> Optional[ControlPlanePolicy]:
+        updates: dict[str, Any],
+    ) -> ControlPlanePolicy | None:
         """Update a policy."""
         import json as json_module
 
@@ -720,16 +717,16 @@ class PostgresControlPlanePolicyStore:
 
     def list_violations(
         self,
-        policy_id: Optional[str] = None,
-        violation_type: Optional[str] = None,
-        status: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        policy_id: str | None = None,
+        violation_type: str | None = None,
+        status: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List violations with optional filters."""
         query = "SELECT * FROM control_plane_violations WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
         param_idx = 1
 
         if policy_id:
@@ -760,16 +757,16 @@ class PostgresControlPlanePolicyStore:
 
     def count_violations(
         self,
-        status: Optional[str] = None,
-        policy_id: Optional[str] = None,
-    ) -> Dict[str, int]:
+        status: str | None = None,
+        policy_id: str | None = None,
+    ) -> dict[str, int]:
         """Count violations by type."""
         query = """
             SELECT violation_type, COUNT(*) as count
             FROM control_plane_violations
             WHERE 1=1
         """
-        params: List[Any] = []
+        params: list[Any] = []
         param_idx = 1
 
         if status:
@@ -791,8 +788,8 @@ class PostgresControlPlanePolicyStore:
         self,
         violation_id: str,
         status: str,
-        resolved_by: Optional[str] = None,
-        resolution_notes: Optional[str] = None,
+        resolved_by: str | None = None,
+        resolution_notes: str | None = None,
     ) -> bool:
         """Update violation status."""
         resolved_at = datetime.now(timezone.utc).isoformat() if status == "resolved" else None
@@ -840,7 +837,7 @@ class PostgresControlPlanePolicyStore:
             }
         )
 
-    def _row_to_violation_dict(self, row: Any) -> Dict[str, Any]:
+    def _row_to_violation_dict(self, row: Any) -> dict[str, Any]:
         """Convert a database row to a violation dict."""
         return {
             "id": row["id"],
@@ -870,13 +867,11 @@ class PostgresControlPlanePolicyStore:
             "metadata": row["metadata"] if isinstance(row["metadata"], dict) else {},
         }
 
-
 # Factory function
-_policy_store_instance: Optional[ControlPlanePolicyStore] = None
-
+_policy_store_instance: ControlPlanePolicyStore | None = None
 
 def get_control_plane_policy_store(
-    db_path: Optional[Path] = None,
+    db_path: Path | None = None,
 ) -> ControlPlanePolicyStore:
     """
     Get or create the control plane policy store singleton.
@@ -913,7 +908,6 @@ def get_control_plane_policy_store(
         path=str(db_path or _get_default_db_path()),
     )
     return _policy_store_instance
-
 
 def reset_control_plane_policy_store() -> None:
     """Reset the policy store singleton (for testing)."""

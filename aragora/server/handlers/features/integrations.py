@@ -16,11 +16,12 @@ Storage:
 - Integration configs are persisted to SQLite/Redis via IntegrationStore
 - Survives server restarts and supports multi-instance deployments
 """
+from __future__ import annotations
 
 import logging
 import time
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Literal, Optional, Protocol, cast, runtime_checkable
+from typing import Any, Literal, Optional, Protocol, cast, runtime_checkable
 
 from aragora.server.handlers.base import (
     error_response,
@@ -37,20 +38,17 @@ from aragora.storage.integration_store import (
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Integration Types and Models
 # =============================================================================
 
 IntegrationType = Literal["slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"]
 
-
 def _cast_integration_type(value: str) -> IntegrationType:
     """Cast a string to IntegrationType after validation."""
     if value in ("slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"):
         return cast(IntegrationType, value)
     raise ValueError(f"Invalid integration type: {value}")
-
 
 @runtime_checkable
 class WebhookIntegration(Protocol):
@@ -60,7 +58,6 @@ class WebhookIntegration(Protocol):
         """Verify webhook connectivity."""
         ...
 
-
 @runtime_checkable
 class ConnectionIntegration(Protocol):
     """Protocol for integrations with connection verification."""
@@ -68,7 +65,6 @@ class ConnectionIntegration(Protocol):
     async def verify_connection(self) -> bool:
         """Verify connection to service."""
         ...
-
 
 @runtime_checkable
 class ConfigurableIntegration(Protocol):
@@ -79,7 +75,6 @@ class ConfigurableIntegration(Protocol):
         """Check if integration is properly configured."""
         ...
 
-
 @dataclass
 class IntegrationStatus:
     """Status information for an integration."""
@@ -89,22 +84,19 @@ class IntegrationStatus:
     status: str  # connected, degraded, disconnected, not_configured
     messages_sent: int = 0
     errors: int = 0
-    last_activity: Optional[str] = None
+    last_activity: str | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
-
 
 # =============================================================================
 # Handler Class
 # =============================================================================
 
-
 # Permission constants for integration management
 INTEGRATION_READ_PERMISSION = "integrations:read"
 INTEGRATION_WRITE_PERMISSION = "integrations:write"
 INTEGRATION_DELETE_PERMISSION = "integrations:delete"
-
 
 class IntegrationsHandler(SecureHandler):
     """Handler for integration management endpoints.
@@ -140,7 +132,7 @@ class IntegrationsHandler(SecureHandler):
             return False
         return True
 
-    async def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+    async def _check_permission(self, handler: Any, permission: str) -> HandlerResult | None:
         """Check if user has required permission. Returns error response if denied."""
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
@@ -151,7 +143,7 @@ class IntegrationsHandler(SecureHandler):
         except ForbiddenError as e:
             return error_response(str(e), status=403)
 
-    async def _get_user_id(self, handler: Any) -> tuple[Optional[str], Optional[HandlerResult]]:
+    async def _get_user_id(self, handler: Any) -> tuple[str | None, HandlerResult | None]:
         """Extract user_id from auth context, returning an error response if unauthenticated."""
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
@@ -163,7 +155,7 @@ class IntegrationsHandler(SecureHandler):
 
     def _extract_integration_type(
         self, normalized_path: str
-    ) -> tuple[Optional[str], Optional[HandlerResult]]:
+    ) -> tuple[str | None, HandlerResult | None]:
         """Extract integration type from a normalized /api/integrations path."""
         segments = normalized_path.strip("/").split("/")
         if len(segments) < 3:
@@ -177,7 +169,7 @@ class IntegrationsHandler(SecureHandler):
     async def handle_get(  # type: ignore[override]
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any = None,
     ) -> HandlerResult:
         """Handle GET requests for integration configuration."""
@@ -214,8 +206,8 @@ class IntegrationsHandler(SecureHandler):
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
-        data: Dict[str, Any],
-        query_params: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any],
+        query_params: Optional[dict[str, Any]] = None,
         handler: Any = None,
     ) -> HandlerResult:
         """Handle POST requests for integration configuration and tests."""
@@ -257,8 +249,8 @@ class IntegrationsHandler(SecureHandler):
     async def handle_put(  # type: ignore[override]
         self,
         path: str,
-        data: Dict[str, Any],
-        query_params: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any],
+        query_params: Optional[dict[str, Any]] = None,
         handler: Any = None,
     ) -> HandlerResult:
         """Handle PUT requests for integration configuration."""
@@ -281,8 +273,8 @@ class IntegrationsHandler(SecureHandler):
     async def handle_patch(  # type: ignore[override]
         self,
         path: str,
-        data: Dict[str, Any],
-        query_params: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any],
+        query_params: Optional[dict[str, Any]] = None,
         handler: Any = None,
     ) -> HandlerResult:
         """Handle PATCH requests for integration configuration."""
@@ -305,7 +297,7 @@ class IntegrationsHandler(SecureHandler):
     async def handle_delete(  # type: ignore[override]
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any = None,
     ) -> HandlerResult:
         """Handle DELETE requests for integration configuration."""
@@ -336,7 +328,7 @@ class IntegrationsHandler(SecureHandler):
                 return error
 
         store = get_integration_store()
-        statuses: List[IntegrationStatus] = []
+        statuses: list[IntegrationStatus] = []
 
         for int_type in VALID_INTEGRATION_TYPES:
             config = await store.get(int_type, user_id)
@@ -398,7 +390,7 @@ class IntegrationsHandler(SecureHandler):
     async def configure_integration(
         self,
         integration_type: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         user_id: str = "default",
         handler: Any = None,
     ) -> HandlerResult:
@@ -494,7 +486,7 @@ class IntegrationsHandler(SecureHandler):
     async def update_integration(
         self,
         integration_type: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         user_id: str = "default",
         handler: Any = None,
     ) -> HandlerResult:
@@ -638,7 +630,7 @@ class IntegrationsHandler(SecureHandler):
                 }
             )
 
-    async def _test_connection(self, integration_type: str, settings: Dict[str, Any]) -> bool:
+    async def _test_connection(self, integration_type: str, settings: dict[str, Any]) -> bool:
         """Test connection to integration provider.
 
         Args:
@@ -727,17 +719,14 @@ class IntegrationsHandler(SecureHandler):
             logger.error(f"Connection test error: {e}")
             return False
 
-
 # =============================================================================
 # Route Registration Helper
 # =============================================================================
-
 
 def _get_user_id_from_request(request: Any) -> str:
     """Extract user_id from request, defaulting to 'default'."""
     user_id = request.get("user_id")
     return str(user_id) if user_id else "default"
-
 
 def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     """Register integration routes with the application.
@@ -812,7 +801,6 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     app.router.add_patch("/api/integrations/{type}", update_integration)
     app.router.add_delete("/api/integrations/{type}", delete_integration)
     app.router.add_post("/api/integrations/{type}/test", test_integration)
-
 
 __all__ = [
     "IntegrationsHandler",

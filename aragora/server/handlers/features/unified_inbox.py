@@ -35,7 +35,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from ..base import (
@@ -49,15 +49,13 @@ from aragora.storage.unified_inbox_store import get_unified_inbox_store
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Sync Service Registry
 # =============================================================================
 
 # tenant_id -> account_id -> sync_service (GmailSyncService or OutlookSyncService)
-_sync_services: Dict[str, Dict[str, Any]] = {}
+_sync_services: dict[str, dict[str, Any]] = {}
 _sync_services_lock = asyncio.Lock()  # Thread-safe access to _sync_services
-
 
 def _convert_synced_message_to_unified(
     synced_msg: Any,
@@ -71,7 +69,7 @@ def _convert_synced_message_to_unified(
     # Extract priority info
     priority_score = 0.5
     priority_tier = "medium"
-    priority_reasons: List[str] = []
+    priority_reasons: list[str] = []
 
     if priority:
         priority_score = priority.score if hasattr(priority, "score") else 0.5
@@ -101,18 +99,15 @@ def _convert_synced_message_to_unified(
         priority_reasons=priority_reasons,
     )
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 class EmailProvider(Enum):
     """Supported email providers."""
 
     GMAIL = "gmail"
     OUTLOOK = "outlook"
-
 
 class AccountStatus(Enum):
     """Account connection status."""
@@ -122,7 +117,6 @@ class AccountStatus(Enum):
     SYNCING = "syncing"
     ERROR = "error"
     DISCONNECTED = "disconnected"
-
 
 class TriageAction(Enum):
     """Available triage actions."""
@@ -136,7 +130,6 @@ class TriageAction(Enum):
     FLAG = "flag"
     DEFER = "defer"
 
-
 @dataclass
 class ConnectedAccount:
     """Represents a connected email account."""
@@ -147,13 +140,13 @@ class ConnectedAccount:
     display_name: str
     status: AccountStatus
     connected_at: datetime
-    last_sync: Optional[datetime] = None
+    last_sync: datetime | None = None
     total_messages: int = 0
     unread_count: int = 0
     sync_errors: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -168,7 +161,6 @@ class ConnectedAccount:
             "sync_errors": self.sync_errors,
         }
 
-
 @dataclass
 class UnifiedMessage:
     """Unified message representation across providers."""
@@ -180,25 +172,25 @@ class UnifiedMessage:
     subject: str
     sender_email: str
     sender_name: str
-    recipients: List[str]
-    cc: List[str]
+    recipients: list[str]
+    cc: list[str]
     received_at: datetime
     snippet: str
     body_preview: str
     is_read: bool
     is_starred: bool
     has_attachments: bool
-    labels: List[str]
-    thread_id: Optional[str] = None
+    labels: list[str]
+    thread_id: str | None = None
     # Priority scoring
     priority_score: float = 0.5
     priority_tier: str = "medium"
-    priority_reasons: List[str] = field(default_factory=list)
+    priority_reasons: list[str] = field(default_factory=list)
     # Triage results
-    triage_action: Optional[TriageAction] = None
-    triage_rationale: Optional[str] = None
+    triage_action: TriageAction | None = None
+    triage_rationale: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -234,7 +226,6 @@ class UnifiedMessage:
             ),
         }
 
-
 @dataclass
 class TriageResult:
     """Result of multi-agent triage."""
@@ -243,13 +234,13 @@ class TriageResult:
     recommended_action: TriageAction
     confidence: float
     rationale: str
-    suggested_response: Optional[str]
-    delegate_to: Optional[str]
-    schedule_for: Optional[datetime]
-    agents_involved: List[str]
-    debate_summary: Optional[str]
+    suggested_response: str | None
+    delegate_to: str | None
+    schedule_for: datetime | None
+    agents_involved: list[str]
+    debate_summary: str | None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "message_id": self.message_id,
@@ -263,7 +254,6 @@ class TriageResult:
             "debate_summary": self.debate_summary,
         }
 
-
 @dataclass
 class InboxStats:
     """Inbox health statistics."""
@@ -271,15 +261,15 @@ class InboxStats:
     total_accounts: int
     total_messages: int
     unread_count: int
-    messages_by_priority: Dict[str, int]
-    messages_by_provider: Dict[str, int]
+    messages_by_priority: dict[str, int]
+    messages_by_provider: dict[str, int]
     avg_response_time_hours: float
     pending_triage: int
-    sync_health: Dict[str, Any]
-    top_senders: List[Dict[str, Any]]
-    hourly_volume: List[Dict[str, int]]
+    sync_health: dict[str, Any]
+    top_senders: list[dict[str, Any]]
+    hourly_volume: list[dict[str, int]]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "total_accounts": self.total_accounts,
@@ -294,11 +284,9 @@ class InboxStats:
             "hourly_volume": self.hourly_volume,
         }
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class UnifiedInboxHandler(BaseHandler):
     """Handler for unified inbox API endpoints."""
@@ -317,7 +305,7 @@ class UnifiedInboxHandler(BaseHandler):
         "/api/v1/inbox/trends",
     ]
 
-    def __init__(self, server_context: Optional[Dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
         self._store = get_unified_inbox_store()
@@ -562,7 +550,7 @@ class UnifiedInboxHandler(BaseHandler):
         auth_code: str,
         redirect_uri: str,
         tenant_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Connect Gmail account via OAuth."""
         try:
             from aragora.connectors.email import GmailSyncService, GmailSyncConfig
@@ -660,7 +648,7 @@ class UnifiedInboxHandler(BaseHandler):
         auth_code: str,
         redirect_uri: str,
         tenant_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Connect Outlook account via OAuth."""
         try:
             from aragora.connectors.email import OutlookSyncService, OutlookSyncConfig
@@ -862,13 +850,13 @@ class UnifiedInboxHandler(BaseHandler):
             logger.exception(f"Error listing messages: {e}")
             return error_response(f"Failed to list messages: {str(e)}", 500)
 
-    async def _fetch_all_messages(self, tenant_id: str) -> List[UnifiedMessage]:
+    async def _fetch_all_messages(self, tenant_id: str) -> list[UnifiedMessage]:
         """Fetch messages from all connected accounts."""
         records, total = await self._store.list_messages(tenant_id=tenant_id, limit=None)
         if total > 0:
             return [self._record_to_message(record) for record in records]
 
-        messages: List[UnifiedMessage] = []
+        messages: list[UnifiedMessage] = []
         account_records = await self._store.list_accounts(tenant_id)
 
         for record in account_records:
@@ -902,7 +890,7 @@ class UnifiedInboxHandler(BaseHandler):
 
     async def _fetch_gmail_messages(
         self, account: ConnectedAccount, tenant_id: str
-    ) -> List[UnifiedMessage]:
+    ) -> list[UnifiedMessage]:
         """Fetch messages from Gmail account."""
         # Check if sync service is running and has synced messages (thread-safe lookup)
         sync_service = None
@@ -926,7 +914,7 @@ class UnifiedInboxHandler(BaseHandler):
 
     async def _fetch_outlook_messages(
         self, account: ConnectedAccount, tenant_id: str
-    ) -> List[UnifiedMessage]:
+    ) -> list[UnifiedMessage]:
         """Fetch messages from Outlook account."""
         # Check if sync service is running and has synced messages (thread-safe lookup)
         sync_service = None
@@ -950,7 +938,7 @@ class UnifiedInboxHandler(BaseHandler):
 
     def _generate_sample_messages(
         self, account: ConnectedAccount, count: int
-    ) -> List[UnifiedMessage]:
+    ) -> list[UnifiedMessage]:
         """Generate sample messages for testing."""
         messages = []
         now = datetime.now(timezone.utc)
@@ -993,8 +981,8 @@ class UnifiedInboxHandler(BaseHandler):
         return messages
 
     async def _score_messages(
-        self, messages: List[UnifiedMessage], tenant_id: str
-    ) -> List[UnifiedMessage]:
+        self, messages: list[UnifiedMessage], tenant_id: str
+    ) -> list[UnifiedMessage]:
         """Apply priority scoring to messages."""
         try:
             from aragora.services.email_prioritization import (  # noqa: F401
@@ -1053,7 +1041,7 @@ class UnifiedInboxHandler(BaseHandler):
             if not message_ids:
                 return error_response("No message IDs provided", 400)
 
-            messages_to_triage: List[UnifiedMessage] = []
+            messages_to_triage: list[UnifiedMessage] = []
             for message_id in message_ids:
                 record = await self._store.get_message(tenant_id, message_id)
                 if record:
@@ -1078,10 +1066,10 @@ class UnifiedInboxHandler(BaseHandler):
 
     async def _run_triage(
         self,
-        messages: List[UnifiedMessage],
-        context: Dict[str, Any],
+        messages: list[UnifiedMessage],
+        context: dict[str, Any],
         tenant_id: str,
-    ) -> List[TriageResult]:
+    ) -> list[TriageResult]:
         """Run multi-agent triage on messages."""
         results = []
 
@@ -1110,7 +1098,7 @@ class UnifiedInboxHandler(BaseHandler):
     async def _triage_single_message(
         self,
         message: UnifiedMessage,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         tenant_id: str,
     ) -> TriageResult:
         """Triage a single message using multi-agent debate."""
@@ -1296,7 +1284,7 @@ class UnifiedInboxHandler(BaseHandler):
         }
 
         # Top senders
-        sender_counts: Dict[str, int] = {}
+        sender_counts: dict[str, int] = {}
         for m in messages:
             sender_counts[m.sender_email] = sender_counts.get(m.sender_email, 0) + 1
 
@@ -1378,7 +1366,7 @@ class UnifiedInboxHandler(BaseHandler):
             return
         loop.create_task(_persist())
 
-    def _account_to_record(self, account: ConnectedAccount) -> Dict[str, Any]:
+    def _account_to_record(self, account: ConnectedAccount) -> dict[str, Any]:
         return {
             "id": account.id,
             "provider": account.provider.value,
@@ -1393,7 +1381,7 @@ class UnifiedInboxHandler(BaseHandler):
             "metadata": account.metadata,
         }
 
-    def _record_to_account(self, record: Dict[str, Any]) -> ConnectedAccount:
+    def _record_to_account(self, record: dict[str, Any]) -> ConnectedAccount:
         return ConnectedAccount(
             id=record["id"],
             provider=EmailProvider(record["provider"]),
@@ -1409,7 +1397,7 @@ class UnifiedInboxHandler(BaseHandler):
             metadata=record.get("metadata") or {},
         )
 
-    def _message_to_record(self, message: UnifiedMessage) -> Dict[str, Any]:
+    def _message_to_record(self, message: UnifiedMessage) -> dict[str, Any]:
         return {
             "id": message.id,
             "account_id": message.account_id,
@@ -1435,7 +1423,7 @@ class UnifiedInboxHandler(BaseHandler):
             "triage_rationale": message.triage_rationale,
         }
 
-    def _record_to_message(self, record: Dict[str, Any]) -> UnifiedMessage:
+    def _record_to_message(self, record: dict[str, Any]) -> UnifiedMessage:
         triage_action = record.get("triage_action")
         return UnifiedMessage(
             id=record["id"],
@@ -1463,7 +1451,7 @@ class UnifiedInboxHandler(BaseHandler):
             triage_rationale=record.get("triage_rationale"),
         )
 
-    def _triage_to_record(self, triage: TriageResult) -> Dict[str, Any]:
+    def _triage_to_record(self, triage: TriageResult) -> dict[str, Any]:
         return {
             "message_id": triage.message_id,
             "recommended_action": triage.recommended_action.value,
@@ -1477,7 +1465,7 @@ class UnifiedInboxHandler(BaseHandler):
             "created_at": datetime.now(timezone.utc),
         }
 
-    def _record_to_triage(self, record: Dict[str, Any]) -> TriageResult:
+    def _record_to_triage(self, record: dict[str, Any]) -> TriageResult:
         return TriageResult(
             message_id=record["message_id"],
             recommended_action=TriageAction(record["recommended_action"]),
@@ -1490,7 +1478,7 @@ class UnifiedInboxHandler(BaseHandler):
             debate_summary=record.get("debate_summary"),
         )
 
-    def _ensure_datetime(self, value: Any) -> Optional[datetime]:
+    def _ensure_datetime(self, value: Any) -> datetime | None:
         if value is None:
             return None
         if isinstance(value, datetime):
@@ -1504,7 +1492,7 @@ class UnifiedInboxHandler(BaseHandler):
     # Utility Methods
     # =========================================================================
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
@@ -1512,7 +1500,7 @@ class UnifiedInboxHandler(BaseHandler):
             return request.json
         return {}
 
-    def _get_query_params(self, request: Any) -> Dict[str, str]:
+    def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""
         if hasattr(request, "query"):
             return dict(request.query)
@@ -1520,13 +1508,11 @@ class UnifiedInboxHandler(BaseHandler):
             return dict(request.args)
         return {}
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-_handler_instance: Optional[UnifiedInboxHandler] = None
-
+_handler_instance: UnifiedInboxHandler | None = None
 
 def get_unified_inbox_handler() -> UnifiedInboxHandler:
     """Get or create handler instance."""
@@ -1535,12 +1521,10 @@ def get_unified_inbox_handler() -> UnifiedInboxHandler:
         _handler_instance = UnifiedInboxHandler()
     return _handler_instance
 
-
 async def handle_unified_inbox(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for unified inbox requests."""
     handler = get_unified_inbox_handler()
     return await handler.handle(request, path, method)
-
 
 __all__ = [
     "UnifiedInboxHandler",

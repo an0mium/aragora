@@ -7,6 +7,7 @@ Provides secure admin impersonation with:
 3. User notification of active impersonation
 4. 2FA requirements for admin impersonation
 """
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -14,13 +15,12 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
 # Global recovery state
 _sessions_recovered: bool = False
-
 
 @dataclass
 class ImpersonationSession:
@@ -42,7 +42,7 @@ class ImpersonationSession:
         """Check if session has expired."""
         return datetime.now(timezone.utc) > self.expires_at
 
-    def to_audit_dict(self) -> Dict[str, Any]:
+    def to_audit_dict(self) -> dict[str, Any]:
         """Convert to audit log format."""
         return {
             "session_id": self.session_id,
@@ -58,24 +58,23 @@ class ImpersonationSession:
             "actions_performed": self.actions_performed,
         }
 
-
 @dataclass
 class ImpersonationAuditEntry:
     """Audit log entry for impersonation action."""
 
     timestamp: datetime
     event_type: str  # start, action, end, timeout, denied
-    session_id: Optional[str]
+    session_id: str | None
     admin_user_id: str
-    target_user_id: Optional[str]
-    reason: Optional[str]
-    action_details: Optional[Dict[str, Any]]
+    target_user_id: str | None
+    reason: str | None
+    action_details: Optional[dict[str, Any]]
     ip_address: str
     user_agent: str
     success: bool
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to storage format."""
         return {
             "timestamp": self.timestamp.isoformat(),
@@ -90,7 +89,6 @@ class ImpersonationAuditEntry:
             "success": self.success,
             "error_message": self.error_message,
         }
-
 
 class ImpersonationManager:
     """
@@ -132,13 +130,13 @@ class ImpersonationManager:
         self._max_concurrent_sessions = max_concurrent_sessions
 
         # Active sessions: session_id -> ImpersonationSession
-        self._sessions: Dict[str, ImpersonationSession] = {}
+        self._sessions: dict[str, ImpersonationSession] = {}
 
         # Admin -> list of active session_ids
-        self._admin_sessions: Dict[str, List[str]] = {}
+        self._admin_sessions: dict[str, list[str]] = {}
 
         # In-memory audit log (backup if callback not configured)
-        self._audit_log: List[ImpersonationAuditEntry] = []
+        self._audit_log: list[ImpersonationAuditEntry] = []
 
         # Optional persistent store
         self._store = None
@@ -221,16 +219,16 @@ class ImpersonationManager:
         self,
         admin_user_id: str,
         admin_email: str,
-        admin_roles: List[str],
+        admin_roles: list[str],
         target_user_id: str,
         target_email: str,
-        target_roles: List[str],
+        target_roles: list[str],
         reason: str,
         ip_address: str,
         user_agent: str,
         has_2fa: bool = False,
-        duration: Optional[timedelta] = None,
-    ) -> tuple[Optional[ImpersonationSession], str]:
+        duration: timedelta | None = None,
+    ) -> tuple[ImpersonationSession | None, str]:
         """
         Start an impersonation session.
 
@@ -482,7 +480,7 @@ class ImpersonationManager:
         self,
         session_id: str,
         action_type: str,
-        action_details: Dict[str, Any],
+        action_details: dict[str, Any],
         ip_address: str,
         user_agent: str,
     ) -> bool:
@@ -536,7 +534,7 @@ class ImpersonationManager:
         self._log_audit(entry)
         return True
 
-    def validate_session(self, session_id: str) -> Optional[ImpersonationSession]:
+    def validate_session(self, session_id: str) -> ImpersonationSession | None:
         """
         Validate and return an impersonation session.
 
@@ -595,7 +593,7 @@ class ImpersonationManager:
                 sid for sid in self._admin_sessions[admin_id] if sid != session_id
             ]
 
-    def get_active_sessions_for_admin(self, admin_user_id: str) -> List[ImpersonationSession]:
+    def get_active_sessions_for_admin(self, admin_user_id: str) -> list[ImpersonationSession]:
         """Get all active sessions for an admin."""
         session_ids = self._admin_sessions.get(admin_user_id, [])
         sessions = []
@@ -607,12 +605,12 @@ class ImpersonationManager:
 
     def get_audit_log(
         self,
-        admin_user_id: Optional[str] = None,
-        target_user_id: Optional[str] = None,
-        event_type: Optional[str] = None,
-        since: Optional[datetime] = None,
+        admin_user_id: str | None = None,
+        target_user_id: str | None = None,
+        event_type: str | None = None,
+        since: datetime | None = None,
         limit: int = 100,
-    ) -> List[ImpersonationAuditEntry]:
+    ) -> list[ImpersonationAuditEntry]:
         """
         Query the in-memory audit log.
 
@@ -641,10 +639,8 @@ class ImpersonationManager:
                 break
         return result
 
-
 # Global manager instance
-_impersonation_manager: Optional[ImpersonationManager] = None
-
+_impersonation_manager: ImpersonationManager | None = None
 
 def get_impersonation_manager() -> ImpersonationManager:
     """Get or create the global impersonation manager."""
@@ -652,7 +648,6 @@ def get_impersonation_manager() -> ImpersonationManager:
     if _impersonation_manager is None:
         _impersonation_manager = ImpersonationManager()
     return _impersonation_manager
-
 
 def configure_impersonation_manager(
     audit_callback: Optional[Callable[[ImpersonationAuditEntry], None]] = None,
@@ -669,7 +664,6 @@ def configure_impersonation_manager(
         max_concurrent_sessions=max_concurrent_sessions,
     )
     return _impersonation_manager
-
 
 def recover_impersonation_sessions() -> int:
     """
@@ -735,12 +729,10 @@ def recover_impersonation_sessions() -> int:
 
     return recovered
 
-
 def reset_session_recovery() -> None:
     """Reset recovery state (for testing)."""
     global _sessions_recovered
     _sessions_recovered = False
-
 
 def clear_impersonation_sessions() -> int:
     """

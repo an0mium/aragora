@@ -30,7 +30,6 @@ Usage:
 
 import logging
 import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,6 @@ _RETRIES_TOTAL = None
 _QUEUE_SIZE = None
 _ACTIVE_ENDPOINTS = None
 _FAILURES_BY_STATUS = None
-
 
 def _get_or_create_metric(metric_class, name: str, description: str, labelnames=None, **kwargs):
     """Get existing metric from registry or create new one.
@@ -73,7 +71,6 @@ def _get_or_create_metric(metric_class, name: str, description: str, labelnames=
         if name in REGISTRY._names_to_collectors:
             return REGISTRY._names_to_collectors[name]
         raise
-
 
 def _init_metrics():
     """Initialize Prometheus metrics lazily."""
@@ -140,12 +137,11 @@ def _init_metrics():
         logger.debug("prometheus_client not installed, webhook metrics disabled")
         return False
 
-
 def record_webhook_delivery(
     event_type: str,
     success: bool,
     duration_seconds: float,
-    status_code: Optional[int] = None,
+    status_code: int | None = None,
 ) -> None:
     """
     Record a webhook delivery attempt.
@@ -177,7 +173,6 @@ def record_webhook_delivery(
             status_code=str(status_code),
         ).inc()
 
-
 def record_webhook_retry(event_type: str, attempt: int) -> None:
     """
     Record a webhook delivery retry attempt.
@@ -195,7 +190,6 @@ def record_webhook_retry(event_type: str, attempt: int) -> None:
             attempt=str(min(attempt, 5)),  # Cap at 5 to limit cardinality
         ).inc()
 
-
 def set_queue_size(size: int) -> None:
     """
     Set the current webhook delivery queue size.
@@ -208,7 +202,6 @@ def set_queue_size(size: int) -> None:
 
     if _QUEUE_SIZE is not None:
         _QUEUE_SIZE.set(size)
-
 
 def set_active_endpoints(event_type: str, count: int) -> None:
     """
@@ -224,7 +217,6 @@ def set_active_endpoints(event_type: str, count: int) -> None:
     if _ACTIVE_ENDPOINTS is not None:
         _ACTIVE_ENDPOINTS.labels(event_type=event_type).set(count)
 
-
 def increment_queue() -> None:
     """Increment the queue size by 1."""
     if not _init_metrics():
@@ -232,14 +224,12 @@ def increment_queue() -> None:
     if _QUEUE_SIZE is not None:
         _QUEUE_SIZE.inc()
 
-
 def decrement_queue() -> None:
     """Decrement the queue size by 1."""
     if not _init_metrics():
         return
     if _QUEUE_SIZE is not None:
         _QUEUE_SIZE.dec()
-
 
 class WebhookDeliveryTimer:
     """
@@ -279,11 +269,10 @@ class WebhookDeliveryTimer:
 
         return False  # Don't suppress exceptions
 
-    def set_success(self, success: bool, status_code: Optional[int] = None) -> None:
+    def set_success(self, success: bool, status_code: int | None = None) -> None:
         """Set the delivery success status."""
         self.success = success
         self.status_code = status_code
-
 
 # =============================================================================
 # Exports

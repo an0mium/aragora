@@ -18,12 +18,13 @@ Usage with LangChain:
     retriever = AragoraRetriever(api_base="https://api.aragora.ai", api_key="your-key")
     docs = retriever.get_relevant_documents("database architecture patterns")
 """
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
 from dataclasses import field
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +34,12 @@ _LANGCHAIN_DEFAULTS = get_settings()
 _DEFAULT_LC_AGENTS = _LANGCHAIN_DEFAULTS.agents.default_agent_list
 _DEFAULT_LC_ROUNDS = _LANGCHAIN_DEFAULTS.debate.default_rounds
 
-
 # =============================================================================
 # LangChain Compatibility Layer
 # =============================================================================
 # These classes provide a compatibility layer that works whether or not
 # LangChain is installed. If LangChain is available, they inherit from
 # the actual LangChain base classes.
-
 
 from langchain_core.tools import BaseTool
 from langchain_core.callbacks.base import BaseCallbackHandler
@@ -54,33 +53,29 @@ from pydantic import BaseModel, Field
 
 LANGCHAIN_AVAILABLE = True  # Kept for backwards compatibility
 
-
 # =============================================================================
 # Aragora Tool Input Schema
 # =============================================================================
-
 
 class AragoraToolInput(BaseModel):
     """Input schema for Aragora tool."""
 
     question: str = Field(description="The question or topic for the multi-agent debate")
-    agents: Optional[List[str]] = Field(
+    agents: Optional[list[str]] = Field(
         default=None,
         description="List of agent types to use (e.g., ['claude', 'gpt', 'gemini'])",
     )
-    rounds: Optional[int] = Field(default=_DEFAULT_LC_ROUNDS, description="Number of debate rounds")
-    consensus_threshold: Optional[float] = Field(
+    rounds: int | None = Field(default=_DEFAULT_LC_ROUNDS, description="Number of debate rounds")
+    consensus_threshold: float | None = Field(
         default=0.8, description="Confidence threshold for consensus (0-1)"
     )
-    include_evidence: Optional[bool] = Field(
+    include_evidence: bool | None = Field(
         default=True, description="Whether to search for and include evidence"
     )
-
 
 # =============================================================================
 # Aragora Tool
 # =============================================================================
-
 
 class AragoraTool(BaseTool):
     """
@@ -108,7 +103,7 @@ class AragoraTool(BaseTool):
     # Configuration
     api_base: str = "https://api.aragora.ai"
     api_key: str = ""
-    default_agents: List[str] = field(default_factory=lambda: list(_DEFAULT_LC_AGENTS))
+    default_agents: list[str] = field(default_factory=lambda: list(_DEFAULT_LC_AGENTS))
     default_rounds: int = _DEFAULT_LC_ROUNDS
     timeout_seconds: float = 120.0
 
@@ -119,7 +114,7 @@ class AragoraTool(BaseTool):
         self,
         api_base: str = "https://api.aragora.ai",
         api_key: str = "",
-        default_agents: Optional[List[str]] = None,
+        default_agents: Optional[list[str]] = None,
         default_rounds: int = _DEFAULT_LC_ROUNDS,
         timeout_seconds: float = 120.0,
         **kwargs,
@@ -140,16 +135,16 @@ class AragoraTool(BaseTool):
         self.default_rounds = default_rounds
         self.timeout_seconds = timeout_seconds
 
-    args_schema: Type[BaseModel] = AragoraToolInput
+    args_schema: type[BaseModel] = AragoraToolInput
 
     def _run(
         self,
         question: str,
-        agents: Optional[List[str]] = None,
-        rounds: Optional[int] = None,
+        agents: Optional[list[str]] = None,
+        rounds: int | None = None,
         consensus_threshold: float = 0.8,
         include_evidence: bool = True,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Run a synchronous debate.
 
@@ -177,11 +172,11 @@ class AragoraTool(BaseTool):
     async def _arun(
         self,
         question: str,
-        agents: Optional[List[str]] = None,
-        rounds: Optional[int] = None,
+        agents: Optional[list[str]] = None,
+        rounds: int | None = None,
         consensus_threshold: float = 0.8,
         include_evidence: bool = True,
-        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,
     ) -> str:
         """Run an asynchronous debate.
 
@@ -248,7 +243,7 @@ class AragoraTool(BaseTool):
                 }
             )
 
-    def _format_result(self, result: Dict[str, Any]) -> str:
+    def _format_result(self, result: dict[str, Any]) -> str:
         """Format the debate result as a readable string."""
         formatted = {
             "answer": result.get("final_answer", "No answer reached"),
@@ -264,11 +259,9 @@ class AragoraTool(BaseTool):
 
         return json.dumps(formatted, indent=2)
 
-
 # =============================================================================
 # Aragora Retriever
 # =============================================================================
-
 
 class AragoraRetriever(BaseRetriever):
     """
@@ -316,7 +309,7 @@ class AragoraRetriever(BaseRetriever):
         self.min_confidence = min_confidence
         self.include_metadata = include_metadata
 
-    def _get_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
+    def _get_relevant_documents(self, query: str) -> list[Document]:  # type: ignore[override]
         """Retrieve relevant documents synchronously.
 
         This is the required abstract method for LangChain BaseRetriever.
@@ -324,7 +317,7 @@ class AragoraRetriever(BaseRetriever):
         """
         return asyncio.run(self._aget_relevant_documents(query))
 
-    async def _aget_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
+    async def _aget_relevant_documents(self, query: str) -> list[Document]:  # type: ignore[override]
         """Retrieve relevant documents asynchronously."""
         import aiohttp
 
@@ -358,7 +351,7 @@ class AragoraRetriever(BaseRetriever):
             logger.error(f"Failed to retrieve documents: {e}")
             return []
 
-    def _convert_to_documents(self, nodes: List[Dict[str, Any]]) -> List[Document]:
+    def _convert_to_documents(self, nodes: list[dict[str, Any]]) -> list[Document]:
         """Convert Aragora knowledge nodes to LangChain Documents."""
         documents = []
 
@@ -380,11 +373,9 @@ class AragoraRetriever(BaseRetriever):
 
         return documents
 
-
 # =============================================================================
 # Aragora Callback Handler
 # =============================================================================
-
 
 class AragoraCallbackHandler(BaseCallbackHandler):
     """
@@ -401,9 +392,9 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def __init__(
         self,
-        on_debate_start: Optional[Callable[[Dict], None]] = None,
-        on_debate_end: Optional[Callable[[Dict], None]] = None,
-        on_consensus: Optional[Callable[[Dict], None]] = None,
+        on_debate_start: Optional[Callable[[dict], None]] = None,
+        on_debate_end: Optional[Callable[[dict], None]] = None,
+        on_consensus: Optional[Callable[[dict], None]] = None,
         on_error: Optional[Callable[[Exception], None]] = None,
         verbose: bool = False,
     ):
@@ -425,7 +416,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def on_tool_start(
         self,
-        serialized: Dict[str, Any],
+        serialized: dict[str, Any],
         input_str: str,
         **kwargs,
     ) -> None:
@@ -453,7 +444,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def on_tool_error(  # type: ignore[override]
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: Exception | KeyboardInterrupt,
         **kwargs,
     ) -> None:
         """Called when a tool errors."""
@@ -462,11 +453,9 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         if self._on_error:
             self._on_error(error)  # type: ignore[arg-type]
 
-
 # =============================================================================
 # Aragora Chain Builder
 # =============================================================================
-
 
 def create_aragora_chain(
     api_base: str = "https://api.aragora.ai",
@@ -550,18 +539,15 @@ def create_aragora_chain(
         callbacks=[AragoraCallbackHandler(verbose=verbose)],
     )
 
-
 # =============================================================================
 # Utility Functions
 # =============================================================================
-
 
 def is_langchain_available() -> bool:
     """Check if LangChain is installed and available."""
     return LANGCHAIN_AVAILABLE
 
-
-def get_langchain_version() -> Optional[str]:
+def get_langchain_version() -> str | None:
     """Get the installed LangChain version, if available."""
     if not LANGCHAIN_AVAILABLE:
         return None
@@ -571,7 +557,6 @@ def get_langchain_version() -> Optional[str]:
         return getattr(langchain_core, "__version__", "unknown")
     except Exception:  # noqa: BLE001 - Version check fallback
         return None
-
 
 # =============================================================================
 # Exports

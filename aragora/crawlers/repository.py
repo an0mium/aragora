@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncIterator, List, Optional
+from typing import AsyncIterator
 
 from aragora.crawlers.base import (
     BaseCrawler,
@@ -33,17 +33,15 @@ from aragora.crawlers.base import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class RepositoryInfo:
     """Information about a git repository."""
 
     path: Path
-    remote_url: Optional[str] = None
+    remote_url: str | None = None
     branch: str = "main"
-    last_commit: Optional[str] = None
+    last_commit: str | None = None
     commit_count: int = 0
-
 
 @dataclass
 class RepositoryCrawlerConfig(CrawlerConfig):
@@ -60,7 +58,7 @@ class RepositoryCrawlerConfig(CrawlerConfig):
     extract_imports: bool = True
 
     # File handling
-    binary_extensions: List[str] = field(
+    binary_extensions: list[str] = field(
         default_factory=lambda: [
             ".png",
             ".jpg",
@@ -92,7 +90,6 @@ class RepositoryCrawlerConfig(CrawlerConfig):
         ]
     )
 
-
 class RepositoryCrawler(BaseCrawler):
     """
     Crawler for git repositories.
@@ -116,10 +113,10 @@ class RepositoryCrawler(BaseCrawler):
 
     def __init__(
         self,
-        config: Optional[RepositoryCrawlerConfig] = None,
+        config: RepositoryCrawlerConfig | None = None,
     ):
         super().__init__(config or RepositoryCrawlerConfig())
-        self._repo_info: Optional[RepositoryInfo] = None
+        self._repo_info: RepositoryInfo | None = None
 
     @property
     def name(self) -> str:
@@ -129,7 +126,7 @@ class RepositoryCrawler(BaseCrawler):
     def source_type(self) -> str:
         return "git"
 
-    async def discover(self, source: str) -> List[str]:
+    async def discover(self, source: str) -> list[str]:
         """
         Discover files in a repository.
 
@@ -143,7 +140,7 @@ class RepositoryCrawler(BaseCrawler):
         if repo_path is None:
             return []
 
-        files: List[str] = []
+        files: list[str] = []
 
         for root, dirs, filenames in os.walk(repo_path):
             # Filter directories
@@ -222,7 +219,7 @@ class RepositoryCrawler(BaseCrawler):
                     self._stats.completed_at - self._stats.started_at
                 ).total_seconds() * 1000
 
-    async def _ensure_repository(self, source: str) -> Optional[Path]:
+    async def _ensure_repository(self, source: str) -> Path | None:
         """
         Ensure repository is available locally.
 
@@ -240,7 +237,7 @@ class RepositoryCrawler(BaseCrawler):
                 logger.error(f"Repository path does not exist: {source}")
                 return None
 
-    async def _clone_repository(self, url: str) -> Optional[Path]:
+    async def _clone_repository(self, url: str) -> Path | None:
         """Clone a remote repository."""
         import tempfile
 
@@ -292,7 +289,7 @@ class RepositoryCrawler(BaseCrawler):
         self,
         repo_path: Path,
         rel_path: str,
-    ) -> Optional[CrawlResult]:
+    ) -> CrawlResult | None:
         """Crawl a single file and extract content."""
         config = (
             self.config
@@ -361,7 +358,7 @@ class RepositoryCrawler(BaseCrawler):
             imports=imports,
         )
 
-    def _extract_symbols(self, content: str, language: str) -> List[str]:
+    def _extract_symbols(self, content: str, language: str) -> list[str]:
         """Extract function and class names using regex patterns."""
         symbols = []
 
@@ -405,7 +402,7 @@ class RepositoryCrawler(BaseCrawler):
 
         return symbols[:100]  # Limit to avoid huge lists
 
-    def _extract_imports(self, content: str, language: str) -> List[str]:
+    def _extract_imports(self, content: str, language: str) -> list[str]:
         """Extract import statements."""
         imports = []
 

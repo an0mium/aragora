@@ -30,33 +30,29 @@ logger = logging.getLogger(__name__)
 _current_tenant: ContextVar[Optional["Tenant"]] = ContextVar("current_tenant", default=None)
 
 # Context variable for tenant ID (lighter weight)
-_current_tenant_id: ContextVar[Optional[str]] = ContextVar("current_tenant_id", default=None)
+_current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
 
 T = TypeVar("T")
 F = TypeVar("F", bound=Callable[..., Any])
-
 
 class TenantNotSetError(Exception):
     """Raised when tenant is required but not set."""
 
     pass
 
-
 class TenantMismatchError(Exception):
     """Raised when tenant context doesn't match expected tenant."""
 
     pass
 
-
 @dataclass
 class TenantContextInfo:
     """Information about the current tenant context."""
 
-    tenant_id: Optional[str]
+    tenant_id: str | None
     tenant: Optional["Tenant"]
     is_set: bool
     depth: int
-
 
 class TenantContext:
     """
@@ -82,7 +78,7 @@ class TenantContext:
 
     def __init__(
         self,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         tenant: Optional["Tenant"] = None,
     ):
         """
@@ -99,10 +95,10 @@ class TenantContext:
             self._tenant = None
             self._tenant_id = tenant_id
 
-        self._token_id: Optional[Any] = None
-        self._token_tenant: Optional[Any] = None
+        self._token_id: Any | None = None
+        self._token_tenant: Any | None = None
         self._previous_tenant: Optional["Tenant"] = None
-        self._previous_tenant_id: Optional[str] = None
+        self._previous_tenant_id: str | None = None
 
     def __enter__(self) -> "TenantContext":
         """Enter sync context."""
@@ -133,7 +129,7 @@ class TenantContext:
         self.__exit__(exc_type, exc_val, exc_tb)
 
     @property
-    def tenant_id(self) -> Optional[str]:
+    def tenant_id(self) -> str | None:
         """Get the tenant ID for this context."""
         return self._tenant_id
 
@@ -141,7 +137,6 @@ class TenantContext:
     def tenant(self) -> Optional["Tenant"]:
         """Get the tenant object for this context."""
         return self._tenant
-
 
 def get_current_tenant() -> Optional["Tenant"]:
     """
@@ -152,8 +147,7 @@ def get_current_tenant() -> Optional["Tenant"]:
     """
     return _current_tenant.get()
 
-
-def get_current_tenant_id() -> Optional[str]:
+def get_current_tenant_id() -> str | None:
     """
     Get the current tenant ID from context.
 
@@ -161,7 +155,6 @@ def get_current_tenant_id() -> Optional[str]:
         Current tenant ID or None if not set
     """
     return _current_tenant_id.get()
-
 
 def require_tenant() -> "Tenant":
     """
@@ -178,7 +171,6 @@ def require_tenant() -> "Tenant":
         raise TenantNotSetError("No tenant set in current context")
     return tenant
 
-
 def require_tenant_id() -> str:
     """
     Get the current tenant ID, raising if not set.
@@ -194,7 +186,6 @@ def require_tenant_id() -> str:
         raise TenantNotSetError("No tenant ID set in current context")
     return tenant_id
 
-
 def set_tenant(tenant: Optional["Tenant"]) -> None:
     """
     Set the current tenant directly (use with caution).
@@ -207,8 +198,7 @@ def set_tenant(tenant: Optional["Tenant"]) -> None:
     _current_tenant.set(tenant)
     _current_tenant_id.set(tenant.id if tenant else None)
 
-
-def set_tenant_id(tenant_id: Optional[str]) -> None:
+def set_tenant_id(tenant_id: str | None) -> None:
     """
     Set the current tenant ID directly (use with caution).
 
@@ -216,7 +206,6 @@ def set_tenant_id(tenant_id: Optional[str]) -> None:
         tenant_id: Tenant ID to set, or None to clear
     """
     _current_tenant_id.set(tenant_id)
-
 
 def get_context_info() -> TenantContextInfo:
     """
@@ -231,7 +220,6 @@ def get_context_info() -> TenantContextInfo:
         is_set=_current_tenant_id.get() is not None,
         depth=TenantContext._depth,
     )
-
 
 def tenant_required(func: F) -> F:
     """
@@ -260,7 +248,6 @@ def tenant_required(func: F) -> F:
         return async_wrapper  # type: ignore[return-value]
     return wrapper  # type: ignore[return-value]
 
-
 def for_tenant(tenant_id: str) -> Callable[[F], F]:
     """
     Decorator that runs a function in a specific tenant context.
@@ -288,7 +275,6 @@ def for_tenant(tenant_id: str) -> Callable[[F], F]:
 
     return decorator
 
-
 def verify_tenant(expected_tenant_id: str) -> None:
     """
     Verify the current tenant matches expected.
@@ -306,7 +292,6 @@ def verify_tenant(expected_tenant_id: str) -> None:
     if current != expected_tenant_id:
         raise TenantMismatchError(f"Expected tenant {expected_tenant_id}, got {current}")
 
-
 class TenantContextStack:
     """
     Stack-based tenant context for complex scenarios.
@@ -322,7 +307,7 @@ class TenantContextStack:
         self._stack.append(tenant_id)
         set_tenant_id(tenant_id)
 
-    def pop(self) -> Optional[str]:
+    def pop(self) -> str | None:
         """Pop a tenant from the stack."""
         if not self._stack:
             return None
@@ -332,7 +317,7 @@ class TenantContextStack:
         set_tenant_id(new_current)
         return popped
 
-    def current(self) -> Optional[str]:
+    def current(self) -> str | None:
         """Get current tenant from stack."""
         return self._stack[-1] if self._stack else None
 
@@ -345,14 +330,12 @@ class TenantContextStack:
         self._stack.clear()
         set_tenant_id(None)
 
-
 # Audit backend management
 # Used for tenant-aware audit logging
 
-_audit_backend: ContextVar[Optional[Any]] = ContextVar("audit_backend", default=None)
+_audit_backend: ContextVar[Any | None] = ContextVar("audit_backend", default=None)
 
-
-def get_audit_backend() -> Optional[Any]:
+def get_audit_backend() -> Any | None:
     """
     Get the configured audit backend.
 
@@ -361,8 +344,7 @@ def get_audit_backend() -> Optional[Any]:
     """
     return _audit_backend.get()
 
-
-def set_audit_backend(backend: Optional[Any]) -> None:
+def set_audit_backend(backend: Any | None) -> None:
     """
     Set the audit backend.
 

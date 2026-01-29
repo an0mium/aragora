@@ -3,18 +3,18 @@ Debate recording and replay functionality.
 
 Enables persistence and playback of past debates for review and learning.
 """
+from __future__ import annotations
 
 import json
 import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.core import DebateResult
 
 logger = logging.getLogger(__name__)
-
 
 class DebateRecorder:
     """Records and persists debate results for later replay."""
@@ -28,7 +28,7 @@ class DebateRecorder:
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(exist_ok=True)
 
-    def save_debate(self, result: DebateResult, metadata: Optional[Dict] = None) -> str:
+    def save_debate(self, result: DebateResult, metadata: dict | None = None) -> str:
         """Save a debate result to storage.
 
         Args:
@@ -74,7 +74,6 @@ class DebateRecorder:
             # Convert other types to string
             return str(obj)
 
-
 class DebateReplayer:
     """Loads and replays recorded debates."""
 
@@ -86,7 +85,7 @@ class DebateReplayer:
         """
         self.storage_dir = Path(storage_dir)
 
-    def list_debates(self) -> List[Dict]:
+    def list_debates(self) -> list[dict]:
         """List all recorded debates with metadata.
 
         Returns:
@@ -122,7 +121,7 @@ class DebateReplayer:
         debates.sort(key=lambda x: x.get("recorded_at", ""), reverse=True)
         return debates
 
-    def load_debate(self, filename: str) -> Optional[DebateResult]:
+    def load_debate(self, filename: str) -> DebateResult | None:
         """Load a specific debate by filename.
 
         Args:
@@ -147,7 +146,7 @@ class DebateReplayer:
             logger.error("Error loading debate %s: %s", filename, e)
             return None
 
-    def replay_debate(self, filename: str, speed: float = 1.0) -> Optional[DebateResult]:
+    def replay_debate(self, filename: str, speed: float = 1.0) -> DebateResult | None:
         """Replay a debate with optional speed control.
 
         Args:

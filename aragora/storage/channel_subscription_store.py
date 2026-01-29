@@ -32,7 +32,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,6 @@ CHANNEL_SUBSCRIPTION_DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "..", "data", "channel_subscriptions.db"),
 )
 
-
 class ChannelType(str, Enum):
     """Supported channel types for notifications."""
 
@@ -51,7 +50,6 @@ class ChannelType(str, Enum):
     TEAMS = "teams"
     EMAIL = "email"
     WEBHOOK = "webhook"
-
 
 class EventType(str, Enum):
     """Event types that can be subscribed to."""
@@ -61,7 +59,6 @@ class EventType(str, Enum):
     DEBATE_COMPLETE = "debate_complete"
     CONSENSUS_REACHED = "consensus_reached"
 
-
 @dataclass
 class ChannelSubscription:
     """Represents a channel subscription for notifications."""
@@ -70,15 +67,15 @@ class ChannelSubscription:
     org_id: str
     channel_type: ChannelType
     channel_id: str
-    event_types: List[EventType]
+    event_types: list[EventType]
     created_at: float  # Unix timestamp
-    workspace_id: Optional[str] = None
-    channel_name: Optional[str] = None
-    created_by: Optional[str] = None
+    workspace_id: str | None = None
+    channel_name: str | None = None
+    created_by: str | None = None
     is_active: bool = True
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         return {
             "id": self.id,
@@ -135,7 +132,6 @@ class ChannelSubscription:
             config=config,
         )
 
-
 class ChannelSubscriptionStore:
     """SQLite-backed storage for channel subscriptions.
 
@@ -143,16 +139,16 @@ class ChannelSubscriptionStore:
     """
 
     _local = threading.local()
-    _instances: Dict[str, "ChannelSubscriptionStore"] = {}
+    _instances: dict[str, "ChannelSubscriptionStore"] = {}
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the store.
 
         Args:
             db_path: Path to SQLite database. Defaults to CHANNEL_SUBSCRIPTION_DB_PATH.
         """
         self.db_path = db_path or CHANNEL_SUBSCRIPTION_DB_PATH
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self._ensure_schema()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -269,7 +265,7 @@ class ChannelSubscriptionStore:
                 f"and channel {subscription.channel_id}"
             ) from e
 
-    def get(self, subscription_id: str) -> Optional[ChannelSubscription]:
+    def get(self, subscription_id: str) -> ChannelSubscription | None:
         """Get a subscription by ID.
 
         Args:
@@ -289,10 +285,10 @@ class ChannelSubscriptionStore:
     def get_by_org(
         self,
         org_id: str,
-        channel_type: Optional[ChannelType] = None,
-        event_type: Optional[EventType] = None,
+        channel_type: ChannelType | None = None,
+        event_type: EventType | None = None,
         active_only: bool = True,
-    ) -> List[ChannelSubscription]:
+    ) -> list[ChannelSubscription]:
         """Get subscriptions for an organization.
 
         Args:
@@ -306,7 +302,7 @@ class ChannelSubscriptionStore:
         """
         conn = self._get_connection()
         query = "SELECT * FROM channel_subscriptions WHERE org_id = ?"
-        params: List[Any] = [org_id]
+        params: list[Any] = [org_id]
 
         if active_only:
             query += " AND is_active = 1"
@@ -336,7 +332,7 @@ class ChannelSubscriptionStore:
         self,
         org_id: str,
         event_type: EventType,
-    ) -> List[ChannelSubscription]:
+    ) -> list[ChannelSubscription]:
         """Get active subscriptions for a specific event type.
 
         Args:
@@ -351,11 +347,11 @@ class ChannelSubscriptionStore:
     def update(
         self,
         subscription_id: str,
-        event_types: Optional[List[EventType]] = None,
-        is_active: Optional[bool] = None,
-        channel_name: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Optional[ChannelSubscription]:
+        event_types: Optional[list[EventType]] = None,
+        is_active: bool | None = None,
+        channel_name: str | None = None,
+        config: Optional[dict[str, Any]] = None,
+    ) -> ChannelSubscription | None:
         """Update a subscription.
 
         Args:
@@ -374,7 +370,7 @@ class ChannelSubscriptionStore:
 
         conn = self._get_connection()
         updates = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if event_types is not None:
             updates.append("event_types = ?")
@@ -453,7 +449,7 @@ class ChannelSubscriptionStore:
         """
         conn = self._get_connection()
         query = "SELECT COUNT(*) FROM channel_subscriptions WHERE org_id = ?"
-        params: List[Any] = [org_id]
+        params: list[Any] = [org_id]
 
         if active_only:
             query += " AND is_active = 1"
@@ -467,11 +463,9 @@ class ChannelSubscriptionStore:
         conn.execute("DELETE FROM channel_subscriptions")
         conn.commit()
 
-
 # Global instance (lazy initialization)
-_store: Optional[ChannelSubscriptionStore] = None
+_store: ChannelSubscriptionStore | None = None
 _store_lock = threading.Lock()
-
 
 def get_channel_subscription_store() -> ChannelSubscriptionStore:
     """Get the global channel subscription store instance."""

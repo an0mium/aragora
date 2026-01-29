@@ -35,7 +35,7 @@ import asyncio
 import os
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional
 
 from aragora.config.settings import get_settings
 from aragora.core import Agent, DebateResult, Environment
@@ -46,7 +46,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class DebateOptions:
     """Configuration options for a debate.
@@ -55,7 +54,7 @@ class DebateOptions:
     """
 
     # Protocol options
-    rounds: Optional[int] = None
+    rounds: int | None = None
     consensus: Optional[
         Literal[
             "majority",
@@ -136,7 +135,6 @@ class DebateOptions:
             enable_graph=self.enable_graph,
         )
 
-
 class DebateService:
     """High-level service for running debates.
 
@@ -167,7 +165,7 @@ class DebateService:
     def __init__(
         self,
         default_agents: Optional[list[Agent] | list[str]] = None,
-        default_options: Optional[DebateOptions] = None,
+        default_options: DebateOptions | None = None,
         memory: Optional["ContinuumMemory"] = None,
         agent_resolver: Optional[Callable[[str], Agent]] = None,
     ):
@@ -187,9 +185,9 @@ class DebateService:
     async def run(
         self,
         task: str,
-        agents: Optional[Union[list[Agent], list[str]]] = None,
-        protocol: Optional[DebateProtocol] = None,
-        options: Optional[DebateOptions] = None,
+        agents: Optional[list[Agent] | list[str]] = None,
+        protocol: DebateProtocol | None = None,
+        options: DebateOptions | None = None,
         memory: Optional["ContinuumMemory"] = None,
         **kwargs: Any,
     ) -> DebateResult:
@@ -274,7 +272,7 @@ class DebateService:
         self,
         task: str,
         rounds: int = 2,
-        agents: Optional[Union[list[Agent], list[str]]] = None,
+        agents: Optional[list[Agent] | list[str]] = None,
     ) -> DebateResult:
         """Run a quick debate with minimal configuration.
 
@@ -297,8 +295,8 @@ class DebateService:
     async def run_deep(
         self,
         task: str,
-        agents: Optional[Union[list[Agent], list[str]]] = None,
-        rounds: Optional[int] = None,
+        agents: Optional[list[Agent] | list[str]] = None,
+        rounds: int | None = None,
     ) -> DebateResult:
         """Run a thorough debate with more rounds and stricter consensus.
 
@@ -325,7 +323,7 @@ class DebateService:
             ),
         )
 
-    def _merge_options(self, options: Optional[DebateOptions]) -> DebateOptions:
+    def _merge_options(self, options: DebateOptions | None) -> DebateOptions:
         """Merge provided options with defaults."""
         if options is None:
             return self._default_options
@@ -353,7 +351,7 @@ class DebateService:
         )
         return merged
 
-    def _resolve_agents(self, agents: Optional[Union[list[Agent], list[str]]]) -> list[Agent]:
+    def _resolve_agents(self, agents: Optional[list[Agent] | list[str]]) -> list[Agent]:
         """Resolve agent specifications to Agent objects."""
         if agents is None:
             # Recursively resolve default agents (which may be strings)
@@ -383,7 +381,7 @@ class DebateService:
 
         return resolved
 
-    def _build_event_hooks(self, opts: DebateOptions) -> Optional[dict[str, Any]]:
+    def _build_event_hooks(self, opts: DebateOptions) -> dict[str, Any] | None:
         """Build event hooks dictionary from options."""
         hooks: dict[str, Any] = {}
 
@@ -396,10 +394,8 @@ class DebateService:
 
         return hooks if hooks else None
 
-
 # Global service instance
-_debate_service: Optional[DebateService] = None
-
+_debate_service: DebateService | None = None
 
 def get_debate_service(
     default_agents: Optional[list[Agent] | list[str]] = None,
@@ -427,7 +423,6 @@ def get_debate_service(
 
     return _debate_service
 
-
 def reset_debate_service() -> None:
     """Reset the global debate service instance.
 
@@ -435,7 +430,6 @@ def reset_debate_service() -> None:
     """
     global _debate_service
     _debate_service = None
-
 
 __all__ = [
     "DebateService",

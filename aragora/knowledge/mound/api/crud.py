@@ -17,7 +17,7 @@ import hashlib
 import logging
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 # Distributed tracing support
 try:
@@ -32,7 +32,7 @@ except ImportError:
         def set_tag(self, key: str, value: Any) -> None:
             pass
 
-        def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+        def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
             pass
 
         def set_error(self, error: Exception) -> None:
@@ -44,7 +44,6 @@ except ImportError:
     def trace_context(operation: str, **kwargs: Any):  # type: ignore[misc]
         yield _MockSpan()
 
-
 from aragora.knowledge.mound.validation import (
     ValidationError,
     validate_content,
@@ -53,7 +52,6 @@ from aragora.knowledge.mound.validation import (
     validate_topics,
     validate_workspace_id,
 )
-
 
 def _serialize_for_storage(value: Any) -> Any:
     """Recursively serialize complex types for storage.
@@ -73,7 +71,6 @@ def _serialize_for_storage(value: Any) -> Any:
         return [_serialize_for_storage(item) for item in value]
     return value
 
-
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
         IngestionRequest,
@@ -84,34 +81,32 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class CRUDProtocol(Protocol):
     """Protocol defining expected interface for CRUD mixin."""
 
     config: "MoundConfig"
     workspace_id: str
-    _cache: Optional[Any]
-    _semantic_store: Optional[Any]
-    _graph_store: Optional[Any]
+    _cache: Any | None
+    _semantic_store: Any | None
+    _graph_store: Any | None
     _initialized: bool
-    event_emitter: Optional[Any]
+    event_emitter: Any | None
 
     def _ensure_initialized(self) -> None: ...
-    async def _save_node(self, node_data: Dict[str, Any]) -> None: ...
+    async def _save_node(self, node_data: dict[str, Any]) -> None: ...
     async def _get_node(self, node_id: str) -> Optional["KnowledgeItem"]: ...
-    async def _update_node(self, node_id: str, updates: Dict[str, Any]) -> None: ...
+    async def _update_node(self, node_id: str, updates: dict[str, Any]) -> None: ...
     async def _delete_node(self, node_id: str) -> bool: ...
     async def _archive_node(self, node_id: str) -> None: ...
     async def _save_relationship(self, from_id: str, to_id: str, rel_type: str) -> None: ...
     async def _find_by_content_hash(
         self, content_hash: str, workspace_id: str
-    ) -> Optional[str]: ...
+    ) -> str | None: ...
     async def _increment_update_count(self, node_id: str) -> None: ...
-    async def _get_access_grants_impl(self, node_id: str) -> list[Dict[str, Any]]: ...
+    async def _get_access_grants_impl(self, node_id: str) -> list[dict[str, Any]]: ...
     async def query(
         self, query: str, filters: Any = None, limit: int = 100, offset: int = 0
     ) -> Any: ...
-
 
 class CRUDOperationsMixin:
     """Mixin providing CRUD operations for KnowledgeMound."""
@@ -309,7 +304,7 @@ class CRUDOperationsMixin:
             return node
 
     async def update(
-        self: CRUDProtocol, node_id: str, updates: Dict[str, Any]
+        self: CRUDProtocol, node_id: str, updates: dict[str, Any]
     ) -> Optional["KnowledgeItem"]:
         """Update a knowledge node.
 
@@ -418,8 +413,8 @@ class CRUDOperationsMixin:
     async def add(
         self: CRUDProtocol,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        workspace_id: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        workspace_id: str | None = None,
         node_type: str = "fact",
         confidence: float = 0.7,
         tier: str = "medium",
@@ -488,7 +483,7 @@ class CRUDOperationsMixin:
             tier=tier_str,
         )
 
-    async def get_node(self: CRUDProtocol, node_id: str) -> Optional[Any]:
+    async def get_node(self: CRUDProtocol, node_id: str) -> Any | None:
         """
         Get a KnowledgeNode by ID.
 
@@ -537,7 +532,7 @@ class CRUDOperationsMixin:
         from_id: str,
         to_id: str,
         relationship_type: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """
         Add a relationship between two knowledge nodes.
@@ -563,9 +558,9 @@ class CRUDOperationsMixin:
     async def get_relationships(
         self: CRUDProtocol,
         node_id: str,
-        relationship_type: Optional[str] = None,
+        relationship_type: str | None = None,
         direction: str = "outgoing",
-    ) -> list[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get relationships for a node.
 
@@ -604,8 +599,8 @@ class CRUDOperationsMixin:
 
     async def query_nodes(
         self: CRUDProtocol,
-        node_type: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        node_type: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[Any]:
@@ -646,7 +641,7 @@ class CRUDOperationsMixin:
     async def get_access_grants(
         self: CRUDProtocol,
         node_id: str,
-    ) -> list[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get access grants for a knowledge node.
 

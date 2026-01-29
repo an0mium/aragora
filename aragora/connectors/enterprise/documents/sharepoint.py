@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -56,7 +56,6 @@ INDEXABLE_EXTENSIONS = {
 # Maximum file size to index (10MB)
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
-
 @dataclass
 class SharePointSite:
     """A SharePoint site."""
@@ -65,9 +64,8 @@ class SharePointSite:
     name: str
     display_name: str
     web_url: str
-    created: Optional[datetime] = None
-    last_modified: Optional[datetime] = None
-
+    created: datetime | None = None
+    last_modified: datetime | None = None
 
 @dataclass
 class SharePointDrive:
@@ -78,7 +76,6 @@ class SharePointDrive:
     drive_type: str
     web_url: str
     site_id: str
-
 
 @dataclass
 class SharePointItem:
@@ -93,11 +90,10 @@ class SharePointItem:
     is_folder: bool = False
     created_by: str = ""
     modified_by: str = ""
-    created_at: Optional[datetime] = None
-    modified_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    modified_at: datetime | None = None
     content: str = ""
     etag: str = ""
-
 
 class SharePointConnector(EnterpriseConnector):
     """
@@ -128,8 +124,8 @@ class SharePointConnector(EnterpriseConnector):
         site_url: str,
         include_subsites: bool = True,
         include_lists: bool = False,
-        file_extensions: Optional[Set[str]] = None,
-        exclude_paths: Optional[List[str]] = None,
+        file_extensions: Optional[set[str]] = None,
+        exclude_paths: Optional[list[str]] = None,
         **kwargs,
     ):
         """
@@ -160,9 +156,9 @@ class SharePointConnector(EnterpriseConnector):
         self.exclude_paths = exclude_paths or ["_catalogs/", "_private/", "Forms/"]
 
         # Cache
-        self._access_token: Optional[str] = None
-        self._token_expires: Optional[datetime] = None
-        self._sites_cache: Dict[str, SharePointSite] = {}
+        self._access_token: str | None = None
+        self._token_expires: datetime | None = None
+        self._sites_cache: dict[str, SharePointSite] = {}
 
     @property
     def source_type(self) -> SourceType:
@@ -221,9 +217,9 @@ class SharePointConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make a request to Microsoft Graph API."""
         import httpx
 
@@ -268,7 +264,7 @@ class SharePointConnector(EnterpriseConnector):
             ),
         )
 
-    async def _get_subsites(self, site_id: str) -> List[SharePointSite]:
+    async def _get_subsites(self, site_id: str) -> list[SharePointSite]:
         """Get subsites of a site."""
         if not self.include_subsites:
             return []
@@ -293,7 +289,7 @@ class SharePointConnector(EnterpriseConnector):
             logger.warning(f"[{self.name}] Failed to get subsites: {e}")
             return []
 
-    async def _get_drives(self, site_id: str) -> List[SharePointDrive]:
+    async def _get_drives(self, site_id: str) -> list[SharePointDrive]:
         """Get document libraries (drives) for a site."""
         data = await self._graph_request(f"/sites/{site_id}/drives")
         drives = []
@@ -315,8 +311,8 @@ class SharePointConnector(EnterpriseConnector):
         self,
         drive_id: str,
         folder_id: str = "root",
-        delta_token: Optional[str] = None,
-    ) -> AsyncIterator[tuple[SharePointItem, Optional[str]]]:
+        delta_token: str | None = None,
+    ) -> AsyncIterator[tuple[SharePointItem, str | None]]:
         """
         Get items from a drive, optionally using delta for incremental sync.
 
@@ -578,7 +574,7 @@ class SharePointConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific SharePoint item."""
         from aragora.connectors.base import Evidence
 
@@ -621,7 +617,7 @@ class SharePointConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle SharePoint webhook notification."""
         # SharePoint webhooks send subscription validation
         if "validationToken" in payload:
@@ -639,6 +635,5 @@ class SharePointConnector(EnterpriseConnector):
             asyncio.create_task(self.sync(max_items=50))
 
         return True
-
 
 __all__ = ["SharePointConnector", "SharePointSite", "SharePointDrive", "SharePointItem"]

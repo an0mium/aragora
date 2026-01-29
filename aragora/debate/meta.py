@@ -8,18 +8,18 @@ Enables agents to analyze the debate process itself, identifying:
 - Missed opportunities
 - Process improvements
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 from aragora.core import Critique, DebateResult, Message
 from aragora.memory.embeddings import EmbeddingProvider, cosine_similarity
 from aragora.utils.async_utils import run_async
-
 
 @dataclass
 class MetaObservation:
@@ -31,7 +31,6 @@ class MetaObservation:
     round_range: tuple[int, int]  # Which rounds this applies to
     agents_involved: list[str] = field(default_factory=list)
     evidence: list[str] = field(default_factory=list)
-
 
 @dataclass
 class MetaCritique:
@@ -60,7 +59,6 @@ class MetaCritique:
 
         return " | ".join(parts)
 
-
 class MetaCritiqueAnalyzer:
     """
     Analyzes debates to provide meta-level feedback.
@@ -72,7 +70,7 @@ class MetaCritiqueAnalyzer:
     REPETITION_THRESHOLD = 0.6  # Similarity threshold for detecting repetition
     MIN_PROGRESS_THRESHOLD = 0.2  # Minimum expected progress per round
 
-    def __init__(self, embedding_provider: Optional[EmbeddingProvider] = None):
+    def __init__(self, embedding_provider: EmbeddingProvider | None = None):
         """
         Initialize the analyzer.
 

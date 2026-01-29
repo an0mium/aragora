@@ -14,7 +14,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +26,6 @@ from .routes import health, debates, decisions
 
 logger = logging.getLogger(__name__)
 
-
 def _get_allowed_origins() -> list[str]:
     """Get allowed CORS origins from environment."""
     origins_str = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "*")
@@ -34,8 +33,7 @@ def _get_allowed_origins() -> list[str]:
         return ["*"]
     return [o.strip() for o in origins_str.split(",") if o.strip()]
 
-
-def _build_server_context(nomic_dir: Optional[Path] = None) -> dict[str, Any]:
+def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
     """
     Build the server context with initialized subsystems.
 
@@ -93,7 +91,6 @@ def _build_server_context(nomic_dir: Optional[Path] = None) -> dict[str, Any]:
 
     return ctx
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -128,9 +125,8 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
 
-
 def create_app(
-    nomic_dir: Optional[Path] = None,
+    nomic_dir: Path | None = None,
     title: str = "Aragora API",
     version: str = "2.0.0",
     debug: bool = False,
@@ -193,7 +189,6 @@ def create_app(
     logger.info(f"FastAPI app created: {title} v{version}")
 
     return app
-
 
 # Default app instance for uvicorn
 app = create_app()

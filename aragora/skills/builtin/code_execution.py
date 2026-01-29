@@ -11,7 +11,7 @@ import asyncio
 import logging
 import os
 import tempfile
-from typing import Any, Dict
+from typing import Any
 
 from ..base import (
     Skill,
@@ -22,7 +22,6 @@ from ..base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class CodeExecutionSkill(Skill):
     """
@@ -93,7 +92,7 @@ class CodeExecutionSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         """Execute code."""
@@ -133,8 +132,8 @@ class CodeExecutionSkill(Skill):
         self,
         code: str,
         timeout: float,
-        input_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        input_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute Python code in a subprocess."""
         # Create a wrapper script that handles input/output
         wrapper = f'''
@@ -218,8 +217,8 @@ print("__RESULT__:" + json.dumps(output))
         self,
         code: str,
         timeout: float,
-        input_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        input_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute JavaScript code via Node.js."""
         import json
 
@@ -269,7 +268,7 @@ console.log("__RESULT__:" + JSON.stringify({{result}}));
         self,
         code: str,
         timeout: float,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute shell commands (restricted)."""
         # Block dangerous commands
         dangerous = ["rm -rf", "mkfs", "dd if=", ":(){", "fork", "wget", "curl"]
@@ -299,7 +298,6 @@ console.log("__RESULT__:" + JSON.stringify({{result}}));
             "stdout": stdout.decode()[: self._max_output_size],
             "stderr": stderr.decode()[: self._max_output_size],
         }
-
 
 # Skill instance for registration
 SKILLS = [CodeExecutionSkill()]

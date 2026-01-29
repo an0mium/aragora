@@ -11,16 +11,15 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def trigger_external_webhook_tool(
     platform: str,
     event_type: str,
     data: str = "{}",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Trigger an external automation webhook (Zapier, Make, n8n).
 
@@ -84,11 +83,10 @@ async def trigger_external_webhook_tool(
         logger.error(f"Failed to trigger {platform} webhook: {e}")
         return {"error": f"Trigger failed: {str(e)}"}
 
-
 async def list_integrations_tool(
     platform: str = "all",
-    workspace_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    workspace_id: str | None = None,
+) -> dict[str, Any]:
     """
     List configured external integrations.
 
@@ -99,7 +97,7 @@ async def list_integrations_tool(
     Returns:
         Dict with list of configured integrations
     """
-    integrations: Dict[str, List[Dict[str, Any]]] = {
+    integrations: dict[str, list[dict[str, Any]]] = {
         "zapier": [],
         "make": [],
         "n8n": [],
@@ -180,11 +178,10 @@ async def list_integrations_tool(
         "workspace_filter": workspace_id,
     }
 
-
 async def test_integration_tool(
     platform: str,
     integration_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Test an integration connection.
 
@@ -249,10 +246,9 @@ async def test_integration_tool(
 
     return {"error": "Unknown platform"}
 
-
 async def get_integration_events_tool(
     platform: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get available event types for an integration platform.
 
@@ -306,7 +302,6 @@ async def get_integration_events_tool(
         return {"error": f"Failed: {str(e)}"}
 
     return {"error": "Unknown platform"}
-
 
 # Export all tools
 __all__ = [

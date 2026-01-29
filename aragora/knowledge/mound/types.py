@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal, Optional
 
 # Re-export from unified types for compatibility
 from aragora.knowledge.unified.types import (
@@ -29,14 +29,12 @@ from aragora.knowledge.unified.types import (
 # Alias for backward compatibility with adapters
 SourceType = KnowledgeSource
 
-
 class MoundBackend(str, Enum):
     """Backend storage options for Knowledge Mound."""
 
     SQLITE = "sqlite"
     POSTGRES = "postgres"
     HYBRID = "hybrid"  # Postgres + Redis caching
-
 
 class CulturePatternType(str, Enum):
     """Types of organizational patterns tracked by the culture accumulator."""
@@ -48,7 +46,6 @@ class CulturePatternType(str, Enum):
     DEBATE_DYNAMICS = "debate_dynamics"
     RESOLUTION_PATTERNS = "resolution_patterns"
 
-
 class StalenessReason(str, Enum):
     """Reasons for knowledge staleness."""
 
@@ -59,11 +56,9 @@ class StalenessReason(str, Enum):
     SCHEDULED = "scheduled"
     MANUAL = "manual"
 
-
 # =============================================================================
 # Visibility and Access Control Types (Phase 2)
 # =============================================================================
-
 
 class VisibilityLevel(str, Enum):
     """Visibility level for knowledge items.
@@ -82,7 +77,6 @@ class VisibilityLevel(str, Enum):
     PUBLIC = "public"
     SYSTEM = "system"
 
-
 class AccessGrantType(str, Enum):
     """Type of entity receiving an access grant."""
 
@@ -90,7 +84,6 @@ class AccessGrantType(str, Enum):
     ROLE = "role"
     WORKSPACE = "workspace"
     ORGANIZATION = "organization"
-
 
 @dataclass
 class AccessGrant:
@@ -104,10 +97,10 @@ class AccessGrant:
     item_id: str
     grantee_type: AccessGrantType
     grantee_id: str
-    permissions: List[str] = field(default_factory=lambda: ["read"])
-    granted_by: Optional[str] = None
+    permissions: list[str] = field(default_factory=lambda: ["read"])
+    granted_by: str | None = None
     granted_at: datetime = field(default_factory=datetime.now)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
     def is_expired(self) -> bool:
         """Check if this grant has expired."""
@@ -119,7 +112,7 @@ class AccessGrant:
         """Check if this grant includes a specific permission."""
         return permission in self.permissions or "admin" in self.permissions
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -133,7 +126,7 @@ class AccessGrant:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AccessGrant":
+    def from_dict(cls, data: dict[str, Any]) -> "AccessGrant":
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -154,7 +147,6 @@ class AccessGrant:
             ),
         )
 
-
 @dataclass
 class MoundConfig:
     """Configuration for the enhanced Knowledge Mound."""
@@ -163,22 +155,22 @@ class MoundConfig:
     backend: MoundBackend = MoundBackend.SQLITE
 
     # PostgreSQL settings (production)
-    postgres_url: Optional[str] = None
+    postgres_url: str | None = None
     postgres_pool_size: int = 10
     postgres_pool_max_overflow: int = 5
 
     # Redis settings (caching layer)
-    redis_url: Optional[str] = None
+    redis_url: str | None = None
     redis_cache_ttl: int = 300  # 5 minutes for queries
     redis_culture_ttl: int = 3600  # 1 hour for culture patterns
 
     # SQLite settings (development/testing)
-    sqlite_path: Optional[str] = None
+    sqlite_path: str | None = None
 
     # Weaviate settings (vector search)
-    weaviate_url: Optional[str] = None
+    weaviate_url: str | None = None
     weaviate_collection: str = "KnowledgeMound"
-    weaviate_api_key: Optional[str] = None
+    weaviate_api_key: str | None = None
 
     # Feature flags
     enable_staleness_detection: bool = True
@@ -224,7 +216,6 @@ class MoundConfig:
     retry_base_delay: float = 0.1  # Base delay between retries (seconds)
     transaction_timeout: float = 30.0  # Transaction timeout (seconds)
 
-
 @dataclass
 class IngestionRequest:
     """Request to ingest new knowledge into the mound."""
@@ -234,25 +225,24 @@ class IngestionRequest:
 
     # Source identifiers (at least one recommended)
     source_type: KnowledgeSource = KnowledgeSource.FACT
-    document_id: Optional[str] = None
-    debate_id: Optional[str] = None
-    agent_id: Optional[str] = None
-    user_id: Optional[str] = None
+    document_id: str | None = None
+    debate_id: str | None = None
+    agent_id: str | None = None
+    user_id: str | None = None
 
     # Classification
     node_type: str = "fact"  # fact, claim, memory, evidence, consensus, entity
     confidence: float = 0.5
     tier: str = "slow"  # fast, medium, slow, glacial
-    topics: List[str] = field(default_factory=list)
+    topics: list[str] = field(default_factory=list)
 
     # Relationships
-    supports: List[str] = field(default_factory=list)
-    contradicts: List[str] = field(default_factory=list)
-    derived_from: List[str] = field(default_factory=list)
+    supports: list[str] = field(default_factory=list)
+    contradicts: list[str] = field(default_factory=list)
+    derived_from: list[str] = field(default_factory=list)
 
     # Additional metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class IngestionResult:
@@ -261,10 +251,9 @@ class IngestionResult:
     node_id: str
     success: bool
     deduplicated: bool = False
-    existing_node_id: Optional[str] = None
+    existing_node_id: str | None = None
     relationships_created: int = 0
-    message: Optional[str] = None
-
+    message: str | None = None
 
 @dataclass
 class StalenessCheck:
@@ -272,11 +261,10 @@ class StalenessCheck:
 
     node_id: str
     staleness_score: float  # 0.0 = fresh, 1.0 = stale
-    reasons: List[StalenessReason] = field(default_factory=list)
+    reasons: list[StalenessReason] = field(default_factory=list)
     last_checked_at: datetime = field(default_factory=datetime.now)
     revalidation_recommended: bool = False
-    evidence: Dict[str, Any] = field(default_factory=dict)
-
+    evidence: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class CulturePattern:
@@ -286,52 +274,48 @@ class CulturePattern:
     workspace_id: str
     pattern_type: CulturePatternType
     pattern_key: str
-    pattern_value: Dict[str, Any]
+    pattern_value: dict[str, Any]
     observation_count: int
     confidence: float
     first_observed_at: datetime
     last_observed_at: datetime
-    contributing_debates: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    contributing_debates: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class CultureProfile:
     """Aggregated culture profile for a workspace."""
 
     workspace_id: str
-    patterns: Dict[CulturePatternType, List[CulturePattern]]
+    patterns: dict[CulturePatternType, list[CulturePattern]]
     generated_at: datetime
     total_observations: int
-    dominant_traits: Dict[str, Any] = field(default_factory=dict)
-
+    dominant_traits: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class GraphQueryResult:
     """Result of a graph traversal query."""
 
-    nodes: List[KnowledgeItem]
-    edges: List[KnowledgeLink]
+    nodes: list[KnowledgeItem]
+    edges: list[KnowledgeLink]
     root_id: str
     depth: int
     total_nodes: int
     total_edges: int
-
 
 @dataclass
 class MoundStats:
     """Statistics about the Knowledge Mound."""
 
     total_nodes: int
-    nodes_by_type: Dict[str, int]
-    nodes_by_tier: Dict[str, int]
-    nodes_by_validation: Dict[str, int]
+    nodes_by_type: dict[str, int]
+    nodes_by_tier: dict[str, int]
+    nodes_by_validation: dict[str, int]
     total_relationships: int
-    relationships_by_type: Dict[str, int]
+    relationships_by_type: dict[str, int]
     average_confidence: float
     stale_nodes_count: int
-    workspace_id: Optional[str] = None
-
+    workspace_id: str | None = None
 
 @dataclass
 class SyncResult:
@@ -343,13 +327,11 @@ class SyncResult:
     nodes_skipped: int
     relationships_created: int
     duration_ms: int
-    errors: List[str] = field(default_factory=list)
-
+    errors: list[str] = field(default_factory=list)
 
 # =============================================================================
 # Enhanced Types for Enterprise Control Plane (Phase 1)
 # =============================================================================
-
 
 @dataclass
 class EnhancedKnowledgeItem(KnowledgeItem):
@@ -361,35 +343,35 @@ class EnhancedKnowledgeItem(KnowledgeItem):
     """
 
     # Mandatory embedding (semantic grounding)
-    embedding: List[float] = field(default_factory=list)
+    embedding: list[float] = field(default_factory=list)
     embedding_model: str = ""
 
     # Tenant isolation
     tenant_id: str = "default"
 
     # Domain taxonomy
-    domain_path: List[str] = field(default_factory=list)  # ["legal", "contracts", "termination"]
+    domain_path: list[str] = field(default_factory=list)  # ["legal", "contracts", "termination"]
     domain: str = "general"  # Flattened path: "legal/contracts/termination"
 
     # Lineage tracking
-    predecessor_ids: List[str] = field(default_factory=list)  # Items this supersedes
-    successor_id: Optional[str] = None  # Item that supersedes this
+    predecessor_ids: list[str] = field(default_factory=list)  # Items this supersedes
+    successor_id: str | None = None  # Item that supersedes this
 
     # Coalescence tracking
-    merged_from: List[str] = field(default_factory=list)  # Items merged into this
+    merged_from: list[str] = field(default_factory=list)  # Items merged into this
 
     # Retrieval metrics (for meta-learning)
     retrieval_count: int = 0
-    last_retrieved_at: Optional[datetime] = None
+    last_retrieved_at: datetime | None = None
     avg_retrieval_rank: float = 0.0  # Average position in search results
 
     # Visibility and access control (Phase 2)
     visibility: VisibilityLevel = VisibilityLevel.WORKSPACE
-    visibility_set_by: Optional[str] = None
-    access_grants: List[AccessGrant] = field(default_factory=list)
+    visibility_set_by: str | None = None
+    access_grants: list[AccessGrant] = field(default_factory=list)
     is_discoverable: bool = True  # Whether item shows in search results
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         base_dict = super().to_dict()
         base_dict.update(
@@ -416,7 +398,6 @@ class EnhancedKnowledgeItem(KnowledgeItem):
         # Note: embedding intentionally excluded from dict to save space
         return base_dict
 
-
 @dataclass
 class BeliefLineageEntry:
     """
@@ -427,13 +408,13 @@ class BeliefLineageEntry:
 
     id: str
     current_id: str  # Current belief's Knowledge Mound ID
-    predecessor_id: Optional[str]  # Previous version (None for origins)
-    supersession_reason: Optional[str]  # Why it was superseded
-    debate_id: Optional[str]  # Debate that caused supersession
+    predecessor_id: str | None  # Previous version (None for origins)
+    supersession_reason: str | None  # Why it was superseded
+    debate_id: str | None  # Debate that caused supersession
     created_at: datetime
     tenant_id: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -444,7 +425,6 @@ class BeliefLineageEntry:
             "created_at": self.created_at.isoformat(),
             "tenant_id": self.tenant_id,
         }
-
 
 @dataclass
 class DomainNode:
@@ -457,13 +437,13 @@ class DomainNode:
     id: str
     name: str
     full_path: str  # e.g., "legal/contracts/termination"
-    parent_id: Optional[str]
-    description: Optional[str]
+    parent_id: str | None
+    description: str | None
     tenant_id: str
     created_at: datetime
     item_count: int = 0  # Number of items in this domain
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -475,7 +455,6 @@ class DomainNode:
             "created_at": self.created_at.isoformat(),
             "item_count": self.item_count,
         }
-
 
 @dataclass
 class UnifiedQueryRequest:
@@ -492,20 +471,19 @@ class UnifiedQueryRequest:
     search_mode: Literal["semantic", "keyword", "hybrid"] = "hybrid"
 
     # Filters
-    sources: Optional[List[KnowledgeSource]] = None
-    domain_filter: Optional[str] = None  # e.g., "legal" or "legal/contracts"
-    min_confidence: Optional[float] = None
-    min_importance: Optional[float] = None
+    sources: Optional[list[KnowledgeSource]] = None
+    domain_filter: str | None = None  # e.g., "legal" or "legal/contracts"
+    min_confidence: float | None = None
+    min_importance: float | None = None
 
     # Graph expansion
     include_graph: bool = False
     graph_depth: int = 1
-    relationship_types: Optional[List[RelationshipType]] = None
+    relationship_types: Optional[list[RelationshipType]] = None
 
     # Pagination
     limit: int = 20
     offset: int = 0
-
 
 @dataclass
 class UnifiedQueryResult:
@@ -515,23 +493,23 @@ class UnifiedQueryResult:
     Includes items, graph relationships, and query metadata.
     """
 
-    items: List[Union[KnowledgeItem, "EnhancedKnowledgeItem"]]
+    items: list[KnowledgeItem | "EnhancedKnowledgeItem"]
     total_count: int
     query: str
     tenant_id: str
     execution_time_ms: float
 
     # Sources that were queried
-    sources_queried: List[KnowledgeSource] = field(default_factory=list)
+    sources_queried: list[KnowledgeSource] = field(default_factory=list)
 
     # Graph data (if include_graph was True)
-    graph_nodes: List[str] = field(default_factory=list)
-    graph_edges: List[KnowledgeLink] = field(default_factory=list)
+    graph_nodes: list[str] = field(default_factory=list)
+    graph_edges: list[KnowledgeLink] = field(default_factory=list)
 
     # Lineage data (for items with predecessors/successors)
-    lineage_chains: Dict[str, List[str]] = field(default_factory=dict)
+    lineage_chains: dict[str, list[str]] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "items": [item.to_dict() for item in self.items],
@@ -544,7 +522,6 @@ class UnifiedQueryResult:
             "graph_edges": [e.to_dict() for e in self.graph_edges],
             "lineage_chains": self.lineage_chains,
         }
-
 
 __all__ = [
     # Re-exported types

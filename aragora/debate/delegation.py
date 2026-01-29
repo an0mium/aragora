@@ -54,7 +54,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class DelegationStrategy(ABC):
     """Abstract base class for delegation strategies."""
 
@@ -64,7 +63,7 @@ class DelegationStrategy(ABC):
         task: str,
         agents: Sequence["Agent"],
         context: Optional["DebateContext"] = None,
-        max_agents: Optional[int] = None,
+        max_agents: int | None = None,
     ) -> list["Agent"]:
         """
         Select agents for a task.
@@ -99,7 +98,6 @@ class DelegationStrategy(ABC):
             Score (higher is better)
         """
         ...
-
 
 @dataclass
 class ContentBasedDelegation(DelegationStrategy):
@@ -169,7 +167,7 @@ class ContentBasedDelegation(DelegationStrategy):
         task: str,
         agents: Sequence["Agent"],
         context: Optional["DebateContext"] = None,
-        max_agents: Optional[int] = None,
+        max_agents: int | None = None,
     ) -> list["Agent"]:
         """Select agents by keyword matching."""
         scored = [(a, self.score_agent(a, task, context)) for a in agents]
@@ -184,7 +182,6 @@ class ContentBasedDelegation(DelegationStrategy):
             f"(scores: {[(a.name, s) for a, s in scored[:5]]})"
         )
         return selected
-
 
 @dataclass
 class LoadBalancedDelegation(DelegationStrategy):
@@ -238,7 +235,7 @@ class LoadBalancedDelegation(DelegationStrategy):
         task: str,
         agents: Sequence["Agent"],
         context: Optional["DebateContext"] = None,
-        max_agents: Optional[int] = None,
+        max_agents: int | None = None,
     ) -> list["Agent"]:
         """Select agents by load balance."""
         scored = [(a, self.score_agent(a, task, context)) for a in agents]
@@ -255,7 +252,6 @@ class LoadBalancedDelegation(DelegationStrategy):
             f"(loads: {[(a.name, self.get_load(a.name, context)) for a in selected[:5]]})"
         )
         return selected
-
 
 @dataclass
 class ExpertiseDelegation(DelegationStrategy):
@@ -365,7 +361,7 @@ class ExpertiseDelegation(DelegationStrategy):
         task: str,
         agents: Sequence["Agent"],
         context: Optional["DebateContext"] = None,
-        max_agents: Optional[int] = None,
+        max_agents: int | None = None,
     ) -> list["Agent"]:
         """Select agents by expertise match."""
         scored = [(a, self.score_agent(a, task, context)) for a in agents]
@@ -380,7 +376,6 @@ class ExpertiseDelegation(DelegationStrategy):
             f"(matched domains: {self._match_domains(task)})"
         )
         return selected
-
 
 @dataclass
 class RoundRobinDelegation(DelegationStrategy):
@@ -408,7 +403,7 @@ class RoundRobinDelegation(DelegationStrategy):
         task: str,
         agents: Sequence["Agent"],
         context: Optional["DebateContext"] = None,
-        max_agents: Optional[int] = None,
+        max_agents: int | None = None,
     ) -> list["Agent"]:
         """Select agents in round-robin order."""
         if not agents:
@@ -428,7 +423,6 @@ class RoundRobinDelegation(DelegationStrategy):
 
         logger.debug(f"RoundRobinDelegation selected {len(selected)} agents (cursor={self.cursor})")
         return selected
-
 
 @dataclass
 class HybridDelegation(DelegationStrategy):
@@ -478,7 +472,7 @@ class HybridDelegation(DelegationStrategy):
         task: str,
         agents: Sequence["Agent"],
         context: Optional["DebateContext"] = None,
-        max_agents: Optional[int] = None,
+        max_agents: int | None = None,
     ) -> list["Agent"]:
         """Select agents using weighted combined scoring."""
         scored = [(a, self.score_agent(a, task, context)) for a in agents]
@@ -493,7 +487,6 @@ class HybridDelegation(DelegationStrategy):
             f"using {len(self.strategies)} strategies"
         )
         return selected
-
 
 def create_default_delegation(
     include_content: bool = True,

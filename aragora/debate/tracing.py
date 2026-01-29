@@ -13,6 +13,7 @@ Usage:
         result = await run_debate()
         span.set_attribute("success", True)
 """
+from __future__ import annotations
 
 import asyncio
 import contextvars
@@ -23,7 +24,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, ContextManager, Dict, Generator, List, Optional
+from typing import Any, Callable, ContextManager, Generator, Optional
 
 # Use structured logging if available
 try:
@@ -41,20 +42,17 @@ logger = logging.getLogger(__name__)
 _current_span: contextvars.ContextVar["Span"] = contextvars.ContextVar("current_span", default=None)
 
 # Context variable for debate correlation ID
-_debate_context: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
+_debate_context: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
     "debate_context", default={}
 )
-
 
 def generate_trace_id() -> str:
     """Generate a unique trace ID (32-char hex)."""
     return uuid.uuid4().hex
 
-
 def generate_span_id() -> str:
     """Generate a unique span ID (16-char hex)."""
     return uuid.uuid4().hex[:16]
-
 
 @dataclass
 class SpanContext:
@@ -62,8 +60,7 @@ class SpanContext:
 
     trace_id: str
     span_id: str
-    parent_span_id: Optional[str] = None
-
+    parent_span_id: str | None = None
 
 @dataclass
 class Span:
@@ -72,23 +69,23 @@ class Span:
     name: str
     trace_id: str
     span_id: str
-    parent_span_id: Optional[str]
+    parent_span_id: str | None
     start_time: float
-    end_time: Optional[float] = None
-    attributes: Dict[str, Any] = field(default_factory=dict)
-    events: List[Dict[str, Any]] = field(default_factory=list)
+    end_time: float | None = None
+    attributes: dict[str, Any] = field(default_factory=dict)
+    events: list[dict[str, Any]] = field(default_factory=list)
     status: str = "OK"
-    error: Optional[str] = None
+    error: str | None = None
 
     def set_attribute(self, key: str, value: Any) -> None:
         """Set a span attribute."""
         self.attributes[key] = value
 
-    def set_attributes(self, attributes: Dict[str, Any]) -> None:
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
         """Set multiple span attributes."""
         self.attributes.update(attributes)
 
-    def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
         """Add an event to the span."""
         self.events.append(
             {
@@ -119,13 +116,13 @@ class Span:
         )
 
     @property
-    def duration_ms(self) -> Optional[float]:
+    def duration_ms(self) -> float | None:
         """Get span duration in milliseconds."""
         if self.end_time is None:
             return None
         return (self.end_time - self.start_time) * 1000
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert span to dictionary for logging/export."""
         return {
             "name": self.name,
@@ -143,12 +140,11 @@ class Span:
             "error": self.error,
         }
 
-
 class SpanRecorder:
     """Records completed spans for analysis/export."""
 
     def __init__(self, max_spans: int = 10000):
-        self.spans: List[Span] = []
+        self.spans: list[Span] = []
         self.max_spans = max_spans
         self._lock = None  # Lock created lazily if needed
 
@@ -159,11 +155,11 @@ class SpanRecorder:
         if len(self.spans) > self.max_spans:
             self.spans = self.spans[-self.max_spans // 2 :]
 
-    def get_spans_by_trace(self, trace_id: str) -> List[Span]:
+    def get_spans_by_trace(self, trace_id: str) -> list[Span]:
         """Get all spans for a trace."""
         return [s for s in self.spans if s.trace_id == trace_id]
 
-    def get_recent_spans(self, limit: int = 100) -> List[Span]:
+    def get_recent_spans(self, limit: int = 100) -> list[Span]:
         """Get most recent spans."""
         return self.spans[-limit:]
 
@@ -171,10 +167,8 @@ class SpanRecorder:
         """Clear all recorded spans."""
         self.spans.clear()
 
-
 # Global span recorder
 _recorder = SpanRecorder()
-
 
 class Tracer:
     """
@@ -187,18 +181,18 @@ class Tracer:
     def __init__(
         self,
         service_name: str = "aragora",
-        recorder: Optional[SpanRecorder] = None,
+        recorder: SpanRecorder | None = None,
         log_spans: bool = True,
     ):
         self.service_name = service_name
         self.recorder = recorder or _recorder
         self.log_spans = log_spans
 
-    def get_current_span(self) -> Optional[Span]:
+    def get_current_span(self) -> Span | None:
         """Get the current active span from context."""
         return _current_span.get()
 
-    def get_current_trace_id(self) -> Optional[str]:
+    def get_current_trace_id(self) -> str | None:
         """Get the current trace ID if available."""
         span = self.get_current_span()
         return span.trace_id if span else None
@@ -207,8 +201,8 @@ class Tracer:
     def span(
         self,
         name: str,
-        parent: Optional[Span] = None,
-        trace_id: Optional[str] = None,
+        parent: Span | None = None,
+        trace_id: str | None = None,
         **attributes: Any,
     ) -> Generator[Span, None, None]:
         """
@@ -303,10 +297,8 @@ class Tracer:
             attrs = " ".join(f"{k}={v}" for k, v in fields.items())
             logger.log(level, f"span_complete {attrs}")
 
-
 # Global tracer instance
-_tracer: Optional[Tracer] = None
-
+_tracer: Tracer | None = None
 
 def get_tracer(service_name: str = "aragora") -> Tracer:
     """Get or create the global tracer instance."""
@@ -315,15 +307,12 @@ def get_tracer(service_name: str = "aragora") -> Tracer:
         _tracer = Tracer(service_name=service_name)
     return _tracer
 
-
 def set_tracer(tracer: Tracer) -> None:
     """Set the global tracer instance (for testing/custom configuration)."""
     global _tracer
     _tracer = tracer
 
-
 # Debate context management for correlation IDs
-
 
 def set_debate_context(debate_id: str, **extra) -> None:
     """Set the current debate context for correlation."""
@@ -334,16 +323,13 @@ def set_debate_context(debate_id: str, **extra) -> None:
     if set_context is not None:
         set_context(debate_id=debate_id, **extra)
 
-
-def get_debate_context() -> Dict[str, Any]:
+def get_debate_context() -> dict[str, Any]:
     """Get the current debate context."""
     return _debate_context.get()
 
-
-def get_debate_id() -> Optional[str]:
+def get_debate_id() -> str | None:
     """Get the current debate ID from context."""
     return get_debate_context().get("debate_id")
-
 
 def with_debate_context(debate_id: str) -> Callable[[Callable], Callable]:
     """Decorator to set debate context for a function."""
@@ -363,9 +349,7 @@ def with_debate_context(debate_id: str) -> Callable[[Callable], Callable]:
 
     return decorator
 
-
 # Convenience decorators for common operations
-
 
 def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
     """Decorator for tracing agent calls (proposal, critique, vote, etc.)."""
@@ -423,21 +407,17 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
 
     return decorator
 
-
 def trace_round(round_num: int) -> ContextManager[Span]:
     """Context manager for tracing a debate round."""
     tracer = get_tracer()
     return tracer.span("debate.round", round_number=round_num)
-
 
 def trace_phase(phase: str, round_num: int) -> ContextManager[Span]:
     """Context manager for tracing a debate phase (proposal, critique, etc.)."""
     tracer = get_tracer()
     return tracer.span(f"debate.phase.{phase}", round_number=round_num, phase=phase)
 
-
 # Metrics tracking
-
 
 @dataclass
 class DebateMetrics:
@@ -451,7 +431,7 @@ class DebateMetrics:
     agent_timeouts: int = 0
     consensus_reached: bool = False
     consensus_confidence: float = 0.0
-    per_agent_latencies: Dict[str, List[float]] = field(default_factory=dict)
+    per_agent_latencies: dict[str, list[float]] = field(default_factory=dict)
 
     def record_agent_latency(self, agent_name: str, latency_ms: float) -> None:
         """Record an agent call latency."""
@@ -465,7 +445,7 @@ class DebateMetrics:
         latencies = self.per_agent_latencies.get(agent_name, [])
         return sum(latencies) / len(latencies) if latencies else 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging/export."""
         return {
             "debate_id": self.debate_id,
@@ -481,11 +461,9 @@ class DebateMetrics:
             },
         }
 
-
 # Metrics storage (thread-safe)
-_debate_metrics: Dict[str, DebateMetrics] = {}
+_debate_metrics: dict[str, DebateMetrics] = {}
 _debate_metrics_lock = threading.Lock()
-
 
 def get_metrics(debate_id: str) -> DebateMetrics:
     """Get or create metrics for a debate (thread-safe)."""
@@ -494,8 +472,7 @@ def get_metrics(debate_id: str) -> DebateMetrics:
             _debate_metrics[debate_id] = DebateMetrics(debate_id=debate_id)
         return _debate_metrics[debate_id]
 
-
-def clear_metrics(debate_id: Optional[str] = None) -> None:
+def clear_metrics(debate_id: str | None = None) -> None:
     """Clear metrics for a debate or all debates (thread-safe)."""
     with _debate_metrics_lock:
         if debate_id:

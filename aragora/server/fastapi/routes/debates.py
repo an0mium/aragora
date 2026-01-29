@@ -11,8 +11,7 @@ Provides async debate management endpoints:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from pydantic import BaseModel, Field
@@ -23,11 +22,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v2", tags=["Debates"])
 
-
 # =============================================================================
 # Pydantic Models
 # =============================================================================
-
 
 class DebateSummary(BaseModel):
     """Summary of a debate for list views."""
@@ -35,15 +32,14 @@ class DebateSummary(BaseModel):
     id: str
     task: str
     status: str
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: str | None = None
+    updated_at: str | None = None
     round_count: int = 0
     agent_count: int = 0
     has_consensus: bool = False
 
     class Config:
         extra = "allow"
-
 
 class DebateListResponse(BaseModel):
     """Response for debate listing."""
@@ -52,7 +48,6 @@ class DebateListResponse(BaseModel):
     total: int
     limit: int
     offset: int
-
 
 class DebateDetail(BaseModel):
     """Full debate details."""
@@ -63,15 +58,14 @@ class DebateDetail(BaseModel):
     protocol: dict[str, Any] = Field(default_factory=dict)
     agents: list[str] = Field(default_factory=list)
     rounds: list[dict[str, Any]] = Field(default_factory=list)
-    final_answer: Optional[str] = None
-    consensus: Optional[dict[str, Any]] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    final_answer: str | None = None
+    consensus: dict[str, Any] | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     class Config:
         extra = "allow"
-
 
 class MessageResponse(BaseModel):
     """Response for debate messages."""
@@ -81,21 +75,18 @@ class MessageResponse(BaseModel):
     total: int
     has_more: bool
 
-
 class ConvergenceResponse(BaseModel):
     """Response for convergence status."""
 
     debate_id: str
     converged: bool
     confidence: float = 0.0
-    rounds_to_convergence: Optional[int] = None
+    rounds_to_convergence: int | None = None
     similarity_scores: list[float] = Field(default_factory=list)
-
 
 # =============================================================================
 # Dependencies
 # =============================================================================
-
 
 async def get_storage(request: Request):
     """Dependency to get storage from app state."""
@@ -109,18 +100,16 @@ async def get_storage(request: Request):
 
     return storage
 
-
 # =============================================================================
 # Endpoints
 # =============================================================================
-
 
 @router.get("/debates", response_model=DebateListResponse)
 async def list_debates(
     request: Request,
     limit: int = Query(50, ge=1, le=100, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status: str | None = Query(None, description="Filter by status"),
     storage=Depends(get_storage),
 ) -> DebateListResponse:
     """
@@ -189,7 +178,6 @@ async def list_debates(
     except Exception as e:
         logger.exception(f"Error listing debates: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to list debates: {e}")
-
 
 @router.get("/debates/{debate_id}", response_model=DebateDetail)
 async def get_debate(
@@ -260,7 +248,6 @@ async def get_debate(
         logger.exception(f"Error getting debate {debate_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get debate: {e}")
 
-
 @router.get("/debates/{debate_id}/messages", response_model=MessageResponse)
 async def get_debate_messages(
     debate_id: str,
@@ -322,7 +309,6 @@ async def get_debate_messages(
     except Exception as e:
         logger.exception(f"Error getting messages for debate {debate_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get messages: {e}")
-
 
 @router.get("/debates/{debate_id}/convergence", response_model=ConvergenceResponse)
 async def get_debate_convergence(

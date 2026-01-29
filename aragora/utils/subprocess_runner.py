@@ -26,13 +26,13 @@ import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
 # Command allowlist with permitted subcommands
 # Format: command_name -> list of allowed subcommands (None means all subcommands allowed)
-ALLOWED_COMMANDS: dict[str, Optional[list[str]]] = {
+ALLOWED_COMMANDS: dict[str, list[str] | None] = {
     # Version control
     "git": [
         "rev-parse",
@@ -149,7 +149,6 @@ DEFAULT_TIMEOUT: float = 30.0
 # Maximum timeout allowed
 MAX_TIMEOUT: float = 600.0
 
-
 @dataclass
 class SandboxedResult:
     """Result from a sandboxed subprocess execution."""
@@ -165,12 +164,10 @@ class SandboxedResult:
         """Check if command succeeded (returncode 0)."""
         return self.returncode == 0
 
-
 class SandboxError(Exception):
     """Raised when a command fails sandbox validation."""
 
     pass
-
 
 class SandboxedCommand:
     """Validates and executes sandboxed commands."""
@@ -269,16 +266,15 @@ class SandboxedCommand:
 
         return safe_env
 
-
 async def run_sandboxed(
     cmd: Sequence[str],
     *,
-    cwd: Optional[Union[str, Path]] = None,
+    cwd: Optional[str | Path] = None,
     timeout: float = DEFAULT_TIMEOUT,
     capture_output: bool = True,
     check: bool = False,
-    env: Optional[dict[str, str]] = None,
-    input_data: Optional[str] = None,
+    env: dict[str, str] | None = None,
+    input_data: str | None = None,
 ) -> SandboxedResult:
     """
     Run a subprocess with sandboxing and validation.
@@ -372,16 +368,15 @@ async def run_sandboxed(
             timed_out=True,
         )
 
-
 def run_sandboxed_sync(
     cmd: Sequence[str],
     *,
-    cwd: Optional[Union[str, Path]] = None,
+    cwd: Optional[str | Path] = None,
     timeout: float = DEFAULT_TIMEOUT,
     capture_output: bool = True,
     check: bool = False,
-    env: Optional[dict[str, str]] = None,
-    input_data: Optional[str] = None,
+    env: dict[str, str] | None = None,
+    input_data: str | None = None,
 ) -> SandboxedResult:
     """
     Synchronous version of run_sandboxed for non-async contexts.
@@ -456,7 +451,6 @@ def run_sandboxed_sync(
             command=list(cmd),
             timed_out=True,
         )
-
 
 __all__ = [
     "ALLOWED_COMMANDS",

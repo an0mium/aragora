@@ -12,7 +12,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 from .base import (
     DEFAULT_RATE_LIMIT,
@@ -26,7 +26,6 @@ from .bucket import TokenBucket
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class RateLimitConfig:
     """Configuration for a rate limit rule."""
@@ -35,7 +34,6 @@ class RateLimitConfig:
     burst_size: int | None = None
     key_type: str = "ip"  # "ip", "token", "endpoint", "combined"
     enabled: bool = True
-
 
 @dataclass
 class RateLimitResult:
@@ -46,7 +44,6 @@ class RateLimitResult:
     limit: int = 0
     retry_after: float = 0
     key: str = ""
-
 
 class RateLimiter:
     """
@@ -80,10 +77,10 @@ class RateLimiter:
         # Buckets by key type (OrderedDict for LRU eviction)
         self._ip_buckets: OrderedDict[str, TokenBucket] = OrderedDict()
         self._token_buckets: OrderedDict[str, TokenBucket] = OrderedDict()
-        self._endpoint_buckets: Dict[str, OrderedDict[str, TokenBucket]] = {}
+        self._endpoint_buckets: dict[str, OrderedDict[str, TokenBucket]] = {}
 
         # Per-endpoint configuration
-        self._endpoint_configs: Dict[str, RateLimitConfig] = {}
+        self._endpoint_configs: dict[str, RateLimitConfig] = {}
 
         self._lock = threading.Lock()
         self._last_cleanup = time.monotonic()
@@ -91,7 +88,7 @@ class RateLimiter:
         # Observability metrics
         self._requests_allowed: int = 0
         self._requests_rejected: int = 0
-        self._rejections_by_endpoint: Dict[str, int] = {}
+        self._rejections_by_endpoint: dict[str, int] = {}
 
     def configure_endpoint(
         self,
@@ -336,7 +333,7 @@ class RateLimiter:
             self._token_buckets.clear()
             self._endpoint_buckets.clear()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get rate limiter statistics including observability metrics."""
         with self._lock:
             total_requests = self._requests_allowed + self._requests_rejected
@@ -402,7 +399,6 @@ class RateLimiter:
         # Only trust XFF from configured trusted proxies
         client_ip = _extract_client_ip(headers, remote_ip)
         return sanitize_rate_limit_key_component(client_ip)
-
 
 __all__ = [
     "RateLimitConfig",

@@ -17,12 +17,11 @@ import concurrent.futures
 import logging
 import os
 import time
-from typing import Any, Dict
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 def liveness_probe(handler) -> HandlerResult:
     """Kubernetes liveness probe - lightweight check that server is alive.
@@ -55,7 +54,6 @@ def liveness_probe(handler) -> HandlerResult:
 
     return json_response({"status": "ok"})
 
-
 def readiness_probe_fast(handler) -> HandlerResult:
     """Fast Kubernetes readiness probe - check if ready to serve traffic.
 
@@ -77,7 +75,7 @@ def readiness_probe_fast(handler) -> HandlerResult:
 
     start_time = time.time()
     ready = True
-    checks: Dict[str, Any] = {}
+    checks: dict[str, Any] = {}
 
     # Check for degraded mode first - return 503 immediately
     try:
@@ -164,7 +162,6 @@ def readiness_probe_fast(handler) -> HandlerResult:
 
     return json_response(result, status=status_code)
 
-
 def readiness_dependencies(handler) -> HandlerResult:
     """Full dependency validation probe - checks all external connections.
 
@@ -191,7 +188,7 @@ def readiness_dependencies(handler) -> HandlerResult:
 
     start_time = time.time()
     ready = True
-    checks: Dict[str, Any] = {}
+    checks: dict[str, Any] = {}
 
     # Check for degraded mode first - return 503 immediately
     try:

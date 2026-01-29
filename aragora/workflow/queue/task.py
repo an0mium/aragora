@@ -10,9 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, IntEnum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 import uuid
-
 
 class TaskStatus(str, Enum):
     """Status of a workflow task."""
@@ -26,7 +25,6 @@ class TaskStatus(str, Enum):
     TIMEOUT = "timeout"  # Execution timed out
     RETRY = "retry"  # Scheduled for retry
 
-
 class TaskPriority(IntEnum):
     """Task execution priority (lower = higher priority)."""
 
@@ -36,17 +34,15 @@ class TaskPriority(IntEnum):
     LOW = 100
     BACKGROUND = 200
 
-
 @dataclass
 class TaskResult:
     """Result of task execution."""
 
     success: bool
     output: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     execution_time_ms: float = 0
     retries_used: int = 0
-
 
 @dataclass
 class WorkflowTask:
@@ -71,8 +67,8 @@ class WorkflowTask:
     id: str
     workflow_id: str
     step_id: str
-    step_config: Dict[str, Any] = field(default_factory=dict)
-    depends_on: List[str] = field(default_factory=list)
+    step_config: dict[str, Any] = field(default_factory=dict)
+    depends_on: list[str] = field(default_factory=list)
 
     # Scheduling options
     priority: TaskPriority = TaskPriority.NORMAL
@@ -82,28 +78,28 @@ class WorkflowTask:
     # Status tracking
     status: TaskStatus = TaskStatus.PENDING
     retry_count: int = 0
-    result: Optional[TaskResult] = None
+    result: TaskResult | None = None
 
     # Timing
     created_at: datetime = field(default_factory=datetime.now)
-    queued_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    queued_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     # Execution context
-    executor_id: Optional[str] = None
+    executor_id: str | None = None
     tenant_id: str = "default"
 
     # Additional metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def create(
         cls,
         workflow_id: str,
         step_id: str,
-        step_config: Optional[Dict[str, Any]] = None,
-        depends_on: Optional[List[str]] = None,
+        step_config: Optional[dict[str, Any]] = None,
+        depends_on: Optional[list[str]] = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         **kwargs: Any,
     ) -> WorkflowTask:
@@ -207,7 +203,7 @@ class WorkflowTask:
             return True
         return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -231,7 +227,7 @@ class WorkflowTask:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WorkflowTask:
+    def from_dict(cls, data: dict[str, Any]) -> WorkflowTask:
         """Create from dictionary."""
         result_data = data.get("result")
         result = TaskResult(**result_data) if result_data else None

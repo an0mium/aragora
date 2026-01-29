@@ -63,7 +63,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
 class GauntletOrchestrator:
     """
     Orchestrates adversarial validation pipelines.
@@ -98,11 +97,11 @@ class GauntletOrchestrator:
 
     def __init__(
         self,
-        agents: Optional[list] = None,
-        nomic_dir: Optional[Path] = None,
+        agents: list | None = None,
+        nomic_dir: Path | None = None,
         on_phase_complete: Optional[Callable[[GauntletPhase, PhaseResult], None]] = None,
         on_finding: Optional[Callable[[GauntletFinding], None]] = None,
-        run_agent_fn: Optional[Callable] = None,
+        run_agent_fn: Callable | None = None,
     ):
         """Initialize the orchestrator.
 
@@ -141,8 +140,8 @@ class GauntletOrchestrator:
     async def run(
         self,
         input_text: str,
-        template: Optional[GauntletTemplate | str] = None,
-        config: Optional[GauntletConfig] = None,
+        template: GauntletTemplate | str | None = None,
+        config: GauntletConfig | None = None,
     ) -> GauntletResult:
         """Run a Gauntlet validation.
 
@@ -784,7 +783,6 @@ class GauntletOrchestrator:
                 self.on_finding(finding)
             except Exception as e:
                 logger.warning(f"Finding callback failed: {e}")
-
 
 # Convenience function for quick validation
 async def run_gauntlet(

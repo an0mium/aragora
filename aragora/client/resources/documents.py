@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from ..models import (
     AuditFinding,
@@ -30,7 +30,6 @@ from ..models import (
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
-
 class DocumentsAPI:
     """API interface for document management and auditing."""
 
@@ -45,8 +44,8 @@ class DocumentsAPI:
         self,
         limit: int = 50,
         offset: int = 0,
-        status: Optional[str] = None,
-    ) -> List[Document]:
+        status: str | None = None,
+    ) -> list[Document]:
         """
         List uploaded documents.
 
@@ -70,8 +69,8 @@ class DocumentsAPI:
         self,
         limit: int = 50,
         offset: int = 0,
-        status: Optional[str] = None,
-    ) -> List[Document]:
+        status: str | None = None,
+    ) -> list[Document]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -102,7 +101,7 @@ class DocumentsAPI:
     def upload(
         self,
         file_path: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> DocumentUploadResponse:
         """
         Upload a document for processing.
@@ -135,7 +134,7 @@ class DocumentsAPI:
     async def upload_async(
         self,
         file_path: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> DocumentUploadResponse:
         """Async version of upload()."""
         path = Path(file_path)
@@ -195,8 +194,8 @@ class DocumentsAPI:
 
     def batch_upload(
         self,
-        file_paths: List[str],
-        metadata: Optional[dict[str, Any]] = None,
+        file_paths: list[str],
+        metadata: dict[str, Any] | None = None,
     ) -> BatchUploadResponse:
         """
         Upload multiple documents as a batch.
@@ -234,8 +233,8 @@ class DocumentsAPI:
 
     async def batch_upload_async(
         self,
-        file_paths: List[str],
-        metadata: Optional[dict[str, Any]] = None,
+        file_paths: list[str],
+        metadata: dict[str, Any] | None = None,
     ) -> BatchUploadResponse:
         """Async version of batch_upload()."""
         files = []
@@ -340,7 +339,7 @@ class DocumentsAPI:
         document_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[DocumentChunk]:
+    ) -> list[DocumentChunk]:
         """
         Get chunks for a document.
 
@@ -362,7 +361,7 @@ class DocumentsAPI:
         document_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[DocumentChunk]:
+    ) -> list[DocumentChunk]:
         """Async version of chunks()."""
         params = {"limit": limit, "offset": offset}
         response = await self._client._get_async(
@@ -414,8 +413,8 @@ class DocumentsAPI:
 
     def create_audit(
         self,
-        document_ids: List[str],
-        audit_types: Optional[List[str]] = None,
+        document_ids: list[str],
+        audit_types: Optional[list[str]] = None,
         model: str = "gemini-1.5-flash",
         **options: Any,
     ) -> AuditSessionCreateResponse:
@@ -444,8 +443,8 @@ class DocumentsAPI:
 
     async def create_audit_async(
         self,
-        document_ids: List[str],
-        audit_types: Optional[List[str]] = None,
+        document_ids: list[str],
+        audit_types: Optional[list[str]] = None,
         model: str = "gemini-1.5-flash",
         **options: Any,
     ) -> AuditSessionCreateResponse:
@@ -464,8 +463,8 @@ class DocumentsAPI:
         self,
         limit: int = 20,
         offset: int = 0,
-        status: Optional[str] = None,
-    ) -> List[AuditSession]:
+        status: str | None = None,
+    ) -> list[AuditSession]:
         """
         List audit sessions.
 
@@ -489,8 +488,8 @@ class DocumentsAPI:
         self,
         limit: int = 20,
         offset: int = 0,
-        status: Optional[str] = None,
-    ) -> List[AuditSession]:
+        status: str | None = None,
+    ) -> list[AuditSession]:
         """Async version of list_audits()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -593,9 +592,9 @@ class DocumentsAPI:
     def audit_findings(
         self,
         session_id: str,
-        severity: Optional[str] = None,
-        audit_type: Optional[str] = None,
-    ) -> List[AuditFinding]:
+        severity: str | None = None,
+        audit_type: str | None = None,
+    ) -> list[AuditFinding]:
         """
         Get findings from an audit session.
 
@@ -620,9 +619,9 @@ class DocumentsAPI:
     async def audit_findings_async(
         self,
         session_id: str,
-        severity: Optional[str] = None,
-        audit_type: Optional[str] = None,
-    ) -> List[AuditFinding]:
+        severity: str | None = None,
+        audit_type: str | None = None,
+    ) -> list[AuditFinding]:
         """Async version of audit_findings()."""
         params: dict[str, Any] = {}
         if severity:

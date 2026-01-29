@@ -26,7 +26,7 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -47,11 +47,9 @@ CODEBASE_AUDIT_PERMISSION = "codebase:audit"
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Service Registry Integration (Lazy Loading)
 # =============================================================================
-
 
 def _get_code_intelligence():
     """Get or create CodeIntelligence from service registry."""
@@ -67,7 +65,6 @@ def _get_code_intelligence():
     except ImportError:
         logger.warning("CodeIntelligence not available")
         return None
-
 
 def _get_call_graph_builder():
     """Get or create CallGraphBuilder from service registry."""
@@ -85,7 +82,6 @@ def _get_call_graph_builder():
         logger.warning("CallGraphBuilder not available")
         return None
 
-
 def _get_security_scanner():
     """Get or create SecurityScanner from service registry."""
     registry = ServiceRegistry.get()
@@ -100,7 +96,6 @@ def _get_security_scanner():
     except ImportError:
         logger.warning("SecurityScanner not available")
         return None
-
 
 def _get_bug_detector():
     """Get or create BugDetector from service registry."""
@@ -117,43 +112,38 @@ def _get_bug_detector():
         logger.warning("BugDetector not available")
         return None
 
-
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
-_analysis_results: Dict[str, Dict[str, Any]] = {}  # repo_id -> {analysis_id -> result}
+_analysis_results: dict[str, dict[str, Any]] = {}  # repo_id -> {analysis_id -> result}
 _analysis_lock = threading.Lock()
-_running_analyses: Dict[str, asyncio.Task] = {}
+_running_analyses: dict[str, asyncio.Task] = {}
 
-_callgraph_cache: Dict[str, Any] = {}  # repo_id -> callgraph
+_callgraph_cache: dict[str, Any] = {}  # repo_id -> callgraph
 _callgraph_lock = threading.Lock()
 
-_audit_results: Dict[str, Dict[str, Any]] = {}  # repo_id -> {audit_id -> result}
+_audit_results: dict[str, dict[str, Any]] = {}  # repo_id -> {audit_id -> result}
 _audit_lock = threading.Lock()
-_running_audits: Dict[str, asyncio.Task] = {}
+_running_audits: dict[str, asyncio.Task] = {}
 
-
-def _get_or_create_repo_analyses(repo_id: str) -> Dict[str, Any]:
+def _get_or_create_repo_analyses(repo_id: str) -> dict[str, Any]:
     """Get or create analysis storage for a repository."""
     with _analysis_lock:
         if repo_id not in _analysis_results:
             _analysis_results[repo_id] = {}
         return _analysis_results[repo_id]
 
-
-def _get_or_create_repo_audits(repo_id: str) -> Dict[str, Any]:
+def _get_or_create_repo_audits(repo_id: str) -> dict[str, Any]:
     """Get or create audit storage for a repository."""
     with _audit_lock:
         if repo_id not in _audit_results:
             _audit_results[repo_id] = {}
         return _audit_results[repo_id]
 
-
 # =============================================================================
 # Code Intelligence Handlers
 # =============================================================================
-
 
 class IntelligenceHandler(SecureHandler):
     """Handler class for code intelligence endpoints."""
@@ -192,7 +182,7 @@ class IntelligenceHandler(SecureHandler):
         self.check_permission(auth_context, permission)
 
     async def analyze(
-        self, repo_id: str, body: Dict[str, Any], handler: Any = None
+        self, repo_id: str, body: dict[str, Any], handler: Any = None
     ) -> HandlerResult:
         """Analyze codebase structure and extract symbols."""
         # RBAC: Require codebase:analyze permission
@@ -206,7 +196,7 @@ class IntelligenceHandler(SecureHandler):
         return await handle_analyze_codebase(repo_id, body)
 
     async def get_symbols(
-        self, repo_id: str, params: Dict[str, Any], handler: Any = None
+        self, repo_id: str, params: dict[str, Any], handler: Any = None
     ) -> HandlerResult:
         """Get symbols from the codebase."""
         # RBAC: Require codebase:read permission
@@ -220,7 +210,7 @@ class IntelligenceHandler(SecureHandler):
         return await handle_get_symbols(repo_id, params)
 
     async def get_callgraph(
-        self, repo_id: str, params: Dict[str, Any], handler: Any = None
+        self, repo_id: str, params: dict[str, Any], handler: Any = None
     ) -> HandlerResult:
         """Get call graph for the codebase."""
         # RBAC: Require codebase:analyze permission
@@ -234,7 +224,7 @@ class IntelligenceHandler(SecureHandler):
         return await handle_get_callgraph(repo_id, params)
 
     async def find_deadcode(
-        self, repo_id: str, params: Dict[str, Any], handler: Any = None
+        self, repo_id: str, params: dict[str, Any], handler: Any = None
     ) -> HandlerResult:
         """Find dead/unreachable code."""
         # RBAC: Require codebase:analyze permission
@@ -248,7 +238,7 @@ class IntelligenceHandler(SecureHandler):
         return await handle_find_deadcode(repo_id, params)
 
     async def analyze_impact(
-        self, repo_id: str, body: Dict[str, Any], handler: Any = None
+        self, repo_id: str, body: dict[str, Any], handler: Any = None
     ) -> HandlerResult:
         """Analyze impact of changes to a symbol."""
         # RBAC: Require codebase:analyze permission
@@ -262,7 +252,7 @@ class IntelligenceHandler(SecureHandler):
         return await handle_analyze_impact(repo_id, body)
 
     async def understand(
-        self, repo_id: str, body: Dict[str, Any], handler: Any = None
+        self, repo_id: str, body: dict[str, Any], handler: Any = None
     ) -> HandlerResult:
         """Answer questions about the codebase."""
         # RBAC: Require codebase:read permission
@@ -275,7 +265,7 @@ class IntelligenceHandler(SecureHandler):
                 return error_response(str(e), 403)
         return await handle_understand(repo_id, body)
 
-    async def audit(self, repo_id: str, body: Dict[str, Any], handler: Any = None) -> HandlerResult:
+    async def audit(self, repo_id: str, body: dict[str, Any], handler: Any = None) -> HandlerResult:
         """Run comprehensive code audit."""
         # RBAC: Require codebase:audit permission
         if handler:
@@ -288,7 +278,7 @@ class IntelligenceHandler(SecureHandler):
         return await handle_audit(repo_id, body)
 
     async def get_audit_status(
-        self, repo_id: str, audit_id: str, params: Dict[str, Any], handler: Any = None
+        self, repo_id: str, audit_id: str, params: dict[str, Any], handler: Any = None
     ) -> HandlerResult:
         """Get status of an audit."""
         # RBAC: Require codebase:read permission
@@ -301,13 +291,11 @@ class IntelligenceHandler(SecureHandler):
                 return error_response(str(e), 403)
         return await handle_get_audit_status(repo_id, audit_id, params)
 
-
 # =============================================================================
 # Analyze Codebase Handler
 # =============================================================================
 
-
-async def handle_analyze_codebase(repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+async def handle_analyze_codebase(repo_id: str, body: dict[str, Any]) -> HandlerResult:
     """
     Analyze codebase structure and extract symbols.
 
@@ -362,11 +350,11 @@ async def handle_analyze_codebase(repo_id: str, body: Dict[str, Any]) -> Handler
         # Aggregate results
         total_files = 0
         total_lines = 0
-        languages: Dict[str, int] = {}
-        all_classes: List[Dict[str, Any]] = []
-        all_functions: List[Dict[str, Any]] = []
-        all_imports: List[Dict[str, Any]] = []
-        file_summaries: List[Dict[str, Any]] = []
+        languages: dict[str, int] = {}
+        all_classes: list[dict[str, Any]] = []
+        all_functions: list[dict[str, Any]] = []
+        all_imports: list[dict[str, Any]] = []
+        file_summaries: list[dict[str, Any]] = []
 
         for file_path, analysis in analyses_dict.items():
             total_files += 1
@@ -458,13 +446,11 @@ async def handle_analyze_codebase(repo_id: str, body: Dict[str, Any]) -> Handler
         logger.error(f"Analysis failed: {e}")
         return error_response(f"Analysis failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Get Symbols Handler
 # =============================================================================
 
-
-async def handle_get_symbols(repo_id: str, params: Dict[str, Any]) -> HandlerResult:
+async def handle_get_symbols(repo_id: str, params: dict[str, Any]) -> HandlerResult:
     """
     Get symbols (classes, functions) from the codebase.
 
@@ -500,7 +486,7 @@ async def handle_get_symbols(repo_id: str, params: Dict[str, Any]) -> HandlerRes
 
     try:
         analyses_dict = code_intel.analyze_directory(path)
-        symbols: List[Dict[str, Any]] = []
+        symbols: list[dict[str, Any]] = []
 
         for file_path, analysis in analyses_dict.items():
             # Apply file filter
@@ -550,13 +536,11 @@ async def handle_get_symbols(repo_id: str, params: Dict[str, Any]) -> HandlerRes
         logger.error(f"Symbol extraction failed: {e}")
         return error_response(f"Symbol extraction failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Call Graph Handler
 # =============================================================================
 
-
-async def handle_get_callgraph(repo_id: str, params: Dict[str, Any]) -> HandlerResult:
+async def handle_get_callgraph(repo_id: str, params: dict[str, Any]) -> HandlerResult:
     """
     Get call graph for the codebase.
 
@@ -640,13 +624,11 @@ async def handle_get_callgraph(repo_id: str, params: Dict[str, Any]) -> HandlerR
         logger.error(f"Call graph construction failed: {e}")
         return error_response(f"Call graph construction failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Dead Code Handler
 # =============================================================================
 
-
-async def handle_find_deadcode(repo_id: str, params: Dict[str, Any]) -> HandlerResult:
+async def handle_find_deadcode(repo_id: str, params: dict[str, Any]) -> HandlerResult:
     """
     Find dead/unreachable code.
 
@@ -716,13 +698,11 @@ async def handle_find_deadcode(repo_id: str, params: Dict[str, Any]) -> HandlerR
         logger.error(f"Dead code analysis failed: {e}")
         return error_response(f"Dead code analysis failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Impact Analysis Handler
 # =============================================================================
 
-
-async def handle_analyze_impact(repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+async def handle_analyze_impact(repo_id: str, body: dict[str, Any]) -> HandlerResult:
     """
     Analyze impact of changes to a symbol.
 
@@ -789,13 +769,11 @@ async def handle_analyze_impact(repo_id: str, body: Dict[str, Any]) -> HandlerRe
         logger.error(f"Impact analysis failed: {e}")
         return error_response(f"Impact analysis failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Understand Handler
 # =============================================================================
 
-
-async def handle_understand(repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+async def handle_understand(repo_id: str, body: dict[str, Any]) -> HandlerResult:
     """
     Answer questions about the codebase.
 
@@ -853,13 +831,11 @@ async def handle_understand(repo_id: str, body: Dict[str, Any]) -> HandlerResult
         logger.error(f"Understanding query failed: {e}")
         return error_response(f"Understanding query failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Audit Handler
 # =============================================================================
 
-
-async def handle_audit(repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
     """
     Run comprehensive code audit.
 
@@ -1012,9 +988,8 @@ async def handle_audit(repo_id: str, body: Dict[str, Any]) -> HandlerResult:
         result = await run_audit()
         return success_response(result)
 
-
 async def handle_get_audit_status(
-    repo_id: str, audit_id: str, params: Dict[str, Any]
+    repo_id: str, audit_id: str, params: dict[str, Any]
 ) -> HandlerResult:
     """Get status of an audit."""
     repo_audits = _get_or_create_repo_audits(repo_id)
@@ -1024,13 +999,11 @@ async def handle_get_audit_status(
 
     return success_response(repo_audits[audit_id])
 
-
 # =============================================================================
 # Convenience Functions
 # =============================================================================
 
-
-async def quick_analyze(path: str) -> Dict[str, Any]:
+async def quick_analyze(path: str) -> dict[str, Any]:
     """Quick helper to analyze a path."""
     import json
 
@@ -1038,8 +1011,7 @@ async def quick_analyze(path: str) -> Dict[str, Any]:
     body = json.loads(result.body.decode("utf-8"))
     return body.get("data", {})
 
-
-async def quick_audit(path: str) -> Dict[str, Any]:
+async def quick_audit(path: str) -> dict[str, Any]:
     """Quick helper to audit a path."""
     import json
 

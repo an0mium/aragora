@@ -53,7 +53,6 @@ TRUSTED_PROXIES = frozenset(
     if p.strip()
 )
 
-
 def _normalize_ip(ip_value: str) -> str:
     """Normalize IP address string for consistent keying."""
     if not ip_value:
@@ -63,7 +62,6 @@ def _normalize_ip(ip_value: str) -> str:
         return str(ipaddress.ip_address(ip_value))
     except ValueError:
         return ip_value
-
 
 def get_client_ip(handler) -> str:
     """Extract client IP from request handler.
@@ -110,7 +108,6 @@ def get_client_ip(handler) -> str:
     if remote_ip:
         return remote_ip
     return "unknown"
-
 
 class RateLimiter:
     """Thread-safe token bucket rate limiter with simple API.
@@ -220,11 +217,9 @@ class RateLimiter:
         with self._lock:
             self._buckets.clear()
 
-
 # Global rate limiters for different endpoint categories
 _limiters: dict[str, RateLimiter] = {}
 _limiters_lock = threading.Lock()
-
 
 def _get_limiter(name: str, rpm: int) -> RateLimiter:
     """Get or create a named rate limiter."""
@@ -232,7 +227,6 @@ def _get_limiter(name: str, rpm: int) -> RateLimiter:
         if name not in _limiters:
             _limiters[name] = RateLimiter(requests_per_minute=rpm)
         return _limiters[name]
-
 
 def clear_all_limiters() -> int:
     """Clear all rate limiters (for testing).
@@ -247,13 +241,12 @@ def clear_all_limiters() -> int:
             count += 1
         return count
 
-
 def rate_limit(
     rpm: int = 60,
     key_func: Optional[Callable[[Any], str]] = None,
-    limiter_name: Optional[str] = None,
+    limiter_name: str | None = None,
     *,
-    requests_per_minute: Optional[int] = None,
+    requests_per_minute: int | None = None,
 ) -> Callable[[F], F]:
     """Decorator to rate limit handler methods.
 
@@ -376,7 +369,6 @@ def rate_limit(
             return cast(F, sync_wrapper)
 
     return decorator
-
 
 __all__ = [
     "RateLimiter",

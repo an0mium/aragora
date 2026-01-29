@@ -23,7 +23,7 @@ import hmac
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.bots.base import (
     BotChannel,
@@ -49,7 +49,6 @@ ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN", "")
 # error messages for production environments.
 API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
-
 class ZoomOAuthManager:
     """Manages Zoom OAuth tokens."""
 
@@ -60,10 +59,10 @@ class ZoomOAuthManager:
     ):
         self.client_id = client_id
         self.client_secret = client_secret
-        self._access_token: Optional[str] = None
-        self._token_expires: Optional[datetime] = None
+        self._access_token: str | None = None
+        self._token_expires: datetime | None = None
 
-    async def get_access_token(self) -> Optional[str]:
+    async def get_access_token(self) -> str | None:
         """Get a valid access token, refreshing if needed."""
         if self._access_token and self._token_expires:
             if datetime.now(timezone.utc) < self._token_expires:
@@ -106,7 +105,6 @@ class ZoomOAuthManager:
             logger.error(f"Zoom OAuth error: {e}")
             return None
 
-
 class AragoraZoomBot:
     """Zoom bot for Aragora platform integration.
 
@@ -120,9 +118,9 @@ class AragoraZoomBot:
         self,
         client_id: str,
         client_secret: str,
-        bot_jid: Optional[str] = None,
-        verification_token: Optional[str] = None,
-        secret_token: Optional[str] = None,
+        bot_jid: str | None = None,
+        verification_token: str | None = None,
+        secret_token: str | None = None,
     ):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -168,7 +166,7 @@ class AragoraZoomBot:
             logger.error(f"Zoom signature verification error: {e}")
             return False
 
-    async def handle_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_event(self, event: dict[str, Any]) -> dict[str, Any]:
         """Handle incoming Zoom event.
 
         Returns response dict to send back to Zoom.
@@ -207,7 +205,7 @@ class AragoraZoomBot:
         logger.debug(f"Unhandled Zoom event: {event_type}")
         return {"status": "ok"}
 
-    async def _handle_chat_message(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_chat_message(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Handle incoming chat message."""
         payload.get("robotJid", "")
         payload.get("userJid", "")
@@ -238,7 +236,7 @@ class AragoraZoomBot:
         message = result.message or result.error or "Command executed"
         return await self._send_chat_message(to_jid, account_id, message)
 
-    async def _handle_meeting_ended(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_meeting_ended(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Handle meeting ended event.
 
         Could be used to send debate summaries or meeting analysis.
@@ -258,7 +256,7 @@ class AragoraZoomBot:
         self,
         meeting_id: str,
         host_email: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
     ) -> None:
         """Generate and send post-meeting summary using debate analysis."""
         try:
@@ -299,7 +297,7 @@ class AragoraZoomBot:
         to_jid: str,
         account_id: str,
         message: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Send a chat message via Zoom API."""
         try:
             import aiohttp
@@ -351,7 +349,7 @@ class AragoraZoomBot:
 
     def _create_context(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         command: str,
         args: str,
     ) -> CommandContext:
@@ -398,13 +396,12 @@ class AragoraZoomBot:
             },
         )
 
-
 def create_zoom_bot(
-    client_id: Optional[str] = None,
-    client_secret: Optional[str] = None,
-    bot_jid: Optional[str] = None,
-    verification_token: Optional[str] = None,
-    secret_token: Optional[str] = None,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    bot_jid: str | None = None,
+    verification_token: str | None = None,
+    secret_token: str | None = None,
 ) -> AragoraZoomBot:
     """Create an Aragora Zoom bot instance.
 
@@ -436,7 +433,6 @@ def create_zoom_bot(
         verification_token=verification_token,
         secret_token=secret_token,
     )
-
 
 __all__ = [
     "AragoraZoomBot",

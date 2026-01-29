@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ..base import (
     BaseHandler,
@@ -34,13 +34,11 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Service Instance Management
 # =============================================================================
 
-_service_instances: Dict[str, Any] = {}  # tenant_id -> ReconciliationService
-
+_service_instances: dict[str, Any] = {}  # tenant_id -> ReconciliationService
 
 def get_reconciliation_service(tenant_id: str):
     """Get or create reconciliation service for tenant."""
@@ -53,11 +51,9 @@ def get_reconciliation_service(tenant_id: str):
             return None
     return _service_instances[tenant_id]
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class ReconciliationHandler(BaseHandler):
     """Handler for bank reconciliation API endpoints."""
@@ -74,7 +70,7 @@ class ReconciliationHandler(BaseHandler):
         "/api/v1/reconciliation/demo",
     ]
 
-    def __init__(self, server_context: Optional[Dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
@@ -604,7 +600,7 @@ class ReconciliationHandler(BaseHandler):
     # Utility Methods
     # =========================================================================
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
@@ -612,7 +608,7 @@ class ReconciliationHandler(BaseHandler):
             return request.json
         return {}
 
-    def _get_query_params(self, request: Any) -> Dict[str, str]:
+    def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""
         if hasattr(request, "query"):
             return dict(request.query)
@@ -620,13 +616,11 @@ class ReconciliationHandler(BaseHandler):
             return dict(request.args)
         return {}
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-_handler_instance: Optional[ReconciliationHandler] = None
-
+_handler_instance: ReconciliationHandler | None = None
 
 def get_reconciliation_handler() -> ReconciliationHandler:
     """Get or create handler instance."""
@@ -635,12 +629,10 @@ def get_reconciliation_handler() -> ReconciliationHandler:
         _handler_instance = ReconciliationHandler()
     return _handler_instance
 
-
 async def handle_reconciliation(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for reconciliation requests."""
     handler = get_reconciliation_handler()
     return await handler.handle(request, path, method)
-
 
 __all__ = [
     "ReconciliationHandler",

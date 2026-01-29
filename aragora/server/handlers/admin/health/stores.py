@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 class StoresMixin:
     """Mixin for database store health checks.
@@ -40,7 +39,7 @@ class StoresMixin:
         """Get nomic directory path. Subclasses must implement."""
         raise NotImplementedError
 
-    ctx: Dict[str, Any]  # Context dict for accessing stores
+    ctx: dict[str, Any]  # Context dict for accessing stores
 
     def database_stores_health(self) -> HandlerResult:
         """Check health of all database stores.
@@ -56,7 +55,7 @@ class StoresMixin:
         This endpoint helps diagnose which specific stores are
         initialized, connected, and functioning.
         """
-        stores: Dict[str, Dict[str, Any]] = {}
+        stores: dict[str, dict[str, Any]] = {}
         all_healthy = True
         start_time = time.time()
 
@@ -115,7 +114,7 @@ class StoresMixin:
             }
         )
 
-    def _check_debate_storage(self) -> tuple[Dict[str, Any], bool]:
+    def _check_debate_storage(self) -> tuple[dict[str, Any], bool]:
         """Check debate storage health."""
         try:
             import sqlite3
@@ -154,7 +153,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }, False
 
-    def _check_elo_system(self) -> tuple[Dict[str, Any], bool]:
+    def _check_elo_system(self) -> tuple[dict[str, Any], bool]:
         """Check ELO system health."""
         try:
             import sqlite3
@@ -193,7 +192,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }, False
 
-    def _check_insight_store(self) -> Dict[str, Any]:
+    def _check_insight_store(self) -> dict[str, Any]:
         """Check insight store health."""
         try:
             insight_store = self.ctx.get("insight_store")
@@ -215,7 +214,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
-    def _check_flip_detector(self) -> Dict[str, Any]:
+    def _check_flip_detector(self) -> dict[str, Any]:
         """Check flip detector health."""
         try:
             flip_detector = self.ctx.get("flip_detector")
@@ -236,7 +235,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
-    def _check_user_store(self) -> Dict[str, Any]:
+    def _check_user_store(self) -> dict[str, Any]:
         """Check user store health."""
         try:
             user_store = self.ctx.get("user_store")
@@ -257,7 +256,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
-    def _check_consensus_memory(self) -> Dict[str, Any]:
+    def _check_consensus_memory(self) -> dict[str, Any]:
         """Check consensus memory health."""
         try:
             from aragora.memory.consensus import ConsensusMemory  # noqa: F401
@@ -293,7 +292,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
-    def _check_agent_metadata(self) -> Dict[str, Any]:
+    def _check_agent_metadata(self) -> dict[str, Any]:
         """Check agent metadata health."""
         try:
             nomic_dir = self.get_nomic_dir()
@@ -339,7 +338,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
-    def _check_integration_store(self) -> Dict[str, Any]:
+    def _check_integration_store(self) -> dict[str, Any]:
         """Check integration store health."""
         try:
             from aragora.storage.integration_store import IntegrationStore  # noqa: F401
@@ -368,7 +367,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
-    def _check_gmail_token_store(self) -> Dict[str, Any]:
+    def _check_gmail_token_store(self) -> dict[str, Any]:
         """Check Gmail token store health."""
         try:
             from aragora.storage.gmail_token_store import GmailTokenStore  # noqa: F401
@@ -397,7 +396,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
-    def _check_sync_store(self) -> Dict[str, Any]:
+    def _check_sync_store(self) -> dict[str, Any]:
         """Check sync store health."""
         try:
             from aragora.connectors.enterprise.sync_store import SyncStore  # noqa: F401
@@ -426,7 +425,7 @@ class StoresMixin:
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
 
-    def _check_decision_result_store(self) -> Dict[str, Any]:
+    def _check_decision_result_store(self) -> dict[str, Any]:
         """Check decision result store health."""
         try:
             from aragora.storage.decision_result_store import DecisionResultStore  # noqa: F401
@@ -454,6 +453,5 @@ class StoresMixin:
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
-
 
 __all__ = ["StoresMixin"]

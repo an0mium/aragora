@@ -8,14 +8,13 @@ Consolidates security checks that were scattered in unified_server.py:
 - Request rate limiting coordination
 - Security headers for responses
 """
+from __future__ import annotations
 
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import FrozenSet, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Security Headers
@@ -81,16 +80,15 @@ CSP_DEVELOPMENT = (
 # Legacy default for backwards compatibility
 CSP_DEFAULT = CSP_DEVELOPMENT
 
-
 def get_security_headers(
     production: bool = False,
     enable_hsts: bool = True,
     enable_csp: bool = False,
     csp_mode: str = "standard",
-    custom_csp: Optional[str] = None,
-    csp_report_uri: Optional[str] = None,
+    custom_csp: str | None = None,
+    csp_report_uri: str | None = None,
     report_only: bool = False,
-    nonce: Optional[str] = None,
+    nonce: str | None = None,
 ) -> dict[str, str]:
     """
     Get security headers to add to HTTP responses.
@@ -146,15 +144,14 @@ def get_security_headers(
 
     return headers
 
-
 def apply_security_headers(
     handler,
     production: bool = False,
     enable_hsts: bool = True,
     enable_csp: bool = False,
     csp_mode: str = "standard",
-    csp_report_uri: Optional[str] = None,
-    nonce: Optional[str] = None,
+    csp_report_uri: str | None = None,
+    nonce: str | None = None,
 ) -> None:
     """
     Apply security headers to an HTTP response handler.
@@ -182,7 +179,6 @@ def apply_security_headers(
     for name, value in headers.items():
         handler.send_header(name, value)
 
-
 def generate_nonce() -> str:
     """
     Generate a cryptographically secure nonce for CSP script-src.
@@ -203,7 +199,6 @@ def generate_nonce() -> str:
 
     return base64.b64encode(secrets.token_bytes(16)).decode("ascii")
 
-
 @dataclass
 class SecurityConfig:
     """Configuration for security middleware."""
@@ -214,7 +209,7 @@ class SecurityConfig:
     max_multipart_parts: int = 10
 
     # Trusted proxies for X-Forwarded-For
-    trusted_proxies: FrozenSet[str] = field(
+    trusted_proxies: frozenset[str] = field(
         default_factory=lambda: frozenset(
             p.strip()
             for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
@@ -229,7 +224,7 @@ class SecurityConfig:
     csp_mode: str = field(
         default_factory=lambda: os.getenv("ARAGORA_CSP_MODE", "standard")
     )  # "api", "standard", "development"
-    csp_report_uri: Optional[str] = field(
+    csp_report_uri: str | None = field(
         default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_URI")
     )
     csp_report_only: bool = field(
@@ -239,7 +234,7 @@ class SecurityConfig:
 
     # Query parameter whitelist
     # Maps param name -> allowed values (None = any string, set = restricted)
-    allowed_query_params: dict[str, Optional[set[str]]] = field(
+    allowed_query_params: dict[str, set[str] | None] = field(
         default_factory=lambda: {
             # Pagination
             "limit": None,
@@ -274,7 +269,6 @@ class SecurityConfig:
         }
     )
 
-
 @dataclass
 class ValidationResult:
     """Result of request validation."""
@@ -292,7 +286,6 @@ class ValidationResult:
     def error(cls, message: str, code: int = 400) -> "ValidationResult":
         """Return failed validation result."""
         return cls(valid=False, error_message=message, error_code=code)
-
 
 class SecurityMiddleware:
     """Middleware for security validation and DoS protection.
@@ -313,7 +306,7 @@ class SecurityMiddleware:
             return error_response(result.error_message, result.error_code)
     """
 
-    def __init__(self, config: Optional[SecurityConfig] = None):
+    def __init__(self, config: SecurityConfig | None = None):
         """Initialize security middleware.
 
         Args:
@@ -324,7 +317,7 @@ class SecurityMiddleware:
     def validate_content_length(
         self,
         headers: dict[str, str],
-        max_size: Optional[int] = None,
+        max_size: int | None = None,
         is_json: bool = True,
     ) -> ValidationResult:
         """Validate Content-Length header for DoS protection.
@@ -442,7 +435,7 @@ class SecurityMiddleware:
             )
         return ValidationResult.ok()
 
-    def add_allowed_param(self, param: str, allowed_values: Optional[set[str]] = None) -> None:
+    def add_allowed_param(self, param: str, allowed_values: set[str] | None = None) -> None:
         """Add a new allowed query parameter.
 
         Args:
@@ -467,7 +460,6 @@ class SecurityMiddleware:
                 code=413,
             )
         return ValidationResult.ok()
-
 
 __all__ = [
     # Security headers

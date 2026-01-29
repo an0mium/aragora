@@ -42,7 +42,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 from aragora.storage.schema import SchemaManager, get_wal_connection
 
@@ -57,7 +57,6 @@ DEFAULT_DB_PATHS = {
     "replay": "aragora_replay.db",
     "tokens": "aragora_tokens.db",
 }
-
 
 @dataclass
 class MigrationFile:
@@ -81,7 +80,6 @@ class MigrationFile:
         content = self.path.read_bytes()
         return hashlib.sha256(content).hexdigest()[:16]
 
-
 @dataclass
 class AppliedMigration:
     """Record of an applied migration with metadata."""
@@ -90,7 +88,6 @@ class AppliedMigration:
     name: str
     checksum: str
     applied_at: str
-
 
 @dataclass
 class MigrationStatus:
@@ -107,7 +104,6 @@ class MigrationStatus:
     applied_details: list[AppliedMigration] = field(default_factory=list)
     checksum_mismatches: list[int] = field(default_factory=list)
 
-
 class MigrationRunner:
     """
     Runs database migrations for Aragora.
@@ -119,10 +115,10 @@ class MigrationRunner:
 
     def __init__(
         self,
-        nomic_dir: Optional[Path] = None,
-        db_paths: Optional[dict[str, str]] = None,
+        nomic_dir: Path | None = None,
+        db_paths: dict[str, str] | None = None,
         backup_before_migrate: bool = True,
-        backup_dir: Optional[Path] = None,
+        backup_dir: Path | None = None,
     ):
         """
         Initialize the migration runner.
@@ -171,7 +167,7 @@ class MigrationRunner:
                 self._backup_manager = False  # Mark as unavailable
         return self._backup_manager if self._backup_manager else None
 
-    def create_pre_migration_backup(self, db_path: Path, db_name: str) -> Optional[str]:
+    def create_pre_migration_backup(self, db_path: Path, db_name: str) -> str | None:
         """
         Create a backup before running migrations.
 
@@ -288,7 +284,7 @@ class MigrationRunner:
         db_file = self.db_paths.get(db_name, f"aragora_{db_name}.db")
         return self.nomic_dir / db_file
 
-    def get_status(self, db_name: str) -> Optional[MigrationStatus]:
+    def get_status(self, db_name: str) -> MigrationStatus | None:
         """
         Get migration status for a database.
 
@@ -352,7 +348,7 @@ class MigrationRunner:
         finally:
             conn.close()
 
-    def get_all_status(self) -> dict[str, Optional[MigrationStatus]]:
+    def get_all_status(self) -> dict[str, MigrationStatus | None]:
         """Get migration status for all known databases."""
         status = {}
         for db_name in self.db_paths:
@@ -363,7 +359,7 @@ class MigrationRunner:
         self,
         db_name: str,
         dry_run: bool = False,
-        target_version: Optional[int] = None,
+        target_version: int | None = None,
     ) -> dict:
         """
         Run migrations for a database.
@@ -1027,7 +1023,6 @@ If this migration is not needed, delete the file instead.
 
 import sqlite3
 
-
 def upgrade(conn: sqlite3.Connection) -> None:
     """
     Apply this migration.
@@ -1068,7 +1063,6 @@ def upgrade(conn: sqlite3.Connection) -> None:
     # REQUIRED: Replace this pass with your migration SQL
     # Empty migrations will fail validation - implement or delete this file
     pass
-
 
 def downgrade(conn: sqlite3.Connection) -> None:
     """
@@ -1112,7 +1106,6 @@ def downgrade(conn: sqlite3.Connection) -> None:
 
         return file_path
 
-
 def print_status(runner: MigrationRunner) -> None:
     """Print migration status for all databases."""
     status = runner.get_all_status()
@@ -1135,7 +1128,6 @@ def print_status(runner: MigrationRunner) -> None:
         else:
             print("  Status: Up to date")
         print()
-
 
 def main() -> int:
     """CLI entry point."""
@@ -1359,7 +1351,6 @@ def main() -> int:
     # No command specified, show help
     parser.print_help()
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -25,17 +25,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v2", tags=["Decisions"])
 
-
 # =============================================================================
 # Pydantic Models
 # =============================================================================
-
 
 class StartDebateRequest(BaseModel):
     """Request to start a new debate."""
 
     task: str = Field(..., description="The topic or question to debate")
-    agents: Optional[list[str]] = Field(
+    agents: list[str] | None = Field(
         None, description="List of agent names (defaults to configured agents)"
     )
     rounds: int = Field(DEFAULT_ROUNDS, ge=1, le=20, description="Number of debate rounds")
@@ -62,7 +60,6 @@ class StartDebateRequest(BaseModel):
             }
         }
 
-
 class DebateResponse(BaseModel):
     """Response for debate operations."""
 
@@ -73,16 +70,15 @@ class DebateResponse(BaseModel):
     current_round: int = 0
     total_rounds: int = DEFAULT_ROUNDS
     agents: list[str] = Field(default_factory=list)
-    result: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    completed_at: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     class Config:
         extra = "allow"
-
 
 class StartDebateResponse(BaseModel):
     """Response after starting a debate."""
@@ -92,7 +88,6 @@ class StartDebateResponse(BaseModel):
     message: str
     events_url: str
 
-
 class CancelResponse(BaseModel):
     """Response after cancelling a debate."""
 
@@ -100,11 +95,9 @@ class CancelResponse(BaseModel):
     cancelled: bool
     message: str
 
-
 # =============================================================================
 # Dependencies
 # =============================================================================
-
 
 async def get_decision_service(request: Request):
     """Dependency to get the decision service from app state."""
@@ -120,11 +113,9 @@ async def get_decision_service(request: Request):
     # Fall back to global service
     return get_service()
 
-
 # =============================================================================
 # Endpoints
 # =============================================================================
-
 
 @router.post("/decisions", response_model=StartDebateResponse, status_code=202)
 async def start_decision(
@@ -169,7 +160,6 @@ async def start_decision(
         logger.exception(f"Failed to start debate: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to start debate: {e}")
 
-
 @router.get("/decisions/{debate_id}", response_model=DebateResponse)
 async def get_decision(
     debate_id: str,
@@ -208,7 +198,6 @@ async def get_decision(
         logger.exception(f"Failed to get debate {debate_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get debate: {e}")
 
-
 @router.delete("/decisions/{debate_id}", response_model=CancelResponse)
 async def cancel_decision(
     debate_id: str,
@@ -238,7 +227,6 @@ async def cancel_decision(
     except Exception as e:
         logger.exception(f"Failed to cancel debate {debate_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to cancel debate: {e}")
-
 
 @router.get("/decisions/{debate_id}/events")
 async def stream_events(
@@ -288,10 +276,9 @@ async def stream_events(
         },
     )
 
-
 @router.get("/decisions", response_model=list[DebateResponse])
 async def list_decisions(
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=100, description="Max results"),
     service=Depends(get_decision_service),
 ) -> list[DebateResponse]:

@@ -21,7 +21,6 @@ import os
 import secrets
 import threading
 import time
-from typing import Optional
 
 from .emitter import TokenBucket
 from .events import AudienceMessage, StreamEvent, StreamEventType
@@ -63,7 +62,6 @@ WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 # Per-connection message rate limiting (messages per second)
 WS_MESSAGES_PER_SECOND = int(os.getenv("ARAGORA_WS_MSG_RATE", "10"))
 WS_MESSAGE_BURST_SIZE = int(os.getenv("ARAGORA_WS_MSG_BURST", "20"))
-
 
 class WebSocketMessageRateLimiter:
     """Per-connection message rate limiter using token bucket algorithm.
@@ -110,7 +108,6 @@ class WebSocketMessageRateLimiter:
             return True
         return False
 
-
 class DebateStreamServer(ServerBase):
     """
     WebSocket server broadcasting debate events to connected clients.
@@ -141,7 +138,7 @@ class DebateStreamServer(ServerBase):
 
         self.host = host
         self.port = port
-        self.current_debate: Optional[dict] = None
+        self.current_debate: dict | None = None
 
         # WebSocket-specific: connection rate limiting per IP
         self._ws_conn_rate: dict[str, list[float]] = {}  # ip -> list of connection timestamps
@@ -163,13 +160,13 @@ class DebateStreamServer(ServerBase):
         self._client_subscriptions: dict[int, str] = {}
 
         # Stop event for graceful shutdown
-        self._stop_event: Optional[asyncio.Event] = None
+        self._stop_event: asyncio.Event | None = None
 
     def _cleanup_stale_rate_limiters(self) -> None:
         """Remove rate limiters not accessed within TTL period."""
         self.cleanup_rate_limiters()
 
-    def _extract_ws_token(self, websocket) -> Optional[str]:
+    def _extract_ws_token(self, websocket) -> str | None:
         """Extract authentication token from WebSocket connection.
 
         Attempts to extract token from Authorization header only.
@@ -694,7 +691,7 @@ class DebateStreamServer(ServerBase):
             logger.debug(f"Could not extract origin header: {e}")
             return ""
 
-    def _validate_audience_payload(self, data: dict) -> tuple[Optional[dict], Optional[str]]:
+    def _validate_audience_payload(self, data: dict) -> tuple[dict | None, str | None]:
         """Validate audience message payload.
 
         Returns:
@@ -1294,6 +1291,5 @@ class DebateStreamServer(ServerBase):
                 if close_tasks:
                     await asyncio.gather(*close_tasks, return_exceptions=True)
                 self.clients.clear()
-
 
 __all__ = ["DebateStreamServer"]

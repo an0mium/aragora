@@ -7,10 +7,11 @@ Extracted from debate_rounds.py to handle:
 - RLM ready signal quorum for agent self-termination
 - Trickster integration for hollow consensus detection
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.debate.phases.ready_signal import (
     CollectiveReadiness,
@@ -29,7 +30,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ConvergenceResult:
     """Result of convergence check."""
@@ -38,7 +38,6 @@ class ConvergenceResult:
     status: str = ""
     similarity: float = 0.0
     blocked_by_trickster: bool = False
-
 
 class DebateConvergenceTracker:
     """
@@ -56,10 +55,10 @@ class DebateConvergenceTracker:
         convergence_detector: Optional["ConvergenceDetector"] = None,
         novelty_tracker: Optional["NoveltyTracker"] = None,
         trickster: Optional["Trickster"] = None,
-        hooks: Optional[Dict[str, Callable]] = None,
+        hooks: Optional[dict[str, Callable]] = None,
         event_emitter: Any = None,
-        notify_spectator: Optional[Callable] = None,
-        inject_challenge: Optional[Callable] = None,
+        notify_spectator: Callable | None = None,
+        inject_challenge: Callable | None = None,
     ):
         """
         Initialize convergence tracker.
@@ -82,7 +81,7 @@ class DebateConvergenceTracker:
         self._inject_challenge = inject_challenge
 
         # State tracking
-        self._previous_round_responses: Dict[str, str] = {}
+        self._previous_round_responses: dict[str, str] = {}
         self._collective_readiness = CollectiveReadiness()
 
     def reset(self) -> None:
@@ -382,6 +381,6 @@ class DebateConvergenceTracker:
         return self._collective_readiness
 
     @property
-    def previous_responses(self) -> Dict[str, str]:
+    def previous_responses(self) -> dict[str, str]:
         """Get previous round responses for comparison."""
         return self._previous_round_responses

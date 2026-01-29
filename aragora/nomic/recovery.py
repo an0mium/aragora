@@ -5,6 +5,7 @@ Provides structured error handling and recovery strategies for the
 nomic loop state machine. Includes circuit breakers, exponential backoff,
 and intelligent recovery decisions.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -12,13 +13,12 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .events import Event
 from .states import NomicState, StateContext, get_state_config
 
 logger = logging.getLogger(__name__)
-
 
 class RecoveryStrategy(Enum):
     """Strategies for recovering from errors."""
@@ -30,18 +30,17 @@ class RecoveryStrategy(Enum):
     PAUSE = auto()  # Pause and wait for human
     FAIL = auto()  # Mark as failed, stop
 
-
 @dataclass
 class RecoveryDecision:
     """A decision on how to recover from an error."""
 
     strategy: RecoveryStrategy
-    target_state: Optional[NomicState] = None
+    target_state: NomicState | None = None
     delay_seconds: float = 0
     reason: str = ""
     requires_human: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "strategy": self.strategy.name,
             "target_state": self.target_state.name if self.target_state else None,
@@ -49,7 +48,6 @@ class RecoveryDecision:
             "reason": self.reason,
             "requires_human": self.requires_human,
         }
-
 
 class CircuitBreaker:
     """
@@ -79,7 +77,7 @@ class CircuitBreaker:
         self.reset_timeout_seconds = reset_timeout_seconds
 
         self._failures = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._state = "closed"  # closed, open, half-open
 
     @property
@@ -119,7 +117,7 @@ class CircuitBreaker:
         self._state = "closed"
         self._last_failure_time = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "state": self._state,
@@ -128,12 +126,11 @@ class CircuitBreaker:
             "last_failure": self._last_failure_time,
         }
 
-
 class CircuitBreakerRegistry:
     """Registry of circuit breakers for agents and services."""
 
     def __init__(self) -> None:
-        self._breakers: Dict[str, CircuitBreaker] = {}
+        self._breakers: dict[str, CircuitBreaker] = {}
 
     def get_or_create(
         self,
@@ -150,11 +147,11 @@ class CircuitBreakerRegistry:
             )
         return self._breakers[name]
 
-    def get(self, name: str) -> Optional[CircuitBreaker]:
+    def get(self, name: str) -> CircuitBreaker | None:
         """Get a circuit breaker by name."""
         return self._breakers.get(name)
 
-    def all_open(self) -> List[str]:
+    def all_open(self) -> list[str]:
         """Get names of all open circuit breakers."""
         return [name for name, cb in self._breakers.items() if cb.is_open]
 
@@ -163,9 +160,8 @@ class CircuitBreakerRegistry:
         for cb in self._breakers.values():
             cb.reset()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {name: cb.to_dict() for name, cb in self._breakers.items()}
-
 
 def calculate_backoff(
     attempt: int,
@@ -195,7 +191,6 @@ def calculate_backoff(
 
     return delay
 
-
 class RecoveryManager:
     """
     Manages error recovery for the nomic loop.
@@ -207,7 +202,7 @@ class RecoveryManager:
     - State criticality
     """
 
-    def __init__(self, circuit_breakers: Optional[CircuitBreakerRegistry] = None):
+    def __init__(self, circuit_breakers: CircuitBreakerRegistry | None = None):
         """
         Initialize recovery manager.
 
@@ -215,7 +210,7 @@ class RecoveryManager:
             circuit_breakers: Registry of circuit breakers
         """
         self.circuit_breakers = circuit_breakers or CircuitBreakerRegistry()
-        self._recovery_history: List[Dict[str, Any]] = []
+        self._recovery_history: list[dict[str, Any]] = []
 
     def decide_recovery(
         self,
@@ -304,7 +299,7 @@ class RecoveryManager:
         max_retries: int,
         is_transient: bool,
         is_critical: bool,
-        open_circuits: List[str],
+        open_circuits: list[str],
     ) -> RecoveryDecision:
         """Make the actual recovery decision."""
 
@@ -360,7 +355,7 @@ class RecoveryManager:
             requires_human=True,
         )
 
-    def _get_skip_target(self, state: NomicState) -> Optional[NomicState]:
+    def _get_skip_target(self, state: NomicState) -> NomicState | None:
         """Get the target state when skipping."""
         skip_map = {
             NomicState.DESIGN: NomicState.IMPLEMENT,
@@ -370,7 +365,7 @@ class RecoveryManager:
         }
         return skip_map.get(state)
 
-    def get_history(self) -> List[Dict[str, Any]]:
+    def get_history(self) -> list[dict[str, Any]]:
         """Get recovery decision history."""
         return self._recovery_history
 
@@ -378,12 +373,11 @@ class RecoveryManager:
         """Clear recovery history."""
         self._recovery_history = []
 
-
 async def recovery_handler(
     context: StateContext,
     event: Event,
     recovery_manager: RecoveryManager,
-) -> tuple[NomicState, Dict[str, Any]]:
+) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the RECOVERY state.
 

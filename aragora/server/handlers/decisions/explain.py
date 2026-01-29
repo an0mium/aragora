@@ -20,7 +20,7 @@ import logging
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -62,13 +62,11 @@ BeliefPropagationAnalyzer = _belief_imports["BeliefPropagationAnalyzer"]
 _claims_imports, CLAIMS_AVAILABLE = try_import("aragora.reasoning.claims", "ClaimsKernel")
 ClaimsKernel = _claims_imports["ClaimsKernel"]
 
-
 def _enum_to_value(obj: Any) -> Any:
     """Convert Enum values to their string representation."""
     if isinstance(obj, Enum):
         return obj.value
     return obj
-
 
 def _serialize_dataclass(obj: Any) -> dict:
     """Serialize a dataclass to dict, handling Enum values."""
@@ -88,7 +86,6 @@ def _serialize_dataclass(obj: Any) -> dict:
                 result[field_name] = value
         return result
     return obj
-
 
 class DecisionExplainHandler(SecureHandler):
     """Handler for decision explainability endpoints.
@@ -112,7 +109,7 @@ class DecisionExplainHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route decision explain requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -157,7 +154,7 @@ class DecisionExplainHandler(SecureHandler):
 
     @handle_errors("decision explanation")
     def _explain_decision(
-        self, nomic_dir: Optional[Path], request_id: str, format_type: str
+        self, nomic_dir: Path | None, request_id: str, format_type: str
     ) -> HandlerResult:
         """Generate comprehensive decision explanation.
 
@@ -188,7 +185,7 @@ class DecisionExplainHandler(SecureHandler):
         else:
             return json_response(explanation)
 
-    def _build_explanation(self, nomic_dir: Path, request_id: str) -> Optional[dict[str, Any]]:
+    def _build_explanation(self, nomic_dir: Path, request_id: str) -> dict[str, Any] | None:
         """Build comprehensive explanation from available data sources."""
         explanation: dict[str, Any] = {
             "request_id": request_id,
@@ -417,7 +414,7 @@ class DecisionExplainHandler(SecureHandler):
 
         return audit
 
-    def _load_from_replay(self, replay_path: Path) -> Optional[Any]:
+    def _load_from_replay(self, replay_path: Path) -> Any | None:
         """Load decision result from replay events."""
         try:
             from aragora.core import DebateResult, Message
@@ -475,7 +472,7 @@ class DecisionExplainHandler(SecureHandler):
 
         return None
 
-    def _load_from_storage(self, request_id: str) -> Optional[Any]:
+    def _load_from_storage(self, request_id: str) -> Any | None:
         """Load decision result from storage or cache."""
         try:
             from aragora.core.decision_cache import get_decision_cache

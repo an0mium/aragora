@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Callable, ContextManager, Optional
 if TYPE_CHECKING:
     from aragora.billing.models import OrganizationInvitation
 
-
 class InvitationRepository:
     """
     Repository for organization invitation operations.
@@ -134,7 +133,7 @@ class InvitationRepository:
         self,
         invitation_id: str,
         status: str,
-        accepted_at: Optional[datetime] = None,
+        accepted_at: datetime | None = None,
     ) -> bool:
         """
         Update invitation status.

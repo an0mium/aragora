@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 
@@ -36,13 +36,11 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # Module-level cache for orchestrator instance
-_orchestrator_instance: Optional[Any] = None
+_orchestrator_instance: Any | None = None
 _orchestrator_lock = asyncio.Lock()
 
-
-async def _get_orchestrator() -> Optional[Any]:
+async def _get_orchestrator() -> Any | None:
     """Get or create the repository orchestrator instance."""
     global _orchestrator_instance
 
@@ -76,8 +74,7 @@ async def _get_orchestrator() -> Optional[Any]:
             logger.warning(f"Failed to create orchestrator: {e}")
             return None
 
-
-async def _get_relationship_builder(repository_name: str) -> Optional[Any]:
+async def _get_relationship_builder(repository_name: str) -> Any | None:
     """Get a relationship builder instance for a repository."""
     try:
         from aragora.knowledge.relationship_builder import RelationshipBuilder
@@ -86,7 +83,6 @@ async def _get_relationship_builder(repository_name: str) -> Optional[Any]:
     except ImportError as e:
         logger.warning(f"Failed to import RelationshipBuilder: {e}")
         return None
-
 
 class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for repository indexing endpoints."""
@@ -110,10 +106,10 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
     @rate_limit(rpm=30)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
-        query_params: Dict[str, Any] = {}
-        body: Dict[str, Any] = {}
+        query_params: dict[str, Any] = {}
+        body: dict[str, Any] = {}
 
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
@@ -176,7 +172,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
         return error_response("Repository endpoint not found", 404)
 
     @require_permission("repository.create")
-    async def _start_index(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _start_index(self, body: dict[str, Any]) -> HandlerResult:
         """Start a full repository index."""
         orchestrator = await _get_orchestrator()
         if not orchestrator:
@@ -227,7 +223,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(safe_error_message(e, "indexing"), 500)
 
     @require_permission("repository.update")
-    async def _incremental_update(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _incremental_update(self, body: dict[str, Any]) -> HandlerResult:
         """Perform incremental repository update."""
         orchestrator = await _get_orchestrator()
         if not orchestrator:
@@ -257,7 +253,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(safe_error_message(e, "incremental update"), 500)
 
     @require_permission("repository.create")
-    async def _batch_index(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _batch_index(self, body: dict[str, Any]) -> HandlerResult:
         """Index multiple repositories in batch."""
         orchestrator = await _get_orchestrator()
         if not orchestrator:
@@ -334,7 +330,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
         )
 
     @require_permission("repository.read")
-    async def _get_entities(self, repo_id: str, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _get_entities(self, repo_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Get entities from an indexed repository."""
         orchestrator = await _get_orchestrator()
         if not orchestrator:
@@ -384,7 +380,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(safe_error_message(e, "get entities"), 500)
 
     @require_permission("repository.read")
-    async def _get_graph(self, repo_id: str, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _get_graph(self, repo_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Get relationship graph for a repository."""
         builder = await _get_relationship_builder(repo_id)
         if not builder:
@@ -459,7 +455,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(safe_error_message(e, "get repository"), 500)
 
     @require_permission("repository.delete")
-    async def _remove_repository(self, repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _remove_repository(self, repo_id: str, body: dict[str, Any]) -> HandlerResult:
         """Remove an indexed repository."""
         orchestrator = await _get_orchestrator()
         if not orchestrator:

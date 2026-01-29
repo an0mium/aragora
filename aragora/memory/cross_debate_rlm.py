@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -53,7 +53,6 @@ except ImportError:
     get_compressor = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
-
 
 class AccessTier(Enum):
     """Access recency tiers for cross-debate context.
@@ -73,10 +72,8 @@ class AccessTier(Enum):
     COLD = "cold"  # Old debates, abstract level
     ARCHIVE = "archive"  # Very old, minimal context
 
-
 # Backward compatibility alias
 MemoryTier = AccessTier
-
 
 @dataclass
 class DebateMemoryEntry:
@@ -92,10 +89,10 @@ class DebateMemoryEntry:
     final_answer: str
     key_insights: list[str]
     compressed_context: str
-    rlm_context: Optional[Any] = None
+    rlm_context: Any | None = None
     token_count: int = 0
     access_count: int = 0
-    last_accessed: Optional[datetime] = None
+    last_accessed: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -136,7 +133,6 @@ class DebateMemoryEntry:
             ),
         )
 
-
 @dataclass
 class CrossDebateConfig:
     """Configuration for cross-debate memory."""
@@ -163,7 +159,7 @@ class CrossDebateConfig:
 
     # Persistence
     persist_to_disk: bool = True
-    storage_path: Optional[Path] = None
+    storage_path: Path | None = None
 
     def __post_init__(self) -> None:
         """Validate config and set defaults."""
@@ -204,7 +200,6 @@ class CrossDebateConfig:
                 )
                 self.persist_to_disk = False
 
-
 class CrossDebateMemory:
     """
     Cross-debate memory with RLM compression.
@@ -213,7 +208,7 @@ class CrossDebateMemory:
     automatically managing memory tiers and compression.
     """
 
-    def __init__(self, config: Optional[CrossDebateConfig] = None):
+    def __init__(self, config: CrossDebateConfig | None = None):
         """Initialize cross-debate memory."""
         self.config = config or CrossDebateConfig()
         self._entries: dict[str, DebateMemoryEntry] = {}
@@ -367,10 +362,10 @@ class CrossDebateMemory:
         debate_id: str,
         topic: str,
         consensus: str = "",
-        key_points: Optional[list[str]] = None,
+        key_points: list[str] | None = None,
         domain: str = "general",
-        participants: Optional[list[str]] = None,
-        timestamp_hours_ago: Optional[float] = None,
+        participants: list[str] | None = None,
+        timestamp_hours_ago: float | None = None,
     ) -> str:
         """
         Convenience method to store a debate with explicit fields.
@@ -438,7 +433,7 @@ class CrossDebateMemory:
 
             return debate_id
 
-    def get_tier(self, debate_id: str) -> Optional[MemoryTier]:
+    def get_tier(self, debate_id: str) -> MemoryTier | None:
         """
         Get the memory tier for a debate entry.
 
@@ -551,9 +546,9 @@ class CrossDebateMemory:
     async def get_relevant_context(
         self,
         task: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         max_tokens: int = 2000,
-        include_tiers: Optional[list[MemoryTier]] = None,
+        include_tiers: list[MemoryTier] | None = None,
     ) -> str:
         """
         Get relevant context from past debates.

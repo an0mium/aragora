@@ -10,19 +10,18 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def send_message_tool(
     channel_id: str,
     content: str,
     platform: str = "slack",
-    thread_id: Optional[str] = None,
-    reply_to: Optional[str] = None,
+    thread_id: str | None = None,
+    reply_to: str | None = None,
     format_type: str = "text",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Send a message to a chat channel.
 
@@ -75,16 +74,15 @@ async def send_message_tool(
             "platform": platform,
         }
 
-
 async def create_poll_tool(
     channel_id: str,
     question: str,
-    options: List[str],
+    options: list[str],
     platform: str = "slack",
     duration_minutes: int = 60,
     anonymous: bool = False,
     multiple_choice: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a voting poll in a chat channel.
 
@@ -150,7 +148,6 @@ async def create_poll_tool(
         logger.error(f"Failed to create poll: {e}")
         return {"error": str(e), "channel_id": channel_id}
 
-
 async def trigger_debate_tool(
     channel_id: str,
     question: str,
@@ -159,7 +156,7 @@ async def trigger_debate_tool(
     rounds: int | None = None,
     stream_progress: bool = True,
     post_receipt: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Start a debate from chat context.
 
@@ -237,15 +234,14 @@ async def trigger_debate_tool(
         logger.error(f"Failed to trigger debate: {e}")
         return {"error": str(e), "channel_id": channel_id}
 
-
 async def post_receipt_tool(
     channel_id: str,
     debate_id: str,
     platform: str = "slack",
     include_summary: bool = True,
     include_hash: bool = True,
-    thread_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    thread_id: str | None = None,
+) -> dict[str, Any]:
     """
     Post a debate receipt to a channel.
 
@@ -317,13 +313,12 @@ async def post_receipt_tool(
         logger.error(f"Failed to post receipt: {e}")
         return {"error": str(e), "debate_id": debate_id}
 
-
 async def update_message_tool(
     message_id: str,
     channel_id: str,
     content: str,
     platform: str = "slack",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Update an existing message.
 
@@ -359,13 +354,12 @@ async def update_message_tool(
         logger.error(f"Failed to update message: {e}")
         return {"error": str(e), "message_id": message_id}
 
-
 async def add_reaction_tool(
     message_id: str,
     channel_id: str,
     emoji: str,
     platform: str = "slack",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Add a reaction to a message.
 
@@ -400,13 +394,12 @@ async def add_reaction_tool(
         logger.error(f"Failed to add reaction: {e}")
         return {"error": str(e), "message_id": message_id}
 
-
 async def create_thread_tool(
     channel_id: str,
     parent_message_id: str,
     content: str,
     platform: str = "slack",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a thread reply.
 
@@ -426,14 +419,13 @@ async def create_thread_tool(
         thread_id=parent_message_id,
     )
 
-
 async def stream_progress_tool(
     channel_id: str,
     message_id: str,
     progress: float,
     status: str,
     platform: str = "slack",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Stream progress update to a message.
 
@@ -459,11 +451,9 @@ async def stream_progress_tool(
         platform=platform,
     )
 
-
 # Helper functions
 
-
-async def _get_chat_connector(platform: str) -> Optional[Any]:
+async def _get_chat_connector(platform: str) -> Any | None:
     """Get the chat connector for a platform."""
     try:
         if platform == "slack":
@@ -489,7 +479,6 @@ async def _get_chat_connector(platform: str) -> Optional[Any]:
         logger.warning(f"Could not import connector for {platform}: {e}")
         return None
 
-
 def _format_message(content: str, platform: str, format_type: str) -> str:
     """Format message content for platform."""
     if format_type == "text":
@@ -505,8 +494,7 @@ def _format_message(content: str, platform: str, format_type: str) -> str:
 
     return content
 
-
-def _format_poll(question: str, options: List[str], platform: str) -> str:
+def _format_poll(question: str, options: list[str], platform: str) -> str:
     """Format poll as message."""
     lines = [f"**Poll:** {question}", ""]
 
@@ -523,9 +511,8 @@ def _format_poll(question: str, options: List[str], platform: str) -> str:
 
     return "\n".join(lines)
 
-
 def _format_receipt(
-    receipt: Dict[str, Any],
+    receipt: dict[str, Any],
     platform: str,
     include_summary: bool,
     include_hash: bool,
@@ -545,7 +532,6 @@ def _format_receipt(
         lines.append(f"**Timestamp:** {receipt.get('timestamp', 'N/A')}")
 
     return "\n".join(lines)
-
 
 def _create_progress_bar(progress: float, width: int = 20) -> str:
     """Create a text progress bar."""

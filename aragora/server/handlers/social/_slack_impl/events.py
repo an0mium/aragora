@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Dict
+from typing import Any
 
 from aragora.config import DEFAULT_ROUNDS
 
@@ -26,7 +26,6 @@ from .config import rate_limit
 from .messaging import MessagingMixin
 
 logger = logging.getLogger(__name__)
-
 
 class EventsMixin(MessagingMixin):
     """Mixin providing Slack Events API handling."""
@@ -111,7 +110,7 @@ class EventsMixin(MessagingMixin):
                 error=error[:200],
             )
 
-    def _handle_app_mention(self, event: Dict[str, Any]) -> HandlerResult:
+    def _handle_app_mention(self, event: dict[str, Any]) -> HandlerResult:
         """Handle @mentions of the app."""
         text = event.get("text", "")
         channel = event.get("channel", "")
@@ -147,7 +146,7 @@ class EventsMixin(MessagingMixin):
 
         return json_response({"ok": True})
 
-    def _handle_message_event(self, event: Dict[str, Any]) -> HandlerResult:
+    def _handle_message_event(self, event: dict[str, Any]) -> HandlerResult:
         """Handle direct messages to the app."""
         # Only handle DMs (channel type is "im")
         channel_type = event.get("channel_type")

@@ -4,6 +4,7 @@ Audio file storage for debate broadcasts.
 Provides persistent storage for generated audio files with metadata tracking.
 Audio files are stored in .nomic/audio/ with accompanying JSON metadata.
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -12,10 +13,8 @@ import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Security: Path Traversal Protection
@@ -43,7 +42,6 @@ AUDIO_MAGIC_BYTES = {
     b"OggS": "ogg",  # Ogg container
     b"\x00\x00\x00": "m4a",  # M4A/AAC (partial - needs ftyp check)
 }
-
 
 def _validate_audio_magic(data: bytes, claimed_format: str) -> bool:
     """Validate audio file magic bytes match claimed format.
@@ -82,7 +80,6 @@ def _validate_audio_magic(data: bytes, claimed_format: str) -> bool:
     logger.debug(f"Could not validate magic bytes for claimed format {claimed_format}")
     return True  # Permissive for now - log helps identify issues
 
-
 def _validate_debate_id(debate_id: str) -> bool:
     """Validate a debate ID to prevent path traversal.
 
@@ -105,7 +102,6 @@ def _validate_debate_id(debate_id: str) -> bool:
 
     return True
 
-
 @dataclass
 class AudioMetadata:
     """Metadata for a stored audio file."""
@@ -113,10 +109,10 @@ class AudioMetadata:
     debate_id: str
     filename: str
     format: str  # mp3, wav, etc.
-    duration_seconds: Optional[int] = None
-    file_size_bytes: Optional[int] = None
+    duration_seconds: int | None = None
+    file_size_bytes: int | None = None
     generated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    task_summary: Optional[str] = None  # Brief debate topic
+    task_summary: str | None = None  # Brief debate topic
     agents: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -146,7 +142,6 @@ class AudioMetadata:
             agents=data.get("agents", []),
         )
 
-
 class AudioFileStore:
     """
     Persistent storage for debate audio files.
@@ -155,7 +150,7 @@ class AudioFileStore:
     Provides methods for saving, retrieving, listing, and deleting audio.
     """
 
-    def __init__(self, storage_dir: Optional[Path] = None):
+    def __init__(self, storage_dir: Path | None = None):
         """
         Initialize audio file store.
 
@@ -170,7 +165,7 @@ class AudioFileStore:
         # In-memory cache for metadata
         self._cache: dict[str, AudioMetadata] = {}
 
-    def _audio_path(self, debate_id: str, format: str = "mp3") -> Optional[Path]:
+    def _audio_path(self, debate_id: str, format: str = "mp3") -> Path | None:
         """Get path for an audio file.
 
         Args:
@@ -200,7 +195,7 @@ class AudioFileStore:
 
         return path
 
-    def _metadata_path(self, debate_id: str) -> Optional[Path]:
+    def _metadata_path(self, debate_id: str) -> Path | None:
         """Get path for metadata JSON file.
 
         Returns:
@@ -226,10 +221,10 @@ class AudioFileStore:
         debate_id: str,
         audio_path: Path,
         format: str = "mp3",
-        duration_seconds: Optional[int] = None,
-        task_summary: Optional[str] = None,
-        agents: Optional[list[str]] = None,
-    ) -> Optional[Path]:
+        duration_seconds: int | None = None,
+        task_summary: str | None = None,
+        agents: list[str] | None = None,
+    ) -> Path | None:
         """
         Save an audio file to the store.
 
@@ -311,10 +306,10 @@ class AudioFileStore:
         debate_id: str,
         audio_data: bytes,
         format: str = "mp3",
-        duration_seconds: Optional[int] = None,
-        task_summary: Optional[str] = None,
-        agents: Optional[list[str]] = None,
-    ) -> Optional[Path]:
+        duration_seconds: int | None = None,
+        task_summary: str | None = None,
+        agents: list[str] | None = None,
+    ) -> Path | None:
         """
         Save audio data directly from bytes.
 
@@ -381,7 +376,7 @@ class AudioFileStore:
         logger.info(f"Saved audio for debate {debate_id}: {dest_path} ({len(audio_data)} bytes)")
         return dest_path
 
-    def get_path(self, debate_id: str) -> Optional[Path]:
+    def get_path(self, debate_id: str) -> Path | None:
         """
         Get the path to an audio file.
 
@@ -398,7 +393,7 @@ class AudioFileStore:
                 return path
         return None
 
-    def get_metadata(self, debate_id: str) -> Optional[AudioMetadata]:
+    def get_metadata(self, debate_id: str) -> AudioMetadata | None:
         """
         Get metadata for an audio file.
 

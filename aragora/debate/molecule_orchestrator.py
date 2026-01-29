@@ -55,7 +55,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class AgentProfileWrapper:
     """
@@ -122,18 +121,16 @@ class AgentProfileWrapper:
             availability=1.0,
         )
 
-
 @dataclass
 class MoleculeExecutionResult:
     """Result of executing a molecule."""
 
     molecule_id: str
     success: bool
-    output: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
-    agent: Optional[str] = None
+    output: dict[str, Any] | None = None
+    error: str | None = None
+    agent: str | None = None
     duration_seconds: float = 0.0
-
 
 class MoleculeOrchestrator:
     """
@@ -182,7 +179,7 @@ class MoleculeOrchestrator:
                 f"Registered agent {profile.name} with capabilities: {profile.capabilities}"
             )
 
-    def get_agent_profile(self, name: str) -> Optional[AgentProfileWrapper]:
+    def get_agent_profile(self, name: str) -> AgentProfileWrapper | None:
         """Get a registered agent profile by name."""
         return self._agent_profiles.get(name)
 
@@ -281,7 +278,7 @@ class MoleculeOrchestrator:
         debate_id: str,
         round_number: int,
         agents: list["Agent"],
-        proposal_molecule_ids: Optional[list[str]] = None,
+        proposal_molecule_ids: list[str] | None = None,
     ) -> list[Molecule]:
         """
         Create vote molecules for consensus phase.
@@ -319,7 +316,7 @@ class MoleculeOrchestrator:
     async def assign_molecule(
         self,
         molecule_id: str,
-        agent_name: Optional[str] = None,
+        agent_name: str | None = None,
     ) -> bool:
         """
         Assign a molecule to an agent.
@@ -454,7 +451,7 @@ class MoleculeOrchestrator:
         """Get progress summary for a debate."""
         return self._tracker.get_progress(debate_id)
 
-    def get_molecule(self, molecule_id: str) -> Optional[Molecule]:
+    def get_molecule(self, molecule_id: str) -> Molecule | None:
         """Get a molecule by ID."""
         return self._tracker.get_molecule(molecule_id)
 
@@ -553,10 +550,8 @@ class MoleculeOrchestrator:
 
         logger.info(f"Restored {len(state.get('molecules', []))} molecules for debate {debate_id}")
 
-
 # Singleton instance
-_default_orchestrator: Optional[MoleculeOrchestrator] = None
-
+_default_orchestrator: MoleculeOrchestrator | None = None
 
 def get_molecule_orchestrator(
     protocol: Optional["DebateProtocol"] = None,
@@ -567,12 +562,10 @@ def get_molecule_orchestrator(
         _default_orchestrator = MoleculeOrchestrator(protocol)
     return _default_orchestrator
 
-
 def reset_molecule_orchestrator() -> None:
     """Reset the default orchestrator (for testing)."""
     global _default_orchestrator
     _default_orchestrator = None
-
 
 __all__ = [
     "AgentProfileWrapper",

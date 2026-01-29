@@ -39,7 +39,6 @@ logger = logging.getLogger(__name__)
 _expense_store: Optional["ExpenseStoreBackend"] = None
 _store_lock = threading.RLock()
 
-
 class DecimalEncoder(json.JSONEncoder):
     """JSON encoder that handles Decimal types."""
 
@@ -47,7 +46,6 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return str(obj)
         return super().default(obj)
-
 
 def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
     """JSON decoder hook that converts decimal strings back to Decimal."""
@@ -59,12 +57,11 @@ def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
                 pass
     return dct
 
-
 class ExpenseStoreBackend(ABC):
     """Abstract base class for expense storage backends."""
 
     @abstractmethod
-    async def get(self, expense_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, expense_id: str) -> dict[str, Any] | None:
         """Get expense by ID."""
         pass
 
@@ -132,8 +129,8 @@ class ExpenseStoreBackend(ABC):
     @abstractmethod
     async def get_statistics(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict[str, Any]:
         """Get expense statistics."""
         pass
@@ -143,7 +140,7 @@ class ExpenseStoreBackend(ABC):
         self,
         expense_id: str,
         status: str,
-        approved_by: Optional[str] = None,
+        approved_by: str | None = None,
     ) -> bool:
         """Update expense status."""
         pass
@@ -162,7 +159,6 @@ class ExpenseStoreBackend(ABC):
         """Close any resources."""
         pass
 
-
 class InMemoryExpenseStore(ExpenseStoreBackend):
     """In-memory expense store for testing."""
 
@@ -170,7 +166,7 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
         self._data: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
 
-    async def get(self, expense_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, expense_id: str) -> dict[str, Any] | None:
         with self._lock:
             return self._data.get(expense_id)
 
@@ -262,8 +258,8 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
 
     async def get_statistics(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict[str, Any]:
         with self._lock:
             expenses = list(self._data.values())
@@ -310,7 +306,7 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
         self,
         expense_id: str,
         status: str,
-        approved_by: Optional[str] = None,
+        approved_by: str | None = None,
     ) -> bool:
         with self._lock:
             if expense_id not in self._data:
@@ -337,11 +333,10 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
     async def close(self) -> None:
         pass
 
-
 class SQLiteExpenseStore(ExpenseStoreBackend):
     """SQLite-backed expense store."""
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         if db_path is None:
             data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
             db_path = Path(data_dir) / "expenses.db"
@@ -394,7 +389,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
             finally:
                 conn.close()
 
-    async def get(self, expense_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, expense_id: str) -> dict[str, Any] | None:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -605,8 +600,8 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
 
     async def get_statistics(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict[str, Any]:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -676,7 +671,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
         self,
         expense_id: str,
         status: str,
-        approved_by: Optional[str] = None,
+        approved_by: str | None = None,
     ) -> bool:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -765,7 +760,6 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
     async def close(self) -> None:
         pass
 
-
 class PostgresExpenseStore(ExpenseStoreBackend):
     """PostgreSQL-backed expense store for production."""
 
@@ -808,7 +802,7 @@ class PostgresExpenseStore(ExpenseStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
         self._initialized = True
 
-    async def get(self, expense_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, expense_id: str) -> dict[str, Any] | None:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT data_json FROM expenses WHERE id = $1",
@@ -1010,8 +1004,8 @@ class PostgresExpenseStore(ExpenseStoreBackend):
 
     async def get_statistics(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict[str, Any]:
         async with self._pool.acquire() as conn:
             where_clause = "1=1"
@@ -1074,7 +1068,7 @@ class PostgresExpenseStore(ExpenseStoreBackend):
         self,
         expense_id: str,
         status: str,
-        approved_by: Optional[str] = None,
+        approved_by: str | None = None,
     ) -> bool:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1141,7 +1135,6 @@ class PostgresExpenseStore(ExpenseStoreBackend):
     async def close(self) -> None:
         pass
 
-
 def get_expense_store() -> ExpenseStoreBackend:
     """
     Get the global expense store instance.
@@ -1176,20 +1169,17 @@ def get_expense_store() -> ExpenseStoreBackend:
 
         return _expense_store
 
-
 def set_expense_store(store: ExpenseStoreBackend) -> None:
     """Set a custom expense store instance."""
     global _expense_store
     with _store_lock:
         _expense_store = store
 
-
 def reset_expense_store() -> None:
     """Reset the global expense store (for testing)."""
     global _expense_store
     with _store_lock:
         _expense_store = None
-
 
 __all__ = [
     "ExpenseStoreBackend",

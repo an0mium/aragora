@@ -29,10 +29,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from threading import Lock
-from typing import Any, Deque, Dict, Generator, List, Optional
+from typing import Any, Generator, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class HealthStatus(str, Enum):
     """Health status levels."""
@@ -41,7 +40,6 @@ class HealthStatus(str, Enum):
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
-
 
 class OperationType(str, Enum):
     """Types of KM operations to track."""
@@ -57,7 +55,6 @@ class OperationType(str, Enum):
     ADAPTER_REVERSE = "adapter_reverse"
     EVENT_EMIT = "event_emit"
 
-
 @dataclass
 class OperationSample:
     """A single operation sample."""
@@ -66,8 +63,7 @@ class OperationSample:
     latency_ms: float
     success: bool
     timestamp: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class OperationStats:
@@ -80,8 +76,8 @@ class OperationStats:
     total_latency_ms: float = 0.0
     min_latency_ms: float = float("inf")
     max_latency_ms: float = 0.0
-    last_error: Optional[str] = None
-    last_error_at: Optional[float] = None
+    last_error: str | None = None
+    last_error_at: float | None = None
 
     @property
     def avg_latency_ms(self) -> float:
@@ -97,7 +93,7 @@ class OperationStats:
             return 100.0
         return (self.success_count / self.count) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "operation": self.operation.value,
@@ -114,18 +110,17 @@ class OperationStats:
             "last_error_at": self.last_error_at,
         }
 
-
 @dataclass
 class HealthReport:
     """Health status report."""
 
     status: HealthStatus
     timestamp: datetime = field(default_factory=datetime.now)
-    details: Dict[str, Any] = field(default_factory=dict)
-    checks: Dict[str, bool] = field(default_factory=dict)
-    recommendations: List[str] = field(default_factory=list)
+    details: dict[str, Any] = field(default_factory=dict)
+    checks: dict[str, bool] = field(default_factory=dict)
+    recommendations: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "status": self.status.value,
@@ -134,7 +129,6 @@ class HealthReport:
             "checks": self.checks,
             "recommendations": self.recommendations,
         }
-
 
 class KMMetrics:
     """
@@ -184,12 +178,12 @@ class KMMetrics:
         self._cache_hit_rate_critical = cache_hit_rate_critical
 
         # Rolling sample window per operation type
-        self._samples: Dict[OperationType, Deque[OperationSample]] = {
+        self._samples: dict[OperationType, deque[OperationSample]] = {
             op: deque(maxlen=window_size) for op in OperationType
         }
 
         # Aggregate statistics (all-time)
-        self._stats: Dict[OperationType, OperationStats] = {
+        self._stats: dict[OperationType, OperationStats] = {
             op: OperationStats(operation=op) for op in OperationType
         }
 
@@ -204,8 +198,8 @@ class KMMetrics:
         operation: OperationType,
         latency_ms: float,
         success: bool = True,
-        error: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        error: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Record an operation sample.
@@ -277,7 +271,7 @@ class KMMetrics:
     def measure_operation(
         self,
         operation: OperationType | str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Generator[None, None, None]:
         """
         Context manager to measure operation latency.
@@ -317,7 +311,7 @@ class KMMetrics:
         op = OperationType.CACHE_HIT if hit else OperationType.CACHE_MISS
         self.record(op, 0.0, True)
 
-    def get_stats(self, operation: Optional[OperationType] = None) -> Dict[str, Any]:
+    def get_stats(self, operation: OperationType | None = None) -> dict[str, Any]:
         """
         Get statistics for operations.
 
@@ -341,7 +335,7 @@ class KMMetrics:
         self,
         operation: OperationType,
         window_seconds: float = 60.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get rolling statistics for a specific time window.
 
@@ -515,7 +509,7 @@ class KMMetrics:
                 self._stats[op] = OperationStats(operation=op)
             self._started_at = time.time()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert all metrics to dictionary."""
         health = self.get_health()
 
@@ -534,10 +528,8 @@ class KMMetrics:
             "uptime_seconds": round(time.time() - self._started_at, 1),
         }
 
-
 # Global metrics instance (can be replaced per-workspace)
-_global_metrics: Optional[KMMetrics] = None
-
+_global_metrics: KMMetrics | None = None
 
 def get_metrics() -> KMMetrics:
     """Get the global metrics instance."""
@@ -546,12 +538,10 @@ def get_metrics() -> KMMetrics:
         _global_metrics = KMMetrics()
     return _global_metrics
 
-
 def set_metrics(metrics: KMMetrics) -> None:
     """Set the global metrics instance."""
     global _global_metrics
     _global_metrics = metrics
-
 
 __all__ = [
     "KMMetrics",

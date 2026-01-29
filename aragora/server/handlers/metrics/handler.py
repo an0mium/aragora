@@ -18,7 +18,7 @@ import platform
 import sqlite3
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -45,7 +45,6 @@ from aragora.server.prometheus import (
     set_server_info,
 )
 
-
 class MetricsHandler(BaseHandler):
     """Handler for operational metrics endpoints."""
 
@@ -66,7 +65,7 @@ class MetricsHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("metrics:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route metrics requests to appropriate methods."""
         path = strip_version_prefix(path)
         # Rate limit check
@@ -370,7 +369,7 @@ class MetricsHandler(BaseHandler):
             logger.error("Failed to get background stats: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get background stats"), 500)
 
-    def _get_debate_perf_stats(self, debate_id: Optional[str] = None) -> HandlerResult:
+    def _get_debate_perf_stats(self, debate_id: str | None = None) -> HandlerResult:
         """Get debate performance statistics.
 
         Returns metrics from the DebatePerformanceMonitor including:

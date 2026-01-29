@@ -11,7 +11,7 @@ Provides REST API endpoints for chat-knowledge integration:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import (
@@ -34,7 +34,6 @@ MAX_ITEMS_LIMIT = 100
 # Lazy-loaded bridge instance
 _bridge = None
 
-
 def _get_bridge():
     """Get or create the Knowledge + Chat bridge."""
     global _bridge
@@ -44,19 +43,18 @@ def _get_bridge():
         _bridge = get_knowledge_chat_bridge()
     return _bridge
 
-
 @with_timeout(15.0)
 async def handle_knowledge_search(
     query: str,
     workspace_id: str = "default",
-    channel_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    channel_id: str | None = None,
+    user_id: str | None = None,
     scope: str = "workspace",
     strategy: str = "hybrid",
-    node_types: Optional[List[str]] = None,
+    node_types: Optional[list[str]] = None,
     min_confidence: float = 0.3,
     max_results: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Search knowledge from chat context.
 
@@ -115,14 +113,13 @@ async def handle_knowledge_search(
             "error": safe_error_message(e),
         }
 
-
 @with_timeout(15.0)
 async def handle_knowledge_inject(
-    messages: List[Dict[str, Any]],
+    messages: list[dict[str, Any]],
     workspace_id: str = "default",
-    channel_id: Optional[str] = None,
+    channel_id: str | None = None,
     max_context_items: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get relevant knowledge to inject into a conversation.
 
@@ -160,16 +157,15 @@ async def handle_knowledge_inject(
             "error": safe_error_message(e),
         }
 
-
 @with_timeout(20.0)
 async def handle_store_chat_knowledge(
-    messages: List[Dict[str, Any]],
+    messages: list[dict[str, Any]],
     workspace_id: str = "default",
     channel_id: str = "",
     channel_name: str = "",
     platform: str = "unknown",
     node_type: str = "chat_context",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Store chat messages as knowledge.
 
@@ -222,12 +218,11 @@ async def handle_store_chat_knowledge(
             "error": safe_error_message(e),
         }
 
-
 async def handle_channel_knowledge_summary(
     channel_id: str,
     workspace_id: str = "default",
     max_items: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get a summary of knowledge related to a channel.
 
@@ -253,7 +248,6 @@ async def handle_channel_knowledge_summary(
             "success": False,
             "error": safe_error_message(e),
         }
-
 
 class KnowledgeChatHandler(BaseHandler):
     """
@@ -285,8 +279,8 @@ class KnowledgeChatHandler(BaseHandler):
 
     @rate_limit(rpm=60, limiter_name="knowledge_chat_read")
     async def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         # Check read permission for all GET requests
         _, perm_error = self.require_permission_or_error(handler, self.KNOWLEDGE_READ_PERMISSION)
@@ -326,8 +320,8 @@ class KnowledgeChatHandler(BaseHandler):
 
     @rate_limit(rpm=30, limiter_name="knowledge_chat_write")
     async def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         # Check appropriate permission based on operation
         if path == "/api/v1/chat/knowledge/store":
@@ -405,7 +399,6 @@ class KnowledgeChatHandler(BaseHandler):
             return success_response(result)
         else:
             return error_response(result.get("error", "Unknown error"), 400)
-
 
 __all__ = [
     "KnowledgeChatHandler",

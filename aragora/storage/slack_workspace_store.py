@@ -27,7 +27,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,6 @@ ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
 # Track if encryption warning has been shown
 _encryption_warning_shown = False
 
-
 @dataclass
 class SlackWorkspace:
     """Represents an installed Slack workspace."""
@@ -56,15 +55,15 @@ class SlackWorkspace:
     access_token: str  # Bot token (xoxb-*)
     bot_user_id: str
     installed_at: float  # Unix timestamp
-    installed_by: Optional[str] = None  # User ID who installed
-    scopes: List[str] = field(default_factory=list)
-    tenant_id: Optional[str] = None  # Link to Aragora tenant
+    installed_by: str | None = None  # User ID who installed
+    scopes: list[str] = field(default_factory=list)
+    tenant_id: str | None = None  # Link to Aragora tenant
     is_active: bool = True
-    signing_secret: Optional[str] = None  # Workspace-specific signing secret
-    refresh_token: Optional[str] = None  # OAuth refresh token for token renewal
-    token_expires_at: Optional[float] = None  # Unix timestamp when access_token expires
+    signing_secret: str | None = None  # Workspace-specific signing secret
+    refresh_token: str | None = None  # OAuth refresh token for token renewal
+    token_expires_at: float | None = None  # Unix timestamp when access_token expires
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (excludes sensitive token and signing_secret)."""
         return {
             "workspace_id": self.workspace_id,
@@ -121,7 +120,6 @@ class SlackWorkspace:
             token_expires_at=token_expires_at,
         )
 
-
 class SlackWorkspaceStore:
     """
     Storage for Slack workspace OAuth credentials.
@@ -168,7 +166,7 @@ class SlackWorkspaceStore:
     ALTER TABLE slack_workspaces ADD COLUMN token_expires_at REAL;
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the workspace store.
 
         Args:
@@ -388,7 +386,7 @@ class SlackWorkspaceStore:
             logger.error(f"Failed to save workspace: {e}")
             return False
 
-    def get(self, workspace_id: str) -> Optional[SlackWorkspace]:
+    def get(self, workspace_id: str) -> SlackWorkspace | None:
         """Get a workspace by ID.
 
         Args:
@@ -420,7 +418,7 @@ class SlackWorkspaceStore:
             logger.error(f"Failed to get workspace {workspace_id}: {e}")
             return None
 
-    def get_by_tenant(self, tenant_id: str) -> List[SlackWorkspace]:
+    def get_by_tenant(self, tenant_id: str) -> list[SlackWorkspace]:
         """Get all workspaces for a tenant.
 
         Args:
@@ -454,7 +452,7 @@ class SlackWorkspaceStore:
             logger.error(f"Failed to get workspaces for tenant {tenant_id}: {e}")
             return []
 
-    def list_active(self, limit: int = 100, offset: int = 0) -> List[SlackWorkspace]:
+    def list_active(self, limit: int = 100, offset: int = 0) -> list[SlackWorkspace]:
         """List all active workspaces.
 
         Args:
@@ -558,7 +556,7 @@ class SlackWorkspaceStore:
             logger.error(f"Failed to count workspaces: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get workspace statistics.
 
         Returns:
@@ -586,7 +584,7 @@ class SlackWorkspaceStore:
         workspace_id: str,
         client_id: str,
         client_secret: str,
-    ) -> Optional[SlackWorkspace]:
+    ) -> SlackWorkspace | None:
         """Refresh an expired access token using the refresh token.
 
         Args:
@@ -684,7 +682,7 @@ class SlackWorkspaceStore:
 
         return time.time() + buffer_seconds >= workspace.token_expires_at
 
-    def get_expiring_tokens(self, hours: int = 2) -> List[SlackWorkspace]:
+    def get_expiring_tokens(self, hours: int = 2) -> list[SlackWorkspace]:
         """Get workspaces with tokens expiring within the specified time window.
 
         Args:
@@ -729,7 +727,6 @@ class SlackWorkspaceStore:
         except sqlite3.Error as e:
             logger.error(f"Failed to get expiring tokens: {e}")
             return []
-
 
 # Supabase-backed implementation for production
 class SupabaseSlackWorkspaceStore:
@@ -813,7 +810,7 @@ class SupabaseSlackWorkspaceStore:
             logger.error(f"Failed to save workspace to Supabase: {e}")
             return False
 
-    def get(self, workspace_id: str) -> Optional[SlackWorkspace]:
+    def get(self, workspace_id: str) -> SlackWorkspace | None:
         """Get a workspace by ID."""
         if not self.is_configured:
             return None
@@ -835,7 +832,7 @@ class SupabaseSlackWorkspaceStore:
             logger.error(f"Failed to get workspace from Supabase: {e}")
             return None
 
-    def get_by_tenant(self, tenant_id: str) -> List[SlackWorkspace]:
+    def get_by_tenant(self, tenant_id: str) -> list[SlackWorkspace]:
         """Get all workspaces for a tenant."""
         if not self.is_configured:
             return []
@@ -856,7 +853,7 @@ class SupabaseSlackWorkspaceStore:
             logger.error(f"Failed to get workspaces for tenant from Supabase: {e}")
             return []
 
-    def list_active(self, limit: int = 100, offset: int = 0) -> List[SlackWorkspace]:
+    def list_active(self, limit: int = 100, offset: int = 0) -> list[SlackWorkspace]:
         """List all active workspaces."""
         if not self.is_configured:
             return []
@@ -931,7 +928,7 @@ class SupabaseSlackWorkspaceStore:
             logger.error(f"Failed to count workspaces in Supabase: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get workspace statistics."""
         if not self.is_configured:
             return {"total_workspaces": 0, "active_workspaces": 0}
@@ -950,7 +947,7 @@ class SupabaseSlackWorkspaceStore:
             logger.error(f"Failed to get stats from Supabase: {e}")
             return {"total_workspaces": 0, "active_workspaces": 0}
 
-    def _row_to_workspace(self, row: Dict[str, Any]) -> SlackWorkspace:
+    def _row_to_workspace(self, row: dict[str, Any]) -> SlackWorkspace:
         """Convert Supabase row to SlackWorkspace."""
         installed_at = row.get("installed_at")
         if isinstance(installed_at, str):
@@ -974,12 +971,10 @@ class SupabaseSlackWorkspaceStore:
             signing_secret=row.get("signing_secret"),
         )
 
-
 # Singleton instance
-_workspace_store: Optional[Any] = None
+_workspace_store: Any | None = None
 
-
-def get_slack_workspace_store(db_path: Optional[str] = None) -> Any:
+def get_slack_workspace_store(db_path: str | None = None) -> Any:
     """Get or create the workspace store singleton.
 
     Uses Supabase backend in production when configured,

@@ -43,26 +43,23 @@ import logging
 import time
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Set, TypeVar, cast
+from typing import Any, Callable, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
 # Context variable for current tenant
-_current_tenant: ContextVar[Optional[str]] = ContextVar("current_tenant", default=None)
+_current_tenant: ContextVar[str | None] = ContextVar("current_tenant", default=None)
 
 # Type variable for generic functions
 F = TypeVar("F", bound=Callable[..., Any])
 
-
-def get_current_tenant() -> Optional[str]:
+def get_current_tenant() -> str | None:
     """Get the current tenant/workspace ID from context."""
     return _current_tenant.get()
 
-
-def set_current_tenant(tenant_id: Optional[str]) -> None:
+def set_current_tenant(tenant_id: str | None) -> None:
     """Set the current tenant/workspace ID in context."""
     _current_tenant.set(tenant_id)
-
 
 class TenantContext:
     """
@@ -79,7 +76,7 @@ class TenantContext:
 
     def __init__(self, tenant_id: str):
         self.tenant_id = tenant_id
-        self._token: Optional[Token[Optional[str]]] = None
+        self._token: Optional[Token[str | None]] = None
 
     def __enter__(self) -> "TenantContext":
         self._token = _current_tenant.set(self.tenant_id)
@@ -94,7 +91,6 @@ class TenantContext:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         _current_tenant.reset(self._token)
-
 
 def with_tenant(tenant_id: str) -> Callable[[F], F]:
     """
@@ -123,7 +119,6 @@ def with_tenant(tenant_id: str) -> Callable[[F], F]:
 
     return decorator
 
-
 @dataclass
 class TenantQuota:
     """
@@ -143,7 +138,6 @@ class TenantQuota:
     max_task_timeout_seconds: float = 3600.0  # 1 hour
     rate_limit_per_minute: int = 1000
 
-
 @dataclass
 class TenantState:
     """
@@ -161,7 +155,7 @@ class TenantState:
     last_activity: float = field(default_factory=time.time)
 
     # Rate limiting state
-    _request_timestamps: List[float] = field(default_factory=list)
+    _request_timestamps: list[float] = field(default_factory=list)
 
     def can_register_agent(self) -> bool:
         """Check if tenant can register another agent."""
@@ -191,14 +185,12 @@ class TenantState:
         self._request_timestamps.append(now)
         return True
 
-
 class TenantEnforcementError(Exception):
     """Raised when a tenant operation violates constraints."""
 
-    def __init__(self, message: str, tenant_id: Optional[str] = None):
+    def __init__(self, message: str, tenant_id: str | None = None):
         self.tenant_id = tenant_id
         super().__init__(message)
-
 
 class TenantEnforcer:
     """
@@ -224,11 +216,11 @@ class TenantEnforcer:
         agents = enforcer.filter_by_tenant(all_agents, "workspace_123")
     """
 
-    def __init__(self, default_quota: Optional[TenantQuota] = None):
+    def __init__(self, default_quota: TenantQuota | None = None):
         self._default_quota = default_quota or TenantQuota()
-        self._tenant_states: Dict[str, TenantState] = {}
-        self._tenant_quotas: Dict[str, TenantQuota] = {}
-        self._shared_agents: Set[str] = set()  # Agents available to all tenants
+        self._tenant_states: dict[str, TenantState] = {}
+        self._tenant_quotas: dict[str, TenantQuota] = {}
+        self._shared_agents: set[str] = set()  # Agents available to all tenants
         self._lock = asyncio.Lock()
 
     def _get_or_create_state(self, tenant_id: str) -> TenantState:
@@ -352,11 +344,11 @@ class TenantEnforcer:
 
     def filter_by_tenant(
         self,
-        items: List[Any],
+        items: list[Any],
         tenant_id: str,
         tenant_attr: str = "tenant_id",
         include_shared: bool = True,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Filter a list of items to only those belonging to the tenant.
 
@@ -412,7 +404,7 @@ class TenantEnforcer:
 
         return False
 
-    async def get_all_states(self) -> Dict[str, TenantState]:
+    async def get_all_states(self) -> dict[str, TenantState]:
         """Get states for all tenants (admin operation)."""
         async with self._lock:
             return dict(self._tenant_states)
@@ -444,10 +436,8 @@ class TenantEnforcer:
 
             return len(to_remove)
 
-
 # Global enforcer instance
-_global_enforcer: Optional[TenantEnforcer] = None
-
+_global_enforcer: TenantEnforcer | None = None
 
 def get_global_enforcer() -> TenantEnforcer:
     """Get the global tenant enforcer instance."""
@@ -455,7 +445,6 @@ def get_global_enforcer() -> TenantEnforcer:
     if _global_enforcer is None:
         _global_enforcer = TenantEnforcer()
     return _global_enforcer
-
 
 def set_global_enforcer(enforcer: TenantEnforcer) -> None:
     """Set the global tenant enforcer instance."""

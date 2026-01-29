@@ -24,12 +24,11 @@ from __future__ import annotations
 import importlib
 import logging
 import threading
-from typing import Any, Callable, Generic, Optional, TypeVar
+from typing import Any, Callable, Generic, TypeVar
 
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
-
 
 class LazyStore(Generic[T]):
     """
@@ -70,12 +69,12 @@ class LazyStore(Generic[T]):
         self.store_name = store_name
         self.logger_context = logger_context
 
-        self._store: Optional[T] = None
+        self._store: T | None = None
         self._lock = threading.Lock()
         self._initialized = False
-        self._init_error: Optional[str] = None
+        self._init_error: str | None = None
 
-    def get(self) -> Optional[T]:
+    def get(self) -> T | None:
         """Get the store instance, initializing lazily if needed."""
         if self._initialized:
             return self._store
@@ -113,10 +112,9 @@ class LazyStore(Generic[T]):
         return self._initialized and self._store is not None
 
     @property
-    def initialization_error(self) -> Optional[str]:
+    def initialization_error(self) -> str | None:
         """Get the error message if initialization failed."""
         return self._init_error
-
 
 class LazyStoreFactory:
     """
@@ -140,8 +138,8 @@ class LazyStoreFactory:
         import_path: str,
         factory_name: str,
         logger_context: str = "Handler",
-        factory_args: Optional[tuple] = None,
-        factory_kwargs: Optional[dict] = None,
+        factory_args: tuple | None = None,
+        factory_kwargs: dict | None = None,
     ):
         self.store_name = store_name
         self.import_path = import_path
@@ -150,12 +148,12 @@ class LazyStoreFactory:
         self.factory_args = factory_args or ()
         self.factory_kwargs = factory_kwargs or {}
 
-        self._store: Optional[Any] = None
+        self._store: Any | None = None
         self._lock = threading.Lock()
         self._initialized = False
-        self._init_error: Optional[str] = None
+        self._init_error: str | None = None
 
-    def get(self) -> Optional[Any]:
+    def get(self) -> Any | None:
         """
         Get the store instance, initializing lazily if needed.
 
@@ -179,7 +177,7 @@ class LazyStoreFactory:
 
         return self._store
 
-    def _initialize(self) -> Optional[Any]:
+    def _initialize(self) -> Any | None:
         """
         Initialize the store by importing and calling the factory.
 
@@ -237,10 +235,9 @@ class LazyStoreFactory:
         return self._initialized and self._store is not None
 
     @property
-    def initialization_error(self) -> Optional[str]:
+    def initialization_error(self) -> str | None:
         """Get the error message if initialization failed."""
         return self._init_error
-
 
 class LazyStoreRegistry:
     """
@@ -266,8 +263,8 @@ class LazyStoreRegistry:
         import_path: str,
         factory_name: str,
         logger_context: str = "Handler",
-        factory_args: Optional[tuple] = None,
-        factory_kwargs: Optional[dict] = None,
+        factory_args: tuple | None = None,
+        factory_kwargs: dict | None = None,
     ) -> LazyStoreFactory:
         """
         Register a new store factory.
@@ -294,7 +291,7 @@ class LazyStoreRegistry:
         self._factories[name] = factory
         return factory
 
-    def get(self, name: str) -> Optional[Any]:
+    def get(self, name: str) -> Any | None:
         """
         Get a store by name.
 
@@ -310,11 +307,11 @@ class LazyStoreRegistry:
             return None
         return factory.get()
 
-    def get_factory(self, name: str) -> Optional[LazyStoreFactory]:
+    def get_factory(self, name: str) -> LazyStoreFactory | None:
         """Get the factory instance by name."""
         return self._factories.get(name)
 
-    def reset(self, name: Optional[str] = None) -> None:
+    def reset(self, name: str | None = None) -> None:
         """
         Reset store(s), allowing re-initialization.
 

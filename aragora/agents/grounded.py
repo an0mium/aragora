@@ -10,12 +10,13 @@ Components:
 - RelationshipTracker: Compute rivalry/alliance from debate history
 - PersonaSynthesizer: Generate identity prompts from all data sources
 """
+from __future__ import annotations
 
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from .personas import Persona, PersonaManager
 
@@ -47,14 +48,13 @@ __all__ = [
     "MomentDetector",
 ]
 
-
 @dataclass
 class GroundedPersona:
     """Full grounded persona with all evidence-based attributes."""
 
     agent_name: str
     # From PersonaManager
-    base_persona: Optional[Persona] = None
+    base_persona: Persona | None = None
     # From EloSystem
     elo: float = 1500.0
     domain_elos: dict[str, float] = field(default_factory=dict)
@@ -91,7 +91,6 @@ class GroundedPersona:
             return 0.0
         return self.positions_correct / resolved
 
-
 class PersonaSynthesizer:
     """
     Generates rich identity prompts from all data sources.
@@ -105,10 +104,10 @@ class PersonaSynthesizer:
 
     def __init__(
         self,
-        persona_manager: Optional[PersonaManager] = None,
-        elo_system=None,  # Optional[EloSystem] - avoid circular import
-        position_ledger: Optional[PositionLedger] = None,
-        relationship_tracker: Optional[RelationshipTracker] = None,
+        persona_manager: PersonaManager | None = None,
+        elo_system=None,  # EloSystem | None - avoid circular import
+        position_ledger: PositionLedger | None = None,
+        relationship_tracker: RelationshipTracker | None = None,
     ):
         self.persona_manager = persona_manager
         self.elo_system = elo_system
@@ -173,9 +172,9 @@ class PersonaSynthesizer:
     def synthesize_identity_prompt(
         self,
         agent_name: str,
-        context: Optional[str] = None,
-        opponent_names: Optional[list[str]] = None,
-        include_sections: Optional[list[str]] = None,
+        context: str | None = None,
+        opponent_names: list[str] | None = None,
+        include_sections: list[str] | None = None,
     ) -> str:
         """
         Generate a rich identity prompt for an agent.
@@ -252,7 +251,7 @@ class PersonaSynthesizer:
     def _format_relationship_section(
         self,
         persona: GroundedPersona,
-        opponent_names: Optional[list[str]] = None,
+        opponent_names: list[str] | None = None,
     ) -> str:
         """Format relationship info, highlighting current opponents."""
         lines = ["### Your Relationships"]
@@ -331,7 +330,6 @@ class PersonaSynthesizer:
 
         return "\n".join(lines)
 
-
 @dataclass
 class SignificantMoment:
     """A significant narrative event in an agent's debate history."""
@@ -349,7 +347,7 @@ class SignificantMoment:
     agent_name: str
     description: str
     significance_score: float  # 0.0-1.0, higher = more significant
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     other_agents: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -367,7 +365,6 @@ class SignificantMoment:
             "metadata": self.metadata,
             "created_at": self.created_at,
         }
-
 
 class MomentDetector:
     """
@@ -387,8 +384,8 @@ class MomentDetector:
     def __init__(
         self,
         elo_system=None,
-        position_ledger: Optional[PositionLedger] = None,
-        relationship_tracker: Optional[RelationshipTracker] = None,
+        position_ledger: PositionLedger | None = None,
+        relationship_tracker: RelationshipTracker | None = None,
         max_moments_per_agent: int = 100,
     ):
         self.elo_system = elo_system
@@ -402,7 +399,7 @@ class MomentDetector:
         winner: str,
         loser: str,
         debate_id: str,
-    ) -> Optional[SignificantMoment]:
+    ) -> SignificantMoment | None:
         """Detect if a match result is a significant upset."""
         if not self.elo_system:
             return None
@@ -443,7 +440,7 @@ class MomentDetector:
         original_position: Position,
         new_position: Position,
         debate_id: str,
-    ) -> Optional[SignificantMoment]:
+    ) -> SignificantMoment | None:
         """Detect when an agent reverses a significant position."""
         if not original_position.reversed:
             return None
@@ -477,7 +474,7 @@ class MomentDetector:
         was_correct: bool,
         domain: str,
         debate_id: str,
-    ) -> Optional[SignificantMoment]:
+    ) -> SignificantMoment | None:
         """Detect when a high-confidence prediction is vindicated."""
         if not was_correct or prediction_confidence < 0.85:
             return None
@@ -504,7 +501,7 @@ class MomentDetector:
         streak_type: Literal["win", "loss"],
         streak_length: int,
         debate_id: str,
-    ) -> Optional[SignificantMoment]:
+    ) -> SignificantMoment | None:
         """Detect significant win/loss streaks."""
         # Minimum 5 for significance
         if streak_length < 5:
@@ -537,7 +534,7 @@ class MomentDetector:
         domain: str,
         rank: int,
         elo: float,
-    ) -> Optional[SignificantMoment]:
+    ) -> SignificantMoment | None:
         """Detect when an agent becomes top-ranked in a domain."""
         if rank != 1:
             return None
@@ -560,7 +557,7 @@ class MomentDetector:
         topic: str,
         confidence: float,
         debate_id: str,
-    ) -> Optional[SignificantMoment]:
+    ) -> SignificantMoment | None:
         """Detect when opposing agents reach consensus."""
         if len(agents) < 2 or confidence < 0.7:
             return None
@@ -601,7 +598,7 @@ class MomentDetector:
         self,
         agent_name: str,
         limit: int = 10,
-        moment_types: Optional[list[str]] = None,
+        moment_types: list[str] | None = None,
     ) -> list[SignificantMoment]:
         """Get significant moments for an agent."""
         moments = self._moment_cache.get(agent_name, [])

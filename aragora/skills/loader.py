@@ -28,19 +28,17 @@ import importlib.util
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import Skill, SkillManifest
 from .registry import SkillRegistry, get_skill_registry
 
 logger = logging.getLogger(__name__)
 
-
 class SkillLoadError(Exception):
     """Error loading a skill."""
 
     pass
-
 
 class SkillLoader:
     """
@@ -55,7 +53,7 @@ class SkillLoader:
 
     def __init__(
         self,
-        registry: Optional[SkillRegistry] = None,
+        registry: SkillRegistry | None = None,
         auto_register: bool = True,
     ):
         """
@@ -72,8 +70,8 @@ class SkillLoader:
     def load_module(
         self,
         module_path: str,
-        register: Optional[bool] = None,
-    ) -> List[Skill]:
+        register: bool | None = None,
+    ) -> list[Skill]:
         """
         Load skills from a Python module.
 
@@ -110,8 +108,8 @@ class SkillLoader:
     def load_file(
         self,
         file_path: str | Path,
-        register: Optional[bool] = None,
-    ) -> List[Skill]:
+        register: bool | None = None,
+    ) -> list[Skill]:
         """
         Load skills from a Python file.
 
@@ -159,8 +157,8 @@ class SkillLoader:
         self,
         directory: str | Path,
         recursive: bool = False,
-        register: Optional[bool] = None,
-    ) -> List[Skill]:
+        register: bool | None = None,
+    ) -> list[Skill]:
         """
         Load skills from all Python files in a directory.
 
@@ -179,7 +177,7 @@ class SkillLoader:
         if not path.is_dir():
             raise SkillLoadError(f"Not a directory: {path}")
 
-        all_skills: List[Skill] = []
+        all_skills: list[Skill] = []
         pattern = "**/*.py" if recursive else "*.py"
 
         for file_path in path.glob(pattern):
@@ -195,7 +193,7 @@ class SkillLoader:
         logger.info(f"Loaded {len(all_skills)} skills from directory {path}")
         return all_skills
 
-    def load_builtin_skills(self, register: Optional[bool] = None) -> List[Skill]:
+    def load_builtin_skills(self, register: bool | None = None) -> list[Skill]:
         """
         Load all built-in skills from aragora.skills.builtin.
 
@@ -212,7 +210,7 @@ class SkillLoader:
             "aragora.skills.builtin.evidence_fetch",
         ]
 
-        all_skills: List[Skill] = []
+        all_skills: list[Skill] = []
         for module_path in builtin_modules:
             try:
                 skills = self.load_module(module_path, register=register)
@@ -222,7 +220,7 @@ class SkillLoader:
 
         return all_skills
 
-    def _extract_skills_from_module(self, module: Any) -> List[Skill]:
+    def _extract_skills_from_module(self, module: Any) -> list[Skill]:
         """
         Extract Skill instances from a module.
 
@@ -231,7 +229,7 @@ class SkillLoader:
         2. A 'SKILLS' list/tuple of skill instances
         3. Any class that subclasses Skill
         """
-        skills: List[Skill] = []
+        skills: list[Skill] = []
 
         # Check for register_skills function
         if hasattr(module, "register_skills"):
@@ -282,8 +280,8 @@ class SkillLoader:
     def load_from_manifest(
         self,
         manifest_path: str | Path,
-        register: Optional[bool] = None,
-    ) -> Optional[Skill]:
+        register: bool | None = None,
+    ) -> Skill | None:
         """
         Load a skill from a manifest file (YAML or JSON).
 
@@ -332,7 +330,6 @@ class SkillLoader:
         except Exception as e:
             raise SkillLoadError(f"Failed to load manifest {path}: {e}") from e
 
-
 class DeclarativeSkill(Skill):
     """
     A skill defined purely through a manifest.
@@ -344,7 +341,7 @@ class DeclarativeSkill(Skill):
     def __init__(
         self,
         skill_manifest: SkillManifest,
-        executor: Optional[Any] = None,
+        executor: Any | None = None,
     ):
         """
         Initialize declarative skill.
@@ -362,7 +359,7 @@ class DeclarativeSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: Any,
     ) -> Any:
         """Execute the skill."""
@@ -377,12 +374,11 @@ class DeclarativeSkill(Skill):
             error_message=f"Skill '{self._manifest.name}' has no executor",
         )
 
-
 # Convenience function
 def load_skills(
     *sources: str | Path,
-    registry: Optional[SkillRegistry] = None,
-) -> List[Skill]:
+    registry: SkillRegistry | None = None,
+) -> list[Skill]:
     """
     Load skills from multiple sources.
 
@@ -394,7 +390,7 @@ def load_skills(
         List of all loaded skills
     """
     loader = SkillLoader(registry=registry, auto_register=True)
-    all_skills: List[Skill] = []
+    all_skills: list[Skill] = []
 
     for source in sources:
         source_str = str(source)

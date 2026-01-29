@@ -14,11 +14,10 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class UsageEventType(Enum):
     """Types of usage events."""
@@ -27,7 +26,6 @@ class UsageEventType(Enum):
     API_CALL = "api_call"
     STORAGE = "storage"
     AGENT_CALL = "agent_call"
-
 
 # Provider pricing per 1M tokens (as of Jan 2026)
 PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
@@ -56,7 +54,6 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("8.00"),
     },
 }
-
 
 def calculate_token_cost(
     provider: str,
@@ -92,7 +89,6 @@ def calculate_token_cost(
 
     return input_cost + output_cost
 
-
 @dataclass
 class UsageEvent:
     """A single usage event."""
@@ -101,7 +97,7 @@ class UsageEvent:
     user_id: str = ""
     org_id: str = ""
     event_type: UsageEventType = UsageEventType.DEBATE
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
 
     # Token usage
     tokens_in: int = 0
@@ -165,7 +161,6 @@ class UsageEvent:
                 event.created_at = data["created_at"]
         return event
 
-
 @dataclass
 class UsageSummary:
     """Summary of usage for a period."""
@@ -206,7 +201,6 @@ class UsageSummary:
             "debates_by_day": self.debates_by_day,
         }
 
-
 class UsageTracker:
     """
     Tracks and stores usage events.
@@ -214,7 +208,7 @@ class UsageTracker:
     Provides methods for recording usage and generating summaries.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize usage tracker.
 
@@ -319,7 +313,7 @@ class UsageTracker:
         tokens_out: int,
         provider: str,
         model: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> UsageEvent:
         """
         Record a debate usage event.
@@ -356,7 +350,7 @@ class UsageTracker:
         self,
         user_id: str,
         org_id: str,
-        debate_id: Optional[str],
+        debate_id: str | None,
         agent_name: str,
         tokens_in: int,
         tokens_out: int,
@@ -397,8 +391,8 @@ class UsageTracker:
     def get_summary(
         self,
         org_id: str,
-        period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None,
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
     ) -> UsageSummary:
         """
         Get usage summary for an organization.
@@ -576,7 +570,6 @@ class UsageTracker:
             ).fetchone()
 
             return row["count"] if row else 0
-
 
 __all__ = [
     "UsageEventType",

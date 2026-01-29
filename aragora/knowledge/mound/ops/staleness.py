@@ -12,25 +12,23 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem, MoundConfig, StalenessCheck
 
 logger = logging.getLogger(__name__)
 
-
 class StalenessProtocol(Protocol):
     """Protocol defining expected interface for Staleness mixin."""
 
     config: "MoundConfig"
     workspace_id: str
-    _staleness_detector: Optional[Any]
+    _staleness_detector: Any | None
     _initialized: bool
 
     def _ensure_initialized(self) -> None: ...
-    async def update(self, node_id: str, updates: Dict[str, Any]) -> Optional["KnowledgeItem"]: ...
-
+    async def update(self, node_id: str, updates: dict[str, Any]) -> Optional["KnowledgeItem"]: ...
 
 class StalenessOperationsMixin:
     """Mixin providing staleness management for KnowledgeMound."""
@@ -39,8 +37,8 @@ class StalenessOperationsMixin:
         self: StalenessProtocol,
         threshold: float = 0.5,
         limit: int = 100,
-        workspace_id: Optional[str] = None,
-    ) -> List["StalenessCheck"]:
+        workspace_id: str | None = None,
+    ) -> list["StalenessCheck"]:
         """Get knowledge items that may be stale."""
         self._ensure_initialized()
 
@@ -58,12 +56,12 @@ class StalenessOperationsMixin:
         self: StalenessProtocol,
         node_id: str,
         validator: str,
-        confidence: Optional[float] = None,
+        confidence: float | None = None,
     ) -> None:
         """Mark a knowledge node as validated."""
         self._ensure_initialized()
 
-        updates: Dict[str, Any] = {
+        updates: dict[str, Any] = {
             "validation_status": "majority_agreed",  # Valid ValidationStatus value
             "last_validated_at": datetime.now().isoformat(),
             "staleness_score": 0.0,
@@ -75,9 +73,9 @@ class StalenessOperationsMixin:
 
     async def schedule_revalidation(
         self: StalenessProtocol,
-        node_ids: List[str],
+        node_ids: list[str],
         priority: str = "low",
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Schedule nodes for revalidation via the control plane.
 

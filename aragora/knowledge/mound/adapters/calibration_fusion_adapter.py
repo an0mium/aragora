@@ -34,7 +34,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, TypedDict
 
 from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter, EventCallback
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
@@ -52,7 +52,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class CalibrationSyncResult(TypedDict):
     """Result type for calibration sync operations."""
 
@@ -61,9 +60,8 @@ class CalibrationSyncResult(TypedDict):
     outliers_detected: int
     high_confidence_count: int
     needs_review_count: int
-    errors: List[str]
+    errors: list[str]
     duration_ms: float
-
 
 @dataclass
 class CalibrationSearchResult:
@@ -71,16 +69,15 @@ class CalibrationSearchResult:
 
     consensus: CalibrationConsensus
     similarity: float = 0.0
-    stored_at: Optional[datetime] = None
+    stored_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "consensus": self.consensus.to_dict(),
             "similarity": self.similarity,
             "stored_at": self.stored_at.isoformat() if self.stored_at else None,
         }
-
 
 class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
     """
@@ -113,10 +110,10 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        engine: Optional[CalibrationFusionEngine] = None,
-        config: Optional[CalibrationFusionConfig] = None,
+        engine: CalibrationFusionEngine | None = None,
+        config: CalibrationFusionConfig | None = None,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         enable_tracing: bool = True,
     ):
         """
@@ -142,13 +139,13 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
             self._engine = get_calibration_fusion_engine(config)
 
         # In-memory storage for consensus (KM integration would persist externally)
-        self._stored_consensus: Dict[str, CalibrationConsensus] = {}
-        self._consensus_by_topic: Dict[str, List[str]] = {}  # topic -> list of debate_ids
+        self._stored_consensus: dict[str, CalibrationConsensus] = {}
+        self._consensus_by_topic: dict[str, list[str]] = {}  # topic -> list of debate_ids
 
         # Initialize fusion state
         self._init_fusion_state()
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured.
 
         Override required because FusionMixin stub shadows KnowledgeMoundAdapter.
@@ -166,9 +163,9 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
 
     def fuse_predictions(
         self,
-        predictions: List[AgentPrediction],
+        predictions: list[AgentPrediction],
         debate_id: str = "",
-        weights: Optional[Dict[str, float]] = None,
+        weights: Optional[dict[str, float]] = None,
         strategy: CalibrationFusionStrategy = CalibrationFusionStrategy.WEIGHTED_AVERAGE,
         store: bool = True,
     ) -> CalibrationConsensus:
@@ -268,7 +265,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
             if debate_id not in self._consensus_by_topic[topic]:
                 self._consensus_by_topic[topic].append(debate_id)
 
-    def get_consensus(self, debate_id: str) -> Optional[CalibrationConsensus]:
+    def get_consensus(self, debate_id: str) -> CalibrationConsensus | None:
         """
         Get stored calibration consensus by debate ID.
 
@@ -285,7 +282,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         topic: str,
         limit: int = 10,
         min_confidence: float = 0.0,
-    ) -> List[CalibrationSearchResult]:
+    ) -> list[CalibrationSearchResult]:
         """
         Search for calibration consensus by topic.
 
@@ -297,7 +294,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         Returns:
             List of CalibrationSearchResult sorted by confidence.
         """
-        results: List[CalibrationSearchResult] = []
+        results: list[CalibrationSearchResult] = []
 
         # Search in indexed topics
         for stored_topic, debate_ids in self._consensus_by_topic.items():
@@ -364,7 +361,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         )
 
         # Build comprehensive metadata
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "debate_id": consensus.debate_id,
             "predicted_outcome": consensus.predicted_outcome,
             "fused_confidence": consensus.fused_confidence,
@@ -394,7 +391,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
             importance=consensus.fused_confidence,
         )
 
-    def get_agent_performance(self, agent_name: str) -> Dict[str, Any]:
+    def get_agent_performance(self, agent_name: str) -> dict[str, Any]:
         """
         Get performance metrics for an agent across calibration fusions.
 
@@ -406,7 +403,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         """
         return self._engine.get_agent_performance(agent_name)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get overall calibration fusion statistics.
 
@@ -426,7 +423,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
     # FusionMixin Implementation
     # =========================================================================
 
-    def _get_fusion_sources(self) -> List[str]:
+    def _get_fusion_sources(self) -> list[str]:
         """Return list of adapter names this adapter can fuse data from.
 
         CalibrationFusionAdapter can fuse validations from ELO (agent performance),
@@ -434,7 +431,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         """
         return ["elo", "consensus", "belief", "evidence", "ranking"]
 
-    def _extract_fusible_data(self, km_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _extract_fusible_data(self, km_item: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Extract data from a KM item that can be used for fusion.
 
         Args:
@@ -471,7 +468,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         self,
         record: Any,
         fusion_result: Any,  # FusedValidation from ops.fusion
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply a fusion result to a calibration record.
 
@@ -519,7 +516,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
             logger.warning(f"Failed to apply fusion result: {e}")
             return False
 
-    def _get_record_for_fusion(self, source_id: str) -> Optional[CalibrationConsensus]:
+    def _get_record_for_fusion(self, source_id: str) -> CalibrationConsensus | None:
         """Get a calibration record by source ID for fusion.
 
         Args:
@@ -540,7 +537,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
 
     def sync_to_km(
         self,
-        consensus_list: Optional[List[CalibrationConsensus]] = None,
+        consensus_list: Optional[list[CalibrationConsensus]] = None,
         limit: int = 100,
     ) -> CalibrationSyncResult:
         """
@@ -595,7 +592,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
 
         return result
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """Return adapter health status for monitoring.
 
         Returns:
@@ -607,7 +604,6 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
             "engine_stats": self._engine.get_stats(),
         }
         return {**base_health, **calibration_health}
-
 
 __all__ = [
     "CalibrationFusionAdapter",

@@ -14,7 +14,6 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
 
 from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.base_store import SQLiteStore
@@ -26,14 +25,12 @@ AB_TEST_COLUMNS = """id, agent, baseline_prompt_version, evolved_prompt_version,
     baseline_wins, evolved_wins, baseline_debates, evolved_debates,
     started_at, concluded_at, status, metadata"""
 
-
 class ABTestStatus(Enum):
     """Status of an A/B test."""
 
     ACTIVE = "active"
     CONCLUDED = "concluded"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class ABTest:
@@ -53,7 +50,7 @@ class ABTest:
     baseline_debates: int = 0
     evolved_debates: int = 0
     started_at: str = ""
-    concluded_at: Optional[str] = None
+    concluded_at: str | None = None
     status: ABTestStatus = ABTestStatus.ACTIVE
     metadata: dict = field(default_factory=dict)
 
@@ -137,7 +134,6 @@ class ABTest:
             metadata=json.loads(row[11]) if row[11] else {},
         )
 
-
 @dataclass
 class ABTestResult:
     """Result of concluding an A/B test."""
@@ -147,7 +143,6 @@ class ABTestResult:
     confidence: float
     recommendation: str
     stats: dict = field(default_factory=dict)
-
 
 class ABTestManager(SQLiteStore):
     """
@@ -207,7 +202,7 @@ class ABTestManager(SQLiteStore):
         agent: str,
         baseline_version: int,
         evolved_version: int,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> ABTest:
         """
         Start a new A/B test for an agent.
@@ -263,7 +258,7 @@ class ABTestManager(SQLiteStore):
 
         return test
 
-    def get_test(self, test_id: str) -> Optional[ABTest]:
+    def get_test(self, test_id: str) -> ABTest | None:
         """Get a specific A/B test by ID."""
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -277,7 +272,7 @@ class ABTestManager(SQLiteStore):
                 return ABTest.from_row(row)
             return None
 
-    def get_active_test(self, agent: str) -> Optional[ABTest]:
+    def get_active_test(self, agent: str) -> ABTest | None:
         """Get the active A/B test for an agent, if any."""
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -313,7 +308,7 @@ class ABTestManager(SQLiteStore):
         debate_id: str,
         variant: str,
         won: bool,
-    ) -> Optional[ABTest]:
+    ) -> ABTest | None:
         """
         Record a debate result for the active test.
 
@@ -485,7 +480,7 @@ class ABTestManager(SQLiteStore):
             )
             return cursor.rowcount > 0
 
-    def get_variant_for_debate(self, agent: str) -> Optional[str]:
+    def get_variant_for_debate(self, agent: str) -> str | None:
         """
         Get which variant to use for the next debate.
 

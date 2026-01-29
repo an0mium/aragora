@@ -6,6 +6,7 @@ deployments that need horizontal scaling and concurrent writes.
 
 This is the PostgreSQL equivalent of CritiqueStore (SQLite-based).
 """
+from __future__ import annotations
 
 __all__ = [
     "PostgresCritiqueStore",
@@ -19,7 +20,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, AsyncGenerator
 
 from aragora.memory.store import AgentReputation, Pattern
 
@@ -138,7 +139,6 @@ POSTGRES_CRITIQUE_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_debates_created ON debates(created_at DESC);
 """
 
-
 class PostgresCritiqueStore:
     """
     PostgreSQL-backed storage for critique patterns.
@@ -239,13 +239,13 @@ class PostgresCritiqueStore:
         self,
         debate_id: str,
         task: str,
-        final_answer: Optional[str] = None,
+        final_answer: str | None = None,
         consensus_reached: bool = False,
-        confidence: Optional[float] = None,
-        rounds_used: Optional[int] = None,
-        duration_seconds: Optional[float] = None,
-        grounded_verdict: Optional[dict] = None,
-        critiques: Optional[list[dict]] = None,
+        confidence: float | None = None,
+        rounds_used: int | None = None,
+        duration_seconds: float | None = None,
+        grounded_verdict: dict | None = None,
+        critiques: list[dict] | None = None,
     ) -> dict:
         """
         Store a complete debate result.
@@ -318,7 +318,7 @@ class PostgresCritiqueStore:
             "confidence": confidence,
         }
 
-    async def get_debate(self, debate_id: str) -> Optional[dict]:
+    async def get_debate(self, debate_id: str) -> dict | None:
         """Get a debate record by ID."""
         async with self.connection() as conn:
             row = await conn.fetchrow("SELECT * FROM debates WHERE id = $1", debate_id)
@@ -371,9 +371,9 @@ class PostgresCritiqueStore:
 
     async def store_critique(
         self,
-        debate_id: Optional[str],
+        debate_id: str | None,
         agent: str,
-        target_agent: Optional[str],
+        target_agent: str | None,
         issues: list[str],
         suggestions: list[str],
         severity: float,
@@ -481,7 +481,7 @@ class PostgresCritiqueStore:
         self,
         critique_id: int,
         actual_usefulness: float,
-        agent_name: Optional[str] = None,
+        agent_name: str | None = None,
     ) -> float:
         """
         Update critique with actual outcome, return prediction error.
@@ -722,7 +722,7 @@ class PostgresCritiqueStore:
 
     async def retrieve_patterns(
         self,
-        issue_type: Optional[str] = None,
+        issue_type: str | None = None,
         min_success: int = 2,
         limit: int = 10,
         decay_halflife_days: int = 30,
@@ -786,7 +786,7 @@ class PostgresCritiqueStore:
             ]
 
     async def get_relevant(
-        self, issue_type: Optional[str] = None, limit: int = 10
+        self, issue_type: str | None = None, limit: int = 10
     ) -> list[Pattern]:
         """Backward-compatible wrapper for retrieve_patterns()."""
         return await self.retrieve_patterns(issue_type=issue_type, min_success=1, limit=limit)
@@ -801,7 +801,7 @@ class PostgresCritiqueStore:
     # Agent Reputation Operations
     # =========================================================================
 
-    async def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
+    async def get_reputation(self, agent_name: str) -> AgentReputation | None:
         """Get reputation for an agent."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -1119,9 +1119,8 @@ class PostgresCritiqueStore:
             row = await conn.fetchrow("SELECT COUNT(*) as cnt FROM patterns")
             return row["cnt"] if row else 0
 
-
 async def get_postgres_critique_store(
-    dsn: Optional[str] = None,
+    dsn: str | None = None,
 ) -> PostgresCritiqueStore:
     """
     Factory function to create an initialized PostgresCritiqueStore.

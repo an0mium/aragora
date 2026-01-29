@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 import threading
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -18,7 +18,6 @@ Arena = None
 DebateProtocol = None
 Environment = None
 create_agent = None
-
 
 def _ensure_imports():
     """Lazy load debate components."""
@@ -38,7 +37,6 @@ def _ensure_imports():
             logger.error(f"Failed to import debate components: {e}")
             raise
 
-
 class ForkBridgeHandler:
     """
     Handles fork-based debate initialization.
@@ -47,9 +45,9 @@ class ForkBridgeHandler:
 
     def __init__(
         self,
-        active_loops: Dict[str, Any],
+        active_loops: dict[str, Any],
         active_loops_lock: threading.Lock,
-        fork_store: Optional[Dict[str, Any]] = None,
+        fork_store: Optional[dict[str, Any]] = None,
     ):
         """
         Initialize the fork bridge handler.
@@ -64,18 +62,18 @@ class ForkBridgeHandler:
         self.fork_store = fork_store or {}
         self._fork_store_lock = threading.Lock()
 
-    def register_fork(self, fork_id: str, fork_data: Dict[str, Any]) -> None:
+    def register_fork(self, fork_id: str, fork_data: dict[str, Any]) -> None:
         """Register a fork for later execution."""
         with self._fork_store_lock:
             self.fork_store[fork_id] = fork_data
             logger.info(f"Fork registered: {fork_id}")
 
-    def get_fork(self, fork_id: str) -> Optional[Dict[str, Any]]:
+    def get_fork(self, fork_id: str) -> Optional[dict[str, Any]]:
         """Get fork data by ID."""
         with self._fork_store_lock:
             return self.fork_store.get(fork_id)
 
-    async def handle_start_fork(self, ws: Any, data: Dict[str, Any]) -> bool:
+    async def handle_start_fork(self, ws: Any, data: dict[str, Any]) -> bool:
         """
         Handle a fork start request from WebSocket.
 

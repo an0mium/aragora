@@ -9,8 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Optional
 
 class TaskStatus(str, Enum):
     """Status of an A2A task."""
@@ -22,7 +21,6 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"
     WAITING_INPUT = "waiting_input"  # Agent needs more info
 
-
 class TaskPriority(str, Enum):
     """Priority level for A2A tasks."""
 
@@ -30,7 +28,6 @@ class TaskPriority(str, Enum):
     NORMAL = "normal"
     HIGH = "high"
     URGENT = "urgent"
-
 
 class AgentCapability(str, Enum):
     """Standard capabilities an agent can advertise."""
@@ -46,7 +43,6 @@ class AgentCapability(str, Enum):
     RESEARCH = "research"
     REASONING = "reasoning"
 
-
 @dataclass
 class SecurityCard:
     """
@@ -57,11 +53,11 @@ class SecurityCard:
 
     issuer: str
     subject: str
-    public_key: Optional[str] = None
-    signature: Optional[str] = None
+    public_key: str | None = None
+    signature: str | None = None
     issued_at: datetime = field(default_factory=datetime.now)
-    expires_at: Optional[datetime] = None
-    permissions: List[str] = field(default_factory=list)
+    expires_at: datetime | None = None
+    permissions: list[str] = field(default_factory=list)
 
     def is_valid(self) -> bool:
         """Check if the security card is valid."""
@@ -69,7 +65,7 @@ class SecurityCard:
             return False
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "issuer": self.issuer,
@@ -79,7 +75,6 @@ class SecurityCard:
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "permissions": self.permissions,
         }
-
 
 @dataclass
 class AgentCard:
@@ -96,21 +91,21 @@ class AgentCard:
     version: str = "1.0.0"
 
     # Capabilities
-    capabilities: List[AgentCapability] = field(default_factory=list)
-    input_modes: List[str] = field(default_factory=lambda: ["text"])
-    output_modes: List[str] = field(default_factory=lambda: ["text"])
+    capabilities: list[AgentCapability] = field(default_factory=list)
+    input_modes: list[str] = field(default_factory=lambda: ["text"])
+    output_modes: list[str] = field(default_factory=lambda: ["text"])
 
     # Endpoint
-    endpoint: Optional[str] = None
+    endpoint: str | None = None
     protocol: str = "a2a"
 
     # Metadata
-    tags: List[str] = field(default_factory=list)
-    organization: Optional[str] = None
-    documentation_url: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    organization: str | None = None
+    documentation_url: str | None = None
 
     # Security
-    security_card: Optional[SecurityCard] = None
+    security_card: SecurityCard | None = None
     requires_auth: bool = False
 
     # Rate limiting
@@ -121,7 +116,7 @@ class AgentCard:
         """Check if agent supports a capability."""
         return capability in self.capabilities
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "name": self.name,
@@ -141,7 +136,7 @@ class AgentCard:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AgentCard":
+    def from_dict(cls, data: dict[str, Any]) -> "AgentCard":
         """Create from dictionary."""
         return cls(
             name=data["name"],
@@ -160,7 +155,6 @@ class AgentCard:
             estimated_response_time_ms=data.get("estimated_response_time_ms", 5000),
         )
 
-
 @dataclass
 class ContextItem:
     """
@@ -172,9 +166,9 @@ class ContextItem:
     type: str  # "text", "file", "structured"
     content: str
     mime_type: str = "text/plain"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "type": self.type,
@@ -182,7 +176,6 @@ class ContextItem:
             "mime_type": self.mime_type,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class TaskRequest:
@@ -199,27 +192,27 @@ class TaskRequest:
     instruction: str
 
     # Optional fields (must come after required fields)
-    parent_task_id: Optional[str] = None  # For subtasks
-    context: List[ContextItem] = field(default_factory=list)
+    parent_task_id: str | None = None  # For subtasks
+    context: list[ContextItem] = field(default_factory=list)
 
     # Execution parameters
-    capability: Optional[AgentCapability] = None
+    capability: AgentCapability | None = None
     priority: TaskPriority = TaskPriority.NORMAL
     timeout_ms: int = 300000  # 5 minutes default
 
     # Requester info
-    requester_agent: Optional[str] = None
-    requester_card: Optional[AgentCard] = None
+    requester_agent: str | None = None
+    requester_card: AgentCard | None = None
 
     # Options
     stream_output: bool = False
     return_intermediate: bool = False
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "task_id": self.task_id,
@@ -237,7 +230,7 @@ class TaskRequest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TaskRequest":
+    def from_dict(cls, data: dict[str, Any]) -> "TaskRequest":
         """Create from dictionary."""
         return cls(
             task_id=data["task_id"],
@@ -261,7 +254,6 @@ class TaskRequest:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class TaskResult:
     """
@@ -276,34 +268,34 @@ class TaskResult:
 
     # Status
     status: TaskStatus
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     # Result
-    output: Optional[str] = None
+    output: str | None = None
     output_type: str = "text"
-    structured_output: Optional[Dict[str, Any]] = None
+    structured_output: Optional[dict[str, Any]] = None
 
     # Metrics
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     tokens_used: int = 0
 
     # Provenance
-    intermediate_results: List[Dict[str, Any]] = field(default_factory=list)
-    subtasks: List[str] = field(default_factory=list)
+    intermediate_results: list[dict[str, Any]] = field(default_factory=list)
+    subtasks: list[str] = field(default_factory=list)
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
-    def duration_ms(self) -> Optional[int]:
+    def duration_ms(self) -> int | None:
         """Get task duration in milliseconds."""
         if self.started_at and self.completed_at:
             delta = self.completed_at - self.started_at
             return int(delta.total_seconds() * 1000)
         return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "task_id": self.task_id,
@@ -323,7 +315,7 @@ class TaskResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TaskResult":
+    def from_dict(cls, data: dict[str, Any]) -> "TaskResult":
         """Create from dictionary."""
         return cls(
             task_id=data["task_id"],
@@ -344,7 +336,6 @@ class TaskResult:
             subtasks=data.get("subtasks", []),
             metadata=data.get("metadata", {}),
         )
-
 
 # Pre-defined Aragora agent cards
 ARAGORA_AGENT_CARDS = {
@@ -405,7 +396,6 @@ ARAGORA_AGENT_CARDS = {
         estimated_response_time_ms=60000,
     ),
 }
-
 
 __all__ = [
     "TaskStatus",

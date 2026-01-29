@@ -7,6 +7,7 @@ Provides:
 - Cross-debate pattern extraction
 - Knowledge decay management
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -16,10 +17,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class LearningEventType(Enum):
     """Types of learning events."""
@@ -32,7 +32,6 @@ class LearningEventType(Enum):
     KNOWLEDGE_DECAYED = "knowledge_decayed"
     USER_FEEDBACK = "user_feedback"
 
-
 @dataclass
 class LearningEvent:
     """A learning event that updates the system's knowledge."""
@@ -41,10 +40,9 @@ class LearningEvent:
     event_type: LearningEventType
     timestamp: datetime
     source: str  # What generated this event (debate_id, agent_name, etc.)
-    data: Dict[str, Any]
+    data: dict[str, Any]
     applied: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AgentCalibration:
@@ -53,12 +51,11 @@ class AgentCalibration:
     agent_id: str
     elo_rating: float = 1500.0
     confidence_accuracy: float = 0.5  # How accurate are confidence predictions
-    topic_strengths: Dict[str, float] = field(default_factory=dict)
-    topic_weaknesses: Dict[str, float] = field(default_factory=dict)
-    last_updated: Optional[datetime] = None
+    topic_strengths: dict[str, float] = field(default_factory=dict)
+    topic_weaknesses: dict[str, float] = field(default_factory=dict)
+    last_updated: datetime | None = None
     total_debates: int = 0
     win_rate: float = 0.5
-
 
 @dataclass
 class ExtractedPattern:
@@ -71,10 +68,9 @@ class ExtractedPattern:
     evidence_count: int
     first_seen: datetime
     last_seen: datetime
-    agents_involved: List[str] = field(default_factory=list)
-    topics: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    agents_involved: list[str] = field(default_factory=list)
+    topics: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 class EloUpdater:
     """
@@ -107,8 +103,8 @@ class EloUpdater:
         self.min_rating = min_rating
         self.max_rating = max_rating
         self.decay_per_day = decay_per_day
-        self._ratings: Dict[str, float] = {}
-        self._last_active: Dict[str, datetime] = {}
+        self._ratings: dict[str, float] = {}
+        self._last_active: dict[str, datetime] = {}
 
     def get_rating(self, agent_id: str) -> float:
         """Get current rating for an agent."""
@@ -124,7 +120,7 @@ class EloUpdater:
         winner_id: str,
         loser_id: str,
         margin: float = 1.0,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Update ratings based on debate outcome.
 
@@ -163,9 +159,9 @@ class EloUpdater:
 
     def update_from_votes(
         self,
-        agent_votes: Dict[str, int],
+        agent_votes: dict[str, int],
         total_votes: int,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Update ratings based on vote distribution.
 
@@ -195,7 +191,7 @@ class EloUpdater:
 
         return new_ratings
 
-    def apply_decay(self) -> Dict[str, float]:
+    def apply_decay(self) -> dict[str, float]:
         """Apply decay to inactive agents."""
         if self.decay_per_day == 0:
             return {}
@@ -215,10 +211,9 @@ class EloUpdater:
 
         return decayed
 
-    def get_all_ratings(self) -> Dict[str, float]:
+    def get_all_ratings(self) -> dict[str, float]:
         """Get all agent ratings."""
         return self._ratings.copy()
-
 
 class PatternExtractor:
     """
@@ -235,7 +230,7 @@ class PatternExtractor:
         self,
         min_evidence_count: int = 3,
         min_confidence: float = 0.6,
-        storage_path: Optional[Path] = None,
+        storage_path: Path | None = None,
     ):
         """
         Initialize pattern extractor.
@@ -248,15 +243,15 @@ class PatternExtractor:
         self.min_evidence_count = min_evidence_count
         self.min_confidence = min_confidence
         self.storage_path = storage_path
-        self._patterns: Dict[str, ExtractedPattern] = {}
-        self._observations: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        self._patterns: dict[str, ExtractedPattern] = {}
+        self._observations: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     def observe(
         self,
         observation_type: str,
-        data: Dict[str, Any],
-        agents: List[str],
-        topics: Optional[List[str]] = None,
+        data: dict[str, Any],
+        agents: list[str],
+        topics: Optional[list[str]] = None,
     ) -> None:
         """
         Record an observation for pattern extraction.
@@ -276,7 +271,7 @@ class PatternExtractor:
             }
         )
 
-    def extract_patterns(self) -> List[ExtractedPattern]:
+    def extract_patterns(self) -> list[ExtractedPattern]:
         """
         Extract patterns from observations.
 
@@ -303,16 +298,16 @@ class PatternExtractor:
 
         return new_patterns
 
-    def _extract_consensus_patterns(self) -> List[ExtractedPattern]:
+    def _extract_consensus_patterns(self) -> list[ExtractedPattern]:
         """Extract patterns from consensus observations."""
-        patterns: List[ExtractedPattern] = []
+        patterns: list[ExtractedPattern] = []
         consensus_obs = self._observations.get("consensus_reached", [])
 
         if len(consensus_obs) < self.min_evidence_count:
             return patterns
 
         # Group by strategy
-        strategies: Dict[str, List[Dict]] = defaultdict(list)
+        strategies: dict[str, list[dict]] = defaultdict(list)
         for obs in consensus_obs:
             strategy = obs["data"].get("strategy", "unknown")
             strategies[strategy].append(obs)
@@ -340,16 +335,16 @@ class PatternExtractor:
 
         return patterns
 
-    def _extract_expertise_patterns(self) -> List[ExtractedPattern]:
+    def _extract_expertise_patterns(self) -> list[ExtractedPattern]:
         """Extract topic expertise patterns."""
-        patterns: List[ExtractedPattern] = []
+        patterns: list[ExtractedPattern] = []
         performance_obs = self._observations.get("agent_performance", [])
 
         if len(performance_obs) < self.min_evidence_count:
             return patterns
 
         # Group by agent and topic
-        agent_topic_perf: Dict[Tuple[str, str], List[float]] = defaultdict(list)
+        agent_topic_perf: dict[tuple[str, str], list[float]] = defaultdict(list)
 
         for obs in performance_obs:
             agent = obs["data"].get("agent")
@@ -379,16 +374,16 @@ class PatternExtractor:
 
         return patterns
 
-    def _extract_failure_patterns(self) -> List[ExtractedPattern]:
+    def _extract_failure_patterns(self) -> list[ExtractedPattern]:
         """Extract failure mode patterns."""
-        patterns: List[ExtractedPattern] = []
+        patterns: list[ExtractedPattern] = []
         failure_obs = self._observations.get("debate_failed", [])
 
         if len(failure_obs) < self.min_evidence_count:
             return patterns
 
         # Group by failure reason
-        reasons: Dict[str, List[Dict]] = defaultdict(list)
+        reasons: dict[str, list[dict]] = defaultdict(list)
         for obs in failure_obs:
             reason = obs["data"].get("reason", "unknown")
             reasons[reason].append(obs)
@@ -410,7 +405,7 @@ class PatternExtractor:
 
         return patterns
 
-    def get_patterns(self, pattern_type: Optional[str] = None) -> List[ExtractedPattern]:
+    def get_patterns(self, pattern_type: str | None = None) -> list[ExtractedPattern]:
         """Get extracted patterns, optionally filtered by type."""
         if pattern_type:
             return [p for p in self._patterns.values() if p.pattern_type == pattern_type]
@@ -439,7 +434,6 @@ class PatternExtractor:
         }
         self.storage_path.write_text(json.dumps(data, indent=2))
 
-
 class KnowledgeDecayManager:
     """
     Manages knowledge decay over time.
@@ -467,16 +461,16 @@ class KnowledgeDecayManager:
         self.default_half_life_days = default_half_life_days
         self.min_confidence = min_confidence
         self.decay_check_interval_hours = decay_check_interval_hours
-        self._knowledge_items: Dict[str, Dict[str, Any]] = {}
-        self._last_decay_check: Optional[datetime] = None
+        self._knowledge_items: dict[str, dict[str, Any]] = {}
+        self._last_decay_check: datetime | None = None
 
     def register_knowledge(
         self,
         knowledge_id: str,
         initial_confidence: float,
         importance: float = 0.5,
-        half_life_days: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        half_life_days: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Register a knowledge item for decay tracking.
@@ -498,7 +492,7 @@ class KnowledgeDecayManager:
             "metadata": metadata or {},
         }
 
-    def refresh_knowledge(self, knowledge_id: str, boost: float = 0.1) -> Optional[float]:
+    def refresh_knowledge(self, knowledge_id: str, boost: float = 0.1) -> float | None:
         """
         Refresh knowledge item (reset decay, optional boost).
 
@@ -519,7 +513,7 @@ class KnowledgeDecayManager:
 
         return float(item["confidence"])
 
-    def apply_decay(self) -> Dict[str, float]:
+    def apply_decay(self) -> dict[str, float]:
         """
         Apply decay to all knowledge items.
 
@@ -550,12 +544,12 @@ class KnowledgeDecayManager:
         self._last_decay_check = now
         return changed
 
-    def get_confidence(self, knowledge_id: str) -> Optional[float]:
+    def get_confidence(self, knowledge_id: str) -> float | None:
         """Get current confidence for knowledge item."""
         item = self._knowledge_items.get(knowledge_id)
         return item["confidence"] if item else None
 
-    def get_stale_knowledge(self, max_age_days: float = 30.0) -> List[str]:
+    def get_stale_knowledge(self, max_age_days: float = 30.0) -> list[str]:
         """Get knowledge items that haven't been refreshed recently."""
         now = datetime.now()
         threshold = timedelta(days=max_age_days)
@@ -567,7 +561,6 @@ class KnowledgeDecayManager:
                 stale.append(kid)
 
         return stale
-
 
 class ContinuousLearner:
     """
@@ -582,9 +575,9 @@ class ContinuousLearner:
 
     def __init__(
         self,
-        elo_updater: Optional[EloUpdater] = None,
-        pattern_extractor: Optional[PatternExtractor] = None,
-        decay_manager: Optional[KnowledgeDecayManager] = None,
+        elo_updater: EloUpdater | None = None,
+        pattern_extractor: PatternExtractor | None = None,
+        decay_manager: KnowledgeDecayManager | None = None,
         event_callback: Optional[Callable[[LearningEvent], None]] = None,
     ):
         """
@@ -600,18 +593,18 @@ class ContinuousLearner:
         self.pattern_extractor = pattern_extractor or PatternExtractor()
         self.decay_manager = decay_manager or KnowledgeDecayManager()
         self.event_callback = event_callback
-        self._calibrations: Dict[str, AgentCalibration] = {}
-        self._event_history: List[LearningEvent] = []
+        self._calibrations: dict[str, AgentCalibration] = {}
+        self._event_history: list[LearningEvent] = []
 
     async def on_debate_completed(
         self,
         debate_id: str,
-        agents: List[str],
-        winner: Optional[str],
-        votes: Dict[str, int],
+        agents: list[str],
+        winner: str | None,
+        votes: dict[str, int],
         consensus_reached: bool,
-        topics: List[str],
-        metadata: Optional[Dict[str, Any]] = None,
+        topics: list[str],
+        metadata: Optional[dict[str, Any]] = None,
     ) -> LearningEvent:
         """
         Process a completed debate for learning.
@@ -702,7 +695,7 @@ class ContinuousLearner:
         agent_id: str,
         feedback_type: str,  # "helpful", "unhelpful", "accurate", "inaccurate"
         score: float,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> LearningEvent:
         """
         Process user feedback for learning.
@@ -751,7 +744,7 @@ class ContinuousLearner:
 
         return event
 
-    async def run_periodic_learning(self) -> Dict[str, Any]:
+    async def run_periodic_learning(self) -> dict[str, Any]:
         """
         Run periodic learning tasks.
 
@@ -833,14 +826,13 @@ class ContinuousLearner:
         else:
             cal.win_rate = (cal.win_rate * (cal.total_debates - 1)) / cal.total_debates
 
-    def get_calibration(self, agent_id: str) -> Optional[AgentCalibration]:
+    def get_calibration(self, agent_id: str) -> AgentCalibration | None:
         """Get calibration for an agent."""
         return self._calibrations.get(agent_id)
 
-    def get_all_calibrations(self) -> Dict[str, AgentCalibration]:
+    def get_all_calibrations(self) -> dict[str, AgentCalibration]:
         """Get all agent calibrations."""
         return self._calibrations.copy()
-
 
 __all__ = [
     "LearningEventType",

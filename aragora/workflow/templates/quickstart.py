@@ -14,7 +14,7 @@ with minimal setup required.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from aragora.workflow.types import (
     StepDefinition,
@@ -22,12 +22,11 @@ from aragora.workflow.types import (
     WorkflowDefinition,
 )
 
-
 def create_yes_no_workflow(
     question: str,
-    context: Optional[str] = None,
+    context: str | None = None,
     confidence_threshold: float = 0.7,
-    agents: Optional[List[str]] = None,
+    agents: Optional[list[str]] = None,
 ) -> WorkflowDefinition:
     """Create a quick yes/no decision workflow.
 
@@ -100,10 +99,9 @@ def create_yes_no_workflow(
         entry_step="debate",
     )
 
-
 def create_pros_cons_workflow(
     topic: str,
-    context: Optional[str] = None,
+    context: str | None = None,
     max_items: int = 5,
     weighted: bool = False,
 ) -> WorkflowDefinition:
@@ -207,11 +205,10 @@ def create_pros_cons_workflow(
         entry_step="pros",
     )
 
-
 def create_risk_assessment_workflow(
     scenario: str,
-    context: Optional[str] = None,
-    risk_categories: Optional[List[str]] = None,
+    context: str | None = None,
+    risk_categories: Optional[list[str]] = None,
     include_mitigation: bool = True,
 ) -> WorkflowDefinition:
     """Create a risk assessment workflow.
@@ -317,13 +314,12 @@ def create_risk_assessment_workflow(
         entry_step="identify",
     )
 
-
 def create_brainstorm_workflow(
     topic: str,
-    goal: Optional[str] = None,
+    goal: str | None = None,
     num_ideas: int = 10,
     prioritize: bool = True,
-    perspectives: Optional[List[str]] = None,
+    perspectives: Optional[list[str]] = None,
 ) -> WorkflowDefinition:
     """Create a brainstorming session workflow.
 
@@ -418,11 +414,9 @@ def create_brainstorm_workflow(
         entry_step="diverge",
     )
 
-
 # =============================================================================
 # Convenience Functions
 # =============================================================================
-
 
 def quick_decision(question: str) -> WorkflowDefinition:
     """Create the fastest possible yes/no decision.
@@ -435,7 +429,6 @@ def quick_decision(question: str) -> WorkflowDefinition:
     """
     return create_yes_no_workflow(question=question)
 
-
 def quick_analysis(topic: str) -> WorkflowDefinition:
     """Create a quick pros/cons analysis.
 
@@ -446,7 +439,6 @@ def quick_analysis(topic: str) -> WorkflowDefinition:
         Streamlined pros/cons workflow
     """
     return create_pros_cons_workflow(topic=topic, max_items=3, weighted=False)
-
 
 def quick_risks(scenario: str) -> WorkflowDefinition:
     """Create a quick risk check.
@@ -462,7 +454,6 @@ def quick_risks(scenario: str) -> WorkflowDefinition:
         risk_categories=["operational", "financial"],
         include_mitigation=False,
     )
-
 
 def quick_ideas(topic: str, count: int = 5) -> WorkflowDefinition:
     """Create a quick brainstorm.
@@ -480,7 +471,6 @@ def quick_ideas(topic: str, count: int = 5) -> WorkflowDefinition:
         prioritize=False,
         perspectives=["creative", "practical"],
     )
-
 
 __all__ = [
     # Core templates

@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from abc import abstractmethod
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from jinja2 import Template
 
@@ -25,7 +25,6 @@ from aragora.verticals.config import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class VerticalSpecialistAgent(APIAgent):
     """
@@ -46,7 +45,7 @@ class VerticalSpecialistAgent(APIAgent):
         model: str,
         config: VerticalConfig,
         role: AgentRole = "analyst",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: int = 120,
         **kwargs: Any,
     ):
@@ -67,7 +66,7 @@ class VerticalSpecialistAgent(APIAgent):
         self._compliance_frameworks = config.compliance_frameworks
 
         # Track tool calls for audit
-        self._tool_call_history: List[Dict[str, Any]] = []
+        self._tool_call_history: list[dict[str, Any]] = []
 
     @property
     def vertical_id(self) -> str:
@@ -80,13 +79,13 @@ class VerticalSpecialistAgent(APIAgent):
         return self._config
 
     @property
-    def expertise_areas(self) -> List[str]:
+    def expertise_areas(self) -> list[str]:
         """Get areas of expertise."""
         return self._config.expertise_areas
 
     def build_system_prompt(
         self,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Build the system prompt from the template.
@@ -108,19 +107,19 @@ class VerticalSpecialistAgent(APIAgent):
 
         return self._system_prompt_template.render(**template_context)
 
-    def get_tool(self, tool_name: str) -> Optional[ToolConfig]:
+    def get_tool(self, tool_name: str) -> ToolConfig | None:
         """Get a tool configuration by name."""
         return self._tools.get(tool_name)
 
-    def get_enabled_tools(self) -> List[ToolConfig]:
+    def get_enabled_tools(self) -> list[ToolConfig]:
         """Get list of enabled tools."""
         return [t for t in self._tools.values() if t.enabled]
 
     async def invoke_tool(
         self,
         tool_name: str,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Invoke a domain tool.
 
@@ -160,8 +159,8 @@ class VerticalSpecialistAgent(APIAgent):
     async def _execute_tool(
         self,
         tool: ToolConfig,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Execute a tool (implemented by subclasses).
 
@@ -177,8 +176,8 @@ class VerticalSpecialistAgent(APIAgent):
     async def check_compliance(
         self,
         content: str,
-        framework: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        framework: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Check content against compliance frameworks.
 
@@ -206,7 +205,7 @@ class VerticalSpecialistAgent(APIAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Check content against a specific framework (implemented by subclasses).
 
@@ -221,7 +220,7 @@ class VerticalSpecialistAgent(APIAgent):
 
     def should_block_on_compliance(
         self,
-        violations: List[Dict[str, Any]],
+        violations: list[dict[str, Any]],
     ) -> bool:
         """
         Determine if output should be blocked based on violations.
@@ -246,7 +245,7 @@ class VerticalSpecialistAgent(APIAgent):
     async def respond(
         self,
         task: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
         **kwargs: Any,
     ) -> Message:
         """
@@ -279,7 +278,7 @@ class VerticalSpecialistAgent(APIAgent):
         self,
         task: str,
         system_prompt: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
         **kwargs: Any,
     ) -> Message:
         """
@@ -296,7 +295,7 @@ class VerticalSpecialistAgent(APIAgent):
         """
         pass
 
-    def get_tool_call_history(self) -> List[Dict[str, Any]]:
+    def get_tool_call_history(self) -> list[dict[str, Any]]:
         """Get history of tool calls for audit."""
         return self._tool_call_history.copy()
 
@@ -304,7 +303,7 @@ class VerticalSpecialistAgent(APIAgent):
         """Clear tool call history."""
         self._tool_call_history.clear()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert agent to dictionary for serialization."""
         return {
             "name": self.name,
@@ -321,7 +320,7 @@ class VerticalSpecialistAgent(APIAgent):
     async def generate(
         self,
         prompt: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
     ) -> str:
         """
         Generate a response to a prompt.
@@ -353,7 +352,7 @@ class VerticalSpecialistAgent(APIAgent):
         self,
         proposal: str,
         task: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
     ) -> Critique:
         """
         Critique a proposal from the perspective of this vertical.

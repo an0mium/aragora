@@ -16,11 +16,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.gauntlet.receipt import DecisionReceipt
-
 
 class TemplateCategory(Enum):
     """Categories of audit templates."""
@@ -32,7 +31,6 @@ class TemplateCategory(Enum):
     OPERATIONAL = "operational"
     CUSTOM = "custom"
 
-
 class TemplateFormat(Enum):
     """Output formats for templates."""
 
@@ -42,7 +40,6 @@ class TemplateFormat(Enum):
     PDF = "pdf"  # Requires external rendering
     TEXT = "text"
 
-
 @dataclass
 class TemplateSection:
     """A section within an audit template."""
@@ -51,9 +48,8 @@ class TemplateSection:
     title: str
     description: str
     required: bool = True
-    receipt_fields: List[str] = field(default_factory=list)
-    custom_renderer: Optional[str] = None  # Function name for custom rendering
-
+    receipt_fields: list[str] = field(default_factory=list)
+    custom_renderer: str | None = None  # Function name for custom rendering
 
 @dataclass
 class AuditTemplate:
@@ -74,14 +70,14 @@ class AuditTemplate:
     version: str = "1.0.0"
 
     # Sections
-    sections: List[TemplateSection] = field(default_factory=list)
+    sections: list[TemplateSection] = field(default_factory=list)
 
     # Regulatory info
-    regulations: List[str] = field(default_factory=list)
+    regulations: list[str] = field(default_factory=list)
     disclaimer: str = ""
 
     # Rendering options
-    supported_formats: List[TemplateFormat] = field(
+    supported_formats: list[TemplateFormat] = field(
         default_factory=lambda: [TemplateFormat.MARKDOWN, TemplateFormat.HTML]
     )
     default_format: TemplateFormat = TemplateFormat.MARKDOWN
@@ -100,7 +96,7 @@ class AuditTemplate:
     def render(
         self,
         receipt: "DecisionReceipt",
-        format: Optional[TemplateFormat] = None,
+        format: TemplateFormat | None = None,
     ) -> str:
         """
         Render the template with a DecisionReceipt.
@@ -238,7 +234,7 @@ class AuditTemplate:
         """Render as JSON."""
         import json
 
-        sections_data: Dict[str, Any] = {}
+        sections_data: dict[str, Any] = {}
         for section in self.sections:
             content = self._get_section_content(receipt, section)
             sections_data[section.id] = {
@@ -247,7 +243,7 @@ class AuditTemplate:
                 "content": content,
             }
 
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "template": {
                 "id": self.id,
                 "name": self.name,
@@ -306,7 +302,7 @@ class AuditTemplate:
         self,
         receipt: "DecisionReceipt",
         section: TemplateSection,
-    ) -> List[str]:
+    ) -> list[str]:
         """Get content for a section from receipt fields."""
         lines = []
 
@@ -334,7 +330,7 @@ class AuditTemplate:
 
         return lines
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert template to dictionary."""
         return {
             "id": self.id,
@@ -360,7 +356,6 @@ class AuditTemplate:
             "updated_at": self.updated_at,
             "author": self.author,
         }
-
 
 # =============================================================================
 # Pre-built Templates
@@ -615,7 +610,7 @@ OPERATIONAL_TEMPLATE = AuditTemplate(
 # Template Registry
 # =============================================================================
 
-_TEMPLATE_REGISTRY: Dict[str, AuditTemplate] = {
+_TEMPLATE_REGISTRY: dict[str, AuditTemplate] = {
     "compliance-standard": COMPLIANCE_TEMPLATE,
     "security-assessment": SECURITY_TEMPLATE,
     "legal-review": LEGAL_TEMPLATE,
@@ -623,8 +618,7 @@ _TEMPLATE_REGISTRY: Dict[str, AuditTemplate] = {
     "operational-review": OPERATIONAL_TEMPLATE,
 }
 
-
-def get_template(template_id: str) -> Optional[AuditTemplate]:
+def get_template(template_id: str) -> AuditTemplate | None:
     """
     Get a template by ID.
 
@@ -636,8 +630,7 @@ def get_template(template_id: str) -> Optional[AuditTemplate]:
     """
     return _TEMPLATE_REGISTRY.get(template_id)
 
-
-def list_templates(category: Optional[TemplateCategory] = None) -> List[AuditTemplate]:
+def list_templates(category: TemplateCategory | None = None) -> list[AuditTemplate]:
     """
     List all available templates.
 
@@ -652,7 +645,6 @@ def list_templates(category: Optional[TemplateCategory] = None) -> List[AuditTem
         templates = [t for t in templates if t.category == category]
     return templates
 
-
 def register_template(template: AuditTemplate) -> None:
     """
     Register a custom template.
@@ -662,14 +654,13 @@ def register_template(template: AuditTemplate) -> None:
     """
     _TEMPLATE_REGISTRY[template.id] = template
 
-
 def create_custom_template(
     id: str,
     name: str,
-    sections: List[Dict[str, Any]],
+    sections: list[dict[str, Any]],
     category: TemplateCategory = TemplateCategory.CUSTOM,
     description: str = "",
-    regulations: Optional[List[str]] = None,
+    regulations: Optional[list[str]] = None,
     disclaimer: str = "",
 ) -> AuditTemplate:
     """
@@ -707,7 +698,6 @@ def create_custom_template(
         regulations=regulations or [],
         disclaimer=disclaimer,
     )
-
 
 __all__ = [
     # Classes

@@ -13,6 +13,7 @@ Usage:
     )
     summary = integrator.get_vulnerability_summary("claude")
 """
+from __future__ import annotations
 
 __all__ = [
     "RedTeamResult",
@@ -23,7 +24,7 @@ __all__ = [
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from aragora.config import ELO_K_FACTOR
 
@@ -34,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 K_FACTOR = ELO_K_FACTOR
 
-
 @dataclass
 class RedTeamResult:
     """Result of a red team assessment."""
@@ -44,9 +44,8 @@ class RedTeamResult:
     successful_attacks: int
     total_attacks: int
     critical_vulnerabilities: int
-    session_id: Optional[str]
+    session_id: str | None
     elo_change: float
-
 
 @dataclass
 class VulnerabilitySummary:
@@ -54,8 +53,7 @@ class VulnerabilitySummary:
 
     redteam_sessions: int
     total_elo_impact: float
-    last_session: Optional[str]
-
+    last_session: str | None
 
 class RedTeamIntegrator:
     """
@@ -98,7 +96,7 @@ class RedTeamIntegrator:
         successful_attacks: int,
         total_attacks: int,
         critical_vulnerabilities: int = 0,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ) -> float:
         """
         Record red team results and adjust ELO based on vulnerability.
@@ -167,9 +165,9 @@ class RedTeamIntegrator:
 
         redteam_sessions = 0
         total_impact = 0.0
-        last_session: Optional[str] = None
+        last_session: str | None = None
 
-        prev_elo: Optional[float] = None
+        prev_elo: float | None = None
         for timestamp, elo in reversed(history):
             # Note: timestamp here is actually the debate_id from elo_history
             # Red team entries have "redteam" in their debate_id

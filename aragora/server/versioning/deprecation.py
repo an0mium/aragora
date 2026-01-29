@@ -25,15 +25,13 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # ============================================================================
 # Deprecation Types
 # ============================================================================
-
 
 class DeprecationLevel(Enum):
     """Deprecation severity levels."""
@@ -41,7 +39,6 @@ class DeprecationLevel(Enum):
     WARNING = "warning"  # Still functional, will be removed
     CRITICAL = "critical"  # Imminent removal
     SUNSET = "sunset"  # Past sunset date, may fail
-
 
 @dataclass
 class DeprecationWarning:
@@ -51,10 +48,10 @@ class DeprecationWarning:
     method: str
     level: DeprecationLevel
     message: str
-    sunset_date: Optional[date] = None
-    replacement: Optional[str] = None
-    migration_guide: Optional[str] = None
-    deprecated_since: Optional[date] = None
+    sunset_date: date | None = None
+    replacement: str | None = None
+    migration_guide: str | None = None
+    deprecated_since: date | None = None
 
     def to_header_value(self) -> str:
         """Format as Deprecation header value (RFC 8594)."""
@@ -62,7 +59,7 @@ class DeprecationWarning:
             return f"@{int(datetime.combine(self.sunset_date, datetime.min.time()).replace(tzinfo=timezone.utc).timestamp())}"
         return "true"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON responses."""
         return {
             "path": self.path,
@@ -74,18 +71,16 @@ class DeprecationWarning:
             "migration_guide": self.migration_guide,
         }
 
-
 # ============================================================================
 # Deprecation Registry
 # ============================================================================
-
 
 @dataclass
 class DeprecationRegistry:
     """Registry of deprecated endpoints."""
 
-    entries: Dict[str, DeprecationWarning] = field(default_factory=dict)
-    usage_counts: Dict[str, int] = field(default_factory=dict)
+    entries: dict[str, DeprecationWarning] = field(default_factory=dict)
+    usage_counts: dict[str, int] = field(default_factory=dict)
 
     def _key(self, path: str, method: str) -> str:
         return f"{method.upper()}:{path}"
@@ -94,10 +89,10 @@ class DeprecationRegistry:
         self,
         path: str,
         method: str,
-        sunset_date: Optional[date] = None,
-        replacement: Optional[str] = None,
-        message: Optional[str] = None,
-        migration_guide: Optional[str] = None,
+        sunset_date: date | None = None,
+        replacement: str | None = None,
+        message: str | None = None,
+        migration_guide: str | None = None,
     ) -> None:
         """Register a deprecated endpoint."""
         key = self._key(path, method)
@@ -127,7 +122,7 @@ class DeprecationRegistry:
         key = self._key(path, method)
         return key in self.entries
 
-    def get_warning(self, path: str, method: str) -> Optional[DeprecationWarning]:
+    def get_warning(self, path: str, method: str) -> DeprecationWarning | None:
         """Get deprecation warning for endpoint."""
         key = self._key(path, method)
         return self.entries.get(key)
@@ -137,15 +132,15 @@ class DeprecationRegistry:
         key = self._key(path, method)
         self.usage_counts[key] = self.usage_counts.get(key, 0) + 1
 
-    def get_usage_stats(self) -> Dict[str, int]:
+    def get_usage_stats(self) -> dict[str, int]:
         """Get usage statistics for deprecated endpoints."""
         return dict(self.usage_counts)
 
-    def get_all_deprecated(self) -> List[DeprecationWarning]:
+    def get_all_deprecated(self) -> list[DeprecationWarning]:
         """Get all deprecated endpoints."""
         return list(self.entries.values())
 
-    def get_critical_deprecations(self) -> List[DeprecationWarning]:
+    def get_critical_deprecations(self) -> list[DeprecationWarning]:
         """Get endpoints near sunset."""
         return [
             w
@@ -153,20 +148,16 @@ class DeprecationRegistry:
             if w.level in (DeprecationLevel.CRITICAL, DeprecationLevel.SUNSET)
         ]
 
-
 # Global registry
 _registry = DeprecationRegistry()
-
 
 def get_deprecation_registry() -> DeprecationRegistry:
     """Get global deprecation registry."""
     return _registry
 
-
 # ============================================================================
 # Deprecation Middleware
 # ============================================================================
-
 
 @dataclass
 class DeprecationMiddleware:
@@ -185,8 +176,8 @@ class DeprecationMiddleware:
         self,
         path: str,
         method: str,
-        headers: Dict[str, str],
-    ) -> Optional[Dict[str, Any]]:
+        headers: dict[str, str],
+    ) -> Optional[dict[str, Any]]:
         """
         Process request for deprecation.
 
@@ -224,8 +215,8 @@ class DeprecationMiddleware:
         self,
         path: str,
         method: str,
-        headers: Dict[str, str],
-    ) -> Dict[str, str]:
+        headers: dict[str, str],
+    ) -> dict[str, str]:
         """Add deprecation headers to response."""
         if not self.add_headers:
             return headers
@@ -252,17 +243,15 @@ class DeprecationMiddleware:
 
         return headers
 
-
 # ============================================================================
 # Decorators
 # ============================================================================
 
-
 def deprecated(
-    sunset_date: Optional[date] = None,
-    replacement: Optional[str] = None,
-    message: Optional[str] = None,
-    migration_guide: Optional[str] = None,
+    sunset_date: date | None = None,
+    replacement: str | None = None,
+    message: str | None = None,
+    migration_guide: str | None = None,
 ) -> Callable:
     """
     Mark a handler as deprecated.
@@ -306,7 +295,6 @@ def deprecated(
 
     return decorator
 
-
 def sunset_date(d: date) -> Callable:
     """
     Set sunset date for a deprecated handler.
@@ -320,13 +308,11 @@ def sunset_date(d: date) -> Callable:
     """
     return deprecated(sunset_date=d)
 
-
 # ============================================================================
 # Metrics Integration
 # ============================================================================
 
-
-def get_deprecation_metrics() -> Dict[str, Any]:
+def get_deprecation_metrics() -> dict[str, Any]:
     """Get metrics for deprecated endpoint usage."""
     registry = get_deprecation_registry()
 
@@ -351,13 +337,11 @@ def get_deprecation_metrics() -> Dict[str, Any]:
         ],
     }
 
-
 # ============================================================================
 # Startup Registration
 # ============================================================================
 
-
-def register_deprecations(deprecations: List[Dict[str, Any]]) -> None:
+def register_deprecations(deprecations: list[dict[str, Any]]) -> None:
     """
     Register multiple deprecations at startup.
 

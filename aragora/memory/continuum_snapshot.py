@@ -10,13 +10,12 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.tier_manager import MemoryTier
 
 logger = logging.getLogger(__name__)
-
 
 class ContinuumSnapshotMixin:
     """
@@ -27,7 +26,7 @@ class ContinuumSnapshotMixin:
     """
 
     # These must be provided by the main class
-    hyperparams: Dict[str, Any]
+    hyperparams: dict[str, Any]
     _tier_manager: Any
 
     def connection(self) -> Any:
@@ -36,10 +35,10 @@ class ContinuumSnapshotMixin:
 
     def export_snapshot(
         self,
-        tiers: Optional[List["MemoryTier"]] = None,
+        tiers: Optional[list["MemoryTier"]] = None,
         include_metadata: bool = True,
         max_entries_per_tier: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Export current memory state as a serializable snapshot.
 
@@ -81,7 +80,7 @@ class ContinuumSnapshotMixin:
             cursor = conn.cursor()
 
             entries = []
-            tier_counts: Dict[str, int] = {}
+            tier_counts: dict[str, int] = {}
 
             for tier in tiers:
                 # Get entries for this tier, sorted by importance
@@ -133,10 +132,10 @@ class ContinuumSnapshotMixin:
 
     def restore_snapshot(
         self,
-        snapshot: Dict[str, Any],
+        snapshot: dict[str, Any],
         merge_mode: str = "replace",
         restore_hyperparams: bool = False,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Restore memory state from a snapshot.
 
@@ -262,6 +261,5 @@ class ContinuumSnapshotMixin:
         )
 
         return {"restored": restored, "skipped": skipped, "updated": updated}
-
 
 __all__ = ["ContinuumSnapshotMixin"]

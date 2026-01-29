@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class GauntletPhase:
     """Gauntlet execution phase."""
@@ -52,7 +51,6 @@ class GauntletPhase:
     VERDICT = "verdict"
     COMPLETE = "complete"
 
-
 class GauntletStreamEmitter:
     """
     Emits real-time events during Gauntlet execution.
@@ -64,7 +62,7 @@ class GauntletStreamEmitter:
     def __init__(
         self,
         broadcast_fn: Optional[Callable[[StreamEvent], None]] = None,
-        gauntlet_id: Optional[str] = None,
+        gauntlet_id: str | None = None,
     ):
         """
         Initialize the emitter.
@@ -77,7 +75,7 @@ class GauntletStreamEmitter:
         self.broadcast_fn = broadcast_fn
         self.gauntlet_id = gauntlet_id or ""
         self._seq = 0
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
         self._phase = GauntletPhase.INIT
         self._finding_count = 0
         self._attack_count = 0
@@ -221,7 +219,7 @@ class GauntletStreamEmitter:
         agent: str,
         target_summary: str,
         success: bool,
-        severity: Optional[float] = None,
+        severity: float | None = None,
     ) -> None:
         """Emit gauntlet_attack event."""
         self._attack_count += 1
@@ -277,8 +275,8 @@ class GauntletStreamEmitter:
         probe_type: str,
         agent: str,
         vulnerability_found: bool,
-        severity: Optional[str] = None,
-        description: Optional[str] = None,
+        severity: str | None = None,
+        description: str | None = None,
     ) -> None:
         """Emit gauntlet_probe event."""
         self._probe_count += 1
@@ -305,7 +303,7 @@ class GauntletStreamEmitter:
         claim: str,
         verified: bool,
         method: str,
-        proof_hash: Optional[str] = None,
+        proof_hash: str | None = None,
     ) -> None:
         """Emit gauntlet_verification event."""
         self._emit(
@@ -376,7 +374,6 @@ class GauntletStreamEmitter:
                 "message": f"Verdict: {verdict} ({confidence:.0%} confidence)",
             },
         )
-
 
 def create_gauntlet_emitter(
     broadcast_fn: Optional[Callable[[StreamEvent], None]] = None,

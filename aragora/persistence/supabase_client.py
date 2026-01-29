@@ -3,12 +3,13 @@ Supabase client for aragora persistence.
 
 Handles all database operations and real-time subscriptions.
 """
+from __future__ import annotations
 
 import logging
 import os
 import time
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable
 
 try:
     from supabase import Client, create_client
@@ -30,7 +31,6 @@ logger = logging.getLogger(__name__)
 # Slow query threshold in seconds
 SLOW_QUERY_THRESHOLD = float(os.getenv("ARAGORA_SLOW_QUERY_MS", "500")) / 1000.0
 
-
 def _log_slow_query(operation: str, elapsed: float, context: str = "") -> None:
     """Log slow database operations for performance monitoring.
 
@@ -45,7 +45,6 @@ def _log_slow_query(operation: str, elapsed: float, context: str = "") -> None:
             f"Slow query ({elapsed:.3f}s): {operation}{ctx} "
             f"(threshold: {SLOW_QUERY_THRESHOLD:.3f}s)"
         )
-
 
 class SupabaseClient:
     """
@@ -62,8 +61,8 @@ class SupabaseClient:
 
     def __init__(
         self,
-        url: Optional[str] = None,
-        key: Optional[str] = None,
+        url: str | None = None,
+        key: str | None = None,
     ):
         """
         Initialize Supabase client.
@@ -100,7 +99,7 @@ class SupabaseClient:
     # Nomic Cycles
     # -------------------------------------------------------------------------
 
-    async def save_cycle(self, cycle: NomicCycle) -> Optional[str]:
+    async def save_cycle(self, cycle: NomicCycle) -> str | None:
         """Save or update a nomic cycle."""
         if not self.is_configured:
             return None
@@ -125,7 +124,7 @@ class SupabaseClient:
             logger.error(f"Failed to save cycle: {e}")
             return None
 
-    async def get_cycle(self, loop_id: str, cycle_number: int) -> Optional[NomicCycle]:
+    async def get_cycle(self, loop_id: str, cycle_number: int) -> NomicCycle | None:
         """Get a specific cycle."""
         if not self.is_configured:
             return None
@@ -149,7 +148,7 @@ class SupabaseClient:
 
     async def list_cycles(
         self,
-        loop_id: Optional[str] = None,
+        loop_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[NomicCycle]:
@@ -216,7 +215,7 @@ class SupabaseClient:
     # Debate Artifacts
     # -------------------------------------------------------------------------
 
-    async def save_debate(self, debate: DebateArtifact) -> Optional[str]:
+    async def save_debate(self, debate: DebateArtifact) -> str | None:
         """Save a debate artifact."""
         if not self.is_configured:
             return None
@@ -232,7 +231,7 @@ class SupabaseClient:
             logger.error(f"Failed to save debate: {e}")
             return None
 
-    async def get_debate(self, debate_id: str) -> Optional[DebateArtifact]:
+    async def get_debate(self, debate_id: str) -> DebateArtifact | None:
         """Get a specific debate by ID."""
         if not self.is_configured:
             return None
@@ -255,8 +254,8 @@ class SupabaseClient:
 
     async def list_debates(
         self,
-        loop_id: Optional[str] = None,
-        phase: Optional[str] = None,
+        loop_id: str | None = None,
+        phase: str | None = None,
         limit: int = 50,
     ) -> list[DebateArtifact]:
         """List debate artifacts."""
@@ -307,7 +306,7 @@ class SupabaseClient:
     # Stream Events
     # -------------------------------------------------------------------------
 
-    async def save_event(self, event: StreamEvent) -> Optional[str]:
+    async def save_event(self, event: StreamEvent) -> str | None:
         """Save a stream event."""
         if not self.is_configured:
             return None
@@ -339,9 +338,9 @@ class SupabaseClient:
     async def get_events(
         self,
         loop_id: str,
-        cycle: Optional[int] = None,
-        event_type: Optional[str] = None,
-        since: Optional[datetime] = None,
+        cycle: int | None = None,
+        event_type: str | None = None,
+        since: datetime | None = None,
         limit: int = 100,
     ) -> list[StreamEvent]:
         """Get events with optional filters."""
@@ -386,7 +385,7 @@ class SupabaseClient:
     # Agent Metrics
     # -------------------------------------------------------------------------
 
-    async def save_metrics(self, metrics: AgentMetrics) -> Optional[str]:
+    async def save_metrics(self, metrics: AgentMetrics) -> str | None:
         """Save agent metrics."""
         if not self.is_configured:
             return None

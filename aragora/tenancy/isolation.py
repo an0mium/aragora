@@ -24,7 +24,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from aragora.tenancy.context import (
     TenantNotSetError,
@@ -52,7 +52,7 @@ class IsolationLevel(Enum):
 class IsolationViolation(Exception):
     """Raised when tenant isolation is violated."""
 
-    def __init__(self, message: str, tenant_id: Optional[str] = None):
+    def __init__(self, message: str, tenant_id: str | None = None):
         self.tenant_id = tenant_id
         super().__init__(message)
 
@@ -124,7 +124,7 @@ class IsolationAuditEntry:
     resource_type: str
     action: str
     allowed: bool
-    reason: Optional[str] = None
+    reason: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -136,7 +136,7 @@ class TenantDataIsolation:
     and namespacing resources to prevent cross-tenant data access.
     """
 
-    def __init__(self, config: Optional[TenantIsolationConfig] = None):
+    def __init__(self, config: TenantIsolationConfig | None = None):
         """Initialize isolation enforcement."""
         self.config = config or TenantIsolationConfig()
         self._audit_log: list[IsolationAuditEntry] = []
@@ -156,8 +156,8 @@ class TenantDataIsolation:
 
     def get_tenant_filter(
         self,
-        tenant_id: Optional[str] = None,
-        column: Optional[str] = None,
+        tenant_id: str | None = None,
+        column: str | None = None,
     ) -> dict[str, str]:
         """
         Get a filter dict for tenant queries.
@@ -185,7 +185,7 @@ class TenantDataIsolation:
         self,
         query: dict[str, Any],
         resource_type: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Add tenant filtering to a query.
@@ -233,8 +233,8 @@ class TenantDataIsolation:
         self,
         base_sql: str,
         resource_type: str = "default",
-        tenant_id: Optional[str] = None,
-        table_alias: Optional[str] = None,
+        tenant_id: str | None = None,
+        table_alias: str | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """Alias for filter_sql for backwards compatibility."""
         return self.filter_sql(base_sql, resource_type, tenant_id, table_alias)
@@ -243,8 +243,8 @@ class TenantDataIsolation:
         self,
         base_sql: str,
         resource_type: str,
-        tenant_id: Optional[str] = None,
-        table_alias: Optional[str] = None,
+        tenant_id: str | None = None,
+        table_alias: str | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Add tenant filtering to SQL query.
@@ -300,8 +300,8 @@ class TenantDataIsolation:
     def validate_ownership(
         self,
         resource: Any,
-        tenant_field: Optional[str] = None,
-        expected_tenant: Optional[str] = None,
+        tenant_field: str | None = None,
+        expected_tenant: str | None = None,
     ) -> bool:
         """
         Validate that a resource belongs to the current tenant.
@@ -370,7 +370,7 @@ class TenantDataIsolation:
     def namespace_key(
         self,
         key: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> str:
         """
         Add tenant namespace prefix to a key.
@@ -391,7 +391,7 @@ class TenantDataIsolation:
 
         return f"{tid}{self.config.namespace_separator}{key}"
 
-    def extract_tenant_from_key(self, namespaced_key: str) -> tuple[Optional[str], str]:
+    def extract_tenant_from_key(self, namespaced_key: str) -> tuple[str | None, str]:
         """
         Extract tenant ID from a namespaced key.
 
@@ -412,7 +412,7 @@ class TenantDataIsolation:
             return parts[0], parts[1]
         return None, namespaced_key
 
-    def get_encryption_key(self, tenant_id: Optional[str] = None) -> bytes:
+    def get_encryption_key(self, tenant_id: str | None = None) -> bytes:
         """
         Get encryption key for tenant data.
 
@@ -453,7 +453,7 @@ class TenantDataIsolation:
 
         return self._encryption_keys[tid]
 
-    def _get_key_from_kms(self, tenant_id: str) -> Optional[bytes]:
+    def _get_key_from_kms(self, tenant_id: str) -> bytes | None:
         """
         Retrieve tenant encryption key from KMS provider.
 
@@ -504,7 +504,7 @@ class TenantDataIsolation:
             raise ValueError("Encryption key must be 32 bytes")
         self._encryption_keys[tenant_id] = key
 
-    async def get_encryption_key_async(self, tenant_id: Optional[str] = None) -> bytes:
+    async def get_encryption_key_async(self, tenant_id: str | None = None) -> bytes:
         """
         Async version of get_encryption_key for use in async contexts.
 
@@ -543,7 +543,7 @@ class TenantDataIsolation:
 
         return self._encryption_keys[tid]
 
-    async def _get_key_from_kms_async(self, tenant_id: str) -> Optional[bytes]:
+    async def _get_key_from_kms_async(self, tenant_id: str) -> bytes | None:
         """
         Async retrieval of tenant encryption key from KMS provider.
 
@@ -576,7 +576,7 @@ class TenantDataIsolation:
         resource_type: str,
         action: str,
         allowed: bool,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> None:
         """Record access attempt in audit log."""
         if not self.config.audit_access:
@@ -600,7 +600,7 @@ class TenantDataIsolation:
 
     def get_audit_log(
         self,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         limit: int = 100,
     ) -> list[IsolationAuditEntry]:
         """
@@ -710,7 +710,7 @@ class TenantIsolationEnforcer:
         )  # Raises PermissionError
     """
 
-    def __init__(self, config: Optional[TenantIsolationConfig] = None):
+    def __init__(self, config: TenantIsolationConfig | None = None):
         """Initialize the enforcer.
 
         Args:

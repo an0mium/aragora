@@ -12,10 +12,11 @@ Usage:
     trace = DebateTrace.load("debate.json")
     output_path = await broadcast_debate(trace, Path("output.mp3"))
 """
+from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.debate.traces import DebateTrace
@@ -25,12 +26,11 @@ from .mixer import mix_audio, mix_audio_with_ffmpeg
 from .pipeline import BroadcastOptions, BroadcastPipeline
 from .script_gen import ScriptSegment, generate_script
 
-
 async def broadcast_debate(
     trace: "DebateTrace",  # Forward reference to avoid circular import
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
     format: str = "mp3",
-) -> Optional[Path]:
+) -> Path | None:
     """
     Generate a complete audio podcast from a debate trace.
 
@@ -86,15 +86,13 @@ async def broadcast_debate(
         return output_path if success else None
     # TemporaryDirectory auto-cleans on exit
 
-
 def broadcast_debate_sync(
     trace: "DebateTrace",
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
     format: str = "mp3",
-) -> Optional[Path]:
+) -> Path | None:
     """Synchronous wrapper for broadcast_debate."""
     return asyncio.run(broadcast_debate(trace, output_path, format))
-
 
 __all__ = [
     "BroadcastOptions",

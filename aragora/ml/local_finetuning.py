@@ -40,11 +40,10 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Sequence
 import asyncio
 
 logger = logging.getLogger(__name__)
-
 
 class FineTuneTask(str, Enum):
     """Types of fine-tuning tasks."""
@@ -53,7 +52,6 @@ class FineTuneTask(str, Enum):
     INSTRUCTION = "instruction"  # Instruction following
     PREFERENCE = "preference"  # DPO/RLHF preference learning
     CLASSIFICATION = "classification"  # Text classification
-
 
 @dataclass
 class TrainingExample:
@@ -79,7 +77,7 @@ class TrainingExample:
         cls,
         task: str,
         winning_response: str,
-        losing_response: Optional[str] = None,
+        losing_response: str | None = None,
         context: str = "",
     ) -> "TrainingExample":
         """Create training example from debate outcome.
@@ -101,12 +99,11 @@ class TrainingExample:
             metadata={"source": "debate"},
         )
 
-
 @dataclass
 class TrainingData:
     """Collection of training examples."""
 
-    examples: List[TrainingExample] = field(default_factory=list)
+    examples: list[TrainingExample] = field(default_factory=list)
     task_type: FineTuneTask = FineTuneTask.INSTRUCTION
 
     def __len__(self) -> int:
@@ -115,7 +112,7 @@ class TrainingData:
     def add(self, example: TrainingExample) -> None:
         self.examples.append(example)
 
-    def to_jsonl(self, path: Union[str, Path]) -> None:
+    def to_jsonl(self, path: str | Path) -> None:
         """Export to JSONL format."""
         path = Path(path)
         with open(path, "w") as f:
@@ -123,7 +120,7 @@ class TrainingData:
                 f.write(json.dumps(ex.to_dict()) + "\n")
 
     @classmethod
-    def from_jsonl(cls, path: Union[str, Path]) -> "TrainingData":
+    def from_jsonl(cls, path: str | Path) -> "TrainingData":
         """Load from JSONL format."""
         path = Path(path)
         examples = []
@@ -182,7 +179,6 @@ class TrainingData:
 
         return data
 
-
 @dataclass
 class FineTuneConfig:
     """Configuration for fine-tuning."""
@@ -195,7 +191,7 @@ class FineTuneConfig:
     lora_r: int = 8  # LoRA rank
     lora_alpha: int = 32  # LoRA scaling factor
     lora_dropout: float = 0.05
-    target_modules: List[str] = field(default_factory=lambda: ["q_proj", "v_proj"])
+    target_modules: list[str] = field(default_factory=lambda: ["q_proj", "v_proj"])
 
     # Training settings
     epochs: int = 3
@@ -213,16 +209,15 @@ class FineTuneConfig:
     logging_steps: int = 10
     save_steps: int = 100
 
-
 @dataclass
 class FineTuneResult:
     """Result of fine-tuning."""
 
     success: bool
     model_path: str
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
     training_time_seconds: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -232,7 +227,6 @@ class FineTuneResult:
             "training_time_seconds": round(self.training_time_seconds, 2),
             "error": self.error,
         }
-
 
 class LocalFineTuner:
     """Local fine-tuning with PEFT/LoRA.
@@ -247,16 +241,16 @@ class LocalFineTuner:
     - Checkpoint saving and resuming
     """
 
-    def __init__(self, config: Optional[FineTuneConfig] = None):
+    def __init__(self, config: FineTuneConfig | None = None):
         """Initialize the fine-tuner.
 
         Args:
             config: Fine-tuning configuration
         """
         self.config = config or FineTuneConfig()
-        self._model: Optional[Any] = None
-        self._tokenizer: Optional[Any] = None
-        self._peft_model: Optional[Any] = None
+        self._model: Any | None = None
+        self._tokenizer: Any | None = None
+        self._peft_model: Any | None = None
         self._is_loaded = False
 
     def _check_dependencies(self) -> bool:
@@ -592,14 +586,12 @@ class LocalFineTuner:
             None, lambda: self.generate(prompt, max_new_tokens, temperature, top_p)
         )
 
-
 @dataclass
 class DPOConfig(FineTuneConfig):
     """Configuration for Direct Preference Optimization training."""
 
     beta: float = 0.1  # DPO beta parameter
     reference_free: bool = False
-
 
 class DPOFineTuner(LocalFineTuner):
     """Fine-tuner using Direct Preference Optimization.
@@ -610,7 +602,7 @@ class DPOFineTuner(LocalFineTuner):
     Best used when training data includes rejected alternatives.
     """
 
-    def __init__(self, config: Optional[DPOConfig] = None):
+    def __init__(self, config: DPOConfig | None = None):
         super().__init__(config or DPOConfig())
 
     def train(self, data: TrainingData) -> FineTuneResult:
@@ -715,11 +707,10 @@ class DPOFineTuner(LocalFineTuner):
                 training_time_seconds=time.time() - start_time,
             )
 
-
 # Factory function
 def create_fine_tuner(
     method: str = "lora",
-    config: Optional[FineTuneConfig] = None,
+    config: FineTuneConfig | None = None,
 ) -> LocalFineTuner:
     """Create a fine-tuner instance.
 

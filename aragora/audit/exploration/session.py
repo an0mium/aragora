@@ -6,13 +6,13 @@ Tracks the state of an iterative document exploration session, including:
 - Questions asked and references traced
 - Understanding confidence scores
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 import uuid
-
 
 class ExplorationPhase(str, Enum):
     """Current phase of document exploration."""
@@ -23,7 +23,6 @@ class ExplorationPhase(str, Enum):
     VERIFY = "verify"  # Multi-agent verification of findings
     SYNTHESIZE = "synthesize"  # Building cross-document understanding
 
-
 @dataclass
 class Reference:
     """A reference to another location in the document corpus."""
@@ -32,11 +31,10 @@ class Reference:
     source_chunk: str  # Chunk ID where reference was found
     source_text: str  # The referencing text
     target_description: str  # What the reference points to
-    target_document: Optional[str] = None  # Resolved target document
-    target_chunk: Optional[str] = None  # Resolved target chunk
+    target_document: str | None = None  # Resolved target document
+    target_chunk: str | None = None  # Resolved target chunk
     resolved: bool = False
     resolution_notes: str = ""
-
 
 @dataclass
 class Question:
@@ -50,7 +48,6 @@ class Question:
     answered: bool = False
     answer: str = ""
     answer_source: str = ""  # Document/chunk where answer was found
-
 
 @dataclass
 class Insight:
@@ -84,7 +81,6 @@ class Insight:
             "tags": self.tags,
         }
 
-
 @dataclass
 class ChunkUnderstanding:
     """Understanding extracted from a single chunk."""
@@ -101,7 +97,6 @@ class ChunkUnderstanding:
     questions_raised: list[str] = field(default_factory=list)
     confidence: float = 0.5
 
-
 @dataclass
 class SynthesizedUnderstanding:
     """Cross-document synthesized understanding."""
@@ -114,7 +109,6 @@ class SynthesizedUnderstanding:
     contradictions: list[dict[str, Any]] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)  # Identified knowledge gaps
     confidence: float = 0.5
-
 
 @dataclass
 class ExplorationSession:
@@ -143,12 +137,12 @@ class ExplorationSession:
 
     # Understanding state
     chunk_understandings: dict[str, ChunkUnderstanding] = field(default_factory=dict)
-    synthesized: Optional[SynthesizedUnderstanding] = None
+    synthesized: SynthesizedUnderstanding | None = None
     confidence_scores: dict[str, float] = field(default_factory=dict)
 
     # Timing
     started_at: datetime = field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     # Convergence tracking
     convergence_history: list[float] = field(default_factory=list)
@@ -193,13 +187,13 @@ class ExplorationSession:
             self.chunks_explored.append(chunk_id)
         self.chunk_understandings[chunk_id] = understanding
 
-    def next_chunk(self) -> Optional[str]:
+    def next_chunk(self) -> str | None:
         """Get the next chunk to explore."""
         if self.chunks_pending:
             return self.chunks_pending[0]
         return None
 
-    def next_question(self) -> Optional[Question]:
+    def next_question(self) -> Question | None:
         """Get the next question to answer."""
         unanswered = [q for q in self.questions_pending if not q.answered]
         if unanswered:
@@ -207,7 +201,7 @@ class ExplorationSession:
             return max(unanswered, key=lambda q: q.priority)
         return None
 
-    def next_reference(self) -> Optional[Reference]:
+    def next_reference(self) -> Reference | None:
         """Get the next reference to trace."""
         unresolved = [r for r in self.references_pending if not r.resolved]
         if unresolved:
@@ -262,7 +256,6 @@ class ExplorationSession:
 
         return session
 
-
 @dataclass
 class ExplorationResult:
     """Final result of a document exploration."""
@@ -270,7 +263,7 @@ class ExplorationResult:
     session_id: str
     objective: str
     insights: list[Insight] = field(default_factory=list)
-    synthesized_understanding: Optional[SynthesizedUnderstanding] = None
+    synthesized_understanding: SynthesizedUnderstanding | None = None
     questions_answered: int = 0
     questions_unanswered: int = 0
     references_resolved: int = 0

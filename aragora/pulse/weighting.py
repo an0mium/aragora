@@ -9,15 +9,15 @@ Features:
 - Source-specific weight adjustments
 - Historical performance tracking
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SourceWeight:
@@ -30,9 +30,8 @@ class SourceWeight:
     freshness_weight: float = 1.0  # How much freshness matters for this source
     description: str = ""
 
-
 # Default source weights (can be overridden)
-DEFAULT_SOURCE_WEIGHTS: Dict[str, SourceWeight] = {
+DEFAULT_SOURCE_WEIGHTS: dict[str, SourceWeight] = {
     "hackernews": SourceWeight(
         platform="hackernews",
         base_credibility=0.85,
@@ -67,7 +66,6 @@ DEFAULT_SOURCE_WEIGHTS: Dict[str, SourceWeight] = {
     ),
 }
 
-
 @dataclass
 class WeightedTopic:
     """A trending topic with calculated weights."""
@@ -75,7 +73,7 @@ class WeightedTopic:
     topic: TrendingTopic
     source_weight: SourceWeight
     weighted_score: float
-    components: Dict[str, float] = field(default_factory=dict)
+    components: dict[str, float] = field(default_factory=dict)
 
     @property
     def platform(self) -> str:
@@ -88,7 +86,6 @@ class WeightedTopic:
     @property
     def authority(self) -> float:
         return self.source_weight.authority_score
-
 
 class SourceWeightingSystem:
     """
@@ -106,7 +103,7 @@ class SourceWeightingSystem:
 
     def __init__(
         self,
-        source_weights: Optional[Dict[str, SourceWeight]] = None,
+        source_weights: Optional[dict[str, SourceWeight]] = None,
         default_credibility: float = 0.50,
         default_authority: float = 0.50,
     ):
@@ -123,7 +120,7 @@ class SourceWeightingSystem:
         self.default_authority = default_authority
 
         # Track historical performance by source
-        self._source_performance: Dict[str, List[float]] = {}
+        self._source_performance: dict[str, list[float]] = {}
         self._max_history = 100
 
     def get_source_weight(self, platform: str) -> SourceWeight:
@@ -194,7 +191,7 @@ class SourceWeightingSystem:
             components=components,
         )
 
-    def weight_topics(self, topics: List[TrendingTopic]) -> List[WeightedTopic]:
+    def weight_topics(self, topics: list[TrendingTopic]) -> list[WeightedTopic]:
         """
         Calculate weighted scores for multiple topics.
 
@@ -208,10 +205,10 @@ class SourceWeightingSystem:
 
     def rank_by_weighted_score(
         self,
-        weighted_topics: List[WeightedTopic],
+        weighted_topics: list[WeightedTopic],
         min_credibility: float = 0.0,
         min_score: float = 0.0,
-    ) -> List[WeightedTopic]:
+    ) -> list[WeightedTopic]:
         """
         Rank topics by weighted score with optional filtering.
 
@@ -238,10 +235,10 @@ class SourceWeightingSystem:
     def update_source_weight(
         self,
         platform: str,
-        credibility: Optional[float] = None,
-        authority: Optional[float] = None,
-        volume_multiplier: Optional[float] = None,
-        freshness_weight: Optional[float] = None,
+        credibility: float | None = None,
+        authority: float | None = None,
+        volume_multiplier: float | None = None,
+        freshness_weight: float | None = None,
     ) -> SourceWeight:
         """
         Update weight configuration for a source.
@@ -330,7 +327,7 @@ class SourceWeightingSystem:
 
         return min(1.0, max(0.0, adaptive))
 
-    def get_source_stats(self) -> Dict[str, Any]:
+    def get_source_stats(self) -> dict[str, Any]:
         """
         Get statistics for all configured sources.
 
@@ -350,7 +347,6 @@ class SourceWeightingSystem:
                 "avg_debate_quality": sum(history) / len(history) if history else None,
             }
         return stats
-
 
 __all__ = [
     "SourceWeight",

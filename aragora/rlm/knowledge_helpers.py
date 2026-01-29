@@ -33,7 +33,6 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
 
-
 @dataclass
 class KnowledgeItem:
     """A single knowledge item (fact, claim, or evidence)."""
@@ -45,7 +44,6 @@ class KnowledgeItem:
     created_at: str
     metadata: dict[str, Any] = field(default_factory=dict)
     relationships: list[str] = field(default_factory=list)  # IDs of related items
-
 
 @dataclass
 class KnowledgeREPLContext:
@@ -76,7 +74,6 @@ class KnowledgeREPLContext:
     # Statistics
     total_items: int
     avg_confidence: float
-
 
 def load_knowledge_context(
     mound: "KnowledgeMound",
@@ -158,7 +155,6 @@ def load_knowledge_context(
         avg_confidence=avg_confidence,
     )
 
-
 def _to_knowledge_item(raw: Any, source: str) -> KnowledgeItem:
     """Convert raw knowledge data to KnowledgeItem."""
     if isinstance(raw, dict):
@@ -187,10 +183,9 @@ def _to_knowledge_item(raw: Any, source: str) -> KnowledgeItem:
             relationships=[],
         )
 
-
 def get_facts(
     context: KnowledgeREPLContext,
-    query: Optional[str] = None,
+    query: str | None = None,
     min_confidence: float = 0.0,
 ) -> list[KnowledgeItem]:
     """
@@ -217,10 +212,9 @@ def get_facts(
         results = [f for f in results if pattern.search(f.content)]
     return results
 
-
 def get_claims(
     context: KnowledgeREPLContext,
-    query: Optional[str] = None,
+    query: str | None = None,
     validated_only: bool = False,
 ) -> list[KnowledgeItem]:
     """
@@ -246,11 +240,10 @@ def get_claims(
         results = [c for c in results if pattern.search(c.content)]
     return results
 
-
 def get_evidence(
     context: KnowledgeREPLContext,
-    query: Optional[str] = None,
-    source_type: Optional[str] = None,
+    query: str | None = None,
+    source_type: str | None = None,
 ) -> list[KnowledgeItem]:
     """
     Get evidence from knowledge context.
@@ -276,7 +269,6 @@ def get_evidence(
         results = [e for e in results if pattern.search(e.content)]
     return results
 
-
 def filter_by_confidence(
     items: list[KnowledgeItem],
     min_confidence: float = 0.0,
@@ -298,7 +290,6 @@ def filter_by_confidence(
         >>> low_conf = filter_by_confidence(km.all_items, max_confidence=0.3)
     """
     return [item for item in items if min_confidence <= item.confidence <= max_confidence]
-
 
 def group_by_source(
     context: KnowledgeREPLContext,
@@ -323,7 +314,6 @@ def group_by_source(
             result[item.source] = []
         result[item.source].append(item)
     return result
-
 
 def search_knowledge(
     context: KnowledgeREPLContext,
@@ -350,7 +340,6 @@ def search_knowledge(
     flags = re.IGNORECASE if case_insensitive else 0
     regex = re.compile(pattern, flags)
     return [item for item in context.all_items if regex.search(item.content)]
-
 
 def get_related(
     context: KnowledgeREPLContext,
@@ -393,8 +382,7 @@ def get_related(
 
     return related
 
-
-def get_item(context: KnowledgeREPLContext, item_id: str) -> Optional[KnowledgeItem]:
+def get_item(context: KnowledgeREPLContext, item_id: str) -> KnowledgeItem | None:
     """
     Get a specific knowledge item by ID.
 
@@ -411,7 +399,6 @@ def get_item(context: KnowledgeREPLContext, item_id: str) -> Optional[KnowledgeI
         ...     print(f"[{item.confidence:.2f}] {item.content}")
     """
     return context.by_id.get(item_id)
-
 
 def partition_by_topic(
     context: KnowledgeREPLContext,
@@ -449,11 +436,9 @@ def partition_by_topic(
 
     return result
 
-
 # RLM Primitives (for use in REPL)
 
-
-def RLM_M(query: str, subset: Optional[list[KnowledgeItem]] = None) -> str:
+def RLM_M(query: str, subset: list[KnowledgeItem] | None = None) -> str:
     """
     Recursive RLM call placeholder.
 
@@ -477,7 +462,6 @@ def RLM_M(query: str, subset: Optional[list[KnowledgeItem]] = None) -> str:
         "Install with: pip install aragora[rlm]"
     )
 
-
 def FINAL(answer: str) -> str:
     """
     Signal final answer in RLM.
@@ -491,7 +475,6 @@ def FINAL(answer: str) -> str:
         The answer (for use in expressions)
     """
     return answer
-
 
 def get_knowledge_helpers(
     mound: Optional["KnowledgeMound"] = None,
@@ -547,7 +530,6 @@ def get_knowledge_helpers(
         helpers["km_load"] = lambda ws_id: load_knowledge_context(mound, ws_id)
 
     return helpers
-
 
 __all__ = [
     "KnowledgeItem",

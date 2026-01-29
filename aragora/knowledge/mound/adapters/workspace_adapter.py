@@ -19,7 +19,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from ._base import KnowledgeMoundAdapter
 
@@ -32,8 +32,7 @@ KnowledgeMound = Any
 logger = logging.getLogger(__name__)
 
 # Type alias for event callbacks
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 @dataclass
 class RigSnapshot:
@@ -50,8 +49,7 @@ class RigSnapshot:
     active_convoys: int = 0
     tasks_completed: int = 0
     tasks_failed: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ConvoyOutcome:
@@ -66,10 +64,9 @@ class ConvoyOutcome:
     completed_beads: int = 0
     assigned_agents: int = 0
     duration_seconds: float = 0.0
-    merge_success: Optional[bool] = None
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    merge_success: bool | None = None
+    error_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class MergeOutcome:
@@ -85,8 +82,7 @@ class MergeOutcome:
     tests_passed: bool = False
     review_approved: bool = False
     duration_seconds: float = 0.0
-    error_message: Optional[str] = None
-
+    error_message: str | None = None
 
 class WorkspaceAdapter(KnowledgeMoundAdapter):
     """
@@ -117,7 +113,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
         workspace_manager: Optional["WorkspaceManager"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
         workspace_id: str = "default",
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         min_confidence_threshold: float = 0.6,
         enable_dual_write: bool = False,
     ):
@@ -142,10 +138,10 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
         self._min_confidence_threshold = min_confidence_threshold
 
         # Caches for reverse flow
-        self._rig_performance_cache: Dict[str, List[RigSnapshot]] = {}
-        self._convoy_patterns_cache: Dict[str, List[ConvoyOutcome]] = {}
+        self._rig_performance_cache: dict[str, list[RigSnapshot]] = {}
+        self._convoy_patterns_cache: dict[str, list[ConvoyOutcome]] = {}
         self._cache_ttl: float = 300  # 5 minutes
-        self._cache_times: Dict[str, float] = {}
+        self._cache_times: dict[str, float] = {}
 
         # Statistics
         self._stats = {
@@ -163,7 +159,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
     async def store_rig_snapshot(
         self,
         snapshot: RigSnapshot,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a rig snapshot in the Knowledge Mound.
 
@@ -256,7 +252,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
     async def store_convoy_outcome(
         self,
         outcome: ConvoyOutcome,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a convoy outcome in the Knowledge Mound.
 
@@ -341,7 +337,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
     async def store_merge_outcome(
         self,
         outcome: MergeOutcome,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a merge outcome in the Knowledge Mound.
 
@@ -428,7 +424,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
         rig_id: str,
         limit: int = 20,
         use_cache: bool = True,
-    ) -> List[RigSnapshot]:
+    ) -> list[RigSnapshot]:
         """
         Get historical rig performance from KM.
 
@@ -499,7 +495,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
         rig_id: str,
         limit: int = 50,
         use_cache: bool = True,
-    ) -> List[ConvoyOutcome]:
+    ) -> list[ConvoyOutcome]:
         """
         Get historical convoy patterns for a rig from KM.
 
@@ -569,9 +565,9 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
     async def get_rig_recommendations(
         self,
         project_type: str,
-        available_rigs: Optional[List[str]] = None,
+        available_rigs: Optional[list[str]] = None,
         top_n: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get rig recommendations for a project type based on historical performance.
 
@@ -595,7 +591,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 )
 
                 # Aggregate performance by rig
-                rig_stats: Dict[str, Dict[str, Any]] = {}
+                rig_stats: dict[str, dict[str, Any]] = {}
                 for result in results:
                     metadata = result.get("metadata", {})
                     if metadata.get("type") != "workspace_rig_snapshot":
@@ -657,7 +653,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
         self,
         rig_id: str,
         convoy_size: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Recommend optimal agent count for a rig based on historical patterns.
 
@@ -726,7 +722,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
         self,
         rig_id: str,
         limit: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze factors that contribute to merge success for a rig.
 
@@ -822,7 +818,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
     # Sync from Workspace Manager
     # =========================================================================
 
-    async def sync_from_workspace(self) -> Dict[str, Any]:
+    async def sync_from_workspace(self) -> dict[str, Any]:
         """
         Sync current workspace state to Knowledge Mound.
 
@@ -895,7 +891,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
     # Stats and Health
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         return {
             **self._stats,
@@ -913,7 +909,6 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
         self._convoy_patterns_cache.clear()
         self._cache_times.clear()
         return count
-
 
 __all__ = [
     "WorkspaceAdapter",

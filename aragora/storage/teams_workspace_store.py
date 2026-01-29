@@ -29,7 +29,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,6 @@ ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
 # Track if encryption warning has been shown
 _encryption_warning_shown = False
 
-
 @dataclass
 class TeamsWorkspace:
     """Represents an installed Microsoft Teams tenant."""
@@ -58,15 +57,15 @@ class TeamsWorkspace:
     access_token: str  # Bot access token
     bot_id: str  # Bot application ID
     installed_at: float  # Unix timestamp
-    installed_by: Optional[str] = None  # User ID who installed
-    scopes: List[str] = field(default_factory=list)
-    aragora_tenant_id: Optional[str] = None  # Link to Aragora tenant
+    installed_by: str | None = None  # User ID who installed
+    scopes: list[str] = field(default_factory=list)
+    aragora_tenant_id: str | None = None  # Link to Aragora tenant
     is_active: bool = True
-    refresh_token: Optional[str] = None  # OAuth refresh token
-    token_expires_at: Optional[float] = None  # Unix timestamp when token expires
-    service_url: Optional[str] = None  # Bot Framework service URL
+    refresh_token: str | None = None  # OAuth refresh token
+    token_expires_at: float | None = None  # Unix timestamp when token expires
+    service_url: str | None = None  # Bot Framework service URL
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (excludes sensitive tokens)."""
         return {
             "tenant_id": self.tenant_id,
@@ -123,7 +122,6 @@ class TeamsWorkspace:
             service_url=service_url,
         )
 
-
 class TeamsWorkspaceStore:
     """
     Storage for Microsoft Teams workspace OAuth credentials.
@@ -160,7 +158,7 @@ class TeamsWorkspaceStore:
     ALTER TABLE teams_workspaces ADD COLUMN service_url TEXT;
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the workspace store.
 
         Args:
@@ -346,7 +344,7 @@ class TeamsWorkspaceStore:
             logger.error(f"Failed to save Teams workspace: {e}")
             return False
 
-    def get(self, tenant_id: str) -> Optional[TeamsWorkspace]:
+    def get(self, tenant_id: str) -> TeamsWorkspace | None:
         """Get a workspace by tenant ID.
 
         Args:
@@ -376,7 +374,7 @@ class TeamsWorkspaceStore:
             logger.error(f"Failed to get Teams workspace {tenant_id}: {e}")
             return None
 
-    def get_by_aragora_tenant(self, aragora_tenant_id: str) -> List[TeamsWorkspace]:
+    def get_by_aragora_tenant(self, aragora_tenant_id: str) -> list[TeamsWorkspace]:
         """Get all Teams workspaces for an Aragora tenant.
 
         Args:
@@ -410,7 +408,7 @@ class TeamsWorkspaceStore:
             logger.error(f"Failed to get Teams workspaces for tenant {aragora_tenant_id}: {e}")
             return []
 
-    def list_active(self, limit: int = 100, offset: int = 0) -> List[TeamsWorkspace]:
+    def list_active(self, limit: int = 100, offset: int = 0) -> list[TeamsWorkspace]:
         """List all active workspaces.
 
         Args:
@@ -514,7 +512,7 @@ class TeamsWorkspaceStore:
             logger.error(f"Failed to count Teams workspaces: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get workspace statistics.
 
         Returns:
@@ -542,7 +540,7 @@ class TeamsWorkspaceStore:
         tenant_id: str,
         client_id: str,
         client_secret: str,
-    ) -> Optional[TeamsWorkspace]:
+    ) -> TeamsWorkspace | None:
         """Refresh an expired access token using the refresh token.
 
         Args:
@@ -638,7 +636,6 @@ class TeamsWorkspaceStore:
 
         return time.time() + buffer_seconds >= workspace.token_expires_at
 
-
 # Supabase-backed implementation for production
 class SupabaseTeamsWorkspaceStore:
     """
@@ -705,7 +702,7 @@ class SupabaseTeamsWorkspaceStore:
             logger.error(f"Failed to save Teams workspace to Supabase: {e}")
             return False
 
-    def get(self, tenant_id: str) -> Optional[TeamsWorkspace]:
+    def get(self, tenant_id: str) -> TeamsWorkspace | None:
         """Get a workspace by tenant ID."""
         if not self.is_configured:
             return None
@@ -727,7 +724,7 @@ class SupabaseTeamsWorkspaceStore:
             logger.error(f"Failed to get Teams workspace from Supabase: {e}")
             return None
 
-    def get_by_aragora_tenant(self, aragora_tenant_id: str) -> List[TeamsWorkspace]:
+    def get_by_aragora_tenant(self, aragora_tenant_id: str) -> list[TeamsWorkspace]:
         """Get all Teams workspaces for an Aragora tenant."""
         if not self.is_configured:
             return []
@@ -748,7 +745,7 @@ class SupabaseTeamsWorkspaceStore:
             logger.error(f"Failed to get Teams workspaces from Supabase: {e}")
             return []
 
-    def list_active(self, limit: int = 100, offset: int = 0) -> List[TeamsWorkspace]:
+    def list_active(self, limit: int = 100, offset: int = 0) -> list[TeamsWorkspace]:
         """List all active workspaces."""
         if not self.is_configured:
             return []
@@ -821,7 +818,7 @@ class SupabaseTeamsWorkspaceStore:
             logger.error(f"Failed to count Teams workspaces in Supabase: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get workspace statistics."""
         if not self.is_configured:
             return {"total_workspaces": 0, "active_workspaces": 0}
@@ -840,7 +837,7 @@ class SupabaseTeamsWorkspaceStore:
             logger.error(f"Failed to get Teams workspace stats from Supabase: {e}")
             return {"total_workspaces": 0, "active_workspaces": 0}
 
-    def _row_to_workspace(self, row: Dict[str, Any]) -> TeamsWorkspace:
+    def _row_to_workspace(self, row: dict[str, Any]) -> TeamsWorkspace:
         """Convert Supabase row to TeamsWorkspace."""
         installed_at = row.get("installed_at")
         if isinstance(installed_at, str):
@@ -865,12 +862,10 @@ class SupabaseTeamsWorkspaceStore:
             service_url=row.get("service_url"),
         )
 
-
 # Singleton instance
-_workspace_store: Optional[Any] = None
+_workspace_store: Any | None = None
 
-
-def get_teams_workspace_store(db_path: Optional[str] = None) -> Any:
+def get_teams_workspace_store(db_path: str | None = None) -> Any:
     """Get or create the workspace store singleton.
 
     Uses Supabase backend in production when configured,

@@ -34,7 +34,7 @@ import hashlib
 import hmac
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from aragora.connectors.automation.base import (
     AutomationConnector,
@@ -43,7 +43,6 @@ from aragora.connectors.automation.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class N8NConnector(AutomationConnector):
     """
@@ -56,11 +55,11 @@ class N8NConnector(AutomationConnector):
     PLATFORM_NAME = "n8n"
 
     # n8n supports all event types
-    SUPPORTED_EVENTS: Set[AutomationEventType] = set(AutomationEventType)
+    SUPPORTED_EVENTS: set[AutomationEventType] = set(AutomationEventType)
 
     def __init__(
         self,
-        http_client: Optional[Any] = None,
+        http_client: Any | None = None,
         aragora_base_url: str = "http://localhost:8080",
     ):
         """
@@ -77,9 +76,9 @@ class N8NConnector(AutomationConnector):
     async def format_payload(
         self,
         event_type: AutomationEventType,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         subscription: WebhookSubscription,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Format event payload for n8n.
 
@@ -151,7 +150,7 @@ class N8NConnector(AutomationConnector):
 
         return f"v0={signature}"
 
-    def get_node_definition(self) -> Dict[str, Any]:
+    def get_node_definition(self) -> dict[str, Any]:
         """
         Get n8n community node definition.
 
@@ -183,7 +182,7 @@ class N8NConnector(AutomationConnector):
             "properties": self._get_node_properties(),
         }
 
-    def _get_node_properties(self) -> List[Dict[str, Any]]:
+    def _get_node_properties(self) -> list[dict[str, Any]]:
         """Get n8n node properties definition."""
         return [
             {
@@ -284,7 +283,7 @@ class N8NConnector(AutomationConnector):
             },
         ]
 
-    def get_credentials_definition(self) -> Dict[str, Any]:
+    def get_credentials_definition(self) -> dict[str, Any]:
         """
         Get n8n credentials definition for Aragora API.
 
@@ -322,7 +321,7 @@ class N8NConnector(AutomationConnector):
             },
         }
 
-    def get_trigger_definition(self) -> Dict[str, Any]:
+    def get_trigger_definition(self) -> dict[str, Any]:
         """
         Get n8n trigger node definition for Aragora events.
 

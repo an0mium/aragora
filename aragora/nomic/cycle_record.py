@@ -10,8 +10,7 @@ Records comprehensive data about each Nomic Loop cycle for:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 @dataclass
 class AgentContribution:
@@ -26,7 +25,6 @@ class AgentContribution:
     consensus_aligned: int = 0
     quality_score: float = 0.0  # 0.0-1.0
 
-
 @dataclass
 class SurpriseEvent:
     """An unexpected outcome during the cycle."""
@@ -36,8 +34,7 @@ class SurpriseEvent:
     expected: str
     actual: str
     impact: str = "low"  # low, medium, high
-    timestamp: Optional[float] = None
-
+    timestamp: float | None = None
 
 @dataclass
 class PatternReinforcement:
@@ -48,7 +45,6 @@ class PatternReinforcement:
     success: bool
     confidence: float = 0.5  # 0.0-1.0
     context: str = ""
-
 
 @dataclass
 class NomicCycleRecord:
@@ -80,24 +76,24 @@ class NomicCycleRecord:
     started_at: float
 
     # Timing
-    completed_at: Optional[float] = None
-    phases_completed: List[str] = field(default_factory=list)
-    phases_skipped: List[str] = field(default_factory=list)
-    duration_seconds: Optional[float] = None
+    completed_at: float | None = None
+    phases_completed: list[str] = field(default_factory=list)
+    phases_skipped: list[str] = field(default_factory=list)
+    duration_seconds: float | None = None
 
     # Debate outcomes
-    topics_debated: List[str] = field(default_factory=list)
-    consensus_reached: List[str] = field(default_factory=list)
-    consensus_failed: List[str] = field(default_factory=list)
-    dissent_patterns: List[Dict[str, Any]] = field(default_factory=list)
+    topics_debated: list[str] = field(default_factory=list)
+    consensus_reached: list[str] = field(default_factory=list)
+    consensus_failed: list[str] = field(default_factory=list)
+    dissent_patterns: list[dict[str, Any]] = field(default_factory=list)
 
     # Agent performance
-    agent_contributions: Dict[str, AgentContribution] = field(default_factory=dict)
-    agent_reliability: Dict[str, float] = field(default_factory=dict)
+    agent_contributions: dict[str, AgentContribution] = field(default_factory=dict)
+    agent_reliability: dict[str, float] = field(default_factory=dict)
 
     # Code changes
-    files_modified: List[str] = field(default_factory=list)
-    files_created: List[str] = field(default_factory=list)
+    files_modified: list[str] = field(default_factory=list)
+    files_created: list[str] = field(default_factory=list)
     lines_added: int = 0
     lines_removed: int = 0
 
@@ -105,23 +101,23 @@ class NomicCycleRecord:
     tests_passed: int = 0
     tests_failed: int = 0
     tests_skipped: int = 0
-    test_coverage: Optional[float] = None
+    test_coverage: float | None = None
 
     # Learning signals
-    surprise_events: List[SurpriseEvent] = field(default_factory=list)
-    pattern_reinforcements: List[PatternReinforcement] = field(default_factory=list)
+    surprise_events: list[SurpriseEvent] = field(default_factory=list)
+    pattern_reinforcements: list[PatternReinforcement] = field(default_factory=list)
 
     # Outcome
     success: bool = False
-    error_message: Optional[str] = None
+    error_message: str | None = None
     rollback_performed: bool = False
 
     # Metadata
-    commit_sha: Optional[str] = None
-    branch_name: Optional[str] = None
-    triggering_context: Optional[str] = None
+    commit_sha: str | None = None
+    branch_name: str | None = None
+    triggering_context: str | None = None
 
-    def mark_complete(self, success: bool = True, error: Optional[str] = None) -> None:
+    def mark_complete(self, success: bool = True, error: str | None = None) -> None:
         """Mark the cycle as complete.
 
         Args:
@@ -193,7 +189,7 @@ class NomicCycleRecord:
             )
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "cycle_id": self.cycle_id,
@@ -258,7 +254,7 @@ class NomicCycleRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "NomicCycleRecord":
+    def from_dict(cls, data: dict[str, Any]) -> "NomicCycleRecord":
         """Create from dictionary."""
         record = cls(
             cycle_id=data["cycle_id"],

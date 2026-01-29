@@ -18,13 +18,12 @@ import os
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 # Observability
 from aragora.observability import get_logger
 
 logger = get_logger(__name__)
-
 
 def is_distributed_state_required() -> bool:
     """Check if distributed state backend (Redis) is required.
@@ -52,7 +51,6 @@ def is_distributed_state_required() -> bool:
         return True
     return False
 
-
 class DistributedStateError(Exception):
     """Raised when distributed state is required but not available."""
 
@@ -64,7 +62,6 @@ class DistributedStateError(Exception):
             f"Install aioredis and configure REDIS_URL, or set ARAGORA_SINGLE_INSTANCE=true."
         )
 
-
 class LeaderState(Enum):
     """Current state of this node in the leader election."""
 
@@ -72,7 +69,6 @@ class LeaderState(Enum):
     CANDIDATE = "candidate"  # Attempting to become leader
     LEADER = "leader"  # Currently the leader
     DISCONNECTED = "disconnected"  # Lost connection to coordination
-
 
 @dataclass
 class LeaderConfig:
@@ -107,7 +103,6 @@ class LeaderConfig:
             ),
         )
 
-
 @dataclass
 class LeaderInfo:
     """Information about the current leader."""
@@ -116,7 +111,6 @@ class LeaderInfo:
     elected_at: float
     last_heartbeat: float
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 class LeaderElection:
     """
@@ -146,8 +140,8 @@ class LeaderElection:
 
     def __init__(
         self,
-        config: Optional[LeaderConfig] = None,
-        redis_client: Optional[Any] = None,  # aioredis.Redis
+        config: LeaderConfig | None = None,
+        redis_client: Any | None = None,  # aioredis.Redis
     ):
         """
         Initialize leader election.
@@ -159,16 +153,16 @@ class LeaderElection:
         self._config = config or LeaderConfig.from_env()
         self._redis = redis_client
         self._state = LeaderState.DISCONNECTED
-        self._current_leader: Optional[LeaderInfo] = None
+        self._current_leader: LeaderInfo | None = None
 
         self._running = False
-        self._election_task: Optional[asyncio.Task] = None
-        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._election_task: asyncio.Task | None = None
+        self._heartbeat_task: asyncio.Task | None = None
 
         # Callbacks
         self._on_become_leader: list[Callable[[], Any]] = []
         self._on_lose_leader: list[Callable[[], Any]] = []
-        self._on_leader_change: list[Callable[[Optional[str]], Any]] = []
+        self._on_leader_change: list[Callable[[str | None], Any]] = []
 
     @property
     def state(self) -> LeaderState:
@@ -186,7 +180,7 @@ class LeaderElection:
         return self._config.node_id
 
     @property
-    def current_leader(self) -> Optional[LeaderInfo]:
+    def current_leader(self) -> LeaderInfo | None:
         """Information about the current leader."""
         return self._current_leader
 
@@ -198,7 +192,7 @@ class LeaderElection:
         """Register callback for when this node loses leadership."""
         self._on_lose_leader.append(callback)
 
-    def on_leader_change(self, callback: Callable[[Optional[str]], Any]) -> None:
+    def on_leader_change(self, callback: Callable[[str | None], Any]) -> None:
         """Register callback for any leader change (receives new leader node_id)."""
         self._on_leader_change.append(callback)
 
@@ -395,7 +389,7 @@ class LeaderElection:
         except Exception as e:
             logger.error(f"[leader] Failed to release lock: {e}")
 
-    async def _get_current_leader(self) -> Optional[LeaderInfo]:
+    async def _get_current_leader(self) -> LeaderInfo | None:
         """Get information about the current leader."""
         import time
 
@@ -463,7 +457,7 @@ class LeaderElection:
             except Exception as e:
                 logger.error(f"[leader] Callback error: {e}")
 
-    async def _notify_leader_change(self, new_leader: Optional[str]) -> None:
+    async def _notify_leader_change(self, new_leader: str | None) -> None:
         """Notify callbacks of leader change."""
         for callback in self._on_leader_change:
             try:
@@ -482,7 +476,6 @@ class LeaderElection:
             "current_leader": self._current_leader.node_id if self._current_leader else None,
         }
 
-
 class _InMemoryRedis:
     """In-memory Redis mock for single-node deployments without Redis."""
 
@@ -496,7 +489,7 @@ class _InMemoryRedis:
         self._data[key] = value
         return True
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         return self._data.get(key)
 
     async def delete(self, key: str) -> None:
@@ -517,7 +510,6 @@ class _InMemoryRedis:
 
     async def hgetall(self, key: str) -> dict[str, str]:
         return self._hashes.get(key, {})
-
 
 @dataclass
 class RegionalLeaderConfig(LeaderConfig):
@@ -553,14 +545,12 @@ class RegionalLeaderConfig(LeaderConfig):
             in ("true", "1", "yes"),
         )
 
-
 @dataclass
 class RegionalLeaderInfo(LeaderInfo):
     """Information about a regional leader."""
 
     region_id: str = "default"
     is_global_coordinator: bool = False  # If this region is the global coordinator
-
 
 class RegionalLeaderElection(LeaderElection):
     """
@@ -591,9 +581,9 @@ class RegionalLeaderElection(LeaderElection):
 
     def __init__(
         self,
-        config: Optional[RegionalLeaderConfig] = None,
-        redis_client: Optional[Any] = None,
-        event_bus: Optional[Any] = None,
+        config: RegionalLeaderConfig | None = None,
+        redis_client: Any | None = None,
+        event_bus: Any | None = None,
     ):
         """
         Initialize regional leader election.
@@ -868,7 +858,7 @@ class RegionalLeaderElection(LeaderElection):
 
         self._is_global_coordinator = False
 
-    async def get_global_coordinator(self) -> Optional[RegionalLeaderInfo]:
+    async def get_global_coordinator(self) -> RegionalLeaderInfo | None:
         """Get information about the current global coordinator."""
         import time
 
@@ -905,26 +895,22 @@ class RegionalLeaderElection(LeaderElection):
         )
         return base_stats
 
-
 # Singleton for regional leader election
-_regional_leader_election: Optional[RegionalLeaderElection] = None
+_regional_leader_election: RegionalLeaderElection | None = None
 
-
-def get_regional_leader_election() -> Optional[RegionalLeaderElection]:
+def get_regional_leader_election() -> RegionalLeaderElection | None:
     """Get the global regional leader election instance."""
     return _regional_leader_election
-
 
 def set_regional_leader_election(election: RegionalLeaderElection) -> None:
     """Set the global regional leader election instance."""
     global _regional_leader_election
     _regional_leader_election = election
 
-
 async def init_regional_leader_election(
-    region_id: Optional[str] = None,
-    event_bus: Optional[Any] = None,
-) -> Optional[RegionalLeaderElection]:
+    region_id: str | None = None,
+    event_bus: Any | None = None,
+) -> RegionalLeaderElection | None:
     """
     Initialize and start regional leader election.
 
@@ -954,7 +940,6 @@ async def init_regional_leader_election(
     except Exception as e:
         logger.warning(f"[regional-leader] Failed to initialize: {e}")
         return None
-
 
 __all__ = [
     "LeaderState",

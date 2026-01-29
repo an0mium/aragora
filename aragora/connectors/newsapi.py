@@ -9,12 +9,12 @@ Provides access to NewsAPI.org for:
 Requires NEWSAPI_KEY environment variable for API access.
 Free tier: 100 requests/day, 1 month historical data.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Optional
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
@@ -28,7 +28,6 @@ try:
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
-
 
 # NewsAPI endpoints
 NEWSAPI_EVERYTHING_URL = "https://newsapi.org/v2/everything"
@@ -72,7 +71,6 @@ MEDIUM_CREDIBILITY_SOURCES = {
     "vice-news",
 }
 
-
 class NewsAPIConnector(BaseConnector):
     """
     Connector for NewsAPI.org news aggregation service.
@@ -95,8 +93,8 @@ class NewsAPIConnector(BaseConnector):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        provenance: Optional[ProvenanceManager] = None,
+        api_key: str | None = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.65,
         timeout: int = 30,
         rate_limit_delay: float = 0.5,
@@ -170,10 +168,10 @@ class NewsAPIConnector(BaseConnector):
         limit: int = 10,
         language: str = "en",
         sort_by: str = "relevancy",
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
-        sources: Optional[list[str]] = None,
-        domains: Optional[list[str]] = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        sources: list[str] | None = None,
+        domains: list[str] | None = None,
         **kwargs,
     ) -> list[Evidence]:
         """
@@ -272,9 +270,9 @@ class NewsAPIConnector(BaseConnector):
     async def get_headlines(
         self,
         country: str = "us",
-        category: Optional[str] = None,
-        sources: Optional[list[str]] = None,
-        query: Optional[str] = None,
+        category: str | None = None,
+        sources: list[str] | None = None,
+        query: str | None = None,
         limit: int = 10,
     ) -> list[Evidence]:
         """
@@ -332,7 +330,7 @@ class NewsAPIConnector(BaseConnector):
             logger.error(f"NewsAPI headlines failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch is not directly supported by NewsAPI.
         Returns cached evidence if available.
@@ -347,9 +345,9 @@ class NewsAPIConnector(BaseConnector):
 
     async def get_sources(
         self,
-        category: Optional[str] = None,
+        category: str | None = None,
         language: str = "en",
-        country: Optional[str] = None,
+        country: str | None = None,
     ) -> list[dict]:
         """
         Get available news sources.
@@ -409,7 +407,7 @@ class NewsAPIConnector(BaseConnector):
 
         return results
 
-    def _parse_article(self, article: dict) -> Optional[Evidence]:
+    def _parse_article(self, article: dict) -> Evidence | None:
         """Parse a single article into Evidence."""
         title = article.get("title")
         if not title or title == "[Removed]":
@@ -541,7 +539,6 @@ class NewsAPIConnector(BaseConnector):
             return await self.search(query, limit=limit, sources=tech_sources)
         else:
             return await self.get_headlines(sources=tech_sources, limit=limit)
-
 
 __all__ = [
     "NewsAPIConnector",

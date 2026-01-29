@@ -17,10 +17,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator
 
 logger = logging.getLogger(__name__)
-
 
 class CrawlStatus(Enum):
     """Status of a crawl operation."""
@@ -31,7 +30,6 @@ class CrawlStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-
 class ContentType(Enum):
     """Types of crawled content."""
 
@@ -41,7 +39,6 @@ class ContentType(Enum):
     DATA = "data"
     BINARY = "binary"
     UNKNOWN = "unknown"
-
 
 @dataclass
 class CrawlResult:
@@ -56,17 +53,17 @@ class CrawlResult:
     content: str
     content_type: ContentType
     size_bytes: int
-    created_at: Optional[datetime] = None
-    modified_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime | None = None
+    modified_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Code-specific fields
-    language: Optional[str] = None
-    symbols: List[str] = field(default_factory=list)  # Functions, classes, etc.
-    imports: List[str] = field(default_factory=list)
-    dependencies: List[str] = field(default_factory=list)
+    language: str | None = None
+    symbols: list[str] = field(default_factory=list)  # Functions, classes, etc.
+    imports: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -83,14 +80,13 @@ class CrawlResult:
             "dependencies": self.dependencies,
         }
 
-
 @dataclass
 class CrawlerConfig:
     """Configuration for crawler operations."""
 
     # Paths to include/exclude
-    include_patterns: List[str] = field(default_factory=lambda: ["**/*"])
-    exclude_patterns: List[str] = field(
+    include_patterns: list[str] = field(default_factory=lambda: ["**/*"])
+    exclude_patterns: list[str] = field(
         default_factory=lambda: [
             "**/.git/**",
             "**/node_modules/**",
@@ -113,8 +109,7 @@ class CrawlerConfig:
 
     # Incremental crawling
     incremental: bool = True
-    last_crawl_timestamp: Optional[datetime] = None
-
+    last_crawl_timestamp: datetime | None = None
 
 @dataclass
 class IndexResult:
@@ -125,8 +120,7 @@ class IndexResult:
     failed_items: int
     skipped_items: int
     duration_ms: float
-    errors: List[str] = field(default_factory=list)
-
+    errors: list[str] = field(default_factory=list)
 
 @dataclass
 class CrawlStats:
@@ -140,9 +134,9 @@ class CrawlStats:
     failed_files: int = 0
     total_bytes: int = 0
     duration_ms: float = 0.0
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    errors: List[str] = field(default_factory=list)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    errors: list[str] = field(default_factory=list)
 
     @property
     def progress_percent(self) -> float:
@@ -150,7 +144,6 @@ class CrawlStats:
         if self.total_files == 0:
             return 0.0
         return (self.processed_files / self.total_files) * 100
-
 
 class BaseCrawler(ABC):
     """
@@ -162,7 +155,7 @@ class BaseCrawler(ABC):
     - index(): Store results in Knowledge Mound
     """
 
-    def __init__(self, config: Optional[CrawlerConfig] = None):
+    def __init__(self, config: CrawlerConfig | None = None):
         self.config = config or CrawlerConfig()
         self._stats = CrawlStats(status=CrawlStatus.PENDING)
 
@@ -179,7 +172,7 @@ class BaseCrawler(ABC):
         ...
 
     @abstractmethod
-    async def discover(self, source: str) -> List[str]:
+    async def discover(self, source: str) -> list[str]:
         """
         Discover items to crawl from the source.
 
@@ -209,7 +202,7 @@ class BaseCrawler(ABC):
 
     async def index(
         self,
-        results: List[CrawlResult],
+        results: list[CrawlResult],
         knowledge_mound: Any,  # KnowledgeMound
     ) -> IndexResult:
         """
@@ -229,7 +222,7 @@ class BaseCrawler(ABC):
         indexed = 0
         failed = 0
         skipped = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         for result in results:
             try:
@@ -283,7 +276,7 @@ class BaseCrawler(ABC):
 
         return False
 
-    def _detect_language(self, path: str) -> Optional[str]:
+    def _detect_language(self, path: str) -> str | None:
         """Detect programming language from file extension."""
         ext_map = {
             ".py": "python",
@@ -322,7 +315,7 @@ class BaseCrawler(ABC):
         path_obj = Path(path)
         return ext_map.get(path_obj.suffix.lower())
 
-    def _detect_content_type(self, path: str, content: Optional[str] = None) -> ContentType:
+    def _detect_content_type(self, path: str, content: str | None = None) -> ContentType:
         """Detect content type from path and content."""
         language = self._detect_language(path)
 

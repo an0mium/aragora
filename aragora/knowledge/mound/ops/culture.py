@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import CulturePattern, CultureProfile, MoundConfig  # type: ignore[attr-defined]
@@ -24,26 +24,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class CultureProtocol(Protocol):
     """Protocol defining expected interface for Culture mixin."""
 
     config: "MoundConfig"
     workspace_id: str
-    _culture_accumulator: Optional[Any]
-    _cache: Optional[Any]
+    _culture_accumulator: Any | None
+    _cache: Any | None
     _initialized: bool
     _org_culture_manager: Optional["OrganizationCultureManager"]
 
     def _ensure_initialized(self) -> None: ...
-
 
 class CultureOperationsMixin:
     """Mixin providing culture management for KnowledgeMound."""
 
     async def get_culture_profile(
         self: CultureProtocol,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> "CultureProfile":
         """Get aggregated culture profile for a workspace."""
         from aragora.knowledge.mound.types import CultureProfile
@@ -77,7 +75,7 @@ class CultureOperationsMixin:
     async def observe_debate(
         self: CultureProtocol,
         debate_result: Any,
-    ) -> List["CulturePattern"]:
+    ) -> list["CulturePattern"]:
         """Extract and store cultural patterns from a completed debate."""
         self._ensure_initialized()
 
@@ -89,8 +87,8 @@ class CultureOperationsMixin:
     async def recommend_agents(
         self: CultureProtocol,
         task_type: str,
-        workspace_id: Optional[str] = None,
-    ) -> List[str]:
+        workspace_id: str | None = None,
+    ) -> list[str]:
         """Recommend agents based on cultural patterns."""
         self._ensure_initialized()
 
@@ -126,7 +124,7 @@ class CultureOperationsMixin:
     async def get_org_culture(
         self: CultureProtocol,
         org_id: str,
-        workspace_ids: Optional[List[str]] = None,
+        workspace_ids: Optional[list[str]] = None,
     ) -> "OrganizationCulture":
         """
         Get the organization culture profile.
@@ -180,7 +178,7 @@ class CultureOperationsMixin:
         workspace_id: str,
         pattern_id: str,
         promoted_by: str,
-        title: Optional[str] = None,
+        title: str | None = None,
     ) -> "CultureDocument":
         """
         Promote a workspace pattern to organization culture.

@@ -21,7 +21,7 @@ import html
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 MAX_CONTENT_LENGTH = 100_000  # 100KB max response
 MAX_REASONING_LENGTH = 10_000  # 10KB max reasoning
 MAX_METADATA_SIZE = 50  # Max metadata keys
-
 
 class ReadySignal(BaseModel):
     """Schema for agent ready signals embedded in responses."""
@@ -60,14 +59,13 @@ class ReadySignal(BaseModel):
             return v.lower() in ("true", "yes", "1")
         return bool(v)
 
-
 class StructuredContent(BaseModel):
     """Schema for structured content blocks in agent responses."""
 
     type: str = Field(default="text")  # text, code, json, reasoning, etc.
     content: str = Field(default="", max_length=MAX_CONTENT_LENGTH)
-    language: Optional[str] = Field(default=None)  # For code blocks
-    metadata: Optional[Dict[str, Any]] = Field(default=None)
+    language: str | None = Field(default=None)  # For code blocks
+    metadata: Optional[dict[str, Any]] = Field(default=None)
 
     @field_validator("content", mode="before")
     @classmethod
@@ -83,7 +81,7 @@ class StructuredContent(BaseModel):
 
     @field_validator("metadata", mode="before")
     @classmethod
-    def limit_metadata(cls, v: Any) -> Optional[Dict[str, Any]]:
+    def limit_metadata(cls, v: Any) -> Optional[dict[str, Any]]:
         """Limit metadata size to prevent memory issues."""
         if v is None:
             return None
@@ -92,9 +90,8 @@ class StructuredContent(BaseModel):
         # Limit number of keys
         if len(v) > MAX_METADATA_SIZE:
             v = dict(list(v.items())[:MAX_METADATA_SIZE])
-        result: Dict[str, Any] = v
+        result: dict[str, Any] = v
         return result
-
 
 class AgentResponseSchema(BaseModel):
     """Schema for validating agent responses.
@@ -111,9 +108,9 @@ class AgentResponseSchema(BaseModel):
     role: str = Field(default="proposer", max_length=50)
     round_number: int = Field(default=0, ge=0, le=100)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
-    ready_signal: Optional[ReadySignal] = Field(default=None)
-    structured_blocks: List[StructuredContent] = Field(default_factory=list)
-    metadata: Optional[Dict[str, Any]] = Field(default=None)
+    ready_signal: ReadySignal | None = Field(default=None)
+    structured_blocks: list[StructuredContent] = Field(default_factory=list)
+    metadata: Optional[dict[str, Any]] = Field(default=None)
 
     @field_validator("content", mode="before")
     @classmethod
@@ -153,7 +150,7 @@ class AgentResponseSchema(BaseModel):
 
     @field_validator("metadata", mode="before")
     @classmethod
-    def limit_metadata(cls, v: Any) -> Optional[Dict[str, Any]]:
+    def limit_metadata(cls, v: Any) -> Optional[dict[str, Any]]:
         """Limit metadata size."""
         if v is None:
             return None
@@ -161,7 +158,7 @@ class AgentResponseSchema(BaseModel):
             return None
         if len(v) > MAX_METADATA_SIZE:
             v = dict(list(v.items())[:MAX_METADATA_SIZE])
-        result: Dict[str, Any] = v
+        result: dict[str, Any] = v
         return result
 
     @model_validator(mode="after")
@@ -171,22 +168,20 @@ class AgentResponseSchema(BaseModel):
             self.ready_signal = _parse_ready_signal(self.content)
         return self
 
-
 @dataclass
 class ValidationResult:
     """Result of response validation."""
 
     is_valid: bool
-    response: Optional[AgentResponseSchema] = None
-    errors: Optional[List[str]] = None
-    warnings: Optional[List[str]] = None
+    response: AgentResponseSchema | None = None
+    errors: Optional[list[str]] = None
+    warnings: Optional[list[str]] = None
 
     def __post_init__(self) -> None:
         if self.errors is None:
             self.errors = []
         if self.warnings is None:
             self.warnings = []
-
 
 def _parse_ready_signal(content: str) -> ReadySignal:
     """Parse ready signal from content.
@@ -254,13 +249,12 @@ def _parse_ready_signal(content: str) -> ReadySignal:
 
     return signal
 
-
 def validate_agent_response(
-    content: Union[str, Dict[str, Any]],
+    content: str | dict[str, Any],
     agent_name: str,
     role: str = "proposer",
     round_number: int = 0,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> ValidationResult:
     """Validate an agent response.
 
@@ -274,7 +268,7 @@ def validate_agent_response(
     Returns:
         ValidationResult with validated response or errors
     """
-    warnings: List[str] = []
+    warnings: list[str] = []
 
     # Handle dict input (structured response)
     if isinstance(content, dict):
@@ -330,7 +324,6 @@ def validate_agent_response(
             warnings=warnings if warnings else None,
         )
 
-
 def sanitize_html(content: str) -> str:
     """Sanitize HTML content to prevent XSS.
 
@@ -346,7 +339,6 @@ def sanitize_html(content: str) -> str:
     safe = re.sub(r"&lt;code&gt;(.+?)&lt;/code&gt;", r"`\1`", safe)
 
     return safe
-
 
 __all__ = [
     "AgentResponseSchema",

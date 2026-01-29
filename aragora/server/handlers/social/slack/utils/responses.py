@@ -7,15 +7,14 @@ Provides helper functions for creating Slack-formatted responses.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import HandlerResult
-
 
 def slack_response(
     text: str,
     response_type: str = "ephemeral",
-    attachments: Optional[List[Dict[str, Any]]] = None,
+    attachments: Optional[list[dict[str, Any]]] = None,
 ) -> HandlerResult:
     """Create a basic Slack response.
 
@@ -27,7 +26,7 @@ def slack_response(
     Returns:
         HandlerResult with Slack-formatted JSON response
     """
-    response: Dict[str, Any] = {
+    response: dict[str, Any] = {
         "response_type": response_type,
         "text": text,
     }
@@ -40,9 +39,8 @@ def slack_response(
         body=json.dumps(response).encode("utf-8"),
     )
 
-
 def slack_blocks_response(
-    blocks: List[Dict[str, Any]],
+    blocks: list[dict[str, Any]],
     response_type: str = "ephemeral",
     text: str = "",
 ) -> HandlerResult:
@@ -56,7 +54,7 @@ def slack_blocks_response(
     Returns:
         HandlerResult with Slack-formatted JSON response
     """
-    response: Dict[str, Any] = {
+    response: dict[str, Any] = {
         "response_type": response_type,
         "blocks": blocks,
     }

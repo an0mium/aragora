@@ -4,12 +4,13 @@ Telegram Bot integration for aragora debates.
 Posts debate summaries, consensus alerts, and error notifications to Telegram chats.
 Uses Telegram's HTML formatting and inline keyboards for rich messages.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
@@ -17,7 +18,6 @@ from aragora.core import DebateResult
 from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TelegramConfig:
@@ -55,14 +55,13 @@ class TelegramConfig:
         """Get the Telegram Bot API base URL."""
         return f"https://api.telegram.org/bot{self.bot_token}"
 
-
 @dataclass
 class InlineButton:
     """An inline keyboard button."""
 
     text: str
-    url: Optional[str] = None
-    callback_data: Optional[str] = None
+    url: str | None = None
+    callback_data: str | None = None
 
     def to_dict(self) -> dict[str, str]:
         """Convert to Telegram button dict."""
@@ -72,7 +71,6 @@ class InlineButton:
         elif self.callback_data:
             button["callback_data"] = self.callback_data
         return button
-
 
 @dataclass
 class TelegramMessage:
@@ -102,7 +100,6 @@ class TelegramMessage:
 
         return payload
 
-
 class TelegramIntegration:
     """
     Telegram integration for posting debate events.
@@ -122,7 +119,7 @@ class TelegramIntegration:
 
     def __init__(self, config: TelegramConfig):
         self.config = config
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._message_count = 0
         self._last_reset = datetime.now()
 
@@ -292,8 +289,8 @@ class TelegramIntegration:
         self,
         debate_id: str,
         confidence: float,
-        winner: Optional[str] = None,
-        task: Optional[str] = None,
+        winner: str | None = None,
+        task: str | None = None,
     ) -> bool:
         """Send a consensus reached notification.
 
@@ -344,7 +341,7 @@ class TelegramIntegration:
         self,
         error_type: str,
         error_message: str,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         severity: str = "warning",
     ) -> bool:
         """Send an error notification.
@@ -453,7 +450,6 @@ class TelegramIntegration:
 
         message = TelegramMessage(text=text, reply_markup=buttons)
         return await self._send_message(message)
-
 
 __all__ = [
     "TelegramConfig",

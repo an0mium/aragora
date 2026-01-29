@@ -4,7 +4,7 @@ OpenAPI Helper Functions.
 Response builders, standard error definitions, and rate limit documentation.
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any
 
 # =============================================================================
 # Rate Limit Tiers
@@ -162,11 +162,9 @@ ERROR_EXAMPLES: dict[str, dict[str, Any]] = {
     },
 }
 
-
 # =============================================================================
 # Response Builders
 # =============================================================================
-
 
 def _ok_response(description: str, schema: str | dict[str, Any] | None = None) -> dict[str, Any]:
     """Build a successful response definition.
@@ -189,7 +187,6 @@ def _ok_response(description: str, schema: str | dict[str, Any] | None = None) -
                 "application/json": {"schema": {"type": "object", "properties": schema}}
             }
     return resp
-
 
 def _array_response(description: str, schema: str | dict[str, Any]) -> dict[str, Any]:
     """Build an array response definition.
@@ -225,7 +222,6 @@ def _array_response(description: str, schema: str | dict[str, Any]) -> dict[str,
         },
     }
 
-
 def _error_response(status: str, description: str) -> dict[str, Any]:
     """Build an error response definition with examples."""
     examples = ERROR_EXAMPLES.get(status, {})
@@ -240,7 +236,6 @@ def _error_response(status: str, description: str) -> dict[str, Any]:
     if examples:
         response["content"]["application/json"]["examples"] = examples
     return response
-
 
 def _rate_limited_endpoint(
     operation: dict[str, Any],
@@ -294,7 +289,6 @@ def _rate_limited_endpoint(
 
     return operation
 
-
 # =============================================================================
 # Standard Errors
 # =============================================================================
@@ -313,7 +307,7 @@ STANDARD_ERRORS = {
 # Authentication Documentation
 # =============================================================================
 
-AUTH_REQUIREMENTS: Dict[str, Dict[str, Union[str, List[Dict[str, List[str]]]]]] = {
+AUTH_REQUIREMENTS: dict[str, dict[str, str | list[dict[str, list[str]]]]] = {
     "none": {
         "description": "No authentication required",
         "security": [],

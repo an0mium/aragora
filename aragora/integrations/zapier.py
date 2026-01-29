@@ -15,6 +15,7 @@ Actions:
 - get_debate_status: Get current debate status
 - submit_evidence: Submit evidence to a debate
 """
+from __future__ import annotations
 
 import hashlib
 import hmac
@@ -22,7 +23,7 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aiohttp import ClientTimeout
 
@@ -30,11 +31,9 @@ from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Zapier Data Models
 # =============================================================================
-
 
 @dataclass
 class ZapierTrigger:
@@ -45,15 +44,15 @@ class ZapierTrigger:
     webhook_url: str
     api_key: str
     created_at: float = field(default_factory=time.time)
-    last_fired_at: Optional[float] = None
+    last_fired_at: float | None = None
     fire_count: int = 0
 
     # Filtering
-    workspace_id: Optional[str] = None
-    debate_tags: Optional[List[str]] = None
-    min_confidence: Optional[float] = None
+    workspace_id: str | None = None
+    debate_tags: Optional[list[str]] = None
+    min_confidence: float | None = None
 
-    def matches_event(self, event: Dict[str, Any]) -> bool:
+    def matches_event(self, event: dict[str, Any]) -> bool:
         """Check if an event matches this trigger's filters."""
         # Check workspace
         if self.workspace_id:
@@ -74,7 +73,6 @@ class ZapierTrigger:
 
         return True
 
-
 @dataclass
 class ZapierApp:
     """Zapier app configuration for an Aragora workspace."""
@@ -84,19 +82,17 @@ class ZapierApp:
     api_key: str
     api_secret: str
     created_at: float = field(default_factory=time.time)
-    triggers: Dict[str, ZapierTrigger] = field(default_factory=dict)
+    triggers: dict[str, ZapierTrigger] = field(default_factory=dict)
     active: bool = True
 
     # Usage tracking
     action_count: int = 0
     trigger_count: int = 0
-    last_action_at: Optional[float] = None
-
+    last_action_at: float | None = None
 
 # =============================================================================
 # Zapier Integration
 # =============================================================================
-
 
 class ZapierIntegration(BaseIntegration):
     """
@@ -138,7 +134,7 @@ class ZapierIntegration(BaseIntegration):
         """
         super().__init__()
         self.api_base = api_base
-        self._apps: Dict[str, ZapierApp] = {}
+        self._apps: dict[str, ZapierApp] = {}
 
     @property
     def is_configured(self) -> bool:
@@ -192,18 +188,18 @@ class ZapierIntegration(BaseIntegration):
         logger.info(f"Created Zapier app {app_id} for workspace {workspace_id}")
         return app
 
-    def get_app(self, app_id: str) -> Optional[ZapierApp]:
+    def get_app(self, app_id: str) -> ZapierApp | None:
         """Get Zapier app by ID."""
         return self._apps.get(app_id)
 
-    def get_app_by_key(self, api_key: str) -> Optional[ZapierApp]:
+    def get_app_by_key(self, api_key: str) -> ZapierApp | None:
         """Get Zapier app by API key."""
         for app in self._apps.values():
             if app.api_key == api_key:
                 return app
         return None
 
-    def list_apps(self, workspace_id: Optional[str] = None) -> List[ZapierApp]:
+    def list_apps(self, workspace_id: str | None = None) -> list[ZapierApp]:
         """List all Zapier apps, optionally filtered by workspace."""
         apps = list(self._apps.values())
         if workspace_id:
@@ -227,10 +223,10 @@ class ZapierIntegration(BaseIntegration):
         app_id: str,
         trigger_type: str,
         webhook_url: str,
-        workspace_id: Optional[str] = None,
-        debate_tags: Optional[List[str]] = None,
-        min_confidence: Optional[float] = None,
-    ) -> Optional[ZapierTrigger]:
+        workspace_id: str | None = None,
+        debate_tags: Optional[list[str]] = None,
+        min_confidence: float | None = None,
+    ) -> ZapierTrigger | None:
         """Subscribe to a trigger (REST Hook subscription).
 
         Args:
@@ -288,7 +284,7 @@ class ZapierIntegration(BaseIntegration):
             return True
         return False
 
-    def list_triggers(self, app_id: str) -> List[ZapierTrigger]:
+    def list_triggers(self, app_id: str) -> list[ZapierTrigger]:
         """List all triggers for a Zapier app."""
         app = self._apps.get(app_id)
         if not app:
@@ -302,7 +298,7 @@ class ZapierIntegration(BaseIntegration):
     async def fire_trigger(
         self,
         trigger_type: str,
-        event_data: Dict[str, Any],
+        event_data: dict[str, Any],
     ) -> int:
         """Fire a trigger for all matching subscriptions.
 
@@ -342,7 +338,7 @@ class ZapierIntegration(BaseIntegration):
     async def _fire_single_trigger(
         self,
         trigger: ZapierTrigger,
-        event_data: Dict[str, Any],
+        event_data: dict[str, Any],
     ) -> bool:
         """Fire a single trigger webhook.
 
@@ -380,8 +376,8 @@ class ZapierIntegration(BaseIntegration):
     def _format_trigger_payload(
         self,
         trigger: ZapierTrigger,
-        event_data: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        event_data: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Format event data for Zapier trigger payload.
 
         Zapier expects a list of objects, even for single events.
@@ -405,9 +401,9 @@ class ZapierIntegration(BaseIntegration):
         self,
         app_id: str,
         trigger_type: str,
-        since: Optional[float] = None,
+        since: float | None = None,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get polling data for a trigger (for non-instant triggers).
 
         This is used by Zapier's polling mechanism when REST Hooks aren't available.
@@ -456,7 +452,7 @@ class ZapierIntegration(BaseIntegration):
     def authenticate_request(
         self,
         api_key: str,
-    ) -> Optional[ZapierApp]:
+    ) -> ZapierApp | None:
         """Authenticate a request using API key.
 
         Args:
@@ -467,13 +463,11 @@ class ZapierIntegration(BaseIntegration):
         """
         return self.get_app_by_key(api_key)
 
-
 # =============================================================================
 # Module-level singleton
 # =============================================================================
 
-_zapier_integration: Optional[ZapierIntegration] = None
-
+_zapier_integration: ZapierIntegration | None = None
 
 def get_zapier_integration() -> ZapierIntegration:
     """Get or create the global Zapier integration instance."""
@@ -481,7 +475,6 @@ def get_zapier_integration() -> ZapierIntegration:
     if _zapier_integration is None:
         _zapier_integration = ZapierIntegration()
     return _zapier_integration
-
 
 # =============================================================================
 # Exports

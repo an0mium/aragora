@@ -10,8 +10,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Optional, TypedDict
-
+from typing import TypedDict
 
 class StrategyTemplate(TypedDict):
     """Type definition for strategy templates."""
@@ -20,9 +19,7 @@ class StrategyTemplate(TypedDict):
     description: str
     tactics: list[str]
 
-
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class Pattern:
@@ -30,7 +27,7 @@ class Pattern:
 
     pattern_type: str  # 'argument', 'structure', 'evidence', 'persuasion'
     description: str
-    agent: Optional[str] = None
+    agent: str | None = None
     frequency: int = 1
     effectiveness: float = 0.0
     examples: list[str] = field(default_factory=list)
@@ -46,7 +43,6 @@ class Pattern:
             "examples": self.examples,
         }
 
-
 @dataclass
 class Strategy:
     """A debate strategy identified from outcomes."""
@@ -54,7 +50,7 @@ class Strategy:
     name: str
     description: str
     success_rate: float = 0.0
-    agent: Optional[str] = None
+    agent: str | None = None
     tactics: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -66,7 +62,6 @@ class Strategy:
             "agent": self.agent,
             "tactics": self.tactics,
         }
-
 
 class PatternExtractor:
     """
@@ -157,7 +152,7 @@ class PatternExtractor:
         return patterns
 
     def _extract_evidence_patterns(
-        self, messages: list[str], agent: Optional[str]
+        self, messages: list[str], agent: str | None
     ) -> list[Pattern]:
         """Extract evidence usage patterns from messages."""
         patterns: list[Pattern] = []
@@ -192,7 +187,7 @@ class PatternExtractor:
         return patterns
 
     def _extract_structure_patterns(
-        self, messages: list[str], agent: Optional[str]
+        self, messages: list[str], agent: str | None
     ) -> list[Pattern]:
         """Extract argument structure patterns from messages."""
         patterns: list[Pattern] = []
@@ -225,7 +220,7 @@ class PatternExtractor:
         return patterns
 
     def _extract_persuasion_patterns(
-        self, messages: list[str], agent: Optional[str]
+        self, messages: list[str], agent: str | None
     ) -> list[Pattern]:
         """Extract persuasion technique patterns from messages."""
         patterns: list[Pattern] = []
@@ -261,7 +256,7 @@ class PatternExtractor:
         self,
         critiques: list[dict],
         messages: list[dict],
-        winner: Optional[str],
+        winner: str | None,
     ) -> list[Pattern]:
         """Extract patterns for responding to critiques."""
         patterns: list[Pattern] = []
@@ -306,7 +301,6 @@ class PatternExtractor:
             )
 
         return patterns
-
 
 class StrategyIdentifier:
     """
@@ -475,11 +469,9 @@ class StrategyIdentifier:
         count = sum(1 for m in markers if m in text)
         return min(1.0, count / 3)
 
-
 # Module-level convenience functions
 _extractor = PatternExtractor()
 _identifier = StrategyIdentifier()
-
 
 def extract_patterns(debate_outcome: dict) -> dict:
     """
@@ -500,7 +492,6 @@ def extract_patterns(debate_outcome: dict) -> dict:
         "winner": debate_outcome.get("winner"),
         "pattern_count": len(patterns),
     }
-
 
 def identify_strategies(debate_outcome: dict) -> list[dict]:
     """

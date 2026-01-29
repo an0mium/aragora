@@ -34,11 +34,11 @@ Usage:
     # Simple success
     return success_response({"message": "Created"}, status=201)
 """
+from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from .handlers.base import HandlerResult, json_response
-
 
 def paginated_response(
     items: list,
@@ -46,7 +46,7 @@ def paginated_response(
     offset: int = 0,
     limit: int = 20,
     item_key: str = "items",
-    extra: Optional[dict] = None,
+    extra: dict | None = None,
 ) -> HandlerResult:
     """Create a paginated list response.
 
@@ -79,12 +79,11 @@ def paginated_response(
         data.update(extra)
     return json_response(data)
 
-
 def list_response(
     items: list,
     item_key: str = "items",
     include_total: bool = True,
-    extra: Optional[dict] = None,
+    extra: dict | None = None,
 ) -> HandlerResult:
     """Create a simple list response (non-paginated).
 
@@ -108,11 +107,10 @@ def list_response(
         data.update(extra)
     return json_response(data)
 
-
 def item_response(
     item: Any,
     status: int = 200,
-    extra: Optional[dict] = None,
+    extra: dict | None = None,
 ) -> HandlerResult:
     """Create a single item response.
 
@@ -137,10 +135,9 @@ def item_response(
             data.update(extra)
     return json_response(data, status=status)
 
-
 def success_response(
-    data: Optional[dict] = None,
-    message: Optional[str] = None,
+    data: dict | None = None,
+    message: str | None = None,
     status: int = 200,
 ) -> HandlerResult:
     """Create a success response for operations.
@@ -158,7 +155,6 @@ def success_response(
     if message:
         response["message"] = message
     return json_response(response, status=status)
-
 
 def created_response(
     item: dict,
@@ -178,7 +174,6 @@ def created_response(
         headers["Location"] = f"/api/{item[id_field]}"
     return json_response(item, status=201, headers=headers)
 
-
 def deleted_response(
     message: str = "Deleted successfully",
 ) -> HandlerResult:
@@ -192,10 +187,9 @@ def deleted_response(
     """
     return json_response({"message": message, "deleted": True})
 
-
 def not_found_response(
     resource: str = "Resource",
-    identifier: Optional[str] = None,
+    identifier: str | None = None,
 ) -> HandlerResult:
     """Create a 404 Not Found response.
 
@@ -211,10 +205,9 @@ def not_found_response(
         message = f"{resource} '{identifier}' not found"
     return json_response({"error": message, "code": "NOT_FOUND"}, status=404)
 
-
 def validation_error_response(
     errors: list[str] | str,
-    field: Optional[str] = None,
+    field: str | None = None,
 ) -> HandlerResult:
     """Create a 400 validation error response.
 
@@ -237,7 +230,6 @@ def validation_error_response(
         data["field"] = field
     return json_response(data, status=400)
 
-
 def rate_limit_response(
     retry_after: int = 60,
 ) -> HandlerResult:
@@ -259,9 +251,8 @@ def rate_limit_response(
         headers={"Retry-After": str(retry_after)},
     )
 
-
 def server_error_response(
-    trace_id: Optional[str] = None,
+    trace_id: str | None = None,
     message: str = "Internal server error",
 ) -> HandlerResult:
     """Create a 500 server error response.
@@ -281,7 +272,6 @@ def server_error_response(
         data["trace_id"] = trace_id
     return json_response(data, status=500)
 
-
 # Common response type hints for documentation
 ResponseType = HandlerResult
 PaginatedResponse = HandlerResult
@@ -289,17 +279,15 @@ ListResponse = HandlerResult
 ItemResponse = HandlerResult
 ErrorResponse = HandlerResult
 
-
 # =============================================================================
 # V2 Response Envelope Support
 # =============================================================================
 
-
 def v2_envelope(
     data: Any,
-    meta: Optional[dict] = None,
+    meta: dict | None = None,
     status: int = 200,
-    headers: Optional[dict] = None,
+    headers: dict | None = None,
 ) -> HandlerResult:
     """Wrap response data in V2 envelope format.
 
@@ -323,15 +311,14 @@ def v2_envelope(
         envelope["meta"] = meta
     return json_response(envelope, status=status, headers=headers)
 
-
 def v2_paginated_response(
     items: list,
     total: int,
-    cursor: Optional[str] = None,
-    next_cursor: Optional[str] = None,
+    cursor: str | None = None,
+    next_cursor: str | None = None,
     limit: int = 20,
     item_key: str = "items",
-    extra_meta: Optional[dict] = None,
+    extra_meta: dict | None = None,
 ) -> HandlerResult:
     """Create a V2 paginated response with cursor-based pagination.
 
@@ -376,11 +363,10 @@ def v2_paginated_response(
 
     return v2_envelope(data, meta=meta)
 
-
 def v2_list_response(
     items: list,
     item_key: str = "items",
-    extra_meta: Optional[dict] = None,
+    extra_meta: dict | None = None,
 ) -> HandlerResult:
     """Create a V2 list response (non-paginated).
 
@@ -402,11 +388,10 @@ def v2_list_response(
         meta.update(extra_meta)
     return v2_envelope(data, meta=meta)
 
-
 def v2_item_response(
     item: Any,
     status: int = 200,
-    meta: Optional[dict] = None,
+    meta: dict | None = None,
 ) -> HandlerResult:
     """Create a V2 single item response.
 
@@ -421,10 +406,9 @@ def v2_item_response(
     """
     return v2_envelope(item, meta=meta, status=status)
 
-
 def v2_success_response(
     message: str,
-    data: Optional[dict] = None,
+    data: dict | None = None,
     status: int = 200,
 ) -> HandlerResult:
     """Create a V2 success response.
@@ -443,13 +427,12 @@ def v2_success_response(
         response_data.update(data)
     return v2_envelope(response_data, status=status)
 
-
 def v2_error_response(
     code: str,
     message: str,
     status: int = 400,
-    details: Optional[dict] = None,
-    trace_id: Optional[str] = None,
+    details: dict | None = None,
+    trace_id: str | None = None,
 ) -> HandlerResult:
     """Create a V2 structured error response.
 

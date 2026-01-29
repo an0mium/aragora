@@ -21,7 +21,7 @@ Configuration:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 from uuid import uuid4
 
 from aragora.workflow.types import (
@@ -37,17 +37,15 @@ from aragora.workflow.types import (
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
-
 @dataclass
 class PostDebateConfig:
     """Configuration for post-debate workflow."""
 
     store_consensus: bool = True  # Store consensus in Knowledge Mound
     extract_facts: bool = True  # Extract structured facts
-    notify_webhook: Optional[str] = None  # Optional webhook URL
+    notify_webhook: str | None = None  # Optional webhook URL
     generate_summary: bool = True  # Generate human-readable summary
-    workspace_id: Optional[str] = None  # Target workspace for storage
-
+    workspace_id: str | None = None  # Target workspace for storage
 
 class PostDebatePattern(WorkflowPattern):
     """
@@ -77,8 +75,8 @@ class PostDebatePattern(WorkflowPattern):
     def __init__(
         self,
         name: str = "Post-Debate Workflow",
-        config: Optional[PostDebateConfig] = None,
-        agents: Optional[List[str]] = None,
+        config: PostDebateConfig | None = None,
+        agents: Optional[list[str]] = None,
         task: str = "Process debate outcome",
         **kwargs,
     ):
@@ -88,8 +86,8 @@ class PostDebatePattern(WorkflowPattern):
     def create_workflow(self) -> WorkflowDefinition:
         """Create a post-debate workflow definition."""
         workflow_id = f"post_debate_{uuid4().hex[:8]}"
-        steps: List[StepDefinition] = []
-        transitions: List[TransitionRule] = []
+        steps: list[StepDefinition] = []
+        transitions: list[TransitionRule] = []
 
         # Step positions
         y_pos = 200
@@ -283,8 +281,8 @@ class PostDebatePattern(WorkflowPattern):
         store_consensus: bool = True,
         extract_facts: bool = True,
         generate_summary: bool = True,
-        notify_webhook: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        notify_webhook: str | None = None,
+        workspace_id: str | None = None,
         **kwargs,
     ) -> WorkflowDefinition:
         """
@@ -311,9 +309,8 @@ class PostDebatePattern(WorkflowPattern):
         pattern = cls(name=name, config=config, **kwargs)
         return pattern.create_workflow()
 
-
 def get_default_post_debate_workflow(
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> WorkflowDefinition:
     """
     Get the default post-debate workflow for automatic triggering.
@@ -334,7 +331,6 @@ def get_default_post_debate_workflow(
         generate_summary=True,
         workspace_id=workspace_id,
     )
-
 
 __all__ = [
     "PostDebatePattern",

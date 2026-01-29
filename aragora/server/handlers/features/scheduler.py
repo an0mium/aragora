@@ -18,7 +18,6 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -34,7 +33,6 @@ from ..base import (
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
-
 
 class SchedulerHandler(BaseHandler):
     """Handler for audit scheduler endpoints."""
@@ -58,7 +56,7 @@ class SchedulerHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         if path == "/api/v1/scheduler/jobs":
             return self._list_jobs(query_params)
@@ -80,7 +78,7 @@ class SchedulerHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/scheduler/jobs":
             return self._create_job(handler)
@@ -112,7 +110,7 @@ class SchedulerHandler(BaseHandler):
 
         return None
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
         if path.startswith("/api/v1/scheduler/jobs/"):
             parts = path.split("/")

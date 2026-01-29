@@ -24,7 +24,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, List, Optional, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 # Lazy import for sentence-transformers
 _sentence_transformer_model = None
-
 
 class EmbeddingModel(str, Enum):
     """Available embedding models with different speed/quality tradeoffs."""
@@ -50,13 +49,12 @@ class EmbeddingModel(str, Enum):
     # Code-specific models
     CODE = "flax-sentence-embeddings/st-codesearch-distilroberta-base"  # For code
 
-
 @dataclass
 class EmbeddingResult:
     """Result of an embedding operation."""
 
     text: str
-    embedding: List[float]
+    embedding: list[float]
     model: str
     dimension: int
 
@@ -68,7 +66,6 @@ class EmbeddingResult:
             "embedding_preview": self.embedding[:5],
         }
 
-
 @dataclass
 class SearchResult:
     """Result of a similarity search."""
@@ -77,7 +74,6 @@ class SearchResult:
     score: float
     index: int
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class LocalEmbeddingConfig:
@@ -88,8 +84,7 @@ class LocalEmbeddingConfig:
     normalize: bool = True
     batch_size: int = 32
     show_progress: bool = False
-    cache_folder: Optional[str] = None
-
+    cache_folder: str | None = None
 
 class LocalEmbeddingService:
     """Local embedding service using Sentence Transformers.
@@ -105,7 +100,7 @@ class LocalEmbeddingService:
     - GPU acceleration (if available)
     """
 
-    def __init__(self, config: Optional[LocalEmbeddingConfig] = None):
+    def __init__(self, config: LocalEmbeddingConfig | None = None):
         """Initialize the embedding service.
 
         Args:
@@ -113,7 +108,7 @@ class LocalEmbeddingService:
         """
         self.config = config or LocalEmbeddingConfig()
         self._model = None
-        self._dimension: Optional[int] = None
+        self._dimension: int | None = None
         self._lock = asyncio.Lock()
 
     @property
@@ -149,7 +144,7 @@ class LocalEmbeddingService:
                     "Install with: pip install sentence-transformers"
                 )
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> list[float]:
         """Generate embedding for a single text.
 
         Args:
@@ -166,7 +161,7 @@ class LocalEmbeddingService:
         )
         return embedding.tolist()
 
-    def embed_batch(self, texts: Sequence[str]) -> List[List[float]]:
+    def embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts.
 
         Args:
@@ -187,19 +182,19 @@ class LocalEmbeddingService:
         )
         return embeddings.tolist()
 
-    async def embed_async(self, text: str) -> List[float]:
+    async def embed_async(self, text: str) -> list[float]:
         """Async version of embed."""
         async with self._lock:
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(None, self.embed, text)
 
-    async def embed_batch_async(self, texts: Sequence[str]) -> List[List[float]]:
+    async def embed_batch_async(self, texts: Sequence[str]) -> list[list[float]]:
         """Async version of embed_batch."""
         async with self._lock:
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(None, self.embed_batch, texts)
 
-    def similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
+    def similarity(self, embedding1: list[float], embedding2: list[float]) -> float:
         """Compute cosine similarity between two embeddings.
 
         Args:
@@ -219,7 +214,7 @@ class LocalEmbeddingService:
         documents: Sequence[str],
         top_k: int = 5,
         threshold: float = 0.0,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Search for most similar documents to query.
 
         Args:
@@ -273,7 +268,7 @@ class LocalEmbeddingService:
         documents: Sequence[str],
         top_k: int = 5,
         threshold: float = 0.0,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Async version of search."""
         async with self._lock:
             loop = asyncio.get_event_loop()
@@ -285,7 +280,7 @@ class LocalEmbeddingService:
         self,
         texts: Sequence[str],
         n_clusters: int = 5,
-    ) -> List[int]:
+    ) -> list[int]:
         """Cluster texts by semantic similarity.
 
         Args:
@@ -307,10 +302,8 @@ class LocalEmbeddingService:
 
         return labels.tolist()
 
-
 # Global instance cache
 _embedding_services: dict[str, LocalEmbeddingService] = {}
-
 
 def get_embedding_service(
     model: EmbeddingModel = EmbeddingModel.MINILM,

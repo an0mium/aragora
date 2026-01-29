@@ -28,22 +28,21 @@ from __future__ import annotations
 import asyncio
 import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.core import Agent
 
 logger = logging.getLogger(__name__)
 
-
 async def record_debate_tokens(
     org_id: str,
     debate_id: str,
-    agents: List["Agent"],
-    user_id: Optional[str] = None,
+    agents: list["Agent"],
+    user_id: str | None = None,
     rounds: int = 0,
     duration_seconds: int = 0,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Record token usage from debate completion to usage metering.
@@ -156,7 +155,6 @@ async def record_debate_tokens(
         "debate_recorded": debate_recorded,
     }
 
-
 async def record_agent_tokens(
     org_id: str,
     agent_name: str,
@@ -164,10 +162,10 @@ async def record_agent_tokens(
     model: str,
     input_tokens: int,
     output_tokens: int,
-    user_id: Optional[str] = None,
-    debate_id: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    metadata: Optional[dict[str, Any]] = None,
+    user_id: str | None = None,
+    debate_id: str | None = None,
+    endpoint: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Record token usage from a single agent API call.
@@ -227,15 +225,14 @@ async def record_agent_tokens(
             "error": str(e),
         }
 
-
 async def record_api_call(
     org_id: str,
     endpoint: str,
     method: str = "GET",
     status_code: int = 200,
     response_time_ms: int = 0,
-    user_id: Optional[str] = None,
-    metadata: Optional[dict[str, Any]] = None,
+    user_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Record an API call for metering.
@@ -280,7 +277,6 @@ async def record_api_call(
             "error": str(e),
         }
 
-
 class MeteredUsageTracker:
     """
     Usage tracker wrapper that records to both the legacy UsageTracker
@@ -293,7 +289,7 @@ class MeteredUsageTracker:
     def __init__(
         self,
         org_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         legacy_tracker: Any = None,
     ):
         """
@@ -326,7 +322,7 @@ class MeteredUsageTracker:
         tokens_out: int,
         provider: str,
         model: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> Any:
         """Record debate usage to both systems."""
         # Record to legacy tracker if available
@@ -402,7 +398,7 @@ class MeteredUsageTracker:
         tokens_out: int,
         provider: str,
         model: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """Async debate recording."""
         meter = self._get_meter()
@@ -433,7 +429,7 @@ class MeteredUsageTracker:
         self,
         user_id: str,
         org_id: str,
-        debate_id: Optional[str],
+        debate_id: str | None,
         agent_name: str,
         tokens_in: int,
         tokens_out: int,
@@ -508,7 +504,7 @@ class MeteredUsageTracker:
     def get_summary(
         self,
         org_id: str,
-        period_start: Optional[Any] = None,
+        period_start: Any | None = None,
     ) -> Any:
         """Get usage summary (delegates to legacy tracker)."""
         if self._legacy_tracker:
@@ -518,10 +514,9 @@ class MeteredUsageTracker:
             )
         return None
 
-
 def get_metered_usage_tracker(
     org_id: str,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     legacy_tracker: Any = None,
 ) -> MeteredUsageTracker:
     """
@@ -543,7 +538,6 @@ def get_metered_usage_tracker(
         user_id=user_id,
         legacy_tracker=legacy_tracker,
     )
-
 
 __all__ = [
     "record_debate_tokens",

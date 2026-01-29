@@ -29,11 +29,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Position Bias Mitigation
 # =============================================================================
-
 
 @dataclass
 class PositionBiasConfig:
@@ -41,13 +39,12 @@ class PositionBiasConfig:
 
     enabled: bool = False
     num_permutations: int = 3  # Number of random orderings to average
-    seed: Optional[int] = None  # For reproducibility in tests
+    seed: int | None = None  # For reproducibility in tests
     log_permutation_details: bool = False
-
 
 def shuffle_proposals(
     proposals: dict[str, str],
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> dict[str, str]:
     """Shuffle proposal ordering to mitigate position bias.
 
@@ -66,11 +63,10 @@ def shuffle_proposals(
     rng.shuffle(items)
     return dict(items)
 
-
 def generate_permutations(
     proposals: dict[str, str],
     num_permutations: int = 3,
-    base_seed: Optional[int] = None,
+    base_seed: int | None = None,
 ) -> list[dict[str, str]]:
     """Generate multiple proposal orderings for averaging across permutations.
 
@@ -97,7 +93,6 @@ def generate_permutations(
         permutations.append(shuffle_proposals(proposals, seed))
 
     return permutations
-
 
 def average_permutation_votes(
     votes_by_agent: dict[str, list["Vote"]],
@@ -163,11 +158,9 @@ def average_permutation_votes(
 
     return final_votes
 
-
 # =============================================================================
 # Self-Enhancement Bias Mitigation
 # =============================================================================
-
 
 @dataclass
 class SelfVoteConfig:
@@ -177,7 +170,6 @@ class SelfVoteConfig:
     mode: str = "downweight"  # "exclude", "downweight", "log_only"
     downweight_factor: float = 0.5  # Applied when mode="downweight"
     log_self_votes: bool = True
-
 
 def detect_self_vote(
     vote: "Vote",
@@ -221,7 +213,6 @@ def detect_self_vote(
         return True
 
     return False
-
 
 def apply_self_vote_penalty(
     weights: dict[str, float],
@@ -276,11 +267,9 @@ def apply_self_vote_penalty(
 
     return adjusted
 
-
 # =============================================================================
 # Verbosity Bias Normalization
 # =============================================================================
-
 
 @dataclass
 class VerbosityBiasConfig:
@@ -291,7 +280,6 @@ class VerbosityBiasConfig:
     penalty_threshold: float = 3.0  # Penalize if > 3x target length
     max_penalty: float = 0.3  # Max 30% weight reduction
     log_adjustments: bool = False
-
 
 def calculate_verbosity_factor(
     proposal_length: int,
@@ -336,7 +324,6 @@ def calculate_verbosity_factor(
 
     return factor
 
-
 def get_verbosity_weights(
     proposals: dict[str, str],
     config: VerbosityBiasConfig,
@@ -355,11 +342,9 @@ def get_verbosity_weights(
         for agent, proposal in proposals.items()
     }
 
-
 # =============================================================================
 # Process-Based Evaluation (Multi-Criteria Rubrics)
 # =============================================================================
-
 
 @dataclass
 class EvaluationCriterion:
@@ -369,7 +354,6 @@ class EvaluationCriterion:
     description: str
     weight: float = 1.0
     required: bool = False
-
 
 @dataclass
 class ProcessEvaluationConfig:
@@ -407,7 +391,6 @@ class ProcessEvaluationConfig:
     )
     tool_verification_enabled: bool = False
 
-
 @dataclass
 class ProcessEvaluationResult:
     """Result of process-based evaluation."""
@@ -417,8 +400,7 @@ class ProcessEvaluationResult:
     criterion_scores: dict[str, float]  # criterion_name -> 0-1 score
     weighted_total: float
     evaluation_notes: list[str]
-    tool_verification_results: Optional[dict[str, Any]] = None
-
+    tool_verification_results: dict[str, Any] | None = None
 
 class ProcessEvaluator:
     """Evaluates proposals using multi-criteria rubrics.
@@ -429,7 +411,7 @@ class ProcessEvaluator:
 
     def __init__(
         self,
-        config: Optional[ProcessEvaluationConfig] = None,
+        config: ProcessEvaluationConfig | None = None,
         generate_fn: Optional[Callable[..., Any]] = None,
     ):
         """Initialize process evaluator.
@@ -777,11 +759,9 @@ Respond with ONLY a number from 0-10."""
 
         return results
 
-
 # =============================================================================
 # Unified Bias Mitigation Context
 # =============================================================================
-
 
 @dataclass
 class BiasMitigationConfig:
@@ -790,7 +770,7 @@ class BiasMitigationConfig:
     # Position bias
     enable_position_shuffling: bool = False
     position_shuffling_permutations: int = 3
-    position_shuffling_seed: Optional[int] = None
+    position_shuffling_seed: int | None = None
 
     # Self-vote bias
     enable_self_vote_mitigation: bool = False

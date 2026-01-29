@@ -11,6 +11,7 @@ Key Features:
 - Exponential backoff on failures
 - Full event sourcing for audit trail
 """
+from __future__ import annotations
 
 import asyncio
 import inspect
@@ -18,7 +19,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable
 
 from .events import (
     Event,
@@ -42,22 +43,18 @@ from .states import (
 
 logger = logging.getLogger(__name__)
 
-
 class TransitionError(Exception):
     """Raised when an invalid state transition is attempted."""
 
     pass
-
 
 class StateTimeoutError(Exception):
     """Raised when a state handler times out."""
 
     pass
 
-
 # Type alias for state handlers
-StateHandler = Callable[[StateContext, Event], Awaitable[tuple[NomicState, Dict[str, Any]]]]
-
+StateHandler = Callable[[StateContext, Event], Awaitable[tuple[NomicState, dict[str, Any]]]]
 
 class NomicStateMachine:
     """
@@ -98,13 +95,13 @@ class NomicStateMachine:
         self.running = False
 
         # Handlers
-        self._handlers: Dict[NomicState, StateHandler] = {}
+        self._handlers: dict[NomicState, StateHandler] = {}
         self._on_transition_callbacks: list[Callable] = []
         self._on_error_callbacks: list[Callable] = []
         self._transition_callback_supports_metrics: dict[Callable, bool] = {}
 
         # Metrics
-        self._state_entry_time: Optional[float] = None
+        self._state_entry_time: float | None = None
         self._total_cycles = 0
         self._successful_cycles = 0
         self._failed_cycles = 0
@@ -168,7 +165,7 @@ class NomicStateMachine:
         """Get the current cycle ID."""
         return self.context.cycle_id
 
-    async def start(self, config: Optional[Dict] = None) -> None:
+    async def start(self, config: dict | None = None) -> None:
         """
         Start a new nomic loop cycle.
 
@@ -272,7 +269,7 @@ class NomicStateMachine:
         if next_state and next_state != self.current_state:
             await self._transition_to(next_state, event)
 
-    def _determine_next_state(self, event: Event) -> Optional[NomicState]:
+    def _determine_next_state(self, event: Event) -> NomicState | None:
         """Determine the next state based on current state and event."""
         current = self.current_state
 
@@ -554,7 +551,7 @@ class NomicStateMachine:
             self.context.cycle_id,
         )
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get state machine metrics."""
         return {
             "current_state": self.current_state.name,
@@ -570,7 +567,6 @@ class NomicStateMachine:
             "error_count": len(self.event_log.get_errors()),
             "state_durations": self.context.state_durations,
         }
-
 
 # Convenience function to create a pre-configured state machine
 def create_nomic_state_machine(

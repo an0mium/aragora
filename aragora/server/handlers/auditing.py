@@ -22,7 +22,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -57,14 +57,13 @@ from aragora.server.errors import safe_error_message as _safe_error_message
 # Audit Request Utilities
 # =============================================================================
 
-
 class AuditRequestParser:
     """Parse and validate audit request JSON bodies."""
 
     @staticmethod
     def _read_json(
         handler: Any, read_json_fn: Any
-    ) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Read and validate JSON body."""
         data = read_json_fn(handler)
         if data is None:
@@ -74,7 +73,7 @@ class AuditRequestParser:
     @staticmethod
     def _require_field(
         data: dict[str, Any], field: str, validator: Any = None
-    ) -> tuple[Optional[str], Optional[HandlerResult]]:
+    ) -> tuple[str | None, HandlerResult | None]:
         """Extract and validate a required string field."""
         value = data.get(field, "").strip()
         if not value:
@@ -88,7 +87,7 @@ class AuditRequestParser:
     @staticmethod
     def _parse_int(
         data: dict[str, Any], field: str, default: int, max_val: int
-    ) -> tuple[int, Optional[HandlerResult]]:
+    ) -> tuple[int, HandlerResult | None]:
         """Parse and clamp an integer field."""
         try:
             return min(int(data.get(field, default)), max_val), None
@@ -98,7 +97,7 @@ class AuditRequestParser:
     @staticmethod
     def parse_capability_probe(
         handler: Any, read_json_fn: Any
-    ) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Parse capability probe request."""
         data, err = AuditRequestParser._read_json(handler, read_json_fn)
         if err:
@@ -124,7 +123,7 @@ class AuditRequestParser:
     @staticmethod
     def parse_deep_audit(
         handler: Any, read_json_fn: Any
-    ) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Parse deep audit request."""
         data, err = AuditRequestParser._read_json(handler, read_json_fn)
         if err:
@@ -161,7 +160,6 @@ class AuditRequestParser:
             "enable_research": config_data.get("enable_research", True),
         }, None
 
-
 class AuditAgentFactory:
     """Create and validate agents for auditing."""
 
@@ -185,7 +183,7 @@ class AuditAgentFactory:
     @staticmethod
     def create_multiple_agents(
         model_type: str, agent_names: list[str], default_names: list[str], max_agents: int = 5
-    ) -> tuple[list, Optional[HandlerResult]]:
+    ) -> tuple[list, HandlerResult | None]:
         """Create multiple agents for auditing.
 
         Returns:
@@ -212,7 +210,6 @@ class AuditAgentFactory:
             return [], error_response("Need at least 2 agents for deep audit", 400)
 
         return agents, None
-
 
 class AuditResultRecorder:
     """Record audit results to ELO system and storage."""
@@ -331,7 +328,6 @@ class AuditResultRecorder:
         except Exception as e:
             logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
 
-
 class AuditingHandler(SecureHandler):
     """Handler for audit log access and management.
 
@@ -357,7 +353,7 @@ class AuditingHandler(SecureHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route auditing requests to appropriate methods.
 
         Note: These endpoints require POST with request body, which handler provides.
@@ -844,7 +840,7 @@ class AuditingHandler(SecureHandler):
             except ValueError:
                 continue
 
-            pattern: Dict[str, Any] = vulnerability_patterns.get(attack_type, {})
+            pattern: dict[str, Any] = vulnerability_patterns.get(attack_type, {})
             keywords: list[str] = pattern.get("keywords") or []
             base_severity = float(pattern.get("base_severity") or 0.5)
 
@@ -973,6 +969,6 @@ class AuditingHandler(SecureHandler):
             return error_response(_safe_error_message(e, "red_team_analysis"), 500)
 
     # _read_json_body moved to BaseHandler.read_json_body
-    def _read_json_body(self, handler) -> Optional[dict]:
+    def _read_json_body(self, handler) -> dict | None:
         """Read and parse JSON body - delegates to base class."""
         return self.read_json_body(handler)

@@ -19,7 +19,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,6 @@ except ImportError:
 
     def build_trace_headers() -> dict[str, str]:
         return {}
-
 
 from .base import ChatPlatformConnector
 from .models import (
@@ -68,7 +67,6 @@ WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "")
 # WhatsApp Cloud API
 WHATSAPP_API_BASE = "https://graph.facebook.com/v18.0"
 
-
 class WhatsAppConnector(ChatPlatformConnector):
     """
     WhatsApp connector using Meta Cloud API.
@@ -86,11 +84,11 @@ class WhatsAppConnector(ChatPlatformConnector):
 
     def __init__(
         self,
-        access_token: Optional[str] = None,
-        phone_number_id: Optional[str] = None,
-        business_account_id: Optional[str] = None,
-        verify_token: Optional[str] = None,
-        app_secret: Optional[str] = None,
+        access_token: str | None = None,
+        phone_number_id: str | None = None,
+        business_account_id: str | None = None,
+        verify_token: str | None = None,
+        app_secret: str | None = None,
         **config: Any,
     ):
         """
@@ -118,13 +116,13 @@ class WhatsAppConnector(ChatPlatformConnector):
         endpoint: str,
         *,
         method: str = "POST",
-        payload: Optional[dict[str, Any]] = None,
-        data: Optional[dict[str, Any]] = None,
-        files: Optional[dict[str, Any]] = None,
+        payload: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
         operation: str = "api_call",
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         max_retries: int = 3,
-    ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+    ) -> tuple[bool, dict[str, Any] | None, str | None]:
         """
         Make a WhatsApp API request with circuit breaker, retry, and timeout.
 
@@ -158,7 +156,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         if payload and not files:
             headers["Content-Type"] = "application/json"
 
-        last_error: Optional[str] = None
+        last_error: str | None = None
 
         for attempt in range(max_retries):
             try:
@@ -248,8 +246,8 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
-        thread_id: Optional[str] = None,
+        blocks: list[dict[str, Any] | None] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a message to a WhatsApp user.
@@ -297,7 +295,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -328,28 +326,39 @@ class WhatsAppConnector(ChatPlatformConnector):
         logger.warning("WhatsApp doesn't support message deletion via API")
         return False
 
-    async def upload_file(  # type: ignore[override]
+    async def upload_file(
         self,
         channel_id: str,
-        file_path: str,
-        filename: Optional[str] = None,
-        comment: Optional[str] = None,
+        content: bytes,
+        filename: str,
+        content_type: str = "application/octet-stream",
+        title: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """Upload and send a file as a document.
 
         Uses _whatsapp_api_request for circuit breaker, retry, and timeout handling.
+
+        Args:
+            channel_id: Target channel/phone number
+            content: File content as bytes
+            filename: Name for the file
+            content_type: MIME type of the file
+            title: Optional title/caption for the file
+            thread_id: Ignored (WhatsApp doesn't support threads)
+            **kwargs: Additional arguments (ignored)
         """
-        # First, upload media
-        media_id = await self._upload_media(file_path, "document")
+        # First, upload media from bytes content
+        media_id = await self._upload_media_bytes(content, filename, content_type)
 
         # Then send message with media
         doc_payload: dict[str, Any] = {
             "id": media_id,
-            "filename": filename or file_path.split("/")[-1],
+            "filename": filename,
         }
-        if comment:
-            doc_payload["caption"] = comment
+        if title:
+            doc_payload["caption"] = title
 
         payload: dict[str, Any] = {
             "messaging_product": "whatsapp",
@@ -367,12 +376,43 @@ class WhatsAppConnector(ChatPlatformConnector):
         if success:
             return FileAttachment(
                 id=media_id,
-                filename=filename or file_path.split("/")[-1],
-                content_type="application/octet-stream",
-                size=0,  # Size unknown after upload
+                filename=filename,
+                content_type=content_type,
+                size=len(content),
             )
 
         raise RuntimeError(error or "Upload failed")
+
+    async def _upload_media_bytes(
+        self, content: bytes, filename: str, content_type: str
+    ) -> str:
+        """Upload media bytes to WhatsApp servers.
+
+        Uses _whatsapp_api_request for circuit breaker, retry, and timeout handling.
+
+        Args:
+            content: File content as bytes
+            filename: Name for the file
+            content_type: MIME type of the content
+        """
+        files = {"file": (filename, content, content_type)}
+        form_data = {
+            "messaging_product": "whatsapp",
+            "type": content_type,
+        }
+
+        success, result, error = await self._whatsapp_api_request(
+            f"{WHATSAPP_API_BASE}/{self.phone_number_id}/media",
+            data=form_data,
+            files=files,
+            operation="upload_media_bytes",
+        )
+
+        if success and result:
+            media_id: str = result.get("id", "")
+            return media_id
+
+        raise RuntimeError(error or "Media upload failed")
 
     async def _upload_media(self, file_path: str, media_type: str) -> str:
         """Upload media to WhatsApp servers.
@@ -480,7 +520,7 @@ class WhatsAppConnector(ChatPlatformConnector):
     async def handle_webhook(
         self,
         payload: dict[str, Any],
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> WebhookEvent:
         """Process incoming WhatsApp webhook."""
@@ -615,7 +655,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         payload: dict[str, Any],
         **kwargs: Any,
-    ) -> Optional[BotCommand]:
+    ) -> BotCommand | None:
         """
         Parse a command from message.
 
@@ -676,20 +716,30 @@ class WhatsAppConnector(ChatPlatformConnector):
             platform="whatsapp",
         )
 
-    async def send_voice_message(  # type: ignore[override]
+    async def send_voice_message(
         self,
         channel_id: str,
-        audio_data: bytes,
-        duration: Optional[int] = None,
+        audio_content: bytes,
+        filename: str = "voice.ogg",
+        content_type: str = "audio/ogg",
+        reply_to: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a voice message.
 
         Uses _whatsapp_api_request for circuit breaker, retry, and timeout handling.
+
+        Args:
+            channel_id: Target channel/phone number
+            audio_content: Audio data as bytes
+            filename: Name for the audio file
+            content_type: MIME type of the audio (default: audio/ogg)
+            reply_to: Ignored (WhatsApp handles replies differently)
+            **kwargs: Additional arguments (ignored)
         """
         # Step 1: Upload audio first
-        files = {"file": ("voice.ogg", audio_data, "audio/ogg")}
-        form_data = {"messaging_product": "whatsapp", "type": "audio/ogg"}
+        files = {"file": (filename, audio_content, content_type)}
+        form_data = {"messaging_product": "whatsapp", "type": content_type}
 
         upload_success, result, upload_error = await self._whatsapp_api_request(
             f"{WHATSAPP_API_BASE}/{self.phone_number_id}/media",
@@ -840,7 +890,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         channel_id: str,
         template_name: str,
         language_code: str = "en",
-        components: Optional[list[dict[str, Any]]] = None,
+        components: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a template message.
@@ -880,14 +930,55 @@ class WhatsAppConnector(ChatPlatformConnector):
 
         return SendMessageResponse(success=False, error=error)
 
-    async def verify_webhook(  # type: ignore[override]
+    def verify_webhook(
+        self,
+        headers: dict[str, str],
+        body: bytes,
+    ) -> bool:
+        """
+        Verify webhook signature for POST requests.
+
+        WhatsApp uses X-Hub-Signature-256 header with HMAC-SHA256.
+
+        Args:
+            headers: HTTP headers from the webhook request
+            body: Raw request body
+
+        Returns:
+            True if signature is valid
+        """
+        if not self.signing_secret:
+            # No secret configured - skip verification
+            return True
+
+        signature = headers.get("X-Hub-Signature-256", headers.get("x-hub-signature-256", ""))
+        if not signature.startswith("sha256="):
+            logger.warning("Invalid WhatsApp webhook signature format")
+            return False
+
+        expected_sig = signature[7:]
+        computed_sig = hmac.new(
+            self.signing_secret.encode(),
+            body,
+            hashlib.sha256,
+        ).hexdigest()
+
+        if hmac.compare_digest(computed_sig, expected_sig):
+            return True
+
+        logger.warning("WhatsApp webhook signature mismatch")
+        return False
+
+    def verify_webhook_subscription(
         self,
         mode: str,
         token: str,
         challenge: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Verify webhook subscription (GET request).
+
+        This is WhatsApp-specific for initial webhook registration.
 
         Returns challenge if verification succeeds, None otherwise.
         """
@@ -901,15 +992,23 @@ class WhatsAppConnector(ChatPlatformConnector):
     # Abstract method implementations
     # ==========================================================================
 
-    def format_blocks(  # type: ignore[override]
+    def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[dict[str, Any]]] = None,
-        buttons: Optional[list[dict[str, Any]]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str]] | None = None,
+        actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
-        """Format content as WhatsApp-compatible blocks."""
+        """Format content as WhatsApp-compatible blocks.
+
+        Args:
+            title: Section title/header
+            body: Main text content
+            fields: List of (label, value) tuples for structured data
+            actions: List of interactive buttons
+            **kwargs: Additional arguments (ignored)
+        """
         blocks: list[dict[str, Any]] = []
 
         if title:
@@ -920,22 +1019,24 @@ class WhatsAppConnector(ChatPlatformConnector):
 
         if fields:
             for field in fields:
+                # Handle tuple format (label, value)
+                label, value = field
                 blocks.append(
                     {
                         "type": "field",
-                        "label": field.get("label", ""),
-                        "value": field.get("value", ""),
+                        "label": label,
+                        "value": value,
                     }
                 )
 
-        if buttons:
-            for btn in buttons:
+        if actions:
+            for btn in actions:
                 blocks.append(
                     {
                         "type": "button",
-                        "text": btn.get("text", "")[:20],  # WhatsApp limits to 20 chars
-                        "action_id": btn.get("action_id", ""),
-                        "value": btn.get("value", ""),
+                        "text": btn.text[:20],  # WhatsApp limits to 20 chars
+                        "action_id": btn.action_id,
+                        "value": btn.value or "",
                     }
                 )
 
@@ -945,9 +1046,9 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
-        style: Optional[str] = None,
-        url: Optional[str] = None,
+        value: str | None = None,
+        style: str | None = None,
+        url: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Format a button for WhatsApp interactive message."""
@@ -1036,7 +1137,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         ephemeral: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -1055,7 +1156,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -1068,6 +1169,5 @@ class WhatsAppConnector(ChatPlatformConnector):
                 **kwargs,
             )
         return SendMessageResponse(success=False, error="No channel for interaction response")
-
 
 __all__ = ["WhatsAppConnector"]

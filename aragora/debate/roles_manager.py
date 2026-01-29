@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class RolesManager:
     """
     Manages agent roles, stances, and agreement intensity.
@@ -262,7 +261,7 @@ Do not advocate - analyze impartially."""
             self.current_role_assignments = result.assignments
         return self.current_role_assignments
 
-    def update_role_assignments(self, round_num: int, debate_domain: Optional[str] = None) -> None:
+    def update_role_assignments(self, round_num: int, debate_domain: str | None = None) -> None:
         """Update cognitive role assignments for the current round.
 
         Uses role matcher if available (calibration-based), otherwise
@@ -361,6 +360,5 @@ Do not advocate - analyze impartially."""
                 summary[stance].append(agent.name)
 
         return summary
-
 
 __all__ = ["RolesManager"]

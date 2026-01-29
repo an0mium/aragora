@@ -15,12 +15,11 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 def cross_pollination_health(handler) -> HandlerResult:
     """Check health of cross-pollination feature integrations.
@@ -40,7 +39,7 @@ def cross_pollination_health(handler) -> HandlerResult:
     Returns:
         JSON response with cross-pollination health metrics
     """
-    features: Dict[str, Dict[str, Any]] = {}
+    features: dict[str, dict[str, Any]] = {}
     all_healthy = True
 
     # Check ELO system for skill weighting

@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from uuid import uuid4
 
 from aragora.billing.usage import (
@@ -39,12 +39,10 @@ except ImportError:
     def record_cost_usd(provider: str, model: str, agent_id: str, cost_usd: float) -> None:
         pass  # No-op if Prometheus not available
 
-
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
 
 logger = logging.getLogger(__name__)
-
 
 class BudgetAlertLevel(str, Enum):
     """Budget alert severity levels."""
@@ -53,7 +51,6 @@ class BudgetAlertLevel(str, Enum):
     WARNING = "warning"  # 75% of budget
     CRITICAL = "critical"  # 90% of budget
     EXCEEDED = "exceeded"  # Over budget
-
 
 class DebateBudgetExceededError(Exception):
     """Raised when a debate exceeds its cost budget."""
@@ -72,7 +69,6 @@ class DebateBudgetExceededError(Exception):
             message or f"Debate {debate_id} exceeded budget: ${current_cost:.4f} > ${limit:.4f}"
         )
 
-
 class CostGranularity(str, Enum):
     """Cost aggregation granularity."""
 
@@ -80,7 +76,6 @@ class CostGranularity(str, Enum):
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
-
 
 @dataclass
 class TokenUsage:
@@ -90,8 +85,8 @@ class TokenUsage:
     workspace_id: str = ""
     agent_id: str = ""
     agent_name: str = ""
-    debate_id: Optional[str] = None
-    session_id: Optional[str] = None
+    debate_id: str | None = None
+    session_id: str | None = None
 
     # Provider info
     provider: str = ""
@@ -111,7 +106,7 @@ class TokenUsage:
 
     # Additional metadata
     operation: str = ""  # e.g., "debate_round", "analysis", "summarization"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def calculate_cost(self) -> Decimal:
         """Calculate cost based on token usage."""
@@ -120,7 +115,7 @@ class TokenUsage:
         )
         return self.cost_usd
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -142,7 +137,7 @@ class TokenUsage:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TokenUsage:
+    def from_dict(cls, data: dict[str, Any]) -> TokenUsage:
         """Create from dictionary."""
         usage = cls(
             id=data.get("id", str(uuid4())),
@@ -168,21 +163,20 @@ class TokenUsage:
                 usage.timestamp = data["timestamp"]
         return usage
 
-
 @dataclass
 class Budget:
     """Budget configuration for a workspace or organization."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
     name: str = ""
-    workspace_id: Optional[str] = None
-    org_id: Optional[str] = None
+    workspace_id: str | None = None
+    org_id: str | None = None
 
     # Budget limits
-    monthly_limit_usd: Optional[Decimal] = None
-    daily_limit_usd: Optional[Decimal] = None
-    per_debate_limit_usd: Optional[Decimal] = None
-    per_agent_limit_usd: Optional[Decimal] = None
+    monthly_limit_usd: Decimal | None = None
+    daily_limit_usd: Decimal | None = None
+    per_debate_limit_usd: Decimal | None = None
+    per_agent_limit_usd: Decimal | None = None
 
     # Alert thresholds (as percentages)
     alert_threshold_50: bool = True
@@ -197,7 +191,7 @@ class Budget:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def check_alert_level(self) -> Optional[BudgetAlertLevel]:
+    def check_alert_level(self) -> BudgetAlertLevel | None:
         """Check if budget threshold is exceeded."""
         if self.monthly_limit_usd is None or self.monthly_limit_usd <= 0:
             return None
@@ -215,7 +209,7 @@ class Budget:
 
         return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -235,15 +229,14 @@ class Budget:
             "alert_level": self.check_alert_level().value if self.check_alert_level() else None,
         }
 
-
 @dataclass
 class BudgetAlert:
     """A budget alert event."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
     budget_id: str = ""
-    workspace_id: Optional[str] = None
-    org_id: Optional[str] = None
+    workspace_id: str | None = None
+    org_id: str | None = None
     level: BudgetAlertLevel = BudgetAlertLevel.INFO
     message: str = ""
     current_spend: Decimal = Decimal("0")
@@ -251,16 +244,15 @@ class BudgetAlert:
     percentage: float = 0.0
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     acknowledged: bool = False
-    acknowledged_at: Optional[datetime] = None
-    acknowledged_by: Optional[str] = None
-
+    acknowledged_at: datetime | None = None
+    acknowledged_by: str | None = None
 
 @dataclass
 class CostReport:
     """Aggregated cost report."""
 
-    workspace_id: Optional[str] = None
-    org_id: Optional[str] = None
+    workspace_id: str | None = None
+    org_id: str | None = None
     period_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     period_end: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     granularity: CostGranularity = CostGranularity.DAILY
@@ -272,13 +264,13 @@ class CostReport:
     total_api_calls: int = 0
 
     # Breakdowns
-    cost_by_agent: Dict[str, Decimal] = field(default_factory=dict)
-    cost_by_model: Dict[str, Decimal] = field(default_factory=dict)
-    cost_by_provider: Dict[str, Decimal] = field(default_factory=dict)
-    cost_by_operation: Dict[str, Decimal] = field(default_factory=dict)
+    cost_by_agent: dict[str, Decimal] = field(default_factory=dict)
+    cost_by_model: dict[str, Decimal] = field(default_factory=dict)
+    cost_by_provider: dict[str, Decimal] = field(default_factory=dict)
+    cost_by_operation: dict[str, Decimal] = field(default_factory=dict)
 
     # Time series
-    cost_over_time: List[Dict[str, Any]] = field(default_factory=list)
+    cost_over_time: list[dict[str, Any]] = field(default_factory=list)
 
     # Efficiency metrics
     avg_cost_per_call: Decimal = Decimal("0")
@@ -286,14 +278,14 @@ class CostReport:
     avg_latency_ms: float = 0.0
 
     # Top consumers
-    top_debates_by_cost: List[Dict[str, Any]] = field(default_factory=list)
-    top_agents_by_cost: List[Dict[str, Any]] = field(default_factory=list)
+    top_debates_by_cost: list[dict[str, Any]] = field(default_factory=list)
+    top_agents_by_cost: list[dict[str, Any]] = field(default_factory=list)
 
     # Projections
-    projected_monthly_cost: Optional[Decimal] = None
-    projected_daily_rate: Optional[Decimal] = None
+    projected_monthly_cost: Decimal | None = None
+    projected_daily_rate: Decimal | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "workspace_id": self.workspace_id,
@@ -323,9 +315,7 @@ class CostReport:
             ),
         }
 
-
 AlertCallback = Callable[[BudgetAlert], None]
-
 
 class CostTracker:
     """
@@ -340,7 +330,7 @@ class CostTracker:
 
     def __init__(
         self,
-        usage_tracker: Optional[UsageTracker] = None,
+        usage_tracker: UsageTracker | None = None,
         km_adapter: Optional["CostAdapter"] = None,
     ):
         """
@@ -354,24 +344,24 @@ class CostTracker:
         self._km_adapter = km_adapter
 
         # In-memory tracking for real-time updates
-        self._usage_buffer: List[TokenUsage] = []
+        self._usage_buffer: list[TokenUsage] = []
         self._buffer_lock = asyncio.Lock()
         self._buffer_max_size = 1000
 
         # Budget management
-        self._budgets: Dict[str, Budget] = {}  # budget_id -> Budget
-        self._workspace_budgets: Dict[str, str] = {}  # workspace_id -> budget_id
-        self._org_budgets: Dict[str, str] = {}  # org_id -> budget_id
+        self._budgets: dict[str, Budget] = {}  # budget_id -> Budget
+        self._workspace_budgets: dict[str, str] = {}  # workspace_id -> budget_id
+        self._org_budgets: dict[str, str] = {}  # org_id -> budget_id
         # Per-debate budget tracking
-        self._debate_costs: Dict[str, Decimal] = {}
-        self._debate_limits: Dict[str, Decimal] = {}
+        self._debate_costs: dict[str, Decimal] = {}
+        self._debate_limits: dict[str, Decimal] = {}
 
         # Alert management
-        self._alert_callbacks: List[AlertCallback] = []
-        self._sent_alerts: Set[str] = set()  # Deduplicate alerts
+        self._alert_callbacks: list[AlertCallback] = []
+        self._sent_alerts: set[str] = set()  # Deduplicate alerts
 
         # Aggregated stats (refreshed periodically)
-        self._workspace_stats: Dict[str, Dict[str, Any]] = defaultdict(
+        self._workspace_stats: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "total_cost": Decimal("0"),
                 "tokens_in": 0,
@@ -455,7 +445,7 @@ class CostTracker:
             f"cost=${usage.cost_usd:.6f} tokens={usage.tokens_in + usage.tokens_out}"
         )
 
-    async def record_batch(self, usages: List[TokenUsage]) -> None:
+    async def record_batch(self, usages: list[TokenUsage]) -> None:
         """Record multiple usage events."""
         for usage in usages:
             await self.record(usage)
@@ -561,9 +551,9 @@ class CostTracker:
 
     def get_budget(
         self,
-        workspace_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-    ) -> Optional[Budget]:
+        workspace_id: str | None = None,
+        org_id: str | None = None,
+    ) -> Budget | None:
         """Get budget for workspace or organization."""
         if workspace_id and workspace_id in self._workspace_budgets:
             return self._budgets.get(self._workspace_budgets[workspace_id])
@@ -589,7 +579,7 @@ class CostTracker:
         if callback in self._alert_callbacks:
             self._alert_callbacks.remove(callback)
 
-    def get_workspace_stats(self, workspace_id: str) -> Dict[str, Any]:
+    def get_workspace_stats(self, workspace_id: str) -> dict[str, Any]:
         """
         Get real-time cost stats for a workspace.
 
@@ -612,10 +602,10 @@ class CostTracker:
 
     async def generate_report(
         self,
-        workspace_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None,
+        workspace_id: str | None = None,
+        org_id: str | None = None,
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
         granularity: CostGranularity = CostGranularity.DAILY,
     ) -> CostReport:
         """
@@ -701,9 +691,9 @@ class CostTracker:
     async def get_agent_costs(
         self,
         workspace_id: str,
-        period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None,
-    ) -> Dict[str, Dict[str, Any]]:
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
+    ) -> dict[str, dict[str, Any]]:
         """
         Get cost breakdown by agent.
 
@@ -718,7 +708,7 @@ class CostTracker:
         stats = self._workspace_stats.get(workspace_id, {})
         by_agent = stats.get("by_agent", {})
 
-        result: Dict[str, Dict[str, Any]] = {}
+        result: dict[str, dict[str, Any]] = {}
         total_cost = stats.get("total_cost", Decimal("0"))
 
         for agent_name, cost in by_agent.items():
@@ -730,7 +720,7 @@ class CostTracker:
 
         return result
 
-    async def get_debate_cost(self, debate_id: str) -> Dict[str, Any]:
+    async def get_debate_cost(self, debate_id: str) -> dict[str, Any]:
         """
         Get total cost for a debate.
 
@@ -743,7 +733,7 @@ class CostTracker:
         total_cost = Decimal("0")
         total_tokens_in = 0
         total_tokens_out = 0
-        by_agent: Dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+        by_agent: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
         # Check buffer for recent debate data
         async with self._buffer_lock:
@@ -792,7 +782,7 @@ class CostTracker:
         self,
         debate_id: str,
         estimated_cost_usd: Decimal = Decimal("0"),
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check if a debate is within its budget.
 
@@ -844,7 +834,7 @@ class CostTracker:
         self,
         debate_id: str,
         cost_usd: Decimal,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Record cost against a debate's budget.
 
@@ -862,7 +852,7 @@ class CostTracker:
 
         return self.check_debate_budget(debate_id)
 
-    def get_debate_budget_status(self, debate_id: str) -> Dict[str, Any]:
+    def get_debate_budget_status(self, debate_id: str) -> dict[str, Any]:
         """
         Get the current budget status for a debate.
 
@@ -889,8 +879,8 @@ class CostTracker:
     def query_km_cost_patterns(
         self,
         workspace_id: str,
-        agent_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        agent_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Query Knowledge Mound for historical cost patterns.
 
@@ -915,7 +905,7 @@ class CostTracker:
         workspace_id: str,
         min_level: str = "warning",
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Query Knowledge Mound for historical budget alerts.
 
@@ -939,7 +929,7 @@ class CostTracker:
     async def detect_and_store_anomalies(
         self,
         workspace_id: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Detect cost anomalies and store them to Knowledge Mound.
 
@@ -1001,10 +991,8 @@ class CostTracker:
         # Reset workspace stats
         self._workspace_stats.clear()
 
-
 # Global cost tracker instance
-_cost_tracker: Optional[CostTracker] = None
-
+_cost_tracker: CostTracker | None = None
 
 def get_cost_tracker() -> CostTracker:
     """Get or create the global cost tracker.
@@ -1040,7 +1028,6 @@ def get_cost_tracker() -> CostTracker:
 
     return _cost_tracker
 
-
 async def record_usage(
     workspace_id: str,
     agent_name: str,
@@ -1048,10 +1035,10 @@ async def record_usage(
     model: str,
     tokens_in: int,
     tokens_out: int,
-    debate_id: Optional[str] = None,
+    debate_id: str | None = None,
     operation: str = "",
     latency_ms: float = 0.0,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> TokenUsage:
     """
     Convenience function to record token usage.
@@ -1088,7 +1075,6 @@ async def record_usage(
     await tracker.record(usage)
 
     return usage
-
 
 __all__ = [
     "CostTracker",

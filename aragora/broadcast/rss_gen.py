@@ -3,16 +3,15 @@ RSS/Podcast feed generator for aragora debates.
 
 Generates iTunes-compatible podcast feeds from debate audio broadcasts.
 """
+from __future__ import annotations
 
 import html
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
 from xml.sax.saxutils import escape
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class PodcastConfig:
@@ -35,7 +34,6 @@ class PodcastConfig:
         if not self.copyright:
             self.copyright = f"Copyright {datetime.now().year} Aragora"
 
-
 @dataclass
 class PodcastEpisode:
     """A single podcast episode (debate broadcast)."""
@@ -49,10 +47,9 @@ class PodcastEpisode:
     duration_seconds: int
     file_size_bytes: int = 0
     explicit: bool = False
-    episode_number: Optional[int] = None
-    season_number: Optional[int] = None
-    agents: List[str] = field(default_factory=list)
-
+    episode_number: int | None = None
+    season_number: int | None = None
+    agents: list[str] = field(default_factory=list)
 
 def _escape_xml(text: str) -> str:
     """Escape text for safe XML inclusion."""
@@ -60,13 +57,11 @@ def _escape_xml(text: str) -> str:
         return ""
     return escape(html.unescape(text))
 
-
 def _escape_cdata(text: str) -> str:
     """Escape text for CDATA sections (handle ]]> sequences)."""
     if not text:
         return ""
     return text.replace("]]>", "]]]]><![CDATA[>")
-
 
 def _format_rfc2822_date(iso_date: str) -> str:
     """Convert ISO date to RFC 2822 format for RSS."""
@@ -76,7 +71,6 @@ def _format_rfc2822_date(iso_date: str) -> str:
     except (ValueError, AttributeError):
         return datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
 
-
 def _format_duration(seconds: int) -> str:
     """Format duration as HH:MM:SS for iTunes."""
     if not seconds or seconds < 0:
@@ -85,7 +79,6 @@ def _format_duration(seconds: int) -> str:
     minutes = (seconds % 3600) // 60
     secs = seconds % 60
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-
 
 class PodcastFeedGenerator:
     """
@@ -105,7 +98,7 @@ class PodcastFeedGenerator:
         feed_xml = generator.generate_feed([episode])
     """
 
-    def __init__(self, config: Optional[PodcastConfig] = None):
+    def __init__(self, config: PodcastConfig | None = None):
         """Initialize with podcast configuration."""
         self.config = config or PodcastConfig()
 
@@ -113,13 +106,13 @@ class PodcastFeedGenerator:
         self,
         debate_id: str,
         task: str,
-        agents: List[str],
+        agents: list[str],
         audio_url: str,
         duration_seconds: int,
         file_size_bytes: int = 0,
-        created_at: Optional[str] = None,
+        created_at: str | None = None,
         consensus_reached: bool = False,
-        episode_number: Optional[int] = None,
+        episode_number: int | None = None,
     ) -> PodcastEpisode:
         """
         Create a podcast episode from debate metadata.
@@ -176,7 +169,7 @@ class PodcastFeedGenerator:
     def _create_description(
         self,
         task: str,
-        agents: List[str],
+        agents: list[str],
         consensus_reached: bool,
         max_length: int = 500,
     ) -> str:
@@ -197,7 +190,7 @@ class PodcastFeedGenerator:
     def _create_content(
         self,
         task: str,
-        agents: List[str],
+        agents: list[str],
         consensus_reached: bool,
         debate_id: str,
     ) -> str:
@@ -223,7 +216,7 @@ class PodcastFeedGenerator:
 
         return "\n".join(lines)
 
-    def generate_feed(self, episodes: List[PodcastEpisode]) -> str:
+    def generate_feed(self, episodes: list[PodcastEpisode]) -> str:
         """
         Generate complete RSS/podcast feed XML.
 
@@ -280,7 +273,7 @@ class PodcastFeedGenerator:
 
         return "\n".join(xml_parts)
 
-    def _generate_episode_xml(self, episode: PodcastEpisode) -> List[str]:
+    def _generate_episode_xml(self, episode: PodcastEpisode) -> list[str]:
         """Generate XML for a single episode."""
         pub_date = _format_rfc2822_date(episode.pub_date)
         duration = _format_duration(episode.duration_seconds)
@@ -316,10 +309,9 @@ class PodcastFeedGenerator:
 
         return lines
 
-
 def create_debate_summary(
     task: str,
-    agents: List[str],
+    agents: list[str],
     consensus_reached: bool = False,
     max_length: int = 280,
 ) -> str:

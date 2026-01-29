@@ -45,12 +45,11 @@ from dataclasses import fields, is_dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, ClassVar, Dict, Optional, Set, Type, TypeVar
+from typing import Any, ClassVar, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="ConnectorDataclass")
-
 
 def _serialize_value(value: Any) -> Any:
     """Recursively serialize a value for JSON/API export.
@@ -91,7 +90,6 @@ def _serialize_value(value: Any) -> Any:
     # Fallback: return as-is (str, int, float, bool, bytes)
     return value
 
-
 def _deserialize_value(value: Any, target_type: Any) -> Any:
     """Deserialize a value to a target type.
 
@@ -103,7 +101,7 @@ def _deserialize_value(value: Any, target_type: Any) -> Any:
     if value is None:
         return None
 
-    # Handle Optional[X] by extracting X
+    # Handle X | None by extracting X
     origin = getattr(target_type, "__origin__", None)
     if origin is type(None):  # noqa: E721
         return None
@@ -159,7 +157,6 @@ def _deserialize_value(value: Any, target_type: Any) -> Any:
 
     return value
 
-
 class ConnectorDataclass:
     """Base class for connector data models with unified serialization.
 
@@ -179,15 +176,15 @@ class ConnectorDataclass:
     """
 
     # Optional configuration - subclasses can override
-    _exclude_fields: ClassVar[Set[str]] = set()
-    _field_mapping: ClassVar[Dict[str, str]] = {}
+    _exclude_fields: ClassVar[set[str]] = set()
+    _field_mapping: ClassVar[dict[str, str]] = {}
     _include_none: ClassVar[bool] = False
 
     def to_dict(
         self,
-        exclude: Optional[Set[str]] = None,
+        exclude: Optional[set[str]] = None,
         use_api_names: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Serialize the model to a JSON-compatible dictionary.
 
         Args:
@@ -231,7 +228,7 @@ class ConnectorDataclass:
         return result
 
     @classmethod
-    def from_dict(cls: Type[T], data: Dict[str, Any], from_api: bool = False) -> T:
+    def from_dict(cls: type[T], data: dict[str, Any], from_api: bool = False) -> T:
         """Reconstruct a model instance from a dictionary.
 
         Args:
@@ -270,7 +267,7 @@ class ConnectorDataclass:
 
         return cls(**kwargs)
 
-    def to_api_dict(self) -> Dict[str, Any]:
+    def to_api_dict(self) -> dict[str, Any]:
         """Serialize using API field names (convenience method).
 
         Returns:
@@ -279,7 +276,7 @@ class ConnectorDataclass:
         return self.to_dict(use_api_names=True)
 
     @classmethod
-    def from_api_dict(cls: Type[T], data: Dict[str, Any]) -> T:
+    def from_api_dict(cls: type[T], data: dict[str, Any]) -> T:
         """Deserialize from API field names (convenience method).
 
         Args:
@@ -290,7 +287,7 @@ class ConnectorDataclass:
         """
         return cls.from_dict(data, from_api=True)
 
-    def update_from_dict(self, data: Dict[str, Any]) -> None:
+    def update_from_dict(self, data: dict[str, Any]) -> None:
         """Update the model's fields from a dictionary.
 
         Only updates fields that exist in the data and are not excluded.
@@ -320,6 +317,5 @@ class ConnectorDataclass:
             target_type = hints.get(f.name, Any)
             deserialized = _deserialize_value(value, target_type)
             setattr(self, f.name, deserialized)
-
 
 __all__ = ["ConnectorDataclass"]

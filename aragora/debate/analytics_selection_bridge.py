@@ -34,13 +34,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.analytics.dashboard import AnalyticsDashboard, AgentMetrics
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SelectionBoost:
@@ -54,15 +53,13 @@ class SelectionBoost:
     domain_expertise_component: float = 0.0
     confidence: float = 0.0  # Based on data quantity
 
-
 @dataclass
 class DomainExpertise:
     """Inferred domain expertise from finding distribution."""
 
     agent_name: str
     primary_domain: str
-    domain_scores: Dict[str, float] = field(default_factory=dict)
-
+    domain_scores: dict[str, float] = field(default_factory=dict)
 
 @dataclass
 class AnalyticsSelectionBridgeConfig:
@@ -92,7 +89,6 @@ class AnalyticsSelectionBridgeConfig:
     # Cache TTL for metrics (seconds)
     cache_ttl_seconds: int = 300
 
-
 @dataclass
 class AnalyticsSelectionBridge:
     """Bridges AnalyticsDashboard metrics into TeamSelector decisions.
@@ -108,11 +104,11 @@ class AnalyticsSelectionBridge:
     config: AnalyticsSelectionBridgeConfig = field(default_factory=AnalyticsSelectionBridgeConfig)
 
     # Cached metrics
-    _metrics_cache: Dict[str, "AgentMetrics"] = field(default_factory=dict, repr=False)
-    _cache_timestamp: Optional[datetime] = field(default=None, repr=False)
-    _domain_expertise_cache: Dict[str, DomainExpertise] = field(default_factory=dict, repr=False)
+    _metrics_cache: dict[str, "AgentMetrics"] = field(default_factory=dict, repr=False)
+    _cache_timestamp: datetime | None = field(default=None, repr=False)
+    _domain_expertise_cache: dict[str, DomainExpertise] = field(default_factory=dict, repr=False)
 
-    async def refresh_metrics(self, workspace_id: Optional[str] = None) -> int:
+    async def refresh_metrics(self, workspace_id: str | None = None) -> int:
         """Refresh agent metrics from dashboard.
 
         Args:
@@ -183,7 +179,7 @@ class AnalyticsSelectionBridge:
     def compute_selection_boost(
         self,
         agent_name: str,
-        target_domain: Optional[str] = None,
+        target_domain: str | None = None,
         time_sensitive: bool = False,
     ) -> SelectionBoost:
         """Compute selection boost for an agent based on analytics.
@@ -269,9 +265,9 @@ class AnalyticsSelectionBridge:
 
     def get_all_selection_boosts(
         self,
-        target_domain: Optional[str] = None,
+        target_domain: str | None = None,
         time_sensitive: bool = False,
-    ) -> Dict[str, SelectionBoost]:
+    ) -> dict[str, SelectionBoost]:
         """Get selection boosts for all tracked agents.
 
         Args:
@@ -286,7 +282,7 @@ class AnalyticsSelectionBridge:
             for agent_name in self._metrics_cache.keys()
         }
 
-    def rank_agents_by_domain(self, domain: str) -> List[str]:
+    def rank_agents_by_domain(self, domain: str) -> list[str]:
         """Rank agents by expertise in a specific domain.
 
         Args:
@@ -312,7 +308,7 @@ class AnalyticsSelectionBridge:
 
         return [agent for agent, _ in agents_with_scores]
 
-    def get_precision_leaders(self, top_n: int = 5) -> List[str]:
+    def get_precision_leaders(self, top_n: int = 5) -> list[str]:
         """Get agents with highest precision.
 
         Args:
@@ -329,7 +325,7 @@ class AnalyticsSelectionBridge:
 
         return [m.agent_name for m in sorted_agents[:top_n]]
 
-    def get_fastest_agents(self, top_n: int = 5) -> List[str]:
+    def get_fastest_agents(self, top_n: int = 5) -> list[str]:
         """Get agents with lowest response times.
 
         Args:
@@ -356,7 +352,7 @@ class AnalyticsSelectionBridge:
         """
         return self._metrics_cache.get(agent_name)
 
-    def get_domain_expertise(self, agent_name: str) -> Optional[DomainExpertise]:
+    def get_domain_expertise(self, agent_name: str) -> DomainExpertise | None:
         """Get inferred domain expertise for an agent.
 
         Args:
@@ -367,7 +363,7 @@ class AnalyticsSelectionBridge:
         """
         return self._domain_expertise_cache.get(agent_name)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.
 
         Returns:
@@ -383,7 +379,6 @@ class AnalyticsSelectionBridge:
             ),
             "agents_with_expertise": len(self._domain_expertise_cache),
         }
-
 
 def create_analytics_selection_bridge(
     analytics_dashboard: Optional["AnalyticsDashboard"] = None,
@@ -403,7 +398,6 @@ def create_analytics_selection_bridge(
         analytics_dashboard=analytics_dashboard,
         config=config,
     )
-
 
 __all__ = [
     "AnalyticsSelectionBridge",

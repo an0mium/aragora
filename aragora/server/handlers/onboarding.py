@@ -26,7 +26,7 @@ import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -38,11 +38,9 @@ from aragora.storage.repositories.onboarding import get_onboarding_repository
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Types and Constants
 # =============================================================================
-
 
 class OnboardingStep(str, Enum):
     """Onboarding steps in order."""
@@ -56,7 +54,6 @@ class OnboardingStep(str, Enum):
     RECEIPT_REVIEW = "receipt_review"
     COMPLETION = "completion"
 
-
 class UseCase(str, Enum):
     """Pre-defined use cases for personalized onboarding."""
 
@@ -69,7 +66,6 @@ class UseCase(str, Enum):
     COMPLIANCE = "compliance"
     GENERAL = "general"
 
-
 class QuickStartProfile(str, Enum):
     """Quick-start profiles for immediate value."""
 
@@ -80,7 +76,6 @@ class QuickStartProfile(str, Enum):
     COMPLIANCE = "compliance"
     SME = "sme"  # Small-Medium Enterprise focused profile
 
-
 @dataclass
 class StarterTemplate:
     """Template recommended for onboarding."""
@@ -88,14 +83,13 @@ class StarterTemplate:
     id: str
     name: str
     description: str
-    use_cases: List[str]
+    use_cases: list[str]
     agents_count: int
     rounds: int
     estimated_minutes: int
     example_prompt: str
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     difficulty: str = "beginner"
-
 
 @dataclass
 class OnboardingState:
@@ -103,31 +97,29 @@ class OnboardingState:
 
     id: str
     user_id: str
-    organization_id: Optional[str]
+    organization_id: str | None
     current_step: OnboardingStep
-    completed_steps: List[str]
-    use_case: Optional[str]
-    selected_template_id: Optional[str]
-    first_debate_id: Optional[str]
-    quick_start_profile: Optional[str]
-    team_invites: List[Dict[str, str]]
+    completed_steps: list[str]
+    use_case: str | None
+    selected_template_id: str | None
+    first_debate_id: str | None
+    quick_start_profile: str | None
+    team_invites: list[dict[str, str]]
     started_at: str
     updated_at: str
-    completed_at: Optional[str]
+    completed_at: str | None
     skipped: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 # =============================================================================
 # In-Memory Storage (Replace with DB in production)
 # =============================================================================
 
-_onboarding_flows: Dict[str, OnboardingState] = {}
+_onboarding_flows: dict[str, OnboardingState] = {}
 _onboarding_lock = threading.Lock()
 
-_analytics_events: List[Dict[str, Any]] = []
+_analytics_events: list[dict[str, Any]] = []
 _analytics_lock = threading.Lock()
-
 
 def _sync_flow_to_repo(flow: OnboardingState) -> None:
     """Sync flow state to persistent repository."""
@@ -153,7 +145,6 @@ def _sync_flow_to_repo(flow: OnboardingState) -> None:
     except Exception as e:
         logger.warning(f"Failed to sync flow to repository: {e}")
 
-
 # =============================================================================
 # Starter Templates
 # =============================================================================
@@ -163,7 +154,7 @@ ONBOARDING_FAST_ROUNDS = 3
 ONBOARDING_QUICK_ROUNDS = 2
 ONBOARDING_DEEP_ROUNDS = 4
 
-STARTER_TEMPLATES: List[StarterTemplate] = [
+STARTER_TEMPLATES: list[StarterTemplate] = [
     StarterTemplate(
         id="arch_review_starter",
         name="Architecture Review",
@@ -347,8 +338,7 @@ STARTER_TEMPLATES: List[StarterTemplate] = [
     ),
 ]
 
-
-QUICK_START_CONFIGS: Dict[str, Dict[str, Any]] = {
+QUICK_START_CONFIGS: dict[str, dict[str, Any]] = {
     QuickStartProfile.DEVELOPER.value: {
         "default_template": "arch_review_starter",
         "suggested_templates": [
@@ -412,13 +402,11 @@ QUICK_START_CONFIGS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-
 # =============================================================================
 # Helper Functions
 # =============================================================================
 
-
-def _get_step_order() -> List[OnboardingStep]:
+def _get_step_order() -> list[OnboardingStep]:
     """Get ordered list of onboarding steps."""
     return [
         OnboardingStep.WELCOME,
@@ -431,15 +419,13 @@ def _get_step_order() -> List[OnboardingStep]:
         OnboardingStep.COMPLETION,
     ]
 
-
 def _get_next_step(current: OnboardingStep) -> OnboardingStep:
     """Get next step in onboarding flow."""
     steps = _get_step_order()
     idx = steps.index(current)
     return steps[min(idx + 1, len(steps) - 1)]
 
-
-def _get_recommended_templates(use_case: Optional[str]) -> List[StarterTemplate]:
+def _get_recommended_templates(use_case: str | None) -> list[StarterTemplate]:
     """Get templates recommended for a use case."""
     if not use_case:
         return STARTER_TEMPLATES[:3]
@@ -450,12 +436,11 @@ def _get_recommended_templates(use_case: Optional[str]) -> List[StarterTemplate]
 
     return (matching + others)[:5]
 
-
 def _track_event(
     event_type: str,
     user_id: str,
-    organization_id: Optional[str],
-    data: Dict[str, Any],
+    organization_id: str | None,
+    data: dict[str, Any],
 ):
     """Track onboarding analytics event."""
     with _analytics_lock:
@@ -472,16 +457,14 @@ def _track_event(
         if len(_analytics_events) > 10000:
             _analytics_events.pop(0)
 
-
 # =============================================================================
 # Handlers
 # =============================================================================
 
-
 @require_permission("onboarding:read")
 async def handle_get_flow(
     user_id: str = "default",
-    organization_id: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> HandlerResult:
     """
     Get current onboarding flow state.
@@ -559,12 +542,11 @@ async def handle_get_flow(
         logger.exception("Failed to get onboarding flow")
         return error_response(f"Failed to get flow: {str(e)}", status=500)
 
-
 @require_permission("onboarding:create")
 async def handle_init_flow(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-    organization_id: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> HandlerResult:
     """
     Initialize a new onboarding flow.
@@ -664,12 +646,11 @@ async def handle_init_flow(
         logger.exception("Failed to initialize onboarding")
         return error_response(f"Failed to initialize: {str(e)}", status=500)
 
-
 @require_permission("onboarding:update")
 async def handle_update_step(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-    organization_id: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> HandlerResult:
     """
     Update onboarding step progress.
@@ -781,12 +762,11 @@ async def handle_update_step(
         logger.exception("Failed to update step")
         return error_response(f"Failed to update: {str(e)}", status=500)
 
-
 @require_permission("onboarding:read")
 async def handle_get_templates(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-    organization_id: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> HandlerResult:
     """
     Get recommended starter templates.
@@ -825,12 +805,11 @@ async def handle_get_templates(
         logger.exception("Failed to get templates")
         return error_response(f"Failed to get templates: {str(e)}", status=500)
 
-
 @require_permission("debates:create")
 async def handle_first_debate(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-    organization_id: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> HandlerResult:
     """
     Start a guided first debate.
@@ -919,12 +898,11 @@ async def handle_first_debate(
         logger.exception("Failed to start first debate")
         return error_response(f"Failed to start debate: {str(e)}", status=500)
 
-
 @require_permission("debates:create")
 async def handle_quick_debate(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-    organization_id: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> HandlerResult:
     """
     One-click quick debate creation for onboarding.
@@ -1037,12 +1015,11 @@ async def handle_quick_debate(
         logger.exception("Failed to start quick debate")
         return error_response(f"Failed to start quick debate: {str(e)}", status=500)
 
-
 @require_permission("onboarding:create")
 async def handle_quick_start(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-    organization_id: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> HandlerResult:
     """
     Apply quick-start configuration for immediate value.
@@ -1153,12 +1130,11 @@ async def handle_quick_start(
         logger.exception("Failed to apply quick-start")
         return error_response(f"Failed to apply quick-start: {str(e)}", status=500)
 
-
 @require_permission("analytics:read")
 async def handle_analytics(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-    organization_id: Optional[str] = None,
+    organization_id: str | None = None,
 ) -> HandlerResult:
     """
     Get onboarding funnel analytics.
@@ -1187,7 +1163,7 @@ async def handle_analytics(
         )
 
         # Get step completion counts
-        step_counts: Dict[str, int] = {}
+        step_counts: dict[str, int] = {}
         for step in _get_step_order():
             step_counts[step.value] = len(
                 [
@@ -1219,13 +1195,11 @@ async def handle_analytics(
         logger.exception("Failed to get analytics")
         return error_response(f"Failed to get analytics: {str(e)}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-
-def get_onboarding_handlers() -> Dict[str, Any]:
+def get_onboarding_handlers() -> dict[str, Any]:
     """Get all onboarding handlers for registration."""
     return {
         "get_flow": handle_get_flow,
@@ -1237,7 +1211,6 @@ def get_onboarding_handlers() -> Dict[str, Any]:
         "quick_debate": handle_quick_debate,
         "analytics": handle_analytics,
     }
-
 
 class OnboardingHandler:
     """Handler class for onboarding endpoints (for handler registry)."""
@@ -1251,7 +1224,7 @@ class OnboardingHandler:
         "/api/onboarding/analytics",
     ]
 
-    def __init__(self, ctx: Optional[Dict[str, Any]] = None):
+    def __init__(self, ctx: Optional[dict[str, Any]] = None):
         """Initialize handler with server context."""
         self.ctx = ctx or {}
 
@@ -1269,10 +1242,10 @@ class OnboardingHandler:
         self,
         path: str,
         method: str,
-        data: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, Any]] = None,
+        data: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, Any]] = None,
         user_id: str = "default",
-        organization_id: Optional[str] = None,
+        organization_id: str | None = None,
     ) -> HandlerResult:
         """Route request to appropriate handler function."""
         # Normalize path
@@ -1311,7 +1284,6 @@ class OnboardingHandler:
             return await handle_analytics(query_params, user_id, organization_id)
 
         return error_response(f"Unknown onboarding endpoint: {path}", status=404)
-
 
 __all__ = [
     "handle_get_flow",

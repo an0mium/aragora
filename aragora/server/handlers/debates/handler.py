@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import importlib
 import logging
-from typing import Optional
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.exceptions import (
@@ -72,7 +71,6 @@ from .search import SearchOperationsMixin
 from ..utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
-
 
 class DebatesHandler(
     AnalysisOperationsMixin,
@@ -157,7 +155,7 @@ class DebatesHandler(
         ("/trickster", "_get_trickster_status", True, None),
     ]
 
-    def _check_auth(self, handler) -> Optional[HandlerResult]:
+    def _check_auth(self, handler) -> HandlerResult | None:
         """Check authentication for sensitive endpoints.
 
         Supports both:
@@ -235,7 +233,7 @@ class DebatesHandler(
 
     def _check_artifact_access(
         self, debate_id: str, suffix: str, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Check access to artifact endpoints.
 
         Returns None if access allowed, 401 error if auth required but missing.
@@ -260,7 +258,7 @@ class DebatesHandler(
 
     def _dispatch_suffix_route(
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Dispatch routes based on path suffix using SUFFIX_ROUTES table.
 
         Returns:
@@ -333,7 +331,7 @@ class DebatesHandler(
         return False
 
     @require_permission("debates:read")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route debate requests to appropriate handler methods.
 
         Note: Paths may be normalized (version stripped) by handler_registry,
@@ -433,7 +431,7 @@ class DebatesHandler(
 
         return None
 
-    def _extract_debate_id(self, path: str) -> tuple[Optional[str], Optional[str]]:
+    def _extract_debate_id(self, path: str) -> tuple[str | None, str | None]:
         """Extract and validate debate ID from path like /api/debates/{id}/impasse.
 
         Handles both versioned (/api/v1/debates/{id}) and unversioned (/api/debates/{id}) paths.
@@ -458,7 +456,7 @@ class DebatesHandler(
     @handle_errors("batch export")
     def _handle_batch_export(
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route batch export requests to appropriate methods."""
         from aragora.server.http_utils import run_async
 
@@ -517,7 +515,7 @@ class DebatesHandler(
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_DEBATES_LIST, key_prefix="debates_list", skip_first=True)
     @handle_errors("list debates")
-    def _list_debates(self, limit: int, org_id: Optional[str] = None) -> HandlerResult:
+    def _list_debates(self, limit: int, org_id: str | None = None) -> HandlerResult:
         """List recent debates, optionally filtered by organization.
 
         Args:
@@ -928,7 +926,7 @@ class DebatesHandler(
             return error_response("Database error retrieving messages", 500)
 
     @require_permission("debates:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         # Create debate endpoint - both legacy and RESTful
         # POST /api/debates (canonical) or POST /api/debate (legacy, deprecated)
@@ -1228,7 +1226,7 @@ class DebatesHandler(
         )
 
     @require_permission("debates:update")
-    def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_patch(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route PATCH requests to appropriate methods."""
         # Handle /api/debates/{id} pattern for updates
         if path.startswith("/api/v1/debates/") and path.count("/") == 4:
@@ -1363,7 +1361,7 @@ class DebatesHandler(
             logger.warning("Invalid update request for %s: %s", debate_id, e)
             return error_response(f"Invalid update data: {e}", 400)
 
-    def _check_spam_content(self, body: dict) -> Optional[HandlerResult]:
+    def _check_spam_content(self, body: dict) -> HandlerResult | None:
         """
         Check debate input content for spam.
 

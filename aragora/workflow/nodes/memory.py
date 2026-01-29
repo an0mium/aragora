@@ -9,12 +9,11 @@ Provides workflow steps for reading and writing to the Knowledge Mound:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
-
 
 class MemoryReadStep(BaseStep):
     """
@@ -23,7 +22,7 @@ class MemoryReadStep(BaseStep):
     Config options:
         query: str - Query string (can use {input} placeholders)
         query_type: str - "semantic", "keyword", or "hybrid" (default: "hybrid")
-        sources: List[str] - Source types to query (e.g., ["fact", "consensus"])
+        sources: list[str] - Source types to query (e.g., ["fact", "consensus"])
         domain_filter: str - Domain to filter by (e.g., "legal/contracts")
         min_confidence: float - Minimum confidence threshold
         limit: int - Maximum results to return (default: 10)
@@ -43,7 +42,7 @@ class MemoryReadStep(BaseStep):
         )
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -128,7 +127,6 @@ class MemoryReadStep(BaseStep):
 
         return query
 
-
 class MemoryWriteStep(BaseStep):
     """
     Memory write step for storing knowledge in the Knowledge Mound.
@@ -139,7 +137,7 @@ class MemoryWriteStep(BaseStep):
         domain: str - Domain path (e.g., "legal/contracts")
         confidence: float - Confidence score (default: 0.5)
         importance: float - Importance score (default: 0.5)
-        relationships: List[dict] - Relationships to create
+        relationships: list[dict] - Relationships to create
             [{type: "supports", target: "km_123"}, ...]
         tenant_id: str - Tenant for multi-tenant isolation
         deduplicate: bool - Check for duplicates (default: True)
@@ -160,7 +158,7 @@ class MemoryWriteStep(BaseStep):
         )
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:

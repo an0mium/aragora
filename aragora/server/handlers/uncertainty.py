@@ -14,7 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
@@ -28,7 +28,6 @@ from .base import (
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
 
 class UncertaintyHandler(BaseHandler):
     """Handler for uncertainty estimation endpoints."""
@@ -50,7 +49,7 @@ class UncertaintyHandler(BaseHandler):
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
@@ -90,7 +89,7 @@ class UncertaintyHandler(BaseHandler):
 
         return None
 
-    def _get_estimator(self) -> Optional[Any]:
+    def _get_estimator(self) -> Any | None:
         """Get the ConfidenceEstimator instance."""
         try:
             from aragora.uncertainty.estimator import ConfidenceEstimator
@@ -104,7 +103,7 @@ class UncertaintyHandler(BaseHandler):
             logger.warning("Uncertainty module not available")
             return None
 
-    def _get_analyzer(self) -> Optional[Any]:
+    def _get_analyzer(self) -> Any | None:
         """Get the DisagreementAnalyzer instance."""
         try:
             from aragora.uncertainty.estimator import DisagreementAnalyzer
@@ -297,13 +296,13 @@ class UncertaintyHandler(BaseHandler):
             calibration_quality = estimator.get_agent_calibration_quality(agent_id)
 
             # Get confidence history if available
-            confidence_history: List[Dict[str, Any]] = []
+            confidence_history: list[dict[str, Any]] = []
             if agent_id in estimator.agent_confidences:
                 for score in estimator.agent_confidences[agent_id][-10:]:  # Last 10
                     confidence_history.append(score.to_dict())
 
             # Get calibration history if available
-            calibration_history: List[Dict[str, Any]] = []
+            calibration_history: list[dict[str, Any]] = []
             if agent_id in estimator.calibration_history:
                 for confidence, was_correct in estimator.calibration_history[agent_id][-10:]:
                     calibration_history.append(

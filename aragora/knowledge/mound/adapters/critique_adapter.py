@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.store import CritiqueStore, Pattern, AgentReputation
@@ -24,11 +24,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # ============================================================================
 # Reverse Flow Dataclasses (KM → CritiqueStore)
 # ============================================================================
-
 
 @dataclass
 class KMPatternBoost:
@@ -37,10 +35,9 @@ class KMPatternBoost:
     pattern_id: str
     boost_amount: int = 0  # Additional success count
     km_confidence: float = 0.7
-    source_debates: List[str] = field(default_factory=list)
+    source_debates: list[str] = field(default_factory=list)
     was_applied: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMReputationAdjustment:
@@ -51,8 +48,7 @@ class KMReputationAdjustment:
     pattern_contributions: int = 0  # Patterns the agent contributed
     km_confidence: float = 0.7
     recommendation: str = "keep"  # "boost", "penalize", "keep"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMPatternValidation:
@@ -64,8 +60,7 @@ class KMPatternValidation:
     outcome_success_rate: float = 0.0
     recommendation: str = "keep"  # "boost", "archive", "keep"
     boost_amount: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class CritiqueKMSyncResult:
@@ -75,9 +70,8 @@ class CritiqueKMSyncResult:
     patterns_boosted: int = 0
     agents_analyzed: int = 0
     reputation_adjustments: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: float = 0.0
-
 
 @dataclass
 class CritiqueSearchResult:
@@ -86,7 +80,6 @@ class CritiqueSearchResult:
     pattern: "Pattern"
     relevance_score: float = 0.0
     matched_category: bool = False
-
 
 class CritiqueAdapter:
     """
@@ -135,9 +128,9 @@ class CritiqueAdapter:
         self,
         query: str,
         limit: int = 10,
-        issue_type: Optional[str] = None,
+        issue_type: str | None = None,
         min_success: int = 1,
-    ) -> List["Pattern"]:
+    ) -> list["Pattern"]:
         """
         Search critique patterns by query.
 
@@ -267,7 +260,7 @@ class CritiqueAdapter:
             content += f"\n\nSuggestion: {pattern.suggestion_text}"
 
         # Build metadata
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "issue_type": pattern.issue_type,
             "success_count": pattern.success_count,
             "failure_count": pattern.failure_count,
@@ -309,7 +302,7 @@ class CritiqueAdapter:
     def get_top_agents(
         self,
         limit: int = 10,
-    ) -> List["AgentReputation"]:
+    ) -> list["AgentReputation"]:
         """
         Get top agents by reputation.
 
@@ -325,8 +318,8 @@ class CritiqueAdapter:
 
     def get_agent_vote_weights(
         self,
-        agent_names: List[str],
-    ) -> Dict[str, float]:
+        agent_names: list[str],
+    ) -> dict[str, float]:
         """
         Get vote weights for multiple agents.
 
@@ -345,7 +338,7 @@ class CritiqueAdapter:
         self,
         issue_type: str,
         limit: int = 20,
-    ) -> List["Pattern"]:
+    ) -> list["Pattern"]:
         """
         Get patterns for a specific issue type.
 
@@ -365,7 +358,7 @@ class CritiqueAdapter:
     def get_surprising_patterns(
         self,
         limit: int = 10,
-    ) -> List["Pattern"]:
+    ) -> list["Pattern"]:
         """
         Get patterns with high surprise scores.
 
@@ -385,11 +378,11 @@ class CritiqueAdapter:
         # but we can re-sort to prioritize pure surprise
         return patterns[:limit]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about the critique store."""
         return self._store.get_stats()
 
-    def get_archive_stats(self) -> Dict[str, Any]:
+    def get_archive_stats(self) -> dict[str, Any]:
         """Get statistics about archived patterns."""
         return self._store.get_archive_stats()
 
@@ -404,9 +397,9 @@ class CritiqueAdapter:
         if not hasattr(self, "_km_reputation_adjustments"):
             self._km_reputation_adjustments = 0
         if not hasattr(self, "_km_validations"):
-            self._km_validations: List[KMPatternValidation] = []
+            self._km_validations: list[KMPatternValidation] = []
         if not hasattr(self, "_pattern_usage"):
-            self._pattern_usage: Dict[str, List[Dict[str, Any]]] = {}
+            self._pattern_usage: dict[str, list[dict[str, Any]]] = {}
 
     def record_pattern_usage(
         self,
@@ -443,7 +436,7 @@ class CritiqueAdapter:
     async def validate_pattern_from_km(
         self,
         pattern_id: str,
-        km_cross_references: List[Dict[str, Any]],
+        km_cross_references: list[dict[str, Any]],
     ) -> KMPatternValidation:
         """
         Validate a critique pattern based on KM cross-references.
@@ -579,7 +572,7 @@ class CritiqueAdapter:
     async def compute_reputation_adjustment(
         self,
         agent_name: str,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
     ) -> KMReputationAdjustment:
         """
         Compute a reputation adjustment for an agent based on KM patterns.
@@ -705,7 +698,7 @@ class CritiqueAdapter:
 
     async def sync_validations_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
     ) -> CritiqueKMSyncResult:
         """
@@ -727,7 +720,7 @@ class CritiqueAdapter:
         errors = []
 
         # Group items by pattern_id
-        items_by_pattern: Dict[str, List[Dict[str, Any]]] = {}
+        items_by_pattern: dict[str, list[dict[str, Any]]] = {}
         agents_seen = set()
 
         for item in km_items:
@@ -781,7 +774,7 @@ class CritiqueAdapter:
 
         return result
 
-    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+    def get_reverse_flow_stats(self) -> dict[str, Any]:
         """Get statistics about reverse flow operations."""
         self.__init_reverse_flow_state()
 
@@ -799,7 +792,6 @@ class CritiqueAdapter:
         self._km_reputation_adjustments = 0
         self._km_validations = []
         self._pattern_usage = {}
-
 
 __all__ = [
     "CritiqueAdapter",

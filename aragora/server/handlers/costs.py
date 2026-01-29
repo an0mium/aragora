@@ -24,7 +24,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aiohttp import web
 
@@ -32,11 +32,9 @@ from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 @dataclass
 class CostEntry:
@@ -50,8 +48,7 @@ class CostEntry:
     cost: float
     model: str
     workspace_id: str
-    user_id: Optional[str] = None
-
+    user_id: str | None = None
 
 @dataclass
 class BudgetAlert:
@@ -64,7 +61,6 @@ class BudgetAlert:
     timestamp: datetime
     acknowledged: bool = False
 
-
 @dataclass
 class CostSummary:
     """Cost summary data."""
@@ -74,18 +70,16 @@ class CostSummary:
     tokens_used: int
     api_calls: int
     last_updated: datetime
-    cost_by_provider: List[Dict[str, Any]] = field(default_factory=list)
-    cost_by_feature: List[Dict[str, Any]] = field(default_factory=list)
-    daily_costs: List[Dict[str, Any]] = field(default_factory=list)
-    alerts: List[Dict[str, Any]] = field(default_factory=list)
-
+    cost_by_provider: list[dict[str, Any]] = field(default_factory=list)
+    cost_by_feature: list[dict[str, Any]] = field(default_factory=list)
+    daily_costs: list[dict[str, Any]] = field(default_factory=list)
+    alerts: list[dict[str, Any]] = field(default_factory=list)
 
 # =============================================================================
 # CostTracker Integration (replaces in-memory storage)
 # =============================================================================
 
 _cost_tracker = None
-
 
 def _get_cost_tracker():
     """Get or create the cost tracker instance."""
@@ -101,7 +95,6 @@ def _get_cost_tracker():
             _cost_tracker = None
     return _cost_tracker
 
-
 def record_cost(
     provider: str,
     feature: str,
@@ -110,7 +103,7 @@ def record_cost(
     cost: float,
     model: str,
     workspace_id: str = "default",
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ) -> None:
     """Record a cost entry via CostTracker."""
     tracker = _get_cost_tracker()
@@ -145,11 +138,9 @@ def record_cost(
     else:
         logger.debug("[CostHandler] CostTracker not available, cost not persisted")
 
-
 # =============================================================================
 # API Handlers
 # =============================================================================
-
 
 async def get_cost_summary(
     workspace_id: str = "default",
@@ -255,8 +246,7 @@ async def get_cost_summary(
     # Fallback to mock data if no tracker
     return _generate_mock_summary(time_range)
 
-
-def _get_active_alerts(tracker, workspace_id: str) -> List[Dict[str, Any]]:
+def _get_active_alerts(tracker, workspace_id: str) -> list[dict[str, Any]]:
     """Get active budget alerts from tracker."""
     alerts = []
     try:
@@ -290,7 +280,6 @@ def _get_active_alerts(tracker, workspace_id: str) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.debug(f"[CostHandler] Could not get alerts: {e}")
     return alerts
-
 
 def _generate_mock_summary(time_range: str) -> CostSummary:
     """Generate mock data for demo."""
@@ -353,11 +342,9 @@ def _generate_mock_summary(time_range: str) -> CostSummary:
         ],
     )
 
-
 # =============================================================================
 # HTTP Handler Class
 # =============================================================================
-
 
 class CostHandler:
     """Handler for cost visibility API endpoints."""
@@ -855,7 +842,6 @@ class CostHandler:
         except Exception as e:
             logger.exception(f"Failed to simulate forecast: {e}")
             return web.json_response({"error": str(e)}, status=500)
-
 
 def register_routes(app: web.Application) -> None:
     """Register cost visibility routes."""

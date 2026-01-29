@@ -17,7 +17,6 @@ AgentRole = Literal[
 ]
 AgentStance = Literal["affirmative", "negative", "neutral"]
 
-
 class TaskComplexity(Enum):
     """Classification of task complexity for timeout scaling.
 
@@ -29,7 +28,6 @@ class TaskComplexity(Enum):
     MODERATE = "moderate"  # Standard design/analysis tasks
     COMPLEX = "complex"  # Deep reasoning, multi-step problems, formal proofs
     UNKNOWN = "unknown"  # Fallback when classification is uncertain
-
 
 @dataclass
 class Message:
@@ -43,7 +41,6 @@ class Message:
 
     def __str__(self) -> str:
         return f"[{self.role}:{self.agent}] {self.content[:100]}..."
-
 
 @dataclass
 class Critique:
@@ -78,7 +75,6 @@ Suggestions:
 {suggestions_str}
 Reasoning: {self.reasoning}"""
 
-
 @dataclass
 class Vote:
     """A vote for a proposal."""
@@ -88,7 +84,6 @@ class Vote:
     reasoning: str
     confidence: float = 1.0  # 0-1, default to full confidence
     continue_debate: bool = True  # Whether agent thinks debate should continue
-
 
 @dataclass
 class DisagreementReport:
@@ -140,7 +135,6 @@ class DisagreementReport:
 
         return "\n".join(lines)
 
-
 @dataclass
 class DebateResult:
     """The result of a multi-agent debate."""
@@ -164,7 +158,7 @@ class DebateResult:
     winning_patterns: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     duration_seconds: float = 0.0
-    winner: Optional[str] = None  # Winning agent name (set after consensus)
+    winner: str | None = None  # Winning agent name (set after consensus)
     # Convergence detection results
     convergence_status: str = ""  # "converged", "refining", "diverging", ""
     convergence_similarity: float = 0.0  # Average similarity at end
@@ -175,7 +169,7 @@ class DebateResult:
     # Disagreement surfacing (Heavy3-inspired)
     disagreement_report: Optional["DisagreementReport"] = None
     # Evidence grounding (Heavy3-inspired)
-    grounded_verdict: Optional[Any] = None  # GroundedVerdict from aragora.reasoning.citations
+    grounded_verdict: Any | None = None  # GroundedVerdict from aragora.reasoning.citations
     # Belief network analysis - identifies key claims that drive disagreement
     debate_cruxes: list[dict[str, Any]] = field(
         default_factory=list
@@ -196,18 +190,18 @@ class DebateResult:
     )  # Agent -> novelty by round
     avg_novelty: float = 1.0  # Average novelty (1.0 = fresh ideas, 0.0 = repetitive)
     # Formal verification result (from Lean4/Z3)
-    formal_verification: Optional[dict[str, Any]] = None  # FormalProofResult.to_dict()
+    formal_verification: dict[str, Any] | None = None  # FormalProofResult.to_dict()
     # Export download links (populated after debate completion for aragora.ai)
-    export_links: Optional[dict[str, str]] = None  # Format -> URL mapping
+    export_links: dict[str, str] | None = None  # Format -> URL mapping
     # Final synthesis from Claude Opus 4.5 (1200-word comprehensive summary)
     synthesis: str = ""
     # Cost/usage data (populated by extensions if cost tracking enabled)
     total_cost_usd: float = 0.0
     total_tokens: int = 0
     per_agent_cost: dict[str, float] = field(default_factory=dict)
-    budget_limit_usd: Optional[float] = None
+    budget_limit_usd: float | None = None
     # Bead tracking - links debate decision to git-backed work unit
-    bead_id: Optional[str] = None
+    bead_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.debate_id:
@@ -298,7 +292,6 @@ Final Answer:
 
         return base
 
-
 @dataclass
 class Environment:
     """Defines a task environment for debate."""
@@ -324,7 +317,6 @@ class Environment:
             raise ValueError(f"Task exceeds maximum length of {self.MAX_TASK_LENGTH} characters")
         if "\x00" in self.task:
             raise ValueError("Task contains invalid null bytes")
-
 
 @dataclass
 class ToolManifest:
@@ -369,7 +361,6 @@ class ToolManifest:
         """Get configuration for a specific tool."""
         return self.tool_configs.get(tool_name, {})
 
-
 class Agent(ABC):
     """Abstract base class for all agents.
 
@@ -388,7 +379,7 @@ class Agent(ABC):
     system_prompt: str
     agent_type: str
     stance: AgentStance
-    tool_manifest: Optional[ToolManifest]
+    tool_manifest: ToolManifest | None
 
     def __init__(self, name: str, model: str, role: AgentRole = "proposer"):
         self.name = name
@@ -403,7 +394,7 @@ class Agent(ABC):
         # - Neutral: Evaluate fairly without bias
         self.stance: AgentStance = "neutral"
         # Tool manifest for controlling which tools the agent can use
-        self.tool_manifest: Optional[ToolManifest] = None
+        self.tool_manifest: ToolManifest | None = None
 
     @abstractmethod
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
@@ -497,14 +488,12 @@ REASONING: <brief explanation>"""
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, model={self.model}, role={self.role})"
 
-
 def __getattr__(name: str) -> Any:
     if name == "DebateProtocol":
         from aragora.debate.protocol import DebateProtocol
 
         return DebateProtocol
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 def __dir__() -> list[str]:
     return sorted(list(globals().keys()) + ["DebateProtocol"])

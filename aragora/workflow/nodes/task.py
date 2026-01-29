@@ -12,28 +12,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
-
 # Registry of task handlers
-_task_handlers: Dict[str, Callable] = {}
-
+_task_handlers: dict[str, Callable] = {}
 
 def register_task_handler(name: str, handler: Callable) -> None:
     """Register a task handler function."""
     _task_handlers[name] = handler
     logger.debug(f"Registered task handler: {name}")
 
-
-def get_task_handler(name: str) -> Optional[Callable]:
+def get_task_handler(name: str) -> Callable | None:
     """Get a registered task handler."""
     return _task_handlers.get(name)
-
 
 class TaskStep(BaseStep):
     """
@@ -48,7 +44,7 @@ class TaskStep(BaseStep):
         body: dict - HTTP request body (can use {placeholder} syntax)
         transform: str - Python expression for data transformation
         validation: dict - Validation rules
-        inputs: List[str] - Input step IDs to aggregate
+        inputs: list[str] - Input step IDs to aggregate
         output_format: str - Format of output (json, text, list)
 
     Task Types:
@@ -82,7 +78,7 @@ class TaskStep(BaseStep):
         )
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -108,7 +104,7 @@ class TaskStep(BaseStep):
             logger.error(f"Task execution failed: {e}")
             return {"success": False, "error": str(e)}
 
-    async def _execute_function(self, config: Dict[str, Any], context: WorkflowContext) -> Any:
+    async def _execute_function(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Execute a registered function handler."""
         handler_name = config.get("handler", "")
         handler = get_task_handler(handler_name)
@@ -127,7 +123,7 @@ class TaskStep(BaseStep):
 
         return {"success": True, "result": result}
 
-    async def _execute_http(self, config: Dict[str, Any], context: WorkflowContext) -> Any:
+    async def _execute_http(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Execute an HTTP request."""
         try:
             import aiohttp
@@ -169,7 +165,7 @@ class TaskStep(BaseStep):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def _execute_transform(self, config: Dict[str, Any], context: WorkflowContext) -> Any:
+    async def _execute_transform(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Execute a data transformation."""
         transform_expr = config.get("transform", "")
         output_format = config.get("output_format", "auto")
@@ -226,7 +222,7 @@ class TaskStep(BaseStep):
         except SafeEvalError as e:
             return {"success": False, "error": f"Transform failed: {e}"}
 
-    async def _execute_validate(self, config: Dict[str, Any], context: WorkflowContext) -> Any:
+    async def _execute_validate(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Execute data validation."""
         rules = config.get("validation", {})
         data_expr = config.get("data", "inputs")
@@ -312,7 +308,7 @@ class TaskStep(BaseStep):
             "warnings": warnings,
         }
 
-    async def _execute_aggregate(self, config: Dict[str, Any], context: WorkflowContext) -> Any:
+    async def _execute_aggregate(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Aggregate outputs from multiple steps."""
         input_steps = config.get("inputs", [])
         mode = config.get("mode", "merge")  # merge, list, first_valid
@@ -355,9 +351,9 @@ class TaskStep(BaseStep):
             text = text.replace(f"{{state.{key}}}", str(value))
         return text
 
-    def _interpolate_dict(self, data: Dict[str, Any], context: WorkflowContext) -> Dict[str, Any]:
+    def _interpolate_dict(self, data: dict[str, Any], context: WorkflowContext) -> dict[str, Any]:
         """Interpolate dictionary values with context."""
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for key, value in data.items():
             if isinstance(value, str):
                 result[key] = self._interpolate_text(value, context)
@@ -371,32 +367,27 @@ class TaskStep(BaseStep):
                 result[key] = value
         return result
 
-
 # Built-in task handlers
-
 
 def _handler_log(
     context: WorkflowContext, message: str = "", level: str = "info"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Log a message."""
     log_func = getattr(logger, level, logger.info)
     log_func(f"[{context.workflow_id}] {message}")
     return {"logged": True, "message": message, "level": level}
 
-
 def _handler_set_state(
     context: WorkflowContext, key: str = "", value: Any = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Set a state value."""
     context.set_state(key, value)
     return {"key": key, "value": value}
 
-
-async def _handler_delay(context: WorkflowContext, seconds: float = 1.0) -> Dict[str, Any]:
+async def _handler_delay(context: WorkflowContext, seconds: float = 1.0) -> dict[str, Any]:
     """Delay execution (async-safe)."""
     await asyncio.sleep(seconds)
     return {"delayed_seconds": seconds}
-
 
 # Register built-in handlers
 register_task_handler("log", _handler_log)

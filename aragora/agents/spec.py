@@ -44,7 +44,6 @@ if TYPE_CHECKING:
         name: str | None
         hierarchy_role: str | None  # Gastown role: mayor, witness, polecat, crew
 
-
 # Import ALLOWED_AGENT_TYPES for validation
 from aragora.config.legacy import ALLOWED_AGENT_TYPES
 
@@ -56,10 +55,9 @@ VALID_ROLES: frozenset[str] = frozenset(
     {"proposer", "critic", "synthesizer", "judge", "analyst", "implementer", "planner"}
 )
 
-
 def _find_similar(
     value: str, options: frozenset[str] | set[str], threshold: float = 0.6
-) -> Optional[str]:
+) -> str | None:
     """Find the most similar option to a value using simple character matching.
 
     Args:
@@ -99,7 +97,6 @@ def _find_similar(
 
     return best_match
 
-
 @dataclass
 class AgentSpec:
     """
@@ -127,11 +124,11 @@ class AgentSpec:
     """
 
     provider: str
-    model: Optional[str] = None
-    persona: Optional[str] = None
-    role: Optional[str] = None  # None = assign automatically based on position
-    name: Optional[str] = None  # Optional display name
-    hierarchy_role: Optional[str] = None  # Gastown hierarchy: mayor, witness, polecat, crew
+    model: str | None = None
+    persona: str | None = None
+    role: str | None = None  # None = assign automatically based on position
+    name: str | None = None  # Optional display name
+    hierarchy_role: str | None = None  # Gastown hierarchy: mayor, witness, polecat, crew
 
     # Valid Gastown hierarchy roles
     VALID_HIERARCHY_ROLES: frozenset[str] = frozenset({"mayor", "witness", "polecat", "crew"})
@@ -489,7 +486,6 @@ class AgentSpec:
         parts.append(f"role={self.role!r}")
         return f"AgentSpec({', '.join(parts)})"
 
-
 def parse_agents(agents_str: str) -> list[AgentSpec]:
     """
     Convenience function to parse agent specs.
@@ -504,7 +500,6 @@ def parse_agents(agents_str: str) -> list[AgentSpec]:
         List of AgentSpec instances
     """
     return AgentSpec.parse_list(agents_str)
-
 
 __all__ = [
     "AgentSpec",

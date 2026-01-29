@@ -9,13 +9,12 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.queue.base import Job, JobStatus
 from aragora.queue.config import get_queue_config
 
 logger = logging.getLogger(__name__)
-
 
 class JobStatusTracker:
     """
@@ -111,7 +110,7 @@ class JobStatusTracker:
 
         return True
 
-    async def get_job(self, job_id: str) -> Optional[Job]:
+    async def get_job(self, job_id: str) -> Job | None:
         """
         Get job state from Redis.
 
@@ -150,7 +149,7 @@ class JobStatusTracker:
             logger.warning(f"Failed to parse job {job_id}: {e}")
             return None
 
-    async def get_status(self, job_id: str) -> Optional[JobStatus]:
+    async def get_status(self, job_id: str) -> JobStatus | None:
         """
         Get just the status of a job.
 
@@ -187,9 +186,9 @@ class JobStatusTracker:
 
     async def list_jobs(
         self,
-        status: Optional[JobStatus] = None,
+        status: JobStatus | None = None,
         limit: int = 50,
-    ) -> List[Job]:
+    ) -> list[Job]:
         """
         List jobs, optionally filtered by status.
 
@@ -224,14 +223,14 @@ class JobStatusTracker:
 
         return jobs
 
-    async def get_counts_by_status(self) -> Dict[str, int]:
+    async def get_counts_by_status(self) -> dict[str, int]:
         """
         Get counts of jobs by status.
 
         Returns:
             Dict mapping status names to counts
         """
-        counts: Dict[str, int] = {status.value: 0 for status in JobStatus}
+        counts: dict[str, int] = {status.value: 0 for status in JobStatus}
         pattern = f"{self._config.status_key_prefix}*"
 
         async for key in self._redis.scan_iter(match=pattern, count=100):

@@ -9,9 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
-
 
 class DocumentStatus(Enum):
     """Processing status for ingested documents."""
@@ -21,7 +20,6 @@ class DocumentStatus(Enum):
     INDEXED = "indexed"  # Processed and indexed
     FAILED = "failed"  # Processing failed
     ARCHIVED = "archived"  # Removed from active index
-
 
 class ChunkType(Enum):
     """Type of content in a document chunk."""
@@ -34,7 +32,6 @@ class ChunkType(Enum):
     IMAGE = "image"  # Image with caption/OCR
     FORMULA = "formula"  # Mathematical formula
     METADATA = "metadata"  # Document metadata
-
 
 @dataclass
 class DocumentChunk:
@@ -64,7 +61,7 @@ class DocumentChunk:
     summary: str = ""  # Optional chunk summary
 
     # Embeddings (populated during indexing)
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
     embedding_model: str = ""
 
     # Token accounting
@@ -130,7 +127,6 @@ class DocumentChunk:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class IngestedDocument:
     """
@@ -183,8 +179,8 @@ class IngestedDocument:
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.utcnow)
-    processed_at: Optional[datetime] = None
-    indexed_at: Optional[datetime] = None
+    processed_at: datetime | None = None
+    indexed_at: datetime | None = None
 
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -238,7 +234,7 @@ class IngestedDocument:
         if isinstance(status, str):
             status = DocumentStatus(status)
 
-        def parse_dt(val: Any) -> Optional[datetime]:
+        def parse_dt(val: Any) -> datetime | None:
             if val is None:
                 return None
             if isinstance(val, datetime):
@@ -293,7 +289,6 @@ class IngestedDocument:
             "tags": self.tags,
         }
 
-
 # Token limits for common models
 MODEL_TOKEN_LIMITS = {
     # Anthropic
@@ -318,7 +313,6 @@ MODEL_TOKEN_LIMITS = {
     # Default fallback
     "default": 8_192,
 }
-
 
 def get_model_token_limit(model: str) -> int:
     """Get the token limit for a model."""

@@ -33,7 +33,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
@@ -47,7 +47,6 @@ logger = logging.getLogger(__name__)
 CONTROL_PLANE_READ_PERMISSION = "control_plane:read"
 CONTROL_PLANE_WRITE_PERMISSION = "control_plane:write"
 
-
 # In-memory agent registry (fallback when shared state not available)
 _agents: dict[str, dict[str, Any]] = {}
 _task_queue: list[dict[str, Any]] = []
@@ -60,10 +59,9 @@ _metrics: dict[str, Any] = {
 }
 
 # Shared state for multi-instance persistence (initialized lazily)
-_shared_state: Optional[Any] = None
+_shared_state: Any | None = None
 
-
-def _get_shared_state() -> Optional[Any]:
+def _get_shared_state() -> Any | None:
     """Get shared state if available, otherwise None."""
     global _shared_state
     if _shared_state is not None:
@@ -76,7 +74,6 @@ def _get_shared_state() -> Optional[Any]:
         return _shared_state
     except ImportError:
         return None
-
 
 class AgentDashboardHandler(SecureHandler):
     """
@@ -684,7 +681,6 @@ class AgentDashboardHandler(SecureHandler):
             },
             "body": generator,
         }
-
 
 # Backward compatibility alias
 ControlPlaneHandler = AgentDashboardHandler

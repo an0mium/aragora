@@ -12,10 +12,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
-
 
 @runtime_checkable
 class WorkflowStep(Protocol):
@@ -43,7 +42,6 @@ class WorkflowStep(Protocol):
         """
         ...
 
-
 @dataclass
 class WorkflowContext:
     """
@@ -58,14 +56,14 @@ class WorkflowContext:
 
     workflow_id: str
     definition_id: str
-    inputs: Dict[str, Any] = field(default_factory=dict)
-    step_outputs: Dict[str, Any] = field(default_factory=dict)
-    state: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    inputs: dict[str, Any] = field(default_factory=dict)
+    step_outputs: dict[str, Any] = field(default_factory=dict)
+    state: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Current step info (set by engine during execution)
-    current_step_id: Optional[str] = None
-    current_step_config: Dict[str, Any] = field(default_factory=dict)
+    current_step_id: str | None = None
+    current_step_config: dict[str, Any] = field(default_factory=dict)
 
     def get_input(self, key: str, default: Any = None) -> Any:
         """Get a workflow input value."""
@@ -87,7 +85,6 @@ class WorkflowContext:
         """Get current step configuration value."""
         return self.current_step_config.get(key, default)
 
-
 class BaseStep(ABC):
     """
     Base class for workflow steps with common functionality.
@@ -98,7 +95,7 @@ class BaseStep(ABC):
     - Logging integration
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         self._name = name
         self._config = config or {}
 
@@ -108,7 +105,7 @@ class BaseStep(ABC):
         return self._name
 
     @property
-    def config(self) -> Dict[str, Any]:
+    def config(self) -> dict[str, Any]:
         """Step configuration."""
         return self._config
 
@@ -117,7 +114,7 @@ class BaseStep(ABC):
         """Execute the step."""
         ...
 
-    async def checkpoint(self) -> Dict[str, Any]:
+    async def checkpoint(self) -> dict[str, Any]:
         """
         Save step state for checkpointing.
 
@@ -125,7 +122,7 @@ class BaseStep(ABC):
         """
         return {}
 
-    async def restore(self, state: Dict[str, Any]) -> None:
+    async def restore(self, state: dict[str, Any]) -> None:
         """
         Restore step state from checkpoint.
 
@@ -140,7 +137,6 @@ class BaseStep(ABC):
         Override to add custom validation logic.
         """
         return True
-
 
 class AgentStep(BaseStep):
     """
@@ -165,7 +161,7 @@ class AgentStep(BaseStep):
         name: str,
         agent_type: str | None = None,
         prompt_template: str | None = None,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
     ):
         super().__init__(name, config)
         # Extract from config if not passed directly (for engine compatibility)
@@ -191,12 +187,12 @@ class AgentStep(BaseStep):
 
         return {"response": response, "agent_type": self.agent_type}
 
-    async def _execute_with_kilocode(self, prompt: str, context: WorkflowContext) -> Dict[str, Any]:
+    async def _execute_with_kilocode(self, prompt: str, context: WorkflowContext) -> dict[str, Any]:
         """Execute using KiloCode as the coding harness."""
         from aragora.agents.cli_agents import KiloCodeAgent
 
         # coding_harness is guaranteed to be a dict when this method is called
-        harness_config: Dict[str, Any] = self.coding_harness or {}
+        harness_config: dict[str, Any] = self.coding_harness or {}
         provider_id = harness_config.get("provider_id", "gemini-explorer")
         mode = harness_config.get("mode", "code")
 
@@ -226,7 +222,6 @@ class AgentStep(BaseStep):
             prompt = prompt.replace(f"{{step.{step_id}}}", str(output))
         return prompt
 
-
 class ParallelStep(BaseStep):
     """
     Step that executes multiple sub-steps in parallel.
@@ -238,7 +233,7 @@ class ParallelStep(BaseStep):
         self,
         name: str,
         sub_steps: list[WorkflowStep],
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
     ):
         super().__init__(name, config)
         self.sub_steps = sub_steps
@@ -261,7 +256,6 @@ class ParallelStep(BaseStep):
 
         return outputs
 
-
 class ConditionalStep(BaseStep):
     """
     Step that executes based on a condition.
@@ -275,7 +269,7 @@ class ConditionalStep(BaseStep):
         name: str,
         wrapped_step: WorkflowStep,
         condition: str,  # Python expression
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
     ):
         super().__init__(name, config)
         self.wrapped_step = wrapped_step
@@ -304,7 +298,6 @@ class ConditionalStep(BaseStep):
         except SafeEvalError:
             return False
 
-
 class LoopStep(BaseStep):
     """
     Step that repeats until a condition is met.
@@ -318,7 +311,7 @@ class LoopStep(BaseStep):
         wrapped_step: WorkflowStep,
         condition: str,  # Exit condition (stop when True)
         max_iterations: int = 10,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
     ):
         super().__init__(name, config)
         self.wrapped_step = wrapped_step

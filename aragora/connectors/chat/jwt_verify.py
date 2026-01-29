@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +40,13 @@ GOOGLE_VALID_ISSUERS = [
     "https://accounts.google.com",
 ]
 
-
 @dataclass
 class JWTVerificationResult:
     """Result of JWT verification."""
 
     valid: bool
-    claims: Dict[str, Any]
-    error: Optional[str] = None
-
+    claims: dict[str, Any]
+    error: str | None = None
 
 class JWTVerifier:
     """
@@ -59,12 +57,12 @@ class JWTVerifier:
 
     def __init__(self):
         """Initialize the verifier."""
-        self._microsoft_jwks_client: Optional[Any] = None
-        self._google_jwks_client: Optional[Any] = None
+        self._microsoft_jwks_client: Any | None = None
+        self._google_jwks_client: Any | None = None
         self._cache_time: float = 0
         self._cache_ttl: float = 3600  # Refresh keys every hour
 
-    def _get_microsoft_jwks_client(self) -> Optional[Any]:
+    def _get_microsoft_jwks_client(self) -> Any | None:
         """Get or create Microsoft JWKS client."""
         if not HAS_JWT or PyJWKClient is None:
             return None
@@ -80,7 +78,7 @@ class JWTVerifier:
 
         return self._microsoft_jwks_client
 
-    def _get_google_jwks_client(self) -> Optional[Any]:
+    def _get_google_jwks_client(self) -> Any | None:
         """Get or create Google JWKS client."""
         if not HAS_JWT or PyJWKClient is None:
             return None
@@ -168,7 +166,7 @@ class JWTVerifier:
     def verify_google_token(
         self,
         token: str,
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
     ) -> JWTVerificationResult:
         """
         Verify a Google Chat JWT token.
@@ -209,7 +207,7 @@ class JWTVerifier:
             }
 
             # Only verify audience if project_id provided
-            decode_kwargs: Dict[str, Any] = {
+            decode_kwargs: dict[str, Any] = {
                 "algorithms": ["RS256"],
                 "issuer": GOOGLE_VALID_ISSUERS,
                 "options": options,
@@ -249,10 +247,8 @@ class JWTVerifier:
                 error=str(e),
             )
 
-
 # Singleton instance
-_verifier: Optional[JWTVerifier] = None
-
+_verifier: JWTVerifier | None = None
 
 def get_jwt_verifier() -> JWTVerifier:
     """Get or create the JWT verifier singleton."""
@@ -260,7 +256,6 @@ def get_jwt_verifier() -> JWTVerifier:
     if _verifier is None:
         _verifier = JWTVerifier()
     return _verifier
-
 
 def verify_teams_webhook(
     auth_header: str,
@@ -289,10 +284,9 @@ def verify_teams_webhook(
 
     return result.valid
 
-
 def verify_google_chat_webhook(
     auth_header: str,
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
 ) -> bool:
     """
     Verify a Google Chat webhook Authorization header.
@@ -316,7 +310,6 @@ def verify_google_chat_webhook(
         logger.warning(f"Google Chat webhook verification failed: {result.error}")
 
     return result.valid
-
 
 # Flag for checking JWT availability
 __all__ = [

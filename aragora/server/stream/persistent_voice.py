@@ -32,17 +32,15 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # Configuration from environment
 VOICE_MAX_SESSION_SECONDS = int(os.environ.get("ARAGORA_VOICE_MAX_SESSION", "86400"))  # 24h
 VOICE_RECONNECT_WINDOW_SECONDS = int(os.environ.get("ARAGORA_VOICE_RECONNECT_WINDOW", "300"))  # 5m
 VOICE_HEARTBEAT_INTERVAL_SECONDS = int(os.environ.get("ARAGORA_VOICE_HEARTBEAT_INTERVAL", "30"))
 VOICE_HEARTBEAT_TIMEOUT_SECONDS = int(os.environ.get("ARAGORA_VOICE_HEARTBEAT_TIMEOUT", "90"))
-
 
 @dataclass
 class PersistentVoiceSession:
@@ -66,14 +64,14 @@ class PersistentVoiceSession:
 
     session_id: str
     user_id: str
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     is_persistent: bool = True
     audio_format: str = "pcm_16khz"
 
     # State
     state: str = "active"  # active, disconnected, reconnecting, expired
-    reconnect_token: Optional[str] = None
-    reconnect_expires_at: Optional[float] = None
+    reconnect_token: str | None = None
+    reconnect_expires_at: float | None = None
 
     # Heartbeat
     last_heartbeat: float = field(default_factory=time.time)
@@ -83,7 +81,7 @@ class PersistentVoiceSession:
     expires_at: float = field(default_factory=lambda: time.time() + VOICE_MAX_SESSION_SECONDS)
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Audio state
     audio_buffer: bytes = b""
@@ -128,7 +126,7 @@ class PersistentVoiceSession:
         """Extend session expiration."""
         self.expires_at = time.time() + seconds
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "session_id": self.session_id,
@@ -145,7 +143,6 @@ class PersistentVoiceSession:
             "metadata": self.metadata,
         }
 
-
 class PersistentVoiceManager:
     """
     Manages persistent voice sessions with reconnection support.
@@ -159,10 +156,10 @@ class PersistentVoiceManager:
 
     def __init__(self):
         """Initialize the voice manager."""
-        self._sessions: Dict[str, PersistentVoiceSession] = {}
-        self._reconnect_tokens: Dict[str, str] = {}  # token -> session_id
-        self._heartbeat_task: Optional[asyncio.Task] = None
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._sessions: dict[str, PersistentVoiceSession] = {}
+        self._reconnect_tokens: dict[str, str] = {}  # token -> session_id
+        self._heartbeat_task: asyncio.Task | None = None
+        self._cleanup_task: asyncio.Task | None = None
         self._running = False
 
         # Callbacks
@@ -210,11 +207,11 @@ class PersistentVoiceManager:
     async def create_session(
         self,
         user_id: str,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         persistent: bool = True,
         ttl_hours: float = 24,
         audio_format: str = "pcm_16khz",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> PersistentVoiceSession:
         """
         Create a new voice session.
@@ -254,7 +251,7 @@ class PersistentVoiceManager:
         )
         return session
 
-    async def get_session(self, session_id: str) -> Optional[PersistentVoiceSession]:
+    async def get_session(self, session_id: str) -> PersistentVoiceSession | None:
         """Get a session by ID."""
         session = self._sessions.get(session_id)
 
@@ -266,7 +263,7 @@ class PersistentVoiceManager:
 
         return session
 
-    async def get_user_sessions(self, user_id: str) -> List[PersistentVoiceSession]:
+    async def get_user_sessions(self, user_id: str) -> list[PersistentVoiceSession]:
         """Get all sessions for a user."""
         return [s for s in self._sessions.values() if s.user_id == user_id]
 
@@ -322,7 +319,7 @@ class PersistentVoiceManager:
                 await asyncio.sleep(VOICE_HEARTBEAT_INTERVAL_SECONDS)
 
                 now = time.time()
-                timed_out: List[str] = []
+                timed_out: list[str] = []
 
                 for session_id, session in list(self._sessions.items()):
                     if session.state != "active":
@@ -353,7 +350,7 @@ class PersistentVoiceManager:
     # Disconnect and Reconnect
     # ==========================================================================
 
-    async def handle_disconnect(self, session: PersistentVoiceSession) -> Optional[str]:
+    async def handle_disconnect(self, session: PersistentVoiceSession) -> str | None:
         """
         Handle client disconnect.
 
@@ -389,7 +386,7 @@ class PersistentVoiceManager:
         )
         return reconnect_token
 
-    async def reconnect(self, token: str) -> Optional[PersistentVoiceSession]:
+    async def reconnect(self, token: str) -> PersistentVoiceSession | None:
         """
         Reconnect to a session using a reconnect token.
 
@@ -439,8 +436,8 @@ class PersistentVoiceManager:
                 await asyncio.sleep(60)  # Check every minute
 
                 now = time.time()
-                expired: List[str] = []
-                reconnect_expired: List[str] = []
+                expired: list[str] = []
+                reconnect_expired: list[str] = []
 
                 for session_id, session in list(self._sessions.items()):
                     # Check session expiry
@@ -519,7 +516,7 @@ class PersistentVoiceManager:
         except Exception as e:
             logger.warning(f"Failed to persist session: {e}")
 
-    async def _load_session(self, session_id: str) -> Optional[PersistentVoiceSession]:
+    async def _load_session(self, session_id: str) -> PersistentVoiceSession | None:
         """Load session from session store."""
         try:
             from aragora.server.session_store import get_session_store
@@ -580,7 +577,7 @@ class PersistentVoiceManager:
     # Statistics
     # ==========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get manager statistics."""
         active = sum(1 for s in self._sessions.values() if s.state == "active")
         disconnected = sum(1 for s in self._sessions.values() if s.state == "disconnected")
@@ -593,13 +590,11 @@ class PersistentVoiceManager:
             "running": self._running,
         }
 
-
 # ==========================================================================
 # Global Instance
 # ==========================================================================
 
-_manager: Optional[PersistentVoiceManager] = None
-
+_manager: PersistentVoiceManager | None = None
 
 def get_persistent_voice_manager() -> PersistentVoiceManager:
     """Get the global persistent voice manager."""

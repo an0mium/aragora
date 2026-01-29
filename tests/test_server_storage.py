@@ -443,6 +443,59 @@ class TestRetrievalOperations:
         assert results[0].task == "Design a rate limiter"
         assert results[0].agents == ["claude", "gemini"]
 
+    def test_get_debates_batch_returns_all_debates(self, storage):
+        """get_debates_batch should return all requested debates."""
+        storage.save_dict({"id": "batch-1", "task": "Task 1"})
+        storage.save_dict({"id": "batch-2", "task": "Task 2"})
+        storage.save_dict({"id": "batch-3", "task": "Task 3"})
+
+        results = storage.get_debates_batch(["batch-1", "batch-2", "batch-3"])
+
+        assert len(results) == 3
+        assert results["batch-1"]["task"] == "Task 1"
+        assert results["batch-2"]["task"] == "Task 2"
+        assert results["batch-3"]["task"] == "Task 3"
+
+    def test_get_debates_batch_handles_missing(self, storage):
+        """get_debates_batch should return None for missing IDs."""
+        storage.save_dict({"id": "exists-1", "task": "Exists"})
+
+        results = storage.get_debates_batch(["exists-1", "missing-1", "missing-2"])
+
+        assert len(results) == 3
+        assert results["exists-1"] is not None
+        assert results["exists-1"]["task"] == "Exists"
+        assert results["missing-1"] is None
+        assert results["missing-2"] is None
+
+    def test_get_debates_batch_empty_list(self, storage):
+        """get_debates_batch should return empty dict for empty input."""
+        results = storage.get_debates_batch([])
+        assert results == {}
+
+    def test_get_debates_batch_single_item(self, storage):
+        """get_debates_batch should work with single item."""
+        storage.save_dict({"id": "single-1", "task": "Single"})
+
+        results = storage.get_debates_batch(["single-1"])
+
+        assert len(results) == 1
+        assert results["single-1"]["task"] == "Single"
+
+    def test_get_debates_batch_large_batch(self, storage):
+        """get_debates_batch should handle large batches efficiently."""
+        # Create 50 debates
+        for i in range(50):
+            storage.save_dict({"id": f"large-{i}", "task": f"Task {i}"})
+
+        ids = [f"large-{i}" for i in range(50)]
+        results = storage.get_debates_batch(ids)
+
+        assert len(results) == 50
+        for i in range(50):
+            assert results[f"large-{i}"] is not None
+            assert results[f"large-{i}"]["task"] == f"Task {i}"
+
 
 # =============================================================================
 # Test SQL Injection Prevention

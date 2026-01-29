@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
 
 from aragora.client.models import Replay, ReplaySummary
-
 
 class ReplayAPI:
     """API interface for debate replays."""
@@ -43,7 +42,7 @@ class ReplayAPI:
         self,
         limit: int = 20,
         debate_id: str | None = None,
-    ) -> List[ReplaySummary]:
+    ) -> list[ReplaySummary]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit}
         if debate_id:
@@ -109,6 +108,5 @@ class ReplayAPI:
             f"/api/replays/{replay_id}/export", params={"format": format}
         )
         return response.get("data", "") if isinstance(response, dict) else str(response)
-
 
 __all__ = ["ReplayAPI"]

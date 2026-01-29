@@ -18,7 +18,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from aragora.server.errors import safe_error_message
 from aragora.server.handlers.utils.params import (
@@ -31,16 +31,13 @@ from aragora.server.handlers.utils.responses import HandlerResult, error_respons
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Trace ID Generation
 # =============================================================================
 
-
 def generate_trace_id() -> str:
     """Generate a unique trace ID for request tracking."""
     return str(uuid.uuid4())[:8]
-
 
 # =============================================================================
 # Exception Handling
@@ -108,17 +105,14 @@ _EXCEPTION_STATUS_MAP = {
     "HandlerDatabaseError": 500,
 }
 
-
 def map_exception_to_status(e: Exception, default: int = 500) -> int:
     """Map exception type to appropriate HTTP status code."""
     error_type = type(e).__name__
     return _EXCEPTION_STATUS_MAP.get(error_type, default)
 
-
 # =============================================================================
 # Parameter Validation Decorator
 # =============================================================================
-
 
 def validate_params(
     param_specs: dict[str, tuple],
@@ -195,11 +189,9 @@ def validate_params(
 
     return decorator
 
-
 # =============================================================================
 # Error Handling Decorators
 # =============================================================================
-
 
 def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable], Callable]:
     """
@@ -241,7 +233,6 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
         return wrapper
 
     return decorator
-
 
 def auto_error_response(
     operation: str,
@@ -289,7 +280,6 @@ def auto_error_response(
         return wrapper
 
     return decorator
-
 
 def log_request(context: str, log_response: bool = False) -> Callable[[Callable], Callable]:
     """
@@ -350,7 +340,6 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
         return wrapper
 
     return decorator
-
 
 # =============================================================================
 # Permission / RBAC
@@ -513,7 +502,6 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     "queue:create": ["admin", "owner"],
 }
 
-
 def has_permission(role: str, permission: str) -> bool:
     """
     Check if a role has a specific permission.
@@ -541,7 +529,6 @@ def has_permission(role: str, permission: str) -> bool:
         return True
 
     return False
-
 
 def require_permission(permission: str) -> Callable[[Callable], Callable]:
     """
@@ -641,11 +628,9 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
 
     return decorator
 
-
 # =============================================================================
 # Authentication Decorators
 # =============================================================================
-
 
 def require_user_auth(func: Callable) -> Callable:
     """
@@ -686,7 +671,6 @@ def require_user_auth(func: Callable) -> Callable:
         return func(*args, **kwargs)
 
     return wrapper
-
 
 def require_auth(func: Callable) -> Callable:
     """
@@ -732,11 +716,9 @@ def require_auth(func: Callable) -> Callable:
 
     return wrapper
 
-
 # =============================================================================
 # Feature Gating Decorators
 # =============================================================================
-
 
 def require_storage(func: Callable) -> Callable:
     """
@@ -753,7 +735,6 @@ def require_storage(func: Callable) -> Callable:
         return func(self, *args, **kwargs)
 
     return wrapper
-
 
 def require_feature(
     feature_check: Callable[[], bool],
@@ -780,11 +761,9 @@ def require_feature(
 
     return decorator
 
-
 # =============================================================================
 # Error Recovery
 # =============================================================================
-
 
 def safe_fetch(
     data_dict: dict[str, Any],
@@ -813,11 +792,10 @@ def safe_fetch(
 
     return _safe_fetch()
 
-
 def with_error_recovery(
     fallback_value: Any = None,
     log_errors: bool = True,
-    metrics_key: Optional[str] = None,
+    metrics_key: str | None = None,
 ) -> Callable[[Callable], Callable]:
     """
     Decorator for graceful error recovery with fallback values.
@@ -847,16 +825,14 @@ def with_error_recovery(
 
     return decorator
 
-
 # =============================================================================
 # Deprecation Decorator
 # =============================================================================
 
-
 def deprecated_endpoint(
-    replacement: Optional[str] = None,
-    sunset_date: Optional[str] = None,
-    message: Optional[str] = None,
+    replacement: str | None = None,
+    sunset_date: str | None = None,
+    message: str | None = None,
 ) -> Callable[[Callable], Callable]:
     """
     Decorator for marking endpoints as deprecated.
@@ -927,7 +903,6 @@ def deprecated_endpoint(
         return wrapper
 
     return decorator
-
 
 __all__ = [
     # Trace ID

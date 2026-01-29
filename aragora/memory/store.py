@@ -3,6 +3,7 @@ SQLite-based critique pattern store for self-improvement.
 
 Stores successful critique patterns so future debates can learn from past successes.
 """
+from __future__ import annotations
 
 __all__ = [
     "Pattern",
@@ -16,7 +17,6 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,6 @@ CRITIQUE_INITIAL_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_reputation_agent ON agent_reputation(agent_name);
 """
 
-
 @dataclass
 class Pattern:
     """A reusable critique pattern."""
@@ -155,7 +154,6 @@ class Pattern:
     def success_rate(self) -> float:
         total = self.success_count + self.failure_count
         return self.success_count / total if total > 0 else 0.5
-
 
 @dataclass
 class AgentReputation:
@@ -220,7 +218,6 @@ class AgentReputation:
         # Calibration bonus: (calibration - 0.5) * 0.2 gives -0.1 to +0.1
         calibration_bonus = (self.calibration_score - 0.5) * 0.2
         return max(0.4, min(1.6, base_weight + calibration_bonus))
-
 
 class CritiqueStore(SQLiteStore):
     """
@@ -328,7 +325,7 @@ class CritiqueStore(SQLiteStore):
         invalidate_cache("memory")
         invalidate_cache("debates")
 
-    def store(self, critique: Critique, debate_id: Optional[str] = None) -> int:
+    def store(self, critique: Critique, debate_id: str | None = None) -> int:
         """Store a critique record and return the row id."""
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -451,7 +448,7 @@ class CritiqueStore(SQLiteStore):
             )
         return critiques
 
-    def get_relevant(self, issue_type: Optional[str] = None, limit: int = 10) -> list[Pattern]:
+    def get_relevant(self, issue_type: str | None = None, limit: int = 10) -> list[Pattern]:
         """Backward-compatible wrapper for retrieve_patterns()."""
         return self.retrieve_patterns(issue_type=issue_type, min_success=1, limit=limit)
 
@@ -561,7 +558,7 @@ class CritiqueStore(SQLiteStore):
         self,
         critique_id: int,
         actual_usefulness: float,
-        agent_name: Optional[str] = None,
+        agent_name: str | None = None,
     ) -> float:
         """
         Update critique with actual outcome, return prediction error.
@@ -715,7 +712,7 @@ class CritiqueStore(SQLiteStore):
     )
     def retrieve_patterns(
         self,
-        issue_type: Optional[str] = None,
+        issue_type: str | None = None,
         min_success: int = 2,
         limit: int = 10,
         decay_halflife_days: int = 30,
@@ -854,7 +851,7 @@ class CritiqueStore(SQLiteStore):
     @ttl_cache(
         ttl_seconds=CACHE_TTL_AGENT_REPUTATION, key_prefix="agent_reputation", skip_first=False
     )
-    def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
+    def get_reputation(self, agent_name: str) -> AgentReputation | None:
         """Get reputation for an agent."""
         with self.connection() as conn:
             cursor = conn.cursor()

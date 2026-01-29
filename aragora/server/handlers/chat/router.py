@@ -36,7 +36,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 from aragora.connectors.chat import (
     ChatPlatformConnector,
@@ -90,7 +90,6 @@ except ImportError:
     _chat_limiter = None
     logger.warning("Handler base not available - ChatRouter will have limited functionality")
 
-
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -99,13 +98,11 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed: {exc}", exc_info=exc)
 
-
 def create_tracked_task(coro, name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
-
 
 class ChatWebhookRouter:
     """
@@ -132,7 +129,7 @@ class ChatWebhookRouter:
         self,
         event_handler: Optional[Callable[..., Any]] = None,
         debate_starter: Optional[Callable[..., Any]] = None,
-        decision_router: Optional[Any] = None,
+        decision_router: Any | None = None,
     ):
         """
         Initialize the webhook router.
@@ -144,7 +141,7 @@ class ChatWebhookRouter:
         """
         self.event_handler = event_handler
         self.debate_starter = debate_starter
-        self._connectors: Dict[str, ChatPlatformConnector] = {}
+        self._connectors: dict[str, ChatPlatformConnector] = {}
 
         # Initialize DecisionRouter if available
         self._decision_router = decision_router
@@ -154,7 +151,7 @@ class ChatWebhookRouter:
             except Exception as e:
                 logger.debug(f"DecisionRouter not available: {e}")
 
-    def get_connector(self, platform: str) -> Optional[ChatPlatformConnector]:
+    def get_connector(self, platform: str) -> ChatPlatformConnector | None:
         """Get or create connector for a platform."""
         if platform not in self._connectors:
             connector = get_connector(platform)
@@ -162,7 +159,7 @@ class ChatWebhookRouter:
                 self._connectors[platform] = connector
         return self._connectors.get(platform)
 
-    def detect_platform(self, headers: Dict[str, str]) -> Optional[str]:
+    def detect_platform(self, headers: dict[str, str]) -> str | None:
         """Auto-detect platform from request headers."""
         # Check for Slack (most reliable - unique signature header)
         if headers.get("X-Slack-Signature"):
@@ -191,9 +188,9 @@ class ChatWebhookRouter:
 
     def detect_platform_from_body(
         self,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         body: bytes,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Auto-detect platform from request body structure.
 
@@ -267,7 +264,7 @@ class ChatWebhookRouter:
     def verify_webhook(
         self,
         platform: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         body: bytes,
     ) -> bool:
         """Verify webhook signature for a platform."""
@@ -281,7 +278,7 @@ class ChatWebhookRouter:
     def parse_event(
         self,
         platform: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         body: bytes,
     ) -> WebhookEvent:
         """Parse webhook payload into a WebhookEvent."""
@@ -298,9 +295,9 @@ class ChatWebhookRouter:
     async def handle_webhook(
         self,
         platform: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         body: bytes,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Handle an incoming webhook.
 
@@ -334,7 +331,7 @@ class ChatWebhookRouter:
         self,
         platform: str,
         event: WebhookEvent,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Handle URL verification challenges."""
         if platform == "slack":
             return {"challenge": event.challenge}
@@ -359,7 +356,7 @@ class ChatWebhookRouter:
 
         return {"success": True}
 
-    async def _process_event(self, event: WebhookEvent) -> Dict[str, Any]:
+    async def _process_event(self, event: WebhookEvent) -> dict[str, Any]:
         """Process a parsed webhook event."""
         logger.info(f"Processing {event.platform} event: {event.event_type}")
 
@@ -388,7 +385,7 @@ class ChatWebhookRouter:
 
         return {"success": True}
 
-    async def _handle_command(self, event: WebhookEvent) -> Dict[str, Any]:
+    async def _handle_command(self, event: WebhookEvent) -> dict[str, Any]:
         """Handle a bot command."""
         command = event.command
         if command is None:
@@ -409,7 +406,7 @@ class ChatWebhookRouter:
 
         return {"success": True}
 
-    async def _handle_aragora_command(self, event: WebhookEvent) -> Dict[str, Any]:
+    async def _handle_aragora_command(self, event: WebhookEvent) -> dict[str, Any]:
         """Handle Aragora-specific commands."""
         command = event.command
         connector = self.get_connector(event.platform)
@@ -533,7 +530,7 @@ class ChatWebhookRouter:
 
         return {"success": True}
 
-    async def _handle_interaction(self, event: WebhookEvent) -> Dict[str, Any]:
+    async def _handle_interaction(self, event: WebhookEvent) -> dict[str, Any]:
         """Handle a user interaction."""
         interaction = event.interaction
         if interaction is None:
@@ -550,7 +547,7 @@ class ChatWebhookRouter:
 
         return {"success": True}
 
-    async def _handle_message(self, event: WebhookEvent) -> Dict[str, Any]:
+    async def _handle_message(self, event: WebhookEvent) -> dict[str, Any]:
         """Handle a regular message."""
         message = event.message
         if message is None:
@@ -571,7 +568,7 @@ class ChatWebhookRouter:
 
         return {"success": True}
 
-    async def _handle_voice(self, event: WebhookEvent) -> Dict[str, Any]:
+    async def _handle_voice(self, event: WebhookEvent) -> dict[str, Any]:
         """Handle a voice message."""
         voice = event.voice_message
         if voice is None:
@@ -618,7 +615,7 @@ class ChatWebhookRouter:
 - `/aragora workflow security-audit`
 """
 
-    async def _get_status(self) -> Dict[str, Any]:
+    async def _get_status(self) -> dict[str, Any]:
         """Get Aragora service status."""
         platforms = get_configured_platforms()
         return {
@@ -684,7 +681,6 @@ class ChatWebhookRouter:
         result = await self._decision_router.route(request)
         return result
 
-
 # Handler class for integration with server framework
 if HANDLER_BASE_AVAILABLE:
 
@@ -711,8 +707,8 @@ if HANDLER_BASE_AVAILABLE:
             return path in self.ROUTES or path.startswith("/api/v1/chat/")
 
         def handle(
-            self, path: str, query_params: Dict[str, Any], handler: Any
-        ) -> Optional[HandlerResult]:
+            self, path: str, query_params: dict[str, Any], handler: Any
+        ) -> HandlerResult | None:
             """Route chat requests."""
             logger.debug(f"Chat request: {path}")
 
@@ -726,8 +722,8 @@ if HANDLER_BASE_AVAILABLE:
             return None  # Let handle_post handle it
 
         async def handle_post(
-            self, path: str, body: Dict[str, Any], handler: Any
-        ) -> Optional[HandlerResult]:
+            self, path: str, body: dict[str, Any], handler: Any
+        ) -> HandlerResult | None:
             """Handle POST requests (webhooks)."""
             # Rate limit check
             if _chat_limiter is not None:
@@ -807,10 +803,8 @@ if HANDLER_BASE_AVAILABLE:
 
             return json_response(status)
 
-
 # Singleton router instance
-_router: Optional[ChatWebhookRouter] = None
-
+_router: ChatWebhookRouter | None = None
 
 def _create_decision_router_debate_starter():
     """
@@ -826,7 +820,7 @@ def _create_decision_router_debate_starter():
         channel: str,
         user: str,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         try:
             from aragora.core import (
                 DecisionRequest,
@@ -891,7 +885,6 @@ def _create_decision_router_debate_starter():
             raise
 
     return debate_starter
-
 
 def get_webhook_router(
     event_handler: Optional[Callable[..., Any]] = None,

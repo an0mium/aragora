@@ -49,7 +49,6 @@ _dissents_cache: TTLCache[list] = TTLCache(maxsize=2000, ttl_seconds=300)
 # v2: Added verified_proofs table for formal verification results
 CONSENSUS_SCHEMA_VERSION = 2
 
-
 class ConsensusStrength(Enum):
     """Strength of consensus reached."""
 
@@ -60,7 +59,6 @@ class ConsensusStrength(Enum):
     SPLIT = "split"  # No majority
     CONTESTED = "contested"  # Active disagreement
 
-
 class DissentType(Enum):
     """Type of dissenting view."""
 
@@ -70,7 +68,6 @@ class DissentType(Enum):
     EDGE_CASE_CONCERN = "edge_case_concern"  # Specific scenario concern
     RISK_WARNING = "risk_warning"  # Caution about approach
     ABSTENTION = "abstention"  # Agent declined to agree
-
 
 @dataclass
 class DissentRecord:
@@ -119,7 +116,6 @@ class DissentRecord:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class ConsensusRecord:
     """A recorded consensus outcome from a debate."""
@@ -151,8 +147,8 @@ class ConsensusRecord:
     rounds: int = 0
 
     # Evolution
-    supersedes: Optional[str] = None  # ID of consensus this replaces
-    superseded_by: Optional[str] = None
+    supersedes: str | None = None  # ID of consensus this replaces
+    superseded_by: str | None = None
 
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -212,7 +208,6 @@ class ConsensusRecord:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class SimilarDebate:
     """A similar past debate found in memory."""
@@ -226,7 +221,6 @@ class SimilarDebate:
     def similarity(self) -> float:
         """Alias for similarity_score for backward compatibility."""
         return self.similarity_score
-
 
 class ConsensusMemory(SQLiteStore):
     """
@@ -390,13 +384,13 @@ class ConsensusMemory(SQLiteStore):
         confidence: float,
         participating_agents: list[str],
         agreeing_agents: list[str],
-        dissenting_agents: Optional[list[str]] = None,
-        key_claims: Optional[list[str]] = None,
+        dissenting_agents: list[str] | None = None,
+        key_claims: list[str] | None = None,
         domain: str = "general",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         debate_duration: float = 0.0,
         rounds: int = 0,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> ConsensusRecord:
         """Store a new consensus record."""
 
@@ -464,7 +458,7 @@ class ConsensusMemory(SQLiteStore):
         confidence: float = 0.0,
         acknowledged: bool = False,
         rebuttal: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> DissentRecord:
         """Store a dissenting view."""
 
@@ -632,7 +626,7 @@ class ConsensusMemory(SQLiteStore):
 
         return proof_id
 
-    def get_verified_proof(self, debate_id: str) -> Optional[dict]:
+    def get_verified_proof(self, debate_id: str) -> dict | None:
         """Get the formal verification result for a debate.
 
         Args:
@@ -710,7 +704,7 @@ class ConsensusMemory(SQLiteStore):
             for row in rows
         ]
 
-    def get_consensus(self, consensus_id: str) -> Optional[ConsensusRecord]:
+    def get_consensus(self, consensus_id: str) -> ConsensusRecord | None:
         """Get a consensus record by ID.
 
         Uses LRU cache with 5-minute TTL to reduce database queries
@@ -837,7 +831,7 @@ class ConsensusMemory(SQLiteStore):
     def find_similar_debates(
         self,
         topic: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.0,
         limit: int = 10,
     ) -> list[SimilarDebate]:
@@ -952,7 +946,7 @@ class ConsensusMemory(SQLiteStore):
     def find_relevant_dissent(
         self,
         topic: str,
-        dissent_types: Optional[list[DissentType]] = None,
+        dissent_types: list[DissentType] | None = None,
         min_confidence: float = 0.0,
         limit: int = 10,
     ) -> list[DissentRecord]:
@@ -1192,7 +1186,6 @@ class ConsensusMemory(SQLiteStore):
 
         return stats
 
-
 class DissentRetriever:
     """
     Specialized retriever for finding relevant dissenting views.
@@ -1228,7 +1221,7 @@ class DissentRetriever:
     def retrieve_for_new_debate(
         self,
         topic: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> dict[str, Any]:
         """Retrieve relevant historical context for a new debate."""
 
@@ -1270,7 +1263,7 @@ class DissentRetriever:
     def find_contrarian_views(
         self,
         consensus_position: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         limit: int = 5,
     ) -> list[DissentRecord]:
         """Find historical dissents that contradict a position."""
@@ -1290,7 +1283,7 @@ class DissentRetriever:
     def find_risk_warnings(
         self,
         topic: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         limit: int = 5,
     ) -> list[DissentRecord]:
         """Find historical risk warnings relevant to a topic."""
@@ -1304,7 +1297,7 @@ class DissentRetriever:
     def get_debate_preparation_context(
         self,
         topic: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> str:
         """Generate a context string to inform a new debate."""
 

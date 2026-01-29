@@ -15,8 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 class DeviceType(Enum):
     """Supported device types."""
@@ -27,7 +26,6 @@ class DeviceType(Enum):
     ALEXA = "alexa"
     GOOGLE_HOME = "google_home"
 
-
 class NotificationPriority(Enum):
     """Notification priority levels."""
 
@@ -35,7 +33,6 @@ class NotificationPriority(Enum):
     NORMAL = "normal"
     HIGH = "high"
     URGENT = "urgent"
-
 
 class DeliveryStatus(Enum):
     """Status of notification delivery."""
@@ -46,7 +43,6 @@ class DeliveryStatus(Enum):
     FAILED = "failed"
     EXPIRED = "expired"
     INVALID_TOKEN = "invalid_token"
-
 
 @dataclass
 class DeviceToken:
@@ -71,13 +67,13 @@ class DeviceToken:
     user_id: str
     device_type: DeviceType
     push_token: str
-    device_name: Optional[str] = None
-    app_version: Optional[str] = None
-    created_at: Optional[datetime] = None
-    last_active: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    device_name: str | None = None
+    app_version: str | None = None
+    created_at: datetime | None = None
+    last_active: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "device_id": self.device_id,
@@ -92,7 +88,7 @@ class DeviceToken:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DeviceToken:
+    def from_dict(cls, data: dict[str, Any]) -> DeviceToken:
         """Deserialize from dictionary."""
         return cls(
             device_id=data["device_id"],
@@ -109,7 +105,6 @@ class DeviceToken:
             else None,
             metadata=data.get("metadata", {}),
         )
-
 
 @dataclass
 class DeviceMessage:
@@ -137,20 +132,20 @@ class DeviceMessage:
 
     title: str
     body: str
-    data: Dict[str, Any] = field(default_factory=dict)
-    image_url: Optional[str] = None
-    action_url: Optional[str] = None
-    badge: Optional[int] = None
-    sound: Optional[str] = "default"
+    data: dict[str, Any] = field(default_factory=dict)
+    image_url: str | None = None
+    action_url: str | None = None
+    badge: int | None = None
+    sound: str | None = "default"
     priority: NotificationPriority = NotificationPriority.NORMAL
     ttl_seconds: int = 3600  # 1 hour default
-    collapse_key: Optional[str] = None
-    topic: Optional[str] = None
-    channel_id: Optional[str] = None
-    thread_id: Optional[str] = None
+    collapse_key: str | None = None
+    topic: str | None = None
+    channel_id: str | None = None
+    thread_id: str | None = None
     mutable_content: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "title": self.title,
@@ -170,7 +165,7 @@ class DeviceMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DeviceMessage:
+    def from_dict(cls, data: dict[str, Any]) -> DeviceMessage:
         """Deserialize from dictionary."""
         return cls(
             title=data["title"],
@@ -188,7 +183,6 @@ class DeviceMessage:
             thread_id=data.get("thread_id"),
             mutable_content=data.get("mutable_content", False),
         )
-
 
 @dataclass
 class SendResult:
@@ -208,14 +202,14 @@ class SendResult:
 
     success: bool
     device_id: str
-    message_id: Optional[str] = None
+    message_id: str | None = None
     status: DeliveryStatus = DeliveryStatus.PENDING
-    error: Optional[str] = None
-    error_code: Optional[str] = None
+    error: str | None = None
+    error_code: str | None = None
     should_unregister: bool = False
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "success": self.success,
@@ -227,7 +221,6 @@ class SendResult:
             "should_unregister": self.should_unregister,
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
         }
-
 
 @dataclass
 class BatchSendResult:
@@ -245,8 +238,8 @@ class BatchSendResult:
     total_sent: int
     success_count: int
     failure_count: int
-    results: List[SendResult] = field(default_factory=list)
-    tokens_to_remove: List[str] = field(default_factory=list)
+    results: list[SendResult] = field(default_factory=list)
+    tokens_to_remove: list[str] = field(default_factory=list)
 
     @property
     def success_rate(self) -> float:
@@ -255,7 +248,7 @@ class BatchSendResult:
             return 0.0
         return (self.success_count / self.total_sent) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "total_sent": self.total_sent,
@@ -265,7 +258,6 @@ class BatchSendResult:
             "results": [r.to_dict() for r in self.results],
             "tokens_to_remove": self.tokens_to_remove,
         }
-
 
 @dataclass
 class DeviceRegistration:
@@ -290,15 +282,15 @@ class DeviceRegistration:
     user_id: str
     device_type: DeviceType
     push_token: str
-    device_name: Optional[str] = None
-    app_version: Optional[str] = None
-    os_version: Optional[str] = None
-    device_model: Optional[str] = None
-    timezone: Optional[str] = None
-    locale: Optional[str] = None
-    app_bundle_id: Optional[str] = None
+    device_name: str | None = None
+    app_version: str | None = None
+    os_version: str | None = None
+    device_model: str | None = None
+    timezone: str | None = None
+    locale: str | None = None
+    app_bundle_id: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "user_id": self.user_id,
@@ -314,7 +306,7 @@ class DeviceRegistration:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DeviceRegistration:
+    def from_dict(cls, data: dict[str, Any]) -> DeviceRegistration:
         """Deserialize from dictionary."""
         return cls(
             user_id=data["user_id"],
@@ -328,7 +320,6 @@ class DeviceRegistration:
             locale=data.get("locale"),
             app_bundle_id=data.get("app_bundle_id"),
         )
-
 
 @dataclass
 class VoiceDeviceRequest:
@@ -353,15 +344,15 @@ class VoiceDeviceRequest:
     device_type: DeviceType
     user_id: str
     intent: str
-    slots: Dict[str, Any] = field(default_factory=dict)
-    raw_input: Optional[str] = None
-    session_id: Optional[str] = None
+    slots: dict[str, Any] = field(default_factory=dict)
+    raw_input: str | None = None
+    session_id: str | None = None
     is_new_session: bool = False
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
     locale: str = "en-US"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "request_id": self.request_id,
@@ -376,7 +367,6 @@ class VoiceDeviceRequest:
             "locale": self.locale,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class VoiceDeviceResponse:
@@ -395,13 +385,13 @@ class VoiceDeviceResponse:
 
     text: str
     should_end_session: bool = True
-    reprompt: Optional[str] = None
-    card_title: Optional[str] = None
-    card_content: Optional[str] = None
-    card_image_url: Optional[str] = None
-    directives: List[Dict[str, Any]] = field(default_factory=list)
+    reprompt: str | None = None
+    card_title: str | None = None
+    card_content: str | None = None
+    card_image_url: str | None = None
+    directives: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "text": self.text,

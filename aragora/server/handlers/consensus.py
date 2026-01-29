@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -62,7 +62,6 @@ _consensus_imports, CONSENSUS_MEMORY_AVAILABLE = try_import(
 ConsensusMemory = _consensus_imports["ConsensusMemory"]
 DissentRetriever = _consensus_imports["DissentRetriever"]
 
-
 class ConsensusHandler(BaseHandler):
     """Handler for consensus memory endpoints."""
 
@@ -89,7 +88,7 @@ class ConsensusHandler(BaseHandler):
 
     def _check_memory_permission(
         self, handler: Any, user: Any, action: str = "read"
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Check RBAC permission for memory operations."""
         permission = f"memory.{action}"
         try:
@@ -115,7 +114,7 @@ class ConsensusHandler(BaseHandler):
             logger.error(f"RBAC check failed: {e}")
             return error_response("Authorization check failed", 500)
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route consensus requests to appropriate methods."""
         path = strip_version_prefix(path)
         # Rate limit check
@@ -351,7 +350,7 @@ class ConsensusHandler(BaseHandler):
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
     @handle_errors("recent dissents retrieval")
     def _get_recent_dissents(
-        self, topic: Optional[str], domain: Optional[str], limit: int
+        self, topic: str | None, domain: str | None, limit: int
     ) -> HandlerResult:
         """Get recent dissents, optionally filtered by topic."""
         memory = ConsensusMemory()
@@ -398,7 +397,7 @@ class ConsensusHandler(BaseHandler):
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
     @handle_errors("contrarian views retrieval")
     def _get_contrarian_views(
-        self, topic: Optional[str], domain: Optional[str], limit: int
+        self, topic: str | None, domain: str | None, limit: int
     ) -> HandlerResult:
         """Get historical contrarian/dissenting views."""
         memory = ConsensusMemory()
@@ -446,7 +445,7 @@ class ConsensusHandler(BaseHandler):
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
     @handle_errors("risk warnings retrieval")
     def _get_risk_warnings(
-        self, topic: Optional[str], domain: Optional[str], limit: int
+        self, topic: str | None, domain: str | None, limit: int
     ) -> HandlerResult:
         """Get risk warnings and edge case concerns."""
         memory = ConsensusMemory()

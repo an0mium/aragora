@@ -28,7 +28,7 @@ import sqlite3
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,6 @@ TEAMS_TENANT_DB_PATH = os.environ.get(
 # Encryption key for tokens (optional but recommended)
 ENCRYPTION_KEY = os.environ.get("ARAGORA_ENCRYPTION_KEY", "")
 
-
 @dataclass
 class TeamsTenant:
     """Represents an installed Microsoft Teams tenant."""
@@ -51,14 +50,14 @@ class TeamsTenant:
     access_token: str  # Bot access token
     bot_id: str  # Bot ID in Teams
     installed_at: float  # Unix timestamp
-    refresh_token: Optional[str] = None  # OAuth refresh token
-    installed_by: Optional[str] = None  # User ID who installed
-    scopes: List[str] = field(default_factory=list)
-    aragora_org_id: Optional[str] = None  # Link to Aragora organization
+    refresh_token: str | None = None  # OAuth refresh token
+    installed_by: str | None = None  # User ID who installed
+    scopes: list[str] = field(default_factory=list)
+    aragora_org_id: str | None = None  # Link to Aragora organization
     is_active: bool = True
-    expires_at: Optional[float] = None  # Token expiration timestamp
+    expires_at: float | None = None  # Token expiration timestamp
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (excludes sensitive tokens)."""
         return {
             "tenant_id": self.tenant_id,
@@ -109,7 +108,6 @@ class TeamsTenant:
         # Consider expired if within 5 minutes of expiration
         return time.time() > (self.expires_at - 300)
 
-
 class TeamsTenantStore:
     """
     Storage for Microsoft Teams tenant OAuth credentials.
@@ -143,7 +141,7 @@ class TeamsTenantStore:
         ON teams_tenants(expires_at);
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the tenant store.
 
         Args:
@@ -266,7 +264,7 @@ class TeamsTenantStore:
             logger.error(f"Failed to save tenant: {e}")
             return False
 
-    def get(self, tenant_id: str) -> Optional[TeamsTenant]:
+    def get(self, tenant_id: str) -> TeamsTenant | None:
         """Get a tenant by ID.
 
         Args:
@@ -296,7 +294,7 @@ class TeamsTenantStore:
             logger.error(f"Failed to get tenant {tenant_id}: {e}")
             return None
 
-    def get_by_org(self, aragora_org_id: str) -> List[TeamsTenant]:
+    def get_by_org(self, aragora_org_id: str) -> list[TeamsTenant]:
         """Get all tenants for an Aragora organization.
 
         Args:
@@ -330,7 +328,7 @@ class TeamsTenantStore:
             logger.error(f"Failed to get tenants for org {aragora_org_id}: {e}")
             return []
 
-    def list_active(self, limit: int = 100, offset: int = 0) -> List[TeamsTenant]:
+    def list_active(self, limit: int = 100, offset: int = 0) -> list[TeamsTenant]:
         """List all active tenants.
 
         Args:
@@ -366,7 +364,7 @@ class TeamsTenantStore:
             logger.error(f"Failed to list tenants: {e}")
             return []
 
-    def list_expiring(self, within_seconds: int = 3600) -> List[TeamsTenant]:
+    def list_expiring(self, within_seconds: int = 3600) -> list[TeamsTenant]:
         """List tenants with tokens expiring soon.
 
         Args:
@@ -407,8 +405,8 @@ class TeamsTenantStore:
         self,
         tenant_id: str,
         access_token: str,
-        refresh_token: Optional[str] = None,
-        expires_at: Optional[float] = None,
+        refresh_token: str | None = None,
+        expires_at: float | None = None,
     ) -> bool:
         """Update tokens for a tenant (after refresh).
 
@@ -521,7 +519,7 @@ class TeamsTenantStore:
             logger.error(f"Failed to count tenants: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get tenant statistics.
 
         Returns:
@@ -554,10 +552,8 @@ class TeamsTenantStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_tenants": 0, "active_tenants": 0}
 
-
 # Environment configuration
 ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
-
 
 class SupabaseTeamsTenantStore:
     """
@@ -675,7 +671,7 @@ class SupabaseTeamsTenantStore:
             logger.error(f"Failed to save tenant to Supabase: {e}")
             return False
 
-    def get(self, tenant_id: str) -> Optional[TeamsTenant]:
+    def get(self, tenant_id: str) -> TeamsTenant | None:
         """Get a tenant by ID from Supabase."""
         if not self._client:
             return None
@@ -695,7 +691,7 @@ class SupabaseTeamsTenantStore:
             logger.error(f"Failed to get tenant {tenant_id} from Supabase: {e}")
             return None
 
-    def _row_to_tenant(self, row: Dict[str, Any]) -> TeamsTenant:
+    def _row_to_tenant(self, row: dict[str, Any]) -> TeamsTenant:
         """Convert Supabase row to TeamsTenant object."""
         # Parse timestamps
         installed_at = row.get("installed_at")
@@ -725,7 +721,7 @@ class SupabaseTeamsTenantStore:
         )
         return tenant
 
-    def get_by_org(self, aragora_org_id: str) -> List[TeamsTenant]:
+    def get_by_org(self, aragora_org_id: str) -> list[TeamsTenant]:
         """Get all tenants for an Aragora organization."""
         if not self._client:
             return []
@@ -746,7 +742,7 @@ class SupabaseTeamsTenantStore:
             logger.error(f"Failed to get tenants for org {aragora_org_id}: {e}")
             return []
 
-    def list_active(self, limit: int = 100, offset: int = 0) -> List[TeamsTenant]:
+    def list_active(self, limit: int = 100, offset: int = 0) -> list[TeamsTenant]:
         """List all active tenants."""
         if not self._client:
             return []
@@ -767,7 +763,7 @@ class SupabaseTeamsTenantStore:
             logger.error(f"Failed to list tenants: {e}")
             return []
 
-    def list_expiring(self, within_seconds: int = 3600) -> List[TeamsTenant]:
+    def list_expiring(self, within_seconds: int = 3600) -> list[TeamsTenant]:
         """List tenants with tokens expiring soon."""
         if not self._client:
             return []
@@ -799,8 +795,8 @@ class SupabaseTeamsTenantStore:
         self,
         tenant_id: str,
         access_token: str,
-        refresh_token: Optional[str] = None,
-        expires_at: Optional[float] = None,
+        refresh_token: str | None = None,
+        expires_at: float | None = None,
     ) -> bool:
         """Update tokens for a tenant (after refresh)."""
         if not self._client:
@@ -808,7 +804,7 @@ class SupabaseTeamsTenantStore:
 
         try:
             encrypted_access = self._encrypt_token(access_token)
-            data: Dict[str, Any] = {
+            data: dict[str, Any] = {
                 "access_token": encrypted_access,
                 "updated_at": datetime.now(tz=timezone.utc).isoformat(),
             }
@@ -876,7 +872,7 @@ class SupabaseTeamsTenantStore:
             logger.error(f"Failed to count tenants: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get tenant statistics."""
         if not self._client:
             return {"total_tenants": 0, "active_tenants": 0}
@@ -897,12 +893,10 @@ class SupabaseTeamsTenantStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_tenants": 0, "active_tenants": 0}
 
-
 # Singleton instance
-_tenant_store: Optional[Any] = None
+_tenant_store: Any | None = None
 
-
-def get_teams_tenant_store(db_path: Optional[str] = None) -> Any:
+def get_teams_tenant_store(db_path: str | None = None) -> Any:
     """Get or create the tenant store singleton.
 
     In production (ARAGORA_ENV=production or USE_SUPABASE_TEAMS_STORE=1),

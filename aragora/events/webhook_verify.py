@@ -23,27 +23,26 @@ Example usage:
         data = json.loads(request.get_data())
         ...
 """
+from __future__ import annotations
 
 import hashlib
 import hmac
 import time
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union
+from typing import Optional
 
 # Default tolerance for timestamp validation (5 minutes)
 DEFAULT_TIMESTAMP_TOLERANCE_SECONDS = 300
-
 
 @dataclass
 class VerificationResult:
     """Result of webhook verification."""
 
     valid: bool
-    error: Optional[str] = None
+    error: str | None = None
 
     def __bool__(self) -> bool:
         return self.valid
-
 
 def generate_signature(payload: str, secret: str) -> str:
     """
@@ -60,7 +59,6 @@ def generate_signature(payload: str, secret: str) -> str:
         secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
     ).hexdigest()
     return f"sha256={signature}"
-
 
 def verify_signature(payload: str, signature: str, secret: str) -> bool:
     """
@@ -82,11 +80,10 @@ def verify_signature(payload: str, signature: str, secret: str) -> bool:
     expected = generate_signature(payload, secret)
     return hmac.compare_digest(signature, expected)
 
-
 def verify_timestamp(
-    timestamp: Union[str, int, float],
+    timestamp: str | int | float,
     tolerance_seconds: float = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS,
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Verify webhook timestamp to prevent replay attacks.
 
@@ -115,11 +112,10 @@ def verify_timestamp(
 
     return True, None
 
-
 def verify_webhook_request(
-    payload: Union[str, bytes],
-    signature: Optional[str],
-    timestamp: Optional[Union[str, int, float]] = None,
+    payload: str | bytes,
+    signature: str | None,
+    timestamp: Optional[str | int | float] = None,
     secret: str = "",
     check_timestamp: bool = True,
     timestamp_tolerance: float = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS,
@@ -181,12 +177,11 @@ def verify_webhook_request(
 
     return VerificationResult(True)
 
-
 def create_test_webhook_payload(
     event_type: str,
     data: dict,
     secret: str,
-) -> Tuple[dict, dict]:
+) -> tuple[dict, dict]:
     """
     Create a test webhook payload with valid signature for testing.
 
@@ -236,7 +231,6 @@ def create_test_webhook_payload(
     }
 
     return payload, headers
-
 
 # =============================================================================
 # Exports

@@ -21,6 +21,7 @@ Usage:
         if event.type == 'debate_end':
             break
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -28,14 +29,13 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
+from typing import Any, AsyncGenerator, Callable
 import time
 
 logger = logging.getLogger(__name__)
 
 # Event queue limits
 MAX_EVENT_QUEUE_SIZE = 1000  # Prevent unbounded memory growth from event flooding
-
 
 class DebateEventType(str, Enum):
     """Types of WebSocket stream events (matches server StreamEventType)."""
@@ -178,13 +178,12 @@ class DebateEventType(str, Enum):
     PONG = "pong"
     ROUND_END = "round_end"
 
-
 @dataclass
 class DebateEvent:
     """A debate event from WebSocket stream."""
 
     type: DebateEventType
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
     debate_id: str = ""
     timestamp: float = field(default_factory=time.time)
     round: int = 0
@@ -194,7 +193,7 @@ class DebateEvent:
     agent_seq: int = 0
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "DebateEvent":
+    def from_dict(cls, d: dict[str, Any]) -> "DebateEvent":
         """Create from dictionary."""
         event_type = d.get("type", "error")
         try:
@@ -231,7 +230,6 @@ class DebateEvent:
             agent_seq=int(d.get("agent_seq") or 0),
         )
 
-
 @dataclass
 class WebSocketOptions:
     """Options for WebSocket connection."""
@@ -242,11 +240,9 @@ class WebSocketOptions:
     heartbeat_interval: float = 30.0
     connect_timeout: float = 10.0
 
-
 EventCallback = Callable[[DebateEvent], None]
 ErrorCallback = Callable[[Exception], None]
 CloseCallback = Callable[[int, str], None]
-
 
 class DebateStream:
     """
@@ -271,7 +267,7 @@ class DebateStream:
         self,
         base_url: str,
         debate_id: str,
-        options: Optional[WebSocketOptions] = None,
+        options: WebSocketOptions | None = None,
     ):
         """
         Initialize debate stream.
@@ -285,15 +281,15 @@ class DebateStream:
         self.options = options or WebSocketOptions()
         self.url = self._build_url(base_url, debate_id)
 
-        self._ws: Optional[Any] = None
+        self._ws: Any | None = None
         self._reconnect_attempts = 0
-        self._reconnect_task: Optional[asyncio.Task] = None
-        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._reconnect_task: asyncio.Task | None = None
+        self._heartbeat_task: asyncio.Task | None = None
         self._is_closing = False
 
-        self._event_callbacks: Dict[str, List[EventCallback]] = {}
-        self._error_callbacks: List[ErrorCallback] = []
-        self._close_callbacks: List[CloseCallback] = []
+        self._event_callbacks: dict[str, list[EventCallback]] = {}
+        self._error_callbacks: list[ErrorCallback] = []
+        self._close_callbacks: list[CloseCallback] = []
 
         self._event_queue: asyncio.Queue[DebateEvent] = asyncio.Queue(maxsize=MAX_EVENT_QUEUE_SIZE)
 
@@ -409,7 +405,7 @@ class DebateStream:
     async def once(
         self,
         event_type: str,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> DebateEvent:
         """
         Wait for a single event of the specified type.
@@ -457,7 +453,7 @@ class DebateStream:
             # Always clean up the handler
             self.off(event_type, handler)
 
-    async def send(self, data: Dict[str, Any]) -> None:
+    async def send(self, data: dict[str, Any]) -> None:
         """Send a message to the server."""
         if self._ws:
             await self._ws.send(json.dumps(data))
@@ -580,11 +576,10 @@ class DebateStream:
                 loop_id=self.debate_id,
             )
 
-
 async def stream_debate(
     base_url: str,
     debate_id: str,
-    options: Optional[WebSocketOptions] = None,
+    options: WebSocketOptions | None = None,
 ) -> AsyncGenerator[DebateEvent, None]:
     """
     Stream debate events as an async generator.
@@ -620,11 +615,10 @@ async def stream_debate(
     finally:
         await stream.disconnect()
 
-
 async def stream_debate_by_id(
     base_url: str,
     debate_id: str,
-    options: Optional[WebSocketOptions] = None,
+    options: WebSocketOptions | None = None,
 ) -> AsyncGenerator[DebateEvent, None]:
     """
     Stream events for a specific debate by ID.
@@ -655,7 +649,6 @@ async def stream_debate_by_id(
         options=options,
     ):
         yield event
-
 
 __all__ = [
     "DebateEventType",

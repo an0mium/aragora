@@ -13,7 +13,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.audit.document_auditor import (
     AuditConfig,
@@ -31,7 +31,6 @@ from aragora.documents.chunking.strategies import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CodebaseAuditConfig:
@@ -66,7 +65,6 @@ class CodebaseAuditConfig:
     max_concurrent_files: int = 5
     timeout_per_file: float = 30.0
 
-
 @dataclass
 class ImprovementProposal:
     """A structured improvement proposal derived from audit findings."""
@@ -96,7 +94,6 @@ class ImprovementProposal:
             "suggested_fix": self.suggested_fix,
             "tags": self.tags,
         }
-
 
 @dataclass
 class CodebaseAuditResult:
@@ -135,7 +132,6 @@ class CodebaseAuditResult:
             "summary": self.summary,
         }
 
-
 class CodebaseAuditor:
     """Audits codebase for improvement opportunities.
 
@@ -154,9 +150,9 @@ class CodebaseAuditor:
     def __init__(
         self,
         root_path: Path,
-        config: Optional[CodebaseAuditConfig] = None,
-        document_auditor: Optional[DocumentAuditor] = None,
-        token_counter: Optional[TokenCounter] = None,
+        config: CodebaseAuditConfig | None = None,
+        document_auditor: DocumentAuditor | None = None,
+        token_counter: TokenCounter | None = None,
     ):
         """Initialize the codebase auditor.
 
@@ -184,7 +180,7 @@ class CodebaseAuditor:
         self.consistency_auditor = ConsistencyAuditor()
 
         # Chunking strategy
-        self._chunker: Optional[ChunkingStrategy] = None
+        self._chunker: ChunkingStrategy | None = None
 
     def _get_chunker(self) -> ChunkingStrategy:
         """Get or create chunking strategy."""
@@ -704,7 +700,6 @@ class CodebaseAuditor:
             duration_seconds=elapsed,
         )
 
-
 @dataclass
 class IncrementalAuditResult:
     """Result of an incremental (git diff-based) audit."""
@@ -716,7 +711,7 @@ class IncrementalAuditResult:
     files_audited: list[str]
     findings: list[AuditFinding]
     duration_seconds: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def has_findings(self) -> bool:

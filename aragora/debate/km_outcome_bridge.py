@@ -36,14 +36,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.outcome_tracker import ConsensusOutcome, OutcomeTracker  # type: ignore[attr-defined]
     from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class OutcomeValidation:
@@ -60,9 +59,8 @@ class OutcomeValidation:
     validation_reason: str  # Why this validation was applied
     original_confidence: float = 0.0
     new_confidence: float = 0.0
-    propagated_from: Optional[str] = None  # If this came from propagation
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    propagated_from: str | None = None  # If this came from propagation
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class PropagationResult:
@@ -71,10 +69,9 @@ class PropagationResult:
     root_item_id: str
     items_updated: int = 0
     items_skipped: int = 0
-    validations: List[OutcomeValidation] = field(default_factory=list)
+    validations: list[OutcomeValidation] = field(default_factory=list)
     depth_reached: int = 0
-    errors: List[str] = field(default_factory=list)
-
+    errors: list[str] = field(default_factory=list)
 
 @dataclass
 class KMOutcomeBridgeConfig:
@@ -93,7 +90,6 @@ class KMOutcomeBridgeConfig:
     auto_propagate: bool = True  # Auto-propagate validations
     track_usage: bool = True  # Track which KM items are used in debates
 
-
 class KMOutcomeBridge:
     """
     Bridges OutcomeTracker to Knowledge Mound for validation feedback.
@@ -111,7 +107,7 @@ class KMOutcomeBridge:
         self,
         outcome_tracker: Optional["OutcomeTracker"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
-        config: Optional[KMOutcomeBridgeConfig] = None,
+        config: KMOutcomeBridgeConfig | None = None,
     ):
         """
         Initialize the bridge.
@@ -126,8 +122,8 @@ class KMOutcomeBridge:
         self._config = config or KMOutcomeBridgeConfig()
 
         # Track KM usage in debates
-        self._debate_km_usage: Dict[str, List[str]] = {}  # debate_id -> [km_item_ids]
-        self._validations_applied: List[OutcomeValidation] = []
+        self._debate_km_usage: dict[str, list[str]] = {}  # debate_id -> [km_item_ids]
+        self._validations_applied: list[OutcomeValidation] = []
         self._total_validations: int = 0
 
     @property
@@ -151,7 +147,7 @@ class KMOutcomeBridge:
     def record_km_usage(
         self,
         debate_id: str,
-        km_item_ids: List[str],
+        km_item_ids: list[str],
     ) -> None:
         """
         Record that KM items were used in a debate.
@@ -176,15 +172,15 @@ class KMOutcomeBridge:
 
         logger.debug(f"Recorded KM usage for debate {debate_id}: {len(km_item_ids)} items")
 
-    def get_km_usage(self, debate_id: str) -> List[str]:
+    def get_km_usage(self, debate_id: str) -> list[str]:
         """Get KM items used in a debate."""
         return self._debate_km_usage.get(debate_id, [])
 
     async def validate_knowledge_from_outcome(
         self,
         outcome: "ConsensusOutcome",
-        km_item_ids: Optional[List[str]] = None,
-    ) -> List[OutcomeValidation]:
+        km_item_ids: Optional[list[str]] = None,
+    ) -> list[OutcomeValidation]:
         """
         Validate KM entries based on debate outcome.
 
@@ -213,7 +209,7 @@ class KMOutcomeBridge:
             logger.debug(f"No KM items to validate for debate {outcome.debate_id}")
             return []
 
-        validations: List[OutcomeValidation] = []
+        validations: list[OutcomeValidation] = []
         was_successful = outcome.implementation_succeeded
 
         for item_id in item_ids:
@@ -257,7 +253,7 @@ class KMOutcomeBridge:
         debate_id: str,
         was_successful: bool,
         outcome_confidence: float,
-    ) -> Optional[OutcomeValidation]:
+    ) -> OutcomeValidation | None:
         """Validate a single KM item based on outcome."""
         # Get current item
         item = await self._get_km_item(item_id)
@@ -411,7 +407,7 @@ class KMOutcomeBridge:
 
         return result
 
-    async def _get_km_item(self, item_id: str) -> Optional[Dict[str, Any]]:
+    async def _get_km_item(self, item_id: str) -> Optional[dict[str, Any]]:
         """Get a KM item by ID."""
         if not self._knowledge_mound:
             return None
@@ -436,7 +432,7 @@ class KMOutcomeBridge:
         self,
         item_id: str,
         new_confidence: float,
-        validation_metadata: Dict[str, Any],
+        validation_metadata: dict[str, Any],
     ) -> bool:
         """Update a KM item's confidence."""
         if not self._knowledge_mound:
@@ -464,7 +460,7 @@ class KMOutcomeBridge:
         self,
         item_id: str,
         max_depth: int,
-    ) -> List[tuple[str, int]]:
+    ) -> list[tuple[str, int]]:
         """
         Get related KM items via graph relationships.
 
@@ -473,7 +469,7 @@ class KMOutcomeBridge:
         if not self._knowledge_mound:
             return []
 
-        related: List[tuple[str, int]] = []
+        related: list[tuple[str, int]] = []
 
         try:
             # Try graph traversal if available
@@ -497,7 +493,7 @@ class KMOutcomeBridge:
 
         return related
 
-    def get_validation_stats(self) -> Dict[str, Any]:
+    def get_validation_stats(self) -> dict[str, Any]:
         """Get statistics about outcome-based validations."""
         success_validations = [v for v in self._validations_applied if v.was_successful]
         failure_validations = [v for v in self._validations_applied if not v.was_successful]
@@ -535,7 +531,6 @@ class KMOutcomeBridge:
         self._debate_km_usage.clear()
         self._validations_applied.clear()
         self._total_validations = 0
-
 
 __all__ = [
     "KMOutcomeBridge",

@@ -22,7 +22,7 @@ import logging
 import threading
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.analysis.codebase import (
     CVEClient,
@@ -54,11 +54,9 @@ from aragora.services import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Service Registry Integration
 # =============================================================================
-
 
 def _get_scanner() -> DependencyScanner:
     """Get or create DependencyScanner from service registry."""
@@ -69,7 +67,6 @@ def _get_scanner() -> DependencyScanner:
         logger.info("Registered DependencyScanner with service registry")
     return registry.resolve(DependencyScanner)
 
-
 def _get_cve_client() -> CVEClient:
     """Get or create CVEClient from service registry."""
     registry = ServiceRegistry.get()
@@ -78,7 +75,6 @@ def _get_cve_client() -> CVEClient:
         registry.register(CVEClient, client)
         logger.info("Registered CVEClient with service registry")
     return registry.resolve(CVEClient)
-
 
 def _get_secrets_scanner() -> SecretsScanner:
     """Get or create SecretsScanner from service registry."""
@@ -89,7 +85,6 @@ def _get_secrets_scanner() -> SecretsScanner:
         logger.info("Registered SecretsScanner with service registry")
     return registry.resolve(SecretsScanner)
 
-
 def _get_sast_scanner() -> SASTScanner:
     """Get or create SASTScanner from service registry."""
     registry = ServiceRegistry.get()
@@ -99,47 +94,43 @@ def _get_sast_scanner() -> SASTScanner:
         logger.info("Registered SASTScanner with service registry")
     return registry.resolve(SASTScanner)
 
-
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
-_scan_results: Dict[str, Dict[str, ScanResult]] = {}  # repo_id -> {scan_id -> result}
+_scan_results: dict[str, dict[str, ScanResult]] = {}  # repo_id -> {scan_id -> result}
 _scan_lock = threading.Lock()
-_running_scans: Dict[str, asyncio.Task] = {}
+_running_scans: dict[str, asyncio.Task] = {}
 
 # Secrets scan storage
-_secrets_scan_results: Dict[str, Dict[str, SecretsScanResult]] = {}
+_secrets_scan_results: dict[str, dict[str, SecretsScanResult]] = {}
 _secrets_scan_lock = threading.Lock()
-_running_secrets_scans: Dict[str, asyncio.Task] = {}
+_running_secrets_scans: dict[str, asyncio.Task] = {}
 
 # SAST scan storage
-_sast_scan_results: Dict[str, Dict[str, SASTScanResult]] = {}
+_sast_scan_results: dict[str, dict[str, SASTScanResult]] = {}
 _sast_scan_lock = threading.Lock()
-_running_sast_scans: Dict[str, asyncio.Task] = {}
+_running_sast_scans: dict[str, asyncio.Task] = {}
 
-
-def _get_or_create_repo_scans(repo_id: str) -> Dict[str, ScanResult]:
+def _get_or_create_repo_scans(repo_id: str) -> dict[str, ScanResult]:
     """Get or create scan storage for a repository."""
     with _scan_lock:
         if repo_id not in _scan_results:
             _scan_results[repo_id] = {}
         return _scan_results[repo_id]
 
-
 # =============================================================================
 # Scan Handlers
 # =============================================================================
 
-
 @require_permission("security:scan")
 async def handle_scan_repository(
     repo_path: str,
-    repo_id: Optional[str] = None,
-    branch: Optional[str] = None,
-    commit_sha: Optional[str] = None,
-    workspace_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    repo_id: str | None = None,
+    branch: str | None = None,
+    commit_sha: str | None = None,
+    workspace_id: str | None = None,
+    user_id: str | None = None,
 ) -> HandlerResult:
     """
     Trigger a security scan for a repository.
@@ -225,11 +216,10 @@ async def handle_scan_repository(
         logger.exception(f"Failed to start scan: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:read")
 async def handle_get_scan_status(
     repo_id: str,
-    scan_id: Optional[str] = None,
+    scan_id: str | None = None,
 ) -> HandlerResult:
     """
     Get scan status/result.
@@ -259,13 +249,12 @@ async def handle_get_scan_status(
         logger.exception(f"Failed to get scan status: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:read")
 async def handle_get_vulnerabilities(
     repo_id: str,
-    severity: Optional[str] = None,
-    package: Optional[str] = None,
-    ecosystem: Optional[str] = None,
+    severity: str | None = None,
+    package: str | None = None,
+    ecosystem: str | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> HandlerResult:
@@ -330,7 +319,6 @@ async def handle_get_vulnerabilities(
         logger.exception(f"Failed to get vulnerabilities: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:read")
 async def handle_get_cve_details(
     cve_id: str,
@@ -353,12 +341,11 @@ async def handle_get_cve_details(
         logger.exception(f"Failed to get CVE details: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:read")
 async def handle_query_package_vulnerabilities(
     package_name: str,
     ecosystem: str,
-    version: Optional[str] = None,
+    version: str | None = None,
 ) -> HandlerResult:
     """
     Query vulnerabilities for a specific package.
@@ -387,11 +374,10 @@ async def handle_query_package_vulnerabilities(
         logger.exception(f"Failed to query package vulnerabilities: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:read")
 async def handle_list_scans(
     repo_id: str,
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> HandlerResult:
@@ -449,17 +435,15 @@ async def handle_list_scans(
         logger.exception(f"Failed to list scans: {e}")
         return error_response(str(e), 500)
 
-
 # =============================================================================
 # Security Event Emission
 # =============================================================================
-
 
 async def _emit_scan_events(
     result: ScanResult,
     repo_id: str,
     scan_id: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> None:
     """
     Emit security events for scan findings.
@@ -544,12 +528,11 @@ async def _emit_scan_events(
     except Exception as e:
         logger.warning(f"[Security] Failed to emit scan events: {e}")
 
-
 async def _emit_secrets_events(
     result: SecretsScanResult,
     repo_id: str,
     scan_id: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> None:
     """
     Emit security events for secrets scan findings.
@@ -635,34 +618,30 @@ async def _emit_secrets_events(
     except Exception as e:
         logger.warning(f"[Security] Failed to emit secrets scan events: {e}")
 
-
 # =============================================================================
 # Secrets Scan Helpers
 # =============================================================================
 
-
-def _get_or_create_secrets_scans(repo_id: str) -> Dict[str, SecretsScanResult]:
+def _get_or_create_secrets_scans(repo_id: str) -> dict[str, SecretsScanResult]:
     """Get or create secrets scan storage for a repository."""
     with _secrets_scan_lock:
         if repo_id not in _secrets_scan_results:
             _secrets_scan_results[repo_id] = {}
         return _secrets_scan_results[repo_id]
 
-
 # =============================================================================
 # Secrets Scan Handlers
 # =============================================================================
 
-
 @require_permission("secrets:scan")
 async def handle_scan_secrets(
     repo_path: str,
-    repo_id: Optional[str] = None,
-    branch: Optional[str] = None,
+    repo_id: str | None = None,
+    branch: str | None = None,
     include_history: bool = False,
     history_depth: int = 100,
-    workspace_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    workspace_id: str | None = None,
+    user_id: str | None = None,
 ) -> HandlerResult:
     """
     Trigger a secrets scan for a repository.
@@ -761,11 +740,10 @@ async def handle_scan_secrets(
         logger.exception(f"Failed to start secrets scan: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("secrets:read")
 async def handle_get_secrets_scan_status(
     repo_id: str,
-    scan_id: Optional[str] = None,
+    scan_id: str | None = None,
 ) -> HandlerResult:
     """
     Get secrets scan status/result.
@@ -795,12 +773,11 @@ async def handle_get_secrets_scan_status(
         logger.exception(f"Failed to get secrets scan status: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("secrets:read")
 async def handle_get_secrets(
     repo_id: str,
-    severity: Optional[str] = None,
-    secret_type: Optional[str] = None,
+    severity: str | None = None,
+    secret_type: str | None = None,
     include_history: bool = True,
     limit: int = 100,
     offset: int = 0,
@@ -857,11 +834,10 @@ async def handle_get_secrets(
         logger.exception(f"Failed to get secrets: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("secrets:read")
 async def handle_list_secrets_scans(
     repo_id: str,
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> HandlerResult:
@@ -921,11 +897,9 @@ async def handle_list_secrets_scans(
         logger.exception(f"Failed to list secrets scans: {e}")
         return error_response(str(e), 500)
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class SecurityHandler(BaseHandler):
     """
@@ -943,7 +917,7 @@ class SecurityHandler(BaseHandler):
         "/api/v1/cve/",
     ]
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)  # type: ignore[arg-type]
 
@@ -965,12 +939,12 @@ class SecurityHandler(BaseHandler):
         return False
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route security endpoint requests."""
         return None
 
-    async def handle_post_scan(self, data: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_post_scan(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan"""
         repo_path = data.get("repo_path")
         if not repo_path:
@@ -985,18 +959,18 @@ class SecurityHandler(BaseHandler):
             user_id=self._get_user_id(),
         )
 
-    async def handle_get_scan_latest(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_get_scan_latest(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/latest"""
         return await handle_get_scan_status(repo_id=repo_id)
 
     async def handle_get_scan(
-        self, params: Dict[str, Any], repo_id: str, scan_id: str
+        self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/{scan_id}"""
         return await handle_get_scan_status(repo_id=repo_id, scan_id=scan_id)
 
     async def handle_get_vulnerabilities(
-        self, params: Dict[str, Any], repo_id: str
+        self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/vulnerabilities"""
         return await handle_get_vulnerabilities(
@@ -1008,11 +982,11 @@ class SecurityHandler(BaseHandler):
             offset=int(params.get("offset", 0)),
         )
 
-    async def handle_get_cve(self, params: Dict[str, Any], cve_id: str) -> HandlerResult:
+    async def handle_get_cve(self, params: dict[str, Any], cve_id: str) -> HandlerResult:
         """GET /api/v1/cve/{cve_id}"""
         return await handle_get_cve_details(cve_id=cve_id)
 
-    async def handle_list_scans(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_list_scans(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scans"""
         return await handle_list_scans(
             repo_id=repo_id,
@@ -1025,7 +999,7 @@ class SecurityHandler(BaseHandler):
     # Secrets Scan Endpoints
     # =========================================================================
 
-    async def handle_post_secrets_scan(self, data: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_post_secrets_scan(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan/secrets"""
         repo_path = data.get("repo_path")
         if not repo_path:
@@ -1042,18 +1016,18 @@ class SecurityHandler(BaseHandler):
         )
 
     async def handle_get_secrets_scan_latest(
-        self, params: Dict[str, Any], repo_id: str
+        self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/secrets/latest"""
         return await handle_get_secrets_scan_status(repo_id=repo_id)
 
     async def handle_get_secrets_scan(
-        self, params: Dict[str, Any], repo_id: str, scan_id: str
+        self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/secrets/{scan_id}"""
         return await handle_get_secrets_scan_status(repo_id=repo_id, scan_id=scan_id)
 
-    async def handle_get_secrets(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_get_secrets(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/secrets"""
         return await handle_get_secrets(
             repo_id=repo_id,
@@ -1065,7 +1039,7 @@ class SecurityHandler(BaseHandler):
         )
 
     async def handle_list_secrets_scans(
-        self, params: Dict[str, Any], repo_id: str
+        self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scans/secrets"""
         return await handle_list_secrets_scans(
@@ -1082,7 +1056,7 @@ class SecurityHandler(BaseHandler):
             return auth_ctx.user_id
         return "default"
 
-    async def handle_scan_sast(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_scan_sast(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan/sast"""
         return await handle_scan_sast(
             repo_path=params.get("repo_path", ""),
@@ -1092,12 +1066,12 @@ class SecurityHandler(BaseHandler):
         )
 
     async def handle_get_sast_scan_status(
-        self, params: Dict[str, Any], repo_id: str, scan_id: str
+        self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/sast/{scan_id}"""
         return await handle_get_sast_scan_status(repo_id=repo_id, scan_id=scan_id)
 
-    async def handle_get_sast_findings(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_get_sast_findings(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/findings"""
         return await handle_get_sast_findings(
             repo_id=repo_id,
@@ -1107,7 +1081,7 @@ class SecurityHandler(BaseHandler):
             offset=int(params.get("offset", 0)),
         )
 
-    async def handle_get_owasp_summary(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_get_owasp_summary(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/owasp-summary"""
         return await handle_get_owasp_summary(repo_id=repo_id)
 
@@ -1115,7 +1089,7 @@ class SecurityHandler(BaseHandler):
     # SBOM Handler Methods
     # =========================================================================
 
-    async def handle_post_sbom(self, data: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_post_sbom(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/sbom - Generate SBOM"""
         repo_path = data.get("repo_path")
         if not repo_path:
@@ -1128,27 +1102,27 @@ class SecurityHandler(BaseHandler):
             workspace_id=data.get("workspace_id"),
         )
 
-    async def handle_get_sbom_latest(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_get_sbom_latest(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/latest"""
         return await handle_get_sbom(repo_id=repo_id)
 
     async def handle_get_sbom_by_id(
-        self, params: Dict[str, Any], repo_id: str, sbom_id: str
+        self, params: dict[str, Any], repo_id: str, sbom_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/{sbom_id}"""
         return await handle_get_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
-    async def handle_list_sbom(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_list_sbom(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/list"""
         return await handle_list_sboms(repo_id=repo_id)
 
     async def handle_download_sbom_content(
-        self, params: Dict[str, Any], repo_id: str, sbom_id: str
+        self, params: dict[str, Any], repo_id: str, sbom_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/{sbom_id}/download"""
         return await handle_download_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
-    async def handle_compare_sbom(self, data: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_compare_sbom(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/sbom/compare"""
         sbom_id_a = data.get("sbom_id_a")
         sbom_id_b = data.get("sbom_id_b")
@@ -1162,18 +1136,16 @@ class SecurityHandler(BaseHandler):
             sbom_id_b=sbom_id_b,
         )
 
-
 # =============================================================================
 # SAST Scan Handlers
 # =============================================================================
 
-
 @require_permission("security:sast:scan")
 async def handle_scan_sast(
     repo_path: str,
-    repo_id: Optional[str] = None,
-    rule_sets: Optional[list] = None,
-    workspace_id: Optional[str] = None,
+    repo_id: str | None = None,
+    rule_sets: list | None = None,
+    workspace_id: str | None = None,
 ) -> HandlerResult:
     """
     Trigger a SAST scan for a repository.
@@ -1248,7 +1220,6 @@ async def handle_scan_sast(
         logger.exception(f"[SAST] Failed to start scan: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:sast:read")
 async def handle_get_sast_scan_status(
     repo_id: str,
@@ -1286,12 +1257,11 @@ async def handle_get_sast_scan_status(
         logger.exception(f"[SAST] Failed to get scan status: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:sast:read")
 async def handle_get_sast_findings(
     repo_id: str,
-    severity: Optional[str] = None,
-    owasp_category: Optional[str] = None,
+    severity: str | None = None,
+    owasp_category: str | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> HandlerResult:
@@ -1339,7 +1309,6 @@ async def handle_get_sast_findings(
         logger.exception(f"[SAST] Failed to get findings: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:sast:read")
 async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
     """Get OWASP Top 10 summary for a repository."""
@@ -1375,12 +1344,11 @@ async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
         logger.exception(f"[SAST] Failed to get OWASP summary: {e}")
         return error_response(str(e), 500)
 
-
 async def _emit_sast_events(
     result: SASTScanResult,
     repo_id: str,
     scan_id: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> None:
     """Emit security events for SAST findings."""
     try:
@@ -1432,24 +1400,21 @@ async def _emit_sast_events(
     except Exception as e:
         logger.warning(f"Failed to emit SAST events: {e}")
 
-
 # =============================================================================
 # SBOM Generation Handlers
 # =============================================================================
 
 # SBOM storage
-_sbom_results: Dict[str, Dict[str, SBOMResult]] = {}  # repo_id -> {sbom_id -> result}
+_sbom_results: dict[str, dict[str, SBOMResult]] = {}  # repo_id -> {sbom_id -> result}
 _sbom_lock = threading.Lock()
-_running_sbom_generations: Dict[str, asyncio.Task] = {}
+_running_sbom_generations: dict[str, asyncio.Task] = {}
 
-
-def _get_or_create_sbom_results(repo_id: str) -> Dict[str, SBOMResult]:
+def _get_or_create_sbom_results(repo_id: str) -> dict[str, SBOMResult]:
     """Get or create SBOM storage for a repository."""
     with _sbom_lock:
         if repo_id not in _sbom_results:
             _sbom_results[repo_id] = {}
         return _sbom_results[repo_id]
-
 
 def _get_sbom_generator() -> SBOMGenerator:
     """Get or create SBOMGenerator from service registry."""
@@ -1460,19 +1425,18 @@ def _get_sbom_generator() -> SBOMGenerator:
         logger.info("Registered SBOMGenerator with service registry")
     return registry.resolve(SBOMGenerator)
 
-
 @require_permission("security:sbom:generate")
 async def handle_generate_sbom(
     repo_path: str,
-    repo_id: Optional[str] = None,
+    repo_id: str | None = None,
     format: str = "cyclonedx-json",
-    project_name: Optional[str] = None,
-    project_version: Optional[str] = None,
+    project_name: str | None = None,
+    project_version: str | None = None,
     include_dev: bool = True,
     include_vulnerabilities: bool = True,
-    branch: Optional[str] = None,
-    commit_sha: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    branch: str | None = None,
+    commit_sha: str | None = None,
+    workspace_id: str | None = None,
 ) -> HandlerResult:
     """
     Generate SBOM for a repository.
@@ -1553,11 +1517,10 @@ async def handle_generate_sbom(
         logger.exception(f"Failed to generate SBOM: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:sbom:read")
 async def handle_get_sbom(
     repo_id: str,
-    sbom_id: Optional[str] = None,
+    sbom_id: str | None = None,
 ) -> HandlerResult:
     """
     Get SBOM content.
@@ -1597,7 +1560,6 @@ async def handle_get_sbom(
     except Exception as e:
         logger.exception(f"Failed to get SBOM: {e}")
         return error_response(str(e), 500)
-
 
 @require_permission("security:sbom:read")
 async def handle_list_sboms(
@@ -1644,7 +1606,6 @@ async def handle_list_sboms(
         logger.exception(f"Failed to list SBOMs: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:sbom:read")
 async def handle_download_sbom(
     repo_id: str,
@@ -1685,7 +1646,6 @@ async def handle_download_sbom(
         logger.exception(f"Failed to download SBOM: {e}")
         return error_response(str(e), 500)
 
-
 @require_permission("security:sbom:read")
 async def handle_compare_sboms(
     repo_id: str,
@@ -1715,7 +1675,7 @@ async def handle_compare_sboms(
         # Parse components from both (simplified - works for JSON formats)
         import json
 
-        def extract_components(content: str, format: SBOMFormat) -> Dict[str, str]:
+        def extract_components(content: str, format: SBOMFormat) -> dict[str, str]:
             """Extract component name -> version mapping."""
             components = {}
             try:

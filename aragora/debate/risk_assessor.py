@@ -7,6 +7,7 @@ Identifies potential risks in debate domains and topics:
 - Topics requiring specialized expertise
 - Areas with potential for harmful misinformation
 """
+from __future__ import annotations
 
 __all__ = [
     "RiskLevel",
@@ -20,13 +21,12 @@ __all__ = [
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 # Type alias for pattern configuration
 PatternConfig = dict[str, Any]
 
 logger = logging.getLogger(__name__)
-
 
 class RiskLevel(Enum):
     """Risk severity levels for domain assessment."""
@@ -35,7 +35,6 @@ class RiskLevel(Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
-
 
 @dataclass
 class RiskAssessment:
@@ -47,7 +46,6 @@ class RiskAssessment:
     description: str
     mitigations: list[str] = field(default_factory=list)
     confidence: float = 0.5
-
 
 # Domain patterns that indicate elevated risk
 RISK_PATTERNS = {
@@ -143,7 +141,6 @@ RISK_PATTERNS = {
     },
 }
 
-
 class RiskAssessor:
     """
     Assesses domain-specific risks for debate topics.
@@ -155,7 +152,7 @@ class RiskAssessor:
             print(f"{risk.level.value}: {risk.description}")
     """
 
-    def __init__(self, custom_patterns: Optional[dict] = None):
+    def __init__(self, custom_patterns: dict | None = None):
         """
         Initialize risk assessor.
 
@@ -166,7 +163,7 @@ class RiskAssessor:
         if custom_patterns:
             self.patterns.update(custom_patterns)
 
-    def assess_topic(self, topic: str, domain: Optional[str] = None) -> list[RiskAssessment]:
+    def assess_topic(self, topic: str, domain: str | None = None) -> list[RiskAssessment]:
         """
         Assess risks for a debate topic.
 
@@ -211,8 +208,8 @@ class RiskAssessor:
         return risks
 
     def get_highest_risk(
-        self, topic: str, domain: Optional[str] = None
-    ) -> Optional[RiskAssessment]:
+        self, topic: str, domain: str | None = None
+    ) -> RiskAssessment | None:
         """Get the highest severity risk for a topic."""
         risks = self.assess_topic(topic, domain)
         return risks[0] if risks else None
@@ -229,10 +226,8 @@ class RiskAssessor:
             "debate_id": debate_id,
         }
 
-
 # Module-level instance for convenience
-_default_assessor: Optional[RiskAssessor] = None
-
+_default_assessor: RiskAssessor | None = None
 
 def get_risk_assessor() -> RiskAssessor:
     """Get or create the default RiskAssessor instance."""
@@ -241,7 +236,6 @@ def get_risk_assessor() -> RiskAssessor:
         _default_assessor = RiskAssessor()
     return _default_assessor
 
-
-def assess_debate_risk(topic: str, domain: Optional[str] = None) -> list[RiskAssessment]:
+def assess_debate_risk(topic: str, domain: str | None = None) -> list[RiskAssessment]:
     """Convenience function to assess debate risks."""
     return get_risk_assessor().assess_topic(topic, domain)

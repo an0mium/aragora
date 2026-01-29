@@ -14,7 +14,7 @@ All interventions are logged to the audit trail for compliance.
 import json
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 _debate_state: dict[str, dict[str, Any]] = {}
 _intervention_log: list[dict[str, Any]] = []
 
-
 def get_debate_state(debate_id: str) -> dict[str, Any]:
     """Get or create debate state."""
     if debate_id not in _debate_state:
@@ -41,12 +40,11 @@ def get_debate_state(debate_id: str) -> dict[str, Any]:
         }
     return _debate_state[debate_id]
 
-
 def log_intervention(
     debate_id: str,
     intervention_type: str,
     data: dict[str, Any],
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ) -> None:
     """Log intervention to audit trail."""
     entry = {
@@ -58,7 +56,6 @@ def log_intervention(
     }
     _intervention_log.append(entry)
     logger.info(f"Intervention logged: {intervention_type} for debate {debate_id}")
-
 
 @require_permission("debates:write")
 async def handle_pause_debate(debate_id: str, context: AuthorizationContext) -> HandlerResult:
@@ -92,7 +89,6 @@ async def handle_pause_debate(debate_id: str, context: AuthorizationContext) -> 
             "message": "Debate paused successfully",
         }
     )
-
 
 @require_permission("debates:write")
 async def handle_resume_debate(debate_id: str, context: AuthorizationContext) -> HandlerResult:
@@ -140,7 +136,6 @@ async def handle_resume_debate(debate_id: str, context: AuthorizationContext) ->
         }
     )
 
-
 @require_permission("debates:write")
 async def handle_inject_argument(
     debate_id: str,
@@ -148,7 +143,7 @@ async def handle_inject_argument(
     content: str,
     injection_type: str = "argument",
     source: str = "user",
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ) -> HandlerResult:
     """Inject a user argument into the debate.
 
@@ -210,14 +205,13 @@ async def handle_inject_argument(
         }
     )
 
-
 @require_permission("debates:write")
 async def handle_update_weights(
     debate_id: str,
     context: AuthorizationContext,
     agent: str,
     weight: float,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ) -> HandlerResult:
     """Update an agent's influence weight.
 
@@ -266,13 +260,12 @@ async def handle_update_weights(
         }
     )
 
-
 @require_permission("debates:write")
 async def handle_update_threshold(
     debate_id: str,
     context: AuthorizationContext,
     threshold: float,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ) -> HandlerResult:
     """Update the consensus threshold.
 
@@ -318,7 +311,6 @@ async def handle_update_threshold(
         }
     )
 
-
 @require_permission("debates:read")
 async def handle_get_intervention_state(
     debate_id: str,
@@ -346,7 +338,6 @@ async def handle_get_intervention_state(
         }
     )
 
-
 @require_permission("debates:read")
 async def handle_get_intervention_log(
     debate_id: str,
@@ -369,7 +360,6 @@ async def handle_get_intervention_log(
             "interventions": debate_logs[:limit],
         }
     )
-
 
 def register_intervention_routes(router: Any) -> None:
     """Register intervention routes with the server router."""
@@ -464,7 +454,6 @@ def register_intervention_routes(router: Any) -> None:
     router.add_route("POST", "/api/debates/{debate_id}/intervention/threshold", update_threshold)
     router.add_route("GET", "/api/debates/{debate_id}/intervention/state", get_state)
     router.add_route("GET", "/api/debates/{debate_id}/intervention/log", get_log)
-
 
 __all__ = [
     "handle_pause_debate",

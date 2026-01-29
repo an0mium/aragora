@@ -17,18 +17,18 @@ Strategies:
 - "hybrid": Blend calibration + expertise + randomness
 - "rotation": Fall back to simple rotation (default behavior)
 """
+from __future__ import annotations
 
 import logging
 import random
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal
 
 from aragora.agents.calibration import CalibrationSummary, CalibrationTracker
 from aragora.agents.personas import Persona, PersonaManager
 from aragora.debate.roles import ROLE_PROMPTS, CognitiveRole, RoleAssignment
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class RoleMatchingConfig:
@@ -58,7 +58,6 @@ class RoleMatchingConfig:
     ece_threshold: float = 0.1
     """ECE threshold for 'well-calibrated' status."""
 
-
 @dataclass
 class RoleMatchResult:
     """Result of role matching for a single round."""
@@ -69,7 +68,6 @@ class RoleMatchResult:
     calibration_used: bool
     cold_start_agents: list[str] = field(default_factory=list)
     developmental_assignments: list[str] = field(default_factory=list)
-
 
 class RoleMatcher:
     """
@@ -96,9 +94,9 @@ class RoleMatcher:
 
     def __init__(
         self,
-        calibration_tracker: Optional[CalibrationTracker] = None,
-        persona_manager: Optional[PersonaManager] = None,
-        config: Optional[RoleMatchingConfig] = None,
+        calibration_tracker: CalibrationTracker | None = None,
+        persona_manager: PersonaManager | None = None,
+        config: RoleMatchingConfig | None = None,
     ):
         """
         Initialize role matcher.
@@ -124,7 +122,7 @@ class RoleMatcher:
         self,
         agent_names: list[str],
         round_num: int,
-        debate_domain: Optional[str] = None,
+        debate_domain: str | None = None,
     ) -> RoleMatchResult:
         """
         Match agents to cognitive roles for a round.
@@ -189,7 +187,7 @@ class RoleMatcher:
         self,
         agent_names: list[str],
         round_num: int,
-        calibrations: dict[str, Optional[CalibrationSummary]],
+        calibrations: dict[str, CalibrationSummary | None],
         cold_start: list[str],
     ) -> RoleMatchResult:
         """Assign roles purely based on calibration."""
@@ -233,9 +231,9 @@ class RoleMatcher:
         self,
         agent_names: list[str],
         round_num: int,
-        calibrations: dict[str, Optional[CalibrationSummary]],
-        personas: dict[str, Optional[Persona]],
-        debate_domain: Optional[str],
+        calibrations: dict[str, CalibrationSummary | None],
+        personas: dict[str, Persona | None],
+        debate_domain: str | None,
         cold_start: list[str],
     ) -> RoleMatchResult:
         """Hybrid strategy blending calibration, expertise, and randomness."""
@@ -328,9 +326,9 @@ class RoleMatcher:
     def _compute_affinity_matrix(
         self,
         agent_names: list[str],
-        calibrations: dict[str, Optional[CalibrationSummary]],
-        personas: dict[str, Optional[Persona]],
-        debate_domain: Optional[str],
+        calibrations: dict[str, CalibrationSummary | None],
+        personas: dict[str, Persona | None],
+        debate_domain: str | None,
     ) -> dict[str, dict[CognitiveRole, float]]:
         """Compute affinity scores for each agent-role pair."""
         matrix: dict[str, dict[CognitiveRole, float]] = {}
@@ -442,7 +440,7 @@ class RoleMatcher:
             available = affinities  # All used, ignore constraint
 
         if temperature <= 0 or not available:
-            return max(available, key=available.get) if available else CognitiveRole.ANALYST
+            return max(available, key=lambda k: available[k]) if available else CognitiveRole.ANALYST
 
         # Softmax selection
         max_score = max(available.values())
@@ -467,7 +465,7 @@ class RoleMatcher:
     def _get_calibrations(
         self,
         agent_names: list[str],
-    ) -> dict[str, Optional[CalibrationSummary]]:
+    ) -> dict[str, CalibrationSummary | None]:
         """Get calibration summaries for agents."""
         if not self.calibration_tracker:
             return {}
@@ -490,7 +488,7 @@ class RoleMatcher:
     def _get_personas(
         self,
         agent_names: list[str],
-    ) -> dict[str, Optional[Persona]]:
+    ) -> dict[str, Persona | None]:
         """Get personas for agents."""
         if not self.persona_manager:
             return {}
@@ -508,7 +506,6 @@ class RoleMatcher:
     def clear_cache(self) -> None:
         """Clear calibration cache (call when calibration data updates)."""
         self._calibration_cache.clear()
-
 
 __all__ = [
     "RoleMatchingConfig",

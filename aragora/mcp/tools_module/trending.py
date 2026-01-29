@@ -7,17 +7,16 @@ Pulse integration for trending topic discovery.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def list_trending_topics_tool(
     platform: str = "all",
     category: str = "",
     min_score: float = 0.5,
     limit: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get trending topics from Pulse that could make good debates.
 
@@ -30,7 +29,7 @@ async def list_trending_topics_tool(
     Returns:
         Dict with scored topics and count
     """
-    topics: List[Dict[str, Any]] = []
+    topics: list[dict[str, Any]] = []
 
     try:
         from aragora.pulse import PulseManager, SchedulerConfig, TopicSelector
@@ -82,6 +81,5 @@ async def list_trending_topics_tool(
         "category": category or "(all)",
         "min_score": min_score,
     }
-
 
 __all__ = ["list_trending_topics_tool"]

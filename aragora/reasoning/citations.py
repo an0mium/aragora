@@ -10,14 +10,14 @@ This module provides:
 4. CitationFormatter: Format citations in standard academic styles
 5. GroundedVerdict: Verdict + supporting citations
 """
+from __future__ import annotations
 
 import hashlib
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class CitationType(Enum):
     """Type of citation source."""
@@ -36,7 +36,6 @@ class CitationType(Enum):
     INTERNAL_DEBATE = "internal_debate"  # Reference to prior aragora debate
     UNKNOWN = "unknown"
 
-
 class CitationQuality(Enum):
     """Quality level of a citation."""
 
@@ -46,7 +45,6 @@ class CitationQuality(Enum):
     MIXED = "mixed"  # Some quality indicators
     UNVERIFIED = "unverified"  # Unknown quality
     QUESTIONABLE = "questionable"  # Quality concerns
-
 
 @dataclass
 class ScholarlyEvidence:
@@ -63,24 +61,24 @@ class ScholarlyEvidence:
     title: str = ""
     authors: list[str] = field(default_factory=list)
     publication: str = ""  # Journal, conference, publisher
-    year: Optional[int] = None
-    url: Optional[str] = None
-    doi: Optional[str] = None
+    year: int | None = None
+    url: str | None = None
+    doi: str | None = None
 
     # Content
     excerpt: str = ""  # Relevant quote or summary
     relevance_score: float = 0.0  # 0-1, how relevant to claim
-    page_numbers: Optional[str] = None
+    page_numbers: str | None = None
 
     # Quality assessment
     quality: CitationQuality = CitationQuality.UNVERIFIED
     peer_reviewed: bool = False
-    impact_factor: Optional[float] = None  # For academic sources
-    citation_count: Optional[int] = None
+    impact_factor: float | None = None  # For academic sources
+    citation_count: int | None = None
 
     # Linking
-    claim_id: Optional[str] = None  # Which claim this supports
-    debate_id: Optional[str] = None
+    claim_id: str | None = None  # Which claim this supports
+    debate_id: str | None = None
 
     # Metadata
     retrieved_at: datetime = field(default_factory=datetime.now)
@@ -176,7 +174,6 @@ class ScholarlyEvidence:
             "peer_reviewed": self.peer_reviewed,
         }
 
-
 @dataclass
 class CitedClaim:
     """A claim with supporting citations."""
@@ -206,7 +203,6 @@ class CitedClaim:
             "confidence": self.confidence,
             "grounding_score": self.grounding_score,
         }
-
 
 @dataclass
 class GroundedVerdict:
@@ -278,7 +274,6 @@ class GroundedVerdict:
             "all_citations": [c.to_dict() for c in self.all_citations],
             "grounding_score": self.grounding_score,
         }
-
 
 class CitationExtractor:
     """
@@ -358,7 +353,6 @@ class CitationExtractor:
         else:
             return [CitationType.ACADEMIC_PAPER, CitationType.OFFICIAL_SOURCE]
 
-
 class CitationStore:
     """
     Stores and retrieves citations for reuse across debates.
@@ -375,7 +369,7 @@ class CitationStore:
         self.citations[citation.id] = citation
         return citation.id
 
-    def get(self, citation_id: str) -> Optional[ScholarlyEvidence]:
+    def get(self, citation_id: str) -> ScholarlyEvidence | None:
         """Get a citation by ID."""
         return self.citations.get(citation_id)
 
@@ -406,7 +400,6 @@ class CitationStore:
         """Get all citations linked to a claim."""
         citation_ids = self.claim_to_citations.get(claim_id, [])
         return [self.citations[cid] for cid in citation_ids if cid in self.citations]
-
 
 def create_citation_from_url(url: str, title: str = "", excerpt: str = "") -> ScholarlyEvidence:
     """Create a citation from a URL with automatic type detection."""

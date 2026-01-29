@@ -44,11 +44,9 @@ __all__ = [
     "VoteWeightCalculator",
 ]
 
-
 # =============================================================================
 # Core Types (from consensus.py, preserved as canonical)
 # =============================================================================
-
 
 class VoteType(Enum):
     """Types of votes."""
@@ -57,7 +55,6 @@ class VoteType(Enum):
     DISAGREE = "disagree"
     ABSTAIN = "abstain"
     CONDITIONAL = "conditional"  # Agree with reservations
-
 
 class ConsensusStrength(Enum):
     """Strength classification for consensus."""
@@ -68,11 +65,9 @@ class ConsensusStrength(Enum):
     WEAK = "weak"  # Variance >= 2
     NONE = "none"  # No votes or no clear winner
 
-
 # =============================================================================
 # Weight Configuration
 # =============================================================================
-
 
 class WeightSource(Protocol):
     """Protocol for vote weight providers."""
@@ -80,7 +75,6 @@ class WeightSource(Protocol):
     def get_weight(self, agent_name: str) -> float:
         """Return weight for agent (typically 0.5-1.5 range)."""
         ...
-
 
 @dataclass
 class WeightConfig:
@@ -106,11 +100,9 @@ class WeightConfig:
     consistency_contribution: float = 1.0
     calibration_contribution: float = 1.0
 
-
 # =============================================================================
 # Vote Result (unified from WeightedVoteResult and AggregatedVotes)
 # =============================================================================
-
 
 @dataclass
 class VoteResult:
@@ -121,7 +113,7 @@ class VoteResult:
     """
 
     # Winner and counts
-    winner: Optional[str] = None
+    winner: str | None = None
     vote_counts: dict[str, float] = field(default_factory=dict)
     total_weighted_votes: float = 0.0
 
@@ -153,7 +145,7 @@ class VoteResult:
             choice: count / self.total_weighted_votes for choice, count in self.vote_counts.items()
         }
 
-    def get_runner_up(self) -> Optional[tuple[str, float]]:
+    def get_runner_up(self) -> tuple[str, float] | None:
         """Get the runner-up choice and its count."""
         sorted_counts = sorted(self.vote_counts.items(), key=lambda x: x[1], reverse=True)
         if len(sorted_counts) >= 2:
@@ -171,11 +163,9 @@ class VoteResult:
         runner_up_pct = runner_up[1] / self.total_weighted_votes
         return winner_pct - runner_up_pct
 
-
 # =============================================================================
 # Vote Weight Calculator
 # =============================================================================
-
 
 class VoteWeightCalculator:
     """Calculates vote weights from multiple sources.
@@ -191,9 +181,9 @@ class VoteWeightCalculator:
 
     def __init__(
         self,
-        config: Optional[WeightConfig] = None,
+        config: WeightConfig | None = None,
         reputation_source: Optional[Callable[[str], float]] = None,
-        reliability_weights: Optional[dict[str, float]] = None,
+        reliability_weights: dict[str, float] | None = None,
         consistency_source: Optional[Callable[[str], float]] = None,
         calibration_source: Optional[Callable[[str], float]] = None,
     ):
@@ -279,11 +269,9 @@ class VoteWeightCalculator:
         """Clear the weight cache."""
         self._cache.clear()
 
-
 # =============================================================================
 # Unified Voting Engine
 # =============================================================================
-
 
 class VotingEngine:
     """Unified voting engine for debate consensus.
@@ -318,7 +306,7 @@ class VotingEngine:
         self,
         protocol: Optional["DebateProtocol"] = None,
         similarity_backend: Optional["SimilarityBackend"] = None,
-        weight_config: Optional[WeightConfig] = None,
+        weight_config: WeightConfig | None = None,
     ):
         """Initialize voting engine.
 
@@ -330,7 +318,7 @@ class VotingEngine:
         self.protocol = protocol
         self._similarity_backend = similarity_backend
         self._weight_config = weight_config or WeightConfig()
-        self._weight_calculator: Optional[VoteWeightCalculator] = None
+        self._weight_calculator: VoteWeightCalculator | None = None
 
     def set_weight_calculator(self, calculator: VoteWeightCalculator) -> None:
         """Set the weight calculator for weighted voting."""
@@ -439,7 +427,7 @@ class VotingEngine:
     def count_votes(
         self,
         votes: list["Vote"],
-        user_votes: Optional[list[dict[str, Any]]] = None,
+        user_votes: list[dict[str, Any] | None] = None,
         require_majority: bool = False,
         min_margin: float = 0.0,
     ) -> VoteResult:
@@ -708,7 +696,7 @@ class VotingEngine:
         votes: list["Vote"],
         require_majority: bool = False,
         min_margin: float = 0.0,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Determine the winning choice from votes (quick check, no weighting).
 
         Args:

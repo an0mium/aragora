@@ -27,15 +27,13 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # ============================================================================
 # Version Types
 # ============================================================================
-
 
 class APIVersion(Enum):
     """Supported API versions."""
@@ -70,7 +68,7 @@ class APIVersion(Enum):
         return cls.V1  # V1 is current stable
 
     @classmethod
-    def all_versions(cls) -> List["APIVersion"]:
+    def all_versions(cls) -> list["APIVersion"]:
         """Get all versions in order."""
         return [cls.V1, cls.V2, cls.V3]
 
@@ -81,7 +79,6 @@ class APIVersion(Enum):
     def __le__(self, other: "APIVersion") -> bool:
         return self == other or self < other
 
-
 @dataclass
 class VersionInfo:
     """API version information."""
@@ -89,9 +86,9 @@ class VersionInfo:
     version: APIVersion
     released: date
     deprecated: bool = False
-    sunset_date: Optional[date] = None
+    sunset_date: date | None = None
     description: str = ""
-    changelog_url: Optional[str] = None
+    changelog_url: str | None = None
 
     @property
     def is_sunset(self) -> bool:
@@ -101,16 +98,15 @@ class VersionInfo:
         return date.today() > self.sunset_date
 
     @property
-    def days_until_sunset(self) -> Optional[int]:
+    def days_until_sunset(self) -> int | None:
         """Days until sunset, if applicable."""
         if not self.sunset_date:
             return None
         delta = self.sunset_date - date.today()
         return max(0, delta.days)
 
-
 # Version registry
-VERSION_INFO: Dict[APIVersion, VersionInfo] = {
+VERSION_INFO: dict[APIVersion, VersionInfo] = {
     APIVersion.V1: VersionInfo(
         version=APIVersion.V1,
         released=date(2024, 1, 1),
@@ -128,17 +124,15 @@ VERSION_INFO: Dict[APIVersion, VersionInfo] = {
     ),
 }
 
-
 # ============================================================================
 # Version Extraction
 # ============================================================================
 
-
 def get_version_from_request(
     path: str,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
     default: APIVersion = APIVersion.V1,
-) -> Tuple[APIVersion, str]:
+) -> tuple[APIVersion, str]:
     """
     Extract API version from request.
 
@@ -179,11 +173,9 @@ def get_version_from_request(
     # 4. Default
     return default, path
 
-
 # ============================================================================
 # Versioned Router
 # ============================================================================
-
 
 @dataclass
 class RouteEntry:
@@ -194,9 +186,8 @@ class RouteEntry:
     handler: Callable
     version: APIVersion
     deprecated: bool = False
-    sunset_date: Optional[date] = None
-    replacement: Optional[str] = None
-
+    sunset_date: date | None = None
+    replacement: str | None = None
 
 @dataclass
 class VersionedRouter:
@@ -207,7 +198,7 @@ class VersionedRouter:
     automatically routes requests to the appropriate handler.
     """
 
-    routes: Dict[str, Dict[APIVersion, RouteEntry]] = field(default_factory=dict)
+    routes: dict[str, dict[APIVersion, RouteEntry]] = field(default_factory=dict)
     default_version: APIVersion = APIVersion.V1
     strict_versioning: bool = False  # Require explicit version
 
@@ -221,8 +212,8 @@ class VersionedRouter:
         method: str = "GET",
         version: APIVersion = APIVersion.V1,
         deprecated: bool = False,
-        sunset_date: Optional[date] = None,
-        replacement: Optional[str] = None,
+        sunset_date: date | None = None,
+        replacement: str | None = None,
     ) -> Callable:
         """
         Decorator to register a versioned route.
@@ -285,7 +276,7 @@ class VersionedRouter:
         path: str,
         method: str,
         version: APIVersion,
-    ) -> Optional[RouteEntry]:
+    ) -> RouteEntry | None:
         """
         Resolve handler for request.
 
@@ -312,14 +303,14 @@ class VersionedRouter:
 
         return None
 
-    def get_all_routes(self) -> List[RouteEntry]:
+    def get_all_routes(self) -> list[RouteEntry]:
         """Get all registered routes."""
-        all_routes: List[RouteEntry] = []
+        all_routes: list[RouteEntry] = []
         for versions in self.routes.values():
             all_routes.extend(versions.values())
         return all_routes
 
-    def get_routes_for_version(self, version: APIVersion) -> List[RouteEntry]:
+    def get_routes_for_version(self, version: APIVersion) -> list[RouteEntry]:
         """Get routes available for a specific version."""
         routes = []
         for key in self.routes:
@@ -332,16 +323,14 @@ class VersionedRouter:
                 routes.append(entry)
         return routes
 
-
 # ============================================================================
 # Decorator Helpers
 # ============================================================================
 
-
 def version_route(
     version: APIVersion = APIVersion.V1,
     deprecated: bool = False,
-    sunset_date: Optional[date] = None,
+    sunset_date: date | None = None,
 ) -> Callable:
     """
     Mark a function as handling a specific API version.
@@ -367,17 +356,15 @@ def version_route(
 
     return decorator
 
-
 # ============================================================================
 # Response Helpers
 # ============================================================================
 
-
 def versioned_response(
     data: Any,
     version: APIVersion,
-    meta: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    meta: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """
     Create version-appropriate response format.
 
@@ -396,12 +383,11 @@ def versioned_response(
         },
     }
 
-
 def add_version_headers(
-    headers: Dict[str, str],
+    headers: dict[str, str],
     version: APIVersion,
-    route: Optional[RouteEntry] = None,
-) -> Dict[str, str]:
+    route: RouteEntry | None = None,
+) -> dict[str, str]:
     """Add version-related headers to response."""
     headers["X-API-Version"] = version.value
 

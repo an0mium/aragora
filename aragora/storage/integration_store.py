@@ -29,7 +29,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -72,7 +72,6 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
-
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
     """Record user mapping operation metric if available."""
     try:
@@ -81,7 +80,6 @@ def _record_user_mapping_operation(operation: str, platform: str, found: bool) -
         record_user_mapping_operation(operation, platform, found)
     except ImportError:
         pass
-
 
 def _record_user_mapping_cache_hit(platform: str) -> None:
     """Record user mapping cache hit metric if available."""
@@ -92,7 +90,6 @@ def _record_user_mapping_cache_hit(platform: str) -> None:
     except ImportError:
         pass
 
-
 def _record_user_mapping_cache_miss(platform: str) -> None:
     """Record user mapping cache miss metric if available."""
     try:
@@ -101,7 +98,6 @@ def _record_user_mapping_cache_miss(platform: str) -> None:
         record_user_mapping_cache_miss(platform)
     except ImportError:
         pass
-
 
 # =============================================================================
 # Integration Types and Models
@@ -137,12 +133,11 @@ SENSITIVE_KEYS = frozenset(
     ]
 )
 
-
 def _encrypt_settings(
-    settings: Dict[str, Any],
+    settings: dict[str, Any],
     user_id: str = "default",
     integration_type: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Encrypt sensitive keys in settings dict before storage.
 
@@ -195,12 +190,11 @@ def _encrypt_settings(
         logger.warning(f"Encryption service error, storing unencrypted: {e}")
         return settings
 
-
 def _decrypt_settings(
-    settings: Dict[str, Any],
+    settings: dict[str, Any],
     user_id: str = "default",
     integration_type: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Decrypt sensitive keys, handling legacy unencrypted data.
 
@@ -228,7 +222,6 @@ def _decrypt_settings(
         logger.warning(f"Decryption failed for {integration_type}: {e}")
         return settings
 
-
 @dataclass
 class UserIdMapping:
     """Cross-platform user identity mapping."""
@@ -236,7 +229,7 @@ class UserIdMapping:
     email: str
     platform: str  # "slack", "discord", "teams", etc.
     platform_user_id: str
-    display_name: Optional[str] = None
+    display_name: str | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     user_id: str = "default"  # Owner/tenant
@@ -268,7 +261,6 @@ class UserIdMapping:
             user_id=row[6],
         )
 
-
 @dataclass
 class IntegrationConfig:
     """Configuration for a chat platform integration."""
@@ -285,17 +277,17 @@ class IntegrationConfig:
     notify_on_leaderboard: bool = False
 
     # Provider-specific settings (stored as dict)
-    settings: Dict[str, Any] = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)
 
     # Delivery tracking
     messages_sent: int = 0
     errors_24h: int = 0
-    last_activity: Optional[float] = None
-    last_error: Optional[str] = None
+    last_activity: float | None = None
+    last_error: str | None = None
 
     # Owner (for multi-tenant)
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    user_id: str | None = None
+    workspace_id: str | None = None
 
     def to_dict(self, include_secrets: bool = False) -> dict:
         """Convert to dict, optionally excluding secrets."""
@@ -350,16 +342,13 @@ class IntegrationConfig:
             return "connected"
         return "not_configured"
 
-
 def _make_key(integration_type: str, user_id: str = "default") -> str:
     """Generate storage key for integration."""
     return f"{user_id}:{integration_type}"
 
-
 # =============================================================================
 # Abstract Backend
 # =============================================================================
-
 
 class IntegrationStoreBackend(ABC):
     """Abstract base for integration storage backends."""
@@ -367,7 +356,7 @@ class IntegrationStoreBackend(ABC):
     @abstractmethod
     async def get(
         self, integration_type: str, user_id: str = "default"
-    ) -> Optional[IntegrationConfig]:
+    ) -> IntegrationConfig | None:
         """Get integration configuration."""
         pass
 
@@ -382,12 +371,12 @@ class IntegrationStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def list_for_user(self, user_id: str = "default") -> List[IntegrationConfig]:
+    async def list_for_user(self, user_id: str = "default") -> list[IntegrationConfig]:
         """List all integrations for a user."""
         pass
 
     @abstractmethod
-    async def list_all(self) -> List[IntegrationConfig]:
+    async def list_all(self) -> list[IntegrationConfig]:
         """List all integrations (admin use)."""
         pass
 
@@ -395,7 +384,7 @@ class IntegrationStoreBackend(ABC):
     @abstractmethod
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
-    ) -> Optional[UserIdMapping]:
+    ) -> UserIdMapping | None:
         """Get user ID mapping for a platform."""
         pass
 
@@ -413,8 +402,8 @@ class IntegrationStoreBackend(ABC):
 
     @abstractmethod
     async def list_user_mappings(
-        self, platform: Optional[str] = None, user_id: str = "default"
-    ) -> List[UserIdMapping]:
+        self, platform: str | None = None, user_id: str = "default"
+    ) -> list[UserIdMapping]:
         """List user ID mappings, optionally filtered by platform."""
         pass
 
@@ -422,11 +411,9 @@ class IntegrationStoreBackend(ABC):
         """Close connections (optional to implement)."""
         pass
 
-
 # =============================================================================
 # In-Memory Backend (for testing)
 # =============================================================================
-
 
 class InMemoryIntegrationStore(IntegrationStoreBackend):
     """
@@ -436,13 +423,13 @@ class InMemoryIntegrationStore(IntegrationStoreBackend):
     """
 
     def __init__(self) -> None:
-        self._store: Dict[str, IntegrationConfig] = {}
-        self._mappings: Dict[str, UserIdMapping] = {}
+        self._store: dict[str, IntegrationConfig] = {}
+        self._mappings: dict[str, UserIdMapping] = {}
         self._lock = threading.RLock()
 
     async def get(
         self, integration_type: str, user_id: str = "default"
-    ) -> Optional[IntegrationConfig]:
+    ) -> IntegrationConfig | None:
         key = _make_key(integration_type, user_id)
         with self._lock:
             return self._store.get(key)
@@ -461,18 +448,18 @@ class InMemoryIntegrationStore(IntegrationStoreBackend):
                 return True
             return False
 
-    async def list_for_user(self, user_id: str = "default") -> List[IntegrationConfig]:
+    async def list_for_user(self, user_id: str = "default") -> list[IntegrationConfig]:
         prefix = f"{user_id}:"
         with self._lock:
             return [v for k, v in self._store.items() if k.startswith(prefix)]
 
-    async def list_all(self) -> List[IntegrationConfig]:
+    async def list_all(self) -> list[IntegrationConfig]:
         with self._lock:
             return list(self._store.values())
 
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
-    ) -> Optional[UserIdMapping]:
+    ) -> UserIdMapping | None:
         key = f"{user_id}:{platform}:{email}"
         with self._lock:
             return self._mappings.get(key)
@@ -494,8 +481,8 @@ class InMemoryIntegrationStore(IntegrationStoreBackend):
             return False
 
     async def list_user_mappings(
-        self, platform: Optional[str] = None, user_id: str = "default"
-    ) -> List[UserIdMapping]:
+        self, platform: str | None = None, user_id: str = "default"
+    ) -> list[UserIdMapping]:
         with self._lock:
             result = []
             for key, mapping in self._mappings.items():
@@ -510,11 +497,9 @@ class InMemoryIntegrationStore(IntegrationStoreBackend):
             self._store.clear()
             self._mappings.clear()
 
-
 # =============================================================================
 # SQLite Backend
 # =============================================================================
-
 
 class SQLiteIntegrationStore(IntegrationStoreBackend):
     """
@@ -608,7 +593,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
 
     async def get(
         self, integration_type: str, user_id: str = "default"
-    ) -> Optional[IntegrationConfig]:
+    ) -> IntegrationConfig | None:
         conn = self._get_conn()
         cursor = conn.execute(
             """SELECT integration_type, enabled, created_at, updated_at,
@@ -672,7 +657,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             logger.debug(f"Deleted integration: {integration_type} for user {user_id}")
         return deleted
 
-    async def list_for_user(self, user_id: str = "default") -> List[IntegrationConfig]:
+    async def list_for_user(self, user_id: str = "default") -> list[IntegrationConfig]:
         conn = self._get_conn()
         cursor = conn.execute(
             """SELECT integration_type, enabled, created_at, updated_at,
@@ -689,7 +674,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             configs.append(config)
         return configs
 
-    async def list_all(self) -> List[IntegrationConfig]:
+    async def list_all(self) -> list[IntegrationConfig]:
         conn = self._get_conn()
         cursor = conn.execute("""SELECT integration_type, enabled, created_at, updated_at,
                       notify_on_consensus, notify_on_debate_end, notify_on_error,
@@ -707,7 +692,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
 
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
-    ) -> Optional[UserIdMapping]:
+    ) -> UserIdMapping | None:
         conn = self._get_conn()
         cursor = conn.execute(
             """SELECT email, platform, platform_user_id, display_name,
@@ -757,8 +742,8 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
         return deleted
 
     async def list_user_mappings(
-        self, platform: Optional[str] = None, user_id: str = "default"
-    ) -> List[UserIdMapping]:
+        self, platform: str | None = None, user_id: str = "default"
+    ) -> list[UserIdMapping]:
         conn = self._get_conn()
         if platform:
             cursor = conn.execute(
@@ -783,11 +768,9 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             self._local.conn.close()
             del self._local.conn
 
-
 # =============================================================================
 # Redis Backend (with SQLite fallback)
 # =============================================================================
-
 
 class RedisIntegrationStore(IntegrationStoreBackend):
     """
@@ -800,14 +783,14 @@ class RedisIntegrationStore(IntegrationStoreBackend):
     REDIS_PREFIX = "aragora:integrations"
     REDIS_TTL = 86400  # 24 hours
 
-    def __init__(self, db_path: Path | str, redis_url: Optional[str] = None):
+    def __init__(self, db_path: Path | str, redis_url: str | None = None):
         self._sqlite = SQLiteIntegrationStore(db_path)
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_url = redis_url or os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379")
         self._redis_checked = False
         logger.info("RedisIntegrationStore initialized with SQLite fallback")
 
-    def _get_redis(self) -> Optional[Any]:
+    def _get_redis(self) -> Any | None:
         """Get Redis client (lazy initialization)."""
         if self._redis_checked:
             return self._redis
@@ -837,7 +820,7 @@ class RedisIntegrationStore(IntegrationStoreBackend):
 
     async def get(
         self, integration_type: str, user_id: str = "default"
-    ) -> Optional[IntegrationConfig]:
+    ) -> IntegrationConfig | None:
         redis = self._get_redis()
 
         # Try Redis first
@@ -898,11 +881,11 @@ class RedisIntegrationStore(IntegrationStoreBackend):
 
         return await self._sqlite.delete(integration_type, user_id)
 
-    async def list_for_user(self, user_id: str = "default") -> List[IntegrationConfig]:
+    async def list_for_user(self, user_id: str = "default") -> list[IntegrationConfig]:
         # Always use SQLite for list operations (authoritative)
         return await self._sqlite.list_for_user(user_id)
 
-    async def list_all(self) -> List[IntegrationConfig]:
+    async def list_all(self) -> list[IntegrationConfig]:
         return await self._sqlite.list_all()
 
     def _mapping_redis_key(self, email: str, platform: str, user_id: str) -> str:
@@ -910,7 +893,7 @@ class RedisIntegrationStore(IntegrationStoreBackend):
 
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
-    ) -> Optional[UserIdMapping]:
+    ) -> UserIdMapping | None:
         redis = self._get_redis()
 
         # Try Redis first
@@ -975,8 +958,8 @@ class RedisIntegrationStore(IntegrationStoreBackend):
         return await self._sqlite.delete_user_mapping(email, platform, user_id)
 
     async def list_user_mappings(
-        self, platform: Optional[str] = None, user_id: str = "default"
-    ) -> List[UserIdMapping]:
+        self, platform: str | None = None, user_id: str = "default"
+    ) -> list[UserIdMapping]:
         # Always use SQLite for list operations (authoritative)
         return await self._sqlite.list_user_mappings(platform, user_id)
 
@@ -985,11 +968,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
         if self._redis:
             self._redis.close()
 
-
 # =============================================================================
 # PostgreSQL Backend
 # =============================================================================
-
 
 class PostgresIntegrationStore(IntegrationStoreBackend):
     """
@@ -1088,13 +1069,13 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     async def get(
         self, integration_type: str, user_id: str = "default"
-    ) -> Optional[IntegrationConfig]:
+    ) -> IntegrationConfig | None:
         """Get integration configuration (async)."""
         return await self.get_async(integration_type, user_id)
 
     async def get_async(
         self, integration_type: str, user_id: str = "default"
-    ) -> Optional[IntegrationConfig]:
+    ) -> IntegrationConfig | None:
         """Get integration configuration asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1119,7 +1100,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def get_sync(
         self, integration_type: str, user_id: str = "default"
-    ) -> Optional[IntegrationConfig]:
+    ) -> IntegrationConfig | None:
         """Get integration configuration (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_async(integration_type, user_id)
@@ -1205,11 +1186,11 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
             self.delete_async(integration_type, user_id)
         )
 
-    async def list_for_user(self, user_id: str = "default") -> List[IntegrationConfig]:
+    async def list_for_user(self, user_id: str = "default") -> list[IntegrationConfig]:
         """List all integrations for a user (async)."""
         return await self.list_for_user_async(user_id)
 
-    async def list_for_user_async(self, user_id: str = "default") -> List[IntegrationConfig]:
+    async def list_for_user_async(self, user_id: str = "default") -> list[IntegrationConfig]:
         """List all integrations for a user asynchronously."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
@@ -1231,15 +1212,15 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                 configs.append(config)
             return configs
 
-    def list_for_user_sync(self, user_id: str = "default") -> List[IntegrationConfig]:
+    def list_for_user_sync(self, user_id: str = "default") -> list[IntegrationConfig]:
         """List all integrations for a user (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.list_for_user_async(user_id))
 
-    async def list_all(self) -> List[IntegrationConfig]:
+    async def list_all(self) -> list[IntegrationConfig]:
         """List all integrations (async)."""
         return await self.list_all_async()
 
-    async def list_all_async(self) -> List[IntegrationConfig]:
+    async def list_all_async(self) -> list[IntegrationConfig]:
         """List all integrations asynchronously."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch("""SELECT integration_type, enabled,
@@ -1260,19 +1241,19 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                 configs.append(config)
             return configs
 
-    def list_all_sync(self) -> List[IntegrationConfig]:
+    def list_all_sync(self) -> list[IntegrationConfig]:
         """List all integrations (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.list_all_async())
 
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
-    ) -> Optional[UserIdMapping]:
+    ) -> UserIdMapping | None:
         """Get user ID mapping for a platform (async)."""
         return await self.get_user_mapping_async(email, platform, user_id)
 
     async def get_user_mapping_async(
         self, email: str, platform: str, user_id: str = "default"
-    ) -> Optional[UserIdMapping]:
+    ) -> UserIdMapping | None:
         """Get user ID mapping for a platform asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1294,7 +1275,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def get_user_mapping_sync(
         self, email: str, platform: str, user_id: str = "default"
-    ) -> Optional[UserIdMapping]:
+    ) -> UserIdMapping | None:
         """Get user ID mapping (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_user_mapping_async(email, platform, user_id)
@@ -1361,14 +1342,14 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         )
 
     async def list_user_mappings(
-        self, platform: Optional[str] = None, user_id: str = "default"
-    ) -> List[UserIdMapping]:
+        self, platform: str | None = None, user_id: str = "default"
+    ) -> list[UserIdMapping]:
         """List user ID mappings (async)."""
         return await self.list_user_mappings_async(platform, user_id)
 
     async def list_user_mappings_async(
-        self, platform: Optional[str] = None, user_id: str = "default"
-    ) -> List[UserIdMapping]:
+        self, platform: str | None = None, user_id: str = "default"
+    ) -> list[UserIdMapping]:
         """List user ID mappings asynchronously."""
         async with self._pool.acquire() as conn:
             if platform:
@@ -1395,8 +1376,8 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
             return [self._row_to_mapping(row) for row in rows]
 
     def list_user_mappings_sync(
-        self, platform: Optional[str] = None, user_id: str = "default"
-    ) -> List[UserIdMapping]:
+        self, platform: str | None = None, user_id: str = "default"
+    ) -> list[UserIdMapping]:
         """List user ID mappings (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.list_user_mappings_async(platform, user_id)
@@ -1406,13 +1387,11 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 # =============================================================================
 # Global Store Factory
 # =============================================================================
 
-_integration_store: Optional[IntegrationStoreBackend] = None
-
+_integration_store: IntegrationStoreBackend | None = None
 
 def get_integration_store() -> IntegrationStoreBackend:
     """
@@ -1466,7 +1445,6 @@ def get_integration_store() -> IntegrationStoreBackend:
 
     return _integration_store
 
-
 def set_integration_store(store: IntegrationStoreBackend) -> None:
     """
     Set custom integration store.
@@ -1477,12 +1455,10 @@ def set_integration_store(store: IntegrationStoreBackend) -> None:
     _integration_store = store
     logger.debug(f"Integration store backend set: {type(store).__name__}")
 
-
 def reset_integration_store() -> None:
     """Reset the global integration store (for testing)."""
     global _integration_store
     _integration_store = None
-
 
 __all__ = [
     "IntegrationConfig",

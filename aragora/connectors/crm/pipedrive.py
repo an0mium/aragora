@@ -17,18 +17,16 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import httpx
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Enums
 # =============================================================================
-
 
 class DealStatus(str, Enum):
     """Pipedrive deal status."""
@@ -37,7 +35,6 @@ class DealStatus(str, Enum):
     WON = "won"
     LOST = "lost"
     DELETED = "deleted"
-
 
 class ActivityType(str, Enum):
     """Pipedrive activity types."""
@@ -49,7 +46,6 @@ class ActivityType(str, Enum):
     EMAIL = "email"
     LUNCH = "lunch"
 
-
 class PersonVisibility(str, Enum):
     """Visibility levels."""
 
@@ -57,11 +53,9 @@ class PersonVisibility(str, Enum):
     OWNER_FOLLOWERS = "3"  # Owner and followers
     ENTIRE_COMPANY = "5"  # Entire company
 
-
 # =============================================================================
 # Credentials
 # =============================================================================
-
 
 @dataclass
 class PipedriveCredentials:
@@ -83,11 +77,9 @@ class PipedriveCredentials:
 
         return cls(api_token=api_token, base_url=base_url)
 
-
 # =============================================================================
 # Error Handling
 # =============================================================================
-
 
 class PipedriveError(Exception):
     """Pipedrive API error."""
@@ -95,18 +87,16 @@ class PipedriveError(Exception):
     def __init__(
         self,
         message: str,
-        status_code: Optional[int] = None,
-        error_code: Optional[str] = None,
+        status_code: int | None = None,
+        error_code: str | None = None,
     ):
         super().__init__(message)
         self.status_code = status_code
         self.error_code = error_code
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 @dataclass
 class Person:
@@ -114,19 +104,19 @@ class Person:
 
     id: int
     name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    org_id: Optional[int] = None
-    org_name: Optional[str] = None
-    owner_id: Optional[int] = None
+    email: str | None = None
+    phone: str | None = None
+    org_id: int | None = None
+    org_name: str | None = None
+    owner_id: int | None = None
     visible_to: str = PersonVisibility.ENTIRE_COMPANY.value
-    add_time: Optional[datetime] = None
-    update_time: Optional[datetime] = None
+    add_time: datetime | None = None
+    update_time: datetime | None = None
     active_flag: bool = True
-    custom_fields: Dict[str, Any] = field(default_factory=dict)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Person":
+    def from_api(cls, data: dict[str, Any]) -> "Person":
         """Parse from API response."""
         # Extract primary email
         emails = data.get("email", [])
@@ -164,9 +154,9 @@ class Person:
             active_flag=data.get("active_flag", True),
         )
 
-    def to_api(self) -> Dict[str, Any]:
+    def to_api(self) -> dict[str, Any]:
         """Convert to API request format."""
-        result: Dict[str, Any] = {"name": self.name}
+        result: dict[str, Any] = {"name": self.name}
 
         if self.email:
             result["email"] = [{"value": self.email, "primary": True}]
@@ -181,27 +171,26 @@ class Person:
 
         return result
 
-
 @dataclass
 class Organization:
     """Pipedrive organization (company)."""
 
     id: int
     name: str
-    address: Optional[str] = None
-    owner_id: Optional[int] = None
+    address: str | None = None
+    owner_id: int | None = None
     visible_to: str = PersonVisibility.ENTIRE_COMPANY.value
-    add_time: Optional[datetime] = None
-    update_time: Optional[datetime] = None
+    add_time: datetime | None = None
+    update_time: datetime | None = None
     active_flag: bool = True
     people_count: int = 0
     open_deals_count: int = 0
     won_deals_count: int = 0
     lost_deals_count: int = 0
-    custom_fields: Dict[str, Any] = field(default_factory=dict)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Organization":
+    def from_api(cls, data: dict[str, Any]) -> "Organization":
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -218,9 +207,9 @@ class Organization:
             lost_deals_count=data.get("lost_deals_count", 0),
         )
 
-    def to_api(self) -> Dict[str, Any]:
+    def to_api(self) -> dict[str, Any]:
         """Convert to API request format."""
-        result: Dict[str, Any] = {"name": self.name}
+        result: dict[str, Any] = {"name": self.name}
 
         if self.address:
             result["address"] = self.address
@@ -230,7 +219,6 @@ class Organization:
             result["visible_to"] = self.visible_to
 
         return result
-
 
 @dataclass
 class Pipeline:
@@ -242,11 +230,11 @@ class Pipeline:
     order_nr: int = 0
     active: bool = True
     deal_probability: bool = False
-    add_time: Optional[datetime] = None
-    update_time: Optional[datetime] = None
+    add_time: datetime | None = None
+    update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Pipeline":
+    def from_api(cls, data: dict[str, Any]) -> "Pipeline":
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -259,7 +247,6 @@ class Pipeline:
             update_time=_parse_datetime(data.get("update_time")),
         )
 
-
 @dataclass
 class Stage:
     """Pipedrive pipeline stage."""
@@ -271,12 +258,12 @@ class Stage:
     active_flag: bool = True
     deal_probability: int = 100
     rotten_flag: bool = False
-    rotten_days: Optional[int] = None
-    add_time: Optional[datetime] = None
-    update_time: Optional[datetime] = None
+    rotten_days: int | None = None
+    add_time: datetime | None = None
+    update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Stage":
+    def from_api(cls, data: dict[str, Any]) -> "Stage":
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -291,7 +278,6 @@ class Stage:
             update_time=_parse_datetime(data.get("update_time")),
         )
 
-
 @dataclass
 class Deal:
     """Pipedrive deal."""
@@ -301,26 +287,26 @@ class Deal:
     value: float = 0.0
     currency: str = "USD"
     status: DealStatus = DealStatus.OPEN
-    stage_id: Optional[int] = None
-    pipeline_id: Optional[int] = None
-    person_id: Optional[int] = None
-    person_name: Optional[str] = None
-    org_id: Optional[int] = None
-    org_name: Optional[str] = None
-    owner_id: Optional[int] = None
-    expected_close_date: Optional[datetime] = None
-    won_time: Optional[datetime] = None
-    lost_time: Optional[datetime] = None
-    close_time: Optional[datetime] = None
-    add_time: Optional[datetime] = None
-    update_time: Optional[datetime] = None
-    probability: Optional[float] = None
-    lost_reason: Optional[str] = None
+    stage_id: int | None = None
+    pipeline_id: int | None = None
+    person_id: int | None = None
+    person_name: str | None = None
+    org_id: int | None = None
+    org_name: str | None = None
+    owner_id: int | None = None
+    expected_close_date: datetime | None = None
+    won_time: datetime | None = None
+    lost_time: datetime | None = None
+    close_time: datetime | None = None
+    add_time: datetime | None = None
+    update_time: datetime | None = None
+    probability: float | None = None
+    lost_reason: str | None = None
     visible_to: str = PersonVisibility.ENTIRE_COMPANY.value
-    custom_fields: Dict[str, Any] = field(default_factory=dict)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Deal":
+    def from_api(cls, data: dict[str, Any]) -> "Deal":
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -346,9 +332,9 @@ class Deal:
             visible_to=str(data.get("visible_to", "5")),
         )
 
-    def to_api(self) -> Dict[str, Any]:
+    def to_api(self) -> dict[str, Any]:
         """Convert to API request format."""
-        result: Dict[str, Any] = {"title": self.title}
+        result: dict[str, Any] = {"title": self.title}
 
         if self.value:
             result["value"] = self.value
@@ -373,7 +359,6 @@ class Deal:
 
         return result
 
-
 @dataclass
 class Activity:
     """Pipedrive activity (call, meeting, task, etc.)."""
@@ -382,22 +367,22 @@ class Activity:
     type: str
     subject: str
     done: bool = False
-    due_date: Optional[datetime] = None
-    due_time: Optional[str] = None
-    duration: Optional[str] = None  # HH:MM format
-    deal_id: Optional[int] = None
-    person_id: Optional[int] = None
-    org_id: Optional[int] = None
-    owner_id: Optional[int] = None
-    note: Optional[str] = None
-    location: Optional[str] = None
-    public_description: Optional[str] = None
-    add_time: Optional[datetime] = None
-    update_time: Optional[datetime] = None
-    marked_as_done_time: Optional[datetime] = None
+    due_date: datetime | None = None
+    due_time: str | None = None
+    duration: str | None = None  # HH:MM format
+    deal_id: int | None = None
+    person_id: int | None = None
+    org_id: int | None = None
+    owner_id: int | None = None
+    note: str | None = None
+    location: str | None = None
+    public_description: str | None = None
+    add_time: datetime | None = None
+    update_time: datetime | None = None
+    marked_as_done_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Activity":
+    def from_api(cls, data: dict[str, Any]) -> "Activity":
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -419,9 +404,9 @@ class Activity:
             marked_as_done_time=_parse_datetime(data.get("marked_as_done_time")),
         )
 
-    def to_api(self) -> Dict[str, Any]:
+    def to_api(self) -> dict[str, Any]:
         """Convert to API request format."""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "type": self.type,
             "subject": self.subject,
             "done": 1 if self.done else 0,
@@ -448,25 +433,24 @@ class Activity:
 
         return result
 
-
 @dataclass
 class Note:
     """Pipedrive note."""
 
     id: int
     content: str
-    deal_id: Optional[int] = None
-    person_id: Optional[int] = None
-    org_id: Optional[int] = None
-    user_id: Optional[int] = None
-    add_time: Optional[datetime] = None
-    update_time: Optional[datetime] = None
+    deal_id: int | None = None
+    person_id: int | None = None
+    org_id: int | None = None
+    user_id: int | None = None
+    add_time: datetime | None = None
+    update_time: datetime | None = None
     pinned_to_deal_flag: bool = False
     pinned_to_person_flag: bool = False
     pinned_to_organization_flag: bool = False
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Note":
+    def from_api(cls, data: dict[str, Any]) -> "Note":
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -482,9 +466,9 @@ class Note:
             pinned_to_organization_flag=data.get("pinned_to_organization_flag", False),
         )
 
-    def to_api(self) -> Dict[str, Any]:
+    def to_api(self) -> dict[str, Any]:
         """Convert to API request format."""
-        result: Dict[str, Any] = {"content": self.content}
+        result: dict[str, Any] = {"content": self.content}
 
         if self.deal_id:
             result["deal_id"] = self.deal_id
@@ -501,28 +485,27 @@ class Note:
 
         return result
 
-
 @dataclass
 class Product:
     """Pipedrive product."""
 
     id: int
     name: str
-    code: Optional[str] = None
-    description: Optional[str] = None
-    unit: Optional[str] = None
+    code: str | None = None
+    description: str | None = None
+    unit: str | None = None
     tax: float = 0.0
     active_flag: bool = True
     selectable: bool = True
-    first_char: Optional[str] = None
+    first_char: str | None = None
     visible_to: str = PersonVisibility.ENTIRE_COMPANY.value
-    owner_id: Optional[int] = None
-    prices: List[Dict[str, Any]] = field(default_factory=list)
-    add_time: Optional[datetime] = None
-    update_time: Optional[datetime] = None
+    owner_id: int | None = None
+    prices: list[dict[str, Any]] = field(default_factory=list)
+    add_time: datetime | None = None
+    update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Product":
+    def from_api(cls, data: dict[str, Any]) -> "Product":
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -541,9 +524,9 @@ class Product:
             update_time=_parse_datetime(data.get("update_time")),
         )
 
-    def to_api(self) -> Dict[str, Any]:
+    def to_api(self) -> dict[str, Any]:
         """Convert to API request format."""
-        result: Dict[str, Any] = {"name": self.name}
+        result: dict[str, Any] = {"name": self.name}
 
         if self.code:
             result["code"] = self.code
@@ -562,7 +545,6 @@ class Product:
 
         return result
 
-
 @dataclass
 class User:
     """Pipedrive user (owner)."""
@@ -573,14 +555,14 @@ class User:
     active_flag: bool = True
     is_admin: bool = False
     is_you: bool = False
-    role_id: Optional[int] = None
-    timezone_name: Optional[str] = None
-    icon_url: Optional[str] = None
-    created: Optional[datetime] = None
-    modified: Optional[datetime] = None
+    role_id: int | None = None
+    timezone_name: str | None = None
+    icon_url: str | None = None
+    created: datetime | None = None
+    modified: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "User":
+    def from_api(cls, data: dict[str, Any]) -> "User":
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -596,13 +578,11 @@ class User:
             modified=_parse_datetime(data.get("modified")),
         )
 
-
 # =============================================================================
 # Helper Functions
 # =============================================================================
 
-
-def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
+def _parse_datetime(value: str | None) -> datetime | None:
     """Parse datetime from API response."""
     if not value:
         return None
@@ -614,8 +594,7 @@ def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
     except (ValueError, TypeError):
         return None
 
-
-def _parse_date(value: Optional[str]) -> Optional[datetime]:
+def _parse_date(value: str | None) -> datetime | None:
     """Parse date from API response."""
     if not value:
         return None
@@ -624,11 +603,9 @@ def _parse_date(value: Optional[str]) -> Optional[datetime]:
     except (ValueError, TypeError):
         return None
 
-
 # =============================================================================
 # Pipedrive Client
 # =============================================================================
-
 
 class PipedriveClient:
     """
@@ -686,9 +663,9 @@ class PipedriveClient:
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        json: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make authenticated API request."""
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
@@ -729,11 +706,11 @@ class PipedriveClient:
         self,
         start: int = 0,
         limit: int = 100,
-        filter_id: Optional[int] = None,
-        sort: Optional[str] = None,
-    ) -> List[Person]:
+        filter_id: int | None = None,
+        sort: str | None = None,
+    ) -> list[Person]:
         """Get all persons with pagination."""
-        params: Dict[str, Any] = {"start": start, "limit": limit}
+        params: dict[str, Any] = {"start": start, "limit": limit}
 
         if filter_id:
             params["filter_id"] = filter_id
@@ -753,15 +730,15 @@ class PipedriveClient:
     async def create_person(
         self,
         name: str,
-        email: Optional[str] = None,
-        phone: Optional[str] = None,
-        org_id: Optional[int] = None,
-        owner_id: Optional[int] = None,
-        visible_to: Optional[str] = None,
+        email: str | None = None,
+        phone: str | None = None,
+        org_id: int | None = None,
+        owner_id: int | None = None,
+        visible_to: str | None = None,
         **custom_fields,
     ) -> Person:
         """Create a new person."""
-        body: Dict[str, Any] = {"name": name}
+        body: dict[str, Any] = {"name": name}
 
         if email:
             body["email"] = [{"value": email, "primary": True}]
@@ -796,11 +773,11 @@ class PipedriveClient:
     async def search_persons(
         self,
         term: str,
-        fields: Optional[str] = None,
+        fields: str | None = None,
         limit: int = 100,
-    ) -> List[Person]:
+    ) -> list[Person]:
         """Search for persons."""
-        params: Dict[str, Any] = {"term": term, "limit": limit}
+        params: dict[str, Any] = {"term": term, "limit": limit}
         if fields:
             params["fields"] = fields
 
@@ -817,11 +794,11 @@ class PipedriveClient:
         self,
         start: int = 0,
         limit: int = 100,
-        filter_id: Optional[int] = None,
-        sort: Optional[str] = None,
-    ) -> List[Organization]:
+        filter_id: int | None = None,
+        sort: str | None = None,
+    ) -> list[Organization]:
         """Get all organizations with pagination."""
-        params: Dict[str, Any] = {"start": start, "limit": limit}
+        params: dict[str, Any] = {"start": start, "limit": limit}
 
         if filter_id:
             params["filter_id"] = filter_id
@@ -841,13 +818,13 @@ class PipedriveClient:
     async def create_organization(
         self,
         name: str,
-        address: Optional[str] = None,
-        owner_id: Optional[int] = None,
-        visible_to: Optional[str] = None,
+        address: str | None = None,
+        owner_id: int | None = None,
+        visible_to: str | None = None,
         **custom_fields,
     ) -> Organization:
         """Create a new organization."""
-        body: Dict[str, Any] = {"name": name}
+        body: dict[str, Any] = {"name": name}
 
         if address:
             body["address"] = address
@@ -878,11 +855,11 @@ class PipedriveClient:
     async def search_organizations(
         self,
         term: str,
-        fields: Optional[str] = None,
+        fields: str | None = None,
         limit: int = 100,
-    ) -> List[Organization]:
+    ) -> list[Organization]:
         """Search for organizations."""
-        params: Dict[str, Any] = {"term": term, "limit": limit}
+        params: dict[str, Any] = {"term": term, "limit": limit}
         if fields:
             params["fields"] = fields
 
@@ -899,13 +876,13 @@ class PipedriveClient:
         self,
         start: int = 0,
         limit: int = 100,
-        filter_id: Optional[int] = None,
-        stage_id: Optional[int] = None,
-        status: Optional[DealStatus] = None,
-        sort: Optional[str] = None,
-    ) -> List[Deal]:
+        filter_id: int | None = None,
+        stage_id: int | None = None,
+        status: DealStatus | None = None,
+        sort: str | None = None,
+    ) -> list[Deal]:
         """Get all deals with pagination and filtering."""
-        params: Dict[str, Any] = {"start": start, "limit": limit}
+        params: dict[str, Any] = {"start": start, "limit": limit}
 
         if filter_id:
             params["filter_id"] = filter_id
@@ -929,20 +906,20 @@ class PipedriveClient:
     async def create_deal(
         self,
         title: str,
-        value: Optional[float] = None,
+        value: float | None = None,
         currency: str = "USD",
-        person_id: Optional[int] = None,
-        org_id: Optional[int] = None,
-        stage_id: Optional[int] = None,
-        pipeline_id: Optional[int] = None,
-        owner_id: Optional[int] = None,
-        expected_close_date: Optional[datetime] = None,
-        probability: Optional[float] = None,
-        visible_to: Optional[str] = None,
+        person_id: int | None = None,
+        org_id: int | None = None,
+        stage_id: int | None = None,
+        pipeline_id: int | None = None,
+        owner_id: int | None = None,
+        expected_close_date: datetime | None = None,
+        probability: float | None = None,
+        visible_to: str | None = None,
         **custom_fields,
     ) -> Deal:
         """Create a new deal."""
-        body: Dict[str, Any] = {"title": title, "currency": currency}
+        body: dict[str, Any] = {"title": title, "currency": currency}
 
         if value is not None:
             body["value"] = value
@@ -990,9 +967,9 @@ class PipedriveClient:
         """Mark a deal as won."""
         return await self.update_deal(deal_id, status=DealStatus.WON.value)
 
-    async def mark_deal_lost(self, deal_id: int, lost_reason: Optional[str] = None) -> Deal:
+    async def mark_deal_lost(self, deal_id: int, lost_reason: str | None = None) -> Deal:
         """Mark a deal as lost."""
-        properties: Dict[str, Any] = {"status": DealStatus.LOST.value}
+        properties: dict[str, Any] = {"status": DealStatus.LOST.value}
         if lost_reason:
             properties["lost_reason"] = lost_reason
         return await self.update_deal(deal_id, **properties)
@@ -1000,11 +977,11 @@ class PipedriveClient:
     async def search_deals(
         self,
         term: str,
-        fields: Optional[str] = None,
+        fields: str | None = None,
         limit: int = 100,
-    ) -> List[Deal]:
+    ) -> list[Deal]:
         """Search for deals."""
-        params: Dict[str, Any] = {"term": term, "limit": limit}
+        params: dict[str, Any] = {"term": term, "limit": limit}
         if fields:
             params["fields"] = fields
 
@@ -1017,7 +994,7 @@ class PipedriveClient:
     # Pipelines & Stages
     # -------------------------------------------------------------------------
 
-    async def get_pipelines(self) -> List[Pipeline]:
+    async def get_pipelines(self) -> list[Pipeline]:
         """Get all pipelines."""
         data = await self._request("GET", "/pipelines")
         pipelines = data.get("data") or []
@@ -1028,9 +1005,9 @@ class PipedriveClient:
         data = await self._request("GET", f"/pipelines/{pipeline_id}")
         return Pipeline.from_api(data["data"])
 
-    async def get_stages(self, pipeline_id: Optional[int] = None) -> List[Stage]:
+    async def get_stages(self, pipeline_id: int | None = None) -> list[Stage]:
         """Get all stages, optionally filtered by pipeline."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if pipeline_id:
             params["pipeline_id"] = pipeline_id
 
@@ -1051,12 +1028,12 @@ class PipedriveClient:
         self,
         start: int = 0,
         limit: int = 100,
-        type: Optional[str] = None,
-        user_id: Optional[int] = None,
-        done: Optional[bool] = None,
-    ) -> List[Activity]:
+        type: str | None = None,
+        user_id: int | None = None,
+        done: bool | None = None,
+    ) -> list[Activity]:
         """Get all activities with filtering."""
-        params: Dict[str, Any] = {"start": start, "limit": limit}
+        params: dict[str, Any] = {"start": start, "limit": limit}
 
         if type:
             params["type"] = type
@@ -1080,18 +1057,18 @@ class PipedriveClient:
         type: str,
         subject: str,
         done: bool = False,
-        due_date: Optional[datetime] = None,
-        due_time: Optional[str] = None,
-        duration: Optional[str] = None,
-        deal_id: Optional[int] = None,
-        person_id: Optional[int] = None,
-        org_id: Optional[int] = None,
-        user_id: Optional[int] = None,
-        note: Optional[str] = None,
-        location: Optional[str] = None,
+        due_date: datetime | None = None,
+        due_time: str | None = None,
+        duration: str | None = None,
+        deal_id: int | None = None,
+        person_id: int | None = None,
+        org_id: int | None = None,
+        user_id: int | None = None,
+        note: str | None = None,
+        location: str | None = None,
     ) -> Activity:
         """Create a new activity."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "type": type,
             "subject": subject,
             "done": 1 if done else 0,
@@ -1143,14 +1120,14 @@ class PipedriveClient:
 
     async def get_notes(
         self,
-        deal_id: Optional[int] = None,
-        person_id: Optional[int] = None,
-        org_id: Optional[int] = None,
+        deal_id: int | None = None,
+        person_id: int | None = None,
+        org_id: int | None = None,
         start: int = 0,
         limit: int = 100,
-    ) -> List[Note]:
+    ) -> list[Note]:
         """Get notes, optionally filtered by deal/person/org."""
-        params: Dict[str, Any] = {"start": start, "limit": limit}
+        params: dict[str, Any] = {"start": start, "limit": limit}
 
         if deal_id:
             params["deal_id"] = deal_id
@@ -1172,15 +1149,15 @@ class PipedriveClient:
     async def create_note(
         self,
         content: str,
-        deal_id: Optional[int] = None,
-        person_id: Optional[int] = None,
-        org_id: Optional[int] = None,
+        deal_id: int | None = None,
+        person_id: int | None = None,
+        org_id: int | None = None,
         pinned_to_deal: bool = False,
         pinned_to_person: bool = False,
         pinned_to_organization: bool = False,
     ) -> Note:
         """Create a new note."""
-        body: Dict[str, Any] = {"content": content}
+        body: dict[str, Any] = {"content": content}
 
         if deal_id:
             body["deal_id"] = deal_id
@@ -1216,9 +1193,9 @@ class PipedriveClient:
         self,
         start: int = 0,
         limit: int = 100,
-    ) -> List[Product]:
+    ) -> list[Product]:
         """Get all products."""
-        params: Dict[str, Any] = {"start": start, "limit": limit}
+        params: dict[str, Any] = {"start": start, "limit": limit}
 
         data = await self._request("GET", "/products", params=params)
         products = data.get("data") or []
@@ -1233,16 +1210,16 @@ class PipedriveClient:
     async def create_product(
         self,
         name: str,
-        code: Optional[str] = None,
-        description: Optional[str] = None,
-        unit: Optional[str] = None,
+        code: str | None = None,
+        description: str | None = None,
+        unit: str | None = None,
         tax: float = 0.0,
-        prices: Optional[List[Dict[str, Any]]] = None,
-        owner_id: Optional[int] = None,
-        visible_to: Optional[str] = None,
+        prices: Optional[list[dict[str, Any]]] = None,
+        owner_id: int | None = None,
+        visible_to: str | None = None,
     ) -> Product:
         """Create a new product."""
-        body: Dict[str, Any] = {"name": name}
+        body: dict[str, Any] = {"name": name}
 
         if code:
             body["code"] = code
@@ -1280,9 +1257,9 @@ class PipedriveClient:
         self,
         term: str,
         limit: int = 100,
-    ) -> List[Product]:
+    ) -> list[Product]:
         """Search for products."""
-        params: Dict[str, Any] = {"term": term, "limit": limit}
+        params: dict[str, Any] = {"term": term, "limit": limit}
 
         data = await self._request("GET", "/products/search", params=params)
         items = data.get("data", {}).get("items", [])
@@ -1293,7 +1270,7 @@ class PipedriveClient:
     # Users
     # -------------------------------------------------------------------------
 
-    async def get_users(self) -> List[User]:
+    async def get_users(self) -> list[User]:
         """Get all users."""
         data = await self._request("GET", "/users")
         users = data.get("data") or []
@@ -1313,35 +1290,33 @@ class PipedriveClient:
     # Deal-Person/Organization Associations
     # -------------------------------------------------------------------------
 
-    async def get_deal_persons(self, deal_id: int) -> List[Person]:
+    async def get_deal_persons(self, deal_id: int) -> list[Person]:
         """Get all persons associated with a deal."""
         data = await self._request("GET", f"/deals/{deal_id}/persons")
         persons = data.get("data") or []
         return [Person.from_api(p) for p in persons]
 
-    async def get_person_deals(self, person_id: int) -> List[Deal]:
+    async def get_person_deals(self, person_id: int) -> list[Deal]:
         """Get all deals associated with a person."""
         data = await self._request("GET", f"/persons/{person_id}/deals")
         deals = data.get("data") or []
         return [Deal.from_api(d) for d in deals]
 
-    async def get_organization_deals(self, org_id: int) -> List[Deal]:
+    async def get_organization_deals(self, org_id: int) -> list[Deal]:
         """Get all deals associated with an organization."""
         data = await self._request("GET", f"/organizations/{org_id}/deals")
         deals = data.get("data") or []
         return [Deal.from_api(d) for d in deals]
 
-    async def get_organization_persons(self, org_id: int) -> List[Person]:
+    async def get_organization_persons(self, org_id: int) -> list[Person]:
         """Get all persons associated with an organization."""
         data = await self._request("GET", f"/organizations/{org_id}/persons")
         persons = data.get("data") or []
         return [Person.from_api(p) for p in persons]
 
-
 # =============================================================================
 # Mock Data Generators
 # =============================================================================
-
 
 def get_mock_person() -> Person:
     """Get a mock person for testing."""
@@ -1357,7 +1332,6 @@ def get_mock_person() -> Person:
         active_flag=True,
     )
 
-
 def get_mock_organization() -> Organization:
     """Get a mock organization for testing."""
     return Organization(
@@ -1371,7 +1345,6 @@ def get_mock_organization() -> Organization:
         add_time=datetime.now(timezone.utc),
         active_flag=True,
     )
-
 
 def get_mock_deal() -> Deal:
     """Get a mock deal for testing."""
@@ -1391,7 +1364,6 @@ def get_mock_deal() -> Deal:
         probability=75.0,
         add_time=datetime.now(timezone.utc),
     )
-
 
 def get_mock_activity() -> Activity:
     """Get a mock activity for testing."""

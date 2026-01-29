@@ -30,7 +30,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -40,7 +40,6 @@ from aragora.storage.backends import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SessionRecord:
@@ -57,14 +56,14 @@ class SessionRecord:
     ip_address: str
     user_agent: str
     actions_performed: int = 0
-    ended_at: Optional[datetime] = None
-    ended_by: Optional[str] = None  # "admin", "timeout", "system"
+    ended_at: datetime | None = None
+    ended_by: str | None = None  # "admin", "timeout", "system"
 
     def is_expired(self) -> bool:
         """Check if session has expired."""
         return datetime.now(timezone.utc) > self.expires_at
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "session_id": self.session_id,
@@ -92,7 +91,6 @@ class SessionRecord:
             "ended_by": self.ended_by,
         }
 
-
 @dataclass
 class AuditRecord:
     """Persistent audit log record."""
@@ -100,17 +98,17 @@ class AuditRecord:
     audit_id: str
     timestamp: datetime
     event_type: str  # start, action, end, timeout, denied
-    session_id: Optional[str]
+    session_id: str | None
     admin_user_id: str
-    target_user_id: Optional[str]
-    reason: Optional[str]
-    action_details_json: Optional[str]
+    target_user_id: str | None
+    reason: str | None
+    action_details_json: str | None
     ip_address: str
     user_agent: str
     success: bool
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "audit_id": self.audit_id,
@@ -133,7 +131,6 @@ class AuditRecord:
             "error_message": self.error_message,
         }
 
-
 class ImpersonationStore:
     """
     Persistent storage for impersonation sessions and audit logs.
@@ -148,8 +145,8 @@ class ImpersonationStore:
     def __init__(
         self,
         db_path: str = "aragora_impersonation.db",
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        backend: str | None = None,
+        database_url: str | None = None,
     ):
         """
         Initialize impersonation store.
@@ -357,7 +354,7 @@ class ImpersonationStore:
         logger.debug(f"Ended impersonation session: {session_id} by {ended_by}")
         return True
 
-    def get_session(self, session_id: str) -> Optional[SessionRecord]:
+    def get_session(self, session_id: str) -> SessionRecord | None:
         """Get a session by ID."""
         row = self._backend.fetch_one(
             """
@@ -375,7 +372,7 @@ class ImpersonationStore:
 
         return self._row_to_session(row)
 
-    def get_active_sessions(self, admin_user_id: Optional[str] = None) -> List[SessionRecord]:
+    def get_active_sessions(self, admin_user_id: str | None = None) -> list[SessionRecord]:
         """
         Get all active (non-ended, non-expired) sessions.
 
@@ -410,7 +407,7 @@ class ImpersonationStore:
         admin_user_id: str,
         include_ended: bool = False,
         limit: int = 100,
-    ) -> List[SessionRecord]:
+    ) -> list[SessionRecord]:
         """Get all sessions for an admin."""
         query = """
             SELECT session_id, admin_user_id, admin_email, target_user_id,
@@ -445,7 +442,7 @@ class ImpersonationStore:
                     pass
             return datetime.now(timezone.utc)
 
-        def parse_dt_opt(val: Any) -> Optional[datetime]:
+        def parse_dt_opt(val: Any) -> datetime | None:
             if val is None:
                 return None
             return parse_dt(val)
@@ -479,11 +476,11 @@ class ImpersonationStore:
         ip_address: str,
         user_agent: str,
         success: bool,
-        session_id: Optional[str] = None,
-        target_user_id: Optional[str] = None,
-        reason: Optional[str] = None,
-        action_details: Optional[Dict[str, Any]] = None,
-        error_message: Optional[str] = None,
+        session_id: str | None = None,
+        target_user_id: str | None = None,
+        reason: str | None = None,
+        action_details: Optional[dict[str, Any]] = None,
+        error_message: str | None = None,
     ) -> str:
         """
         Save an audit log entry.
@@ -548,13 +545,13 @@ class ImpersonationStore:
 
     def get_audit_log(
         self,
-        admin_user_id: Optional[str] = None,
-        target_user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        event_type: Optional[str] = None,
-        since: Optional[datetime] = None,
+        admin_user_id: str | None = None,
+        target_user_id: str | None = None,
+        session_id: str | None = None,
+        event_type: str | None = None,
+        since: datetime | None = None,
         limit: int = 100,
-    ) -> List[AuditRecord]:
+    ) -> list[AuditRecord]:
         """
         Query the audit log.
 
@@ -672,7 +669,7 @@ class ImpersonationStore:
         self,
         sessions_days: int = 90,
         audit_days: int = 365,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Clean up old records.
 
@@ -683,7 +680,7 @@ class ImpersonationStore:
         Returns:
             Counts of deleted records
         """
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
 
         # Clean old sessions (only ended ones)
         result = self._backend.fetch_one(
@@ -732,15 +729,13 @@ class ImpersonationStore:
         """Close database connection."""
         self._backend.close()
 
-
 # Module-level singleton
-_default_store: Optional[ImpersonationStore] = None
-
+_default_store: ImpersonationStore | None = None
 
 def get_impersonation_store(
     db_path: str = "aragora_impersonation.db",
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    backend: str | None = None,
+    database_url: str | None = None,
 ) -> ImpersonationStore:
     """
     Get or create the default ImpersonationStore instance.
@@ -810,14 +805,12 @@ def get_impersonation_store(
 
     return _default_store
 
-
 def reset_impersonation_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store
     if _default_store is not None:
         _default_store.close()
         _default_store = None
-
 
 __all__ = [
     "ImpersonationStore",

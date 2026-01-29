@@ -17,7 +17,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.billing.recommendations import (
     BatchingOpportunity,
@@ -37,9 +37,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # Model capability tiers for downgrade analysis
-MODEL_TIERS: Dict[str, Dict[str, Any]] = {
+MODEL_TIERS: dict[str, dict[str, Any]] = {
     # Tier 1: Most capable (complex reasoning, coding)
     "claude-opus-4": {"tier": 1, "provider": "anthropic", "quality": 1.0},
     "gpt-4o": {"tier": 1, "provider": "openai", "quality": 0.95},
@@ -72,7 +71,6 @@ COMPLEX_TASK_INDICATORS = [
     "complex",
 ]
 
-
 @dataclass
 class UsagePattern:
     """Aggregated usage pattern for analysis."""
@@ -87,7 +85,6 @@ class UsagePattern:
     avg_tokens_in: float = 0.0
     avg_tokens_out: float = 0.0
     avg_latency_ms: float = 0.0
-
 
 @dataclass
 class ModelDowngradeAnalyzer:
@@ -104,9 +101,9 @@ class ModelDowngradeAnalyzer:
 
     def analyze(
         self,
-        patterns: List[UsagePattern],
+        patterns: list[UsagePattern],
         workspace_id: str,
-    ) -> List[OptimizationRecommendation]:
+    ) -> list[OptimizationRecommendation]:
         """Analyze patterns and generate downgrade recommendations."""
         recommendations = []
 
@@ -198,7 +195,7 @@ class ModelDowngradeAnalyzer:
         self,
         pattern: UsagePattern,
         current_tier: int,
-    ) -> List[ModelAlternative]:
+    ) -> list[ModelAlternative]:
         """Find cheaper model alternatives."""
         alternatives = []
 
@@ -263,7 +260,6 @@ class ModelDowngradeAnalyzer:
             return RecommendationPriority.MEDIUM
         return RecommendationPriority.LOW
 
-
 @dataclass
 class CachingRecommender:
     """
@@ -280,14 +276,14 @@ class CachingRecommender:
 
     def analyze(
         self,
-        usage_data: List["TokenUsage"],
+        usage_data: list["TokenUsage"],
         workspace_id: str,
-    ) -> List[OptimizationRecommendation]:
+    ) -> list[OptimizationRecommendation]:
         """Analyze usage for caching opportunities."""
         recommendations = []
 
         # Group by operation type
-        by_operation: Dict[str, List["TokenUsage"]] = defaultdict(list)
+        by_operation: dict[str, list["TokenUsage"]] = defaultdict(list)
         for usage in usage_data:
             by_operation[usage.operation].append(usage)
 
@@ -297,7 +293,7 @@ class CachingRecommender:
 
             # Estimate repeat rate (simplified - real impl would hash prompts)
             # Assume operations with same token counts are repeats
-            token_signatures: Dict[Tuple[int, int], int] = defaultdict(int)
+            token_signatures: dict[tuple[int, int], int] = defaultdict(int)
             for usage in usages:
                 sig = (usage.tokens_in // 100, usage.tokens_out // 100)  # Bucket
                 token_signatures[sig] += 1
@@ -371,7 +367,6 @@ class CachingRecommender:
             return RecommendationPriority.MEDIUM
         return RecommendationPriority.LOW
 
-
 @dataclass
 class BatchingOptimizer:
     """
@@ -386,15 +381,15 @@ class BatchingOptimizer:
 
     def analyze(
         self,
-        usage_data: List["TokenUsage"],
+        usage_data: list["TokenUsage"],
         workspace_id: str,
-    ) -> List[OptimizationRecommendation]:
+    ) -> list[OptimizationRecommendation]:
         """Analyze usage for batching opportunities."""
         recommendations = []
 
         # Group by operation and hour
-        by_operation_hour: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
-        total_by_operation: Dict[str, int] = defaultdict(int)
+        by_operation_hour: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        total_by_operation: dict[str, int] = defaultdict(int)
 
         for usage in usage_data:
             hour_key = usage.timestamp.strftime("%Y-%m-%d-%H")
@@ -483,7 +478,6 @@ class BatchingOptimizer:
 
         return recommendations
 
-
 class CostOptimizer:
     """
     Main cost optimization engine.
@@ -508,8 +502,8 @@ class CostOptimizer:
         self._batching_optimizer = BatchingOptimizer()
 
         # In-memory recommendation storage
-        self._recommendations: Dict[str, OptimizationRecommendation] = {}
-        self._workspace_recs: Dict[str, List[str]] = defaultdict(list)
+        self._recommendations: dict[str, OptimizationRecommendation] = {}
+        self._workspace_recs: dict[str, list[str]] = defaultdict(list)
 
     def set_cost_tracker(self, tracker: "CostTracker") -> None:
         """Set the cost tracker instance."""
@@ -519,7 +513,7 @@ class CostOptimizer:
         self,
         workspace_id: str,
         days: int = 7,
-    ) -> List[OptimizationRecommendation]:
+    ) -> list[OptimizationRecommendation]:
         """
         Analyze a workspace and generate recommendations.
 
@@ -534,7 +528,7 @@ class CostOptimizer:
             logger.warning("No cost tracker configured, cannot analyze")
             return []
 
-        recommendations: List[OptimizationRecommendation] = []
+        recommendations: list[OptimizationRecommendation] = []
 
         # Get usage data from tracker
         usage_data = await self._get_usage_data(workspace_id, days)
@@ -572,7 +566,7 @@ class CostOptimizer:
         self,
         workspace_id: str,
         days: int,
-    ) -> List["TokenUsage"]:
+    ) -> list["TokenUsage"]:
         """Get usage data from cost tracker."""
         # Access the usage buffer from cost tracker
         usage_data = []
@@ -584,10 +578,10 @@ class CostOptimizer:
 
     def _build_patterns(
         self,
-        usage_data: List["TokenUsage"],
-    ) -> List[UsagePattern]:
+        usage_data: list["TokenUsage"],
+    ) -> list[UsagePattern]:
         """Build usage patterns from raw data."""
-        pattern_map: Dict[Tuple[str, str, str], UsagePattern] = {}
+        pattern_map: dict[tuple[str, str, str], UsagePattern] = {}
 
         for usage in usage_data:
             key = (usage.model, usage.provider, usage.operation)
@@ -615,16 +609,16 @@ class CostOptimizer:
     def get_recommendation(
         self,
         recommendation_id: str,
-    ) -> Optional[OptimizationRecommendation]:
+    ) -> OptimizationRecommendation | None:
         """Get a recommendation by ID."""
         return self._recommendations.get(recommendation_id)
 
     def get_workspace_recommendations(
         self,
         workspace_id: str,
-        status: Optional[RecommendationStatus] = None,
-        type_filter: Optional[RecommendationType] = None,
-    ) -> List[OptimizationRecommendation]:
+        status: RecommendationStatus | None = None,
+        type_filter: RecommendationType | None = None,
+    ) -> list[OptimizationRecommendation]:
         """Get recommendations for a workspace."""
         rec_ids = self._workspace_recs.get(workspace_id, [])
         recs = [self._recommendations[rid] for rid in rec_ids if rid in self._recommendations]
@@ -697,10 +691,8 @@ class CostOptimizer:
 
         return summary
 
-
 # Global optimizer instance
-_optimizer: Optional[CostOptimizer] = None
-
+_optimizer: CostOptimizer | None = None
 
 def get_cost_optimizer() -> CostOptimizer:
     """Get or create the global cost optimizer."""
@@ -714,7 +706,6 @@ def get_cost_optimizer() -> CostOptimizer:
         except ImportError:
             _optimizer = CostOptimizer()
     return _optimizer
-
 
 __all__ = [
     "CostOptimizer",

@@ -20,7 +20,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from ..base import (
     BaseHandler,
@@ -35,7 +34,6 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 class FolderUploadStatus(Enum):
     """Status of a folder upload job."""
 
@@ -46,7 +44,6 @@ class FolderUploadStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-
 @dataclass
 class FolderUploadJob:
     """Tracks state of an in-progress folder upload."""
@@ -56,7 +53,7 @@ class FolderUploadJob:
     status: FolderUploadStatus
     created_at: datetime
     updated_at: datetime
-    user_id: Optional[str] = None
+    user_id: str | None = None
 
     # Scan results
     total_files_found: int = 0
@@ -109,7 +106,6 @@ class FolderUploadJob:
             "config": self.config,
         }
 
-
 class FolderUploadHandler(BaseHandler):
     """Handler for folder upload endpoints."""
 
@@ -136,7 +132,7 @@ class FolderUploadHandler(BaseHandler):
         return False
 
     @require_permission("upload:create")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET folder requests."""
         if path == "/api/v1/documents/folders":
             return self._list_folders(query_params)
@@ -156,7 +152,7 @@ class FolderUploadHandler(BaseHandler):
         return None
 
     @require_permission("upload:create")
-    async def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    async def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST folder requests."""
         if path == "/api/v1/documents/folder/scan":
             return await self._scan_folder(handler)
@@ -166,7 +162,7 @@ class FolderUploadHandler(BaseHandler):
 
         return None
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE folder requests."""
         if path.startswith("/api/v1/documents/folders/"):
             folder_id, err = self.extract_path_param(path, 3, "folder_id")

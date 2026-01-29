@@ -27,7 +27,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -53,17 +53,16 @@ DEFAULT_DB_PATH = (
 )
 DEFAULT_CLEANUP_INTERVAL = 300  # 5 minutes
 
-
 @dataclass
 class DecisionResultEntry:
     """A stored decision result entry."""
 
     request_id: str
     status: str
-    result: Dict[str, Any]
+    result: dict[str, Any]
     created_at: float = field(default_factory=time.time)
-    completed_at: Optional[str] = None
-    error: Optional[str] = None
+    completed_at: str | None = None
+    error: str | None = None
     ttl_seconds: int = DEFAULT_TTL_SECONDS
 
     @property
@@ -76,7 +75,7 @@ class DecisionResultEntry:
         """Check if entry has expired."""
         return time.time() > self.expires_at
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "request_id": self.request_id,
@@ -89,7 +88,7 @@ class DecisionResultEntry:
 
     @classmethod
     def from_dict(
-        cls, data: Dict[str, Any], ttl_seconds: int = DEFAULT_TTL_SECONDS
+        cls, data: dict[str, Any], ttl_seconds: int = DEFAULT_TTL_SECONDS
     ) -> "DecisionResultEntry":
         """Create from dictionary."""
         return cls(
@@ -101,7 +100,6 @@ class DecisionResultEntry:
             error=data.get("error"),
             ttl_seconds=ttl_seconds,
         )
-
 
 class DecisionResultStore:
     """
@@ -122,13 +120,13 @@ class DecisionResultStore:
 
     def __init__(
         self,
-        db_path: Union[str, Path] = DEFAULT_DB_PATH,
+        db_path: str | Path = DEFAULT_DB_PATH,
         ttl_seconds: int = DEFAULT_TTL_SECONDS,
         max_entries: int = DEFAULT_MAX_ENTRIES,
         cache_size: int = DEFAULT_CACHE_SIZE,
         cleanup_interval: int = DEFAULT_CLEANUP_INTERVAL,
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        backend: str | None = None,
+        database_url: str | None = None,
     ):
         """
         Initialize the decision result store.
@@ -165,7 +163,7 @@ class DecisionResultStore:
             backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
 
         self.backend_type = backend
-        self._backend: Optional[DatabaseBackend] = None
+        self._backend: DatabaseBackend | None = None
 
         # Initialize backend
         if backend == "postgresql":
@@ -270,7 +268,7 @@ class DecisionResultStore:
         """)
         conn.commit()
 
-    def save(self, request_id: str, data: Dict[str, Any]) -> None:
+    def save(self, request_id: str, data: dict[str, Any]) -> None:
         """
         Save a decision result.
 
@@ -357,7 +355,7 @@ class DecisionResultStore:
         # Enforce max entries with LRU eviction
         self._enforce_max_entries()
 
-    def get(self, request_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, request_id: str) -> Optional[dict[str, Any]]:
         """
         Get a decision result by request ID.
 
@@ -418,7 +416,7 @@ class DecisionResultStore:
 
         return None
 
-    def get_status(self, request_id: str) -> Dict[str, Any]:
+    def get_status(self, request_id: str) -> dict[str, Any]:
         """
         Get decision status for polling.
 
@@ -440,7 +438,7 @@ class DecisionResultStore:
             "status": "not_found",
         }
 
-    def list_recent(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def list_recent(self, limit: int = 20) -> list[dict[str, Any]]:
         """
         List recent decision results.
 
@@ -616,7 +614,7 @@ class DecisionResultStore:
         except Exception as e:
             logger.warning(f"Failed to enforce max entries: {e}")
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get store metrics for monitoring."""
         with self._cache_lock:
             cache_size = len(self._cache)
@@ -637,16 +635,14 @@ class DecisionResultStore:
             self._backend.close()
             self._backend = None
 
-
 # Global singleton instance
-_decision_result_store: Optional[DecisionResultStore] = None
+_decision_result_store: DecisionResultStore | None = None
 _store_lock = threading.Lock()
 
-
 def get_decision_result_store(
-    db_path: Optional[Union[str, Path]] = None,
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    db_path: Optional[str | Path] = None,
+    backend: str | None = None,
+    database_url: str | None = None,
     **kwargs,
 ) -> DecisionResultStore:
     """
@@ -678,7 +674,6 @@ def get_decision_result_store(
 
     return _decision_result_store
 
-
 def reset_decision_result_store() -> None:
     """Reset the global store instance (for testing)."""
     global _decision_result_store
@@ -686,7 +681,6 @@ def reset_decision_result_store() -> None:
         if _decision_result_store is not None:
             _decision_result_store.close()
             _decision_result_store = None
-
 
 __all__ = [
     "DecisionResultStore",

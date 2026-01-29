@@ -41,10 +41,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class IncidentUpdate:
@@ -54,7 +53,6 @@ class IncidentUpdate:
     status: str
     message: str
     timestamp: str
-
 
 @dataclass
 class IncidentRecord:
@@ -67,9 +65,9 @@ class IncidentRecord:
     components: list[str]
     created_at: str
     updated_at: str
-    resolved_at: Optional[str] = None
+    resolved_at: str | None = None
     updates: list[IncidentUpdate] = field(default_factory=list)
-    source: Optional[str] = None  # manual, slo_violation, etc.
+    source: str | None = None  # manual, slo_violation, etc.
 
     def to_dict(self) -> dict:
         return {
@@ -92,7 +90,6 @@ class IncidentRecord:
             ],
             "source": self.source,
         }
-
 
 class IncidentStore:
     """SQLite-backed incident store for the status page."""
@@ -129,7 +126,7 @@ class IncidentStore:
         "CREATE INDEX IF NOT EXISTS idx_updates_incident ON incident_updates(incident_id)",
     ]
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         self._db_path = db_path or self._default_db_path()
         self._lock = threading.Lock()
         self._ensure_schema()
@@ -165,9 +162,9 @@ class IncidentStore:
         self,
         title: str,
         severity: str = "minor",
-        components: Optional[list[str]] = None,
-        source: Optional[str] = None,
-        initial_message: Optional[str] = None,
+        components: list[str] | None = None,
+        source: str | None = None,
+        initial_message: str | None = None,
     ) -> str:
         """Create a new incident.
 
@@ -247,7 +244,7 @@ class IncidentStore:
         """
         return self.add_update(incident_id, "resolved", message)
 
-    def get_incident(self, incident_id: str) -> Optional[IncidentRecord]:
+    def get_incident(self, incident_id: str) -> IncidentRecord | None:
         """Get a single incident with its updates."""
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM incidents WHERE id = ?", (incident_id,)).fetchone()
@@ -335,7 +332,7 @@ class IncidentStore:
         slo_name: str,
         severity: str,
         message: str,
-        components: Optional[list[str]] = None,
+        components: list[str] | None = None,
     ) -> str:
         """Auto-create an incident from an SLO violation.
 
@@ -361,16 +358,14 @@ class IncidentStore:
             initial_message=message,
         )
 
-
 # ---------------------------------------------------------------------------
 # Global singleton
 # ---------------------------------------------------------------------------
 
-_global_store: Optional[IncidentStore] = None
+_global_store: IncidentStore | None = None
 _store_lock = threading.Lock()
 
-
-def get_incident_store(db_path: Optional[str] = None) -> IncidentStore:
+def get_incident_store(db_path: str | None = None) -> IncidentStore:
     """Get or create the global incident store."""
     global _global_store
     with _store_lock:
@@ -378,13 +373,11 @@ def get_incident_store(db_path: Optional[str] = None) -> IncidentStore:
             _global_store = IncidentStore(db_path=db_path)
         return _global_store
 
-
 def reset_incident_store() -> None:
     """Reset the global store (for testing)."""
     global _global_store
     with _store_lock:
         _global_store = None
-
 
 __all__ = [
     "IncidentStore",

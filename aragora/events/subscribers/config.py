@@ -1,11 +1,10 @@
 """
 Configuration dataclasses for cross-subsystem event subscribers.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
-
 
 @dataclass
 class RetryConfig:
@@ -29,7 +28,6 @@ class RetryConfig:
         delay += jitter
         return min(delay, self.max_delay_ms)
 
-
 @dataclass
 class SubscriberStats:
     """Statistics for a cross-subsystem subscriber."""
@@ -39,10 +37,10 @@ class SubscriberStats:
     events_failed: int = 0
     events_skipped: int = 0  # Skipped due to sampling/filtering
     events_retried: int = 0  # Events that required retry
-    last_event_time: Optional[datetime] = None
+    last_event_time: datetime | None = None
     enabled: bool = True
     sample_rate: float = 1.0  # 1.0 = 100% of events, 0.1 = 10% sampling
-    retry_config: Optional[RetryConfig] = None  # Per-handler retry config
+    retry_config: RetryConfig | None = None  # Per-handler retry config
     # Latency metrics (in milliseconds)
     total_latency_ms: float = 0.0
     min_latency_ms: float = float("inf")
@@ -65,7 +63,7 @@ class SubscriberStats:
         if len(self.latency_samples) > self.max_samples:
             self.latency_samples = self.latency_samples[-self.max_samples :]
 
-    def get_percentile(self, p: float) -> Optional[float]:
+    def get_percentile(self, p: float) -> float | None:
         """Get latency at given percentile (0-100)."""
         if not self.latency_samples:
             return None
@@ -75,20 +73,19 @@ class SubscriberStats:
         return float(sorted_samples[idx])
 
     @property
-    def p50_latency_ms(self) -> Optional[float]:
+    def p50_latency_ms(self) -> float | None:
         """50th percentile latency."""
         return self.get_percentile(50)
 
     @property
-    def p90_latency_ms(self) -> Optional[float]:
+    def p90_latency_ms(self) -> float | None:
         """90th percentile latency."""
         return self.get_percentile(90)
 
     @property
-    def p99_latency_ms(self) -> Optional[float]:
+    def p99_latency_ms(self) -> float | None:
         """99th percentile latency."""
         return self.get_percentile(99)
-
 
 @dataclass
 class AsyncDispatchConfig:

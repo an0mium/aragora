@@ -4,11 +4,12 @@ Slack integration for aragora debates.
 Posts debate summaries, consensus alerts, and error notifications to Slack channels.
 Uses Slack's Block Kit for rich message formatting.
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
@@ -22,9 +23,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
-
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class SlackConfig:
@@ -50,7 +49,6 @@ class SlackConfig:
         if not self.webhook_url:
             raise ValueError("Slack webhook URL is required")
 
-
 @dataclass
 class SlackMessage:
     """A Slack message with optional blocks."""
@@ -72,7 +70,6 @@ class SlackMessage:
             payload["attachments"] = self.attachments
         return payload
 
-
 class SlackIntegration:
     """
     Slack integration for posting debate events.
@@ -92,7 +89,7 @@ class SlackIntegration:
 
     def __init__(self, config: SlackConfig):
         self.config = config
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._message_count = 0
         self._last_reset = datetime.now()
 
@@ -142,7 +139,7 @@ class SlackIntegration:
         payload = message.to_payload(self.config)
         headers = build_trace_headers()
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(max_retries):
             try:
@@ -303,8 +300,8 @@ class SlackIntegration:
         self,
         debate_id: str,
         confidence: float,
-        winner: Optional[str] = None,
-        task: Optional[str] = None,
+        winner: str | None = None,
+        task: str | None = None,
     ) -> bool:
         """Send a consensus reached notification.
 
@@ -369,7 +366,7 @@ class SlackIntegration:
         self,
         error_type: str,
         error_message: str,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         severity: str = "warning",
     ) -> bool:
         """Send an error notification.
@@ -471,8 +468,8 @@ class SlackIntegration:
         agents: list[str],
         current_round: int,
         total_rounds: int,
-        thread_ts: Optional[str] = None,
-    ) -> Optional[str]:
+        thread_ts: str | None = None,
+    ) -> str | None:
         """Post a debate message with interactive voting buttons.
 
         Args:
@@ -619,8 +616,8 @@ class SlackIntegration:
         debate_id: str,
         current_round: int,
         total_rounds: int,
-        latest_argument: Optional[str] = None,
-        agent_name: Optional[str] = None,
+        latest_argument: str | None = None,
+        agent_name: str | None = None,
     ) -> bool:
         """Update debate progress in Slack thread.
 
@@ -811,7 +808,6 @@ class SlackIntegration:
         )
 
         return blocks
-
 
 __all__ = [
     "SlackConfig",

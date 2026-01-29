@@ -7,13 +7,11 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from typing import Optional
 
 from .models import CommandContext, CommandResult, CommandError
 from .registry import CommandRegistry, get_command_registry
 
 logger = logging.getLogger(__name__)
-
 
 class CommandRouter:
     """
@@ -27,7 +25,7 @@ class CommandRouter:
     - Audit logging
     """
 
-    def __init__(self, registry: Optional[CommandRegistry] = None) -> None:
+    def __init__(self, registry: CommandRegistry | None = None) -> None:
         self.registry = registry or get_command_registry()
         self._rate_limits: dict[str, list[float]] = defaultdict(list)  # user_id -> timestamps
 
@@ -133,7 +131,6 @@ class CommandRouter:
         message += "\n\nUse `/help` to see available commands."
 
         return CommandResult.error(message, ephemeral=True)
-
 
 def parse_command_text(text: str) -> tuple[str, list[str]]:
     """

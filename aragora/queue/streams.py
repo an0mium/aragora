@@ -14,14 +14,13 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.queue.base import Job, JobQueue, JobStatus
 from aragora.queue.config import QueueConfig, get_queue_config
 from aragora.queue.status import JobStatusTracker
 
 logger = logging.getLogger(__name__)
-
 
 class RedisStreamsQueue(JobQueue):
     """
@@ -41,7 +40,7 @@ class RedisStreamsQueue(JobQueue):
         self,
         redis_client: Any,
         consumer_name: str,
-        config: Optional[QueueConfig] = None,
+        config: QueueConfig | None = None,
     ) -> None:
         """
         Initialize the Redis Streams queue.
@@ -123,7 +122,7 @@ class RedisStreamsQueue(JobQueue):
         logger.debug(f"Enqueued job {job.id}")
         return job.id
 
-    async def dequeue(self, worker_id: str, timeout_ms: int = 5000) -> Optional[Job]:  # type: ignore[override]
+    async def dequeue(self, worker_id: str, timeout_ms: int = 5000) -> Job | None:  # type: ignore[override]
         """
         Get the next job from the queue.
 
@@ -256,7 +255,7 @@ class RedisStreamsQueue(JobQueue):
 
         return True
 
-    async def get_status(self, job_id: str) -> Optional[Job]:
+    async def get_status(self, job_id: str) -> Job | None:
         """
         Get the current status of a job.
 
@@ -297,7 +296,7 @@ class RedisStreamsQueue(JobQueue):
         logger.info(f"Cancelled job {job_id}")
         return True
 
-    async def get_queue_stats(self) -> Dict[str, int]:
+    async def get_queue_stats(self) -> dict[str, int]:
         """
         Get queue statistics.
 
@@ -389,10 +388,9 @@ class RedisStreamsQueue(JobQueue):
         self._initialized = False
         logger.debug("Queue closed")
 
-
 async def create_redis_queue(
-    redis_url: Optional[str] = None,
-    consumer_name: Optional[str] = None,
+    redis_url: str | None = None,
+    consumer_name: str | None = None,
 ) -> RedisStreamsQueue:
     """
     Create a Redis Streams queue instance.

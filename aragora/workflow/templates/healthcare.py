@@ -4,9 +4,9 @@ Healthcare Industry Workflow Templates.
 HIPAA-compliant templates for healthcare data review and compliance.
 """
 
-from typing import Dict, Any
+from typing import Any
 
-HIPAA_ASSESSMENT_TEMPLATE: Dict[str, Any] = {
+HIPAA_ASSESSMENT_TEMPLATE: dict[str, Any] = {
     "name": "HIPAA Risk Assessment",
     "description": "Comprehensive HIPAA security risk assessment workflow",
     "category": "healthcare",
@@ -134,7 +134,7 @@ HIPAA_ASSESSMENT_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-CLINICAL_REVIEW_TEMPLATE: Dict[str, Any] = {
+CLINICAL_REVIEW_TEMPLATE: dict[str, Any] = {
     "name": "Clinical Document Review",
     "description": "Multi-agent review of clinical documentation and protocols",
     "category": "healthcare",
@@ -236,7 +236,7 @@ CLINICAL_REVIEW_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-PHI_AUDIT_TEMPLATE: Dict[str, Any] = {
+PHI_AUDIT_TEMPLATE: dict[str, Any] = {
     "name": "PHI Access Audit",
     "description": "Audit trail review for PHI access compliance",
     "category": "healthcare",

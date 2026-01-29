@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
@@ -40,13 +40,11 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-
 # Module-level cache for queue instance
-_queue_instance: Optional[Any] = None
+_queue_instance: Any | None = None
 _queue_lock = asyncio.Lock()
 
-
-async def _get_queue() -> Optional[Any]:
+async def _get_queue() -> Any | None:
     """Get or create the queue instance.
 
     Returns None if Redis is not available.
@@ -74,7 +72,6 @@ async def _get_queue() -> Optional[Any]:
         except RuntimeError as e:
             logger.warning(f"Runtime error creating queue: {e}")
             return None
-
 
 class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  # type: ignore[misc]
     """Handler for job queue management endpoints.
@@ -118,7 +115,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
         # Require authentication for all queue operations
         try:
@@ -149,7 +146,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             logger.warning(f"Queue permission denied: {permission} for user {auth_context.user_id}")
             return error_response(f"Permission denied: {permission}", 403)
 
-        query_params: Dict[str, Any] = {}
+        query_params: dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
@@ -294,7 +291,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             redis_client = queue._redis
             groups_info = await redis_client.xinfo_groups(queue.stream_key)
 
-            workers: List[Dict[str, Any]] = []
+            workers: list[dict[str, Any]] = []
             for group in groups_info:
                 if isinstance(group, dict):
                     # Get consumers in this group
@@ -409,7 +406,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             logger.error(f"Queue interface error: {e}")
             return error_response("Queue configuration error", 500)
 
-    async def _list_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _list_jobs(self, query_params: dict[str, Any]) -> HandlerResult:
         """List jobs with optional filtering."""
         queue = await _get_queue()
         if queue is None:
@@ -642,7 +639,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             logger.error(f"Data structure error cancelling job {job_id}: {e}")
             return error_response("Internal data error", 500)
 
-    async def _list_dlq(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _list_dlq(self, query_params: dict[str, Any]) -> HandlerResult:
         """
         List jobs in the dead-letter queue (failed with max retries exceeded).
 
@@ -840,7 +837,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             logger.error(f"Data structure error requeuing all DLQ: {e}")
             return error_response("Internal data error", 500)
 
-    async def _cleanup_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _cleanup_jobs(self, query_params: dict[str, Any]) -> HandlerResult:
         """
         Cleanup old completed/failed jobs.
 
@@ -907,7 +904,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             logger.error(f"Data structure error cleaning up jobs: {e}")
             return error_response("Internal data error", 500)
 
-    async def _list_stale_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _list_stale_jobs(self, query_params: dict[str, Any]) -> HandlerResult:
         """
         List stale/stuck jobs (processing for too long).
 

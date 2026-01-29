@@ -6,10 +6,9 @@ Formats receipts as HTML emails for delivery via email channels.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .formatter import ReceiptFormatter, register_formatter
-
 
 @register_formatter
 class EmailReceiptFormatter(ReceiptFormatter):
@@ -22,8 +21,8 @@ class EmailReceiptFormatter(ReceiptFormatter):
     def format(
         self,
         receipt: Any,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        options: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Format receipt as HTML email.
 
@@ -44,7 +43,7 @@ class EmailReceiptFormatter(ReceiptFormatter):
         confidence_color = self._get_confidence_color(confidence)
 
         # Build HTML content
-        html_parts: List[str] = []
+        html_parts: list[str] = []
 
         # CSS styles
         if include_css:
@@ -203,7 +202,7 @@ class EmailReceiptFormatter(ReceiptFormatter):
 
         html_content = "".join(html_parts)
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "html": html_content,
             "subject": f"Decision Receipt: {topic[:50]}{'...' if len(topic) > 50 else ''}",
         }
@@ -353,7 +352,7 @@ class EmailReceiptFormatter(ReceiptFormatter):
 
     def _generate_plain_text(self, receipt: Any, compact: bool) -> str:
         """Generate plain text version of the receipt."""
-        lines: List[str] = []
+        lines: list[str] = []
 
         lines.append("=" * 50)
         lines.append("DECISION RECEIPT")

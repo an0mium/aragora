@@ -4,6 +4,7 @@ Evolution feedback methods for FeedbackPhase.
 Extracted from feedback_phase.py for maintainability.
 Handles genome fitness updates, population evolution, and pattern extraction.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -20,7 +21,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class EvolutionFeedback:
     """Handles Genesis/evolution-related feedback operations."""
 
@@ -29,7 +29,7 @@ class EvolutionFeedback:
         population_manager: Optional["PopulationManagerProtocol"] = None,
         prompt_evolver: Optional["PromptEvolverProtocol"] = None,
         event_emitter: Optional["EventEmitterProtocol"] = None,
-        loop_id: Optional[str] = None,
+        loop_id: str | None = None,
         auto_evolve: bool = True,
         breeding_threshold: float = 0.8,
     ):
@@ -255,6 +255,5 @@ class EvolutionFeedback:
 
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.debug("[evolution] Pattern extraction failed: %s", e)
-
 
 __all__ = ["EvolutionFeedback"]

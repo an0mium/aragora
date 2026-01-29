@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from .marketplace import (
     InstallResult,
@@ -39,13 +39,12 @@ from .marketplace import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class InstallationPolicy:
     """Policy governing skill installation for a tenant."""
 
     # Tier access
-    allowed_tiers: List[SkillTier] = field(
+    allowed_tiers: list[SkillTier] = field(
         default_factory=lambda: [SkillTier.FREE, SkillTier.STANDARD]
     )
 
@@ -54,14 +53,14 @@ class InstallationPolicy:
     max_skills_per_category: int = 20
 
     # Capability restrictions
-    blocked_capabilities: List[str] = field(default_factory=list)
+    blocked_capabilities: list[str] = field(default_factory=list)
     require_verified_only: bool = False
 
     # Auto-update settings
     auto_update_enabled: bool = False
     auto_update_minor_only: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "allowed_tiers": [t.value for t in self.allowed_tiers],
@@ -73,18 +72,17 @@ class InstallationPolicy:
             "auto_update_minor_only": self.auto_update_minor_only,
         }
 
-
 @dataclass
 class InstallationCheck:
     """Result of installation permission check."""
 
     allowed: bool
-    reason: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
-    missing_permissions: List[str] = field(default_factory=list)
-    missing_dependencies: List[str] = field(default_factory=list)
+    reason: str | None = None
+    warnings: list[str] = field(default_factory=list)
+    missing_permissions: list[str] = field(default_factory=list)
+    missing_dependencies: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "allowed": self.allowed,
@@ -93,7 +91,6 @@ class InstallationCheck:
             "missing_permissions": self.missing_permissions,
             "missing_dependencies": self.missing_dependencies,
         }
-
 
 class SkillInstaller:
     """
@@ -115,10 +112,10 @@ class SkillInstaller:
     UNINSTALL_PERMISSION = "skills:uninstall"
     ADMIN_PERMISSION = "skills:admin"
 
-    def __init__(self, marketplace: Optional[SkillMarketplace] = None):
+    def __init__(self, marketplace: SkillMarketplace | None = None):
         """Initialize the installer."""
         self._marketplace = marketplace or get_marketplace()
-        self._policies: Dict[str, InstallationPolicy] = {}
+        self._policies: dict[str, InstallationPolicy] = {}
 
     # ==========================================================================
     # Policy Management
@@ -142,7 +139,7 @@ class SkillInstaller:
         skill_id: str,
         tenant_id: str,
         user_id: str,
-        permissions: Optional[List[str]] = None,
+        permissions: Optional[list[str]] = None,
     ) -> InstallationCheck:
         """
         Check if a skill can be installed.
@@ -156,9 +153,9 @@ class SkillInstaller:
         Returns:
             InstallationCheck with result and any issues
         """
-        warnings: List[str] = []
-        missing_permissions: List[str] = []
-        missing_dependencies: List[str] = []
+        warnings: list[str] = []
+        missing_permissions: list[str] = []
+        missing_dependencies: list[str] = []
 
         # Get skill listing
         listing = await self._marketplace.get_skill(skill_id)
@@ -252,7 +249,7 @@ class SkillInstaller:
             warnings=warnings,
         )
 
-    async def _get_user_permissions(self, user_id: str, tenant_id: str) -> List[str]:
+    async def _get_user_permissions(self, user_id: str, tenant_id: str) -> list[str]:
         """Get user permissions from RBAC system."""
         try:
             from aragora.rbac.checker import PermissionChecker
@@ -272,7 +269,7 @@ class SkillInstaller:
         tenant_id: str,
         listing: SkillListing,
         policy: InstallationPolicy,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Check if installation would exceed quotas."""
         # Get current installations
         installed = await self._marketplace.get_installed_skills(tenant_id)
@@ -300,8 +297,8 @@ class SkillInstaller:
         skill_id: str,
         tenant_id: str,
         user_id: str,
-        version: Optional[str] = None,
-        permissions: Optional[List[str]] = None,
+        version: str | None = None,
+        permissions: Optional[list[str]] = None,
         install_dependencies: bool = True,
     ) -> InstallResult:
         """
@@ -330,7 +327,7 @@ class SkillInstaller:
             )
 
         # Install dependencies first if needed
-        dependencies_installed: List[str] = []
+        dependencies_installed: list[str] = []
         if install_dependencies and check.missing_dependencies:
             logger.warning(f"Missing dependencies for {skill_id}: {check.missing_dependencies}")
             # In a full implementation, would recursively install dependencies
@@ -383,7 +380,7 @@ class SkillInstaller:
         skill_id: str,
         tenant_id: str,
         user_id: str,
-        permissions: Optional[List[str]] = None,
+        permissions: Optional[list[str]] = None,
     ) -> bool:
         """
         Uninstall a skill from a tenant.
@@ -413,7 +410,7 @@ class SkillInstaller:
 
         return await self._marketplace.uninstall(skill_id, tenant_id)
 
-    async def _find_dependents(self, skill_id: str, tenant_id: str) -> List[str]:
+    async def _find_dependents(self, skill_id: str, tenant_id: str) -> list[str]:
         """Find skills that depend on the given skill."""
         installed = await self._marketplace.get_installed_skills(tenant_id)
         dependents = []
@@ -431,11 +428,11 @@ class SkillInstaller:
 
     async def install_batch(
         self,
-        skill_ids: List[str],
+        skill_ids: list[str],
         tenant_id: str,
         user_id: str,
-        permissions: Optional[List[str]] = None,
-    ) -> Dict[str, InstallResult]:
+        permissions: Optional[list[str]] = None,
+    ) -> dict[str, InstallResult]:
         """
         Install multiple skills.
 
@@ -460,11 +457,11 @@ class SkillInstaller:
 
         return results
 
-    async def get_installed(self, tenant_id: str) -> List[SkillListing]:
+    async def get_installed(self, tenant_id: str) -> list[SkillListing]:
         """Get all skills installed for a tenant."""
         return await self._marketplace.get_installed_skills(tenant_id)
 
-    async def get_available_upgrades(self, tenant_id: str) -> Dict[str, str]:
+    async def get_available_upgrades(self, tenant_id: str) -> dict[str, str]:
         """
         Get available upgrades for installed skills.
 

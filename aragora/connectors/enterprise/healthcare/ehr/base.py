@@ -18,13 +18,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Any, AsyncIterator, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import httpx
 
 logger = logging.getLogger(__name__)
-
 
 class EHRVendor(str, Enum):
     """Supported EHR vendors."""
@@ -36,7 +35,6 @@ class EHRVendor(str, Enum):
     ATHENAHEALTH = "athenahealth"
     NEXTGEN = "nextgen"
     UNKNOWN = "unknown"
-
 
 class EHRCapability(str, Enum):
     """EHR system capabilities."""
@@ -66,7 +64,6 @@ class EHRCapability(str, Enum):
     CERNER_MILLENNIUM = "cerner_millennium"
     CERNER_POWERCHART = "cerner_powerchart"
 
-
 @dataclass
 class EHRConnectionConfig:
     """Configuration for EHR connection."""
@@ -77,20 +74,20 @@ class EHRConnectionConfig:
 
     # OAuth2 / SMART on FHIR
     client_id: str
-    client_secret: Optional[str] = None  # Not used for public apps
-    redirect_uri: Optional[str] = None  # For authorization code flow
+    client_secret: str | None = None  # Not used for public apps
+    redirect_uri: str | None = None  # For authorization code flow
 
     # Backend Services (JWT Bearer)
-    private_key: Optional[str] = None  # RSA/EC private key for JWT signing
-    key_id: Optional[str] = None  # JWK key ID
+    private_key: str | None = None  # RSA/EC private key for JWT signing
+    key_id: str | None = None  # JWK key ID
 
     # Token endpoints (auto-discovered if not provided)
-    token_endpoint: Optional[str] = None
-    authorize_endpoint: Optional[str] = None
-    introspect_endpoint: Optional[str] = None
+    token_endpoint: str | None = None
+    authorize_endpoint: str | None = None
+    introspect_endpoint: str | None = None
 
     # Scopes
-    scopes: List[str] = field(
+    scopes: list[str] = field(
         default_factory=lambda: [
             "patient/*.read",
             "system/*.read",
@@ -107,24 +104,23 @@ class EHRConnectionConfig:
     enable_phi_redaction: bool = True
     audit_all_access: bool = True
 
-
 @dataclass
 class SMARTConfiguration:
     """SMART on FHIR configuration discovered from well-known endpoint."""
 
     authorization_endpoint: str
     token_endpoint: str
-    introspection_endpoint: Optional[str] = None
-    revocation_endpoint: Optional[str] = None
-    registration_endpoint: Optional[str] = None
-    management_endpoint: Optional[str] = None
-    scopes_supported: List[str] = field(default_factory=list)
-    response_types_supported: List[str] = field(default_factory=list)
-    capabilities: List[str] = field(default_factory=list)
-    code_challenge_methods_supported: List[str] = field(default_factory=list)
+    introspection_endpoint: str | None = None
+    revocation_endpoint: str | None = None
+    registration_endpoint: str | None = None
+    management_endpoint: str | None = None
+    scopes_supported: list[str] = field(default_factory=list)
+    response_types_supported: list[str] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
+    code_challenge_methods_supported: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SMARTConfiguration":
+    def from_dict(cls, data: dict[str, Any]) -> "SMARTConfiguration":
         """Parse from SMART discovery document."""
         return cls(
             authorization_endpoint=data.get("authorization_endpoint", ""),
@@ -139,7 +135,6 @@ class SMARTConfiguration:
             code_challenge_methods_supported=data.get("code_challenge_methods_supported", []),
         )
 
-
 @dataclass
 class TokenResponse:
     """OAuth2 token response."""
@@ -147,10 +142,10 @@ class TokenResponse:
     access_token: str
     token_type: str = "Bearer"
     expires_in: int = 3600
-    refresh_token: Optional[str] = None
-    scope: Optional[str] = None
-    patient: Optional[str] = None  # SMART launch context
-    id_token: Optional[str] = None  # OpenID Connect
+    refresh_token: str | None = None
+    scope: str | None = None
+    patient: str | None = None  # SMART launch context
+    id_token: str | None = None  # OpenID Connect
 
     # Internal tracking
     obtained_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -162,7 +157,7 @@ class TokenResponse:
         return datetime.now(timezone.utc) >= expiry
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TokenResponse":
+    def from_dict(cls, data: dict[str, Any]) -> "TokenResponse":
         """Parse from OAuth2 token response."""
         return cls(
             access_token=data["access_token"],
@@ -173,7 +168,6 @@ class TokenResponse:
             patient=data.get("patient"),
             id_token=data.get("id_token"),
         )
-
 
 class EHRAdapter(ABC):
     """
@@ -192,19 +186,19 @@ class EHRAdapter(ABC):
     """
 
     vendor: EHRVendor = EHRVendor.UNKNOWN
-    capabilities: Set[EHRCapability] = set()
+    capabilities: set[EHRCapability] = set()
 
     def __init__(self, config: EHRConnectionConfig):
         self.config = config
         self._http_client: Optional["httpx.AsyncClient"] = None
-        self._smart_config: Optional[SMARTConfiguration] = None
-        self._token: Optional[TokenResponse] = None
+        self._smart_config: SMARTConfiguration | None = None
+        self._token: TokenResponse | None = None
         self._token_lock = asyncio.Lock()
 
         # Statistics
         self._requests_made = 0
         self._errors_count = 0
-        self._last_request_at: Optional[datetime] = None
+        self._last_request_at: datetime | None = None
 
     async def __aenter__(self) -> "EHRAdapter":
         """Async context manager entry."""
@@ -284,8 +278,8 @@ class EHRAdapter(ABC):
             raise RuntimeError(f"Could not discover SMART configuration for {self.config.base_url}")
 
     def _extract_security_from_metadata(
-        self, metadata: Dict[str, Any]
-    ) -> Optional[SMARTConfiguration]:
+        self, metadata: dict[str, Any]
+    ) -> SMARTConfiguration | None:
         """Extract OAuth2 endpoints from FHIR CapabilityStatement."""
         try:
             rest = metadata.get("rest", [{}])[0]
@@ -461,7 +455,7 @@ class EHRAdapter(ABC):
         self._token = TokenResponse.from_dict(response.json())
         logger.debug(f"Refreshed access token (expires in {self._token.expires_in}s)")
 
-    def _get_headers(self, access_token: str) -> Dict[str, str]:
+    def _get_headers(self, access_token: str) -> dict[str, str]:
         """Get standard headers for FHIR requests."""
         return {
             "Authorization": f"Bearer {access_token}",
@@ -474,7 +468,7 @@ class EHRAdapter(ABC):
         method: str,
         path: str,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make authenticated request to EHR."""
         if not self._http_client:
             raise RuntimeError("Not connected")
@@ -518,19 +512,19 @@ class EHRAdapter(ABC):
 
     # Abstract methods for vendor-specific implementations
     @abstractmethod
-    async def get_patient(self, patient_id: str) -> Dict[str, Any]:
+    async def get_patient(self, patient_id: str) -> dict[str, Any]:
         """Get patient resource by ID."""
         ...
 
     @abstractmethod
     async def search_patients(
         self,
-        family: Optional[str] = None,
-        given: Optional[str] = None,
-        birthdate: Optional[str] = None,
-        identifier: Optional[str] = None,
+        family: str | None = None,
+        given: str | None = None,
+        birthdate: str | None = None,
+        identifier: str | None = None,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for patients."""
         ...
 
@@ -538,12 +532,12 @@ class EHRAdapter(ABC):
     async def get_patient_records(
         self,
         patient_id: str,
-        resource_types: Optional[List[str]] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        resource_types: Optional[list[str]] = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Get all clinical records for a patient."""
         ...
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         return {
             "vendor": self.vendor.value,
@@ -558,8 +552,7 @@ class EHRAdapter(ABC):
             "capabilities": [c.value for c in self.capabilities],
         }
 
-
-def detect_vendor(base_url: str, metadata: Optional[Dict[str, Any]] = None) -> EHRVendor:
+def detect_vendor(base_url: str, metadata: Optional[dict[str, Any]] = None) -> EHRVendor:
     """
     Detect EHR vendor from URL patterns or FHIR metadata.
 
@@ -611,7 +604,6 @@ def detect_vendor(base_url: str, metadata: Optional[Dict[str, Any]] = None) -> E
                         return EHRVendor.CERNER
 
     return EHRVendor.UNKNOWN
-
 
 def create_adapter(config: EHRConnectionConfig) -> EHRAdapter:
     """

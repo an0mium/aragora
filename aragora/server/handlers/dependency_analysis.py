@@ -20,7 +20,7 @@ import json
 import logging
 import threading
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
@@ -34,13 +34,12 @@ from aragora.server.handlers.base import (
 logger = logging.getLogger(__name__)
 
 # Thread-safe service instance
-_dependency_analyzer: Optional[Any] = None
+_dependency_analyzer: Any | None = None
 _dependency_analyzer_lock = threading.Lock()
 
 # Cache for analysis results
 _analysis_cache: dict[str, dict[str, Any]] = {}
 _analysis_cache_lock = threading.Lock()
-
 
 def get_dependency_analyzer():
     """Get or create dependency analyzer (thread-safe)."""
@@ -54,7 +53,6 @@ def get_dependency_analyzer():
 
             _dependency_analyzer = DependencyAnalyzer()
         return _dependency_analyzer
-
 
 @require_permission("codebase.run")
 async def handle_analyze_dependencies(
@@ -132,7 +130,6 @@ async def handle_analyze_dependencies(
         logger.exception("Error analyzing dependencies")
         return error_response(f"Failed to analyze dependencies: {e}", status=500)
 
-
 @require_permission("codebase.run")
 async def handle_generate_sbom(
     context: AuthorizationContext,
@@ -192,7 +189,6 @@ async def handle_generate_sbom(
     except Exception as e:
         logger.exception("Error generating SBOM")
         return error_response(f"Failed to generate SBOM: {e}", status=500)
-
 
 @require_permission("codebase.run")
 async def handle_scan_vulnerabilities(
@@ -272,7 +268,6 @@ async def handle_scan_vulnerabilities(
         logger.exception("Error scanning vulnerabilities")
         return error_response(f"Failed to scan vulnerabilities: {e}", status=500)
 
-
 @require_permission("codebase.run")
 async def handle_check_licenses(
     context: AuthorizationContext,
@@ -347,7 +342,6 @@ async def handle_check_licenses(
         logger.exception("Error checking licenses")
         return error_response(f"Failed to check licenses: {e}", status=500)
 
-
 async def handle_clear_cache(
     user_id: str = "default",
 ) -> HandlerResult:
@@ -372,11 +366,9 @@ async def handle_clear_cache(
         logger.exception("Error clearing cache")
         return error_response(f"Failed to clear cache: {e}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
-
 
 def get_dependency_analysis_routes() -> list[tuple[str, str, Any]]:
     """
@@ -391,7 +383,6 @@ def get_dependency_analysis_routes() -> list[tuple[str, str, Any]]:
         ("POST", "/api/v1/codebase/check-licenses", handle_check_licenses),
         ("POST", "/api/v1/codebase/clear-cache", handle_clear_cache),
     ]
-
 
 class DependencyAnalysisHandler(BaseHandler):
     """
@@ -420,7 +411,7 @@ class DependencyAnalysisHandler(BaseHandler):
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route dependency analysis endpoint requests."""
         return None
 

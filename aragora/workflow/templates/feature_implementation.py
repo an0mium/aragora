@@ -12,9 +12,9 @@ These workflows leverage multi-agent debate for design decisions,
 test generation, and code review.
 """
 
-from typing import Dict, Any
+from typing import Any
 
-FEATURE_IMPLEMENTATION_TEMPLATE: Dict[str, Any] = {
+FEATURE_IMPLEMENTATION_TEMPLATE: dict[str, Any] = {
     "name": "Feature Implementation",
     "description": "End-to-end feature implementation with multi-agent collaboration",
     "category": "development",
@@ -320,8 +320,7 @@ FEATURE_IMPLEMENTATION_TEMPLATE: Dict[str, Any] = {
     },
 }
 
-
-BUG_FIX_TEMPLATE: Dict[str, Any] = {
+BUG_FIX_TEMPLATE: dict[str, Any] = {
     "name": "Bug Fix",
     "description": "Structured bug fix workflow with root cause analysis",
     "category": "development",
@@ -463,8 +462,7 @@ BUG_FIX_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-
-REFACTORING_TEMPLATE: Dict[str, Any] = {
+REFACTORING_TEMPLATE: dict[str, Any] = {
     "name": "Code Refactoring",
     "description": "Safe refactoring workflow with comprehensive testing",
     "category": "development",

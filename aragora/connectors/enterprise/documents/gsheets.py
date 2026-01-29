@@ -18,7 +18,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -29,7 +29,6 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class SheetData:
     """Data from a single sheet within a spreadsheet."""
@@ -38,11 +37,10 @@ class SheetData:
     sheet_id: int
     row_count: int
     column_count: int
-    headers: List[str] = field(default_factory=list)
-    rows: List[List[Any]] = field(default_factory=list)
+    headers: list[str] = field(default_factory=list)
+    rows: list[list[Any]] = field(default_factory=list)
     frozen_rows: int = 0
     frozen_cols: int = 0
-
 
 @dataclass
 class Spreadsheet:
@@ -52,12 +50,11 @@ class Spreadsheet:
     title: str
     locale: str = "en_US"
     timezone: str = "UTC"
-    created_time: Optional[datetime] = None
-    modified_time: Optional[datetime] = None
+    created_time: datetime | None = None
+    modified_time: datetime | None = None
     web_view_link: str = ""
     owner: str = ""
-    sheets: List[SheetData] = field(default_factory=list)
-
+    sheets: list[SheetData] = field(default_factory=list)
 
 class GoogleSheetsConnector(EnterpriseConnector):
     """
@@ -89,8 +86,8 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        spreadsheet_ids: Optional[List[str]] = None,
-        folder_ids: Optional[List[str]] = None,
+        spreadsheet_ids: Optional[list[str]] = None,
+        folder_ids: Optional[list[str]] = None,
         include_formulas: bool = False,
         include_hidden_sheets: bool = False,
         max_rows_per_sheet: int = 50000,
@@ -120,8 +117,8 @@ class GoogleSheetsConnector(EnterpriseConnector):
         self.max_sheets_per_file = max_sheets_per_file
         self.header_row = header_row
 
-        self._access_token: Optional[str] = None
-        self._token_expiry: Optional[datetime] = None
+        self._access_token: str | None = None
+        self._token_expiry: datetime | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -176,9 +173,9 @@ class GoogleSheetsConnector(EnterpriseConnector):
         self,
         url: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make a request to Google API."""
         import httpx
 
@@ -203,12 +200,12 @@ class GoogleSheetsConnector(EnterpriseConnector):
     async def _list_spreadsheets_in_folder(
         self,
         folder_id: str,
-        page_token: Optional[str] = None,
-    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        page_token: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """List spreadsheets in a Drive folder."""
         query = f"'{folder_id}' in parents and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "q": query,
             "pageSize": 100,
             "fields": "nextPageToken,files(id,name,modifiedTime,owners,webViewLink)",
@@ -221,7 +218,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
         return data.get("files", []), data.get("nextPageToken")
 
-    async def _get_spreadsheet_metadata(self, spreadsheet_id: str) -> Dict[str, Any]:
+    async def _get_spreadsheet_metadata(self, spreadsheet_id: str) -> dict[str, Any]:
         """Get spreadsheet metadata from Drive API."""
         params = {
             "fields": "id,name,modifiedTime,createdTime,owners,webViewLink",
@@ -252,7 +249,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 pass
 
         # Get spreadsheet structure
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "includeGridData": False,  # We'll fetch data separately
         }
 
@@ -319,13 +316,13 @@ class GoogleSheetsConnector(EnterpriseConnector):
         sheet_title: str,
         row_count: int,
         col_count: int,
-    ) -> Optional[SheetData]:
+    ) -> SheetData | None:
         """Fetch data from a specific sheet."""
         # Build range - use A1 notation
         end_col = self._col_index_to_letter(col_count)
         range_notation = f"'{sheet_title}'!A1:{end_col}{row_count}"
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "ranges": range_notation,
             "valueRenderOption": "FORMULA" if self.include_formulas else "FORMATTED_VALUE",
             "dateTimeRenderOption": "FORMATTED_STRING",
@@ -414,7 +411,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
         return "\n".join(lines)
 
-    def _spreadsheet_to_tables(self, spreadsheet: Spreadsheet) -> List[Dict[str, Any]]:
+    def _spreadsheet_to_tables(self, spreadsheet: Spreadsheet) -> list[dict[str, Any]]:
         """Convert spreadsheet sheets to table structures."""
         tables = []
 
@@ -563,7 +560,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        folder_id: Optional[str] = None,
+        folder_id: str | None = None,
         **kwargs,
     ) -> list:
         """Search Google Sheets by name or content."""
@@ -579,7 +576,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
         if folder_id:
             q_parts.append(f"'{folder_id}' in parents")
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "q": " and ".join(q_parts),
             "pageSize": limit,
             "fields": "files(id,name,modifiedTime,webViewLink)",
@@ -611,7 +608,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific spreadsheet."""
         from aragora.connectors.base import Evidence
 
@@ -647,8 +644,8 @@ class GoogleSheetsConnector(EnterpriseConnector):
     async def get_sheet_as_dataframe(
         self,
         spreadsheet_id: str,
-        sheet_name: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        sheet_name: str | None = None,
+    ) -> Optional[dict[str, Any]]:
         """
         Get a sheet as a DataFrame-like structure.
 
@@ -679,6 +676,5 @@ class GoogleSheetsConnector(EnterpriseConnector):
         except Exception as e:
             logger.error(f"[{self.name}] DataFrame conversion failed: {e}")
             return None
-
 
 __all__ = ["GoogleSheetsConnector", "Spreadsheet", "SheetData"]

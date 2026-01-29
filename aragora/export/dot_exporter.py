@@ -7,12 +7,11 @@ Supports different visualization modes:
 - critiques: Shows critique relationships
 - consensus: Highlights consensus-building path
 """
+from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from aragora.export.artifact import DebateArtifact
-
 
 def escape_label(text: str, max_len: int = 50) -> str:
     """Escape text for DOT labels."""
@@ -22,7 +21,6 @@ def escape_label(text: str, max_len: int = 50) -> str:
     # Escape quotes and newlines
     text = text.replace('"', '\\"').replace("\n", "\\n")
     return text
-
 
 class DOTExporter:
     """
@@ -34,7 +32,7 @@ class DOTExporter:
     def __init__(self, artifact: DebateArtifact):
         self.artifact = artifact
 
-    def export_flow(self, output_path: Optional[Path] = None) -> str:
+    def export_flow(self, output_path: Path | None = None) -> str:
         """
         Export message flow graph.
 
@@ -104,7 +102,7 @@ class DOTExporter:
 
         return dot_content
 
-    def export_critiques(self, output_path: Optional[Path] = None) -> str:
+    def export_critiques(self, output_path: Path | None = None) -> str:
         """
         Export critique relationship graph.
 
@@ -170,7 +168,7 @@ class DOTExporter:
 
         return dot_content
 
-    def export_consensus(self, output_path: Optional[Path] = None) -> str:
+    def export_consensus(self, output_path: Path | None = None) -> str:
         """
         Export consensus-building graph.
 
@@ -244,7 +242,6 @@ class DOTExporter:
         outputs["consensus"] = consensus_path
 
         return outputs
-
 
 def export_debate_to_dot(
     artifact: DebateArtifact,

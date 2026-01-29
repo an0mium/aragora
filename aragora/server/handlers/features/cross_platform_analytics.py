@@ -31,7 +31,7 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from uuid import uuid4
 
 from ..base import (
@@ -51,11 +51,9 @@ ANALYTICS_READ_PERMISSION = "analytics:read"
 ANALYTICS_WRITE_PERMISSION = "analytics:write"
 ANALYTICS_EXPORT_PERMISSION = "analytics:export"
 
-
 # =============================================================================
 # Enums and Data Classes
 # =============================================================================
-
 
 class Platform(Enum):
     """Supported analytics platforms."""
@@ -66,7 +64,6 @@ class Platform(Enum):
     METABASE = "metabase"
     SEGMENT = "segment"
 
-
 class MetricType(Enum):
     """Metric types."""
 
@@ -75,7 +72,6 @@ class MetricType(Enum):
     HISTOGRAM = "histogram"
     RATE = "rate"
 
-
 class AlertSeverity(Enum):
     """Alert severity levels."""
 
@@ -83,14 +79,12 @@ class AlertSeverity(Enum):
     WARNING = "warning"
     CRITICAL = "critical"
 
-
 class AlertStatus(Enum):
     """Alert status."""
 
     ACTIVE = "active"
     ACKNOWLEDGED = "acknowledged"
     RESOLVED = "resolved"
-
 
 class TimeRange(Enum):
     """Predefined time ranges."""
@@ -102,7 +96,6 @@ class TimeRange(Enum):
     LAST_QUARTER = "90d"
     LAST_YEAR = "365d"
 
-
 @dataclass
 class MetricValue:
     """A single metric value."""
@@ -111,10 +104,10 @@ class MetricValue:
     value: float
     platform: Platform
     timestamp: datetime
-    dimensions: Dict[str, str] = field(default_factory=dict)
+    dimensions: dict[str, str] = field(default_factory=dict)
     metric_type: MetricType = MetricType.GAUGE
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "value": self.value,
@@ -124,19 +117,18 @@ class MetricValue:
             "metric_type": self.metric_type.value,
         }
 
-
 @dataclass
 class AggregatedMetric:
     """Aggregated metric across platforms."""
 
     name: str
     total: float
-    by_platform: Dict[str, float]
+    by_platform: dict[str, float]
     trend: str  # "up", "down", "stable"
     change_percent: float
     period: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "total": self.total,
@@ -145,7 +137,6 @@ class AggregatedMetric:
             "change_percent": self.change_percent,
             "period": self.period,
         }
-
 
 @dataclass
 class Anomaly:
@@ -161,7 +152,7 @@ class Anomaly:
     severity: AlertSeverity
     description: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "metric_name": self.metric_name,
@@ -174,7 +165,6 @@ class Anomaly:
             "description": self.description,
         }
 
-
 @dataclass
 class AlertRule:
     """Alert rule configuration."""
@@ -186,12 +176,12 @@ class AlertRule:
     threshold: float
     severity: AlertSeverity
     enabled: bool = True
-    platforms: List[Platform] = field(default_factory=list)
+    platforms: list[Platform] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     triggered_count: int = 0
-    last_triggered: Optional[datetime] = None
+    last_triggered: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -205,7 +195,6 @@ class AlertRule:
             "triggered_count": self.triggered_count,
             "last_triggered": self.last_triggered.isoformat() if self.last_triggered else None,
         }
-
 
 @dataclass
 class Alert:
@@ -222,10 +211,10 @@ class Alert:
     current_value: float
     threshold: float
     message: str
-    acknowledged_by: Optional[str] = None
-    acknowledged_at: Optional[datetime] = None
+    acknowledged_by: str | None = None
+    acknowledged_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "rule_id": self.rule_id,
@@ -242,34 +231,29 @@ class Alert:
             "acknowledged_at": self.acknowledged_at.isoformat() if self.acknowledged_at else None,
         }
 
-
 # =============================================================================
 # In-Memory Storage
 # =============================================================================
 
-_alert_rules: Dict[str, Dict[str, AlertRule]] = {}  # tenant_id -> rule_id -> AlertRule
-_active_alerts: Dict[str, Dict[str, Alert]] = {}  # tenant_id -> alert_id -> Alert
-_metric_cache: Dict[str, Dict[str, List[MetricValue]]] = {}  # tenant_id -> metric_name -> values
+_alert_rules: dict[str, dict[str, AlertRule]] = {}  # tenant_id -> rule_id -> AlertRule
+_active_alerts: dict[str, dict[str, Alert]] = {}  # tenant_id -> alert_id -> Alert
+_metric_cache: dict[str, dict[str, list[MetricValue]]] = {}  # tenant_id -> metric_name -> values
 
-
-def _get_tenant_rules(tenant_id: str) -> Dict[str, AlertRule]:
+def _get_tenant_rules(tenant_id: str) -> dict[str, AlertRule]:
     if tenant_id not in _alert_rules:
         _alert_rules[tenant_id] = {}
     return _alert_rules[tenant_id]
 
-
-def _get_tenant_alerts(tenant_id: str) -> Dict[str, Alert]:
+def _get_tenant_alerts(tenant_id: str) -> dict[str, Alert]:
     if tenant_id not in _active_alerts:
         _active_alerts[tenant_id] = {}
     return _active_alerts[tenant_id]
-
 
 # =============================================================================
 # Platform Data Fetchers
 # =============================================================================
 
-
-async def fetch_aragora_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
+async def fetch_aragora_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch internal Aragora metrics."""
     # In real implementation, would query internal services
     return {
@@ -285,8 +269,7 @@ async def fetch_aragora_metrics(tenant_id: str, time_range: str) -> Dict[str, fl
         "deliberation_avg_rounds": 3.2,
     }
 
-
-async def fetch_ga4_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
+async def fetch_ga4_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch Google Analytics 4 metrics."""
     try:
         from aragora.connectors.analytics.google_analytics import (  # noqa: F401
@@ -308,8 +291,7 @@ async def fetch_ga4_metrics(tenant_id: str, time_range: str) -> Dict[str, float]
         "events": 234567,
     }
 
-
-async def fetch_mixpanel_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
+async def fetch_mixpanel_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch Mixpanel metrics."""
     try:
         from aragora.connectors.analytics.mixpanel import MixpanelConnector  # noqa: F401
@@ -328,8 +310,7 @@ async def fetch_mixpanel_metrics(tenant_id: str, time_range: str) -> Dict[str, f
         "active_users_daily": 8765,
     }
 
-
-async def fetch_metabase_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
+async def fetch_metabase_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch Metabase dashboard metrics."""
     try:
         from aragora.connectors.analytics.metabase import MetabaseConnector  # noqa: F401
@@ -346,8 +327,7 @@ async def fetch_metabase_metrics(tenant_id: str, time_range: str) -> Dict[str, f
         "avg_query_time_ms": 234.5,
     }
 
-
-async def fetch_segment_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
+async def fetch_segment_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch Segment metrics."""
     try:
         from aragora.connectors.analytics.segment import SegmentConnector  # noqa: F401
@@ -364,13 +344,11 @@ async def fetch_segment_metrics(tenant_id: str, time_range: str) -> Dict[str, fl
         "delivery_rate": 0.9985,
     }
 
-
 # =============================================================================
 # Analytics Functions
 # =============================================================================
 
-
-def calculate_trend(current: float, previous: float) -> Tuple[str, float]:
+def calculate_trend(current: float, previous: float) -> tuple[str, float]:
     """Calculate trend direction and change percentage."""
     if previous == 0:
         return ("stable", 0.0) if current == 0 else ("up", 100.0)
@@ -384,13 +362,12 @@ def calculate_trend(current: float, previous: float) -> Tuple[str, float]:
     else:
         return ("stable", change)
 
-
 def detect_anomalies(
-    values: List[float],
+    values: list[float],
     metric_name: str,
     platform: Platform,
     threshold_std: float = 2.0,
-) -> List[Anomaly]:
+) -> list[Anomaly]:
     """Detect anomalies using Z-score method."""
     if len(values) < 3:
         return []
@@ -428,10 +405,9 @@ def detect_anomalies(
 
     return anomalies
 
-
 def calculate_correlation(
-    series_a: List[float],
-    series_b: List[float],
+    series_a: list[float],
+    series_b: list[float],
 ) -> float:
     """Calculate Pearson correlation coefficient."""
     if len(series_a) != len(series_b) or len(series_a) < 2:
@@ -450,11 +426,9 @@ def calculate_correlation(
 
     return numerator / (denom_a * denom_b)
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class CrossPlatformAnalyticsHandler(SecureHandler):
     """Handler for cross-platform analytics endpoints.
@@ -479,7 +453,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         "/api/v1/analytics/cross-platform/demo",
     ]
 
-    def __init__(self, server_context: Optional[Dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
@@ -629,7 +603,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         platform_filter = params.get("platform")
 
         # Fetch all metrics
-        all_metrics: Dict[str, Dict[str, float]] = {}
+        all_metrics: dict[str, dict[str, float]] = {}
 
         if not platform_filter or platform_filter == "aragora":
             all_metrics["aragora"] = await fetch_aragora_metrics(tenant_id, time_range)
@@ -700,7 +674,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         days = 7 if time_range == "7d" else 30 if time_range == "30d" else 24
         base_date = datetime.now(timezone.utc)
 
-        trends: Dict[str, Any] = {
+        trends: dict[str, Any] = {
             "metric": metric,
             "time_range": time_range,
             "data_points": [],
@@ -824,7 +798,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         correlation_matrix = []
 
         for m1 in metrics:
-            row: Dict[str, Any] = {"metric": m1}
+            row: dict[str, Any] = {"metric": m1}
             for m2 in metrics:
                 if m1 == m2:
                     row[m2] = 1.0
@@ -1159,7 +1133,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
     # Utility Methods
     # =========================================================================
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
@@ -1167,7 +1141,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
             return request.json
         return {}
 
-    def _get_query_params(self, request: Any) -> Dict[str, str]:
+    def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""
         if hasattr(request, "query"):
             return dict(request.query)
@@ -1175,13 +1149,11 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
             return dict(request.args)
         return {}
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-_handler_instance: Optional[CrossPlatformAnalyticsHandler] = None
-
+_handler_instance: CrossPlatformAnalyticsHandler | None = None
 
 def get_cross_platform_analytics_handler() -> CrossPlatformAnalyticsHandler:
     """Get or create handler instance."""
@@ -1190,12 +1162,10 @@ def get_cross_platform_analytics_handler() -> CrossPlatformAnalyticsHandler:
         _handler_instance = CrossPlatformAnalyticsHandler()
     return _handler_instance
 
-
 async def handle_cross_platform_analytics(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for cross-platform analytics requests."""
     handler = get_cross_platform_analytics_handler()
     return await handler.handle(request, path, method)
-
 
 __all__ = [
     "CrossPlatformAnalyticsHandler",

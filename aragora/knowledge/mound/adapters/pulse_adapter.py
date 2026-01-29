@@ -23,22 +23,20 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.pulse.ingestor import TrendingTopic, TrendingTopicOutcome
     from aragora.pulse.store import ScheduledDebateRecord
 
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Reverse Flow Dataclasses (KM → Pulse)
 # =============================================================================
-
 
 @dataclass
 class KMQualityThresholdUpdate:
@@ -46,14 +44,13 @@ class KMQualityThresholdUpdate:
 
     old_min_quality: float
     new_min_quality: float
-    old_category_bonuses: Dict[str, float] = field(default_factory=dict)
-    new_category_bonuses: Dict[str, float] = field(default_factory=dict)
+    old_category_bonuses: dict[str, float] = field(default_factory=dict)
+    new_category_bonuses: dict[str, float] = field(default_factory=dict)
     patterns_analyzed: int = 0
     adjustments_made: int = 0
     confidence: float = 0.7
     recommendation: str = "keep"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMTopicCoverage:
@@ -67,8 +64,7 @@ class KMTopicCoverage:
     km_items_found: int = 0
     recommendation: str = "proceed"  # proceed, skip, defer
     priority_adjustment: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMSchedulingRecommendation:
@@ -79,10 +75,9 @@ class KMSchedulingRecommendation:
     adjusted_priority: float = 0.5
     reason: str = "no_change"
     km_confidence: float = 0.7
-    coverage: Optional[KMTopicCoverage] = None
+    coverage: KMTopicCoverage | None = None
     was_applied: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMTopicValidation:
@@ -95,8 +90,7 @@ class KMTopicValidation:
     avg_rounds_needed: float = 0.0
     recommendation: str = "keep"  # keep, boost, demote, skip
     priority_adjustment: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class PulseKMSyncResult:
@@ -106,18 +100,16 @@ class PulseKMSyncResult:
     topics_adjusted: int = 0
     threshold_updates: int = 0
     scheduling_changes: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class TopicSearchResult:
     """Wrapper for topic search results with adapter metadata."""
 
-    topic: Dict[str, Any]
+    topic: dict[str, Any]
     relevance_score: float = 0.0
-
 
 class PulseAdapter:
     """
@@ -151,9 +143,9 @@ class PulseAdapter:
 
     def __init__(
         self,
-        debate_store: Optional[Any] = None,
+        debate_store: Any | None = None,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
     ):
         """
         Initialize the adapter.
@@ -168,20 +160,20 @@ class PulseAdapter:
         self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
-        self._topics: Dict[str, Dict[str, Any]] = {}
-        self._debates: Dict[str, Dict[str, Any]] = {}
-        self._outcomes: Dict[str, Dict[str, Any]] = {}
+        self._topics: dict[str, dict[str, Any]] = {}
+        self._debates: dict[str, dict[str, Any]] = {}
+        self._outcomes: dict[str, dict[str, Any]] = {}
 
         # Indices for fast lookup
-        self._platform_topics: Dict[str, List[str]] = {}  # platform -> [topic_ids]
-        self._category_topics: Dict[str, List[str]] = {}  # category -> [topic_ids]
-        self._topic_hash_map: Dict[str, str] = {}  # topic_hash -> topic_id
+        self._platform_topics: dict[str, list[str]] = {}  # platform -> [topic_ids]
+        self._category_topics: dict[str, list[str]] = {}  # category -> [topic_ids]
+        self._topic_hash_map: dict[str, str] = {}  # topic_hash -> topic_id
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -190,7 +182,7 @@ class PulseAdapter:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
-    def debate_store(self) -> Optional[Any]:
+    def debate_store(self) -> Any | None:
         """Access the underlying ScheduledDebateStore."""
         return self._debate_store
 
@@ -232,7 +224,7 @@ class PulseAdapter:
         self,
         topic: "TrendingTopic",
         min_quality: float = None,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a trending topic in the Knowledge Mound.
 
@@ -418,7 +410,7 @@ class PulseAdapter:
 
         return outcome_id
 
-    def get_topic(self, topic_id: str) -> Optional[Dict[str, Any]]:
+    def get_topic(self, topic_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific topic by ID.
 
@@ -432,7 +424,7 @@ class PulseAdapter:
             topic_id = f"{self.ID_PREFIX}topic_{topic_id}"
         return self._topics.get(topic_id)
 
-    def get_debate(self, debate_id: str) -> Optional[Dict[str, Any]]:
+    def get_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific debate record by ID.
 
@@ -451,7 +443,7 @@ class PulseAdapter:
         topic_text: str,
         hours: int = 48,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find historical debates on a similar topic.
 
@@ -508,7 +500,7 @@ class PulseAdapter:
         self,
         platform: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get trending topics from a specific platform.
 
@@ -533,7 +525,7 @@ class PulseAdapter:
         self,
         category: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get trending topics from a specific category.
 
@@ -558,7 +550,7 @@ class PulseAdapter:
         self,
         min_occurrences: int = 3,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find recurring trending patterns across topics.
 
@@ -570,8 +562,8 @@ class PulseAdapter:
             List of pattern dicts
         """
         # Extract keywords from all topics
-        keyword_counts: Dict[str, int] = {}
-        keyword_topics: Dict[str, List[str]] = {}
+        keyword_counts: dict[str, int] = {}
+        keyword_topics: dict[str, list[str]] = {}
 
         for topic in self._topics.values():
             words = topic.get("topic", "").lower().split()
@@ -600,9 +592,9 @@ class PulseAdapter:
 
     def get_outcome_analytics(
         self,
-        platform: Optional[str] = None,
-        category: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        platform: str | None = None,
+        category: str | None = None,
+    ) -> dict[str, Any]:
         """
         Get analytics on debate outcomes.
 
@@ -641,7 +633,7 @@ class PulseAdapter:
             "category": category,
         }
 
-    def to_knowledge_item(self, topic: Dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, topic: dict[str, Any]) -> "KnowledgeItem":
         """
         Convert a topic dict to a KnowledgeItem.
 
@@ -693,7 +685,7 @@ class PulseAdapter:
             importance=quality,
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored Pulse data."""
         return {
             "total_topics": len(self._topics),
@@ -710,11 +702,11 @@ class PulseAdapter:
     def _init_reverse_flow_state(self) -> None:
         """Initialize reverse flow state if not already done."""
         if not hasattr(self, "_outcome_history"):
-            self._outcome_history: List[Dict[str, Any]] = []
+            self._outcome_history: list[dict[str, Any]] = []
         if not hasattr(self, "_km_validations"):
-            self._km_validations: Dict[str, KMTopicValidation] = {}
+            self._km_validations: dict[str, KMTopicValidation] = {}
         if not hasattr(self, "_km_coverage_cache"):
-            self._km_coverage_cache: Dict[str, KMTopicCoverage] = {}
+            self._km_coverage_cache: dict[str, KMTopicCoverage] = {}
         if not hasattr(self, "_km_priority_adjustments"):
             self._km_priority_adjustments = 0
         if not hasattr(self, "_km_threshold_updates"):
@@ -737,7 +729,7 @@ class PulseAdapter:
         outcome_success: bool,
         confidence: float = 0.0,
         rounds_used: int = 0,
-        category: Optional[str] = None,
+        category: str | None = None,
     ) -> None:
         """
         Record an outcome for KM reverse flow analysis.
@@ -768,7 +760,7 @@ class PulseAdapter:
 
     async def update_quality_thresholds_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_items: int = 10,
     ) -> KMQualityThresholdUpdate:
         """
@@ -804,8 +796,8 @@ class PulseAdapter:
             )
 
         # Analyze outcomes by category
-        category_outcomes: Dict[str, List[bool]] = {}
-        quality_outcomes: Dict[str, List[bool]] = {}  # quality_bucket -> outcomes
+        category_outcomes: dict[str, list[bool]] = {}
+        quality_outcomes: dict[str, list[bool]] = {}  # quality_bucket -> outcomes
 
         for item in km_items:
             metadata = item.get("metadata", {})
@@ -902,7 +894,7 @@ class PulseAdapter:
     async def get_km_topic_coverage(
         self,
         topic_text: str,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
     ) -> KMTopicCoverage:
         """
         Analyze KM coverage of a potential debate topic.
@@ -1000,7 +992,7 @@ class PulseAdapter:
     async def validate_topic_from_km(
         self,
         topic_id: str,
-        km_cross_refs: List[Dict[str, Any]],
+        km_cross_refs: list[dict[str, Any]],
     ) -> KMTopicValidation:
         """
         Validate a topic against KM patterns.
@@ -1147,7 +1139,7 @@ class PulseAdapter:
 
     async def sync_validations_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
     ) -> PulseKMSyncResult:
         """
@@ -1172,7 +1164,7 @@ class PulseAdapter:
         errors = []
 
         # Group items by topic
-        topic_items: Dict[str, List[Dict[str, Any]]] = {}
+        topic_items: dict[str, list[dict[str, Any]]] = {}
         for item in km_items:
             metadata = item.get("metadata", {})
             topic_id = metadata.get("topic_id")
@@ -1212,7 +1204,7 @@ class PulseAdapter:
 
         return result
 
-    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+    def get_reverse_flow_stats(self) -> dict[str, Any]:
         """
         Get statistics about reverse flow operations.
 
@@ -1246,7 +1238,6 @@ class PulseAdapter:
             "politics": 0.0,
             "entertainment": -0.1,
         }
-
 
 __all__ = [
     "PulseAdapter",

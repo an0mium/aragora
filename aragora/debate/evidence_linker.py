@@ -20,7 +20,6 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 from aragora.debate.evidence_quality import (
     EvidenceMarker,
@@ -49,7 +48,6 @@ except Exception as e:
         f"sentence-transformers not available: {e}. Using heuristic claim-evidence linking"
     )
 
-
 # Claim detection patterns
 CLAIM_INDICATORS = [
     r"(?:is|are|was|were|will be|should be|must be|cannot be)\s+\w+",
@@ -66,7 +64,6 @@ NON_CLAIM_PATTERNS = [
     r"^\s*(?:maybe|perhaps|possibly|potentially)",  # Strong hedges
     r"^\s*(?:I think|I guess|it seems|it appears)",  # Weak assertions
 ]
-
 
 @dataclass
 class EvidenceLink:
@@ -85,7 +82,6 @@ class EvidenceLink:
         """Whether this is a strong evidence-claim link."""
         return self.link_strength >= 0.6
 
-
 @dataclass
 class ClaimAnalysis:
     """Analysis of claims in a text."""
@@ -94,7 +90,6 @@ class ClaimAnalysis:
     claim_positions: list[tuple[int, int]] = field(default_factory=list)  # (start, end)
     total_sentences: int = 0
     claim_density: float = 0.0  # Fraction of sentences that are claims
-
 
 @dataclass
 class EvidenceCoverageResult:
@@ -106,7 +101,6 @@ class EvidenceCoverageResult:
     unlinked_claims: list[str]  # Claims without evidence
     evidence_gaps: list[str]  # Specific gaps identified
     links: list[EvidenceLink] = field(default_factory=list)
-
 
 class EvidenceClaimLinker:
     """
@@ -134,7 +128,7 @@ class EvidenceClaimLinker:
     def __init__(
         self,
         embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        use_embeddings: Optional[bool] = None,
+        use_embeddings: bool | None = None,
         min_link_strength: float = 0.5,
         proximity_window: int = 300,  # Characters to search for evidence
     ):
@@ -286,7 +280,7 @@ class EvidenceClaimLinker:
         claim_end: int,
         evidence_markers: list[EvidenceMarker],
         full_text: str,
-    ) -> Optional[EvidenceLink]:
+    ) -> EvidenceLink | None:
         """Find the best supporting evidence for a claim."""
         best_link = None
         best_strength = 0.0
@@ -442,7 +436,6 @@ class EvidenceClaimLinker:
             evidence_gaps=gaps,
             links=links,
         )
-
 
 __all__ = [
     "EvidenceLink",

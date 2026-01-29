@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, TYPE_CHECKING, cast
+from typing import Any, TYPE_CHECKING, cast
 
 from ..models import (
     CritiqueEntry,
@@ -15,7 +15,6 @@ from ..models import (
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
-
 
 class MemoryAPI:
     """API interface for memory tier analytics."""
@@ -97,10 +96,10 @@ class MemoryAPI:
     def search(
         self,
         query: str,
-        tiers: Optional[list[str]] = None,
-        agent: Optional[str] = None,
+        tiers: list[str] | None = None,
+        agent: str | None = None,
         limit: int = 20,
-        min_importance: Optional[float] = None,
+        min_importance: float | None = None,
         include_expired: bool = False,
     ) -> list[MemoryEntry]:
         """
@@ -136,10 +135,10 @@ class MemoryAPI:
     async def search_async(
         self,
         query: str,
-        tiers: Optional[list[str]] = None,
-        agent: Optional[str] = None,
+        tiers: list[str] | None = None,
+        agent: str | None = None,
         limit: int = 20,
-        min_importance: Optional[float] = None,
+        min_importance: float | None = None,
         include_expired: bool = False,
     ) -> list[MemoryEntry]:
         """Async version of search()."""

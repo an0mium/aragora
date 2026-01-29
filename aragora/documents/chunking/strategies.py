@@ -28,16 +28,14 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from aragora.documents.chunking.token_counter import get_token_counter
 from aragora.documents.models import ChunkType, DocumentChunk
 
 logger = logging.getLogger(__name__)
 
-
 ChunkingStrategyType = Literal["semantic", "sliding", "recursive", "fixed", "rlm"]
-
 
 @dataclass
 class ChunkingConfig:
@@ -67,7 +65,6 @@ class ChunkingConfig:
     # Include heading context in each chunk
     include_heading_context: bool = True
 
-
 class ChunkingStrategy(ABC):
     """
     Abstract base class for chunking strategies.
@@ -76,7 +73,7 @@ class ChunkingStrategy(ABC):
     for retrieval and context reconstruction.
     """
 
-    def __init__(self, config: Optional[ChunkingConfig] = None):
+    def __init__(self, config: ChunkingConfig | None = None):
         self.config = config or ChunkingConfig()
         self.token_counter = get_token_counter()
 
@@ -85,7 +82,7 @@ class ChunkingStrategy(ABC):
         self,
         text: str,
         document_id: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> list[DocumentChunk]:
         """
         Split text into chunks.
@@ -165,7 +162,7 @@ class ChunkingStrategy(ABC):
         end_char: int,
         heading_context: str = "",
         chunk_type: ChunkType = ChunkType.TEXT,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> DocumentChunk:
         """Create a DocumentChunk with proper metadata."""
         return DocumentChunk(
@@ -180,7 +177,6 @@ class ChunkingStrategy(ABC):
             token_model=self.config.model,
             metadata=metadata or {},
         )
-
 
 class SlidingWindowChunking(ChunkingStrategy):
     """
@@ -203,7 +199,7 @@ class SlidingWindowChunking(ChunkingStrategy):
         self,
         text: str,
         document_id: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> list[DocumentChunk]:
         if not text.strip():
             return []
@@ -315,7 +311,6 @@ class SlidingWindowChunking(ChunkingStrategy):
 
         return overlap
 
-
 class SemanticChunking(ChunkingStrategy):
     """
     Semantic chunking based on natural document boundaries.
@@ -337,7 +332,7 @@ class SemanticChunking(ChunkingStrategy):
         self,
         text: str,
         document_id: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> list[DocumentChunk]:
         if not text.strip():
             return []
@@ -435,7 +430,7 @@ class SemanticChunking(ChunkingStrategy):
         document_id: str,
         start_sequence: int,
         headings: list[tuple[int, str, int]],
-        metadata: Optional[dict],
+        metadata: dict | None,
     ) -> list[DocumentChunk]:
         """Create chunks from a list of paragraphs."""
         if not paragraphs:
@@ -460,7 +455,6 @@ class SemanticChunking(ChunkingStrategy):
                 metadata=metadata,
             )
         ]
-
 
 class RecursiveChunking(ChunkingStrategy):
     """
@@ -493,7 +487,7 @@ class RecursiveChunking(ChunkingStrategy):
         self,
         text: str,
         document_id: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> list[DocumentChunk]:
         if not text.strip():
             return []
@@ -614,7 +608,6 @@ class RecursiveChunking(ChunkingStrategy):
 
         return chunks
 
-
 class FixedSizeChunking(ChunkingStrategy):
     """
     Simple fixed-size chunking by token count.
@@ -635,7 +628,7 @@ class FixedSizeChunking(ChunkingStrategy):
         self,
         text: str,
         document_id: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> list[DocumentChunk]:
         if not text.strip():
             return []
@@ -729,7 +722,6 @@ class FixedSizeChunking(ChunkingStrategy):
 
         return overlap
 
-
 # RLM availability check (use factory for consistent initialization)
 try:
     from aragora.rlm import get_compressor, RLMConfig, AbstractionLevel
@@ -740,7 +732,6 @@ except ImportError:
     get_compressor = None  # type: ignore[misc,assignment]
     RLMConfig = None  # type: ignore[misc,assignment]
     AbstractionLevel = None  # type: ignore[misc,assignment]
-
 
 class RLMChunking(ChunkingStrategy):
     """
@@ -766,9 +757,9 @@ class RLMChunking(ChunkingStrategy):
 
     def __init__(
         self,
-        config: Optional[ChunkingConfig] = None,
-        rlm_config: Optional[Any] = None,
-        agent_call: Optional[Any] = None,
+        config: ChunkingConfig | None = None,
+        rlm_config: Any | None = None,
+        agent_call: Any | None = None,
     ):
         super().__init__(config)
         self._rlm_config = rlm_config
@@ -793,7 +784,7 @@ class RLMChunking(ChunkingStrategy):
         self,
         text: str,
         document_id: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> list[DocumentChunk]:
         """
         Create hierarchical chunks using RLM compression.
@@ -887,7 +878,6 @@ class RLMChunking(ChunkingStrategy):
 
         return chunks
 
-
 class HierarchicalChunkNavigator:
     """
     Navigator for cross-level chunk hierarchy traversal.
@@ -961,7 +951,7 @@ class HierarchicalChunkNavigator:
         """
         return self._by_parent.get(chunk_id, [])
 
-    def roll_up(self, chunk_id: str) -> Optional[DocumentChunk]:
+    def roll_up(self, chunk_id: str) -> DocumentChunk | None:
         """
         Get the parent summary of a detailed chunk.
 
@@ -1033,7 +1023,7 @@ class HierarchicalChunkNavigator:
     def search(
         self,
         query: str,
-        level: Optional[str] = None,
+        level: str | None = None,
         limit: int = 10,
     ) -> list[tuple[DocumentChunk, float]]:
         """
@@ -1117,7 +1107,6 @@ class HierarchicalChunkNavigator:
 
         return "\n".join(context_parts)
 
-
 # Strategy registry
 CHUNKING_STRATEGIES: dict[ChunkingStrategyType, type[ChunkingStrategy]] = {
     "semantic": SemanticChunking,
@@ -1126,7 +1115,6 @@ CHUNKING_STRATEGIES: dict[ChunkingStrategyType, type[ChunkingStrategy]] = {
     "fixed": FixedSizeChunking,
     "rlm": RLMChunking,
 }
-
 
 def get_chunking_strategy(
     strategy_type: ChunkingStrategyType = "semantic",
@@ -1157,7 +1145,6 @@ def get_chunking_strategy(
 
     strategy_class = CHUNKING_STRATEGIES.get(strategy_type, SemanticChunking)
     return strategy_class(config)
-
 
 def auto_select_strategy(
     text: str,
@@ -1201,7 +1188,6 @@ def auto_select_strategy(
 
     # Default to semantic for narrative content
     return "semantic"
-
 
 __all__ = [
     "ChunkingConfig",

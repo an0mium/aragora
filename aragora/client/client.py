@@ -94,9 +94,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # GauntletAPI, GraphDebatesAPI, MatrixDebatesAPI, ReplayAPI are imported from resources
-
 
 class AragoraClient:
     """
@@ -289,7 +287,7 @@ class AragoraClient:
             url = f"{url}?{urllib.parse.urlencode(params)}"
 
         req = urllib.request.Request(url, headers=self._get_headers(), method="GET")
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -334,7 +332,7 @@ class AragoraClient:
             method="POST",
             data=json.dumps(data).encode(),
         )
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -374,7 +372,7 @@ class AragoraClient:
             url = f"{url}?{urllib.parse.urlencode(params)}"
 
         req = urllib.request.Request(url, headers=self._get_headers(), method="DELETE")
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -413,7 +411,7 @@ class AragoraClient:
             self._session = aiohttp.ClientSession()
 
         url = urljoin(self.base_url, path)
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -477,7 +475,7 @@ class AragoraClient:
             method="PUT",
             data=json.dumps(data).encode(),
         )
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -520,7 +518,7 @@ class AragoraClient:
         if headers:
             request_headers.update(headers)
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -584,7 +582,7 @@ class AragoraClient:
             method="PATCH",
             data=json.dumps(data).encode(),
         )
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -627,7 +625,7 @@ class AragoraClient:
         if headers:
             request_headers.update(headers)
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -712,7 +710,7 @@ class AragoraClient:
             self._session = aiohttp.ClientSession()
 
         url = urljoin(self.base_url, path)
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -774,7 +772,7 @@ class AragoraClient:
         if headers:
             request_headers.update(headers)
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
         for attempt in range(max_attempts):
@@ -832,7 +830,7 @@ class AragoraClient:
         response = await self._get_async("/api/health")
         return HealthCheck(**response)
 
-    async def stream_debate(self, debate_id: str, options: Optional[Any] = None):
+    async def stream_debate(self, debate_id: str, options: Any | None = None):
         """
         Stream events for a specific debate.
 
@@ -862,7 +860,7 @@ class AragoraClient:
         ):
             yield event
 
-    async def stream_all_debates(self, options: Optional[Any] = None):
+    async def stream_all_debates(self, options: Any | None = None):
         """
         Stream events for all debates (no filter).
 
@@ -894,7 +892,7 @@ class AragoraClient:
         task: str,
         agents: list,
         rounds: int = DEFAULT_ROUNDS,
-        stream_options: Optional[Any] = None,
+        stream_options: Any | None = None,
         **kwargs: Any,
     ):
         """

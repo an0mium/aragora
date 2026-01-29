@@ -40,7 +40,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class TrainerConfig:
     """Configuration for the RL trainer."""
@@ -70,7 +69,6 @@ class TrainerConfig:
     # Logging
     log_interval: int = 10
     checkpoint_interval: int = 100
-
 
 @dataclass
 class TrainingMetrics:
@@ -118,7 +116,6 @@ class TrainingMetrics:
             "collection_time_seconds": self.collection_time_seconds,
         }
 
-
 class Trainer:
     """
     RL Trainer for RLM context management.
@@ -131,11 +128,11 @@ class Trainer:
 
     def __init__(
         self,
-        config: Optional[TrainerConfig] = None,
-        strategy_policy: Optional[StrategyPolicy] = None,
-        refinement_policy: Optional[RefinementPolicy] = None,
-        reward_model: Optional[RewardModel] = None,
-        experience_buffer: Optional[ExperienceBuffer] = None,
+        config: TrainerConfig | None = None,
+        strategy_policy: StrategyPolicy | None = None,
+        refinement_policy: RefinementPolicy | None = None,
+        reward_model: RewardModel | None = None,
+        experience_buffer: ExperienceBuffer | None = None,
     ):
         """
         Initialize the trainer.
@@ -531,7 +528,6 @@ class Trainer:
                 "max_iterations": self.refinement_policy.max_iterations,
             },
         }
-
 
 __all__ = [
     "TrainerConfig",

@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Optional, Type
 
 from aragora.queue.config import get_queue_config
-
 
 @dataclass
 class RetryPolicy:
@@ -32,7 +30,7 @@ class RetryPolicy:
     max_delay_seconds: float = 300.0
     exponential_base: float = 2.0
     jitter: bool = True
-    retryable_exceptions: tuple[Type[Exception], ...] = (Exception,)
+    retryable_exceptions: tuple[type[Exception], ...] = (Exception,)
 
     @classmethod
     def from_config(cls) -> "RetryPolicy":
@@ -71,7 +69,7 @@ class RetryPolicy:
 
         return delay
 
-    def should_retry(self, attempt: int, error: Optional[Exception] = None) -> bool:
+    def should_retry(self, attempt: int, error: Exception | None = None) -> bool:
         """
         Determine if a job should be retried.
 
@@ -110,7 +108,6 @@ class RetryPolicy:
         """
         return max(0, self.max_attempts - current_attempt)
 
-
 # Non-retryable exceptions (validation, configuration errors)
 NON_RETRYABLE_EXCEPTIONS = (
     ValueError,
@@ -120,7 +117,6 @@ NON_RETRYABLE_EXCEPTIONS = (
     ImportError,
     SyntaxError,
 )
-
 
 def is_retryable_error(error: Exception) -> bool:
     """

@@ -25,14 +25,12 @@ logger = logging.getLogger(__name__)
 # Singleton instance
 _debate_store: Optional["DebateStore"] = None
 
-
 def get_debate_store() -> "DebateStore":
     """Get or create the singleton DebateStore instance."""
     global _debate_store
     if _debate_store is None:
         _debate_store = DebateStore()
     return _debate_store
-
 
 class DebateStore:
     """
@@ -42,7 +40,7 @@ class DebateStore:
     to support the analytics dashboard endpoints.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """Initialize the debate store with the given database path."""
         self.db_path = db_path or get_db_path(DatabaseType.DEBATES)
         self._ensure_schema()
@@ -572,13 +570,13 @@ class DebateStore:
         org_id: str,
         question: str,
         status: str = "pending",
-        template: Optional[str] = None,
+        template: str | None = None,
         priority: str = "normal",
-        platform: Optional[str] = None,
-        channel_id: Optional[str] = None,
-        channel_name: Optional[str] = None,
-        team_agents: Optional[list[str]] = None,
-        metadata: Optional[dict] = None,
+        platform: str | None = None,
+        channel_id: str | None = None,
+        channel_name: str | None = None,
+        team_agents: list[str] | None = None,
+        metadata: dict | None = None,
     ) -> None:
         """Record a new deliberation."""
         with self._connection() as conn:
@@ -648,7 +646,7 @@ class DebateStore:
         self,
         deliberation_id: str,
         agent_id: str,
-        agent_name: Optional[str] = None,
+        agent_name: str | None = None,
         tokens_used: int = 0,
         cost_usd: float = 0,
         agreed_with_consensus: bool = False,

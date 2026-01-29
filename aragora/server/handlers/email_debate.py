@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -22,7 +21,6 @@ from aragora.server.handlers.base import (
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
-
 
 class EmailDebateHandler(BaseHandler):
     """
@@ -42,14 +40,14 @@ class EmailDebateHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("email:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Handle GET requests (not supported)."""
         return error_response("Use POST method for email vetted decisionmaking", 405)
 
     @require_permission("email:create")
     async def handle_post(
         self, path: str, query_params: dict, handler=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/email/prioritize":
             return await self._prioritize_single(handler)
@@ -266,7 +264,7 @@ class EmailDebateHandler(BaseHandler):
             # Group by category if requested
             group_by = body.get("group_by")
             if group_by == "category":
-                grouped: Dict[str, list] = {}
+                grouped: dict[str, list] = {}
                 for r in sorted_results:
                     key = r.category.value
                     if key not in grouped:
@@ -307,6 +305,5 @@ class EmailDebateHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Inbox triage failed: {e}")
             return error_response(f"Inbox triage failed: {e}", 500)
-
 
 __all__ = ["EmailDebateHandler"]

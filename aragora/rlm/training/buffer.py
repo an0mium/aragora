@@ -18,11 +18,10 @@ import logging
 import random
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class Step:
@@ -53,7 +52,6 @@ class Step:
     def __post_init__(self) -> None:
         if not self.timestamp:
             self.timestamp = datetime.now(timezone.utc).isoformat()
-
 
 @dataclass
 class Trajectory:
@@ -101,7 +99,7 @@ class Trajectory:
         self,
         answer: str,
         outcome: dict[str, Any],
-        stats: Optional[dict[str, Any]] = None,
+        stats: dict[str, Any] | None = None,
     ) -> None:
         """
         Finalize the trajectory with final answer and outcome.
@@ -185,7 +183,6 @@ class Trajectory:
 
         trajectory.is_terminal = bool(data.get("outcome"))
         return trajectory
-
 
 class ExperienceBuffer:
     """
@@ -404,7 +401,6 @@ class ExperienceBuffer:
 
         logger.info(f"Loaded {len(buffer)} trajectories from {filepath}")
         return buffer
-
 
 __all__ = [
     "Step",

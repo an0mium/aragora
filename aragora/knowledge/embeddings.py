@@ -4,10 +4,11 @@ Weaviate Embedding Service for vector-based semantic search.
 Provides hybrid search (vector + BM25) over document chunks
 using Weaviate as the vector database.
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from aragora.knowledge.search.bm25 import BM25Index, HybridSearcher
 
@@ -29,7 +30,6 @@ except ImportError:
         """Fallback exception when Weaviate is not available."""
 
         pass
-
 
 @dataclass
 class ChunkMatch:
@@ -70,18 +70,16 @@ class ChunkMatch:
             },
         )
 
-
 @dataclass
 class EmbeddingConfig:
     """Configuration for embedding service."""
 
     weaviate_url: str = "http://localhost:8080"
-    weaviate_api_key: Optional[str] = None
+    weaviate_api_key: str | None = None
     collection_name: str = "DocumentChunk"
     vectorizer: str = "text2vec-transformers"  # or "text2vec-openai"
-    openai_api_key: Optional[str] = None
+    openai_api_key: str | None = None
     batch_size: int = 100
-
 
 class WeaviateEmbeddingService:
     """Generate and store embeddings using Weaviate.
@@ -90,7 +88,7 @@ class WeaviateEmbeddingService:
     keyword matching for document chunks.
     """
 
-    def __init__(self, config: Optional[EmbeddingConfig] = None):
+    def __init__(self, config: EmbeddingConfig | None = None):
         """Initialize the embedding service.
 
         Args:
@@ -107,7 +105,7 @@ class WeaviateEmbeddingService:
             )
 
         self.config = config or EmbeddingConfig()
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
         self._connected = False
 
     def connect(self) -> None:
@@ -424,7 +422,7 @@ class WeaviateEmbeddingService:
         logger.info(f"Deleted {deleted} chunks for document {document_id}")
         return deleted
 
-    def get_statistics(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
+    def get_statistics(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get embedding statistics.
 
         Args:
@@ -457,7 +455,6 @@ class WeaviateEmbeddingService:
             "vectorizer": self.config.vectorizer,
             "weaviate_url": self.config.weaviate_url,
         }
-
 
 class InMemoryEmbeddingService:
     """In-memory embedding service for testing without Weaviate.
@@ -679,7 +676,7 @@ class InMemoryEmbeddingService:
                     self._bm25_indices[ws_id].remove_document(chunk_id)
         return len(chunk_ids)
 
-    def get_statistics(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
+    def get_statistics(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get statistics."""
         if workspace_id:
             count = len(self._by_workspace.get(workspace_id, set()))

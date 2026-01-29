@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -53,7 +53,6 @@ ANALYTICS_PERMISSION = "analytics:read"
 # Rate limiter for analytics endpoints (30 requests per minute - cached data)
 _analytics_limiter = RateLimiter(requests_per_minute=30)
 
-
 class AnalyticsHandler(SecureHandler):
     """Handler for analytics and metrics endpoints.
 
@@ -81,7 +80,7 @@ class AnalyticsHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route analytics requests to appropriate methods with RBAC."""
         path = strip_version_prefix(path)
         logger.debug(f"Analytics request: {path}")

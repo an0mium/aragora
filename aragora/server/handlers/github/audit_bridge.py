@@ -24,7 +24,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from aragora.server.handlers.base import (
@@ -37,11 +37,9 @@ from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 class IssuePriority(str, Enum):
     """Priority mapping for audit findings."""
@@ -52,7 +50,6 @@ class IssuePriority(str, Enum):
     LOW = "low"
     INFO = "info"
 
-
 class SyncStatus(str, Enum):
     """Status of audit-to-GitHub sync."""
 
@@ -61,7 +58,6 @@ class SyncStatus(str, Enum):
     COMPLETED = "completed"
     PARTIAL = "partial"
     FAILED = "failed"
-
 
 # Label mappings for severity levels
 SEVERITY_LABELS = {
@@ -84,18 +80,17 @@ CATEGORY_LABELS = {
     "accessibility": ["accessibility"],
 }
 
-
 @dataclass
 class GitHubIssueResult:
     """Result of creating a GitHub issue."""
 
     finding_id: str
-    issue_number: Optional[int] = None
-    issue_url: Optional[str] = None
+    issue_number: int | None = None
+    issue_url: str | None = None
     status: str = "pending"
-    error: Optional[str] = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "finding_id": self.finding_id,
             "issue_number": self.issue_number,
@@ -103,7 +98,6 @@ class GitHubIssueResult:
             "status": self.status,
             "error": self.error,
         }
-
 
 @dataclass
 class SyncResult:
@@ -113,13 +107,13 @@ class SyncResult:
     session_id: str
     repository: str
     status: SyncStatus
-    issues_created: List[GitHubIssueResult] = field(default_factory=list)
-    pr_created: Optional[Dict[str, Any]] = None
+    issues_created: list[GitHubIssueResult] = field(default_factory=list)
+    pr_created: Optional[dict[str, Any]] = None
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
-    error: Optional[str] = None
+    completed_at: datetime | None = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "sync_id": self.sync_id,
             "session_id": self.session_id,
@@ -132,26 +126,23 @@ class SyncResult:
             "error": self.error,
         }
 
-
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
-_sync_results: Dict[str, SyncResult] = {}  # sync_id -> result
-_session_syncs: Dict[str, List[str]] = {}  # session_id -> [sync_ids]
-_finding_issues: Dict[str, Dict[str, int]] = {}  # session_id -> {finding_id: issue_number}
+_sync_results: dict[str, SyncResult] = {}  # sync_id -> result
+_session_syncs: dict[str, list[str]] = {}  # session_id -> [sync_ids]
+_finding_issues: dict[str, dict[str, int]] = {}  # session_id -> {finding_id: issue_number}
 _storage_lock = threading.Lock()
-
 
 # =============================================================================
 # GitHub API Client
 # =============================================================================
 
-
 class GitHubAuditClient:
     """GitHub API client for audit-related operations."""
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: str | None = None):
         self.token = token or os.environ.get("GITHUB_TOKEN")
         self.base_url = "https://api.github.com"
 
@@ -161,10 +152,10 @@ class GitHubAuditClient:
         repo: str,
         title: str,
         body: str,
-        labels: Optional[List[str]] = None,
-        assignees: Optional[List[str]] = None,
-        milestone: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        labels: Optional[list[str]] = None,
+        assignees: Optional[list[str]] = None,
+        milestone: int | None = None,
+    ) -> dict[str, Any]:
         """Create a GitHub issue."""
         import aiohttp
 
@@ -184,7 +175,7 @@ class GitHubAuditClient:
                 "Accept": "application/vnd.github.v3+json",
             }
 
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "title": title,
                 "body": body,
             }
@@ -220,7 +211,7 @@ class GitHubAuditClient:
         repo: str,
         branch_name: str,
         from_branch: str = "main",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a new branch from an existing branch."""
         import aiohttp
 
@@ -269,7 +260,7 @@ class GitHubAuditClient:
         head_branch: str,
         base_branch: str = "main",
         draft: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a pull request."""
         import aiohttp
 
@@ -320,7 +311,7 @@ class GitHubAuditClient:
         owner: str,
         repo: str,
         issue_number: int,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Get issue details."""
         import aiohttp
 
@@ -354,7 +345,7 @@ class GitHubAuditClient:
         repo: str,
         issue_number: int,
         body: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Add a comment to an issue."""
         import aiohttp
 
@@ -386,7 +377,7 @@ class GitHubAuditClient:
         self,
         owner: str,
         repo: str,
-        labels: List[str],
+        labels: list[str],
     ) -> None:
         """Ensure labels exist in the repository, creating them if needed."""
         import aiohttp
@@ -445,13 +436,11 @@ class GitHubAuditClient:
         except Exception as e:
             logger.warning(f"Failed to ensure labels: {e}")
 
-
 # =============================================================================
 # Issue Content Generators
 # =============================================================================
 
-
-def generate_issue_title(finding: Dict[str, Any]) -> str:
+def generate_issue_title(finding: dict[str, Any]) -> str:
     """Generate GitHub issue title from finding."""
     severity = finding.get("severity", "").upper()
     title = finding.get("title", "Audit Finding")
@@ -461,10 +450,9 @@ def generate_issue_title(finding: Dict[str, Any]) -> str:
         return f"[{severity}] {title}"
     return f"[{category.upper()}] {title}"
 
-
 def generate_issue_body(
-    finding: Dict[str, Any],
-    session_id: Optional[str] = None,
+    finding: dict[str, Any],
+    session_id: str | None = None,
     include_evidence: bool = True,
 ) -> str:
     """Generate GitHub issue body from finding."""
@@ -538,8 +526,7 @@ def generate_issue_body(
 
     return "\n".join(body_parts)
 
-
-def get_labels_for_finding(finding: Dict[str, Any]) -> List[str]:
+def get_labels_for_finding(finding: dict[str, Any]) -> list[str]:
     """Get GitHub labels for a finding."""
     labels = []
 
@@ -560,21 +547,19 @@ def get_labels_for_finding(finding: Dict[str, Any]) -> List[str]:
 
     return list(set(labels))  # Deduplicate
 
-
 # =============================================================================
 # Handler Functions
 # =============================================================================
 
-
 @require_permission("connectors:create")
 async def handle_create_issue(
     repository: str,
-    finding: Dict[str, Any],
-    session_id: Optional[str] = None,
-    assignees: Optional[List[str]] = None,
-    milestone: Optional[int] = None,
+    finding: dict[str, Any],
+    session_id: str | None = None,
+    assignees: Optional[list[str]] = None,
+    milestone: int | None = None,
     auto_label: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a GitHub issue from an audit finding.
 
@@ -641,17 +626,16 @@ async def handle_create_issue(
         logger.exception(f"Failed to create issue: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("audit:read")
 async def handle_bulk_create_issues(
     repository: str,
-    findings: List[Dict[str, Any]],
-    session_id: Optional[str] = None,
-    assignees: Optional[List[str]] = None,
+    findings: list[dict[str, Any]],
+    session_id: str | None = None,
+    assignees: Optional[list[str]] = None,
     auto_label: bool = True,
     skip_existing: bool = True,
     max_concurrent: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create GitHub issues from multiple findings.
 
@@ -691,7 +675,7 @@ async def handle_bulk_create_issues(
     # Create issues with concurrency limit
     semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def create_with_semaphore(finding: Dict[str, Any]):
+    async def create_with_semaphore(finding: dict[str, Any]):
         async with semaphore:
             result = await handle_create_issue(
                 repository=repository,
@@ -747,17 +731,16 @@ async def handle_bulk_create_issues(
         "errors": errors if errors else None,
     }
 
-
 @require_permission("connectors:create")
 async def handle_create_fix_pr(
     repository: str,
     session_id: str,
-    findings: List[Dict[str, Any]],
-    branch_name: Optional[str] = None,
+    findings: list[dict[str, Any]],
+    branch_name: str | None = None,
     base_branch: str = "main",
     draft: bool = True,
-    auto_fixes: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    auto_fixes: Optional[dict[str, str]] = None,
+) -> dict[str, Any]:
     """
     Create a PR with suggested fixes for audit findings.
 
@@ -799,7 +782,7 @@ async def handle_create_fix_pr(
             return branch_result
 
         # Generate PR body
-        severity_counts: Dict[str, int] = {}
+        severity_counts: dict[str, int] = {}
         for finding in findings:
             sev = finding.get("severity", "unknown")
             severity_counts[sev] = severity_counts.get(sev, 0) + 1
@@ -872,7 +855,6 @@ async def handle_create_fix_pr(
         logger.exception(f"Failed to create fix PR: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("audit:read")
 async def handle_sync_session(
     repository: str,
@@ -880,8 +862,8 @@ async def handle_sync_session(
     min_severity: str = "low",
     create_issues: bool = True,
     create_pr: bool = False,
-    assignees: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    assignees: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """
     Sync an audit session to GitHub.
 
@@ -994,12 +976,11 @@ async def handle_sync_session(
         logger.exception(f"Failed to sync session: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("audit:read")
 async def handle_get_sync_status(
     session_id: str,
-    sync_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    sync_id: str | None = None,
+) -> dict[str, Any]:
     """
     Get sync status for a session.
 
@@ -1035,12 +1016,11 @@ async def handle_get_sync_status(
         logger.exception(f"Failed to get sync status: {e}")
         return {"success": False, "error": str(e)}
 
-
 @require_permission("audit:read")
 async def handle_get_finding_issues(
     session_id: str,
-    finding_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    finding_id: str | None = None,
+) -> dict[str, Any]:
     """
     Get GitHub issues linked to findings.
 
@@ -1072,11 +1052,9 @@ async def handle_get_finding_issues(
         logger.exception(f"Failed to get finding issues: {e}")
         return {"success": False, "error": str(e)}
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class AuditGitHubBridgeHandler(BaseHandler):
     """
@@ -1095,7 +1073,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         "/api/v1/github/audit/sync/",
     ]
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)  # type: ignore[arg-type]
 
@@ -1109,12 +1087,12 @@ class AuditGitHubBridgeHandler(BaseHandler):
         return False
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route audit-GitHub bridge endpoint requests."""
         return None
 
-    async def handle_post_create_issue(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_create_issue(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/issues"""
         repository = data.get("repository")
         finding = data.get("finding")
@@ -1136,7 +1114,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_bulk_create_issues(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_bulk_create_issues(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/issues/bulk"""
         repository = data.get("repository")
         findings = data.get("findings")
@@ -1159,7 +1137,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
-    async def handle_post_create_pr(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_create_pr(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/pr"""
         repository = data.get("repository")
         session_id = data.get("session_id")
@@ -1184,7 +1162,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     async def handle_post_sync_session(
-        self, data: Dict[str, Any], session_id: str
+        self, data: dict[str, Any], session_id: str
     ) -> HandlerResult:
         """POST /api/v1/github/audit/sync/{session_id}"""
         repository = data.get("repository")
@@ -1207,7 +1185,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     async def handle_get_sync_status(
-        self, params: Dict[str, Any], session_id: str
+        self, params: dict[str, Any], session_id: str
     ) -> HandlerResult:
         """GET /api/v1/github/audit/sync/{session_id}"""
         result = await handle_get_sync_status(
@@ -1220,7 +1198,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
-    async def handle_get_finding_issues(self, params: Dict[str, Any]) -> HandlerResult:
+    async def handle_get_finding_issues(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/github/audit/issues?session_id=...&finding_id=..."""
         session_id = params.get("session_id")
         if not session_id:
@@ -1242,7 +1220,6 @@ class AuditGitHubBridgeHandler(BaseHandler):
         if auth_ctx and hasattr(auth_ctx, "user_id"):
             return auth_ctx.user_id
         return "default"
-
 
 __all__ = [
     "AuditGitHubBridgeHandler",

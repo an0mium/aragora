@@ -20,13 +20,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
 
 logger = logging.getLogger(__name__)
-
 
 class ConsistencyCheckType(str, Enum):
     """Types of consistency checks available."""
@@ -39,7 +38,6 @@ class ConsistencyCheckType(str, Enum):
     SYNC = "sync"  # Adapter synchronization status
     ALL = "all"  # Run all checks
 
-
 class ConsistencySeverity(str, Enum):
     """Severity levels for consistency issues."""
 
@@ -49,7 +47,6 @@ class ConsistencySeverity(str, Enum):
     LOW = "low"  # Minor issues, cosmetic
     INFO = "info"  # Informational, no action required
 
-
 @dataclass
 class ConsistencyIssue:
     """A single consistency issue found during validation."""
@@ -57,13 +54,13 @@ class ConsistencyIssue:
     check_type: ConsistencyCheckType
     severity: ConsistencySeverity
     message: str
-    item_id: Optional[str] = None
-    related_items: List[str] = field(default_factory=list)
-    details: Dict[str, Any] = field(default_factory=dict)
-    suggested_fix: Optional[str] = None
+    item_id: str | None = None
+    related_items: list[str] = field(default_factory=list)
+    details: dict[str, Any] = field(default_factory=dict)
+    suggested_fix: str | None = None
     auto_fixable: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "check_type": self.check_type.value,
@@ -76,7 +73,6 @@ class ConsistencyIssue:
             "auto_fixable": self.auto_fixable,
         }
 
-
 @dataclass
 class ConsistencyCheckResult:
     """Result of a single consistency check."""
@@ -85,11 +81,11 @@ class ConsistencyCheckResult:
     passed: bool
     items_checked: int
     issues_found: int
-    issues: List[ConsistencyIssue] = field(default_factory=list)
+    issues: list[ConsistencyIssue] = field(default_factory=list)
     duration_ms: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "check_type": self.check_type.value,
@@ -101,7 +97,6 @@ class ConsistencyCheckResult:
             "error": self.error,
         }
 
-
 @dataclass
 class ConsistencyReport:
     """Complete consistency validation report."""
@@ -109,7 +104,7 @@ class ConsistencyReport:
     workspace_id: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     overall_healthy: bool = True
-    checks_run: List[ConsistencyCheckResult] = field(default_factory=list)
+    checks_run: list[ConsistencyCheckResult] = field(default_factory=list)
     total_items_checked: int = 0
     total_issues_found: int = 0
     critical_issues: int = 0
@@ -118,7 +113,7 @@ class ConsistencyReport:
     low_issues: int = 0
     duration_ms: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "workspace_id": self.workspace_id,
@@ -159,7 +154,6 @@ class ConsistencyReport:
         if self.critical_issues > 0 or self.high_issues > 0:
             self.overall_healthy = False
 
-
 class ConsistencyValidator:
     """
     Unified consistency validator for Knowledge Mound.
@@ -176,7 +170,7 @@ class ConsistencyValidator:
     def __init__(
         self,
         mound: "KnowledgeMound",
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
     ):
         """
         Initialize consistency validator.
@@ -197,7 +191,7 @@ class ConsistencyValidator:
     async def validate(
         self,
         workspace_id: str,
-        check_types: Optional[List[ConsistencyCheckType]] = None,
+        check_types: Optional[list[ConsistencyCheckType]] = None,
     ) -> ConsistencyReport:
         """
         Run consistency validation for a workspace.
@@ -264,7 +258,7 @@ class ConsistencyValidator:
         import time
 
         start_time = time.perf_counter()
-        issues: List[ConsistencyIssue] = []
+        issues: list[ConsistencyIssue] = []
         items_checked = 0
 
         try:
@@ -272,8 +266,8 @@ class ConsistencyValidator:
             nodes = await self._mound.query(workspace_id, "", limit=10000)
             items_checked = len(nodes)
 
-            node_ids: Set[str] = {n.get("id", n.get("node_id", "")) for n in nodes if n}
-            referenced_ids: Set[str] = set()
+            node_ids: set[str] = {n.get("id", n.get("node_id", "")) for n in nodes if n}
+            referenced_ids: set[str] = set()
 
             # Check for broken references
             for node in nodes:
@@ -370,7 +364,7 @@ class ConsistencyValidator:
         import time
 
         start_time = time.perf_counter()
-        issues: List[ConsistencyIssue] = []
+        issues: list[ConsistencyIssue] = []
         items_checked = 0
 
         try:
@@ -460,7 +454,7 @@ class ConsistencyValidator:
         import time
 
         start_time = time.perf_counter()
-        issues: List[ConsistencyIssue] = []
+        issues: list[ConsistencyIssue] = []
         items_checked = 0
 
         try:
@@ -542,7 +536,7 @@ class ConsistencyValidator:
         import time
 
         start_time = time.perf_counter()
-        issues: List[ConsistencyIssue] = []
+        issues: list[ConsistencyIssue] = []
         items_checked = 0
 
         try:
@@ -614,7 +608,7 @@ class ConsistencyValidator:
         import time
 
         start_time = time.perf_counter()
-        issues: List[ConsistencyIssue] = []
+        issues: list[ConsistencyIssue] = []
         items_checked = 0
 
         try:
@@ -671,7 +665,7 @@ class ConsistencyValidator:
         import time
 
         start_time = time.perf_counter()
-        issues: List[ConsistencyIssue] = []
+        issues: list[ConsistencyIssue] = []
 
         try:
             # Get adapter status
@@ -738,9 +732,9 @@ class ConsistencyValidator:
     async def auto_fix(
         self,
         workspace_id: str,
-        issue_types: Optional[List[ConsistencyCheckType]] = None,
+        issue_types: Optional[list[ConsistencyCheckType]] = None,
         dry_run: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attempt to auto-fix consistency issues.
 
@@ -826,7 +820,6 @@ class ConsistencyValidator:
                 "failed": fixes_failed,
             },
         }
-
 
 __all__ = [
     "ConsistencyValidator",

@@ -13,10 +13,9 @@ proper error handling and recovery:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.exceptions import AragoraError
-
 
 class ControlPlaneError(AragoraError):
     """Base exception for all control plane errors.
@@ -28,7 +27,7 @@ class ControlPlaneError(AragoraError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
         recoverable: bool = True,
     ):
         # Add recoverable flag to details for AragoraError
@@ -38,11 +37,9 @@ class ControlPlaneError(AragoraError):
         super().__init__(message, full_details)
         self.recoverable = recoverable
 
-
 # =============================================================================
 # Connection Errors (Transient - usually recoverable with retry)
 # =============================================================================
-
 
 class SchedulerConnectionError(ControlPlaneError):
     """Redis or backend connection failure.
@@ -54,11 +51,10 @@ class SchedulerConnectionError(ControlPlaneError):
         self,
         message: str = "Failed to connect to scheduler backend",
         backend: str = "redis",
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ):
         super().__init__(message, details, recoverable=True)
         self.backend = backend
-
 
 class PolicyCacheConnectionError(ControlPlaneError):
     """Policy cache (Redis) connection failure."""
@@ -66,15 +62,13 @@ class PolicyCacheConnectionError(ControlPlaneError):
     def __init__(
         self,
         message: str = "Failed to connect to policy cache",
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ):
         super().__init__(message, details, recoverable=True)
-
 
 # =============================================================================
 # Task Lifecycle Errors
 # =============================================================================
-
 
 class TaskNotFoundError(ControlPlaneError):
     """Task doesn't exist in the scheduler."""
@@ -82,7 +76,7 @@ class TaskNotFoundError(ControlPlaneError):
     def __init__(
         self,
         task_id: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Task not found: {task_id}",
@@ -90,7 +84,6 @@ class TaskNotFoundError(ControlPlaneError):
             recoverable=False,
         )
         self.task_id = task_id
-
 
 class TaskTimeoutError(ControlPlaneError):
     """Task exceeded its timeout limit."""
@@ -100,7 +93,7 @@ class TaskTimeoutError(ControlPlaneError):
         task_id: str,
         timeout_seconds: float,
         elapsed_seconds: float,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message
@@ -116,7 +109,6 @@ class TaskTimeoutError(ControlPlaneError):
         self.timeout_seconds = timeout_seconds
         self.elapsed_seconds = elapsed_seconds
 
-
 class InvalidTaskStateError(ControlPlaneError):
     """Task is in the wrong state for the requested operation.
 
@@ -130,7 +122,7 @@ class InvalidTaskStateError(ControlPlaneError):
         current_state: str,
         expected_states: list[str],
         operation: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message
@@ -148,7 +140,6 @@ class InvalidTaskStateError(ControlPlaneError):
         self.expected_states = expected_states
         self.operation = operation
 
-
 class TaskClaimError(ControlPlaneError):
     """Failed to claim a task for execution."""
 
@@ -157,7 +148,7 @@ class TaskClaimError(ControlPlaneError):
         task_id: str,
         worker_id: str,
         reason: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Worker {worker_id} failed to claim task {task_id}: {reason}",
@@ -172,11 +163,9 @@ class TaskClaimError(ControlPlaneError):
         self.worker_id = worker_id
         self.reason = reason
 
-
 # =============================================================================
 # Agent Errors
 # =============================================================================
-
 
 class AgentUnavailableError(ControlPlaneError):
     """Agent is not responding or not registered."""
@@ -185,7 +174,7 @@ class AgentUnavailableError(ControlPlaneError):
         self,
         agent_id: str,
         reason: str = "not responding",
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Agent unavailable: {agent_id} ({reason})",
@@ -195,7 +184,6 @@ class AgentUnavailableError(ControlPlaneError):
         self.agent_id = agent_id
         self.reason = reason
 
-
 class AgentOverloadedError(ControlPlaneError):
     """Agent has too many concurrent tasks."""
 
@@ -204,7 +192,7 @@ class AgentOverloadedError(ControlPlaneError):
         agent_id: str,
         current_tasks: int,
         max_tasks: int,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Agent {agent_id} overloaded: {current_tasks}/{max_tasks} tasks",
@@ -219,11 +207,9 @@ class AgentOverloadedError(ControlPlaneError):
         self.current_tasks = current_tasks
         self.max_tasks = max_tasks
 
-
 # =============================================================================
 # Resource Errors
 # =============================================================================
-
 
 class ResourceQuotaExceededError(ControlPlaneError):
     """Organization or workspace quota exceeded."""
@@ -233,9 +219,9 @@ class ResourceQuotaExceededError(ControlPlaneError):
         resource_type: str,
         current_usage: float,
         quota_limit: float,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        message: Optional[str] = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Quota exceeded for {resource_type}: {current_usage}/{quota_limit}",
@@ -254,7 +240,6 @@ class ResourceQuotaExceededError(ControlPlaneError):
         self.org_id = org_id
         self.workspace_id = workspace_id
 
-
 class RateLimitExceededError(ControlPlaneError):
     """Rate limit exceeded for operations."""
 
@@ -263,8 +248,8 @@ class RateLimitExceededError(ControlPlaneError):
         operation: str,
         limit: int,
         window_seconds: int,
-        retry_after_seconds: Optional[float] = None,
-        message: Optional[str] = None,
+        retry_after_seconds: float | None = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Rate limit exceeded for {operation}: {limit} per {window_seconds}s",
@@ -281,11 +266,9 @@ class RateLimitExceededError(ControlPlaneError):
         self.window_seconds = window_seconds
         self.retry_after_seconds = retry_after_seconds
 
-
 # =============================================================================
 # Policy Errors
 # =============================================================================
-
 
 class PolicyConflictError(ControlPlaneError):
     """Two or more policies conflict with each other."""
@@ -294,7 +277,7 @@ class PolicyConflictError(ControlPlaneError):
         self,
         policy_ids: list[str],
         conflict_type: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Policy conflict ({conflict_type}): {policy_ids}",
@@ -307,14 +290,13 @@ class PolicyConflictError(ControlPlaneError):
         self.policy_ids = policy_ids
         self.conflict_type = conflict_type
 
-
 class PolicyNotFoundError(ControlPlaneError):
     """Policy doesn't exist."""
 
     def __init__(
         self,
         policy_id: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Policy not found: {policy_id}",
@@ -323,7 +305,6 @@ class PolicyNotFoundError(ControlPlaneError):
         )
         self.policy_id = policy_id
 
-
 class PolicyEvaluationError(ControlPlaneError):
     """Error during policy evaluation."""
 
@@ -331,7 +312,7 @@ class PolicyEvaluationError(ControlPlaneError):
         self,
         policy_id: str,
         reason: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Policy evaluation failed for {policy_id}: {reason}",
@@ -341,11 +322,9 @@ class PolicyEvaluationError(ControlPlaneError):
         self.policy_id = policy_id
         self.reason = reason
 
-
 # =============================================================================
 # Policy Store Errors
 # =============================================================================
-
 
 class PolicyStoreAccessError(ControlPlaneError):
     """Store read/write failure during policy operations.
@@ -358,7 +337,7 @@ class PolicyStoreAccessError(ControlPlaneError):
         self,
         operation: str,  # "read", "write", "list", "sync"
         reason: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Policy store {operation} failed: {reason}",
@@ -367,7 +346,6 @@ class PolicyStoreAccessError(ControlPlaneError):
         )
         self.operation = operation
         self.reason = reason
-
 
 class PolicyConversionError(ControlPlaneError):
     """Policy format conversion failed.
@@ -382,7 +360,7 @@ class PolicyConversionError(ControlPlaneError):
         source_format: str,
         target_format: str,
         reason: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message
@@ -400,7 +378,6 @@ class PolicyConversionError(ControlPlaneError):
         self.target_format = target_format
         self.reason = reason
 
-
 class CallbackExecutionError(ControlPlaneError):
     """User-provided callback raised exception.
 
@@ -411,7 +388,7 @@ class CallbackExecutionError(ControlPlaneError):
         self,
         callback_type: str,  # "violation", "conflict"
         original_error: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"{callback_type.capitalize()} callback failed: {original_error}",
@@ -420,7 +397,6 @@ class CallbackExecutionError(ControlPlaneError):
         )
         self.callback_type = callback_type
         self.original_error = original_error
-
 
 class MetricsRecordingError(ControlPlaneError):
     """Prometheus metrics recording failed.
@@ -433,7 +409,7 @@ class MetricsRecordingError(ControlPlaneError):
         self,
         metric_name: str,
         reason: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Failed to record metric {metric_name}: {reason}",
@@ -443,21 +419,19 @@ class MetricsRecordingError(ControlPlaneError):
         self.metric_name = metric_name
         self.reason = reason
 
-
 # =============================================================================
 # Serialization Errors
 # =============================================================================
-
 
 class TaskSerializationError(ControlPlaneError):
     """Failed to serialize or deserialize task data."""
 
     def __init__(
         self,
-        task_id: Optional[str],
+        task_id: str | None,
         operation: str,  # "serialize" or "deserialize"
         reason: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Failed to {operation} task {task_id or 'unknown'}: {reason}",
@@ -472,11 +446,9 @@ class TaskSerializationError(ControlPlaneError):
         self.operation = operation
         self.reason = reason
 
-
 # =============================================================================
 # Region Errors
 # =============================================================================
-
 
 class RegionUnavailableError(ControlPlaneError):
     """Target region is not available."""
@@ -485,7 +457,7 @@ class RegionUnavailableError(ControlPlaneError):
         self,
         region_id: str,
         reason: str = "region offline",
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Region unavailable: {region_id} ({reason})",
@@ -495,17 +467,16 @@ class RegionUnavailableError(ControlPlaneError):
         self.region_id = region_id
         self.reason = reason
 
-
 class RegionRoutingError(ControlPlaneError):
     """Failed to route task to appropriate region."""
 
     def __init__(
         self,
         task_id: str,
-        target_region: Optional[str],
+        target_region: str | None,
         available_regions: list[str],
         reason: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         super().__init__(
             message or f"Cannot route task {task_id} to region {target_region}: {reason}",
@@ -521,7 +492,6 @@ class RegionRoutingError(ControlPlaneError):
         self.target_region = target_region
         self.available_regions = available_regions
         self.reason = reason
-
 
 __all__ = [
     # Base

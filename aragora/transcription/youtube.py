@@ -30,7 +30,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.transcription.whisper_backend import (
     TranscriptionResult,
@@ -38,7 +38,6 @@ from aragora.transcription.whisper_backend import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -59,11 +58,9 @@ YOUTUBE_PATTERNS = [
     r"(?:https?://)?(?:www\.)?youtube\.com/shorts/([a-zA-Z0-9_-]{11})",
 ]
 
-
 # =============================================================================
 # Data Classes
 # =============================================================================
-
 
 @dataclass
 class YouTubeVideoInfo:
@@ -74,15 +71,15 @@ class YouTubeVideoInfo:
     duration: int  # seconds
     channel: str
     description: str
-    upload_date: Optional[str] = None
-    view_count: Optional[int] = None
-    thumbnail_url: Optional[str] = None
+    upload_date: str | None = None
+    view_count: int | None = None
+    thumbnail_url: str | None = None
 
     @property
     def url(self) -> str:
         return f"https://youtube.com/watch?v={self.video_id}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary with formatted duration."""
         hours, remainder = divmod(self.duration, 3600)
         minutes, seconds = divmod(remainder, 60)
@@ -104,18 +101,16 @@ class YouTubeVideoInfo:
             "url": self.url,
         }
 
-
 # =============================================================================
 # YouTube Fetcher
 # =============================================================================
-
 
 class YouTubeFetcher:
     """Fetches audio from YouTube videos using yt-dlp."""
 
     def __init__(
         self,
-        cache_dir: Optional[Path] = None,
+        cache_dir: Path | None = None,
         max_duration: int = MAX_DURATION_SECONDS,
     ):
         self.cache_dir = cache_dir or CACHE_DIR
@@ -127,7 +122,7 @@ class YouTubeFetcher:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
-    def extract_video_id(url: str) -> Optional[str]:
+    def extract_video_id(url: str) -> str | None:
         """Extract video ID from YouTube URL."""
         for pattern in YOUTUBE_PATTERNS:
             match = re.search(pattern, url)
@@ -181,7 +176,7 @@ class YouTubeFetcher:
 
         loop = asyncio.get_event_loop()
 
-        def _extract() -> Dict[str, Any]:
+        def _extract() -> dict[str, Any]:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)  # type: ignore[no-any-return]
 
@@ -276,7 +271,7 @@ class YouTubeFetcher:
         )
         return cache_path
 
-    def clear_cache(self, video_id: Optional[str] = None) -> int:
+    def clear_cache(self, video_id: str | None = None) -> int:
         """Clear cached audio files.
 
         Args:
@@ -298,11 +293,9 @@ class YouTubeFetcher:
             deleted += 1
         return deleted
 
-
 # =============================================================================
 # Convenience Functions
 # =============================================================================
-
 
 async def fetch_youtube_audio(
     url: str,
@@ -320,11 +313,10 @@ async def fetch_youtube_audio(
     fetcher = YouTubeFetcher()
     return await fetcher.download_audio(url, use_cache)
 
-
 async def transcribe_youtube(
     url: str,
-    language: Optional[str] = None,
-    backend: Optional[str] = None,
+    language: str | None = None,
+    backend: str | None = None,
     use_cache: bool = True,
 ) -> TranscriptionResult:
     """Transcribe a YouTube video.
@@ -358,7 +350,6 @@ async def transcribe_youtube(
     result.model = f"{result.model} (YouTube: {video_info.video_id})"
 
     return result
-
 
 async def get_youtube_info(url: str) -> YouTubeVideoInfo:
     """Get information about a YouTube video.

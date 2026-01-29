@@ -7,6 +7,7 @@ Provides token bucket rate limiting for API calls with:
 - Thread-safe operation with per-provider locks (no global lock contention)
 - Exponential backoff for rate limit recovery
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -14,12 +15,10 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional
 
 from aragora.shared.rate_limiting import ExponentialBackoff
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class OpenRouterTier:
@@ -30,7 +29,6 @@ class OpenRouterTier:
     tokens_per_minute: int = 0  # 0 = unlimited
     burst_size: int = 10  # Allow short bursts
 
-
 # OpenRouter tier configurations (based on their pricing)
 OPENROUTER_TIERS = {
     "free": OpenRouterTier(name="free", requests_per_minute=20, burst_size=5),
@@ -39,7 +37,6 @@ OPENROUTER_TIERS = {
     "premium": OpenRouterTier(name="premium", requests_per_minute=500, burst_size=50),
     "unlimited": OpenRouterTier(name="unlimited", requests_per_minute=1000, burst_size=100),
 }
-
 
 @dataclass
 class ProviderTier:
@@ -50,10 +47,9 @@ class ProviderTier:
     tokens_per_minute: int = 0  # 0 = unlimited
     burst_size: int = 10  # Allow short bursts
 
-
 # Provider-specific default tiers (based on typical API limits)
 # These can be overridden via environment variables
-PROVIDER_DEFAULT_TIERS: Dict[str, ProviderTier] = {
+PROVIDER_DEFAULT_TIERS: dict[str, ProviderTier] = {
     # Anthropic: 1000 RPM for paid, 60 for free tier
     "anthropic": ProviderTier(name="anthropic", requests_per_minute=1000, burst_size=50),
     # OpenAI: Varies by tier, using reasonable default
@@ -71,7 +67,6 @@ PROVIDER_DEFAULT_TIERS: Dict[str, ProviderTier] = {
     # LM Studio (local): Higher limits since it's local
     "lm_studio": ProviderTier(name="lm_studio", requests_per_minute=1000, burst_size=100),
 }
-
 
 class OpenRouterRateLimiter:
     """Rate limiter for OpenRouter API calls.
@@ -253,17 +248,17 @@ class OpenRouterRateLimiter:
             self._bucket._tokens = value
 
     @property
-    def _api_limit(self) -> Optional[int]:
+    def _api_limit(self) -> int | None:
         """Backward-compatible access to API limit."""
         return self._bucket._api_limit
 
     @property
-    def _api_remaining(self) -> Optional[int]:
+    def _api_remaining(self) -> int | None:
         """Backward-compatible access to API remaining."""
         return self._bucket._api_remaining
 
     @property
-    def _api_reset(self) -> Optional[float]:
+    def _api_reset(self) -> float | None:
         """Backward-compatible access to API reset time."""
         return self._bucket._api_reset
 
@@ -280,7 +275,6 @@ class OpenRouterRateLimiter:
     def _refill(self) -> None:
         """Backward-compatible refill method (for testing)."""
         self._bucket._refill()
-
 
 class RateLimitContext:
     """Async context manager for rate limit acquisition.
@@ -311,7 +305,6 @@ class RateLimitContext:
         if self._acquired:
             self._limiter.release_on_error()
 
-
 class ProviderRateLimiter:
     """Generic rate limiter for any API provider.
 
@@ -322,7 +315,7 @@ class ProviderRateLimiter:
     Uses asyncio.Lock for async methods to avoid blocking the event loop.
     """
 
-    def __init__(self, provider: str, rpm: Optional[int] = None, burst: Optional[int] = None):
+    def __init__(self, provider: str, rpm: int | None = None, burst: int | None = None):
         """
         Initialize rate limiter for a specific provider.
 
@@ -474,17 +467,17 @@ class ProviderRateLimiter:
             self._bucket._tokens = value
 
     @property
-    def _api_limit(self) -> Optional[int]:
+    def _api_limit(self) -> int | None:
         """Backward-compatible access to API limit."""
         return self._bucket._api_limit
 
     @property
-    def _api_remaining(self) -> Optional[int]:
+    def _api_remaining(self) -> int | None:
         """Backward-compatible access to API remaining."""
         return self._bucket._api_remaining
 
     @property
-    def _api_reset(self) -> Optional[float]:
+    def _api_reset(self) -> float | None:
         """Backward-compatible access to API reset time."""
         return self._bucket._api_reset
 
@@ -501,7 +494,6 @@ class ProviderRateLimiter:
     def _refill(self) -> None:
         """Backward-compatible refill method (for testing)."""
         self._bucket._refill()
-
 
 class ProviderRateLimitContext:
     """Async context manager for provider rate limit acquisition."""
@@ -529,7 +521,6 @@ class ProviderRateLimitContext:
         if self._acquired:
             self._limiter.release_on_error()
 
-
 class ProviderRateLimiterRegistry:
     """Registry for per-provider rate limiters.
 
@@ -541,11 +532,11 @@ class ProviderRateLimiterRegistry:
     """
 
     def __init__(self) -> None:
-        self._limiters: Dict[str, ProviderRateLimiter] = {}
+        self._limiters: dict[str, ProviderRateLimiter] = {}
         self._lock = threading.Lock()
 
     def get(
-        self, provider: str, rpm: Optional[int] = None, burst: Optional[int] = None
+        self, provider: str, rpm: int | None = None, burst: int | None = None
     ) -> ProviderRateLimiter:
         """Get or create a rate limiter for a provider.
 
@@ -573,7 +564,7 @@ class ProviderRateLimiterRegistry:
                 logger.debug(f"Created rate limiter for provider: {provider}")
             return self._limiters[provider]
 
-    def reset(self, provider: Optional[str] = None) -> None:
+    def reset(self, provider: str | None = None) -> None:
         """Reset rate limiter(s).
 
         Args:
@@ -588,7 +579,7 @@ class ProviderRateLimiterRegistry:
                 self._limiters.clear()
                 logger.debug("Reset all provider rate limiters")
 
-    def stats(self) -> Dict[str, dict]:
+    def stats(self) -> dict[str, dict]:
         """Get statistics for all registered rate limiters."""
         with self._lock:
             return {provider: limiter.stats for provider, limiter in self._limiters.items()}
@@ -598,14 +589,12 @@ class ProviderRateLimiterRegistry:
         with self._lock:
             return list(self._limiters.keys())
 
-
 # Global registry for per-provider rate limiters
-_provider_registry: Optional[ProviderRateLimiterRegistry] = None
+_provider_registry: ProviderRateLimiterRegistry | None = None
 _provider_registry_lock = threading.Lock()
 
-
 def get_provider_limiter(
-    provider: str, rpm: Optional[int] = None, burst: Optional[int] = None
+    provider: str, rpm: int | None = None, burst: int | None = None
 ) -> ProviderRateLimiter:
     """Get a rate limiter for a specific API provider.
 
@@ -639,7 +628,6 @@ def get_provider_limiter(
 
     return _provider_registry.get(provider, rpm=rpm, burst=burst)
 
-
 def get_provider_registry() -> ProviderRateLimiterRegistry:
     """Get the global provider rate limiter registry.
 
@@ -655,8 +643,7 @@ def get_provider_registry() -> ProviderRateLimiterRegistry:
 
     return _provider_registry
 
-
-def reset_provider_limiters(provider: Optional[str] = None) -> None:
+def reset_provider_limiters(provider: str | None = None) -> None:
     """Reset rate limiter(s) for providers.
 
     Args:
@@ -672,10 +659,8 @@ def reset_provider_limiters(provider: Optional[str] = None) -> None:
         registry = get_provider_registry()
         registry.reset(provider)
 
-
 # Use ServiceRegistry for rate limiter singleton management
 _openrouter_limiter_lock = threading.Lock()
-
 
 def get_openrouter_limiter() -> OpenRouterRateLimiter:
     """Get or create the global OpenRouter rate limiter.
@@ -690,7 +675,6 @@ def get_openrouter_limiter() -> OpenRouterRateLimiter:
             registry.register(OpenRouterRateLimiter, OpenRouterRateLimiter())
         return registry.resolve(OpenRouterRateLimiter)
 
-
 def set_openrouter_tier(tier: str) -> None:
     """Set the OpenRouter rate limit tier.
 
@@ -701,7 +685,6 @@ def set_openrouter_tier(tier: str) -> None:
     with _openrouter_limiter_lock:
         registry = ServiceRegistry.get()
         registry.register(OpenRouterRateLimiter, OpenRouterRateLimiter(tier=tier))
-
 
 __all__ = [
     # Exponential backoff

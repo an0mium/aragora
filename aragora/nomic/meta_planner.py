@@ -22,10 +22,9 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class Track(Enum):
     """Development tracks for domain-based routing."""
@@ -35,7 +34,6 @@ class Track(Enum):
     SELF_HOSTED = "self_hosted"
     QA = "qa"
     CORE = "core"
-
 
 @dataclass
 class PrioritizedGoal:
@@ -47,29 +45,26 @@ class PrioritizedGoal:
     rationale: str
     estimated_impact: str  # high, medium, low
     priority: int  # 1 = highest
-    focus_areas: List[str] = field(default_factory=list)
-    file_hints: List[str] = field(default_factory=list)
-
+    focus_areas: list[str] = field(default_factory=list)
+    file_hints: list[str] = field(default_factory=list)
 
 @dataclass
 class PlanningContext:
     """Context for meta-planning decisions."""
 
-    recent_issues: List[str] = field(default_factory=list)
-    test_failures: List[str] = field(default_factory=list)
-    user_feedback: List[str] = field(default_factory=list)
-    recent_changes: List[str] = field(default_factory=list)
-
+    recent_issues: list[str] = field(default_factory=list)
+    test_failures: list[str] = field(default_factory=list)
+    user_feedback: list[str] = field(default_factory=list)
+    recent_changes: list[str] = field(default_factory=list)
 
 @dataclass
 class MetaPlannerConfig:
     """Configuration for MetaPlanner."""
 
-    agents: List[str] = field(default_factory=lambda: ["claude", "gemini", "deepseek"])
+    agents: list[str] = field(default_factory=lambda: ["claude", "gemini", "deepseek"])
     debate_rounds: int = 2
     max_goals: int = 5
     consensus_threshold: float = 0.6
-
 
 class MetaPlanner:
     """Debate-driven goal prioritization.
@@ -78,16 +73,16 @@ class MetaPlanner:
     to best achieve a high-level objective.
     """
 
-    def __init__(self, config: Optional[MetaPlannerConfig] = None):
+    def __init__(self, config: MetaPlannerConfig | None = None):
         self.config = config or MetaPlannerConfig()
 
     async def prioritize_work(
         self,
         objective: str,
-        available_tracks: Optional[List[Track]] = None,
-        constraints: Optional[List[str]] = None,
-        context: Optional[PlanningContext] = None,
-    ) -> List[PrioritizedGoal]:
+        available_tracks: Optional[list[Track]] = None,
+        constraints: Optional[list[str]] = None,
+        context: PlanningContext | None = None,
+    ) -> list[PrioritizedGoal]:
         """Use multi-agent debate to prioritize work.
 
         Args:
@@ -157,8 +152,8 @@ class MetaPlanner:
     def _build_debate_topic(
         self,
         objective: str,
-        tracks: List[Track],
-        constraints: List[str],
+        tracks: list[Track],
+        constraints: list[str],
         context: PlanningContext,
     ) -> str:
         """Build the debate topic for meta-planning."""
@@ -211,9 +206,9 @@ Consider dependencies and order goals by priority.
     def _parse_goals_from_debate(
         self,
         debate_result: Any,
-        available_tracks: List[Track],
+        available_tracks: list[Track],
         objective: str,
-    ) -> List[PrioritizedGoal]:
+    ) -> list[PrioritizedGoal]:
         """Parse prioritized goals from debate consensus."""
         goals = []
 
@@ -231,7 +226,7 @@ Consider dependencies and order goals by priority.
 
         # Parse numbered items from the consensus
         lines = consensus_text.split("\n")
-        current_goal: Dict[str, Any] = {}
+        current_goal: dict[str, Any] = {}
         goal_id = 0
 
         for line in lines:
@@ -284,9 +279,9 @@ Consider dependencies and order goals by priority.
 
     def _build_goal(
         self,
-        goal_dict: Dict[str, Any],
+        goal_dict: dict[str, Any],
         priority: int,
-        available_tracks: List[Track],
+        available_tracks: list[Track],
     ) -> PrioritizedGoal:
         """Build a PrioritizedGoal from parsed data."""
         # Default track based on keywords if not explicitly set
@@ -303,7 +298,7 @@ Consider dependencies and order goals by priority.
             priority=priority + 1,
         )
 
-    def _infer_track(self, description: str, available_tracks: List[Track]) -> Track:
+    def _infer_track(self, description: str, available_tracks: list[Track]) -> Track:
         """Infer track from goal description."""
         desc_lower = description.lower()
 
@@ -326,8 +321,8 @@ Consider dependencies and order goals by priority.
     def _heuristic_prioritize(
         self,
         objective: str,
-        available_tracks: List[Track],
-    ) -> List[PrioritizedGoal]:
+        available_tracks: list[Track],
+    ) -> list[PrioritizedGoal]:
         """Fallback heuristic prioritization when debate is unavailable."""
         goals = []
         obj_lower = objective.lower()
@@ -375,7 +370,6 @@ Consider dependencies and order goals by priority.
                 priority += 1
 
         return goals[: self.config.max_goals]
-
 
 __all__ = [
     "MetaPlanner",

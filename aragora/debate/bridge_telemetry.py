@@ -39,12 +39,11 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, TypeVar, cast
+from typing import Any, Callable, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
-
 
 @dataclass
 class BridgeOperation:
@@ -56,11 +55,11 @@ class BridgeOperation:
     end_time: float = 0.0
     duration_ms: float = 0.0
     success: bool = True
-    error_type: Optional[str] = None
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    error_type: str | None = None
+    error_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def complete(self, success: bool = True, error: Optional[Exception] = None) -> None:
+    def complete(self, success: bool = True, error: Exception | None = None) -> None:
         """Mark the operation as complete."""
         self.end_time = time.time()
         self.duration_ms = (self.end_time - self.start_time) * 1000
@@ -68,7 +67,6 @@ class BridgeOperation:
         if error:
             self.error_type = type(error).__name__
             self.error_message = str(error)[:200]
-
 
 @dataclass
 class BridgeMetrics:
@@ -82,9 +80,9 @@ class BridgeMetrics:
     successful_operations: int = 0
     failed_operations: int = 0
     total_duration_ms: float = 0.0
-    last_operation_time: Optional[datetime] = None
-    operations_by_type: Dict[str, int] = field(default_factory=dict)
-    errors_by_type: Dict[str, int] = field(default_factory=dict)
+    last_operation_time: datetime | None = None
+    operations_by_type: dict[str, int] = field(default_factory=dict)
+    errors_by_type: dict[str, int] = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:
@@ -116,7 +114,7 @@ class BridgeMetrics:
             if op.error_type:
                 self.errors_by_type[op.error_type] = self.errors_by_type.get(op.error_type, 0) + 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "bridge_name": self.bridge_name,
@@ -132,13 +130,11 @@ class BridgeMetrics:
             "errors_by_type": self.errors_by_type,
         }
 
-
 # Global metrics store (thread-safe)
 _metrics_lock = threading.Lock()
-_bridge_metrics: Dict[str, BridgeMetrics] = {}
-_recent_operations: List[BridgeOperation] = []
+_bridge_metrics: dict[str, BridgeMetrics] = {}
+_recent_operations: list[BridgeOperation] = []
 _max_recent_operations = 100
-
 
 def _get_or_create_metrics(bridge_name: str) -> BridgeMetrics:
     """Get or create metrics for a bridge."""
@@ -146,7 +142,6 @@ def _get_or_create_metrics(bridge_name: str) -> BridgeMetrics:
         if bridge_name not in _bridge_metrics:
             _bridge_metrics[bridge_name] = BridgeMetrics(bridge_name=bridge_name)
         return _bridge_metrics[bridge_name]
-
 
 def _record_operation(op: BridgeOperation) -> None:
     """Record a completed operation to metrics."""
@@ -174,13 +169,12 @@ def _record_operation(op: BridgeOperation) -> None:
     except ImportError:
         pass  # Metrics not available
 
-
 def record_bridge_operation(
     bridge_name: str,
     operation: str,
     success: bool,
     duration_ms: float,
-    error: Optional[Exception] = None,
+    error: Exception | None = None,
     **metadata: Any,
 ) -> None:
     """Record a bridge operation manually.
@@ -206,7 +200,6 @@ def record_bridge_operation(
         f"bridge_operation bridge={bridge_name} op={operation} "
         f"duration={duration_ms:.1f}ms success={success}"
     )
-
 
 class BridgeTelemetryContext:
     """Context manager for manual bridge telemetry recording.
@@ -251,11 +244,10 @@ class BridgeTelemetryContext:
             f"success={self.operation.success}"
         )
 
-
 def with_bridge_telemetry(
     bridge_name: str,
     operation: str,
-    extract_metadata: Optional[Callable[..., Dict[str, Any]]] = None,
+    extract_metadata: Optional[Callable[..., dict[str, Any]]] = None,
 ) -> Callable[[F], F]:
     """Decorator to add telemetry to bridge methods.
 
@@ -346,8 +338,7 @@ def with_bridge_telemetry(
 
     return decorator
 
-
-def get_bridge_telemetry_stats() -> Dict[str, Any]:
+def get_bridge_telemetry_stats() -> dict[str, Any]:
     """Get telemetry statistics for all bridges.
 
     Returns:
@@ -370,8 +361,7 @@ def get_bridge_telemetry_stats() -> Dict[str, Any]:
             "overall_success_rate": success_rate,
         }
 
-
-def get_recent_bridge_operations(limit: int = 20) -> List[Dict[str, Any]]:
+def get_recent_bridge_operations(limit: int = 20) -> list[dict[str, Any]]:
     """Get recent bridge operations for debugging.
 
     Args:
@@ -394,7 +384,6 @@ def get_recent_bridge_operations(limit: int = 20) -> List[Dict[str, Any]]:
             for op in recent
         ]
 
-
 def reset_bridge_telemetry() -> None:
     """Reset all bridge telemetry (for testing)."""
     global _bridge_metrics, _recent_operations
@@ -402,9 +391,7 @@ def reset_bridge_telemetry() -> None:
         _bridge_metrics = {}
         _recent_operations = []
 
-
 # Convenience decorators for specific bridges
-
 
 def performance_router_telemetry(
     operation: str,
@@ -412,13 +399,11 @@ def performance_router_telemetry(
     """Telemetry decorator for PerformanceRouterBridge methods."""
     return with_bridge_telemetry("performance_router", operation)
 
-
 def relationship_bias_telemetry(
     operation: str,
 ) -> Callable[[F], F]:
     """Telemetry decorator for RelationshipBiasBridge methods."""
     return with_bridge_telemetry("relationship_bias", operation)
-
 
 def calibration_cost_telemetry(
     operation: str,
@@ -426,13 +411,11 @@ def calibration_cost_telemetry(
     """Telemetry decorator for CalibrationCostBridge methods."""
     return with_bridge_telemetry("calibration_cost", operation)
 
-
 def novelty_selection_telemetry(
     operation: str,
 ) -> Callable[[F], F]:
     """Telemetry decorator for NoveltySelectionBridge methods."""
     return with_bridge_telemetry("novelty_selection", operation)
-
 
 def rlm_selection_telemetry(
     operation: str,
@@ -440,13 +423,11 @@ def rlm_selection_telemetry(
     """Telemetry decorator for RLMSelectionBridge methods."""
     return with_bridge_telemetry("rlm_selection", operation)
 
-
 def outcome_complexity_telemetry(
     operation: str,
 ) -> Callable[[F], F]:
     """Telemetry decorator for OutcomeComplexityBridge methods."""
     return with_bridge_telemetry("outcome_complexity", operation)
-
 
 def analytics_selection_telemetry(
     operation: str,

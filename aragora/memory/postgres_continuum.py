@@ -28,7 +28,7 @@ import json
 import logging
 import math
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.storage.postgres_store import PostgresStore, ASYNCPG_AVAILABLE
 from aragora.memory.tier_manager import (
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
-
 
 # PostgreSQL schema version for continuum memory
 POSTGRES_CONTINUUM_SCHEMA_VERSION = 1
@@ -131,8 +130,7 @@ POSTGRES_CONTINUUM_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_archive_archived_at ON continuum_memory_archive(archived_at);
 """
 
-
-class ContinuumMemoryEntryDict(Dict[str, Any]):
+class ContinuumMemoryEntryDict(dict[str, Any]):
     """Dictionary representation of a continuum memory entry with helper properties."""
 
     @property
@@ -147,7 +145,7 @@ class ContinuumMemoryEntryDict(Dict[str, Any]):
         return 1.0 - self.get("surprise_score", 0.0)
 
     @property
-    def cross_references(self) -> List[str]:
+    def cross_references(self) -> list[str]:
         """Get list of cross-reference IDs linked to this entry."""
         metadata = self.get("metadata", {})
         if isinstance(metadata, str):
@@ -160,7 +158,6 @@ class ContinuumMemoryEntryDict(Dict[str, Any]):
     def knowledge_mound_id(self) -> str:
         """Get the Knowledge Mound ID for this entry."""
         return f"cm_{self.get('id', '')}"
-
 
 class PostgresContinuumMemory(PostgresStore):
     """
@@ -191,7 +188,7 @@ class PostgresContinuumMemory(PostgresStore):
     def __init__(
         self,
         pool: "Pool",
-        tier_manager: Optional[TierManager] = None,
+        tier_manager: TierManager | None = None,
     ):
         """
         Initialize PostgreSQL continuum memory.
@@ -204,7 +201,7 @@ class PostgresContinuumMemory(PostgresStore):
         self._tier_manager = tier_manager or get_tier_manager()
 
         # Hyperparameters (can be modified by MetaLearner)
-        self.hyperparams: Dict[str, Any] = {
+        self.hyperparams: dict[str, Any] = {
             "surprise_weight_success": 0.3,
             "surprise_weight_semantic": 0.3,
             "surprise_weight_temporal": 0.2,
@@ -235,7 +232,7 @@ class PostgresContinuumMemory(PostgresStore):
         content: str,
         tier: MemoryTier | str = MemoryTier.SLOW,
         importance: float = 0.5,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ContinuumMemoryEntryDict:
         """
         Add a new memory entry to the continuum.
@@ -301,12 +298,12 @@ class PostgresContinuumMemory(PostgresStore):
         content: str,
         tier: str | MemoryTier = MemoryTier.SLOW,
         importance: float = 0.5,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ContinuumMemoryEntryDict:
         """Alias for add() for interface compatibility."""
         return await self.add(key, content, tier, importance, metadata)
 
-    async def get(self, memory_id: str) -> Optional[ContinuumMemoryEntryDict]:
+    async def get(self, memory_id: str) -> ContinuumMemoryEntryDict | None:
         """
         Get a memory entry by ID.
 
@@ -333,18 +330,18 @@ class PostgresContinuumMemory(PostgresStore):
 
         return self._row_to_entry(row)
 
-    async def get_entry(self, memory_id: str) -> Optional[ContinuumMemoryEntryDict]:
+    async def get_entry(self, memory_id: str) -> ContinuumMemoryEntryDict | None:
         """Alias for get() for interface compatibility."""
         return await self.get(memory_id)
 
     async def update(
         self,
         memory_id: str,
-        content: Optional[str] = None,
-        importance: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        surprise_score: Optional[float] = None,
-        consolidation_score: Optional[float] = None,
+        content: str | None = None,
+        importance: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        surprise_score: float | None = None,
+        consolidation_score: float | None = None,
     ) -> bool:
         """
         Update specific fields of a memory entry.
@@ -360,8 +357,8 @@ class PostgresContinuumMemory(PostgresStore):
         Returns:
             True if the entry was updated, False if not found
         """
-        updates: List[str] = []
-        params: List[Any] = []
+        updates: list[str] = []
+        params: list[Any] = []
         param_idx = 1
 
         if content is not None:
@@ -411,7 +408,7 @@ class PostgresContinuumMemory(PostgresStore):
         archive: bool = True,
         reason: str = "user_deleted",
         force: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a specific memory entry by ID.
 
@@ -468,13 +465,13 @@ class PostgresContinuumMemory(PostgresStore):
 
     async def retrieve(
         self,
-        query: Optional[str] = None,
-        tiers: Optional[List[MemoryTier]] = None,
+        query: str | None = None,
+        tiers: Optional[list[MemoryTier]] = None,
         limit: int = 10,
         min_importance: float = 0.0,
         include_glacial: bool = True,
-        tier: Optional[str | MemoryTier] = None,
-    ) -> List[ContinuumMemoryEntryDict]:
+        tier: str | MemoryTier | None = None,
+    ) -> list[ContinuumMemoryEntryDict]:
         """
         Retrieve memories ranked by importance, surprise, and recency.
 
@@ -520,7 +517,7 @@ class PostgresContinuumMemory(PostgresStore):
               AND importance >= $2
         """
 
-        params: List[Any] = [tier_values, min_importance]
+        params: list[Any] = [tier_values, min_importance]
         param_idx = 3
 
         # Add keyword filter if query provided
@@ -547,7 +544,7 @@ class PostgresContinuumMemory(PostgresStore):
         tier: MemoryTier | str,
         limit: int = 100,
         min_importance: float = 0.0,
-    ) -> List[ContinuumMemoryEntryDict]:
+    ) -> list[ContinuumMemoryEntryDict]:
         """
         Get memories for a specific tier.
 
@@ -587,7 +584,7 @@ class PostgresContinuumMemory(PostgresStore):
         self,
         memory_id: str,
         success: bool,
-        agent_prediction_error: Optional[float] = None,
+        agent_prediction_error: float | None = None,
     ) -> float:
         """
         Update memory after observing outcome.
@@ -690,7 +687,7 @@ class PostgresContinuumMemory(PostgresStore):
     # Tier Promotion/Demotion
     # =========================================================================
 
-    async def promote(self, memory_id: str) -> Optional[MemoryTier]:
+    async def promote(self, memory_id: str) -> MemoryTier | None:
         """
         Promote a memory to a faster tier.
 
@@ -753,7 +750,7 @@ class PostgresContinuumMemory(PostgresStore):
         self._tier_manager.record_promotion(current_tier, new_tier)
         return new_tier
 
-    async def demote(self, memory_id: str) -> Optional[MemoryTier]:
+    async def demote(self, memory_id: str) -> MemoryTier | None:
         """
         Demote a memory to a slower tier.
 
@@ -895,7 +892,7 @@ class PostgresContinuumMemory(PostgresStore):
 
         return True
 
-    async def get_red_line_memories(self) -> List[ContinuumMemoryEntryDict]:
+    async def get_red_line_memories(self) -> list[ContinuumMemoryEntryDict]:
         """Get all red-lined memory entries."""
         async with self.connection() as conn:
             rows = await conn.fetch("""
@@ -913,7 +910,7 @@ class PostgresContinuumMemory(PostgresStore):
     # Statistics & Consolidation
     # =========================================================================
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get statistics about the continuum memory system."""
         async with self.connection() as conn:
             # Get counts by tier
@@ -940,7 +937,7 @@ class PostgresContinuumMemory(PostgresStore):
             "hyperparams": self.hyperparams,
         }
 
-    async def count(self, tier: Optional[MemoryTier] = None) -> int:  # type: ignore[override]
+    async def count(self, tier: MemoryTier | None = None) -> int:  # type: ignore[override]
         """Count memory entries, optionally filtered by tier."""
         async with self.connection() as conn:
             if tier:
@@ -953,13 +950,13 @@ class PostgresContinuumMemory(PostgresStore):
 
         return row["count"] if row else 0
 
-    async def consolidate(self) -> Dict[str, int]:
+    async def consolidate(self) -> dict[str, int]:
         """
         Run tier consolidation: promote/demote memories based on surprise.
 
         Returns counts of promotions and demotions by tier.
         """
-        results: Dict[str, int] = {"promoted": 0, "demoted": 0}
+        results: dict[str, int] = {"promoted": 0, "demoted": 0}
 
         async with self.connection() as conn:
             # Find candidates for promotion (high surprise)
@@ -1012,10 +1009,10 @@ class PostgresContinuumMemory(PostgresStore):
 
     async def cleanup_expired_memories(
         self,
-        tier: Optional[MemoryTier] = None,
+        tier: MemoryTier | None = None,
         archive: bool = True,
-        max_age_hours: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        max_age_hours: float | None = None,
+    ) -> dict[str, Any]:
         """
         Remove or archive expired memories based on tier retention policies.
 
@@ -1027,7 +1024,7 @@ class PostgresContinuumMemory(PostgresStore):
         Returns:
             Dict with counts
         """
-        results: Dict[str, Any] = {"archived": 0, "deleted": 0, "by_tier": {}}
+        results: dict[str, Any] = {"archived": 0, "deleted": 0, "by_tier": {}}
 
         tiers_to_process = [tier] if tier else list(MemoryTier)
 
@@ -1086,7 +1083,7 @@ class PostgresContinuumMemory(PostgresStore):
 
         return results
 
-    async def get_archive_stats(self) -> Dict[str, Any]:
+    async def get_archive_stats(self) -> dict[str, Any]:
         """Get statistics about archived memories."""
         async with self.connection() as conn:
             stats = await conn.fetchrow("""
@@ -1117,7 +1114,7 @@ class PostgresContinuumMemory(PostgresStore):
         self,
         limit: int = 10,
         min_importance: float = 0.7,
-    ) -> List[ContinuumMemoryEntryDict]:
+    ) -> list[ContinuumMemoryEntryDict]:
         """
         Get high-importance glacial tier memories for cross-session insights.
 
@@ -1132,9 +1129,9 @@ class PostgresContinuumMemory(PostgresStore):
 
     async def get_cross_session_patterns(
         self,
-        pattern_type: Optional[str] = None,
+        pattern_type: str | None = None,
         limit: int = 20,
-    ) -> List[ContinuumMemoryEntryDict]:
+    ) -> list[ContinuumMemoryEntryDict]:
         """
         Get cross-session patterns from glacial tier.
 
@@ -1213,17 +1210,15 @@ class PostgresContinuumMemory(PostgresStore):
             }
         )
 
-
 # =========================================================================
 # Factory Function
 # =========================================================================
 
-_postgres_continuum_memory: Optional[PostgresContinuumMemory] = None
-
+_postgres_continuum_memory: PostgresContinuumMemory | None = None
 
 async def get_postgres_continuum_memory(
     pool: Optional["Pool"] = None,
-    tier_manager: Optional[TierManager] = None,
+    tier_manager: TierManager | None = None,
 ) -> PostgresContinuumMemory:
     """
     Get or create the PostgreSQL continuum memory instance.

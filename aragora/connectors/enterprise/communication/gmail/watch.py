@@ -11,7 +11,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
+from typing import Any, AsyncIterator, Optional, Protocol, TYPE_CHECKING
 
 from ..models import (
     EmailMessage,
@@ -24,31 +24,29 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class GmailBaseMethods(Protocol):
     """Protocol defining expected methods from base classes for type checking."""
 
     user_id: str
     exclude_labels: set[str]
-    _gmail_state: Optional[GmailSyncState]
+    _gmail_state: GmailSyncState | None
     _watch_task: Optional["asyncio.Task[None]"]
     _watch_running: bool
 
     async def _get_access_token(self) -> str: ...
     async def _api_request(
         self, endpoint: str, method: str = "GET", **kwargs: Any
-    ) -> Dict[str, Any]: ...
+    ) -> dict[str, Any]: ...
     @asynccontextmanager
     def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
     def check_circuit_breaker(self) -> bool: ...
-    def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
+    def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
     def record_failure(self) -> None: ...
     async def get_history(
-        self, start_history_id: str, page_token: Optional[str] = None
-    ) -> tuple[List[Dict[str, Any]], Optional[str], Optional[str]]: ...
+        self, start_history_id: str, page_token: str | None = None
+    ) -> tuple[list[dict[str, Any]], str | None, str | None]: ...
     async def get_message(self, message_id: str) -> EmailMessage: ...
-
 
 class GmailWatchMixin(GmailBaseMethods):
     """Mixin providing Pub/Sub watch and push notification operations."""
@@ -56,9 +54,9 @@ class GmailWatchMixin(GmailBaseMethods):
     async def setup_watch(
         self,
         topic_name: str,
-        label_ids: Optional[List[str]] = None,
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        label_ids: Optional[list[str]] = None,
+        project_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Set up Gmail push notifications via Google Cloud Pub/Sub.
 
@@ -153,7 +151,7 @@ class GmailWatchMixin(GmailBaseMethods):
             logger.error(f"[Gmail] Watch setup failed: {e}")
             raise
 
-    async def stop_watch(self) -> Dict[str, Any]:
+    async def stop_watch(self) -> dict[str, Any]:
         """
         Stop Gmail push notifications.
 
@@ -215,8 +213,8 @@ class GmailWatchMixin(GmailBaseMethods):
 
     async def handle_pubsub_notification(
         self,
-        payload: Dict[str, Any],
-    ) -> List[EmailMessage]:
+        payload: dict[str, Any],
+    ) -> list[EmailMessage]:
         """
         Handle incoming Pub/Sub webhook notification.
 
@@ -251,7 +249,7 @@ class GmailWatchMixin(GmailBaseMethods):
             return []
 
         try:
-            new_messages: List[EmailMessage] = []
+            new_messages: list[EmailMessage] = []
             page_token = None
             new_history_id = self._gmail_state.history_id
 
@@ -317,7 +315,7 @@ class GmailWatchMixin(GmailBaseMethods):
         self,
         topic_name: str,
         renewal_hours: int = 144,  # 6 days (watch expires after ~7 days)
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
     ) -> None:
         """
         Start background task to auto-renew watch before expiration.
@@ -341,7 +339,7 @@ class GmailWatchMixin(GmailBaseMethods):
         self,
         topic_name: str,
         renewal_hours: int,
-        project_id: Optional[str],
+        project_id: str | None,
     ) -> None:
         """Background loop to renew watch before expiration."""
         renewal_seconds = renewal_hours * 3600

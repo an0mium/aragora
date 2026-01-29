@@ -6,6 +6,7 @@ represent the default behavior of the selection system.
 
 Custom plugins can extend or replace these strategies.
 """
+from __future__ import annotations
 
 import logging
 import random
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
     from aragora.routing.selection import AgentProfile, TaskRequirements
 
 logger = logging.getLogger(__name__)
-
 
 class ELOWeightedScorer(ScorerProtocol):
     """
@@ -197,7 +197,6 @@ class ELOWeightedScorer(ScorerProtocol):
 
         return score * adjustment
 
-
 class DiverseTeamSelector(TeamSelectorProtocol):
     """
     Default team selector balancing quality with diversity.
@@ -268,7 +267,6 @@ class DiverseTeamSelector(TeamSelectorProtocol):
 
         return team
 
-
 class DomainBasedRoleAssigner(RoleAssignerProtocol):
     """
     Default role assigner using domain expertise.
@@ -326,7 +324,7 @@ class DomainBasedRoleAssigner(RoleAssignerProtocol):
         team: list["AgentProfile"],
         requirements: "TaskRequirements",
         context: SelectionContext,
-        phase: Optional[str] = None,
+        phase: str | None = None,
     ) -> dict[str, str]:
         """Assign roles to team members."""
         if phase:
@@ -392,7 +390,6 @@ class DomainBasedRoleAssigner(RoleAssignerProtocol):
 
         return roles
 
-
 class GreedyTeamSelector(TeamSelectorProtocol):
     """
     Simple greedy team selector - picks highest-scored agents.
@@ -417,7 +414,6 @@ class GreedyTeamSelector(TeamSelectorProtocol):
         """Select top N agents by score."""
         count = min(requirements.max_agents, len(scored_agents))
         return [a for a, _ in scored_agents[:count]]
-
 
 class RandomTeamSelector(TeamSelectorProtocol):
     """
@@ -473,7 +469,6 @@ class RandomTeamSelector(TeamSelectorProtocol):
 
         return selected
 
-
 class SimpleRoleAssigner(RoleAssignerProtocol):
     """
     Simple role assigner - assigns generic roles.
@@ -494,7 +489,7 @@ class SimpleRoleAssigner(RoleAssignerProtocol):
         team: list["AgentProfile"],
         requirements: "TaskRequirements",
         context: SelectionContext,
-        phase: Optional[str] = None,
+        phase: str | None = None,
     ) -> dict[str, str]:
         """Assign simple positional roles."""
         roles: dict[str, str] = {}

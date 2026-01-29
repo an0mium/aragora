@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -33,7 +33,6 @@ from .utils.rate_limit import rate_limit
 from .secure import SecureHandler
 
 logger = logging.getLogger(__name__)
-
 
 class PrivacyHandler(SecureHandler):
     """Handler for GDPR/CCPA privacy endpoints.
@@ -62,7 +61,7 @@ class PrivacyHandler(SecureHandler):
     @require_permission("privacy:read")
     def handle(
         self, path: str, query_params: dict, handler: Any, method: str = "GET"
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route privacy requests to appropriate methods."""
         if hasattr(handler, "command"):
             method = handler.command
@@ -590,6 +589,5 @@ class PrivacyHandler(SecureHandler):
                 "preferences": privacy_prefs,
             }
         )
-
 
 __all__ = ["PrivacyHandler"]

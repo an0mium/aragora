@@ -17,13 +17,12 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Generator, Optional
 
 logger = logging.getLogger(__name__)
 
 # Default database location
 DEFAULT_DB_PATH = os.path.expanduser("~/.aragora/data/rules.db")
-
 
 class RulesStore:
     """
@@ -32,7 +31,7 @@ class RulesStore:
     Thread-safe with connection pooling per thread.
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize the rules store.
 
@@ -192,7 +191,7 @@ class RulesStore:
     # Routing Rules CRUD
     # =========================================================================
 
-    def create_rule(self, rule_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_rule(self, rule_data: dict[str, Any]) -> dict[str, Any]:
         """
         Create a new routing rule.
 
@@ -234,7 +233,7 @@ class RulesStore:
         logger.info(f"[RulesStore] Created rule {rule_data['id']}: {rule_data['name']}")
         return rule_data
 
-    def get_rule(self, rule_id: str) -> Optional[Dict[str, Any]]:
+    def get_rule(self, rule_id: str) -> Optional[dict[str, Any]]:
         """Get a rule by ID."""
         with self._cursor() as cursor:
             cursor.execute("SELECT * FROM routing_rules WHERE id = ?", (rule_id,))
@@ -243,7 +242,7 @@ class RulesStore:
                 return self._row_to_rule(row)
         return None
 
-    def update_rule(self, rule_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def update_rule(self, rule_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
         """
         Update a routing rule.
 
@@ -307,12 +306,12 @@ class RulesStore:
 
     def list_rules(
         self,
-        workspace_id: Optional[str] = None,
-        inbox_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        inbox_id: str | None = None,
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         List routing rules with optional filtering.
 
@@ -327,7 +326,7 @@ class RulesStore:
             List of rule dictionaries
         """
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if workspace_id:
             conditions.append("workspace_id = ?")
@@ -357,13 +356,13 @@ class RulesStore:
 
     def count_rules(
         self,
-        workspace_id: Optional[str] = None,
-        inbox_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        inbox_id: str | None = None,
         enabled_only: bool = False,
     ) -> int:
         """Count rules matching filter criteria."""
         conditions = []
-        params: List[Any] = []
+        params: list[Any] = []
 
         if workspace_id:
             conditions.append("workspace_id = ?")
@@ -409,7 +408,7 @@ class RulesStore:
     # Shared Inboxes CRUD
     # =========================================================================
 
-    def create_inbox(self, inbox_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_inbox(self, inbox_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new shared inbox."""
         now = datetime.now(timezone.utc).isoformat()
 
@@ -443,7 +442,7 @@ class RulesStore:
         logger.info(f"[RulesStore] Created inbox {inbox_data['id']}: {inbox_data['name']}")
         return inbox_data
 
-    def get_inbox(self, inbox_id: str) -> Optional[Dict[str, Any]]:
+    def get_inbox(self, inbox_id: str) -> Optional[dict[str, Any]]:
         """Get an inbox by ID."""
         with self._cursor() as cursor:
             cursor.execute("SELECT * FROM shared_inboxes WHERE id = ?", (inbox_id,))
@@ -452,7 +451,7 @@ class RulesStore:
                 return self._row_to_inbox(row)
         return None
 
-    def update_inbox(self, inbox_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def update_inbox(self, inbox_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Update an inbox."""
         existing = self.get_inbox(inbox_id)
         if not existing:
@@ -499,10 +498,10 @@ class RulesStore:
 
     def list_inboxes(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List inboxes with optional workspace filter."""
         if workspace_id:
             with self._cursor() as cursor:
@@ -530,7 +529,7 @@ class RulesStore:
     # Inbox Messages CRUD
     # =========================================================================
 
-    def create_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_message(self, message_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new inbox message."""
         with self._cursor() as cursor:
             cursor.execute(
@@ -571,7 +570,7 @@ class RulesStore:
 
         return message_data
 
-    def get_message(self, message_id: str) -> Optional[Dict[str, Any]]:
+    def get_message(self, message_id: str) -> Optional[dict[str, Any]]:
         """Get a message by ID."""
         with self._cursor() as cursor:
             cursor.execute("SELECT * FROM inbox_messages WHERE id = ?", (message_id,))
@@ -580,7 +579,7 @@ class RulesStore:
                 return self._row_to_message(row)
         return None
 
-    def update_message(self, message_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def update_message(self, message_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Update a message."""
         existing = self.get_message(message_id)
         if not existing:
@@ -616,14 +615,14 @@ class RulesStore:
     def list_messages(
         self,
         inbox_id: str,
-        status: Optional[str] = None,
-        assigned_to: Optional[str] = None,
+        status: str | None = None,
+        assigned_to: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List messages in an inbox with optional filtering."""
         conditions = ["inbox_id = ?"]
-        params: List[Any] = [inbox_id]
+        params: list[Any] = [inbox_id]
 
         if status:
             conditions.append("status = ?")
@@ -653,7 +652,7 @@ class RulesStore:
     # Row Conversion Helpers
     # =========================================================================
 
-    def _row_to_rule(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _row_to_rule(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert a database row to a rule dictionary."""
         return {
             "id": row["id"],
@@ -672,7 +671,7 @@ class RulesStore:
             "stats": json.loads(row["stats"]) if row["stats"] else {},
         }
 
-    def _row_to_inbox(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _row_to_inbox(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert a database row to an inbox dictionary."""
         return {
             "id": row["id"],
@@ -691,7 +690,7 @@ class RulesStore:
             "unread_count": row["unread_count"],
         }
 
-    def _row_to_message(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _row_to_message(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert a database row to a message dictionary."""
         return {
             "id": row["id"],
@@ -721,9 +720,9 @@ class RulesStore:
     def get_matching_rules(
         self,
         inbox_id: str,
-        email_data: Dict[str, Any],
-        workspace_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        email_data: dict[str, Any],
+        workspace_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Find all enabled rules that match the given email data.
 
@@ -757,7 +756,7 @@ class RulesStore:
 
         return matching_rules
 
-    def _evaluate_rule(self, rule: Dict[str, Any], email_data: Dict[str, Any]) -> bool:
+    def _evaluate_rule(self, rule: dict[str, Any], email_data: dict[str, Any]) -> bool:
         """
         Evaluate if a routing rule matches the given email data.
 
@@ -847,13 +846,11 @@ class RulesStore:
             self._local.connection.close()
             self._local.connection = None
 
-
 # Singleton instance for shared use
-_default_store: Optional[RulesStore] = None
+_default_store: RulesStore | None = None
 _store_lock = threading.Lock()
 
-
-def get_rules_store(db_path: Optional[str] = None) -> RulesStore:
+def get_rules_store(db_path: str | None = None) -> RulesStore:
     """Get the default rules store instance."""
     global _default_store
     if _default_store is None:

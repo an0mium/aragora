@@ -59,7 +59,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class TaskPriority(str, Enum):
     """Priority levels for worker tasks."""
 
@@ -67,7 +66,6 @@ class TaskPriority(str, Enum):
     HIGH = "high"
     NORMAL = "normal"
     LOW = "low"
-
 
 class TaskStatus(str, Enum):
     """Status of a worker task."""
@@ -79,7 +77,6 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-
 @dataclass
 class WorkerTask:
     """A task assigned to a worker agent."""
@@ -90,12 +87,11 @@ class WorkerTask:
     audit_types: list[str]
     priority: TaskPriority = TaskPriority.NORMAL
     status: TaskStatus = TaskStatus.PENDING
-    assigned_to: Optional[str] = None
+    assigned_to: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class WorkerResult:
@@ -107,8 +103,7 @@ class WorkerResult:
     raw_response: str = ""
     duration_seconds: float = 0.0
     success: bool = True
-    error: Optional[str] = None
-
+    error: str | None = None
 
 @dataclass
 class HiveMindConfig:
@@ -132,7 +127,6 @@ class HiveMindConfig:
 
     # Progress
     progress_callback: Optional[Callable[[str, int, int], None]] = None
-
 
 @dataclass
 class HiveMindResult:
@@ -158,7 +152,6 @@ class HiveMindResult:
     def high_findings(self) -> list["AuditFinding"]:
         """Get high severity findings."""
         return [f for f in self.findings if f.severity.value == "high"]
-
 
 @dataclass
 class QueenOrchestrator:
@@ -499,7 +492,6 @@ If no issues found, respond with: NO FINDINGS"""
                 continue
 
         return findings
-
 
 @dataclass
 class AuditHiveMind:

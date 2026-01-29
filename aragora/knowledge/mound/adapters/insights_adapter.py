@@ -25,22 +25,20 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.insights.extractor import DebateInsights, Insight
     from aragora.insights.flip_detector import FlipEvent
 
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
-
 
 # ============================================================================
 # Reverse Flow Dataclasses (KM → InsightStore/FlipDetector)
 # ============================================================================
-
 
 @dataclass
 class KMFlipThresholdUpdate:
@@ -54,8 +52,7 @@ class KMFlipThresholdUpdate:
     adjustments_made: int = 0
     confidence: float = 0.7
     recommendation: str = "keep"  # "increase", "decrease", "keep"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMAgentFlipBaseline:
@@ -63,12 +60,11 @@ class KMAgentFlipBaseline:
 
     agent_name: str
     expected_flip_rate: float  # 0.0-1.0 expected flips per debate
-    flip_type_distribution: Dict[str, float] = field(default_factory=dict)
-    domain_flip_rates: Dict[str, float] = field(default_factory=dict)
+    flip_type_distribution: dict[str, float] = field(default_factory=dict)
+    domain_flip_rates: dict[str, float] = field(default_factory=dict)
     sample_count: int = 0
     confidence: float = 0.7
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KMFlipValidation:
@@ -80,8 +76,7 @@ class KMFlipValidation:
     pattern_match_score: float = 0.0  # How well it matches known patterns
     recommendation: str = "keep"  # "flag", "ignore", "keep"
     adjustment: float = 0.0  # Adjustment to agent consistency score
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class InsightThresholdSyncResult:
@@ -89,32 +84,29 @@ class InsightThresholdSyncResult:
 
     flips_analyzed: int = 0
     insights_analyzed: int = 0
-    threshold_updates: List[KMFlipThresholdUpdate] = field(default_factory=list)
-    baseline_updates: List[KMAgentFlipBaseline] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    threshold_updates: list[KMFlipThresholdUpdate] = field(default_factory=list)
+    baseline_updates: list[KMAgentFlipBaseline] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: float = 0.0
-
 
 @dataclass
 class InsightSearchResult:
     """Wrapper for insight search results with adapter metadata."""
 
-    insight: Dict[str, Any]
+    insight: dict[str, Any]
     relevance_score: float = 0.0
-    matched_topics: List[str] = None
+    matched_topics: list[str] = None
 
     def __post_init__(self) -> None:
         if self.matched_topics is None:
             self.matched_topics = []
 
-
 @dataclass
 class FlipSearchResult:
     """Wrapper for flip event search results."""
 
-    flip: Dict[str, Any]
+    flip: dict[str, Any]
     relevance_score: float = 0.0
-
 
 class InsightsAdapter:
     """
@@ -153,10 +145,10 @@ class InsightsAdapter:
 
     def __init__(
         self,
-        insight_store: Optional[Any] = None,
-        flip_detector: Optional[Any] = None,
+        insight_store: Any | None = None,
+        flip_detector: Any | None = None,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
     ):
         """
         Initialize the adapter.
@@ -173,21 +165,21 @@ class InsightsAdapter:
         self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
-        self._insights: Dict[str, Dict[str, Any]] = {}
-        self._flips: Dict[str, Dict[str, Any]] = {}
-        self._patterns: Dict[str, Dict[str, Any]] = {}
+        self._insights: dict[str, dict[str, Any]] = {}
+        self._flips: dict[str, dict[str, Any]] = {}
+        self._patterns: dict[str, dict[str, Any]] = {}
 
         # Indices for fast lookup
-        self._debate_insights: Dict[str, List[str]] = {}  # debate_id -> [insight_ids]
-        self._type_insights: Dict[str, List[str]] = {}  # type -> [insight_ids]
-        self._agent_flips: Dict[str, List[str]] = {}  # agent_name -> [flip_ids]
-        self._domain_flips: Dict[str, List[str]] = {}  # domain -> [flip_ids]
+        self._debate_insights: dict[str, list[str]] = {}  # debate_id -> [insight_ids]
+        self._type_insights: dict[str, list[str]] = {}  # type -> [insight_ids]
+        self._agent_flips: dict[str, list[str]] = {}  # agent_name -> [flip_ids]
+        self._domain_flips: dict[str, list[str]] = {}  # domain -> [flip_ids]
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -196,12 +188,12 @@ class InsightsAdapter:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
-    def insight_store(self) -> Optional[Any]:
+    def insight_store(self) -> Any | None:
         """Access the underlying InsightStore."""
         return self._insight_store
 
     @property
-    def flip_detector(self) -> Optional[Any]:
+    def flip_detector(self) -> Any | None:
         """Access the underlying FlipDetector."""
         return self._flip_detector
 
@@ -209,7 +201,7 @@ class InsightsAdapter:
         self,
         insight: "Insight",
         min_confidence: float = None,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store an insight in the Knowledge Mound.
 
@@ -264,7 +256,7 @@ class InsightsAdapter:
         self,
         debate_insights: "DebateInsights",
         min_confidence: float = None,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Store all insights from a debate above the threshold.
 
@@ -337,8 +329,8 @@ class InsightsAdapter:
 
     def store_flips_batch(
         self,
-        flips: List["FlipEvent"],
-    ) -> List[str]:
+        flips: list["FlipEvent"],
+    ) -> list[str]:
         """
         Store multiple flip events.
 
@@ -356,8 +348,8 @@ class InsightsAdapter:
         pattern_text: str,
         occurrence_count: int,
         avg_severity: float = 0.5,
-        debate_ids: Optional[List[str]] = None,
-    ) -> Optional[str]:
+        debate_ids: Optional[list[str]] = None,
+    ) -> str | None:
         """
         Store a pattern cluster in the Knowledge Mound.
 
@@ -407,7 +399,7 @@ class InsightsAdapter:
         )
         return pattern_id
 
-    def get_insight(self, insight_id: str) -> Optional[Dict[str, Any]]:
+    def get_insight(self, insight_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific insight by ID.
 
@@ -421,7 +413,7 @@ class InsightsAdapter:
             insight_id = f"{self.INSIGHT_PREFIX}{insight_id}"
         return self._insights.get(insight_id)
 
-    def get_flip(self, flip_id: str) -> Optional[Dict[str, Any]]:
+    def get_flip(self, flip_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific flip event by ID.
 
@@ -439,9 +431,9 @@ class InsightsAdapter:
         self,
         query: str,
         limit: int = 10,
-        insight_type: Optional[str] = None,
+        insight_type: str | None = None,
         min_confidence: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find insights similar to the query.
 
@@ -490,7 +482,7 @@ class InsightsAdapter:
         self,
         insight_type: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get insights of a specific type.
 
@@ -515,7 +507,7 @@ class InsightsAdapter:
         self,
         debate_id: str,
         min_confidence: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get all insights from a specific debate.
 
@@ -540,8 +532,8 @@ class InsightsAdapter:
         self,
         agent_name: str,
         limit: int = 50,
-        flip_type: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        flip_type: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get flip history for a specific agent.
 
@@ -574,7 +566,7 @@ class InsightsAdapter:
         self,
         domain: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get all flips in a specific domain.
 
@@ -598,9 +590,9 @@ class InsightsAdapter:
     def get_common_patterns(
         self,
         min_occurrences: int = 3,
-        category: Optional[str] = None,
+        category: str | None = None,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get recurring patterns above occurrence threshold.
 
@@ -625,7 +617,7 @@ class InsightsAdapter:
 
         return results[:limit]
 
-    def to_knowledge_item(self, insight: Dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, insight: dict[str, Any]) -> "KnowledgeItem":
         """
         Convert an insight dict to a KnowledgeItem.
 
@@ -679,7 +671,7 @@ class InsightsAdapter:
             importance=confidence_val,
         )
 
-    def flip_to_knowledge_item(self, flip: Dict[str, Any]) -> "KnowledgeItem":
+    def flip_to_knowledge_item(self, flip: dict[str, Any]) -> "KnowledgeItem":
         """
         Convert a flip dict to a KnowledgeItem.
 
@@ -740,11 +732,11 @@ class InsightsAdapter:
             importance=similarity,
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored insights and flips."""
         self.__init_reverse_flow_state()
 
-        flip_types: Dict[str, int] = {}
+        flip_types: dict[str, int] = {}
         for flip in self._flips.values():
             ft = flip.get("flip_type", "unknown")
             flip_types[ft] = flip_types.get(ft, 0) + 1
@@ -775,11 +767,11 @@ class InsightsAdapter:
         if not hasattr(self, "_km_threshold_updates"):
             self._km_threshold_updates = 0
         if not hasattr(self, "_km_agent_baselines"):
-            self._km_agent_baselines: Dict[str, KMAgentFlipBaseline] = {}
+            self._km_agent_baselines: dict[str, KMAgentFlipBaseline] = {}
         if not hasattr(self, "_km_flip_validations"):
-            self._km_flip_validations: List[KMFlipValidation] = []
+            self._km_flip_validations: list[KMFlipValidation] = []
         if not hasattr(self, "_outcome_history"):
-            self._outcome_history: Dict[str, List[Dict[str, Any]]] = {}
+            self._outcome_history: dict[str, list[dict[str, Any]]] = {}
         if not hasattr(self, "_similarity_threshold"):
             self._similarity_threshold = 0.7  # Default
         if not hasattr(self, "_confidence_threshold"):
@@ -819,7 +811,7 @@ class InsightsAdapter:
 
     async def update_flip_thresholds_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
     ) -> KMFlipThresholdUpdate:
         """
@@ -842,7 +834,7 @@ class InsightsAdapter:
         old_confidence = self._confidence_threshold
 
         # Analyze accuracy at different similarity levels
-        similarity_buckets: Dict[str, List[bool]] = {
+        similarity_buckets: dict[str, list[bool]] = {
             "0.5-0.6": [],
             "0.6-0.7": [],
             "0.7-0.8": [],
@@ -868,7 +860,7 @@ class InsightsAdapter:
                 similarity_buckets["0.9-1.0"].append(was_accurate)
 
         # Compute accuracy rates per bucket
-        def accuracy_rate(bucket: List[bool]) -> Optional[float]:
+        def accuracy_rate(bucket: list[bool]) -> float | None:
             if len(bucket) < 3:  # Need minimum samples
                 return None
             return sum(bucket) / len(bucket)
@@ -928,7 +920,7 @@ class InsightsAdapter:
     async def get_agent_flip_baselines(
         self,
         agent_name: str,
-        km_items: Optional[List[Dict[str, Any]]] = None,
+        km_items: Optional[list[dict[str, Any]]] = None,
     ) -> KMAgentFlipBaseline:
         """
         Get KM-validated flip baseline for an agent.
@@ -955,8 +947,8 @@ class InsightsAdapter:
         # Analyze items for this agent
         flip_count = len(agent_flips)
         debate_ids = set()
-        flip_type_counts: Dict[str, int] = {}
-        domain_flip_counts: Dict[str, int] = {}
+        flip_type_counts: dict[str, int] = {}
+        domain_flip_counts: dict[str, int] = {}
 
         for flip in agent_flips:
             # Count debates
@@ -1020,7 +1012,7 @@ class InsightsAdapter:
     async def validate_flip_from_km(
         self,
         flip_id: str,
-        km_patterns: List[Dict[str, Any]],
+        km_patterns: list[dict[str, Any]],
     ) -> KMFlipValidation:
         """
         Validate a flip based on KM patterns.
@@ -1160,7 +1152,7 @@ class InsightsAdapter:
 
     async def sync_validations_from_km(
         self,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
     ) -> InsightThresholdSyncResult:
         """
@@ -1182,7 +1174,7 @@ class InsightsAdapter:
         errors = []
 
         # Group items by flip_id
-        items_by_flip: Dict[str, List[Dict[str, Any]]] = {}
+        items_by_flip: dict[str, list[dict[str, Any]]] = {}
         for item in km_items:
             meta = item.get("metadata", {})
             flip_id = meta.get("flip_id") or meta.get("source_id")
@@ -1239,7 +1231,7 @@ class InsightsAdapter:
 
         return result
 
-    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+    def get_reverse_flow_stats(self) -> dict[str, Any]:
         """Get statistics about reverse flow operations."""
         self.__init_reverse_flow_state()
 
@@ -1263,7 +1255,6 @@ class InsightsAdapter:
         # Reset thresholds to defaults
         self._similarity_threshold = 0.7
         self._confidence_threshold = 0.6
-
 
 __all__ = [
     "InsightsAdapter",

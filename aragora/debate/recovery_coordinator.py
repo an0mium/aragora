@@ -17,7 +17,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Optional
 
 from aragora.debate.deadlock_detector import Deadlock, DeadlockDetector, DeadlockType
 from aragora.debate.witness import DebateWitness, StallEvent, StallReason, ProgressStatus
@@ -28,7 +28,6 @@ from aragora.debate.protocol_messages import (
 from aragora.debate.protocol_messages.messages import agent_event_message
 
 logger = logging.getLogger(__name__)
-
 
 class RecoveryAction(str, Enum):
     """Types of recovery actions."""
@@ -43,19 +42,17 @@ class RecoveryAction(str, Enum):
     ESCALATE = "escalate"  # Escalate to human operator
     ABORT = "abort"  # Abort the debate
 
-
 @dataclass
 class RecoveryDecision:
     """A decision on how to recover from an issue."""
 
     action: RecoveryAction
-    target_agent_id: Optional[str] = None
-    replacement_agent_id: Optional[str] = None
+    target_agent_id: str | None = None
+    replacement_agent_id: str | None = None
     reason: str = ""
     confidence: float = 1.0
     requires_approval: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class RecoveryEvent:
@@ -65,13 +62,12 @@ class RecoveryEvent:
     debate_id: str
     action: RecoveryAction
     trigger_type: str  # "stall", "deadlock", "failure"
-    trigger_id: Optional[str] = None
-    target_agent_id: Optional[str] = None
+    trigger_id: str | None = None
+    target_agent_id: str | None = None
     result: str = "pending"  # pending, success, failed
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
-    details: Dict[str, Any] = field(default_factory=dict)
-
+    completed_at: datetime | None = None
+    details: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class RecoveryConfig:
@@ -80,7 +76,7 @@ class RecoveryConfig:
     # Agent replacement settings
     max_agent_failures: int = 3
     max_agent_stalls: int = 2
-    replacement_pool: List[str] = field(default_factory=list)  # Available replacement agent IDs
+    replacement_pool: list[str] = field(default_factory=list)  # Available replacement agent IDs
 
     # Deadlock handling
     cycle_resolution_strategy: str = "inject_mediator"  # or "force_vote", "escalate"
@@ -95,7 +91,6 @@ class RecoveryConfig:
 
     # Callbacks
     emit_protocol_messages: bool = True
-
 
 class RecoveryCoordinator:
     """
@@ -124,8 +119,8 @@ class RecoveryCoordinator:
     def __init__(
         self,
         debate_id: str,
-        witness: Optional[DebateWitness] = None,
-        config: Optional[RecoveryConfig] = None,
+        witness: DebateWitness | None = None,
+        config: RecoveryConfig | None = None,
         on_action: Optional[Callable[[RecoveryEvent], Any]] = None,
         on_message: Optional[Callable[[ProtocolMessage], Any]] = None,
     ):
@@ -146,15 +141,15 @@ class RecoveryCoordinator:
         self.on_message = on_message
 
         # State tracking
-        self._recovery_history: List[RecoveryEvent] = []
-        self._pending_stalls: List[StallEvent] = []
-        self._pending_deadlocks: List[Deadlock] = []
-        self._replaced_agents: Set[str] = set()
-        self._agent_nudge_counts: Dict[str, int] = {}
+        self._recovery_history: list[RecoveryEvent] = []
+        self._pending_stalls: list[StallEvent] = []
+        self._pending_deadlocks: list[Deadlock] = []
+        self._replaced_agents: set[str] = set()
+        self._agent_nudge_counts: dict[str, int] = {}
         self._event_counter = 0
         self._lock = asyncio.Lock()
 
-    async def handle_stall(self, stall: StallEvent) -> Optional[RecoveryEvent]:
+    async def handle_stall(self, stall: StallEvent) -> RecoveryEvent | None:
         """
         Handle a detected stall event.
 
@@ -174,7 +169,7 @@ class RecoveryCoordinator:
             trigger_id=f"stall-{stall.agent_id}-{stall.round_number}",
         )
 
-    async def handle_deadlock(self, deadlock: Deadlock) -> Optional[RecoveryEvent]:
+    async def handle_deadlock(self, deadlock: Deadlock) -> RecoveryEvent | None:
         """
         Handle a detected deadlock.
 
@@ -194,7 +189,7 @@ class RecoveryCoordinator:
             trigger_id=deadlock.id,
         )
 
-    async def handle_agent_failure(self, agent_id: str, error: str) -> Optional[RecoveryEvent]:
+    async def handle_agent_failure(self, agent_id: str, error: str) -> RecoveryEvent | None:
         """
         Handle an agent failure.
 
@@ -367,7 +362,7 @@ class RecoveryCoordinator:
         decision: RecoveryDecision,
         trigger_type: str,
         trigger_id: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> RecoveryEvent:
         """Execute a recovery decision."""
         async with self._lock:
@@ -466,7 +461,7 @@ class RecoveryCoordinator:
 
     def _create_protocol_message(
         self, decision: RecoveryDecision, event: RecoveryEvent
-    ) -> Optional[ProtocolMessage]:
+    ) -> ProtocolMessage | None:
         """Create a protocol message for the recovery action."""
         if decision.action == RecoveryAction.REPLACE:
             return agent_event_message(
@@ -508,7 +503,7 @@ class RecoveryCoordinator:
         self._event_counter += 1
         return f"recovery-{self.debate_id[:8]}-{self._event_counter:04d}"
 
-    async def process_pending_issues(self) -> List[RecoveryEvent]:
+    async def process_pending_issues(self) -> list[RecoveryEvent]:
         """
         Process all pending stalls and deadlocks.
 
@@ -570,7 +565,7 @@ class RecoveryCoordinator:
 
     def get_recovery_history(
         self, limit: int = 100, include_pending: bool = True
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get recovery action history."""
         events = self._recovery_history
         if not include_pending:
@@ -592,7 +587,7 @@ class RecoveryCoordinator:
             for e in events[-limit:]
         ]
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get coordinator statistics."""
         return {
             "debate_id": self.debate_id,
@@ -613,12 +608,11 @@ class RecoveryCoordinator:
             },
         }
 
-
 # Factory function for integrated witness + recovery setup
 async def create_debate_observer(
     debate_id: str,
-    agents: List[str],
-    replacement_pool: Optional[List[str]] = None,
+    agents: list[str],
+    replacement_pool: Optional[list[str]] = None,
     on_protocol_message: Optional[Callable[[ProtocolMessage], Any]] = None,
 ) -> tuple[DebateWitness, DeadlockDetector, RecoveryCoordinator]:
     """

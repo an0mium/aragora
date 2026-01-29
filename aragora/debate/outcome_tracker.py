@@ -27,7 +27,6 @@ import sqlite3
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.config import DB_TIMEOUT_SECONDS
 
@@ -35,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 # Default database path
 DEFAULT_OUTCOMES_DB = Path(".nomic/outcomes.db")
-
 
 @dataclass
 class ConsensusOutcome:
@@ -49,8 +47,8 @@ class ConsensusOutcome:
     tests_passed: int = 0
     tests_failed: int = 0
     rollback_triggered: bool = False
-    time_to_failure: Optional[float] = None  # Seconds until first error
-    failure_reason: Optional[str] = None
+    time_to_failure: float | None = None  # Seconds until first error
+    failure_reason: str | None = None
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
     # Additional context
@@ -71,7 +69,6 @@ class ConsensusOutcome:
         d = dict(row)
         d["agents_participating"] = json.loads(d.get("agents_participating", "[]"))
         return cls(**d)
-
 
 @dataclass
 class CalibrationBucket:
@@ -96,7 +93,6 @@ class CalibrationBucket:
     def calibration_error(self) -> float:
         """How miscalibrated this bucket is (positive = overconfident)."""
         return self.expected_rate - self.success_rate
-
 
 class OutcomeTracker:
     """Tracks consensus decision outcomes for calibration and learning.
@@ -199,7 +195,7 @@ class OutcomeTracker:
             f"confidence={outcome.consensus_confidence:.2f}"
         )
 
-    def get_outcome(self, debate_id: str) -> Optional[ConsensusOutcome]:
+    def get_outcome(self, debate_id: str) -> ConsensusOutcome | None:
         """Get outcome by debate ID."""
         with self._db.connection() as conn:
             conn.row_factory = sqlite3.Row

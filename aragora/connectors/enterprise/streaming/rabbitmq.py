@@ -31,7 +31,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Callable, Dict, Optional
+from typing import Any, AsyncIterator, Callable
 
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import (
@@ -42,7 +42,6 @@ from aragora.connectors.enterprise.base import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class RabbitMQConfig:
@@ -66,22 +65,21 @@ class RabbitMQConfig:
     prefetch_count: int = 10  # QoS prefetch
 
     # Dead letter queue
-    dead_letter_exchange: Optional[str] = None
-    dead_letter_routing_key: Optional[str] = None
-    message_ttl: Optional[int] = None  # milliseconds
+    dead_letter_exchange: str | None = None
+    dead_letter_routing_key: str | None = None
+    message_ttl: int | None = None  # milliseconds
 
     # SSL/TLS
     ssl: bool = False
-    ssl_cafile: Optional[str] = None
-    ssl_certfile: Optional[str] = None
-    ssl_keyfile: Optional[str] = None
+    ssl_cafile: str | None = None
+    ssl_certfile: str | None = None
+    ssl_keyfile: str | None = None
 
     # Processing
     batch_size: int = 100
     auto_ack: bool = False  # Manual ack for reliability
     requeue_on_error: bool = True
-    message_handler: Optional[Callable] = None
-
+    message_handler: Callable | None = None
 
 @dataclass
 class RabbitMQMessage:
@@ -91,13 +89,13 @@ class RabbitMQMessage:
     routing_key: str
     delivery_tag: int
     body: Any  # Deserialized payload
-    headers: Dict[str, str]
+    headers: dict[str, str]
     timestamp: datetime
-    message_id: Optional[str] = None
-    correlation_id: Optional[str] = None
-    reply_to: Optional[str] = None
-    expiration: Optional[str] = None
-    priority: Optional[int] = None
+    message_id: str | None = None
+    correlation_id: str | None = None
+    reply_to: str | None = None
+    expiration: str | None = None
+    priority: int | None = None
 
     # Internal reference for ack/nack
     _channel: Any = field(default=None, repr=False)
@@ -152,7 +150,6 @@ class RabbitMQMessage:
                 "priority": self.priority,
             },
         )
-
 
 class RabbitMQConnector(EnterpriseConnector):
     """
@@ -286,7 +283,7 @@ class RabbitMQConnector(EnterpriseConnector):
         """Stop consuming messages."""
         await self.disconnect()
 
-    async def consume(self, max_messages: Optional[int] = None) -> AsyncIterator[RabbitMQMessage]:
+    async def consume(self, max_messages: int | None = None) -> AsyncIterator[RabbitMQMessage]:
         """
         Consume messages from RabbitMQ queue.
 
@@ -397,7 +394,7 @@ class RabbitMQConnector(EnterpriseConnector):
         self,
         body: Any,
         routing_key: str = None,
-        headers: Dict[str, str] = None,
+        headers: dict[str, str] = None,
         message_id: str = None,
         correlation_id: str = None,
         reply_to: str = None,
@@ -467,7 +464,7 @@ class RabbitMQConnector(EnterpriseConnector):
             logger.error(f"[RabbitMQ] Failed to publish message: {e}")
             return False
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get connector statistics."""
         return {
             "connector_id": self.connector_id,
@@ -508,7 +505,7 @@ class RabbitMQConnector(EnterpriseConnector):
         logger.warning("[RabbitMQ] Search not supported for message queue connector")
         return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch is not supported for message queue connectors.
 
@@ -535,6 +532,5 @@ class RabbitMQConnector(EnterpriseConnector):
         """
         async for item in self.sync(batch_size=batch_size):
             yield item
-
 
 __all__ = ["RabbitMQConnector", "RabbitMQConfig", "RabbitMQMessage"]

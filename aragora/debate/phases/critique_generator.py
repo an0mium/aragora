@@ -4,11 +4,12 @@ Critique generation module for debate rounds.
 Handles parallel critique generation with bounded concurrency.
 This module is extracted from debate_rounds.py for better modularity.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES
 from aragora.debate.complexity_governor import get_complexity_governor
@@ -21,7 +22,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class CritiqueResult:
     """Result of a single critique generation attempt."""
@@ -29,13 +29,12 @@ class CritiqueResult:
     critic: "Agent"
     target_agent: str
     critique: Optional["Critique"]
-    error: Optional[Exception]
+    error: Exception | None
 
     @property
     def success(self) -> bool:
         """True if critique was generated successfully."""
         return self.critique is not None and self.error is None
-
 
 def _is_effectively_empty_critique(critique: "Critique") -> bool:
     """Return True if critique only contains placeholder/empty content."""
@@ -52,7 +51,6 @@ def _is_effectively_empty_critique(critique: "Critique") -> bool:
         ):
             return not suggestions
     return False
-
 
 class CritiqueGenerator:
     """
@@ -77,14 +75,14 @@ class CritiqueGenerator:
 
     def __init__(
         self,
-        critique_with_agent: Optional[Callable] = None,
-        with_timeout: Optional[Callable] = None,
-        circuit_breaker: Optional[Any] = None,
-        hooks: Optional[dict] = None,
-        recorder: Optional[Any] = None,
-        select_critics_for_proposal: Optional[Callable] = None,
-        notify_spectator: Optional[Callable] = None,
-        heartbeat_callback: Optional[Callable] = None,
+        critique_with_agent: Callable | None = None,
+        with_timeout: Callable | None = None,
+        circuit_breaker: Any | None = None,
+        hooks: dict | None = None,
+        recorder: Any | None = None,
+        select_critics_for_proposal: Callable | None = None,
+        notify_spectator: Callable | None = None,
+        heartbeat_callback: Callable | None = None,
         max_concurrent: int = MAX_CONCURRENT_CRITIQUES,
         # Molecule tracking for work unit management (Gastown pattern)
         molecule_tracker: Optional["MoleculeTracker"] = None,
@@ -129,11 +127,11 @@ class CritiqueGenerator:
     async def execute_critique_phase(
         self,
         ctx: "DebateContext",
-        critics: List["Agent"],
+        critics: list["Agent"],
         round_num: int,
-        partial_messages: List["Message"],
-        partial_critiques: List["Critique"],
-    ) -> Tuple[List["Message"], List["Critique"]]:
+        partial_messages: list["Message"],
+        partial_critiques: list["Critique"],
+    ) -> tuple[list["Message"], list["Critique"]]:
         """
         Execute critique phase with parallel generation.
 
@@ -147,12 +145,11 @@ class CritiqueGenerator:
         Returns:
             Tuple of (new_messages, new_critiques) generated
         """
-        from aragora.core import Critique, Message
 
         result = ctx.result
         proposals = ctx.proposals
-        new_messages: List[Message] = []
-        new_critiques: List[Critique] = []
+        new_messages: list[Message] = []
+        new_critiques: list[Critique] = []
 
         if not self._critique_with_agent:
             logger.warning("No critique_with_agent callback, skipping critiques")
@@ -323,10 +320,10 @@ class CritiqueGenerator:
         ctx: "DebateContext",
         round_num: int,
         result: Any,
-        new_messages: List["Message"],
-        new_critiques: List["Critique"],
-        partial_messages: List["Message"],
-        partial_critiques: List["Critique"],
+        new_messages: list["Message"],
+        new_critiques: list["Critique"],
+        partial_messages: list["Message"],
+        partial_critiques: list["Critique"],
     ) -> Optional["Critique"]:
         """Process a single critique result."""
         from aragora.core import Critique, Message

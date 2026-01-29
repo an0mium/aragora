@@ -12,6 +12,7 @@ Features:
 - Configurable confidence thresholds
 - Automatic path management
 """
+from __future__ import annotations
 
 __all__ = [
     "DebateTrainingConfig",
@@ -24,10 +25,9 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DebateTrainingConfig:
@@ -52,7 +52,6 @@ class DebateTrainingConfig:
     include_debate_id: bool = True
     include_domain: bool = True
 
-
 class DebateTrainingExporter:
     """
     Export training data from completed debates.
@@ -71,7 +70,7 @@ class DebateTrainingExporter:
         print(f"Exported {stats['sft_count']} SFT records")
     """
 
-    def __init__(self, config: Optional[DebateTrainingConfig] = None):
+    def __init__(self, config: DebateTrainingConfig | None = None):
         self.config = config or DebateTrainingConfig()
         self._output_dir = Path(self.config.output_dir)
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -86,7 +85,7 @@ class DebateTrainingExporter:
         result: Any,
         debate_id: str = "",
         domain: str = "",
-        agents: Optional[list[Any]] = None,
+        agents: list[Any] | None = None,
     ) -> dict[str, int]:
         """
         Export training data from a completed debate.
@@ -167,8 +166,8 @@ class DebateTrainingExporter:
         result: Any,
         debate_id: str,
         domain: str,
-        agents: Optional[list[Any]],
-    ) -> Optional[dict[str, Any]]:
+        agents: list[Any] | None,
+    ) -> dict[str, Any] | None:
         """Create an SFT training record from debate result."""
         task = getattr(result, "task", "")
         final_answer = getattr(result, "final_answer", "")
@@ -210,7 +209,7 @@ class DebateTrainingExporter:
         result: Any,
         debate_id: str,
         domain: str,
-        agents: Optional[list[Any]],
+        agents: list[Any] | None,
     ) -> list[dict[str, Any]]:
         """Create DPO preference records from debate result.
 
@@ -297,7 +296,6 @@ class DebateTrainingExporter:
         self._sft_count = 0
         self._dpo_count = 0
         self._skipped_count = 0
-
 
 # Convenience function for one-off exports
 def export_debate_to_training(

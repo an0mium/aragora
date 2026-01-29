@@ -30,7 +30,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable
 
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import (
@@ -42,24 +42,23 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class KafkaConfig:
     """Configuration for Kafka connector."""
 
     # Connection
     bootstrap_servers: str = "localhost:9092"
-    topics: List[str] = field(default_factory=lambda: ["aragora-events"])
+    topics: list[str] = field(default_factory=lambda: ["aragora-events"])
     group_id: str = "aragora-consumer"
 
     # Authentication
     security_protocol: str = "PLAINTEXT"  # PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL
-    sasl_mechanism: Optional[str] = None  # PLAIN, GSSAPI, SCRAM-SHA-256, etc.
-    sasl_username: Optional[str] = None
-    sasl_password: Optional[str] = None
-    ssl_cafile: Optional[str] = None
-    ssl_certfile: Optional[str] = None
-    ssl_keyfile: Optional[str] = None
+    sasl_mechanism: str | None = None  # PLAIN, GSSAPI, SCRAM-SHA-256, etc.
+    sasl_username: str | None = None
+    sasl_password: str | None = None
+    ssl_cafile: str | None = None
+    ssl_certfile: str | None = None
+    ssl_keyfile: str | None = None
 
     # Consumer settings
     auto_offset_reset: str = "earliest"  # earliest, latest, none
@@ -70,14 +69,13 @@ class KafkaConfig:
     heartbeat_interval_ms: int = 10000
 
     # Schema registry (optional)
-    schema_registry_url: Optional[str] = None
-    schema_registry_auth: Optional[tuple] = None  # (username, password)
+    schema_registry_url: str | None = None
+    schema_registry_auth: tuple | None = None  # (username, password)
 
     # Processing
     batch_size: int = 100
     poll_timeout_seconds: float = 1.0
-    message_handler: Optional[Callable] = None  # Custom message processor
-
+    message_handler: Callable | None = None  # Custom message processor
 
 @dataclass
 class KafkaMessage:
@@ -86,9 +84,9 @@ class KafkaMessage:
     topic: str
     partition: int
     offset: int
-    key: Optional[str]
+    key: str | None
     value: Any  # Deserialized payload
-    headers: Dict[str, str]
+    headers: dict[str, str]
     timestamp: datetime
 
     def to_sync_item(self) -> SyncItem:
@@ -125,7 +123,6 @@ class KafkaMessage:
             },
         )
 
-
 class KafkaConnector(EnterpriseConnector):
     """
     Enterprise connector for Apache Kafka.
@@ -148,7 +145,7 @@ class KafkaConnector(EnterpriseConnector):
         """
         super().__init__(connector_id="kafka", **kwargs)
         self.config = config
-        self._consumer: Optional[Any] = None
+        self._consumer: Any | None = None
         self._running = False
         self._consumed_count = 0
         self._error_count = 0
@@ -226,7 +223,7 @@ class KafkaConnector(EnterpriseConnector):
         """Stop consuming messages."""
         await self.disconnect()
 
-    async def consume(self, max_messages: Optional[int] = None) -> AsyncIterator[KafkaMessage]:
+    async def consume(self, max_messages: int | None = None) -> AsyncIterator[KafkaMessage]:
         """
         Consume messages from Kafka topics.
 
@@ -315,7 +312,7 @@ class KafkaConnector(EnterpriseConnector):
         async for msg in self.consume(max_messages=batch_size):
             yield msg.to_sync_item()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get connector statistics."""
         return {
             "connector_id": self.connector_id,
@@ -354,7 +351,7 @@ class KafkaConnector(EnterpriseConnector):
         logger.warning("[Kafka] Search not supported for streaming connector")
         return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch is not supported for streaming connectors.
 
@@ -381,6 +378,5 @@ class KafkaConnector(EnterpriseConnector):
         """
         async for item in self.sync(batch_size=batch_size):
             yield item
-
 
 __all__ = ["KafkaConnector", "KafkaConfig", "KafkaMessage"]

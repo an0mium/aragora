@@ -14,7 +14,7 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
 
@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = ["TeamsDock"]
-
 
 class TeamsDock(ChannelDock):
     """
@@ -43,7 +42,7 @@ class TeamsDock(ChannelDock):
         | ChannelCapability.CARDS
     )
 
-    def __init__(self, config: Optional[dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize Teams dock.
 
@@ -51,7 +50,7 @@ class TeamsDock(ChannelDock):
             webhook_url: Default webhook URL for sending messages
         """
         super().__init__(config)
-        self._default_webhook: Optional[str] = None
+        self._default_webhook: str | None = None
 
     async def initialize(self) -> bool:
         """Initialize the Teams dock."""
@@ -192,7 +191,7 @@ class TeamsDock(ChannelDock):
         self,
         channel_id: str,
         result: dict[str, Any],
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         """Send a debate result to Teams with rich formatting."""

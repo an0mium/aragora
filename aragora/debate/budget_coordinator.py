@@ -7,7 +7,7 @@ organizations stay within their allocated spending limits.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aragora.logging_config import get_logger
 
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from aragora.core import DebateResult
 
 logger = get_logger(__name__)
-
 
 class BudgetCoordinator:
     """Coordinates budget checks and cost recording for debates.
@@ -37,8 +36,8 @@ class BudgetCoordinator:
 
     def __init__(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
     ) -> None:
         """Initialize budget coordinator.
 
@@ -89,7 +88,7 @@ class BudgetCoordinator:
             # Budget manager not available - proceed without check
             logger.debug("Budget manager not available, skipping pre-debate check")
 
-    def check_budget_mid_debate(self, debate_id: str, round_num: int) -> Tuple[bool, str]:
+    def check_budget_mid_debate(self, debate_id: str, round_num: int) -> tuple[bool, str]:
         """Check if organization has sufficient budget to continue debate mid-execution.
 
         Unlike check_budget_before_debate(), this method returns a tuple instead of
@@ -147,7 +146,7 @@ class BudgetCoordinator:
         self,
         debate_id: str,
         result: "DebateResult",
-        extensions: Optional[Any] = None,
+        extensions: Any | None = None,
     ) -> None:
         """Record actual debate cost against organization budget.
 
@@ -185,7 +184,7 @@ class BudgetCoordinator:
     def _calculate_actual_cost(
         self,
         result: "DebateResult",
-        extensions: Optional[Any] = None,
+        extensions: Any | None = None,
     ) -> float:
         """Calculate actual cost from debate result and extensions.
 

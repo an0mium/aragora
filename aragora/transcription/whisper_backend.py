@@ -30,10 +30,9 @@ import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -58,11 +57,9 @@ DEFAULT_MODEL = "base"
 MAX_AUDIO_DURATION_SECONDS = 7200  # 2 hours
 MAX_FILE_SIZE_MB = 500
 
-
 # =============================================================================
 # Data Classes
 # =============================================================================
-
 
 @dataclass
 class TranscriptionSegment:
@@ -72,33 +69,32 @@ class TranscriptionSegment:
     start: float  # seconds
     end: float  # seconds
     text: str
-    tokens: Optional[List[int]] = None
-    temperature: Optional[float] = None
-    avg_logprob: Optional[float] = None
-    compression_ratio: Optional[float] = None
-    no_speech_prob: Optional[float] = None
+    tokens: Optional[list[int]] = None
+    temperature: float | None = None
+    avg_logprob: float | None = None
+    compression_ratio: float | None = None
+    no_speech_prob: float | None = None
 
     @property
     def duration(self) -> float:
         return self.end - self.start
-
 
 @dataclass
 class TranscriptionResult:
     """Result of a transcription operation."""
 
     text: str
-    segments: List[TranscriptionSegment]
+    segments: list[TranscriptionSegment]
     language: str
     duration: float  # total audio duration in seconds
     backend: str  # which backend was used
 
     # Optional metadata
-    model: Optional[str] = None
-    word_timestamps: Optional[List[Dict[str, Any]]] = None
-    processing_time: Optional[float] = None
+    model: str | None = None
+    word_timestamps: Optional[list[dict[str, Any]]] = None
+    processing_time: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "text": self.text,
             "segments": [
@@ -117,18 +113,17 @@ class TranscriptionResult:
             "processing_time": self.processing_time,
         }
 
-
 @dataclass
 class TranscriptionConfig:
     """Configuration for transcription backends."""
 
     # Backend priority (first available is used)
-    backend_priority: List[str] = field(
+    backend_priority: list[str] = field(
         default_factory=lambda: ["openai", "faster-whisper", "whisper-cpp"]
     )
 
     # OpenAI Whisper API settings
-    openai_api_key: Optional[str] = None
+    openai_api_key: str | None = None
     openai_model: str = "whisper-1"
 
     # Local whisper settings
@@ -137,7 +132,7 @@ class TranscriptionConfig:
     whisper_compute_type: str = "auto"  # float16, int8, int8_float16
 
     # General settings
-    language: Optional[str] = None  # Auto-detect if None
+    language: str | None = None  # Auto-detect if None
     enable_timestamps: bool = True
     enable_word_timestamps: bool = False
     max_duration_seconds: int = MAX_AUDIO_DURATION_SECONDS
@@ -166,18 +161,16 @@ class TranscriptionConfig:
             == "true",
         )
 
-
 # =============================================================================
 # Abstract Backend
 # =============================================================================
-
 
 class TranscriptionBackend(ABC):
     """Abstract base class for transcription backends."""
 
     name: str = "base"
 
-    def __init__(self, config: Optional[TranscriptionConfig] = None):
+    def __init__(self, config: TranscriptionConfig | None = None):
         self.config = config or TranscriptionConfig.from_env()
 
     @abstractmethod
@@ -188,8 +181,8 @@ class TranscriptionBackend(ABC):
     @abstractmethod
     async def transcribe(
         self,
-        audio_path: Union[str, Path],
-        language: Optional[str] = None,
+        audio_path: str | Path,
+        language: str | None = None,
     ) -> TranscriptionResult:
         """Transcribe an audio file.
 
@@ -217,20 +210,18 @@ class TranscriptionBackend(ABC):
                 f"File too large: {size_mb:.1f}MB (max: {self.config.max_file_size_mb}MB)"
             )
 
-
 # =============================================================================
 # OpenAI Whisper API Backend
 # =============================================================================
-
 
 class OpenAIWhisperBackend(TranscriptionBackend):
     """OpenAI Whisper API backend (cloud-based)."""
 
     name = "openai"
 
-    def __init__(self, config: Optional[TranscriptionConfig] = None, model: Optional[str] = None):
+    def __init__(self, config: TranscriptionConfig | None = None, model: str | None = None):
         super().__init__(config)
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
         # Allow model override via constructor
         if model:
             self.config.openai_model = model
@@ -271,8 +262,8 @@ class OpenAIWhisperBackend(TranscriptionBackend):
 
     async def transcribe(
         self,
-        audio_path: Union[str, Path],
-        language: Optional[str] = None,
+        audio_path: str | Path,
+        language: str | None = None,
     ) -> TranscriptionResult:
         """Transcribe using OpenAI Whisper API."""
         import time
@@ -332,18 +323,16 @@ class OpenAIWhisperBackend(TranscriptionBackend):
             processing_time=processing_time,
         )
 
-
 # =============================================================================
 # Faster-Whisper Backend (Local)
 # =============================================================================
-
 
 class FasterWhisperBackend(TranscriptionBackend):
     """Local transcription using faster-whisper (CTranslate2 optimized)."""
 
     name = "faster-whisper"
 
-    def __init__(self, config: Optional[TranscriptionConfig] = None):
+    def __init__(self, config: TranscriptionConfig | None = None):
         super().__init__(config)
         self._model = None
 
@@ -381,8 +370,8 @@ class FasterWhisperBackend(TranscriptionBackend):
 
     async def transcribe(
         self,
-        audio_path: Union[str, Path],
-        language: Optional[str] = None,
+        audio_path: str | Path,
+        language: str | None = None,
     ) -> TranscriptionResult:
         """Transcribe using faster-whisper."""
         import time
@@ -436,11 +425,9 @@ class FasterWhisperBackend(TranscriptionBackend):
             processing_time=processing_time,
         )
 
-
 # =============================================================================
 # Whisper.cpp Backend (Local C++)
 # =============================================================================
-
 
 class WhisperCppBackend(TranscriptionBackend):
     """Local transcription using whisper.cpp."""
@@ -454,8 +441,8 @@ class WhisperCppBackend(TranscriptionBackend):
 
     async def transcribe(
         self,
-        audio_path: Union[str, Path],
-        language: Optional[str] = None,
+        audio_path: str | Path,
+        language: str | None = None,
     ) -> TranscriptionResult:
         """Transcribe using whisper.cpp."""
         import json
@@ -562,23 +549,21 @@ class WhisperCppBackend(TranscriptionBackend):
         )
         await process.communicate()
 
-
 # =============================================================================
 # Backend Registry and Factory
 # =============================================================================
 
 # Registry of available backends
-_BACKENDS: Dict[str, type[TranscriptionBackend]] = {
+_BACKENDS: dict[str, type[TranscriptionBackend]] = {
     "openai": OpenAIWhisperBackend,
     "faster-whisper": FasterWhisperBackend,
     "whisper-cpp": WhisperCppBackend,
 }
 
 # Singleton instances
-_backend_instances: Dict[str, TranscriptionBackend] = {}
+_backend_instances: dict[str, TranscriptionBackend] = {}
 
-
-def _normalize_backend_name(name: str) -> Optional[str]:
+def _normalize_backend_name(name: str) -> str | None:
     """Normalize backend name aliases.
 
     Returns None for 'auto' to indicate auto-selection should be used.
@@ -597,8 +582,7 @@ def _normalize_backend_name(name: str) -> Optional[str]:
     }
     return aliases.get(lower_name, lower_name)
 
-
-def get_available_backends() -> List[str]:
+def get_available_backends() -> list[str]:
     """Get list of available transcription backends."""
     config = TranscriptionConfig.from_env()
     available = []
@@ -608,10 +592,9 @@ def get_available_backends() -> List[str]:
             available.append(name)
     return available
 
-
 def get_transcription_backend(
-    name: Optional[str] = None,
-    config: Optional[TranscriptionConfig] = None,
+    name: str | None = None,
+    config: TranscriptionConfig | None = None,
 ) -> TranscriptionBackend:
     """Get a transcription backend by name or auto-select best available.
 
@@ -668,16 +651,14 @@ def get_transcription_backend(
     # Fallback to first available
     return _BACKENDS[available[0]](config)
 
-
 # =============================================================================
 # Convenience Functions
 # =============================================================================
 
-
 async def transcribe_audio(
-    audio_path: Union[str, Path],
-    language: Optional[str] = None,
-    backend: Optional[str] = None,
+    audio_path: str | Path,
+    language: str | None = None,
+    backend: str | None = None,
 ) -> TranscriptionResult:
     """Convenience function to transcribe audio.
 
@@ -692,11 +673,10 @@ async def transcribe_audio(
     transcriber = get_transcription_backend(backend)
     return await transcriber.transcribe(audio_path, language)
 
-
 async def transcribe_video(
-    video_path: Union[str, Path],
-    language: Optional[str] = None,
-    backend: Optional[str] = None,
+    video_path: str | Path,
+    language: str | None = None,
+    backend: str | None = None,
 ) -> TranscriptionResult:
     """Transcribe audio from a video file.
 

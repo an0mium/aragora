@@ -40,6 +40,7 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     HandlerResult,
+    ServerContext,
     error_response,
     get_int_param,
     json_response,
@@ -52,7 +53,6 @@ from .utils.rate_limit import rate_limit
 from aragora.audit.unified import audit_admin, audit_security
 
 logger = logging.getLogger(__name__)
-
 
 class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
     """Handler for nomic loop state, monitoring, and control endpoints.
@@ -85,13 +85,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         "/api/modes",
     ]
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize nomic handler.
 
         Args:
             server_context: Server context with shared resources
         """
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._stream: Optional["NomicLoopStreamServer"] = None
 
     def set_stream_server(self, stream: "NomicLoopStreamServer") -> None:
@@ -133,7 +133,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         if not method:
             return
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for attempt in range(max_retries):
             try:
                 _run_async(method(*args, **kwargs))
@@ -164,7 +164,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
 
     @rate_limit(rpm=30)
     @require_permission("nomic:read", handler_arg=2)
-    async def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:  # type: ignore[override]
+    async def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:  # type: ignore[override]
         """Route nomic endpoint requests.
 
         Requires nomic:read permission (enforced by @require_permission decorator).
@@ -612,7 +612,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
     @require_permission("nomic:admin", handler_arg=2)
     async def handle_post(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests for control operations.
 
         Requires nomic:admin permission (enforced by @require_permission decorator).

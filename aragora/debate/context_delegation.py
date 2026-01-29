@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ContextDelegator:
     """Handles context gathering and caching delegations for Arena.
 
@@ -91,11 +90,11 @@ class ContextDelegator:
             self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
         return result
 
-    async def gather_aragora_context(self, task: str) -> Optional[str]:
+    async def gather_aragora_context(self, task: str) -> str | None:
         """Gather Aragora-specific documentation context if relevant."""
         return await self.context_gatherer.gather_aragora_context(task)
 
-    async def gather_evidence_context(self, task: str) -> Optional[str]:
+    async def gather_evidence_context(self, task: str) -> str | None:
         """Gather evidence from web, GitHub, and local docs connectors."""
         result = await self.context_gatherer.gather_evidence_context(task)
         # Update cache and evidence grounder
@@ -105,7 +104,7 @@ class ContextDelegator:
             self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
         return result
 
-    async def gather_trending_context(self) -> Optional[str]:
+    async def gather_trending_context(self) -> str | None:
         """Gather pulse/trending context from social platforms."""
         return await self.context_gatherer.gather_trending_context()
 
@@ -163,6 +162,5 @@ class ContextDelegator:
         if not self.memory_manager:
             return ""
         return self.memory_manager.get_successful_patterns(limit)
-
 
 __all__ = ["ContextDelegator"]

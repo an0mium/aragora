@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -52,16 +52,15 @@ try:
 except ImportError:
     _TRACING_AVAILABLE = False
 
-    def get_trace_id() -> Optional[str]:
+    def get_trace_id() -> str | None:
         return None
 
-    def get_span_id() -> Optional[str]:
+    def get_span_id() -> str | None:
         return None
 
     CUSTOM_TRACE_ID_HEADER = "X-Trace-ID"
     SPAN_ID_HEADER = "X-Span-ID"
     TRACEPARENT_HEADER = "traceparent"
-
 
 def _build_trace_headers() -> dict[str, str]:
     """Build trace context headers for outgoing webhook requests.
@@ -94,13 +93,11 @@ def _build_trace_headers() -> dict[str, str]:
 
     return headers
 
-
 # Default database path
 _DEFAULT_DB_PATH = os.environ.get(
     "ARAGORA_WEBHOOK_DB",
     os.path.join(os.environ.get("ARAGORA_DATA_DIR", ".nomic"), "webhook_delivery.db"),
 )
-
 
 class DeliveryStatus(str, Enum):
     """Webhook delivery status."""
@@ -112,7 +109,6 @@ class DeliveryStatus(str, Enum):
     RETRYING = "retrying"
     DEAD_LETTERED = "dead_lettered"
 
-
 @dataclass
 class WebhookDelivery:
     """Represents a webhook delivery attempt."""
@@ -120,20 +116,20 @@ class WebhookDelivery:
     delivery_id: str
     webhook_id: str
     event_type: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     status: DeliveryStatus = DeliveryStatus.PENDING
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     attempts: int = 0
     max_attempts: int = 5
-    next_retry_at: Optional[datetime] = None
-    last_error: Optional[str] = None
-    last_status_code: Optional[int] = None
-    delivered_at: Optional[datetime] = None
-    dead_lettered_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    next_retry_at: datetime | None = None
+    last_error: str | None = None
+    last_status_code: int | None = None
+    delivered_at: datetime | None = None
+    dead_lettered_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "delivery_id": self.delivery_id,
@@ -153,7 +149,6 @@ class WebhookDelivery:
             ),
         }
 
-
 @dataclass
 class DeliveryMetrics:
     """Metrics for webhook delivery."""
@@ -164,7 +159,7 @@ class DeliveryMetrics:
     dead_lettered: int = 0
     retries: int = 0
     total_latency_ms: float = 0.0
-    endpoints_by_status: Dict[str, int] = field(default_factory=dict)
+    endpoints_by_status: dict[str, int] = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:
@@ -180,7 +175,7 @@ class DeliveryMetrics:
             return 0.0
         return self.total_latency_ms / self.successful_deliveries
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_deliveries": self.total_deliveries,
@@ -191,7 +186,6 @@ class DeliveryMetrics:
             "success_rate": round(self.success_rate, 2),
             "avg_latency_ms": round(self.avg_latency_ms, 2),
         }
-
 
 class DeliveryPersistence:
     """SQLite persistence for webhook delivery queues.
@@ -261,7 +255,7 @@ class DeliveryPersistence:
             logger.info(f"Webhook delivery persistence initialized at {self._db_path}")
 
     def save_delivery(
-        self, delivery: WebhookDelivery, url: str, secret: Optional[str] = None
+        self, delivery: WebhookDelivery, url: str, secret: str | None = None
     ) -> None:
         """Save or update a delivery record."""
         conn = self._get_connection()
@@ -309,7 +303,7 @@ class DeliveryPersistence:
         conn.execute("DELETE FROM webhook_deliveries WHERE delivery_id = ?", (delivery_id,))
         conn.commit()
 
-    def load_pending_retries(self) -> List[tuple]:
+    def load_pending_retries(self) -> list[tuple]:
         """Load all deliveries that need retry (for recovery on startup)."""
         conn = self._get_connection()
         cursor = conn.execute("""
@@ -319,7 +313,7 @@ class DeliveryPersistence:
         """)
         return cursor.fetchall()
 
-    def load_dead_letter_queue(self, limit: int = 100) -> List[tuple]:
+    def load_dead_letter_queue(self, limit: int = 100) -> list[tuple]:
         """Load dead-lettered deliveries."""
         conn = self._get_connection()
         cursor = conn.execute(
@@ -362,7 +356,7 @@ class DeliveryPersistence:
         )
         return delivery, row["url"], row["secret"]
 
-    def get_metrics_from_db(self) -> Dict[str, int]:
+    def get_metrics_from_db(self) -> dict[str, int]:
         """Get aggregate metrics from database."""
         conn = self._get_connection()
         cursor = conn.execute("""
@@ -392,7 +386,6 @@ class DeliveryPersistence:
             self._local.conn.close()
             self._local.conn = None
 
-
 class WebhookDeliveryManager:
     """
     Manages webhook delivery with reliability guarantees.
@@ -413,7 +406,7 @@ class WebhookDeliveryManager:
         max_delay_seconds: float = 300.0,
         timeout_seconds: float = 30.0,
         circuit_breaker_threshold: int = 5,
-        db_path: Optional[str] = None,
+        db_path: str | None = None,
         enable_persistence: bool = True,
     ):
         """
@@ -435,32 +428,32 @@ class WebhookDeliveryManager:
         self._circuit_threshold = circuit_breaker_threshold
 
         # In-memory caches (backed by SQLite when persistence enabled)
-        self._pending: Dict[str, WebhookDelivery] = {}
-        self._retry_queue: Dict[str, WebhookDelivery] = {}
-        self._dead_letter_queue: Dict[str, WebhookDelivery] = {}
-        self._delivered: Dict[str, WebhookDelivery] = {}
+        self._pending: dict[str, WebhookDelivery] = {}
+        self._retry_queue: dict[str, WebhookDelivery] = {}
+        self._dead_letter_queue: dict[str, WebhookDelivery] = {}
+        self._delivered: dict[str, WebhookDelivery] = {}
 
         # URL/secret mapping for retries
-        self._delivery_urls: Dict[str, str] = {}
-        self._delivery_secrets: Dict[str, Optional[str]] = {}
+        self._delivery_urls: dict[str, str] = {}
+        self._delivery_secrets: dict[str, str | None] = {}
 
         # Circuit breaker state per endpoint
-        self._circuit_failures: Dict[str, int] = {}
-        self._circuit_open_until: Dict[str, datetime] = {}
+        self._circuit_failures: dict[str, int] = {}
+        self._circuit_open_until: dict[str, datetime] = {}
 
         # Metrics
         self._metrics = DeliveryMetrics()
 
         # Background retry processor
-        self._retry_task: Optional[asyncio.Task] = None
+        self._retry_task: asyncio.Task | None = None
         self._running = False
 
         # HTTP sender (can be mocked for testing)
-        self._sender: Optional[Callable] = None
+        self._sender: Callable | None = None
 
         # Persistence layer
         self._enable_persistence = enable_persistence
-        self._persistence: Optional[DeliveryPersistence] = None
+        self._persistence: DeliveryPersistence | None = None
         self._persistence_initialized = False
         if enable_persistence:
             self._persistence = DeliveryPersistence(db_path or _DEFAULT_DB_PATH)
@@ -558,10 +551,10 @@ class WebhookDeliveryManager:
         self,
         webhook_id: str,
         event_type: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         url: str,
-        secret: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        secret: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> WebhookDelivery:
         """
         Deliver a webhook with retry guarantees.
@@ -637,7 +630,7 @@ class WebhookDeliveryManager:
         self,
         delivery: WebhookDelivery,
         url: str,
-        secret: Optional[str],
+        secret: str | None,
     ) -> bool:
         """
         Attempt to deliver the webhook.
@@ -703,8 +696,8 @@ class WebhookDeliveryManager:
     async def _http_send(
         self,
         url: str,
-        payload: Dict[str, Any],
-        headers: Dict[str, str],
+        payload: dict[str, Any],
+        headers: dict[str, str],
     ) -> int:
         """Send HTTP POST request."""
         try:
@@ -734,7 +727,7 @@ class WebhookDeliveryManager:
         self,
         delivery: WebhookDelivery,
         url: str,
-        secret: Optional[str],
+        secret: str | None,
     ) -> None:
         """Schedule delivery for retry with exponential backoff."""
         delivery.status = DeliveryStatus.RETRYING
@@ -883,7 +876,7 @@ class WebhookDeliveryManager:
         if url in self._circuit_open_until:
             del self._circuit_open_until[url]
 
-    async def get_delivery(self, delivery_id: str) -> Optional[WebhookDelivery]:
+    async def get_delivery(self, delivery_id: str) -> WebhookDelivery | None:
         """Get delivery by ID."""
         for queue in [self._pending, self._retry_queue, self._dead_letter_queue, self._delivered]:
             if delivery_id in queue:
@@ -894,7 +887,7 @@ class WebhookDeliveryManager:
         """Get count of pending deliveries."""
         return len(self._pending) + len(self._retry_queue)
 
-    async def get_dead_letter_queue(self, limit: int = 100) -> List[WebhookDelivery]:
+    async def get_dead_letter_queue(self, limit: int = 100) -> list[WebhookDelivery]:
         """Get deliveries in dead-letter queue."""
         # Merge in-memory with persisted (persisted is source of truth)
         if self._persistence:
@@ -941,7 +934,7 @@ class WebhookDeliveryManager:
         logger.info(f"Retrying dead-lettered delivery {delivery_id}")
         return True
 
-    async def get_metrics(self) -> Dict[str, Any]:
+    async def get_metrics(self) -> dict[str, Any]:
         """Get delivery metrics."""
         return {
             **self._metrics.to_dict(),
@@ -952,11 +945,9 @@ class WebhookDeliveryManager:
             "open_circuits": len(self._circuit_open_until),
         }
 
-
 # Global manager instance
-_manager: Optional[WebhookDeliveryManager] = None
+_manager: WebhookDeliveryManager | None = None
 _manager_lock = asyncio.Lock()
-
 
 async def get_delivery_manager() -> WebhookDeliveryManager:
     """Get or create the global delivery manager."""
@@ -967,13 +958,12 @@ async def get_delivery_manager() -> WebhookDeliveryManager:
             await _manager.start()
         return _manager
 
-
 async def deliver_webhook(
     webhook_id: str,
     event_type: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     url: str,
-    secret: Optional[str] = None,
+    secret: str | None = None,
 ) -> WebhookDelivery:
     """
     Deliver a webhook with retry guarantees.
@@ -983,18 +973,15 @@ async def deliver_webhook(
     manager = await get_delivery_manager()
     return await manager.deliver(webhook_id, event_type, payload, url, secret)
 
-
-async def get_webhook_delivery_metrics() -> Dict[str, Any]:
+async def get_webhook_delivery_metrics() -> dict[str, Any]:
     """Get webhook delivery metrics."""
     manager = await get_delivery_manager()
     return await manager.get_metrics()
-
 
 def reset_delivery_manager() -> None:
     """Reset the global manager (for testing)."""
     global _manager
     _manager = None
-
 
 __all__ = [
     "DeliveryStatus",

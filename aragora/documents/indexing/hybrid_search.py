@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Callable, Protocol
 
 from aragora.documents.indexing.weaviate_store import (
     WeaviateStore,
@@ -27,7 +27,6 @@ from aragora.documents.indexing.weaviate_store import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class EmbeddingProvider(Protocol):
     """Protocol for embedding providers."""
@@ -39,7 +38,6 @@ class EmbeddingProvider(Protocol):
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts."""
         ...
-
 
 @dataclass
 class HybridResult:
@@ -74,7 +72,6 @@ class HybridResult:
             "end_page": self.end_page,
         }
 
-
 @dataclass
 class HybridSearchConfig:
     """Configuration for hybrid search."""
@@ -99,7 +96,6 @@ class HybridSearchConfig:
     enable_query_expansion: bool = False
     max_expanded_terms: int = 5
 
-
 class HybridSearcher:
     """
     Hybrid search engine combining BM25 and vector similarity.
@@ -113,7 +109,7 @@ class HybridSearcher:
         self,
         store: WeaviateStore,
         embedder: EmbeddingProvider,
-        config: Optional[HybridSearchConfig] = None,
+        config: HybridSearchConfig | None = None,
     ):
         """
         Initialize hybrid searcher.
@@ -131,8 +127,8 @@ class HybridSearcher:
         self,
         query: str,
         limit: int = 10,
-        document_ids: Optional[list[str]] = None,
-        vector_weight: Optional[float] = None,
+        document_ids: list[str] | None = None,
+        vector_weight: float | None = None,
     ) -> list[HybridResult]:
         """
         Perform hybrid search combining keyword and vector retrieval.
@@ -185,7 +181,7 @@ class HybridSearcher:
         self,
         query: str,
         limit: int = 10,
-        document_ids: Optional[list[str]] = None,
+        document_ids: list[str] | None = None,
     ) -> list[SearchResult]:
         """
         Perform vector-only search.
@@ -209,7 +205,7 @@ class HybridSearcher:
         self,
         query: str,
         limit: int = 10,
-        document_ids: Optional[list[str]] = None,
+        document_ids: list[str] | None = None,
     ) -> list[SearchResult]:
         """
         Perform keyword-only (BM25) search.
@@ -357,7 +353,6 @@ class HybridSearcher:
         results.sort(key=lambda x: x.combined_score, reverse=True)
         return results
 
-
 class SimpleEmbedder:
     """
     Simple embedding provider using aragora's existing embedding system.
@@ -367,7 +362,7 @@ class SimpleEmbedder:
 
     def __init__(self, model: str = "text-embedding-3-small"):
         self.model = model
-        self._embedder: Optional[Any] = None
+        self._embedder: Any | None = None
 
     async def _get_embedder(self):
         """Lazily load the embedding provider."""
@@ -420,10 +415,9 @@ class SimpleEmbedder:
 
         return embedding
 
-
 async def create_hybrid_searcher(
-    store: Optional[WeaviateStore] = None,
-    config: Optional[HybridSearchConfig] = None,
+    store: WeaviateStore | None = None,
+    config: HybridSearchConfig | None = None,
 ) -> HybridSearcher:
     """
     Create a hybrid searcher with default embedder.
@@ -444,7 +438,6 @@ async def create_hybrid_searcher(
 
     embedder = SimpleEmbedder()
     return HybridSearcher(store, embedder, config)
-
 
 __all__ = [
     "HybridSearcher",

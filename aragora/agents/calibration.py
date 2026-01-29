@@ -47,12 +47,10 @@ MAX_TEMPERATURE = 2.0  # Maximum confidence expansion
 RECENCY_DECAY_DAYS = 30  # Half-life for exponential decay
 MIN_PREDICTIONS_FOR_TUNING = 20  # Minimum predictions before auto-tuning
 
-
 def _logit(p: float) -> float:
     """Convert probability to log-odds, with clamping for numerical stability."""
     p = max(1e-7, min(1 - 1e-7, p))
     return math.log(p / (1 - p))
-
 
 def _sigmoid(x: float) -> float:
     """Convert log-odds to probability."""
@@ -61,7 +59,6 @@ def _sigmoid(x: float) -> float:
     if x < -20:
         return 1e-9
     return 1 / (1 + math.exp(-x))
-
 
 def temperature_scale(confidence: float, temperature: float) -> float:
     """Apply temperature scaling to a confidence value.
@@ -87,17 +84,16 @@ def temperature_scale(confidence: float, temperature: float) -> float:
 
     return max(0.05, min(0.95, scaled))
 
-
 @dataclass
 class TemperatureParams:
     """Learned temperature scaling parameters for an agent."""
 
     temperature: float = DEFAULT_TEMPERATURE
     domain_temperatures: dict[str, float] = field(default_factory=dict)
-    last_tuned: Optional[datetime] = None
+    last_tuned: datetime | None = None
     predictions_at_tune: int = 0
 
-    def get_temperature(self, domain: Optional[str] = None) -> float:
+    def get_temperature(self, domain: str | None = None) -> float:
         """Get temperature for a specific domain, falling back to global."""
         if domain and domain in self.domain_temperatures:
             return self.domain_temperatures[domain]
@@ -113,7 +109,6 @@ class TemperatureParams:
         # Retune if older than max_age
         age = datetime.now() - self.last_tuned
         return age > timedelta(hours=max_age_hours)
-
 
 @dataclass
 class CalibrationBucket:
@@ -148,7 +143,6 @@ class CalibrationBucket:
         if self.total_predictions == 0:
             return 0.0
         return self.brier_sum / self.total_predictions
-
 
 @dataclass
 class CalibrationSummary:
@@ -234,7 +228,7 @@ class CalibrationSummary:
         return 1.0
 
     def adjust_confidence(
-        self, raw_confidence: float, domain: Optional[str] = None, use_temperature: bool = True
+        self, raw_confidence: float, domain: str | None = None, use_temperature: bool = True
     ) -> float:
         """Adjust a confidence value based on calibration history.
 
@@ -271,11 +265,10 @@ class CalibrationSummary:
         # Clamp to reasonable bounds
         return max(0.05, min(0.95, adjusted))
 
-
 def adjust_agent_confidence(
     confidence: float,
     calibration_summary: Optional["CalibrationSummary"],
-    domain: Optional[str] = None,
+    domain: str | None = None,
 ) -> float:
     """Utility function to adjust agent confidence based on calibration.
 
@@ -293,7 +286,6 @@ def adjust_agent_confidence(
     if calibration_summary is None:
         return confidence
     return calibration_summary.adjust_confidence(confidence, domain=domain)
-
 
 class CalibrationTracker(SQLiteStore):
     """
@@ -427,7 +419,7 @@ class CalibrationTracker(SQLiteStore):
         self,
         agent: str,
         num_buckets: int = 10,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> list[CalibrationBucket]:
         """
         Get calibration curve (expected vs actual accuracy per bucket).
@@ -505,7 +497,7 @@ class CalibrationTracker(SQLiteStore):
 
         return buckets
 
-    def get_brier_score(self, agent: str, domain: Optional[str] = None) -> float:
+    def get_brier_score(self, agent: str, domain: str | None = None) -> float:
         """
         Compute Brier score for an agent.
 
@@ -540,7 +532,7 @@ class CalibrationTracker(SQLiteStore):
         self,
         agent: str,
         num_buckets: int = 10,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> float:
         """
         Compute Expected Calibration Error (ECE).
@@ -573,7 +565,7 @@ class CalibrationTracker(SQLiteStore):
     def get_calibration_summary(
         self,
         agent: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         include_temperature: bool = True,
     ) -> CalibrationSummary:
         """
@@ -608,7 +600,7 @@ class CalibrationTracker(SQLiteStore):
             temperature_params=temp_params,
         )
 
-    def get_calibration(self, agent: str) -> Optional[dict[str, Any]]:
+    def get_calibration(self, agent: str) -> dict[str, Any] | None:
         """
         Get calibration data for an agent.
 
@@ -719,7 +711,7 @@ class CalibrationTracker(SQLiteStore):
     def get_recency_weighted_predictions(
         self,
         agent: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         decay_days: float = RECENCY_DECAY_DAYS,
         limit: int = 1000,
     ) -> list[tuple[float, bool, float]]:
@@ -766,7 +758,7 @@ class CalibrationTracker(SQLiteStore):
     def compute_optimal_temperature(
         self,
         agent: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         use_recency_weighting: bool = True,
     ) -> float:
         """Compute optimal temperature via grid search on Brier score.
@@ -942,7 +934,6 @@ class CalibrationTracker(SQLiteStore):
                 ),
             )
             conn.commit()
-
 
 def integrate_with_position_ledger(
     calibration_tracker: CalibrationTracker,

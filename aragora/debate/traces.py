@@ -4,6 +4,7 @@ Debate Tracing and Replay System.
 Provides deterministic, replayable debate artifacts with full event logging.
 Enables audits, regression tests, and research reproducibility.
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -12,7 +13,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Iterator
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -20,7 +21,6 @@ if TYPE_CHECKING:
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.debate.traces_database import TracesDatabase
 from aragora.storage.base_store import SQLiteStore
-
 
 class EventType(Enum):
     """Types of debate events."""
@@ -44,7 +44,6 @@ class EventType(Enum):
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
 
-
 @dataclass
 class TraceEvent:
     """A single event in the debate trace."""
@@ -53,10 +52,10 @@ class TraceEvent:
     event_type: EventType
     timestamp: str
     round_num: int
-    agent: Optional[str]
+    agent: str | None
     content: dict
-    parent_event_id: Optional[str] = None
-    duration_ms: Optional[int] = None
+    parent_event_id: str | None = None
+    duration_ms: int | None = None
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -71,7 +70,6 @@ class TraceEvent:
         data["event_type"] = EventType(data["event_type"])
         return cls(**data)
 
-
 @dataclass
 class DebateTrace:
     """Complete trace of a debate for replay and analysis."""
@@ -83,8 +81,8 @@ class DebateTrace:
     random_seed: int
     events: list[TraceEvent] = field(default_factory=list)
     started_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    completed_at: Optional[str] = None
-    final_result: Optional[dict] = None
+    completed_at: str | None = None
+    final_result: dict | None = None
     metadata: dict = field(default_factory=dict)
 
     @property
@@ -94,7 +92,7 @@ class DebateTrace:
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
     @property
-    def duration_ms(self) -> Optional[int]:
+    def duration_ms(self) -> int | None:
         """Total debate duration in milliseconds."""
         if not self.completed_at:
             return None
@@ -249,7 +247,6 @@ class DebateTrace:
             duration_seconds=(self.duration_ms or 0) / 1000.0,
         )
 
-
 class DebateTracer(SQLiteStore):
     """
     Records debate events for replay and analysis.
@@ -293,7 +290,7 @@ class DebateTracer(SQLiteStore):
         debate_id: str,
         task: str,
         agents: list[str],
-        random_seed: Optional[int] = None,
+        random_seed: int | None = None,
         db_path: str = "aragora_traces.db",
     ):
         # Initialize SQLiteStore first
@@ -329,9 +326,9 @@ class DebateTracer(SQLiteStore):
         self,
         event_type: EventType,
         content: dict,
-        agent: Optional[str] = None,
-        duration_ms: Optional[int] = None,
-        metadata: Optional[dict] = None,
+        agent: str | None = None,
+        duration_ms: int | None = None,
+        metadata: dict | None = None,
     ) -> TraceEvent:
         """Record a debate event."""
         event = TraceEvent(
@@ -428,7 +425,7 @@ class DebateTracer(SQLiteStore):
             metadata={"call_event_id": call_event_id},
         )
 
-    def record_error(self, error: str, agent: Optional[str] = None) -> None:
+    def record_error(self, error: str, agent: str | None = None) -> None:
         """Record an error."""
         self.record(
             EventType.ERROR,
@@ -536,7 +533,6 @@ class DebateTracer(SQLiteStore):
         state["agents_acted"] = list(state["agents_acted"])
         return state
 
-
 class DebateReplayer:
     """
     Replays recorded debates for analysis or continuation.
@@ -578,7 +574,7 @@ class DebateReplayer:
         self._position = 0
         random.seed(self.trace.random_seed)
 
-    def step(self) -> Optional[TraceEvent]:
+    def step(self) -> TraceEvent | None:
         """Advance one event and return it."""
         if self._position >= len(self.trace.events):
             return None
@@ -613,7 +609,7 @@ class DebateReplayer:
         tracer.trace = self.trace
         return tracer.get_state_at_event(current_event.event_id)
 
-    def fork_at(self, event_id: str, new_seed: Optional[int] = None) -> "DebateTracer":
+    def fork_at(self, event_id: str, new_seed: int | None = None) -> "DebateTracer":
         """
         Create a new tracer forked from a specific event.
 
@@ -741,7 +737,6 @@ class DebateReplayer:
             lines.append(str(self.trace.final_result))
 
         return "\n".join(lines)
-
 
 def list_traces(db_path: str = "aragora_traces.db", limit: int = 20) -> list[dict]:
     """List recent traces from database."""

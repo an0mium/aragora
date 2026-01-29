@@ -20,25 +20,22 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import httpx
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Enums
 # =============================================================================
-
 
 class SquareEnvironment(str, Enum):
     """Square environment."""
 
     SANDBOX = "sandbox"
     PRODUCTION = "production"
-
 
 class PaymentStatus(str, Enum):
     """Square payment status."""
@@ -48,7 +45,6 @@ class PaymentStatus(str, Enum):
     COMPLETED = "COMPLETED"
     CANCELED = "CANCELED"
     FAILED = "FAILED"
-
 
 class CardBrand(str, Enum):
     """Card brands."""
@@ -64,7 +60,6 @@ class CardBrand(str, Enum):
     SQUARE_CAPITAL_CARD = "SQUARE_CAPITAL_CARD"
     OTHER_BRAND = "OTHER_BRAND"
 
-
 class SubscriptionStatus(str, Enum):
     """Square subscription status."""
 
@@ -73,7 +68,6 @@ class SubscriptionStatus(str, Enum):
     CANCELED = "CANCELED"
     DEACTIVATED = "DEACTIVATED"
     PAUSED = "PAUSED"
-
 
 class InvoiceStatus(str, Enum):
     """Square invoice status."""
@@ -89,7 +83,6 @@ class InvoiceStatus(str, Enum):
     FAILED = "FAILED"
     UNPAID = "UNPAID"
 
-
 class CatalogObjectType(str, Enum):
     """Catalog object types."""
 
@@ -102,11 +95,9 @@ class CatalogObjectType(str, Enum):
     MODIFIER_LIST = "MODIFIER_LIST"
     IMAGE = "IMAGE"
 
-
 # =============================================================================
 # Credentials
 # =============================================================================
-
 
 @dataclass
 class SquareCredentials:
@@ -114,9 +105,9 @@ class SquareCredentials:
 
     access_token: str
     environment: SquareEnvironment = SquareEnvironment.SANDBOX
-    application_id: Optional[str] = None
-    location_id: Optional[str] = None
-    webhook_signature_key: Optional[str] = None
+    application_id: str | None = None
+    location_id: str | None = None
+    webhook_signature_key: str | None = None
 
     @property
     def base_url(self) -> str:
@@ -147,11 +138,9 @@ class SquareCredentials:
             webhook_signature_key=webhook_signature_key,
         )
 
-
 # =============================================================================
 # Error Handling
 # =============================================================================
-
 
 class SquareError(Exception):
     """Square API error."""
@@ -159,10 +148,10 @@ class SquareError(Exception):
     def __init__(
         self,
         message: str,
-        status_code: Optional[int] = None,
-        code: Optional[str] = None,
-        category: Optional[str] = None,
-        detail: Optional[str] = None,
+        status_code: int | None = None,
+        code: str | None = None,
+        category: str | None = None,
+        detail: str | None = None,
     ):
         super().__init__(message)
         self.status_code = status_code
@@ -170,11 +159,9 @@ class SquareError(Exception):
         self.category = category
         self.detail = detail
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 @dataclass
 class Money:
@@ -184,7 +171,7 @@ class Money:
     currency: str = "USD"
 
     @classmethod
-    def from_api(cls, data: Optional[Dict[str, Any]]) -> Optional["Money"]:
+    def from_api(cls, data: Optional[dict[str, Any]]) -> Optional["Money"]:
         if not data:
             return None
         return cls(
@@ -192,7 +179,7 @@ class Money:
             currency=data.get("currency", "USD"),
         )
 
-    def to_api(self) -> Dict[str, Any]:
+    def to_api(self) -> dict[str, Any]:
         return {"amount": self.amount, "currency": self.currency}
 
     @classmethod
@@ -205,20 +192,19 @@ class Money:
         """Get amount in dollars."""
         return self.amount / 100
 
-
 @dataclass
 class Address:
     """Address."""
 
-    address_line_1: Optional[str] = None
-    address_line_2: Optional[str] = None
-    locality: Optional[str] = None  # City
-    administrative_district_level_1: Optional[str] = None  # State
-    postal_code: Optional[str] = None
+    address_line_1: str | None = None
+    address_line_2: str | None = None
+    locality: str | None = None  # City
+    administrative_district_level_1: str | None = None  # State
+    postal_code: str | None = None
     country: str = "US"
 
     @classmethod
-    def from_api(cls, data: Optional[Dict[str, Any]]) -> Optional["Address"]:
+    def from_api(cls, data: Optional[dict[str, Any]]) -> Optional["Address"]:
         if not data:
             return None
         return cls(
@@ -230,8 +216,8 @@ class Address:
             country=data.get("country", "US"),
         )
 
-    def to_api(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {"country": self.country}
+    def to_api(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"country": self.country}
         if self.address_line_1:
             result["address_line_1"] = self.address_line_1
         if self.address_line_2:
@@ -244,22 +230,21 @@ class Address:
             result["postal_code"] = self.postal_code
         return result
 
-
 @dataclass
 class Card:
     """Card details."""
 
-    id: Optional[str] = None
-    card_brand: Optional[CardBrand] = None
-    last_4: Optional[str] = None
-    exp_month: Optional[int] = None
-    exp_year: Optional[int] = None
-    cardholder_name: Optional[str] = None
-    billing_address: Optional[Address] = None
-    fingerprint: Optional[str] = None
+    id: str | None = None
+    card_brand: CardBrand | None = None
+    last_4: str | None = None
+    exp_month: int | None = None
+    exp_year: int | None = None
+    cardholder_name: str | None = None
+    billing_address: Address | None = None
+    fingerprint: str | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Card":
+    def from_api(cls, data: dict[str, Any]) -> "Card":
         return cls(
             id=data.get("id"),
             card_brand=CardBrand(data["card_brand"]) if data.get("card_brand") else None,
@@ -271,27 +256,26 @@ class Card:
             fingerprint=data.get("fingerprint"),
         )
 
-
 @dataclass
 class Customer:
     """Square customer."""
 
     id: str
-    given_name: Optional[str] = None
-    family_name: Optional[str] = None
-    email_address: Optional[str] = None
-    phone_number: Optional[str] = None
-    company_name: Optional[str] = None
-    address: Optional[Address] = None
-    note: Optional[str] = None
-    reference_id: Optional[str] = None
-    preferences: Optional[Dict[str, Any]] = None
-    creation_source: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    given_name: str | None = None
+    family_name: str | None = None
+    email_address: str | None = None
+    phone_number: str | None = None
+    company_name: str | None = None
+    address: Address | None = None
+    note: str | None = None
+    reference_id: str | None = None
+    preferences: Optional[dict[str, Any]] = None
+    creation_source: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Customer":
+    def from_api(cls, data: dict[str, Any]) -> "Customer":
         return cls(
             id=data["id"],
             given_name=data.get("given_name"),
@@ -313,32 +297,31 @@ class Customer:
         parts = [p for p in [self.given_name, self.family_name] if p]
         return " ".join(parts)
 
-
 @dataclass
 class Payment:
     """Square payment."""
 
     id: str
     status: PaymentStatus
-    amount_money: Optional[Money] = None
-    tip_money: Optional[Money] = None
-    total_money: Optional[Money] = None
-    app_fee_money: Optional[Money] = None
-    processing_fee: Optional[List[Dict[str, Any]]] = None
-    source_type: Optional[str] = None
-    card_details: Optional[Dict[str, Any]] = None
-    location_id: Optional[str] = None
-    order_id: Optional[str] = None
-    customer_id: Optional[str] = None
-    reference_id: Optional[str] = None
-    note: Optional[str] = None
-    receipt_number: Optional[str] = None
-    receipt_url: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    amount_money: Money | None = None
+    tip_money: Money | None = None
+    total_money: Money | None = None
+    app_fee_money: Money | None = None
+    processing_fee: Optional[list[dict[str, Any]]] = None
+    source_type: str | None = None
+    card_details: Optional[dict[str, Any]] = None
+    location_id: str | None = None
+    order_id: str | None = None
+    customer_id: str | None = None
+    reference_id: str | None = None
+    note: str | None = None
+    receipt_number: str | None = None
+    receipt_url: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Payment":
+    def from_api(cls, data: dict[str, Any]) -> "Payment":
         return cls(
             id=data["id"],
             status=PaymentStatus(data.get("status", "PENDING")),
@@ -360,7 +343,6 @@ class Payment:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
-
 @dataclass
 class Refund:
     """Square refund."""
@@ -368,15 +350,15 @@ class Refund:
     id: str
     payment_id: str
     status: str
-    amount_money: Optional[Money] = None
-    processing_fee: Optional[List[Dict[str, Any]]] = None
-    reason: Optional[str] = None
-    location_id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    amount_money: Money | None = None
+    processing_fee: Optional[list[dict[str, Any]]] = None
+    reason: str | None = None
+    location_id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Refund":
+    def from_api(cls, data: dict[str, Any]) -> "Refund":
         return cls(
             id=data["id"],
             payment_id=data.get("payment_id", ""),
@@ -389,20 +371,19 @@ class Refund:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
-
 @dataclass
 class SubscriptionPlan:
     """Square subscription plan (catalog item with subscription data)."""
 
     id: str
     name: str
-    subscription_plan_data: Optional[Dict[str, Any]] = None
-    phases: List[Dict[str, Any]] = field(default_factory=list)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    subscription_plan_data: Optional[dict[str, Any]] = None
+    phases: list[dict[str, Any]] = field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "SubscriptionPlan":
+    def from_api(cls, data: dict[str, Any]) -> "SubscriptionPlan":
         plan_data = data.get("subscription_plan_data", {})
         return cls(
             id=data["id"],
@@ -413,7 +394,6 @@ class SubscriptionPlan:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
-
 @dataclass
 class Subscription:
     """Square subscription."""
@@ -422,20 +402,20 @@ class Subscription:
     status: SubscriptionStatus
     plan_id: str
     customer_id: str
-    location_id: Optional[str] = None
-    start_date: Optional[str] = None
-    canceled_date: Optional[str] = None
-    charged_through_date: Optional[str] = None
-    invoice_ids: List[str] = field(default_factory=list)
-    price_override_money: Optional[Money] = None
-    card_id: Optional[str] = None
-    timezone: Optional[str] = None
-    source: Optional[Dict[str, Any]] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    location_id: str | None = None
+    start_date: str | None = None
+    canceled_date: str | None = None
+    charged_through_date: str | None = None
+    invoice_ids: list[str] = field(default_factory=list)
+    price_override_money: Money | None = None
+    card_id: str | None = None
+    timezone: str | None = None
+    source: Optional[dict[str, Any]] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Subscription":
+    def from_api(cls, data: dict[str, Any]) -> "Subscription":
         return cls(
             id=data["id"],
             status=SubscriptionStatus(data.get("status", "PENDING")),
@@ -454,7 +434,6 @@ class Subscription:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
-
 @dataclass
 class Invoice:
     """Square invoice."""
@@ -463,20 +442,20 @@ class Invoice:
     version: int
     status: InvoiceStatus
     location_id: str
-    order_id: Optional[str] = None
-    primary_recipient: Optional[Dict[str, Any]] = None
-    payment_requests: List[Dict[str, Any]] = field(default_factory=list)
-    invoice_number: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    scheduled_at: Optional[str] = None
-    public_url: Optional[str] = None
-    next_payment_amount_money: Optional[Money] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    order_id: str | None = None
+    primary_recipient: Optional[dict[str, Any]] = None
+    payment_requests: list[dict[str, Any]] = field(default_factory=list)
+    invoice_number: str | None = None
+    title: str | None = None
+    description: str | None = None
+    scheduled_at: str | None = None
+    public_url: str | None = None
+    next_payment_amount_money: Money | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "Invoice":
+    def from_api(cls, data: dict[str, Any]) -> "Invoice":
         return cls(
             id=data["id"],
             version=data.get("version", 0),
@@ -495,29 +474,28 @@ class Invoice:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
-
 @dataclass
 class CatalogItem:
     """Square catalog item."""
 
     id: str
     type: CatalogObjectType
-    name: Optional[str] = None
-    description: Optional[str] = None
-    abbreviation: Optional[str] = None
-    variations: List[Dict[str, Any]] = field(default_factory=list)
-    category_id: Optional[str] = None
-    tax_ids: List[str] = field(default_factory=list)
-    modifier_list_ids: List[str] = field(default_factory=list)
+    name: str | None = None
+    description: str | None = None
+    abbreviation: str | None = None
+    variations: list[dict[str, Any]] = field(default_factory=list)
+    category_id: str | None = None
+    tax_ids: list[str] = field(default_factory=list)
+    modifier_list_ids: list[str] = field(default_factory=list)
     is_deleted: bool = False
     present_at_all_locations: bool = True
-    present_at_location_ids: List[str] = field(default_factory=list)
-    version: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    present_at_location_ids: list[str] = field(default_factory=list)
+    version: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> "CatalogItem":
+    def from_api(cls, data: dict[str, Any]) -> "CatalogItem":
         item_data = data.get("item_data", {})
         return cls(
             id=data["id"],
@@ -537,13 +515,11 @@ class CatalogItem:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
-
 # =============================================================================
 # Helper Functions
 # =============================================================================
 
-
-def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
+def _parse_datetime(value: str | None) -> datetime | None:
     """Parse RFC 3339 datetime from API response."""
     if not value:
         return None
@@ -552,16 +528,13 @@ def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
     except (ValueError, TypeError):
         return None
 
-
 def _generate_idempotency_key() -> str:
     """Generate a unique idempotency key."""
     return str(uuid.uuid4())
 
-
 # =============================================================================
 # Square Client
 # =============================================================================
-
 
 class SquareClient:
     """
@@ -621,9 +594,9 @@ class SquareClient:
         self,
         method: str,
         endpoint: str,
-        json: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        json: Optional[dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make authenticated API request."""
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
@@ -658,15 +631,15 @@ class SquareClient:
         self,
         source_id: str,
         amount: Money,
-        idempotency_key: Optional[str] = None,
-        customer_id: Optional[str] = None,
-        location_id: Optional[str] = None,
-        reference_id: Optional[str] = None,
-        note: Optional[str] = None,
+        idempotency_key: str | None = None,
+        customer_id: str | None = None,
+        location_id: str | None = None,
+        reference_id: str | None = None,
+        note: str | None = None,
         autocomplete: bool = True,
-        tip_money: Optional[Money] = None,
-        app_fee_money: Optional[Money] = None,
-        buyer_email_address: Optional[str] = None,
+        tip_money: Money | None = None,
+        app_fee_money: Money | None = None,
+        buyer_email_address: str | None = None,
     ) -> Payment:
         """
         Create a payment.
@@ -687,7 +660,7 @@ class SquareClient:
         Returns:
             Created Payment
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "source_id": source_id,
             "amount_money": amount.to_api(),
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
@@ -719,20 +692,20 @@ class SquareClient:
 
     async def list_payments(
         self,
-        begin_time: Optional[str] = None,
-        end_time: Optional[str] = None,
+        begin_time: str | None = None,
+        end_time: str | None = None,
         sort_order: str = "DESC",
-        cursor: Optional[str] = None,
-        location_id: Optional[str] = None,
+        cursor: str | None = None,
+        location_id: str | None = None,
         limit: int = 100,
-    ) -> tuple[List[Payment], Optional[str]]:
+    ) -> tuple[list[Payment], str | None]:
         """
         List payments.
 
         Returns:
             Tuple of (payments, next_cursor)
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "sort_order": sort_order,
             "limit": min(limit, 100),
         }
@@ -764,8 +737,8 @@ class SquareClient:
         self,
         payment_id: str,
         amount: Money,
-        idempotency_key: Optional[str] = None,
-        reason: Optional[str] = None,
+        idempotency_key: str | None = None,
+        reason: str | None = None,
     ) -> Refund:
         """
         Refund a payment.
@@ -779,7 +752,7 @@ class SquareClient:
         Returns:
             Refund details
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "payment_id": payment_id,
             "amount_money": amount.to_api(),
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
@@ -802,18 +775,18 @@ class SquareClient:
 
     async def create_customer(
         self,
-        idempotency_key: Optional[str] = None,
-        given_name: Optional[str] = None,
-        family_name: Optional[str] = None,
-        email_address: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        company_name: Optional[str] = None,
-        address: Optional[Address] = None,
-        note: Optional[str] = None,
-        reference_id: Optional[str] = None,
+        idempotency_key: str | None = None,
+        given_name: str | None = None,
+        family_name: str | None = None,
+        email_address: str | None = None,
+        phone_number: str | None = None,
+        company_name: str | None = None,
+        address: Address | None = None,
+        note: str | None = None,
+        reference_id: str | None = None,
     ) -> Customer:
         """Create a customer."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
         }
 
@@ -845,16 +818,16 @@ class SquareClient:
     async def update_customer(
         self,
         customer_id: str,
-        given_name: Optional[str] = None,
-        family_name: Optional[str] = None,
-        email_address: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        company_name: Optional[str] = None,
-        address: Optional[Address] = None,
-        note: Optional[str] = None,
+        given_name: str | None = None,
+        family_name: str | None = None,
+        email_address: str | None = None,
+        phone_number: str | None = None,
+        company_name: str | None = None,
+        address: Address | None = None,
+        note: str | None = None,
     ) -> Customer:
         """Update a customer."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
 
         if given_name:
             body["given_name"] = given_name
@@ -880,10 +853,10 @@ class SquareClient:
 
     async def search_customers(
         self,
-        query: Optional[Dict[str, Any]] = None,
+        query: Optional[dict[str, Any]] = None,
         limit: int = 100,
-        cursor: Optional[str] = None,
-    ) -> tuple[List[Customer], Optional[str]]:
+        cursor: str | None = None,
+    ) -> tuple[list[Customer], str | None]:
         """
         Search customers.
 
@@ -895,7 +868,7 @@ class SquareClient:
         Returns:
             Tuple of (customers, next_cursor)
         """
-        body: Dict[str, Any] = {"limit": min(limit, 100)}
+        body: dict[str, Any] = {"limit": min(limit, 100)}
 
         if query:
             body["query"] = query
@@ -914,11 +887,11 @@ class SquareClient:
         self,
         customer_id: str,
         card_nonce: str,
-        billing_address: Optional[Address] = None,
-        cardholder_name: Optional[str] = None,
+        billing_address: Address | None = None,
+        cardholder_name: str | None = None,
     ) -> Card:
         """Add a card to a customer."""
-        body: Dict[str, Any] = {"card_nonce": card_nonce}
+        body: dict[str, Any] = {"card_nonce": card_nonce}
 
         if billing_address:
             body["billing_address"] = billing_address.to_api()
@@ -940,12 +913,12 @@ class SquareClient:
         self,
         plan_id: str,
         customer_id: str,
-        location_id: Optional[str] = None,
-        idempotency_key: Optional[str] = None,
-        start_date: Optional[str] = None,
-        card_id: Optional[str] = None,
-        timezone: Optional[str] = None,
-        price_override_money: Optional[Money] = None,
+        location_id: str | None = None,
+        idempotency_key: str | None = None,
+        start_date: str | None = None,
+        card_id: str | None = None,
+        timezone: str | None = None,
+        price_override_money: Money | None = None,
     ) -> Subscription:
         """
         Create a subscription.
@@ -963,7 +936,7 @@ class SquareClient:
         Returns:
             Created Subscription
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "plan_id": plan_id,
             "customer_id": customer_id,
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
@@ -990,20 +963,20 @@ class SquareClient:
 
     async def search_subscriptions(
         self,
-        customer_ids: Optional[List[str]] = None,
-        location_ids: Optional[List[str]] = None,
-        cursor: Optional[str] = None,
+        customer_ids: Optional[list[str]] = None,
+        location_ids: Optional[list[str]] = None,
+        cursor: str | None = None,
         limit: int = 100,
-    ) -> tuple[List[Subscription], Optional[str]]:
+    ) -> tuple[list[Subscription], str | None]:
         """
         Search subscriptions.
 
         Returns:
             Tuple of (subscriptions, next_cursor)
         """
-        body: Dict[str, Any] = {"limit": min(limit, 100)}
+        body: dict[str, Any] = {"limit": min(limit, 100)}
 
-        query: Dict[str, Any] = {"filter": {}}
+        query: dict[str, Any] = {"filter": {}}
         if customer_ids:
             query["filter"]["customer_ids"] = customer_ids
         if location_ids:
@@ -1019,7 +992,7 @@ class SquareClient:
         subscriptions = [Subscription.from_api(s) for s in data.get("subscriptions", [])]
         return subscriptions, data.get("cursor")
 
-    async def cancel_subscription(self, subscription_id: str) -> tuple[Subscription, List[str]]:
+    async def cancel_subscription(self, subscription_id: str) -> tuple[Subscription, list[str]]:
         """
         Cancel a subscription.
 
@@ -1034,11 +1007,11 @@ class SquareClient:
     async def pause_subscription(
         self,
         subscription_id: str,
-        pause_effective_date: Optional[str] = None,
-        pause_length_in_billing_cycles: Optional[int] = None,
+        pause_effective_date: str | None = None,
+        pause_length_in_billing_cycles: int | None = None,
     ) -> Subscription:
         """Pause a subscription."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
 
         if pause_effective_date:
             body["pause_effective_date"] = pause_effective_date
@@ -1051,10 +1024,10 @@ class SquareClient:
     async def resume_subscription(
         self,
         subscription_id: str,
-        resume_effective_date: Optional[str] = None,
+        resume_effective_date: str | None = None,
     ) -> Subscription:
         """Resume a paused subscription."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
 
         if resume_effective_date:
             body["resume_effective_date"] = resume_effective_date
@@ -1069,17 +1042,17 @@ class SquareClient:
     async def create_invoice(
         self,
         order_id: str,
-        location_id: Optional[str] = None,
-        idempotency_key: Optional[str] = None,
-        primary_recipient_customer_id: Optional[str] = None,
-        payment_requests: Optional[List[Dict[str, Any]]] = None,
-        invoice_number: Optional[str] = None,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        scheduled_at: Optional[str] = None,
+        location_id: str | None = None,
+        idempotency_key: str | None = None,
+        primary_recipient_customer_id: str | None = None,
+        payment_requests: Optional[list[dict[str, Any]]] = None,
+        invoice_number: str | None = None,
+        title: str | None = None,
+        description: str | None = None,
+        scheduled_at: str | None = None,
     ) -> Invoice:
         """Create an invoice."""
-        invoice_data: Dict[str, Any] = {
+        invoice_data: dict[str, Any] = {
             "order_id": order_id,
             "location_id": location_id or self.credentials.location_id,
         }
@@ -1097,7 +1070,7 @@ class SquareClient:
         if scheduled_at:
             invoice_data["scheduled_at"] = scheduled_at
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "invoice": invoice_data,
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
         }
@@ -1114,10 +1087,10 @@ class SquareClient:
         self,
         invoice_id: str,
         version: int,
-        idempotency_key: Optional[str] = None,
+        idempotency_key: str | None = None,
     ) -> Invoice:
         """Publish a draft invoice."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "version": version,
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
         }
@@ -1131,7 +1104,7 @@ class SquareClient:
         version: int,
     ) -> Invoice:
         """Cancel an invoice."""
-        body: Dict[str, Any] = {"version": version}
+        body: dict[str, Any] = {"version": version}
 
         data = await self._request("POST", f"/v2/invoices/{invoice_id}/cancel", json=body)
         return Invoice.from_api(data["invoice"])
@@ -1142,11 +1115,11 @@ class SquareClient:
 
     async def batch_upsert_catalog_objects(
         self,
-        objects: List[Dict[str, Any]],
-        idempotency_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        objects: list[dict[str, Any]],
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         """Batch create or update catalog objects."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
             "batches": [{"objects": objects}],
         }
@@ -1159,7 +1132,7 @@ class SquareClient:
         include_related_objects: bool = False,
     ) -> CatalogItem:
         """Get a catalog object."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if include_related_objects:
             params["include_related_objects"] = "true"
 
@@ -1168,18 +1141,18 @@ class SquareClient:
 
     async def search_catalog_objects(
         self,
-        object_types: Optional[List[str]] = None,
-        query: Optional[Dict[str, Any]] = None,
+        object_types: Optional[list[str]] = None,
+        query: Optional[dict[str, Any]] = None,
         limit: int = 100,
-        cursor: Optional[str] = None,
-    ) -> tuple[List[CatalogItem], Optional[str]]:
+        cursor: str | None = None,
+    ) -> tuple[list[CatalogItem], str | None]:
         """
         Search catalog objects.
 
         Returns:
             Tuple of (items, next_cursor)
         """
-        body: Dict[str, Any] = {"limit": min(limit, 100)}
+        body: dict[str, Any] = {"limit": min(limit, 100)}
 
         if object_types:
             body["object_types"] = object_types
@@ -1192,7 +1165,7 @@ class SquareClient:
         items = [CatalogItem.from_api(obj) for obj in data.get("objects", [])]
         return items, data.get("cursor")
 
-    async def delete_catalog_object(self, object_id: str) -> List[str]:
+    async def delete_catalog_object(self, object_id: str) -> list[str]:
         """
         Delete a catalog object.
 
@@ -1210,7 +1183,7 @@ class SquareClient:
         self,
         request_body: str,
         signature: str,
-        signature_key: Optional[str] = None,
+        signature_key: str | None = None,
         notification_url: str = "",
     ) -> bool:
         """
@@ -1241,11 +1214,9 @@ class SquareClient:
 
         return hmac.compare_digest(expected_signature, signature)
 
-
 # =============================================================================
 # Mock Data Generators
 # =============================================================================
-
 
 def get_mock_customer() -> Customer:
     """Get a mock customer for testing."""
@@ -1258,7 +1229,6 @@ def get_mock_customer() -> Customer:
         created_at=datetime.now(timezone.utc),
     )
 
-
 def get_mock_payment() -> Payment:
     """Get a mock payment for testing."""
     return Payment(
@@ -1269,7 +1239,6 @@ def get_mock_payment() -> Payment:
         source_type="CARD",
         created_at=datetime.now(timezone.utc),
     )
-
 
 def get_mock_subscription() -> Subscription:
     """Get a mock subscription for testing."""

@@ -19,8 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class GauntletErrorCode(str, Enum):
     """Standardized error codes for Gauntlet API responses."""
@@ -66,14 +65,13 @@ class GauntletErrorCode(str, Enum):
     CONFIGURATION_ERROR = "GAUNTLET_503"
     SIGNING_ERROR = "GAUNTLET_504"
 
-
 @dataclass
 class GauntletError:
     """Structured error response for Gauntlet API."""
 
     code: GauntletErrorCode
     message: str
-    details: Optional[dict[str, Any]] = None
+    details: dict[str, Any] | None = None
     http_status: int = 400
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,7 +84,6 @@ class GauntletError:
         if self.details:
             result["details"] = self.details
         return result
-
 
 # Pre-defined error instances for common cases
 ERRORS = {
@@ -164,11 +161,10 @@ ERRORS = {
     ),
 }
 
-
 def gauntlet_error_response(
     error_key: str,
-    details: Optional[dict[str, Any]] = None,
-    message_override: Optional[str] = None,
+    details: dict[str, Any] | None = None,
+    message_override: str | None = None,
 ) -> tuple[dict[str, Any], int]:
     """
     Create a standardized error response.

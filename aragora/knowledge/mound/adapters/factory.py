@@ -24,13 +24,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.bidirectional_coordinator import BidirectionalCoordinator
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AdapterSpec:
@@ -38,22 +37,19 @@ class AdapterSpec:
 
     name: str
     adapter_class: type
-    required_deps: List[str]
+    required_deps: list[str]
     forward_method: str = "sync_to_km"
-    reverse_method: Optional[str] = "sync_from_km"
+    reverse_method: str | None = "sync_from_km"
     priority: int = 0
     enabled_by_default: bool = True
-    config_key: Optional[str] = None  # Key in ArenaConfig to check for explicit adapter
-
+    config_key: str | None = None  # Key in ArenaConfig to check for explicit adapter
 
 # Registry of available adapter specifications
-ADAPTER_SPECS: Dict[str, AdapterSpec] = {}
-
+ADAPTER_SPECS: dict[str, AdapterSpec] = {}
 
 def register_adapter_spec(spec: AdapterSpec) -> None:
     """Register an adapter specification."""
     ADAPTER_SPECS[spec.name] = spec
-
 
 # Import and register adapter specs
 def _init_specs() -> None:
@@ -235,6 +231,11 @@ def _init_specs() -> None:
 
     from .computer_use_adapter import ComputerUseAdapter
     from .gateway_adapter import GatewayAdapter
+    from .calibration_fusion_adapter import CalibrationFusionAdapter
+    from .control_plane_adapter import ControlPlaneAdapter
+    from .culture_adapter import CultureAdapter
+    from .receipt_adapter import ReceiptAdapter
+    from .rlm_adapter import RlmAdapter
 
     register_adapter_spec(
         AdapterSpec(
@@ -260,10 +261,69 @@ def _init_specs() -> None:
         )
     )
 
+    # Additional integration adapters
+    register_adapter_spec(
+        AdapterSpec(
+            name="calibration_fusion",
+            adapter_class=CalibrationFusionAdapter,
+            required_deps=[],  # Uses KM singleton internally
+            forward_method="sync_from_calibration",
+            reverse_method="get_calibration_insights",
+            priority=55,  # High priority - calibration data
+            config_key="km_calibration_fusion_adapter",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="control_plane",
+            adapter_class=ControlPlaneAdapter,
+            required_deps=["control_plane"],  # ControlPlane coordinator instance
+            forward_method="sync_from_control_plane",
+            reverse_method="get_policy_recommendations",
+            priority=85,  # High priority - control plane integration
+            config_key="km_control_plane_adapter",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="culture",
+            adapter_class=CultureAdapter,
+            required_deps=[],  # Uses KM singleton internally
+            forward_method="sync_to_mound",
+            reverse_method="load_from_mound",
+            priority=25,  # Lower priority - derived patterns
+            config_key="km_culture_adapter",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="receipt",
+            adapter_class=ReceiptAdapter,
+            required_deps=[],  # KM mound set via set_mound()
+            forward_method="ingest_receipt",
+            reverse_method="find_related_decisions",
+            priority=65,  # Medium-high priority - decision audit trail
+            config_key="km_receipt_adapter",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="rlm",
+            adapter_class=RlmAdapter,
+            required_deps=["compressor"],  # RLM Compressor instance
+            forward_method="sync_to_mound",
+            reverse_method="load_from_mound",
+            priority=20,  # Lower priority - compression optimization
+            config_key="km_rlm_adapter",
+        )
+    )
 
 # Initialize specs on import
 _init_specs()
-
 
 @dataclass
 class CreatedAdapter:
@@ -272,8 +332,7 @@ class CreatedAdapter:
     name: str
     adapter: Any
     spec: AdapterSpec
-    deps_used: Dict[str, Any] = field(default_factory=dict)
-
+    deps_used: dict[str, Any] = field(default_factory=dict)
 
 class AdapterFactory:
     """
@@ -300,7 +359,7 @@ class AdapterFactory:
 
     def __init__(
         self,
-        event_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
     ):
         """
         Initialize the factory.
@@ -310,24 +369,24 @@ class AdapterFactory:
         """
         self._event_callback = event_callback
 
-    def set_event_callback(self, callback: Callable[[str, Dict[str, Any]], None]) -> None:
+    def set_event_callback(self, callback: Callable[[str, dict[str, Any]], None]) -> None:
         """Set the event callback for all created adapters."""
         self._event_callback = callback
 
     def create_from_subsystems(
         self,
-        continuum_memory: Optional[Any] = None,
-        consensus_memory: Optional[Any] = None,
-        memory: Optional[Any] = None,  # CritiqueStore
-        evidence_store: Optional[Any] = None,
-        insight_store: Optional[Any] = None,
-        elo_system: Optional[Any] = None,
-        pulse_manager: Optional[Any] = None,
-        cost_tracker: Optional[Any] = None,
-        flip_detector: Optional[Any] = None,
-        provenance_store: Optional[Any] = None,
+        continuum_memory: Any | None = None,
+        consensus_memory: Any | None = None,
+        memory: Any | None = None,  # CritiqueStore
+        evidence_store: Any | None = None,
+        insight_store: Any | None = None,
+        elo_system: Any | None = None,
+        pulse_manager: Any | None = None,
+        cost_tracker: Any | None = None,
+        flip_detector: Any | None = None,
+        provenance_store: Any | None = None,
         **kwargs,
-    ) -> Dict[str, CreatedAdapter]:
+    ) -> dict[str, CreatedAdapter]:
         """
         Create adapters from provided subsystems.
 
@@ -370,8 +429,8 @@ class AdapterFactory:
     def create_from_arena_config(
         self,
         config: Any,  # ArenaConfig
-        subsystems: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, CreatedAdapter]:
+        subsystems: Optional[dict[str, Any]] = None,
+    ) -> dict[str, CreatedAdapter]:
         """
         Create adapters from ArenaConfig.
 
@@ -431,9 +490,9 @@ class AdapterFactory:
 
     def _create_adapters(
         self,
-        deps: Dict[str, Any],
-        exclude: Optional[set] = None,
-    ) -> Dict[str, CreatedAdapter]:
+        deps: dict[str, Any],
+        exclude: set | None = None,
+    ) -> dict[str, CreatedAdapter]:
         """
         Create adapters based on available dependencies.
 
@@ -480,8 +539,8 @@ class AdapterFactory:
     def _create_single_adapter(
         self,
         spec: AdapterSpec,
-        deps: Dict[str, Any],
-    ) -> Optional[Any]:
+        deps: dict[str, Any],
+    ) -> Any | None:
         """Create a single adapter from spec."""
         adapter_class = spec.adapter_class
 
@@ -554,6 +613,28 @@ class AdapterFactory:
                     gateway=deps.get("gateway"),
                     event_callback=self._event_callback,
                 )
+            elif spec.name == "calibration_fusion":
+                adapter = adapter_class(
+                    mound=deps.get("mound"),
+                )
+            elif spec.name == "control_plane":
+                adapter = adapter_class(
+                    control_plane=deps.get("control_plane"),
+                    event_callback=self._event_callback,
+                )
+            elif spec.name == "culture":
+                adapter = adapter_class(
+                    mound=deps.get("mound"),
+                )
+            elif spec.name == "receipt":
+                adapter = adapter_class(
+                    mound=deps.get("mound"),
+                    event_callback=self._event_callback,
+                )
+            elif spec.name == "rlm":
+                adapter = adapter_class(
+                    compressor=deps.get("compressor"),
+                )
             else:
                 # Generic construction attempt
                 adapter = adapter_class(
@@ -595,6 +676,16 @@ class AdapterFactory:
                     return adapter_class(orchestrator=deps.get("computer_use_orchestrator"))
                 elif spec.name == "gateway":
                     return adapter_class(gateway=deps.get("gateway"))
+                elif spec.name == "calibration_fusion":
+                    return adapter_class(mound=deps.get("mound"))
+                elif spec.name == "control_plane":
+                    return adapter_class(control_plane=deps.get("control_plane"))
+                elif spec.name == "culture":
+                    return adapter_class(mound=deps.get("mound"))
+                elif spec.name == "receipt":
+                    return adapter_class(mound=deps.get("mound"))
+                elif spec.name == "rlm":
+                    return adapter_class(compressor=deps.get("compressor"))
                 else:
                     return adapter_class(**deps)
             except Exception as e2:
@@ -604,7 +695,7 @@ class AdapterFactory:
     def register_with_coordinator(
         self,
         coordinator: "BidirectionalCoordinator",
-        adapters: Dict[str, CreatedAdapter],
+        adapters: dict[str, CreatedAdapter],
     ) -> int:
         """
         Register created adapters with a BidirectionalCoordinator.
@@ -639,10 +730,9 @@ class AdapterFactory:
         logger.info(f"Registered {registered}/{len(adapters)} adapters with coordinator")
         return registered
 
-    def get_available_adapter_specs(self) -> Dict[str, AdapterSpec]:
+    def get_available_adapter_specs(self) -> dict[str, AdapterSpec]:
         """Get all available adapter specifications."""
         return ADAPTER_SPECS.copy()
-
 
 __all__ = [
     "AdapterFactory",

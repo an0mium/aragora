@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,6 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
-
 class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector):
     """
     Slack connector using Slack Web API.
@@ -87,13 +86,13 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
 
     def __init__(
         self,
-        bot_token: Optional[str] = None,
-        signing_secret: Optional[str] = None,
-        webhook_url: Optional[str] = None,
+        bot_token: str | None = None,
+        signing_secret: str | None = None,
+        webhook_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_RETRIES,
         use_circuit_breaker: bool = True,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         enable_token_refresh: bool = True,
         **config: Any,
     ):
@@ -241,7 +240,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
         logger.error(f"Token refresh failed for workspace: {self._workspace_id}")
         return False
 
-    def _is_auth_error(self, error: Optional[str]) -> bool:
+    def _is_auth_error(self, error: str | None) -> bool:
         """Check if error indicates an authentication/token issue."""
         if not error:
             return False
@@ -257,17 +256,17 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
     async def _slack_api_request(
         self,
         endpoint: str,
-        payload: Optional[dict[str, Any]] = None,
+        payload: dict[str, Any] | None = None,
         operation: str = "api_call",
         *,
         method: str = "POST",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
-        form_data: Optional[dict[str, Any]] = None,
-        files: Optional[dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        max_retries: Optional[int] = None,
-    ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        form_data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+    ) -> tuple[bool, dict[str, Any] | None, str | None]:
         """
         Make a Slack API request with circuit breaker, retry, and timeout.
 
@@ -298,7 +297,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
             remaining = self._circuit_breaker.cooldown_remaining()
             return False, None, f"Circuit breaker open (retry in {remaining:.0f}s)"
 
-        last_error: Optional[str] = None
+        last_error: str | None = None
         url = f"{SLACK_API_BASE}/{endpoint}"
         request_timeout = timeout if timeout is not None else self._timeout
 
@@ -410,7 +409,6 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
             classified = _classify_slack_error(last_error)
             logger.debug(f"[slack] {operation} final error type: {type(classified).__name__}")
         return False, None, last_error or "Unknown error"
-
 
 __all__ = [
     # Main classes

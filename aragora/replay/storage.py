@@ -23,10 +23,9 @@ Usage:
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class ReplayStorage:
     """Manages replay storage and indexing."""
@@ -35,7 +34,7 @@ class ReplayStorage:
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-    def list_recordings(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_recordings(self, limit: int = 50) -> list[dict[str, Any]]:
         recordings = []
         try:
             dir_entries = list(self.storage_dir.iterdir())

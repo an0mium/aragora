@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.storage.postgres_store import PostgresStore, get_postgres_pool, ASYNCPG_AVAILABLE
 
@@ -128,7 +128,6 @@ POSTGRES_ELO_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_elo_ratings_elo ON elo_ratings(elo DESC);
 """
 
-
 class PostgresEloDatabase(PostgresStore):
     """
     PostgreSQL implementation of ELO database.
@@ -141,7 +140,7 @@ class PostgresEloDatabase(PostgresStore):
     SCHEMA_VERSION = POSTGRES_ELO_SCHEMA_VERSION
     INITIAL_SCHEMA = POSTGRES_ELO_SCHEMA
 
-    async def get_rating(self, agent_name: str) -> Optional[dict[str, Any]]:
+    async def get_rating(self, agent_name: str) -> dict[str, Any] | None:
         """Get rating for an agent."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -156,7 +155,7 @@ class PostgresEloDatabase(PostgresStore):
         self,
         agent_name: str,
         elo: float,
-        domain_elos: Optional[dict] = None,
+        domain_elos: dict | None = None,
         wins: int = 0,
         losses: int = 0,
         draws: int = 0,
@@ -198,8 +197,8 @@ class PostgresEloDatabase(PostgresStore):
         self,
         agent_name: str,
         new_elo: float,
-        domain: Optional[str] = None,
-        domain_elo: Optional[float] = None,
+        domain: str | None = None,
+        domain_elo: float | None = None,
     ) -> None:
         """Update ELO rating for an agent."""
         async with self.connection() as conn:
@@ -269,7 +268,7 @@ class PostgresEloDatabase(PostgresStore):
     async def get_leaderboard(
         self,
         limit: int = 10,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get top agents by ELO rating."""
         async with self.connection() as conn:
@@ -303,9 +302,9 @@ class PostgresEloDatabase(PostgresStore):
     async def save_match(
         self,
         debate_id: str,
-        winner: Optional[str],
+        winner: str | None,
         participants: list[str],
-        domain: Optional[str],
+        domain: str | None,
         scores: dict[str, float],
         elo_changes: dict[str, float],
     ) -> int:
@@ -333,7 +332,7 @@ class PostgresEloDatabase(PostgresStore):
             )
             return row["id"] if row else 0
 
-    async def get_match(self, debate_id: str) -> Optional[dict[str, Any]]:
+    async def get_match(self, debate_id: str) -> dict[str, Any] | None:
         """Get a match by debate ID."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -354,7 +353,7 @@ class PostgresEloDatabase(PostgresStore):
 
     async def get_recent_matches(
         self,
-        agent_name: Optional[str] = None,
+        agent_name: str | None = None,
         limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Get recent matches, optionally filtered by agent."""
@@ -397,7 +396,7 @@ class PostgresEloDatabase(PostgresStore):
         self,
         agent_name: str,
         elo: float,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> None:
         """Save ELO history entry."""
         async with self.connection() as conn:
@@ -483,7 +482,7 @@ class PostgresEloDatabase(PostgresStore):
     async def get_domain_calibration(
         self,
         agent_name: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get domain calibration stats for an agent."""
         async with self.connection() as conn:
@@ -555,7 +554,7 @@ class PostgresEloDatabase(PostgresStore):
         self,
         agent_a: str,
         agent_b: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get relationship stats between two agents."""
         # Normalize order
         if agent_a > agent_b:
@@ -601,10 +600,8 @@ class PostgresEloDatabase(PostgresStore):
             row = await conn.fetchrow("SELECT COUNT(*) as count FROM elo_matches")
             return row["count"] if row else 0
 
-
 # Singleton instance
-_postgres_elo_db: Optional[PostgresEloDatabase] = None
-
+_postgres_elo_db: PostgresEloDatabase | None = None
 
 async def get_postgres_elo_database() -> PostgresEloDatabase:
     """

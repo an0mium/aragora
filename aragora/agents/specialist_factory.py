@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from aragora.training.specialist_models import (
     Vertical,
@@ -24,34 +24,31 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class AgentConfig:
     """Configuration for creating a specialist agent."""
 
     vertical: Vertical
-    org_id: Optional[str] = None
+    org_id: str | None = None
     fallback_to_base: bool = True
     prefer_speed: bool = False  # Prefer faster models over accuracy
     require_specialist: bool = False  # Fail if specialist not available
     extra_context: str = ""  # Additional context for agent prompts
     temperature: float = 0.7
     max_tokens: int = 4096
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class SpecialistAgentInfo:
     """Information about a created specialist agent."""
 
     agent: "BaseAgent"
-    specialist_model: Optional[SpecialistModel]
+    specialist_model: SpecialistModel | None
     is_specialist: bool
     vertical: Vertical
     model_id: str
     base_model: str
-    adapter_name: Optional[str]
-
+    adapter_name: str | None
 
 class SpecialistAgentFactory:
     """
@@ -66,7 +63,7 @@ class SpecialistAgentFactory:
 
     def __init__(
         self,
-        registry: Optional[SpecialistModelRegistry] = None,
+        registry: SpecialistModelRegistry | None = None,
     ):
         """
         Initialize the specialist agent factory.
@@ -77,7 +74,7 @@ class SpecialistAgentFactory:
         self._registry = registry or get_specialist_registry()
 
         # Base model mappings for fallback
-        self._base_models: Dict[str, str] = {
+        self._base_models: dict[str, str] = {
             "llama-3.3-70b": "openrouter:meta-llama/llama-3.3-70b-instruct",
             "llama-3.1-8b": "openrouter:meta-llama/llama-3.1-8b-instruct",
             "qwen-2.5-72b": "openrouter:qwen/qwen-2.5-72b-instruct",
@@ -89,7 +86,7 @@ class SpecialistAgentFactory:
         # Vertical-specific system prompts
         self._vertical_prompts = self._build_vertical_prompts()
 
-    def _build_vertical_prompts(self) -> Dict[Vertical, str]:
+    def _build_vertical_prompts(self) -> dict[Vertical, str]:
         """Build system prompts for each vertical."""
         return {
             Vertical.LEGAL: """You are a legal analysis specialist with expertise in:
@@ -266,7 +263,7 @@ Adapt your approach based on the specific task requirements.""",
 
     async def create_legal_agent(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         **kwargs: Any,
     ) -> SpecialistAgentInfo:
         """Create a legal specialist agent."""
@@ -275,7 +272,7 @@ Adapt your approach based on the specific task requirements.""",
 
     async def create_healthcare_agent(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         **kwargs: Any,
     ) -> SpecialistAgentInfo:
         """Create a healthcare specialist agent."""
@@ -284,7 +281,7 @@ Adapt your approach based on the specific task requirements.""",
 
     async def create_security_agent(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         **kwargs: Any,
     ) -> SpecialistAgentInfo:
         """Create a security specialist agent."""
@@ -293,7 +290,7 @@ Adapt your approach based on the specific task requirements.""",
 
     async def create_accounting_agent(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         **kwargs: Any,
     ) -> SpecialistAgentInfo:
         """Create an accounting specialist agent."""
@@ -302,7 +299,7 @@ Adapt your approach based on the specific task requirements.""",
 
     async def create_regulatory_agent(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         **kwargs: Any,
     ) -> SpecialistAgentInfo:
         """Create a regulatory specialist agent."""
@@ -311,7 +308,7 @@ Adapt your approach based on the specific task requirements.""",
 
     async def create_academic_agent(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         **kwargs: Any,
     ) -> SpecialistAgentInfo:
         """Create an academic specialist agent."""
@@ -320,7 +317,7 @@ Adapt your approach based on the specific task requirements.""",
 
     async def create_software_agent(
         self,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         **kwargs: Any,
     ) -> SpecialistAgentInfo:
         """Create a software specialist agent."""
@@ -330,7 +327,7 @@ Adapt your approach based on the specific task requirements.""",
     async def select_for_task(
         self,
         task: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         **kwargs: Any,
     ) -> SpecialistAgentInfo:
         """
@@ -367,8 +364,8 @@ Adapt your approach based on the specific task requirements.""",
 
     def list_available_specialists(
         self,
-        org_id: Optional[str] = None,
-    ) -> Dict[Vertical, List[SpecialistModel]]:
+        org_id: str | None = None,
+    ) -> dict[Vertical, list[SpecialistModel]]:
         """
         List available specialists by vertical.
 
@@ -378,7 +375,7 @@ Adapt your approach based on the specific task requirements.""",
         Returns:
             Dictionary mapping verticals to available specialists
         """
-        result: Dict[Vertical, List[SpecialistModel]] = {}
+        result: dict[Vertical, list[SpecialistModel]] = {}
 
         for vertical in Vertical:
             models = self._registry.list_for_vertical(
@@ -395,20 +392,17 @@ Adapt your approach based on the specific task requirements.""",
 
         return result
 
-
 # Global factory instance
-_specialist_factory: Optional[SpecialistAgentFactory] = None
-
+_specialist_factory: SpecialistAgentFactory | None = None
 
 def get_specialist_factory(
-    registry: Optional[SpecialistModelRegistry] = None,
+    registry: SpecialistModelRegistry | None = None,
 ) -> SpecialistAgentFactory:
     """Get or create the global specialist agent factory."""
     global _specialist_factory
     if _specialist_factory is None:
         _specialist_factory = SpecialistAgentFactory(registry)
     return _specialist_factory
-
 
 __all__ = [
     "AgentConfig",

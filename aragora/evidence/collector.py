@@ -16,6 +16,7 @@ SSRF Protection:
 
     See aragora.config.settings.EvidenceSettings for details.
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -29,13 +30,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
-    FrozenSet,
-    List,
     Optional,
-    Set,
-    Tuple,
-    Union,
     cast,
 )
 from urllib.parse import urlparse
@@ -48,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 # Default allowed domains for URL fetching (SSRF protection)
 # These are well-known, trusted sources for research
-DEFAULT_ALLOWED_DOMAINS: FrozenSet[str] = frozenset(
+DEFAULT_ALLOWED_DOMAINS: frozenset[str] = frozenset(
     {
         # Code/Documentation
         "github.com",
@@ -90,7 +85,6 @@ DEFAULT_ALLOWED_DOMAINS: FrozenSet[str] = frozenset(
 from aragora.connectors.base import Connector
 from aragora.reasoning.provenance import ProvenanceManager
 
-
 @dataclass
 class EvidenceSnippet:
     """A piece of evidence from a connector."""
@@ -101,7 +95,7 @@ class EvidenceSnippet:
     snippet: str
     url: str = ""
     reliability_score: float = 0.5  # 0-1, based on source trustworthiness
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     fetched_at: datetime = field(default_factory=datetime.now)
 
     @property
@@ -158,7 +152,7 @@ URL: {self.url}
         source_info = f"{self.source.title()} (reliability: {self.reliability_score:.1f})"
         return f"[{self.id}] {self.title}. {source_info}.{url_part}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "id": self.id,
@@ -173,13 +167,12 @@ URL: {self.url}
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class EvidencePack:
     """A collection of evidence snippets for a debate."""
 
-    topic_keywords: List[str]
-    snippets: List[EvidenceSnippet]
+    topic_keywords: list[str]
+    snippets: list[EvidenceSnippet]
     search_timestamp: datetime = field(default_factory=datetime.now)
     total_searched: int = 0
 
@@ -226,7 +219,7 @@ class EvidencePack:
             lines.append(f"{i}. {snippet.to_citation()}")
         return "\n".join(lines)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "topic_keywords": self.topic_keywords,
@@ -236,7 +229,6 @@ class EvidencePack:
             "average_reliability": self.average_reliability,
             "average_freshness": self.average_freshness,
         }
-
 
 class EvidenceCollector:
     """Collects evidence from multiple connectors for debate grounding.
@@ -252,10 +244,10 @@ class EvidenceCollector:
 
     def __init__(
         self,
-        connectors: Optional[Dict[str, Connector]] = None,
-        event_emitter: Optional[Any] = None,
-        loop_id: Optional[str] = None,
-        allowed_domains: Optional[Set[str]] = None,
+        connectors: Optional[dict[str, Connector]] = None,
+        event_emitter: Any | None = None,
+        loop_id: str | None = None,
+        allowed_domains: Optional[set[str]] = None,
         require_url_consent: bool = False,
         url_consent_callback: Optional[Callable[[str, str], bool]] = None,
         audit_callback: Optional[Callable[[str, str, str, bool], None]] = None,
@@ -291,14 +283,14 @@ class EvidenceCollector:
         self._require_url_consent = require_url_consent
         self._url_consent_callback = url_consent_callback
         self._audit_callback = audit_callback
-        self._org_id: Optional[str] = None  # Set via set_org_context()
+        self._org_id: str | None = None  # Set via set_org_context()
 
         # Knowledge Mound integration
         self._km_adapter = km_adapter
 
         # Document parser integration
-        self._document_connector: Optional[Any] = None
-        self._parsed_documents: Dict[str, "ParsedDocument"] = {}
+        self._document_connector: Any | None = None
+        self._parsed_documents: dict[str, "ParsedDocument"] = {}
 
         if require_url_consent and url_consent_callback is None:
             raise ValueError("url_consent_callback is required when require_url_consent=True")
@@ -343,7 +335,7 @@ class EvidenceCollector:
         topic: str,
         limit: int = 10,
         min_reliability: float = 0.6,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Query Knowledge Mound for existing evidence on a topic.
 
         This implements the query-before-action pattern, checking KM
@@ -384,8 +376,8 @@ class EvidenceCollector:
 
     async def parse_document_file(
         self,
-        file_path: Union[str, Path],
-    ) -> Optional[List[EvidenceSnippet]]:
+        file_path: str | Path,
+    ) -> Optional[list[EvidenceSnippet]]:
         """Parse a document file and return evidence snippets.
 
         Supports PDF, DOCX, XLSX, PPTX, HTML, JSON, YAML, XML, CSV formats.
@@ -419,8 +411,8 @@ class EvidenceCollector:
         self,
         content: bytes,
         filename: str,
-        source_url: Optional[str] = None,
-    ) -> Optional[List[EvidenceSnippet]]:
+        source_url: str | None = None,
+    ) -> Optional[list[EvidenceSnippet]]:
         """Parse document bytes and return evidence snippets.
 
         Args:
@@ -453,7 +445,7 @@ class EvidenceCollector:
         self,
         doc: "ParsedDocument",
         source: str,
-    ) -> List[EvidenceSnippet]:
+    ) -> list[EvidenceSnippet]:
         """Convert ParsedDocument to EvidenceSnippet list."""
         snippets = []
 
@@ -501,13 +493,13 @@ class EvidenceCollector:
 
         # Create snippets from tables (higher reliability - structured data)
         for j, table in enumerate(doc.tables):
-            # Handle both DocumentTable objects and raw List[List[str]] data
+            # Handle both DocumentTable objects and raw list[list[str]] data
             if isinstance(table, list):
-                # Raw table data (List[List[str]])
-                table_data = cast(List[List[Any]], table)
-                table_headers: Optional[List[str]] = None
-                table_page: Optional[int] = None
-                table_caption: Optional[str] = None
+                # Raw table data (list[list[str]])
+                table_data = cast(list[list[Any]], table)
+                table_headers: Optional[list[str]] = None
+                table_page: int | None = None
+                table_caption: str | None = None
             else:
                 # DocumentTable object
                 table_data = table.data
@@ -548,8 +540,8 @@ class EvidenceCollector:
 
     def _format_table_for_snippet(
         self,
-        data: List[List[Any]],
-        headers: Optional[List[str]] = None,
+        data: list[list[Any]],
+        headers: Optional[list[str]] = None,
     ) -> str:
         """Format table data as text for evidence snippet."""
         lines = []
@@ -566,7 +558,7 @@ class EvidenceCollector:
 
         return "\n".join(lines)
 
-    def _extract_document_paths(self, task: str) -> List[str]:
+    def _extract_document_paths(self, task: str) -> list[str]:
         """Extract document file paths from task description.
 
         Detects:
@@ -756,8 +748,8 @@ class EvidenceCollector:
 
     def _emit_evidence_events(
         self,
-        snippets: List[EvidenceSnippet],
-        keywords: List[str],
+        snippets: list[EvidenceSnippet],
+        keywords: list[str],
     ) -> None:
         """Emit evidence_found events for real-time UI updates.
 
@@ -798,9 +790,9 @@ class EvidenceCollector:
     async def collect_evidence(
         self,
         task: str,
-        enabled_connectors: List[str] = None,
-        fetch_urls: Optional[bool] = None,
-        document_files: Optional[List[Union[str, Path]]] = None,
+        enabled_connectors: list[str] = None,
+        fetch_urls: bool | None = None,
+        document_files: Optional[list[str | Path]] = None,
     ) -> EvidencePack:
         """Collect evidence relevant to the task.
 
@@ -997,8 +989,8 @@ class EvidenceCollector:
         )
 
     async def _search_connector(
-        self, connector_name: str, connector: Connector, keywords: List[str]
-    ) -> Tuple[List[EvidenceSnippet], int]:
+        self, connector_name: str, connector: Connector, keywords: list[str]
+    ) -> tuple[list[EvidenceSnippet], int]:
         """Search a single connector and return snippets."""
         try:
             # Build search query from keywords
@@ -1047,7 +1039,7 @@ class EvidenceCollector:
             logger.warning(f"Error searching {connector_name}: {e}")
             return [], 0
 
-    def _extract_urls(self, task: str) -> List[str]:
+    def _extract_urls(self, task: str) -> list[str]:
         """Extract explicit URLs and domain references from task description.
 
         Enhanced detection includes:
@@ -1100,7 +1092,7 @@ class EvidenceCollector:
         pattern = r"^https?://github\.com/([\w.-]+)/([\w.-]+)/?$"
         return bool(re.match(pattern, url, re.IGNORECASE))
 
-    def _parse_github_repo(self, url: str) -> Optional[Tuple[str, str]]:
+    def _parse_github_repo(self, url: str) -> Optional[tuple[str, str]]:
         """Parse owner and repo from GitHub URL."""
         pattern = r"github\.com/([\w.-]+)/([\w.-]+)"
         match = re.search(pattern, url, re.IGNORECASE)
@@ -1108,7 +1100,7 @@ class EvidenceCollector:
             return match.group(1), match.group(2)
         return None
 
-    async def _fetch_github_readme(self, url: str, web_connector: Any) -> Optional[EvidenceSnippet]:
+    async def _fetch_github_readme(self, url: str, web_connector: Any) -> EvidenceSnippet | None:
         """Fetch README.md from a GitHub repository.
 
         Tries multiple branch names (main, master, develop) and README variants.
@@ -1165,7 +1157,7 @@ class EvidenceCollector:
         logger.warning(f"Could not find README for {owner}/{repo}")
         return None
 
-    def _extract_keywords(self, task: str) -> List[str]:
+    def _extract_keywords(self, task: str) -> list[str]:
         """Extract search keywords from task description."""
         # Simple keyword extraction - split and filter
         words = re.findall(r"\b\w+\b", task.lower())
@@ -1262,7 +1254,7 @@ class EvidenceCollector:
 
         return truncated + "..."
 
-    def _calculate_reliability(self, connector_name: str, result: Dict[str, Any]) -> float:
+    def _calculate_reliability(self, connector_name: str, result: dict[str, Any]) -> float:
         """Calculate reliability score based on source and metadata."""
         base_scores = {
             "github": 0.8,  # Code/docs from GitHub
@@ -1304,8 +1296,8 @@ class EvidenceCollector:
         return min(1.0, base_score)
 
     def _rank_snippets(
-        self, snippets: List[EvidenceSnippet], keywords: List[str]
-    ) -> List[EvidenceSnippet]:
+        self, snippets: list[EvidenceSnippet], keywords: list[str]
+    ) -> list[EvidenceSnippet]:
         """Rank snippets by relevance, reliability, and freshness."""
 
         def score_snippet(snippet: EvidenceSnippet) -> float:
@@ -1336,8 +1328,8 @@ class EvidenceCollector:
 
     async def collect_for_claims(
         self,
-        claims: List[str],
-        enabled_connectors: List[str] = None,
+        claims: list[str],
+        enabled_connectors: list[str] = None,
         max_per_claim: int = 2,
     ) -> EvidencePack:
         """Collect evidence specifically for a list of claims.
@@ -1363,9 +1355,9 @@ class EvidenceCollector:
                 total_searched=0,
             )
 
-        all_snippets: List[EvidenceSnippet] = []
+        all_snippets: list[EvidenceSnippet] = []
         total_searched = 0
-        all_keywords: List[str] = []
+        all_keywords: list[str] = []
 
         # Process each claim
         for claim in claims[:5]:  # Limit to 5 claims to avoid API overload
@@ -1396,7 +1388,7 @@ class EvidenceCollector:
 
         # Deduplicate by snippet content hash
         seen_hashes: set = set()
-        unique_snippets: List[EvidenceSnippet] = []
+        unique_snippets: list[EvidenceSnippet] = []
         for snippet in all_snippets:
             content_hash = hashlib.md5(snippet.snippet.encode(), usedforsecurity=False).hexdigest()
             if content_hash not in seen_hashes:
@@ -1419,7 +1411,7 @@ class EvidenceCollector:
             total_searched=total_searched,
         )
 
-    def extract_claims_from_text(self, text: str) -> List[str]:
+    def extract_claims_from_text(self, text: str) -> list[str]:
         """Extract factual claims from text that could benefit from evidence.
 
         Looks for:
@@ -1434,7 +1426,7 @@ class EvidenceCollector:
         Returns:
             List of claim strings
         """
-        claims: List[str] = []
+        claims: list[str] = []
 
         # Split into sentences
         sentences = re.split(r"[.!?]\s+", text)
@@ -1463,7 +1455,6 @@ class EvidenceCollector:
 
         # Deduplicate
         return list(dict.fromkeys(claims))[:10]  # Max 10 claims
-
 
 __all__ = [
     "EvidenceSnippet",

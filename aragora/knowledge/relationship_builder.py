@@ -19,7 +19,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from aragora.connectors.repository_crawler import (
     CrawledFile,
@@ -29,7 +29,6 @@ from aragora.connectors.repository_crawler import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class RelationshipKind(str, Enum):
     """Types of relationships between code entities."""
@@ -43,7 +42,6 @@ class RelationshipKind(str, Enum):
     MEMBER_OF = "member_of"  # Method member of class
     USES = "uses"  # Generic usage
 
-
 @dataclass
 class CodeEntity:
     """A code entity that can participate in relationships."""
@@ -54,10 +52,10 @@ class CodeEntity:
     file_path: str
     line_start: int
     line_end: int
-    signature: Optional[str] = None
-    docstring: Optional[str] = None
-    parent_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    signature: str | None = None
+    docstring: str | None = None
+    parent_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_file(cls, crawled_file: CrawledFile, repository: str) -> "CodeEntity":
@@ -95,7 +93,6 @@ class CodeEntity:
             parent_id=f"{repository}:{file_path}:{symbol.parent}" if symbol.parent else None,
         )
 
-
 @dataclass
 class Relationship:
     """A relationship between two code entities."""
@@ -104,10 +101,10 @@ class Relationship:
     target_id: str
     kind: RelationshipKind
     weight: float = 1.0
-    line: Optional[int] = None  # Line where relationship is declared
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    line: int | None = None  # Line where relationship is declared
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "source_id": self.source_id,
@@ -118,16 +115,15 @@ class Relationship:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class RelationshipGraph:
     """A graph of code entities and their relationships."""
 
-    entities: Dict[str, CodeEntity]
-    relationships: List[Relationship]
+    entities: dict[str, CodeEntity]
+    relationships: list[Relationship]
     # Adjacency lists for quick traversal
-    outgoing: Dict[str, List[Relationship]]  # entity_id -> outgoing relationships
-    incoming: Dict[str, List[Relationship]]  # entity_id -> incoming relationships
+    outgoing: dict[str, list[Relationship]]  # entity_id -> outgoing relationships
+    incoming: dict[str, list[Relationship]]  # entity_id -> incoming relationships
 
     def __init__(self):
         self.entities = {}
@@ -148,8 +144,8 @@ class RelationshipGraph:
     def get_dependencies(
         self,
         entity_id: str,
-        relationship_kinds: Optional[Set[RelationshipKind]] = None,
-    ) -> List[CodeEntity]:
+        relationship_kinds: Optional[set[RelationshipKind]] = None,
+    ) -> list[CodeEntity]:
         """Get entities that this entity depends on."""
         result = []
         for rel in self.outgoing.get(entity_id, []):
@@ -161,8 +157,8 @@ class RelationshipGraph:
     def get_dependents(
         self,
         entity_id: str,
-        relationship_kinds: Optional[Set[RelationshipKind]] = None,
-    ) -> List[CodeEntity]:
+        relationship_kinds: Optional[set[RelationshipKind]] = None,
+    ) -> list[CodeEntity]:
         """Get entities that depend on this entity."""
         result = []
         for rel in self.incoming.get(entity_id, []):
@@ -171,7 +167,7 @@ class RelationshipGraph:
                     result.append(self.entities[rel.source_id])
         return result
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "entity_count": len(self.entities),
@@ -186,7 +182,6 @@ class RelationshipGraph:
             },
             "relationships": [r.to_dict() for r in self.relationships],
         }
-
 
 class RelationshipBuilder:
     """
@@ -205,7 +200,7 @@ class RelationshipBuilder:
         """
         self.repository_name = repository_name
         self._graph = RelationshipGraph()
-        self._symbol_index: Dict[str, str] = {}  # symbol_name -> entity_id
+        self._symbol_index: dict[str, str] = {}  # symbol_name -> entity_id
 
     async def build_graph(
         self,
@@ -245,8 +240,8 @@ class RelationshipBuilder:
         self,
         entity_id: str,
         depth: int = 2,
-        relationship_kinds: Optional[Set[RelationshipKind]] = None,
-    ) -> List[CodeEntity]:
+        relationship_kinds: Optional[set[RelationshipKind]] = None,
+    ) -> list[CodeEntity]:
         """
         Find all dependencies of an entity up to a given depth.
 
@@ -258,8 +253,8 @@ class RelationshipBuilder:
         Returns:
             List of dependent entities
         """
-        result: List[CodeEntity] = []
-        visited: Set[str] = {entity_id}
+        result: list[CodeEntity] = []
+        visited: set[str] = {entity_id}
         current_level = [entity_id]
 
         for _ in range(depth):
@@ -281,8 +276,8 @@ class RelationshipBuilder:
         self,
         entity_id: str,
         depth: int = 2,
-        relationship_kinds: Optional[Set[RelationshipKind]] = None,
-    ) -> List[CodeEntity]:
+        relationship_kinds: Optional[set[RelationshipKind]] = None,
+    ) -> list[CodeEntity]:
         """
         Find all entities that depend on this entity.
 
@@ -294,8 +289,8 @@ class RelationshipBuilder:
         Returns:
             List of entities that depend on this one
         """
-        result: List[CodeEntity] = []
-        visited: Set[str] = {entity_id}
+        result: list[CodeEntity] = []
+        visited: set[str] = {entity_id}
         current_level = [entity_id]
 
         for _ in range(depth):
@@ -317,7 +312,7 @@ class RelationshipBuilder:
         self,
         function_id: str,
         depth: int = 3,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get the call graph for a function.
 
@@ -349,7 +344,7 @@ class RelationshipBuilder:
         self,
         class_id: str,
         direction: str = "both",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get the inheritance tree for a class.
 
@@ -362,8 +357,8 @@ class RelationshipBuilder:
         """
         inherit_kinds = {RelationshipKind.INHERITS, RelationshipKind.IMPLEMENTS}
 
-        ancestors: List[CodeEntity] = []
-        descendants: List[CodeEntity] = []
+        ancestors: list[CodeEntity] = []
+        descendants: list[CodeEntity] = []
 
         if direction in ("up", "both"):
             ancestors = await self.find_dependencies(class_id, 10, inherit_kinds)
@@ -445,7 +440,7 @@ class RelationshipBuilder:
                     )
                 )
 
-    def _build_dependency_relationships(self, dependency_graph: Dict[str, List[str]]) -> None:
+    def _build_dependency_relationships(self, dependency_graph: dict[str, list[str]]) -> None:
         """Build relationships from the crawl's dependency graph."""
         for source_path, target_paths in dependency_graph.items():
             source_id = f"{self.repository_name}:{source_path}"
@@ -462,7 +457,7 @@ class RelationshipBuilder:
                         )
                     )
 
-    def _resolve_dependency_target(self, dep: FileDependency) -> Optional[str]:
+    def _resolve_dependency_target(self, dep: FileDependency) -> str | None:
         """Resolve a dependency target to an entity ID."""
         # Try exact match in symbol index
         if dep.target in self._symbol_index:
@@ -501,7 +496,7 @@ class RelationshipBuilder:
         }
         return mapping.get(kind, RelationshipKind.USES)
 
-    def get_entity(self, entity_id: str) -> Optional[CodeEntity]:
+    def get_entity(self, entity_id: str) -> CodeEntity | None:
         """Get an entity by ID."""
         return self._graph.entities.get(entity_id)
 
@@ -509,10 +504,10 @@ class RelationshipBuilder:
         """Get the current relationship graph."""
         return self._graph
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get statistics about the relationship graph."""
-        kind_counts: Dict[str, int] = defaultdict(int)
-        entity_kind_counts: Dict[str, int] = defaultdict(int)
+        kind_counts: dict[str, int] = defaultdict(int)
+        entity_kind_counts: dict[str, int] = defaultdict(int)
 
         for rel in self._graph.relationships:
             kind_counts[rel.kind.value] += 1

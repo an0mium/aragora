@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.debate.evidence_quality import EvidenceType
 
@@ -25,10 +25,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # Lazy import to avoid scipy/numpy import failures
 _evidence_linker_module = None
-
 
 def _get_evidence_linker_module():
     """Lazy import of evidence_linker module."""
@@ -43,14 +41,12 @@ def _get_evidence_linker_module():
             return None
     return _evidence_linker_module
 
-
 def _get_evidence_linker_class():
     """Get EvidenceClaimLinker class if available."""
     module = _get_evidence_linker_module()
     if module:
         return module.EvidenceClaimLinker
     return None
-
 
 @dataclass
 class SharedEvidence:
@@ -66,7 +62,6 @@ class SharedEvidence:
         """Number of agents citing this evidence."""
         return len(self.agents)
 
-
 @dataclass
 class Contradiction:
     """Contradictory evidence between agents."""
@@ -78,7 +73,6 @@ class Contradiction:
     evidence2: str
     description: str  # Human-readable description
 
-
 @dataclass
 class EvidenceGap:
     """A claim made without supporting evidence."""
@@ -86,7 +80,6 @@ class EvidenceGap:
     claim: str
     agents_making_claim: list[str]
     gap_severity: float  # 0-1, higher = more severe
-
 
 @dataclass
 class CrossProposalAnalysis:
@@ -107,7 +100,7 @@ class CrossProposalAnalysis:
 
     # Per-agent analysis
     agent_coverage: dict[str, float]  # agent -> coverage score
-    weakest_agent: Optional[str]  # Agent with lowest evidence quality
+    weakest_agent: str | None  # Agent with lowest evidence quality
 
     @property
     def has_concerns(self) -> bool:
@@ -119,7 +112,7 @@ class CrossProposalAnalysis:
         )
 
     @property
-    def top_concern(self) -> Optional[str]:
+    def top_concern(self) -> str | None:
         """Get the most significant concern."""
         if self.evidence_gaps:
             return f"Evidence gap: {self.evidence_gaps[0].claim[:80]}..."
@@ -129,7 +122,6 @@ class CrossProposalAnalysis:
         if self.redundancy_score > 0.7:
             return f"Echo chamber: {self.redundancy_score:.0%} redundancy"
         return None
-
 
 class CrossProposalAnalyzer:
     """
@@ -156,7 +148,7 @@ class CrossProposalAnalyzer:
 
     def __init__(
         self,
-        linker: Optional[Any] = None,
+        linker: Any | None = None,
         min_redundancy_similarity: float = 0.7,
         min_claim_overlap: float = 0.5,
     ):
@@ -459,7 +451,6 @@ class CrossProposalAnalyzer:
         potential_sharing = len(shared) * num_agents
 
         return max_sharing / potential_sharing if potential_sharing > 0 else 0.0
-
 
 __all__ = [
     "SharedEvidence",

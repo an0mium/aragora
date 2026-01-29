@@ -5,6 +5,7 @@ These Protocol classes allow Arena to depend on interfaces rather than
 concrete implementations, breaking circular import chains. Concrete
 implementations are injected at runtime via ArenaFactory.
 """
+from __future__ import annotations
 
 __all__ = [
     "PositionTrackerProtocol",
@@ -18,8 +19,7 @@ __all__ = [
     "ArgumentCartographerProtocol",
 ]
 
-from typing import Any, Optional, Protocol, runtime_checkable
-
+from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class PositionTrackerProtocol(Protocol):
@@ -31,7 +31,7 @@ class PositionTrackerProtocol(Protocol):
         claim_text: str,
         stance: str,
         confidence: float,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> None:
         """Record an agent's position on a claim."""
         ...
@@ -44,7 +44,6 @@ class PositionTrackerProtocol(Protocol):
         """Get position history for a specific claim."""
         ...
 
-
 @runtime_checkable
 class CalibrationTrackerProtocol(Protocol):
     """Interface for tracking agent prediction calibration."""
@@ -54,7 +53,7 @@ class CalibrationTrackerProtocol(Protocol):
         agent_name: str,
         prediction: str,
         confidence: float,
-        category: Optional[str] = None,
+        category: str | None = None,
     ) -> str:
         """Record a prediction for later resolution."""
         ...
@@ -67,10 +66,9 @@ class CalibrationTrackerProtocol(Protocol):
         """Resolve a prediction as correct or incorrect."""
         ...
 
-    def get_calibration_score(self, agent_name: str) -> Optional[float]:
+    def get_calibration_score(self, agent_name: str) -> float | None:
         """Get an agent's calibration score."""
         ...
-
 
 @runtime_checkable
 class BeliefNetworkProtocol(Protocol):
@@ -81,7 +79,7 @@ class BeliefNetworkProtocol(Protocol):
         claim_id: str,
         text: str,
         confidence: float,
-        agent: Optional[str] = None,
+        agent: str | None = None,
     ) -> None:
         """Add a claim to the belief network."""
         ...
@@ -108,7 +106,6 @@ class BeliefNetworkProtocol(Protocol):
         """Propagate beliefs through the network."""
         ...
 
-
 @runtime_checkable
 class BeliefPropagationAnalyzerProtocol(Protocol):
     """Interface for analyzing belief propagation in debates."""
@@ -116,11 +113,10 @@ class BeliefPropagationAnalyzerProtocol(Protocol):
     def analyze_debate(
         self,
         messages: list[Any],
-        network: Optional[BeliefNetworkProtocol] = None,
+        network: BeliefNetworkProtocol | None = None,
     ) -> dict[str, Any]:
         """Analyze belief changes during a debate."""
         ...
-
 
 @runtime_checkable
 class CitationExtractorProtocol(Protocol):
@@ -133,11 +129,10 @@ class CitationExtractorProtocol(Protocol):
     def validate_citations(
         self,
         citations: list[dict[str, Any]],
-        evidence_store: Optional[Any] = None,
+        evidence_store: Any | None = None,
     ) -> list[dict[str, Any]]:
         """Validate extracted citations."""
         ...
-
 
 @runtime_checkable
 class InsightExtractorProtocol(Protocol):
@@ -146,11 +141,10 @@ class InsightExtractorProtocol(Protocol):
     def extract_insights(
         self,
         text: str,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Extract insights from debate text."""
         ...
-
 
 @runtime_checkable
 class InsightStoreProtocol(Protocol):
@@ -159,14 +153,14 @@ class InsightStoreProtocol(Protocol):
     def store_insight(
         self,
         insight: dict[str, Any],
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> str:
         """Store an insight and return its ID."""
         ...
 
     def get_insights(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """Retrieve stored insights."""
@@ -180,7 +174,6 @@ class InsightStoreProtocol(Protocol):
         """Search insights by query."""
         ...
 
-
 @runtime_checkable
 class CritiqueStoreProtocol(Protocol):
     """Interface for storing and retrieving critique patterns."""
@@ -188,7 +181,7 @@ class CritiqueStoreProtocol(Protocol):
     def store_critique(
         self,
         critique: Any,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> None:
         """Store a critique."""
         ...
@@ -201,7 +194,6 @@ class CritiqueStoreProtocol(Protocol):
         """Get critique patterns relevant to a task."""
         ...
 
-
 @runtime_checkable
 class ArgumentCartographerProtocol(Protocol):
     """Interface for mapping argument structures."""
@@ -209,7 +201,7 @@ class ArgumentCartographerProtocol(Protocol):
     def map_arguments(
         self,
         messages: list[Any],
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Map argument structure from messages."""
         ...

@@ -4,6 +4,7 @@ Twitter/X posting connector for publishing debate content.
 Supports posting single tweets, threads, and media attachments
 using Twitter API v2 with OAuth 1.0a authentication.
 """
+from __future__ import annotations
 
 import asyncio
 import base64
@@ -17,7 +18,6 @@ import urllib.parse
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
@@ -29,13 +29,11 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
-
 class TwitterError(ConnectorError):
     """Base exception for Twitter connector errors."""
 
     def __init__(self, message: str = "Twitter API operation failed", **kwargs):
         super().__init__(message, connector_name="twitter", **kwargs)
-
 
 class TwitterAuthError(TwitterError, ConnectorAuthError):
     """Authentication/authorization failed."""
@@ -43,25 +41,22 @@ class TwitterAuthError(TwitterError, ConnectorAuthError):
     def __init__(self, message: str = "Twitter authentication failed. Check API credentials."):
         super().__init__(message)
 
-
 class TwitterRateLimitError(TwitterError, ConnectorRateLimitError):
     """Rate limit exceeded."""
 
     def __init__(self, message: str = "Twitter rate limit exceeded", retry_after: int = 900):
         super().__init__(f"{message}. Retry after {retry_after}s", retry_after=float(retry_after))
 
-
 class TwitterAPIError(TwitterError, ConnectorAPIError):
     """General API error."""
 
     def __init__(
-        self, message: str = "Twitter API request failed", status_code: Optional[int] = None
+        self, message: str = "Twitter API request failed", status_code: int | None = None
     ):
         full_message = f"{message} (HTTP {status_code})" if status_code else message
         is_retryable = status_code is not None and 500 <= status_code < 600
         super().__init__(full_message, is_retryable=is_retryable)
         self.status_code = status_code
-
 
 class TwitterMediaError(TwitterError):
     """Media upload failed."""
@@ -69,12 +64,10 @@ class TwitterMediaError(TwitterError):
     def __init__(self, message: str = "Twitter media upload failed"):
         super().__init__(message, is_retryable=True)
 
-
 # Twitter API limits
 MAX_TWEET_LENGTH = 280
 MAX_THREAD_LENGTH = 25  # Maximum tweets in a thread
 MAX_MEDIA_SIZE_MB = 5  # For images
-
 
 @dataclass
 class TweetResult:
@@ -85,8 +78,7 @@ class TweetResult:
     created_at: str
     url: str
     success: bool = True
-    error: Optional[str] = None
-
+    error: str | None = None
 
 @dataclass
 class ThreadResult:
@@ -95,7 +87,7 @@ class ThreadResult:
     thread_id: str  # ID of first tweet
     tweets: list[TweetResult] = field(default_factory=list)
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def url(self) -> str:
@@ -103,7 +95,6 @@ class ThreadResult:
         if self.tweets:
             return self.tweets[0].url
         return ""
-
 
 class TwitterRateLimiter:
     """Simple rate limiter for Twitter API."""
@@ -128,7 +119,6 @@ class TwitterRateLimiter:
 
         self.call_times.append(time.time())
 
-
 class TwitterPosterConnector:
     """
     Post debate content to Twitter/X.
@@ -149,10 +139,10 @@ class TwitterPosterConnector:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        api_secret: Optional[str] = None,
-        access_token: Optional[str] = None,
-        access_secret: Optional[str] = None,
+        api_key: str | None = None,
+        api_secret: str | None = None,
+        access_token: str | None = None,
+        access_secret: str | None = None,
     ):
         self.api_key = api_key or os.environ.get("TWITTER_API_KEY", "")
         self.api_secret = api_secret or os.environ.get("TWITTER_API_SECRET", "")
@@ -257,8 +247,8 @@ class TwitterPosterConnector:
     async def post_tweet(
         self,
         text: str,
-        reply_to: Optional[str] = None,
-        media_ids: Optional[list[str]] = None,
+        reply_to: str | None = None,
+        media_ids: list[str] | None = None,
     ) -> TweetResult:
         """
         Post a single tweet.
@@ -400,7 +390,7 @@ class TwitterPosterConnector:
             tweets = tweets[:MAX_THREAD_LENGTH]
 
         results: list[TweetResult] = []
-        reply_to: Optional[str] = None
+        reply_to: str | None = None
 
         for i, text in enumerate(tweets):
             result = await self.post_tweet(text, reply_to=reply_to)
@@ -495,7 +485,6 @@ class TwitterPosterConnector:
             logger.error(f"Failed to upload media: {e}")
             raise TwitterMediaError(f"Failed to upload media: {e}") from e
 
-
 class DebateContentFormatter:
     """
     Format debate content for Twitter posting.
@@ -511,7 +500,7 @@ class DebateContentFormatter:
         self,
         task: str,
         agents: list[str],
-        debate_url: Optional[str] = None,
+        debate_url: str | None = None,
     ) -> str:
         """
         Format a debate announcement tweet.
@@ -556,9 +545,9 @@ class DebateContentFormatter:
         task: str,
         agents: list[str],
         consensus_reached: bool,
-        winner: Optional[str] = None,
-        debate_url: Optional[str] = None,
-        audio_url: Optional[str] = None,
+        winner: str | None = None,
+        debate_url: str | None = None,
+        audio_url: str | None = None,
     ) -> str:
         """
         Format a debate result tweet.
@@ -600,7 +589,7 @@ class DebateContentFormatter:
         agents: list[str],
         highlights: list[str],
         consensus_reached: bool,
-        debate_url: Optional[str] = None,
+        debate_url: str | None = None,
     ) -> list[str]:
         """
         Format a debate as a thread of tweets.
@@ -637,7 +626,6 @@ class DebateContentFormatter:
         tweets.append(result_text)
 
         return tweets[: self.THREAD_MAX]
-
 
 def create_debate_summary(
     task: str,

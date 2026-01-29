@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine, Optional
 
 from aragora.bots.base import (
     CommandContext,
@@ -19,7 +19,6 @@ from aragora.bots.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 def _get_api_base(ctx: "CommandContext") -> str:
     """Get API base URL from command context.
@@ -44,10 +43,8 @@ def _get_api_base(ctx: "CommandContext") -> str:
         api_base = "http://localhost:8080"
     return api_base
 
-
 # Type alias for command handlers
 CommandHandler = Callable[[CommandContext], Coroutine[Any, Any, CommandResult]]
-
 
 @dataclass
 class BotCommand:
@@ -57,13 +54,13 @@ class BotCommand:
     handler: CommandHandler
     description: str = ""
     usage: str = ""
-    aliases: List[str] = field(default_factory=list)
-    platforms: Set[Platform] = field(default_factory=lambda: set(Platform))
+    aliases: list[str] = field(default_factory=list)
+    platforms: set[Platform] = field(default_factory=lambda: set(Platform))
     requires_args: bool = False
     min_args: int = 0
-    max_args: Optional[int] = None
+    max_args: int | None = None
     admin_only: bool = False
-    rate_limit: Optional[int] = None  # Max calls per minute per user
+    rate_limit: int | None = None  # Max calls per minute per user
     cooldown: float = 0  # Seconds between invocations
 
     def __post_init__(self) -> None:
@@ -74,7 +71,7 @@ class BotCommand:
         """Check if command is available on the given platform."""
         return platform in self.platforms
 
-    def validate_args(self, args: List[str]) -> Optional[str]:
+    def validate_args(self, args: list[str]) -> str | None:
         """Validate argument count. Returns error message if invalid."""
         if self.requires_args and len(args) < 1:
             return f"Command '{self.name}' requires arguments. Usage: {self.usage}"
@@ -84,14 +81,13 @@ class BotCommand:
             return f"Command '{self.name}' accepts at most {self.max_args} argument(s)."
         return None
 
-
 class CommandRegistry:
     """Registry for bot commands."""
 
     def __init__(self) -> None:
-        self._commands: Dict[str, BotCommand] = {}
-        self._aliases: Dict[str, str] = {}  # alias -> command name
-        self._cooldowns: Dict[str, Dict[str, float]] = {}  # command -> user_id -> timestamp
+        self._commands: dict[str, BotCommand] = {}
+        self._aliases: dict[str, str] = {}  # alias -> command name
+        self._cooldowns: dict[str, dict[str, float]] = {}  # command -> user_id -> timestamp
 
     def register(self, command: BotCommand) -> None:
         """Register a command."""
@@ -121,7 +117,7 @@ class CommandRegistry:
 
         return True
 
-    def get(self, name: str) -> Optional[BotCommand]:
+    def get(self, name: str) -> BotCommand | None:
         """Get a command by name or alias."""
         # Check direct name first
         if name in self._commands:
@@ -133,17 +129,17 @@ class CommandRegistry:
 
         return None
 
-    def list_for_platform(self, platform: Platform) -> List[BotCommand]:
+    def list_for_platform(self, platform: Platform) -> list[BotCommand]:
         """Get all commands available on a platform."""
         return [cmd for cmd in self._commands.values() if cmd.matches_platform(platform)]
 
-    def list_commands(self, platform: Optional[Platform] = None) -> List[BotCommand]:
+    def list_commands(self, platform: Platform | None = None) -> list[BotCommand]:
         """List all registered commands, optionally filtered by platform."""
         if platform is not None:
             return self.list_for_platform(platform)
         return list(self._commands.values())
 
-    def _check_cooldown(self, command: BotCommand, user_id: str) -> Optional[float]:
+    def _check_cooldown(self, command: BotCommand, user_id: str) -> float | None:
         """Check if user is on cooldown. Returns remaining seconds if so."""
         if command.cooldown <= 0:
             return None
@@ -231,13 +227,13 @@ class CommandRegistry:
         name: str,
         description: str = "",
         usage: str = "",
-        aliases: Optional[List[str]] = None,
-        platforms: Optional[Set[Platform]] = None,
+        aliases: Optional[list[str]] = None,
+        platforms: Optional[set[Platform]] = None,
         requires_args: bool = False,
         min_args: int = 0,
-        max_args: Optional[int] = None,
+        max_args: int | None = None,
         admin_only: bool = False,
-        rate_limit: Optional[int] = None,
+        rate_limit: int | None = None,
         cooldown: float = 0,
     ) -> Callable[[CommandHandler], CommandHandler]:
         """Decorator to register a command handler."""
@@ -262,10 +258,8 @@ class CommandRegistry:
 
         return decorator
 
-
 # Global default registry
-_default_registry: Optional[CommandRegistry] = None
-
+_default_registry: CommandRegistry | None = None
 
 def get_default_registry() -> CommandRegistry:
     """Get or create the default command registry."""
@@ -275,7 +269,6 @@ def get_default_registry() -> CommandRegistry:
         _register_builtin_commands(_default_registry)
     return _default_registry
 
-
 def command(
     name: str,
     description: str = "",
@@ -283,7 +276,6 @@ def command(
 ) -> Callable[[CommandHandler], CommandHandler]:
     """Shorthand decorator using the default registry."""
     return get_default_registry().command(name, description, **kwargs)
-
 
 def _register_builtin_commands(registry: CommandRegistry) -> None:
     """Register built-in commands."""

@@ -29,7 +29,7 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from typing import Any, Callable, Optional, TypeVar, ParamSpec
+from typing import Any, Callable, TypeVar, ParamSpec
 
 from aragora.rbac.models import AuthorizationContext
 from aragora.rbac.decorators import PermissionDeniedError, RoleRequiredError
@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 T = TypeVar("T")
-
 
 class SecureHandler(BaseHandler):
     """
@@ -73,7 +72,7 @@ class SecureHandler(BaseHandler):
     def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
         super().__init__(server_context)
-        self._auth_context: Optional[AuthorizationContext] = None
+        self._auth_context: AuthorizationContext | None = None
 
     async def get_auth_context(
         self,
@@ -99,7 +98,7 @@ class SecureHandler(BaseHandler):
         self,
         auth_context: AuthorizationContext,
         permission: str,
-        resource_id: Optional[str] = None,
+        resource_id: str | None = None,
     ) -> bool:
         """
         Check if user has a specific permission.
@@ -136,9 +135,9 @@ class SecureHandler(BaseHandler):
         auth_context: AuthorizationContext,
         action: str,
         resource_id: str,
-        resource_type: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
-        request: Optional[Any] = None,
+        resource_type: str | None = None,
+        details: dict[str, Any] | None = None,
+        request: Any | None = None,
     ) -> None:
         """
         Log an action to the security audit trail.
@@ -178,7 +177,7 @@ class SecureHandler(BaseHandler):
     def encrypt_response_fields(
         self,
         data: dict[str, Any],
-        fields: Optional[list[str]] = None,
+        fields: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Encrypt sensitive fields in response data.
@@ -200,7 +199,7 @@ class SecureHandler(BaseHandler):
     def decrypt_request_fields(
         self,
         data: dict[str, Any],
-        fields: Optional[list[str]] = None,
+        fields: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Decrypt sensitive fields from stored/received data.
@@ -219,7 +218,7 @@ class SecureHandler(BaseHandler):
     def handle_security_error(
         self,
         error: Exception,
-        request: Optional[Any] = None,
+        request: Any | None = None,
     ) -> HandlerResult:
         """
         Handle security-related errors and return appropriate response.
@@ -265,13 +264,12 @@ class SecureHandler(BaseHandler):
         logger.error(f"Unexpected security error: {error}")
         return error_response("Security error", 500)
 
-
 def secure_endpoint(
-    permission: Optional[str] = None,
+    permission: str | None = None,
     require_auth: bool = True,
     audit: bool = False,
-    audit_action: Optional[str] = None,
-    resource_id_param: Optional[str] = None,
+    audit_action: str | None = None,
+    resource_id_param: str | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator for secure endpoint methods.
@@ -372,7 +370,6 @@ def secure_endpoint(
 
     return decorator
 
-
 def audit_sensitive_access(
     resource_type: str,
     action: str = "access",
@@ -422,7 +419,6 @@ def audit_sensitive_access(
         return wrapper  # type: ignore[return-value]
 
     return decorator
-
 
 # Export commonly used items
 __all__ = [

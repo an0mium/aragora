@@ -16,10 +16,11 @@ Key concepts:
 - ProbeStrategy: Different probing approaches
 - ELO integration: Penalize unreliable agents
 """
+from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable
 
 from aragora.core import Agent, Message
 from aragora.ranking.elo import EloSystem
@@ -68,7 +69,6 @@ __all__ = [
     "generate_probe_report_markdown",
 ]
 
-
 class CapabilityProber:
     """
     Main prober that orchestrates capability probing sessions.
@@ -78,7 +78,7 @@ class CapabilityProber:
 
     def __init__(
         self,
-        elo_system: Optional[EloSystem] = None,
+        elo_system: EloSystem | None = None,
         elo_penalty_multiplier: float = 5.0,
     ):
         self.elo_system = elo_system
@@ -89,9 +89,9 @@ class CapabilityProber:
         self,
         target_agent: Agent,
         run_agent_fn: Callable,
-        probe_types: Optional[list[ProbeType]] = None,
+        probe_types: list[ProbeType] | None = None,
         probes_per_type: int = 3,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
     ) -> VulnerabilityReport:
         """
         Run a comprehensive probing session on an agent.
@@ -258,7 +258,6 @@ class CapabilityProber:
         rating.updated_at = datetime.now().isoformat()
         self.elo_system._save_rating(rating)
 
-
 class ProbeBeforePromote:
     """
     Middleware that requires clean probing before ELO gains.
@@ -285,7 +284,7 @@ class ProbeBeforePromote:
         agent: Agent,
         run_agent_fn: Callable,
         pending_elo_gain: float,
-    ) -> tuple[bool, Optional[VulnerabilityReport]]:
+    ) -> tuple[bool, VulnerabilityReport | None]:
         """
         Check if agent passes probing for promotion.
 
@@ -313,7 +312,7 @@ class ProbeBeforePromote:
         self,
         agent: Agent,
         run_agent_fn: Callable,
-    ) -> tuple[bool, Optional[VulnerabilityReport]]:
+    ) -> tuple[bool, VulnerabilityReport | None]:
         """Retry a pending promotion after agent improvement."""
         pending = self.pending_promotions.get(agent.name, 0)
         if pending == 0:
@@ -325,7 +324,6 @@ class ProbeBeforePromote:
             del self.pending_promotions[agent.name]
 
         return approved, report
-
 
 def generate_probe_report_markdown(report: VulnerabilityReport) -> str:
     """Generate a Markdown report from a VulnerabilityReport."""

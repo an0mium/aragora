@@ -25,7 +25,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
@@ -33,20 +33,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class DeliveryResult:
     """Result of a receipt delivery attempt."""
 
     channel_type: str
     channel_id: str
-    workspace_id: Optional[str]
+    workspace_id: str | None
     success: bool
-    message_id: Optional[str] = None
-    error: Optional[str] = None
+    message_id: str | None = None
+    error: str | None = None
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "channel_type": self.channel_type,
@@ -58,7 +57,6 @@ class DeliveryResult:
             "timestamp": self.timestamp,
             "timestamp_iso": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
         }
-
 
 class ReceiptDeliveryHook:
     """Hook for automatic receipt delivery after debates.
@@ -86,7 +84,7 @@ class ReceiptDeliveryHook:
         self.min_confidence = min_confidence
         self.require_consensus = require_consensus
         self.enabled = enabled
-        self._delivery_history: List[DeliveryResult] = []
+        self._delivery_history: list[DeliveryResult] = []
 
     async def on_post_debate(
         self,
@@ -152,7 +150,7 @@ class ReceiptDeliveryHook:
         except Exception as e:
             logger.exception(f"Error in receipt delivery hook: {e}")
 
-    async def _get_receipt_subscriptions(self) -> List[Any]:
+    async def _get_receipt_subscriptions(self) -> list[Any]:
         """Get channels subscribed to receipt events."""
         try:
             from aragora.storage.channel_subscription_store import (
@@ -184,7 +182,7 @@ class ReceiptDeliveryHook:
         self,
         ctx: "DebateContext",
         result: "DebateResult",
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Generate a decision receipt from the debate result."""
         try:
             import hashlib
@@ -225,7 +223,7 @@ class ReceiptDeliveryHook:
 
     async def _deliver_to_channel(
         self,
-        receipt: Dict[str, Any],
+        receipt: dict[str, Any],
         subscription: Any,
     ) -> DeliveryResult:
         """Deliver a receipt to a specific channel."""
@@ -270,9 +268,9 @@ class ReceiptDeliveryHook:
 
     async def _send_to_slack(
         self,
-        receipt: Dict[str, Any],
+        receipt: dict[str, Any],
         channel_id: str,
-        workspace_id: Optional[str],
+        workspace_id: str | None,
     ) -> DeliveryResult:
         """Send receipt to Slack."""
         if not workspace_id:
@@ -333,9 +331,9 @@ class ReceiptDeliveryHook:
 
     async def _send_to_teams(
         self,
-        receipt: Dict[str, Any],
+        receipt: dict[str, Any],
         channel_id: str,
-        workspace_id: Optional[str],
+        workspace_id: str | None,
     ) -> DeliveryResult:
         """Send receipt to Microsoft Teams."""
         if not workspace_id:
@@ -398,7 +396,7 @@ class ReceiptDeliveryHook:
 
     async def _send_to_email(
         self,
-        receipt: Dict[str, Any],
+        receipt: dict[str, Any],
         email_address: str,
     ) -> DeliveryResult:
         """Send receipt via email."""
@@ -449,7 +447,7 @@ class ReceiptDeliveryHook:
 
     async def _send_to_webhook(
         self,
-        receipt: Dict[str, Any],
+        receipt: dict[str, Any],
         webhook_url: str,
     ) -> DeliveryResult:
         """Send receipt to a webhook."""
@@ -496,7 +494,7 @@ class ReceiptDeliveryHook:
                 error=str(e),
             )
 
-    def _format_receipt_for_slack(self, receipt: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _format_receipt_for_slack(self, receipt: dict[str, Any]) -> list[dict[str, Any]]:
         """Format receipt as Slack blocks."""
         consensus_emoji = ":white_check_mark:" if receipt.get("consensus_reached") else ":x:"
         confidence_pct = int(receipt.get("confidence", 0) * 100)
@@ -556,7 +554,7 @@ class ReceiptDeliveryHook:
             },
         ]
 
-    def _format_receipt_for_teams(self, receipt: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _format_receipt_for_teams(self, receipt: dict[str, Any]) -> list[dict[str, Any]]:
         """Format receipt as Teams Adaptive Card body."""
         consensus_text = "Yes" if receipt.get("consensus_reached") else "No"
         confidence_pct = int(receipt.get("confidence", 0) * 100)
@@ -596,7 +594,7 @@ class ReceiptDeliveryHook:
             },
         ]
 
-    def _format_receipt_for_email(self, receipt: Dict[str, Any]) -> tuple[str, str]:
+    def _format_receipt_for_email(self, receipt: dict[str, Any]) -> tuple[str, str]:
         """Format receipt for email (returns HTML and plain text)."""
         consensus_text = "Yes" if receipt.get("consensus_reached") else "No"
         confidence_pct = int(receipt.get("confidence", 0) * 100)
@@ -653,10 +651,9 @@ Generated at {receipt.get("timestamp", datetime.now(timezone.utc).isoformat())}
 
         return html.strip(), plain.strip()
 
-    def get_delivery_history(self) -> List[DeliveryResult]:
+    def get_delivery_history(self) -> list[DeliveryResult]:
         """Get the delivery history."""
         return self._delivery_history.copy()
-
 
 def create_receipt_delivery_hook(
     org_id: str,
@@ -681,6 +678,5 @@ def create_receipt_delivery_hook(
         require_consensus=require_consensus,
         enabled=enabled,
     )
-
 
 __all__ = ["ReceiptDeliveryHook", "DeliveryResult", "create_receipt_delivery_hook"]

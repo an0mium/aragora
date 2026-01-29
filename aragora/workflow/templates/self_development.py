@@ -18,7 +18,7 @@ Usage:
     result = await engine.execute(workflow, inputs={"max_cycles": 3})
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -27,10 +27,9 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 
-
 def create_self_development_workflow(
     objective: str,
-    tracks: Optional[List[str]] = None,
+    tracks: Optional[list[str]] = None,
     require_approval: bool = True,
     max_parallel: int = 2,
 ) -> WorkflowDefinition:
@@ -242,9 +241,8 @@ Consider dependencies and order goals by priority.""",
         },
     )
 
-
 # Template dictionary for registration
-SELF_DEVELOPMENT_TEMPLATE: Dict[str, Any] = {
+SELF_DEVELOPMENT_TEMPLATE: dict[str, Any] = {
     "name": "Self-Development Pipeline",
     "description": "Autonomous self-improvement using heterogeneous agent groups",
     "category": "automation",
@@ -274,7 +272,6 @@ SELF_DEVELOPMENT_TEMPLATE: Dict[str, Any] = {
         },
     },
 }
-
 
 # Register task handlers
 def _register_self_dev_handlers():
@@ -408,9 +405,7 @@ def _register_self_dev_handlers():
     except ImportError:
         pass
 
-
 _register_self_dev_handlers()
-
 
 __all__ = [
     "create_self_development_workflow",

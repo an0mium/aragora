@@ -6,17 +6,16 @@ the common case where code may be called from either sync or async contexts.
 
 Also includes async subprocess utilities for non-blocking command execution.
 """
+from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import logging
 from pathlib import Path
-from typing import Any, Coroutine, List, Optional, Tuple, TypeVar
+from typing import Any, Coroutine, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
-
 
 def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     """Run async coroutine from sync context ONLY.
@@ -62,17 +61,15 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
         coro.close()
         raise
 
-
 # Semaphore to limit concurrent subprocess calls (prevent resource exhaustion)
 _subprocess_semaphore = asyncio.Semaphore(10)
 
-
 async def run_command(
-    cmd: List[str],
-    cwd: Optional[Path] = None,
+    cmd: list[str],
+    cwd: Path | None = None,
     timeout: float = 60.0,
-    input_data: Optional[bytes] = None,
-) -> Tuple[int, bytes, bytes]:
+    input_data: bytes | None = None,
+) -> tuple[int, bytes, bytes]:
     """Run command asynchronously without blocking event loop.
 
     Uses asyncio.create_subprocess_exec for non-blocking execution.
@@ -107,8 +104,7 @@ async def run_command(
             await proc.wait()
             raise
 
-
-async def run_git_command(args: List[str], cwd: Path, timeout: float = 30.0) -> Tuple[bool, str]:
+async def run_git_command(args: list[str], cwd: Path, timeout: float = 30.0) -> tuple[bool, str]:
     """Run git command asynchronously.
 
     Convenience wrapper for common git operations.
@@ -132,6 +128,5 @@ async def run_git_command(args: List[str], cwd: Path, timeout: float = 30.0) -> 
         return False, "Git not found"
     except Exception as e:
         return False, str(e)
-
 
 __all__ = ["run_async", "run_command", "run_git_command"]

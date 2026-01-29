@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     BaseHandler,
@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 # Server start time for uptime calculation
 _SERVER_START_TIME = time.time()
 
-
 class ServiceStatus(Enum):
     """Service health status levels."""
 
@@ -44,17 +43,15 @@ class ServiceStatus(Enum):
     MAJOR_OUTAGE = "major_outage"
     MAINTENANCE = "maintenance"
 
-
 @dataclass
 class ComponentHealth:
     """Individual component health status."""
 
     name: str
     status: ServiceStatus
-    response_time_ms: Optional[float] = None
-    last_check: Optional[datetime] = None
-    message: Optional[str] = None
-
+    response_time_ms: float | None = None
+    last_check: datetime | None = None
+    message: str | None = None
 
 @dataclass
 class Incident:
@@ -64,12 +61,11 @@ class Incident:
     title: str
     status: str  # investigating, identified, monitoring, resolved
     severity: str  # minor, major, critical
-    components: List[str]
+    components: list[str]
     created_at: datetime
     updated_at: datetime
-    resolved_at: Optional[datetime] = None
-    updates: List[Dict[str, Any]] = field(default_factory=list)
-
+    resolved_at: datetime | None = None
+    updates: list[dict[str, Any]] = field(default_factory=list)
 
 class StatusPageHandler(BaseHandler):
     """Handler for public status page endpoints."""
@@ -107,8 +103,8 @@ class StatusPageHandler(BaseHandler):
         return path in self.ROUTES or path.startswith("/api/status/")
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route status page requests."""
         handlers = {
             "/status": lambda: self._html_status_page(),
@@ -151,7 +147,7 @@ class StatusPageHandler(BaseHandler):
 
         return ServiceStatus.OPERATIONAL
 
-    def _check_all_components(self) -> List[ComponentHealth]:
+    def _check_all_components(self) -> list[ComponentHealth]:
         """Check health of all components."""
         results = []
         now = datetime.now(timezone.utc)
@@ -570,7 +566,6 @@ class StatusPageHandler(BaseHandler):
             parts.append(f"{minutes}m")
 
         return " ".join(parts) if parts else "< 1m"
-
 
 __all__ = [
     "StatusPageHandler",

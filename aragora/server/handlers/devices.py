@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import (
@@ -35,7 +35,6 @@ from aragora.server.handlers.secure import ForbiddenError, SecureHandler, Unauth
 from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
-
 
 class DeviceHandler(SecureHandler):
     """Handler for device registration and notification endpoints."""
@@ -57,14 +56,14 @@ class DeviceHandler(SecureHandler):
         return normalized.startswith("/api/devices/")
 
     async def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route GET requests."""
         return await self._route_request(path, "GET", query_params, handler, None)
 
     async def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route POST requests."""
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -72,8 +71,8 @@ class DeviceHandler(SecureHandler):
         return await self._route_request(path, "POST", query_params, handler, body)
 
     async def handle_delete(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route DELETE requests."""
         return await self._route_request(path, "DELETE", query_params, handler, None)
 
@@ -81,10 +80,10 @@ class DeviceHandler(SecureHandler):
         self,
         path: str,
         method: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-        body: Optional[Dict[str, Any]],
-    ) -> Optional[HandlerResult]:
+        body: Optional[dict[str, Any]],
+    ) -> HandlerResult | None:
         """Route device requests."""
         normalized = strip_version_prefix(path)
 
@@ -192,7 +191,7 @@ class DeviceHandler(SecureHandler):
 
     async def _register_device(
         self,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """Register a device for push notifications."""
@@ -407,7 +406,7 @@ class DeviceHandler(SecureHandler):
     async def _notify_device(
         self,
         device_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """Send notification to a specific device."""
@@ -505,7 +504,7 @@ class DeviceHandler(SecureHandler):
     async def _notify_user(
         self,
         user_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         auth_context: AuthorizationContext,
     ) -> HandlerResult:
         """Send notification to all devices for a user."""
@@ -623,7 +622,7 @@ class DeviceHandler(SecureHandler):
 
     async def _handle_alexa_webhook(
         self,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
     ) -> HandlerResult:
         """
@@ -669,7 +668,7 @@ class DeviceHandler(SecureHandler):
 
     async def _handle_google_webhook(
         self,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
     ) -> HandlerResult:
         """

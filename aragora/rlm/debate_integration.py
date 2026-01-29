@@ -44,7 +44,6 @@ logger = logging.getLogger(__name__)
 # Global collector instance
 _global_collector: Optional["DebateTrajectoryCollector"] = None
 
-
 @dataclass
 class DebateOutcome:
     """Outcome data from a completed debate."""
@@ -53,7 +52,7 @@ class DebateOutcome:
     task: str
     consensus_reached: bool
     confidence: float
-    winner: Optional[str] = None
+    winner: str | None = None
     final_answer: str = ""
     num_rounds: int = 0
     num_messages: int = 0
@@ -63,7 +62,6 @@ class DebateOutcome:
     def __post_init__(self) -> None:
         if self.agents is None:
             self.agents = []
-
 
 class DebateTrajectoryCollector:
     """
@@ -75,7 +73,7 @@ class DebateTrajectoryCollector:
 
     def __init__(
         self,
-        buffer: Optional[ExperienceBuffer] = None,
+        buffer: ExperienceBuffer | None = None,
         max_trajectories: int = 10000,
     ) -> None:
         """
@@ -95,11 +93,11 @@ class DebateTrajectoryCollector:
         task: str,
         consensus_reached: bool,
         confidence: float,
-        messages: Optional[list["Message"]] = None,
-        winner: Optional[str] = None,
+        messages: list["Message"] | None = None,
+        winner: str | None = None,
         final_answer: str = "",
         num_rounds: int = 0,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         domain: str = "general",
     ) -> Trajectory:
         """
@@ -147,7 +145,7 @@ class DebateTrajectoryCollector:
 
         return trajectory
 
-    def record_from_context(self, ctx: "DebateContext") -> Optional[Trajectory]:
+    def record_from_context(self, ctx: "DebateContext") -> Trajectory | None:
         """
         Record a trajectory directly from a DebateContext.
 
@@ -179,7 +177,7 @@ class DebateTrajectoryCollector:
     def _create_trajectory(
         self,
         outcome: DebateOutcome,
-        messages: Optional[list["Message"]] = None,
+        messages: list["Message"] | None = None,
     ) -> Trajectory:
         """
         Create a training trajectory from a debate outcome.
@@ -241,7 +239,7 @@ class DebateTrajectoryCollector:
 
         return trajectory
 
-    def get_trajectories(self, limit: Optional[int] = None) -> list[Trajectory]:
+    def get_trajectories(self, limit: int | None = None) -> list[Trajectory]:
         """
         Get trajectories for training.
 
@@ -271,7 +269,6 @@ class DebateTrajectoryCollector:
         self._debate_count = 0
         self._successful_debates = 0
 
-
 def get_debate_trajectory_collector() -> DebateTrajectoryCollector:
     """
     Get the global debate trajectory collector.
@@ -286,14 +283,12 @@ def get_debate_trajectory_collector() -> DebateTrajectoryCollector:
         _global_collector = DebateTrajectoryCollector()
     return _global_collector
 
-
 def reset_debate_trajectory_collector() -> None:
     """Reset the global collector."""
     global _global_collector
     if _global_collector:
         _global_collector.clear()
     _global_collector = None
-
 
 def create_training_hook() -> Callable[..., Any]:
     """
@@ -333,7 +328,6 @@ def create_training_hook() -> Callable[..., Any]:
             logger.debug(f"Failed to record debate trajectory: {e}")
 
     return on_debate_complete
-
 
 __all__ = [
     "DebateTrajectoryCollector",

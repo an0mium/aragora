@@ -24,11 +24,11 @@ This file contains:
 - AdvancedConvergenceAnalyzer - Multi-metric analysis
 - ConvergenceDetector - Main convergence detection
 """
+from __future__ import annotations
 
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,6 @@ from aragora.debate.similarity.backends import (
 # Convergence Result
 # =============================================================================
 
-
 @dataclass
 class ConvergenceResult:
     """Result of convergence detection check."""
@@ -68,11 +67,9 @@ class ConvergenceResult:
     per_agent_similarity: dict[str, float] = field(default_factory=dict)
     consecutive_stable_rounds: int = 0
 
-
 # =============================================================================
 # Advanced Convergence Metrics (G3)
 # =============================================================================
-
 
 @dataclass
 class ArgumentDiversityMetric:
@@ -92,7 +89,6 @@ class ArgumentDiversityMetric:
         """Arguments becoming less diverse suggests convergence."""
         return self.diversity_score < 0.3
 
-
 @dataclass
 class EvidenceConvergenceMetric:
     """
@@ -110,7 +106,6 @@ class EvidenceConvergenceMetric:
     def is_converging(self) -> bool:
         """High citation overlap suggests convergence."""
         return self.overlap_score > 0.6
-
 
 @dataclass
 class StanceVolatilityMetric:
@@ -130,7 +125,6 @@ class StanceVolatilityMetric:
         """Low volatility indicates stable positions."""
         return self.volatility_score < 0.2
 
-
 @dataclass
 class AdvancedConvergenceMetrics:
     """
@@ -144,9 +138,9 @@ class AdvancedConvergenceMetrics:
     semantic_similarity: float
 
     # Advanced metrics
-    argument_diversity: Optional[ArgumentDiversityMetric] = None
-    evidence_convergence: Optional[EvidenceConvergenceMetric] = None
-    stance_volatility: Optional[StanceVolatilityMetric] = None
+    argument_diversity: ArgumentDiversityMetric | None = None
+    evidence_convergence: EvidenceConvergenceMetric | None = None
+    stance_volatility: StanceVolatilityMetric | None = None
 
     # Aggregate score
     overall_convergence: float = 0.0  # 0-1, higher = more converged
@@ -210,11 +204,9 @@ class AdvancedConvergenceMetrics:
 
         return result
 
-
 # =============================================================================
 # Advanced Convergence Analyzer
 # =============================================================================
-
 
 class AdvancedConvergenceAnalyzer:
     """
@@ -224,7 +216,7 @@ class AdvancedConvergenceAnalyzer:
     considering argument diversity, evidence overlap, and stance stability.
     """
 
-    def __init__(self, similarity_backend: Optional[SimilarityBackend] = None):
+    def __init__(self, similarity_backend: SimilarityBackend | None = None):
         """
         Initialize analyzer.
 
@@ -517,8 +509,8 @@ class AdvancedConvergenceAnalyzer:
     def analyze(
         self,
         current_responses: dict[str, str],
-        previous_responses: Optional[dict[str, str]] = None,
-        response_history: Optional[list[dict[str, str]]] = None,
+        previous_responses: dict[str, str] | None = None,
+        response_history: list[dict[str, str] | None] = None,
         domain: str = "general",
     ) -> AdvancedConvergenceMetrics:
         """
@@ -572,11 +564,9 @@ class AdvancedConvergenceAnalyzer:
 
         return metrics
 
-
 # =============================================================================
 # Convergence Detector
 # =============================================================================
-
 
 class ConvergenceDetector:
     """
@@ -597,7 +587,7 @@ class ConvergenceDetector:
         divergence_threshold: float = 0.40,
         min_rounds_before_check: int = 1,
         consecutive_rounds_needed: int = 1,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ):
         """
         Initialize convergence detector.
@@ -664,7 +654,7 @@ class ConvergenceDetector:
         current_responses: dict[str, str],
         previous_responses: dict[str, str],
         round_number: int,
-    ) -> Optional[ConvergenceResult]:
+    ) -> ConvergenceResult | None:
         """
         Check if debate has converged.
 
@@ -743,7 +733,7 @@ class ConvergenceDetector:
     def check_within_round_convergence(
         self,
         responses: dict[str, str],
-        threshold: Optional[float] = None,
+        threshold: float | None = None,
     ) -> tuple[bool, float, float]:
         """
         Check if all agents' responses within a single round have converged.
@@ -816,7 +806,7 @@ class ConvergenceDetector:
         current_responses: dict[str, str],
         previous_responses: dict[str, str],
         round_number: int,
-    ) -> Optional[ConvergenceResult]:
+    ) -> ConvergenceResult | None:
         """
         Fast convergence check with ANN optimizations and early termination.
 
@@ -903,7 +893,6 @@ class ConvergenceDetector:
             per_agent_similarity=per_agent,
             consecutive_stable_rounds=self.consecutive_stable_count,
         )
-
 
 __all__ = [
     # Cache (re-exported)

@@ -21,7 +21,7 @@ Facts API (FactStore):
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.knowledge import (
     DatasetQueryEngine,
@@ -51,7 +51,6 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter for knowledge endpoints (60 requests per minute)
 _knowledge_limiter = RateLimiter(requests_per_minute=60)
-
 
 class KnowledgeHandler(
     FactsOperationsMixin,
@@ -86,8 +85,8 @@ class KnowledgeHandler(
             server_context: Server context with shared resources
         """
         super().__init__(server_context)  # type: ignore[arg-type]
-        self._fact_store: Optional[FactStore | InMemoryFactStore] = None
-        self._query_engine: Optional[DatasetQueryEngine | SimpleQueryEngine] = None
+        self._fact_store: FactStore | InMemoryFactStore | None = None
+        self._query_engine: DatasetQueryEngine | SimpleQueryEngine | None = None
 
     def _get_fact_store(self) -> FactStore | InMemoryFactStore:
         """Get or create fact store."""
@@ -118,7 +117,7 @@ class KnowledgeHandler(
             return True
         return False
 
-    def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+    def _check_permission(self, handler: Any, permission: str) -> HandlerResult | None:
         """Check RBAC permission and return error response if denied."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -132,7 +131,7 @@ class KnowledgeHandler(
         return None
 
     @require_permission("knowledge:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route knowledge requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -193,7 +192,7 @@ class KnowledgeHandler(
 
     def _handle_fact_routes(
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle /api/v1/knowledge/facts/:id/* routes."""
         parts = path.strip("/").split("/")
 

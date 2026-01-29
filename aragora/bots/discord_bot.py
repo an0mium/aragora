@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.bots.base import (
     BotChannel,
@@ -42,8 +42,7 @@ DISCORD_APPLICATION_ID = os.environ.get("DISCORD_APPLICATION_ID", "")
 # error messages for production environments.
 API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
-
-def _check_discord_available() -> tuple[bool, Optional[str]]:
+def _check_discord_available() -> tuple[bool, str | None]:
     """Check if discord.py is available."""
     try:
         import discord  # noqa: F401
@@ -52,15 +51,14 @@ def _check_discord_available() -> tuple[bool, Optional[str]]:
     except ImportError:
         return False, "discord.py is required. Install with: pip install discord.py"
 
-
 class AragoraDiscordBot:
     """Discord bot for Aragora platform integration."""
 
-    def __init__(self, token: str, application_id: Optional[str] = None):
+    def __init__(self, token: str, application_id: str | None = None):
         self.token = token
         self.application_id = application_id
-        self._client: Optional[Any] = None
-        self._tree: Optional[Any] = None
+        self._client: Any | None = None
+        self._tree: Any | None = None
         self.config = BotConfig(
             platform=Platform.DISCORD,
             token=token,
@@ -121,7 +119,7 @@ class AragoraDiscordBot:
         async def aragora_command(
             interaction: discord.Interaction,
             command: str,
-            args: Optional[str] = None,
+            args: str | None = None,
         ):
             await self._handle_slash_command(interaction, command, args or "")
 
@@ -313,7 +311,7 @@ class AragoraDiscordBot:
             },
         )
 
-    def _result_to_embed(self, result: CommandResult, command: str) -> Optional[Any]:
+    def _result_to_embed(self, result: CommandResult, command: str) -> Any | None:
         """Convert CommandResult to Discord embed."""
         import discord
 
@@ -360,10 +358,9 @@ class AragoraDiscordBot:
         if self._client:
             await self._client.close()
 
-
 async def run_discord_bot(
-    token: Optional[str] = None,
-    application_id: Optional[str] = None,
+    token: str | None = None,
+    application_id: str | None = None,
 ) -> None:
     """Run the Aragora Discord bot.
 
@@ -381,10 +378,9 @@ async def run_discord_bot(
     await bot.setup()
     await bot.run()
 
-
 def create_discord_bot(
-    token: Optional[str] = None,
-    application_id: Optional[str] = None,
+    token: str | None = None,
+    application_id: str | None = None,
 ) -> AragoraDiscordBot:
     """Create an Aragora Discord bot instance.
 
@@ -402,7 +398,6 @@ def create_discord_bot(
         raise ValueError("Discord bot token is required. Set DISCORD_BOT_TOKEN env var.")
 
     return AragoraDiscordBot(token, application_id)
-
 
 __all__ = [
     "AragoraDiscordBot",

@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Optional
-
+from typing import Any
 
 @dataclass
 class HandlerResult:
@@ -38,11 +37,10 @@ class HandlerResult:
         if self.headers is None:
             self.headers = {}
 
-
 def json_response(
     data: Any,
     status: int = 200,
-    headers: Optional[dict] = None,
+    headers: dict | None = None,
 ) -> HandlerResult:
     """Create a JSON response.
 
@@ -66,16 +64,15 @@ def json_response(
         headers=headers or {},
     )
 
-
 def error_response(
     message: str,
     status: int = 400,
-    headers: Optional[dict] = None,
+    headers: dict | None = None,
     *,
-    code: Optional[str] = None,
-    trace_id: Optional[str] = None,
-    suggestion: Optional[str] = None,
-    details: Optional[dict] = None,
+    code: str | None = None,
+    trace_id: str | None = None,
+    suggestion: str | None = None,
+    details: dict | None = None,
     structured: bool = False,
 ) -> HandlerResult:
     """Create an error response.
@@ -127,11 +124,10 @@ def error_response(
 
     return json_response(payload, status=status, headers=headers)
 
-
 def success_response(
     data: Any,
-    message: Optional[str] = None,
-    headers: Optional[dict] = None,
+    message: str | None = None,
+    headers: dict | None = None,
 ) -> HandlerResult:
     """Create a success response with standard format.
 
@@ -157,11 +153,10 @@ def success_response(
         payload["message"] = message
     return json_response(payload, status=200, headers=headers)
 
-
 def html_response(
     content: str,
     status: int = 200,
-    headers: Optional[dict] = None,
+    headers: dict | None = None,
 ) -> HandlerResult:
     """Create an HTML response.
 
@@ -180,11 +175,10 @@ def html_response(
         headers=headers or {},
     )
 
-
 def redirect_response(
     location: str,
     status: int = 302,
-    headers: Optional[dict] = None,
+    headers: dict | None = None,
 ) -> HandlerResult:
     """Create a redirect response.
 

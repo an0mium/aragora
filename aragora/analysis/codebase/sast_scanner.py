@@ -59,13 +59,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine, Optional
 
 logger = logging.getLogger(__name__)
 
 # Type alias for progress callback
 ProgressCallback = Callable[[int, int, str], Coroutine[Any, Any, None]]
-
 
 class SASTSeverity(Enum):
     """Severity levels for SAST findings."""
@@ -105,7 +104,6 @@ class SASTSeverity(Enum):
             return self.level < other.level
         return NotImplemented
 
-
 class OWASPCategory(Enum):
     """OWASP Top 10 2021 categories."""
 
@@ -120,7 +118,6 @@ class OWASPCategory(Enum):
     A09_LOGGING_FAILURES = "A09:2021 - Security Logging and Monitoring Failures"
     A10_SSRF = "A10:2021 - Server-Side Request Forgery"
     UNKNOWN = "Unknown"
-
 
 @dataclass
 class SASTFinding:
@@ -139,7 +136,7 @@ class SASTFinding:
     snippet: str = ""
 
     # Security metadata
-    cwe_ids: List[str] = field(default_factory=list)
+    cwe_ids: list[str] = field(default_factory=list)
     owasp_category: OWASPCategory = OWASPCategory.UNKNOWN
     vulnerability_class: str = ""
     remediation: str = ""
@@ -150,14 +147,14 @@ class SASTFinding:
     rule_url: str = ""
 
     # Additional context
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     is_false_positive: bool = False
     triaged: bool = False
 
     # Finding ID for tracking
     finding_id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "rule_id": self.rule_id,
@@ -183,41 +180,40 @@ class SASTFinding:
             "triaged": self.triaged,
         }
 
-
 @dataclass
 class SASTScanResult:
     """Result of a SAST scan."""
 
     repository_path: str
     scan_id: str
-    findings: List[SASTFinding]
+    findings: list[SASTFinding]
     scanned_files: int
     skipped_files: int
     scan_duration_ms: float
-    languages_detected: List[str]
-    rules_used: List[str]
-    errors: List[str] = field(default_factory=list)
+    languages_detected: list[str]
+    rules_used: list[str]
+    errors: list[str] = field(default_factory=list)
     scanned_at: datetime = field(default_factory=datetime.now)
 
     @property
-    def findings_by_severity(self) -> Dict[str, int]:
+    def findings_by_severity(self) -> dict[str, int]:
         """Count findings by severity."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for finding in self.findings:
             sev = finding.severity.value
             counts[sev] = counts.get(sev, 0) + 1
         return counts
 
     @property
-    def findings_by_owasp(self) -> Dict[str, int]:
+    def findings_by_owasp(self) -> dict[str, int]:
         """Count findings by OWASP category."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for finding in self.findings:
             cat = finding.owasp_category.value
             counts[cat] = counts.get(cat, 0) + 1
         return counts
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "repository_path": self.repository_path,
@@ -237,7 +233,6 @@ class SASTScanResult:
             },
         }
 
-
 @dataclass
 class SASTConfig:
     """Configuration for SAST scanner."""
@@ -248,7 +243,7 @@ class SASTConfig:
     semgrep_timeout: int = 300  # 5 minutes
 
     # Rule sets to use
-    default_rule_sets: List[str] = field(
+    default_rule_sets: list[str] = field(
         default_factory=lambda: [
             "p/owasp-top-ten",
             "p/security-audit",
@@ -256,11 +251,11 @@ class SASTConfig:
     )
 
     # Custom rules directory
-    custom_rules_dir: Optional[str] = None
+    custom_rules_dir: str | None = None
 
     # File filters
     max_file_size_kb: int = 500
-    excluded_patterns: List[str] = field(
+    excluded_patterns: list[str] = field(
         default_factory=lambda: [
             "node_modules/",
             "venv/",
@@ -275,7 +270,7 @@ class SASTConfig:
     )
 
     # Language settings
-    supported_languages: List[str] = field(
+    supported_languages: list[str] = field(
         default_factory=lambda: [
             "python",
             "javascript",
@@ -302,9 +297,8 @@ class SASTConfig:
     emit_security_events: bool = True
     critical_finding_threshold: int = 1  # Emit event when this many critical findings
 
-
 # Available Semgrep rulesets with descriptions
-AVAILABLE_RULESETS: Dict[str, Dict[str, str]] = {
+AVAILABLE_RULESETS: dict[str, dict[str, str]] = {
     # OWASP rulesets
     "p/owasp-top-ten": {
         "name": "OWASP Top 10",
@@ -419,7 +413,7 @@ AVAILABLE_RULESETS: Dict[str, Dict[str, str]] = {
 }
 
 # Fix recommendations by CWE category
-CWE_FIX_RECOMMENDATIONS: Dict[str, str] = {
+CWE_FIX_RECOMMENDATIONS: dict[str, str] = {
     # Injection
     "CWE-78": "Use parameterized commands or shell escaping. Avoid shell=True with user input.",
     "CWE-79": "Sanitize user input before rendering. Use templating engines with auto-escaping.",
@@ -455,9 +449,8 @@ CWE_FIX_RECOMMENDATIONS: Dict[str, str] = {
     "CWE-532": "Avoid logging sensitive data. Mask or redact sensitive information.",
 }
 
-
 # CWE to OWASP mapping for common vulnerabilities
-CWE_TO_OWASP: Dict[str, OWASPCategory] = {
+CWE_TO_OWASP: dict[str, OWASPCategory] = {
     # A01: Broken Access Control
     "CWE-22": OWASPCategory.A01_BROKEN_ACCESS_CONTROL,  # Path Traversal
     "CWE-23": OWASPCategory.A01_BROKEN_ACCESS_CONTROL,  # Relative Path Traversal
@@ -631,9 +624,8 @@ CWE_TO_OWASP: Dict[str, OWASPCategory] = {
     "CWE-918": OWASPCategory.A10_SSRF,  # Server-Side Request Forgery
 }
 
-
 # Local fallback patterns when Semgrep is not available
-LOCAL_PATTERNS: Dict[str, Dict[str, Any]] = {
+LOCAL_PATTERNS: dict[str, dict[str, Any]] = {
     # SQL Injection patterns
     "sql-injection-python": {
         "pattern": r'execute\s*\(\s*[\'"].*%s.*[\'"]\s*%',
@@ -792,7 +784,7 @@ LOCAL_PATTERNS: Dict[str, Dict[str, Any]] = {
 }
 
 # Language extension mapping
-LANGUAGE_EXTENSIONS: Dict[str, List[str]] = {
+LANGUAGE_EXTENSIONS: dict[str, list[str]] = {
     "python": [".py", ".pyw"],
     "javascript": [".js", ".jsx", ".mjs"],
     "typescript": [".ts", ".tsx"],
@@ -802,7 +794,6 @@ LANGUAGE_EXTENSIONS: Dict[str, List[str]] = {
     "php": [".php"],
     "csharp": [".cs"],
 }
-
 
 class SASTScanner:
     """
@@ -845,8 +836,8 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
 
     def __init__(
         self,
-        config: Optional[SASTConfig] = None,
-        security_emitter: Optional[Any] = None,
+        config: SASTConfig | None = None,
+        security_emitter: Any | None = None,
     ):
         """
         Initialize SAST scanner.
@@ -856,11 +847,11 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             security_emitter: Optional SecurityEventEmitter for critical finding notifications
         """
         self.config = config or SASTConfig()
-        self._semgrep_available: Optional[bool] = None
-        self._semgrep_version: Optional[str] = None
-        self._compiled_patterns: Dict[str, re.Pattern] = {}
+        self._semgrep_available: bool | None = None
+        self._semgrep_version: str | None = None
+        self._compiled_patterns: dict[str, re.Pattern] = {}
         self._security_emitter = security_emitter
-        self._scan_progress: Dict[str, int] = {}
+        self._scan_progress: dict[str, int] = {}
 
         # Compile local patterns
         for rule_id, rule_data in LOCAL_PATTERNS.items():
@@ -893,7 +884,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             except ImportError:
                 logger.debug("SecurityEventEmitter not available")
 
-    async def _check_semgrep(self) -> tuple[bool, Optional[str]]:
+    async def _check_semgrep(self) -> tuple[bool, str | None]:
         """Check if Semgrep is installed and accessible."""
         try:
             process = await asyncio.create_subprocess_exec(
@@ -915,7 +906,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         """Check if Semgrep is available for scanning."""
         return self._semgrep_available or False
 
-    def get_semgrep_version(self) -> Optional[str]:
+    def get_semgrep_version(self) -> str | None:
         """Get the installed Semgrep version."""
         return self._semgrep_version
 
@@ -923,7 +914,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         """Get Semgrep installation instructions."""
         return self.SEMGREP_INSTALL_INSTRUCTIONS
 
-    async def get_available_rulesets(self) -> List[Dict[str, Any]]:
+    async def get_available_rulesets(self) -> list[dict[str, Any]]:
         """
         Get available Semgrep rulesets.
 
@@ -957,7 +948,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
 
         return rulesets
 
-    async def _fetch_registry_rulesets(self) -> List[Dict[str, Any]]:
+    async def _fetch_registry_rulesets(self) -> list[dict[str, Any]]:
         """Fetch available rulesets from Semgrep registry."""
         # This is a simplified implementation
         # In production, you might want to cache this and refresh periodically
@@ -966,10 +957,10 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
     async def scan_repository(
         self,
         repo_path: str,
-        rule_sets: Optional[List[str]] = None,
-        scan_id: Optional[str] = None,
-        progress_callback: Optional[ProgressCallback] = None,
-        min_confidence: Optional[float] = None,
+        rule_sets: Optional[list[str]] = None,
+        scan_id: str | None = None,
+        progress_callback: ProgressCallback | None = None,
+        min_confidence: float | None = None,
     ) -> SASTScanResult:
         """
         Scan a repository for security issues.
@@ -1136,13 +1127,13 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
     async def _scan_with_semgrep(
         self,
         repo_path: str,
-        rule_sets: List[str],
+        rule_sets: list[str],
         scan_id: str,
     ) -> SASTScanResult:
         """Run Semgrep scan on repository."""
-        findings: List[SASTFinding] = []
-        errors: List[str] = []
-        languages_detected: Set[str] = set()
+        findings: list[SASTFinding] = []
+        errors: list[str] = []
+        languages_detected: set[str] = set()
 
         try:
             # Build Semgrep command
@@ -1234,7 +1225,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             errors=errors,
         )
 
-    def _parse_semgrep_result(self, result: Dict[str, Any]) -> Optional[SASTFinding]:
+    def _parse_semgrep_result(self, result: dict[str, Any]) -> SASTFinding | None:
         """Parse a single Semgrep result into a SASTFinding."""
         try:
             check_id = result.get("check_id", "unknown")
@@ -1298,17 +1289,17 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         self,
         repo_path: str,
         scan_id: str,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> SASTScanResult:
         """Scan repository using local patterns (fallback)."""
-        findings: List[SASTFinding] = []
-        languages_detected: Set[str] = set()
+        findings: list[SASTFinding] = []
+        languages_detected: set[str] = set()
         scanned_files = 0
         skipped_files = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         # First pass: count files for progress reporting
-        files_to_scan: List[tuple[str, str, str]] = []
+        files_to_scan: list[tuple[str, str, str]] = []
 
         try:
             # Walk the repository
@@ -1389,9 +1380,9 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         file_path: str,
         rel_path: str,
         language: str,
-    ) -> List[SASTFinding]:
+    ) -> list[SASTFinding]:
         """Scan a single file with local patterns."""
-        findings: List[SASTFinding] = []
+        findings: list[SASTFinding] = []
 
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -1457,9 +1448,9 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
     async def scan_file(
         self,
         file_path: str,
-        language: Optional[str] = None,
-        min_confidence: Optional[float] = None,
-    ) -> List[SASTFinding]:
+        language: str | None = None,
+        min_confidence: float | None = None,
+    ) -> list[SASTFinding]:
         """
         Scan a single file for security issues.
 
@@ -1505,8 +1496,8 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
 
     async def get_owasp_summary(
         self,
-        findings: List[SASTFinding],
-    ) -> Dict[str, Any]:
+        findings: list[SASTFinding],
+    ) -> dict[str, Any]:
         """
         Generate OWASP Top 10 summary from findings.
 
@@ -1516,7 +1507,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         Returns:
             Summary organized by OWASP category
         """
-        summary: Dict[str, Dict[str, Any]] = {}
+        summary: dict[str, dict[str, Any]] = {}
 
         for cat in OWASPCategory:
             if cat == OWASPCategory.UNKNOWN:
@@ -1554,13 +1545,12 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             "most_common": list(sorted_summary.keys())[:3],
         }
 
-
 # Convenience function for quick scans
 async def scan_for_vulnerabilities(
     path: str,
-    rule_sets: Optional[List[str]] = None,
+    rule_sets: Optional[list[str]] = None,
     min_confidence: float = 0.5,
-    progress_callback: Optional[ProgressCallback] = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> SASTScanResult:
     """
     Quick convenience function for SAST scanning.
@@ -1597,8 +1587,7 @@ async def scan_for_vulnerabilities(
             min_confidence=min_confidence,
         )
 
-
-async def get_available_rulesets() -> List[Dict[str, Any]]:
+async def get_available_rulesets() -> list[dict[str, Any]]:
     """
     Get available Semgrep rulesets.
 
@@ -1609,8 +1598,7 @@ async def get_available_rulesets() -> List[Dict[str, Any]]:
     await scanner.initialize()
     return await scanner.get_available_rulesets()
 
-
-def check_semgrep_installation() -> Dict[str, Any]:
+def check_semgrep_installation() -> dict[str, Any]:
     """
     Check Semgrep installation status synchronously.
 
@@ -1641,7 +1629,6 @@ def check_semgrep_installation() -> Dict[str, Any]:
         "message": "Semgrep is not installed",
         "instructions": SASTScanner.SEMGREP_INSTALL_INSTRUCTIONS,
     }
-
 
 __all__ = [
     # Main classes

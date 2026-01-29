@@ -17,7 +17,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -25,7 +25,6 @@ from aragora.exceptions import ExternalServiceError
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TrendingTopic:
@@ -35,12 +34,11 @@ class TrendingTopic:
     topic: str
     volume: int = 0  # engagement metric
     category: str = ""  # "tech", "politics", etc.
-    raw_data: Dict[str, Any] = field(default_factory=dict)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
     def to_debate_prompt(self) -> str:
         """Convert to a debate-ready prompt."""
         return f"Debate the implications of trending topic: '{self.topic}' ({self.platform}, {self.volume} engagement)"
-
 
 @dataclass
 class TrendingTopicOutcome:
@@ -59,13 +57,12 @@ class TrendingTopicOutcome:
     category: str = ""
     volume: int = 0  # Original volume at debate time
 
-
 class PulseIngestor(ABC):
     """Abstract base class for social media ingestors."""
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         rate_limit_delay: float = 1.0,
         max_retries: int = 3,
         base_retry_delay: float = 1.0,
@@ -75,7 +72,7 @@ class PulseIngestor(ABC):
         self.max_retries = max_retries
         self.base_retry_delay = base_retry_delay
         self.last_request_time: float = 0.0
-        self.cache: Dict[str, List[TrendingTopic]] = {}
+        self.cache: dict[str, list[TrendingTopic]] = {}
         self.cache_ttl = 300  # 5 minutes
         self.circuit_breaker = CircuitBreaker()
 
@@ -127,13 +124,13 @@ class PulseIngestor(ABC):
         return []
 
     @abstractmethod
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch trending topics from the platform."""
         raise NotImplementedError("Subclasses must implement fetch_trending method")
 
     def _filter_content(
-        self, topics: List[TrendingTopic], filters: Dict[str, Any]
-    ) -> List[TrendingTopic]:
+        self, topics: list[TrendingTopic], filters: dict[str, Any]
+    ) -> list[TrendingTopic]:
         """Apply content filters to remove harmful/inappropriate content."""
         filtered = []
 
@@ -202,15 +199,14 @@ class PulseIngestor(ABC):
 
         return False
 
-
 class TwitterIngestor(PulseIngestor):
     """Twitter/X trending topics ingestor using Twitter API v2."""
 
-    def __init__(self, bearer_token: Optional[str] = None, **kwargs):
+    def __init__(self, bearer_token: str | None = None, **kwargs):
         super().__init__(api_key=bearer_token, **kwargs)
         self.base_url = "https://api.twitter.com/2"
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch trending topics from Twitter.
 
         Note: Twitter/X API requires paid subscription ($100+/month).
@@ -270,7 +266,7 @@ class TwitterIngestor(PulseIngestor):
         else:
             return "general"
 
-    def _mock_trending_data(self, limit: int) -> List[TrendingTopic]:
+    def _mock_trending_data(self, limit: int) -> list[TrendingTopic]:
         """Mock trending data for development/testing."""
         mock_topics = [
             TrendingTopic("twitter", "#AIAgents2026", 125000, "tech"),
@@ -281,7 +277,6 @@ class TwitterIngestor(PulseIngestor):
         ]
         return mock_topics[:limit]
 
-
 class HackerNewsIngestor(PulseIngestor):
     """Hacker News trending stories ingestor using Algolia API (free, no auth)."""
 
@@ -289,7 +284,7 @@ class HackerNewsIngestor(PulseIngestor):
         super().__init__(**kwargs)
         self.base_url = "https://hn.algolia.com/api/v1"
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch top stories from Hacker News."""
         limit = max(1, min(limit, 50))
 
@@ -347,7 +342,7 @@ class HackerNewsIngestor(PulseIngestor):
             return "security"
         return "tech"
 
-    def _mock_trending_data(self, limit: int) -> List[TrendingTopic]:
+    def _mock_trending_data(self, limit: int) -> list[TrendingTopic]:
         """Mock HN data for development/testing."""
         mock_topics = [
             TrendingTopic("hackernews", "Show HN: I built an AI debate platform", 342, "ai"),
@@ -362,18 +357,17 @@ class HackerNewsIngestor(PulseIngestor):
         ]
         return mock_topics[:limit]
 
-
 class RedditIngestor(PulseIngestor):
     """Reddit trending posts ingestor using public JSON API (no auth required)."""
 
     DEFAULT_SUBREDDITS = ["technology", "programming", "science", "worldnews"]
 
-    def __init__(self, subreddits: Optional[List[str]] = None, **kwargs):
+    def __init__(self, subreddits: Optional[list[str]] = None, **kwargs):
         super().__init__(**kwargs)
         self.subreddits = subreddits or self.DEFAULT_SUBREDDITS
         self.base_url = "https://www.reddit.com"
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch hot posts from configured subreddits."""
         limit = max(1, min(limit, 50))
         per_sub_limit = max(1, limit // len(self.subreddits))
@@ -439,7 +433,7 @@ class RedditIngestor(PulseIngestor):
         }
         return mapping.get(subreddit.lower(), "general")
 
-    def _mock_trending_data(self, limit: int) -> List[TrendingTopic]:
+    def _mock_trending_data(self, limit: int) -> list[TrendingTopic]:
         """Mock Reddit data for development/testing."""
         mock_topics = [
             TrendingTopic(
@@ -452,7 +446,6 @@ class RedditIngestor(PulseIngestor):
         ]
         return mock_topics[:limit]
 
-
 class GitHubTrendingIngestor(PulseIngestor):
     """GitHub Trending repositories ingestor using GitHub Search API.
 
@@ -461,7 +454,7 @@ class GitHubTrendingIngestor(PulseIngestor):
     No authentication required for basic usage (60 requests/hour limit).
     """
 
-    def __init__(self, access_token: Optional[str] = None, **kwargs):
+    def __init__(self, access_token: str | None = None, **kwargs):
         """Initialize GitHub trending ingestor.
 
         Args:
@@ -474,7 +467,7 @@ class GitHubTrendingIngestor(PulseIngestor):
         if not access_token:
             self.rate_limit_delay = 2.0  # Be more conservative without auth
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch trending repositories from GitHub.
 
         Queries recently created repositories sorted by stars to simulate
@@ -554,7 +547,7 @@ class GitHubTrendingIngestor(PulseIngestor):
             fallback_fn=lambda: [],  # No mock data - return empty on failure
         )
 
-    def _categorize_repo(self, repo: Dict[str, Any]) -> str:
+    def _categorize_repo(self, repo: dict[str, Any]) -> str:
         """Categorize repository based on language and topics."""
         language = (repo.get("language") or "").lower()
         topics = [t.lower() for t in repo.get("topics", [])]
@@ -594,7 +587,7 @@ class GitHubTrendingIngestor(PulseIngestor):
 
         return "programming"
 
-    def _mock_trending_data(self, limit: int) -> List[TrendingTopic]:
+    def _mock_trending_data(self, limit: int) -> list[TrendingTopic]:
         """Mock GitHub trending data for development/testing."""
         mock_topics = [
             TrendingTopic(
@@ -635,7 +628,6 @@ class GitHubTrendingIngestor(PulseIngestor):
         ]
         return mock_topics[:limit]
 
-
 class GoogleTrendsIngestor(PulseIngestor):
     """Google Trends ingestor using the public RSS feed (free, no auth required).
 
@@ -658,7 +650,7 @@ class GoogleTrendsIngestor(PulseIngestor):
             "https://trends.google.com/trends/trendingsearches/daily/rss",
         ]
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch trending searches from Google Trends RSS feed."""
         limit = max(1, min(limit, 20))
 
@@ -689,7 +681,7 @@ class GoogleTrendsIngestor(PulseIngestor):
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
 
-    async def _parse_rss(self, rss_text: str, limit: int) -> List[TrendingTopic]:
+    async def _parse_rss(self, rss_text: str, limit: int) -> list[TrendingTopic]:
         """Parse Google Trends RSS XML response."""
         import xml.etree.ElementTree as ET
 
@@ -756,7 +748,6 @@ class GoogleTrendsIngestor(PulseIngestor):
             return "entertainment"
         return "general"
 
-
 class ArxivIngestor(PulseIngestor):
     """ArXiv new papers ingestor using the ArXiv API (free, no auth required).
 
@@ -764,7 +755,7 @@ class ArxivIngestor(PulseIngestor):
     Useful for academic and research-focused debate topics.
     """
 
-    def __init__(self, categories: Optional[List[str]] = None, **kwargs):
+    def __init__(self, categories: Optional[list[str]] = None, **kwargs):
         """Initialize ArXiv ingestor.
 
         Args:
@@ -775,7 +766,7 @@ class ArxivIngestor(PulseIngestor):
         self.categories = categories or ["cs.AI", "cs.LG", "cs.CL", "stat.ML"]
         self.base_url = "http://export.arxiv.org/api/query"
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch recent papers from ArXiv."""
         limit = max(1, min(limit, 50))
 
@@ -864,7 +855,6 @@ class ArxivIngestor(PulseIngestor):
                 return cat
         return "research"
 
-
 class LobstersIngestor(PulseIngestor):
     """Lobste.rs trending stories ingestor (free, no auth required).
 
@@ -875,7 +865,7 @@ class LobstersIngestor(PulseIngestor):
         super().__init__(**kwargs)
         self.base_url = "https://lobste.rs"
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch hottest stories from Lobste.rs."""
         limit = max(1, min(limit, 25))
 
@@ -909,7 +899,7 @@ class LobstersIngestor(PulseIngestor):
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
 
-    def _categorize_tags(self, tags: List[str]) -> str:
+    def _categorize_tags(self, tags: list[str]) -> str:
         """Map Lobste.rs tags to category."""
         tag_set = set(t.lower() for t in tags)
         if tag_set & {"ai", "ml", "machine-learning"}:
@@ -924,7 +914,6 @@ class LobstersIngestor(PulseIngestor):
             return "web"
         return "tech"
 
-
 class DevToIngestor(PulseIngestor):
     """Dev.to trending articles ingestor (free, no auth required).
 
@@ -935,7 +924,7 @@ class DevToIngestor(PulseIngestor):
         super().__init__(**kwargs)
         self.base_url = "https://dev.to/api"
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch top articles from Dev.to."""
         limit = max(1, min(limit, 30))
 
@@ -971,7 +960,7 @@ class DevToIngestor(PulseIngestor):
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
 
-    def _categorize_tags(self, tags: List[str]) -> str:
+    def _categorize_tags(self, tags: list[str]) -> str:
         """Map Dev.to tags to category."""
         tag_set = set(t.lower() for t in tags)
         if tag_set & {"ai", "machinelearning", "deeplearning", "llm", "gpt"}:
@@ -986,7 +975,6 @@ class DevToIngestor(PulseIngestor):
             return "learning"
         return "programming"
 
-
 class ProductHuntIngestor(PulseIngestor):
     """Product Hunt trending products ingestor.
 
@@ -995,7 +983,7 @@ class ProductHuntIngestor(PulseIngestor):
     Uses public RSS feed for basic access.
     """
 
-    def __init__(self, access_token: Optional[str] = None, **kwargs):
+    def __init__(self, access_token: str | None = None, **kwargs):
         """Initialize Product Hunt ingestor.
 
         Args:
@@ -1006,7 +994,7 @@ class ProductHuntIngestor(PulseIngestor):
         self.api_url = "https://api.producthunt.com/v2/api/graphql"
         self.rss_url = "https://www.producthunt.com/feed"
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch trending products from Product Hunt."""
         limit = max(1, min(limit, 20))
 
@@ -1014,7 +1002,7 @@ class ProductHuntIngestor(PulseIngestor):
             return await self._fetch_via_api(limit)
         return await self._fetch_via_rss(limit)
 
-    async def _fetch_via_rss(self, limit: int) -> List[TrendingTopic]:
+    async def _fetch_via_rss(self, limit: int) -> list[TrendingTopic]:
         """Fetch via public RSS feed (no auth required)."""
 
         async def _fetch():
@@ -1054,7 +1042,7 @@ class ProductHuntIngestor(PulseIngestor):
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
 
-    async def _fetch_via_api(self, limit: int) -> List[TrendingTopic]:
+    async def _fetch_via_api(self, limit: int) -> list[TrendingTopic]:
         """Fetch via GraphQL API (requires auth)."""
 
         async def _fetch():
@@ -1125,7 +1113,7 @@ class ProductHuntIngestor(PulseIngestor):
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
 
-    def _categorize_topics(self, topics: List[str]) -> str:
+    def _categorize_topics(self, topics: list[str]) -> str:
         """Map Product Hunt topics to category."""
         topic_lower = [t.lower() for t in topics]
         if any("ai" in t or "machine learning" in t for t in topic_lower):
@@ -1137,7 +1125,6 @@ class ProductHuntIngestor(PulseIngestor):
         if any("design" in t for t in topic_lower):
             return "design"
         return "product"
-
 
 class SubstackIngestor(PulseIngestor):
     """Substack trending newsletters ingestor.
@@ -1154,7 +1141,7 @@ class SubstackIngestor(PulseIngestor):
         ("https://www.oneusefulthing.org/feed", "ai"),
     ]
 
-    def __init__(self, feeds: Optional[List[tuple]] = None, **kwargs):
+    def __init__(self, feeds: Optional[list[tuple]] = None, **kwargs):
         """Initialize Substack ingestor.
 
         Args:
@@ -1163,7 +1150,7 @@ class SubstackIngestor(PulseIngestor):
         super().__init__(**kwargs)
         self.feeds = feeds or self.DEFAULT_FEEDS
 
-    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+    async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch recent articles from Substack RSS feeds."""
         limit = max(1, min(limit, 20))
         per_feed = max(1, limit // len(self.feeds))
@@ -1210,12 +1197,11 @@ class SubstackIngestor(PulseIngestor):
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
 
-
 class PulseManager:
     def __init__(self) -> None:
-        self.ingestors: Dict[str, PulseIngestor] = {}
+        self.ingestors: dict[str, PulseIngestor] = {}
         # Store debate outcomes for analytics
-        self._outcomes: List[TrendingTopicOutcome] = []
+        self._outcomes: list[TrendingTopicOutcome] = []
         self._max_outcomes: int = 1000  # Rolling window
 
     def add_ingestor(self, name: str, ingestor: PulseIngestor):
@@ -1224,18 +1210,18 @@ class PulseManager:
 
     async def get_trending_topics(
         self,
-        platforms: List[str] = None,
+        platforms: list[str] = None,
         limit_per_platform: int = 5,
-        filters: Dict[str, Any] = None,
-    ) -> List[TrendingTopic]:
+        filters: dict[str, Any] = None,
+    ) -> list[TrendingTopic]:
         """Get trending topics from specified platforms."""
         if platforms is None:
             platforms = list(self.ingestors.keys())
 
-        all_topics: List[TrendingTopic] = []
+        all_topics: list[TrendingTopic] = []
 
         # Fetch concurrently from all platforms
-        tasks: List[Any] = []
+        tasks: list[Any] = []
         for platform in platforms:
             if platform in self.ingestors:
                 tasks.append(self.ingestors[platform].fetch_trending(limit_per_platform))
@@ -1260,7 +1246,7 @@ class PulseManager:
         max_results = limit_per_platform * len(platforms) if platforms else limit_per_platform
         return all_topics[:max_results]
 
-    def select_topic_for_debate(self, topics: List[TrendingTopic]) -> Optional[TrendingTopic]:
+    def select_topic_for_debate(self, topics: list[TrendingTopic]) -> TrendingTopic | None:
         """Select the most suitable topic for debate."""
         if not topics:
             return None
@@ -1327,7 +1313,7 @@ class PulseManager:
 
         return outcome
 
-    def get_analytics(self) -> Dict[str, Any]:
+    def get_analytics(self) -> dict[str, Any]:
         """Get analytics on trending topic debate outcomes.
 
         Returns:
@@ -1354,7 +1340,7 @@ class PulseManager:
         avg_confidence = sum(o.confidence for o in self._outcomes) / total
 
         # Group by platform
-        by_platform: Dict[str, Dict[str, Any]] = {}
+        by_platform: dict[str, dict[str, Any]] = {}
         for outcome in self._outcomes:
             if outcome.platform not in by_platform:
                 by_platform[outcome.platform] = {
@@ -1378,7 +1364,7 @@ class PulseManager:
             del stats["confidence_sum"]
 
         # Group by category
-        by_category: Dict[str, Dict[str, Any]] = {}
+        by_category: dict[str, dict[str, Any]] = {}
         for outcome in self._outcomes:
             cat = outcome.category or "general"
             if cat not in by_category:

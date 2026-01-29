@@ -26,7 +26,7 @@ Configuration:
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -35,7 +35,6 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
-
 
 class DialecticPattern(WorkflowPattern):
     """
@@ -59,11 +58,11 @@ class DialecticPattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         task: str = "",
-        thesis_agent: Optional[str] = None,
-        antithesis_agent: Optional[str] = None,
-        synthesis_agent: Optional[str] = None,
+        thesis_agent: str | None = None,
+        antithesis_agent: str | None = None,
+        synthesis_agent: str | None = None,
         thesis_prompt: str = "",
         antithesis_prompt: str = "",
         synthesis_prompt: str = "",

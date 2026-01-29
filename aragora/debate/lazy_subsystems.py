@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-
 class LazySubsystem(Generic[T]):
     """Descriptor for lazy subsystem initialization.
 
@@ -54,7 +53,7 @@ class LazySubsystem(Generic[T]):
         self.condition = condition
         self.on_create = on_create
 
-    def __get__(self, obj: Optional["Arena"], objtype: type = None) -> Optional[T]:
+    def __get__(self, obj: Optional["Arena"], objtype: type = None) -> T | None:
         if obj is None:
             return self  # type: ignore[return-value]  # Descriptor returns self when accessed on class
 
@@ -83,9 +82,8 @@ class LazySubsystem(Generic[T]):
             setattr(obj, self.private_attr, None)
             return None
 
-    def __set__(self, obj: "Arena", value: Optional[T]) -> None:
+    def __set__(self, obj: "Arena", value: T | None) -> None:
         setattr(obj, self.private_attr, value)
-
 
 def lazy_property(
     condition: Optional[Callable[["Arena"], bool]] = None,
@@ -106,7 +104,7 @@ def lazy_property(
     def decorator(func: Callable[["Arena"], T]) -> property:
         private_attr = f"_lazy_{func.__name__}"
 
-        def wrapper(self: "Arena") -> Optional[T]:
+        def wrapper(self: "Arena") -> T | None:
             # Check cache
             cached = getattr(self, private_attr, None)
             if cached is not None:
@@ -139,7 +137,6 @@ def lazy_property(
 
     return decorator
 
-
 def create_lazy_checkpoint_manager(arena: "Arena"):
     """Factory for lazy checkpoint manager creation."""
     if not arena.protocol.enable_checkpointing:
@@ -154,7 +151,6 @@ def create_lazy_checkpoint_manager(arena: "Arena"):
     except ImportError:
         logger.warning("[lazy] CheckpointManager not available")
         return None
-
 
 def create_lazy_knowledge_mound(arena: "Arena"):
     """Factory for lazy knowledge mound creation."""
@@ -185,7 +181,6 @@ def create_lazy_knowledge_mound(arena: "Arena"):
         logger.exception(f"[lazy] Unexpected KM error: {e}")
         return None
 
-
 def create_lazy_population_manager(arena: "Arena"):
     """Factory for lazy population manager creation."""
     if not arena.auto_evolve:
@@ -204,7 +199,6 @@ def create_lazy_population_manager(arena: "Arena"):
         logger.warning(f"[lazy] Failed to initialize PopulationManager: {e}")
         return None
 
-
 def create_lazy_prompt_evolver(arena: "Arena"):
     """Factory for lazy prompt evolver creation."""
     if not arena.protocol.enable_prompt_evolution:
@@ -219,7 +213,6 @@ def create_lazy_prompt_evolver(arena: "Arena"):
     except ImportError:
         logger.warning("[lazy] PromptEvolver not available")
         return None
-
 
 def create_lazy_cross_debate_memory(arena: "Arena"):
     """Factory for lazy cross-debate memory creation."""

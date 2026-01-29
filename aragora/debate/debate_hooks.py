@@ -25,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
@@ -38,7 +38,6 @@ if TYPE_CHECKING:
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DebateHooks:
@@ -70,10 +69,10 @@ class DebateHooks:
     event_emitter: Optional["EventEmitter"] = None
 
     # Slack webhook for notifications
-    slack_webhook_url: Optional[str] = None
+    slack_webhook_url: str | None = None
 
     # Tracking state
-    _continuum_retrieved_ids: List[str] = field(default_factory=list)
+    _continuum_retrieved_ids: list[str] = field(default_factory=list)
     _continuum_retrieved_tiers: dict = field(default_factory=dict)
 
     # =========================================================================
@@ -85,7 +84,7 @@ class DebateHooks:
         ctx: "DebateContext",
         round_num: int,
         proposals: dict[str, str],
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> None:
         """Called when a debate round completes.
 
@@ -117,7 +116,7 @@ class DebateHooks:
         debate_id: str,
         round_num: int,
         confidence: float = 0.7,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> None:
         """Record a position to the grounded persona ledger.
 
@@ -154,9 +153,9 @@ class DebateHooks:
         self,
         ctx: "DebateContext",
         result: "DebateResult",
-        agents: List["Agent"],
+        agents: list["Agent"],
         task: str,
-        belief_cruxes: Optional[List[str]] = None,
+        belief_cruxes: Optional[list[str]] = None,
     ) -> None:
         """Called when a debate completes.
 
@@ -206,9 +205,9 @@ class DebateHooks:
     def _update_relationships(
         self,
         debate_id: str,
-        participants: List[str],
-        winner: Optional[str],
-        votes: List["Vote"],
+        participants: list[str],
+        winner: str | None,
+        votes: list["Vote"],
     ) -> None:
         """Update agent relationships after debate completion.
 
@@ -264,7 +263,7 @@ class DebateHooks:
         self,
         result: "DebateResult",
         task: str,
-        belief_cruxes: Optional[List[str]] = None,
+        belief_cruxes: Optional[list[str]] = None,
     ) -> None:
         """Store debate outcome in memory for future retrieval.
 
@@ -321,7 +320,7 @@ class DebateHooks:
         self,
         ctx: "DebateContext",
         result: "DebateResult",
-        participants: List[str],
+        participants: list[str],
     ) -> None:
         """Update calibration scores and emit events.
 
@@ -436,7 +435,7 @@ class DebateHooks:
 
     def track_retrieved_memories(
         self,
-        retrieved_ids: List[str],
+        retrieved_ids: list[str],
         retrieved_tiers: dict,
     ) -> None:
         """Track which memories were retrieved for this debate.
@@ -456,7 +455,7 @@ class DebateHooks:
     # Evidence Storage
     # =========================================================================
 
-    def store_evidence(self, evidence_snippets: List[dict], task: str) -> None:
+    def store_evidence(self, evidence_snippets: list[dict], task: str) -> None:
         """Store collected evidence snippets in memory.
 
         Args:
@@ -477,7 +476,7 @@ class DebateHooks:
     # Grounded Verdict Creation
     # =========================================================================
 
-    def create_grounded_verdict(self, result: "DebateResult") -> Optional[Any]:
+    def create_grounded_verdict(self, result: "DebateResult") -> Any | None:
         """Create a GroundedVerdict for the final answer.
 
         Heavy3-inspired: Wrap final answers with evidence grounding analysis.
@@ -511,7 +510,7 @@ class DebateHooks:
         self,
         result: "DebateResult",
         task: str,
-        participants: List[str],
+        participants: list[str],
     ) -> None:
         """Send debate completion notification to Slack webhook.
 
@@ -644,7 +643,6 @@ class DebateHooks:
             },
         }
 
-
 @dataclass
 class HooksConfig:
     """Configuration for creating DebateHooks.
@@ -652,11 +650,11 @@ class HooksConfig:
     Provides a clean way to configure hooks before creating the instance.
     """
 
-    position_ledger: Optional[Any] = None
-    elo_system: Optional[Any] = None
-    memory_manager: Optional[Any] = None
-    evidence_grounder: Optional[Any] = None
-    slack_webhook_url: Optional[str] = None
+    position_ledger: Any | None = None
+    elo_system: Any | None = None
+    memory_manager: Any | None = None
+    evidence_grounder: Any | None = None
+    slack_webhook_url: str | None = None
 
     def create_hooks(self) -> DebateHooks:
         """Create DebateHooks from this configuration.
@@ -671,6 +669,5 @@ class HooksConfig:
             evidence_grounder=self.evidence_grounder,
             slack_webhook_url=self.slack_webhook_url,
         )
-
 
 __all__ = ["DebateHooks", "HooksConfig"]

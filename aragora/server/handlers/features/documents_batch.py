@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 from ..base import (
     BaseHandler,
@@ -40,7 +40,6 @@ logger = logging.getLogger(__name__)
 MAX_BATCH_SIZE = 50
 MAX_FILE_SIZE_MB = 100
 MAX_TOTAL_BATCH_SIZE_MB = 500
-
 
 class DocumentBatchHandler(BaseHandler):
     """Handler for batch document upload and processing endpoints."""
@@ -68,7 +67,7 @@ class DocumentBatchHandler(BaseHandler):
         return False
 
     @require_permission("documents:read")
-    async def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    async def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests."""
         if path == "/api/v1/documents/processing/stats":
             return self._get_processing_stats()
@@ -118,7 +117,7 @@ class DocumentBatchHandler(BaseHandler):
         return None
 
     @require_permission("documents:create")
-    async def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    async def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests."""
         if path == "/api/v1/documents/batch":
             return await self._upload_batch(handler)
@@ -126,7 +125,7 @@ class DocumentBatchHandler(BaseHandler):
 
     async def handle_delete(
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route DELETE requests."""
         if path.startswith("/api/v1/documents/batch/"):
             parts = path.split("/")
@@ -562,8 +561,8 @@ class DocumentBatchHandler(BaseHandler):
 
     def _list_knowledge_jobs(
         self,
-        workspace_id: Optional[str] = None,
-        status: Optional[str] = None,
+        workspace_id: str | None = None,
+        status: str | None = None,
         limit: int = 100,
     ) -> HandlerResult:
         """List all knowledge processing jobs with optional filtering."""
@@ -608,7 +607,6 @@ class DocumentBatchHandler(BaseHandler):
         except AttributeError as e:
             logger.exception(f"Error getting knowledge job status: {e}")
             return error_response(safe_error_message(e, "Failed to get job status"), 500)
-
 
 # Export for handler registration
 __all__ = ["DocumentBatchHandler"]

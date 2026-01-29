@@ -36,14 +36,14 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.ranking.elo import AgentRating, EloSystem, MatchResult
     from aragora.ranking.relationships import RelationshipMetrics
 
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +52,9 @@ from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
-
 # =============================================================================
 # Dataclasses from EloAdapter
 # =============================================================================
-
 
 @dataclass
 class KMEloPattern:
@@ -72,10 +70,9 @@ class KMEloPattern:
     )
     confidence: float  # 0.0-1.0 KM confidence in this pattern
     observation_count: int = 1  # How many times observed
-    domain: Optional[str] = None  # Domain if pattern is domain-specific
-    debate_ids: List[str] = field(default_factory=list)  # Debates that formed this pattern
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    domain: str | None = None  # Domain if pattern is domain-specific
+    debate_ids: list[str] = field(default_factory=list)  # Debates that formed this pattern
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class EloAdjustmentRecommendation:
@@ -89,11 +86,10 @@ class EloAdjustmentRecommendation:
     agent_name: str
     adjustment: float  # Positive = boost, negative = penalty
     reason: str  # Human-readable explanation
-    patterns: List[KMEloPattern] = field(default_factory=list)  # Supporting patterns
+    patterns: list[KMEloPattern] = field(default_factory=list)  # Supporting patterns
     confidence: float = 0.7  # Overall confidence in recommendation
-    domain: Optional[str] = None  # If domain-specific
+    domain: str | None = None  # If domain-specific
     applied: bool = False
-
 
 @dataclass
 class EloSyncResult:
@@ -104,23 +100,20 @@ class EloSyncResult:
     adjustments_applied: int = 0
     adjustments_skipped: int = 0
     total_elo_change: float = 0.0
-    agents_affected: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    agents_affected: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
-
 
 @dataclass
 class RatingSearchResult:
     """Wrapper for rating search results with adapter metadata."""
 
-    rating: Dict[str, Any]
+    rating: dict[str, Any]
     relevance_score: float = 0.0
-
 
 # =============================================================================
 # Dataclasses from RankingAdapter
 # =============================================================================
-
 
 @dataclass
 class AgentExpertise:
@@ -133,24 +126,21 @@ class AgentExpertise:
     last_updated: str
     debate_count: int = 0
 
-
 @dataclass
 class ExpertiseSearchResult:
     """Wrapper for expertise search results with adapter metadata."""
 
-    expertise: Dict[str, Any]
+    expertise: dict[str, Any]
     relevance_score: float = 0.0
-    matched_domains: Optional[List[str]] = None
+    matched_domains: Optional[list[str]] = None
 
     def __post_init__(self) -> None:
         if self.matched_domains is None:
             self.matched_domains = []
 
-
 # =============================================================================
 # PerformanceAdapter
 # =============================================================================
-
 
 class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
@@ -230,7 +220,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         elo_system: Optional["EloSystem"] = None,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         cache_ttl_seconds: float = DEFAULT_CACHE_TTL_SECONDS,
         enable_resilience: bool = True,
     ):
@@ -250,26 +240,26 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self._cache_ttl_seconds = cache_ttl_seconds
 
         # ELO storage (from EloAdapter)
-        self._ratings: Dict[str, Dict[str, Any]] = {}
-        self._matches: Dict[str, Dict[str, Any]] = {}
-        self._calibrations: Dict[str, Dict[str, Any]] = {}
-        self._relationships: Dict[str, Dict[str, Any]] = {}
+        self._ratings: dict[str, dict[str, Any]] = {}
+        self._matches: dict[str, dict[str, Any]] = {}
+        self._calibrations: dict[str, dict[str, Any]] = {}
+        self._relationships: dict[str, dict[str, Any]] = {}
 
         # ELO indices
-        self._agent_ratings: Dict[str, List[str]] = {}  # agent -> [rating_ids]
-        self._agent_matches: Dict[str, List[str]] = {}  # agent -> [match_ids]
-        self._domain_ratings: Dict[str, List[str]] = {}  # domain -> [rating_ids]
+        self._agent_ratings: dict[str, list[str]] = {}  # agent -> [rating_ids]
+        self._agent_matches: dict[str, list[str]] = {}  # agent -> [match_ids]
+        self._domain_ratings: dict[str, list[str]] = {}  # domain -> [rating_ids]
 
         # Expertise storage (from RankingAdapter)
-        self._expertise: Dict[str, Dict[str, Any]] = {}  # {agent_domain: expertise_data}
-        self._agent_history: Dict[str, List[Dict[str, Any]]] = {}  # {agent: [records]}
+        self._expertise: dict[str, dict[str, Any]] = {}  # {agent_domain: expertise_data}
+        self._agent_history: dict[str, list[dict[str, Any]]] = {}  # {agent: [records]}
 
         # Expertise indices
-        self._domain_agents: Dict[str, List[str]] = {}  # {domain: [agent_names]}
-        self._agent_domains: Dict[str, List[str]] = {}  # {agent_name: [domains]}
+        self._domain_agents: dict[str, list[str]] = {}  # {domain: [agent_names]}
+        self._agent_domains: dict[str, list[str]] = {}  # {agent_name: [domains]}
 
         # Cache (from RankingAdapter)
-        self._domain_experts_cache: Dict[str, tuple] = {}  # {cache_key: (timestamp, results)}
+        self._domain_experts_cache: dict[str, tuple] = {}  # {cache_key: (timestamp, results)}
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -285,7 +275,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         """Set the event callback for WebSocket notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -313,7 +303,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     def store_rating(
         self,
         rating: "AgentRating",
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         reason: str = "match_update",
     ) -> str:
         """
@@ -408,9 +398,9 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         agent_name: str,
         debate_id: str,
-        predicted_winner: Optional[str],
+        predicted_winner: str | None,
         predicted_confidence: float,
-        actual_winner: Optional[str],
+        actual_winner: str | None,
         was_correct: bool,
         brier_score: float,
     ) -> str:
@@ -449,7 +439,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         logger.info(f"Stored calibration: {cal_id} (correct={was_correct})")
         return cal_id
 
-    def store_relationship(self, metrics: "RelationshipMetrics") -> Optional[str]:
+    def store_relationship(self, metrics: "RelationshipMetrics") -> str | None:
         """
         Store relationship metrics between agents.
 
@@ -493,8 +483,8 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         domain: str,
         elo: float,
         delta: float = 0.0,
-        debate_id: Optional[str] = None,
-    ) -> Optional[str]:
+        debate_id: str | None = None,
+    ) -> str | None:
         """
         Store agent expertise in the Knowledge Mound.
 
@@ -580,7 +570,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     # Rating Retrieval Methods (from EloAdapter)
     # =========================================================================
 
-    def get_rating(self, rating_id: str) -> Optional[Dict[str, Any]]:
+    def get_rating(self, rating_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific rating snapshot by ID.
 
@@ -594,7 +584,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
             rating_id = f"{self.ELO_PREFIX}{rating_id}"
         return self._ratings.get(rating_id)
 
-    def get_match(self, match_id: str) -> Optional[Dict[str, Any]]:
+    def get_match(self, match_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific match by ID.
 
@@ -608,7 +598,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
             match_id = f"{self.ELO_PREFIX}match_{match_id}"
         return self._matches.get(match_id)
 
-    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[Dict[str, Any]]:
+    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[dict[str, Any]]:
         """
         Get relationship metrics between two agents.
 
@@ -629,7 +619,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         agent_name: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get skill progression history for an agent (ELO ratings).
 
@@ -660,7 +650,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         domain: str,
         min_elo: float = 1000.0,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find agents with expertise in a specific domain (from ELO ratings).
 
@@ -677,7 +667,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         rating_ids = self._domain_ratings.get(domain, [])
 
         # Get most recent rating per agent
-        agent_ratings: Dict[str, Dict[str, Any]] = {}
+        agent_ratings: dict[str, dict[str, Any]] = {}
 
         for rating_id in rating_ids:
             rating = self._ratings.get(rating_id)
@@ -712,7 +702,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         agent_name: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get match history for an agent.
 
@@ -739,7 +729,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         agent_name: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get calibration prediction history for an agent.
 
@@ -765,8 +755,8 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     def get_agent_expertise(
         self,
         agent_name: str,
-        domain: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        domain: str | None = None,
+    ) -> Optional[dict[str, Any]]:
         """
         Get expertise record for an agent.
 
@@ -796,7 +786,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         limit: int = 10,
         min_confidence: float = 0.0,
         use_cache: bool = True,
-    ) -> List[AgentExpertise]:
+    ) -> list[AgentExpertise]:
         """
         Get top experts for a domain.
 
@@ -816,7 +806,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
             if time.time() - timestamp < self._cache_ttl_seconds:
                 self._cache_hits += 1
                 logger.debug(f"Cache hit for domain experts: {domain}")
-                return cast(List[AgentExpertise], cached_results)
+                return cast(list[AgentExpertise], cached_results)
             else:
                 # Cache expired, remove it
                 del self._domain_experts_cache[cache_key]
@@ -858,8 +848,8 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         agent_name: str,
         limit: int = 50,
-        domain: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        domain: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get historical performance records for an agent.
 
@@ -906,7 +896,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
         return "general"
 
-    def get_all_domains(self) -> List[str]:
+    def get_all_domains(self) -> list[str]:
         """Get all domains with stored expertise."""
         return list(self._domain_agents.keys())
 
@@ -914,7 +904,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     # Cache Management (from RankingAdapter)
     # =========================================================================
 
-    def invalidate_domain_cache(self, domain: Optional[str] = None) -> int:
+    def invalidate_domain_cache(self, domain: str | None = None) -> int:
         """
         Invalidate the domain experts cache.
 
@@ -936,7 +926,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
             del self._domain_experts_cache[key]
         return len(keys_to_remove)
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics.
 
         Returns:
@@ -957,7 +947,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     # Knowledge Item Conversion (from EloAdapter)
     # =========================================================================
 
-    def to_knowledge_item(self, rating: Dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, rating: dict[str, Any]) -> "KnowledgeItem":
         """
         Convert a rating dict to a KnowledgeItem.
 
@@ -1029,7 +1019,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     # Statistics (combined from both)
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get unified statistics about stored performance data."""
         self.__init_reverse_flow_state()
         agents_per_domain = {d: len(a) for d, a in self._domain_agents.items()}
@@ -1062,17 +1052,17 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     def __init_reverse_flow_state(self) -> None:
         """Initialize state for reverse flow tracking."""
         if not hasattr(self, "_km_patterns"):
-            self._km_patterns: Dict[str, List[KMEloPattern]] = {}  # agent -> patterns
-            self._pending_km_adjustments: List[EloAdjustmentRecommendation] = []
-            self._applied_km_adjustments: List[EloAdjustmentRecommendation] = []
+            self._km_patterns: dict[str, list[KMEloPattern]] = {}  # agent -> patterns
+            self._pending_km_adjustments: list[EloAdjustmentRecommendation] = []
+            self._applied_km_adjustments: list[EloAdjustmentRecommendation] = []
             self._km_adjustments_applied: int = 0
 
     async def analyze_km_patterns_for_agent(
         self,
         agent_name: str,
-        km_items: List[Dict[str, Any]],
+        km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
-    ) -> List[KMEloPattern]:
+    ) -> list[KMEloPattern]:
         """
         Analyze Knowledge Mound items to detect patterns for an agent.
 
@@ -1092,19 +1082,19 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         """
         self.__init_reverse_flow_state()
 
-        patterns: List[KMEloPattern] = []
+        patterns: list[KMEloPattern] = []
 
         # Counters for pattern detection
         success_count = 0
         contradiction_count = 0
-        domain_mentions: Dict[str, int] = {}
+        domain_mentions: dict[str, int] = {}
         crux_resolutions = 0
         total_items = len(km_items)
 
         if total_items == 0:
             return patterns
 
-        debate_ids: List[str] = []
+        debate_ids: list[str] = []
 
         for item in km_items:
             metadata = item.get("metadata", {})
@@ -1200,9 +1190,9 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
     def compute_elo_adjustment(
         self,
-        patterns: List[KMEloPattern],
+        patterns: list[KMEloPattern],
         max_adjustment: float = 50.0,
-    ) -> Optional[EloAdjustmentRecommendation]:
+    ) -> EloAdjustmentRecommendation | None:
         """
         Compute ELO adjustment recommendation from KM patterns.
 
@@ -1220,9 +1210,9 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
         agent_name = patterns[0].agent_name
         total_adjustment = 0.0
-        reasons: List[str] = []
+        reasons: list[str] = []
         overall_confidence = 0.0
-        domain_adjustments: Dict[str, float] = {}
+        domain_adjustments: dict[str, float] = {}
 
         for pattern in patterns:
             confidence_weight = pattern.confidence * (1 + min(0.5, pattern.observation_count / 20))
@@ -1361,7 +1351,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
     async def sync_km_to_elo(
         self,
-        agent_patterns: Dict[str, List[KMEloPattern]],
+        agent_patterns: dict[str, list[KMEloPattern]],
         max_adjustment: float = 50.0,
         min_confidence: float = 0.7,
         auto_apply: bool = False,
@@ -1414,7 +1404,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
         return result
 
-    def get_pending_adjustments(self) -> List[EloAdjustmentRecommendation]:
+    def get_pending_adjustments(self) -> list[EloAdjustmentRecommendation]:
         """Get list of pending KM-based ELO adjustments."""
         self.__init_reverse_flow_state()
         return list(self._pending_km_adjustments)
@@ -1422,7 +1412,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     def get_applied_adjustments(
         self,
         limit: int = 50,
-    ) -> List[EloAdjustmentRecommendation]:
+    ) -> list[EloAdjustmentRecommendation]:
         """Get list of applied KM-based ELO adjustments."""
         self.__init_reverse_flow_state()
         return self._applied_km_adjustments[-limit:]
@@ -1430,7 +1420,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     def get_agent_km_patterns(
         self,
         agent_name: str,
-    ) -> List[KMEloPattern]:
+    ) -> list[KMEloPattern]:
         """Get stored KM patterns for an agent."""
         self.__init_reverse_flow_state()
         return self._km_patterns.get(agent_name, [])
@@ -1442,7 +1432,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self._pending_km_adjustments = []
         return count
 
-    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+    def get_reverse_flow_stats(self) -> dict[str, Any]:
         """Get statistics about KM → ELO reverse flow."""
         self.__init_reverse_flow_state()
 
@@ -1463,10 +1453,10 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
             "pattern_types": self._count_pattern_types(),
         }
 
-    def _count_pattern_types(self) -> Dict[str, int]:
+    def _count_pattern_types(self) -> dict[str, int]:
         """Count patterns by type."""
         self.__init_reverse_flow_state()
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for patterns in self._km_patterns.values():
             for p in patterns:
                 counts[p.pattern_type] = counts.get(p.pattern_type, 0) + 1
@@ -1480,7 +1470,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         mound: Any,
         workspace_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Persist all expertise data to the Knowledge Mound.
 
@@ -1493,7 +1483,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         """
         from aragora.knowledge.mound.types import IngestionRequest, SourceType
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "expertise_synced": 0,
             "history_synced": 0,
             "errors": [],
@@ -1542,7 +1532,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         mound: Any,
         workspace_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Load expertise data from the Knowledge Mound.
 
@@ -1555,7 +1545,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         Returns:
             Dict with load statistics
         """
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "expertise_loaded": 0,
             "errors": [],
         }
@@ -1631,7 +1621,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     # FusionMixin Implementation
     # =========================================================================
 
-    def _get_fusion_sources(self) -> List[str]:
+    def _get_fusion_sources(self) -> list[str]:
         """Return list of adapter names this adapter can fuse data from.
 
         PerformanceAdapter can fuse validations from Consensus (debate outcomes),
@@ -1639,7 +1629,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         """
         return ["consensus", "evidence", "belief", "continuum"]
 
-    def _extract_fusible_data(self, km_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _extract_fusible_data(self, km_item: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Extract data from a KM item that can be used for fusion.
 
         Args:
@@ -1679,7 +1669,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         record: Any,
         fusion_result: Any,  # FusedValidation from ops.fusion
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply a fusion result to an agent rating or expertise record.
 
@@ -1744,7 +1734,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     # SemanticSearchMixin Required Methods
     # =========================================================================
 
-    def _get_record_by_id(self, record_id: str) -> Optional[Dict[str, Any]]:
+    def _get_record_by_id(self, record_id: str) -> Optional[dict[str, Any]]:
         """Get a performance record by ID (required by SemanticSearchMixin).
 
         Supports both ELO rating IDs (el_ prefix) and expertise IDs (ex_ prefix).
@@ -1773,7 +1763,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
         return None
 
-    def _record_to_dict(self, record: Dict[str, Any], similarity: float = 0.0) -> Dict[str, Any]:
+    def _record_to_dict(self, record: dict[str, Any], similarity: float = 0.0) -> dict[str, Any]:
         """Convert a performance record to dict (required by SemanticSearchMixin).
 
         Args:
@@ -1807,7 +1797,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
     # Search Methods (complete adapter interface)
     # =========================================================================
 
-    def get(self, record_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, record_id: str) -> Optional[dict[str, Any]]:
         """Get a single performance record by ID.
 
         Args:
@@ -1822,8 +1812,8 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         self,
         keyword: str,
         limit: int = 20,
-        record_type: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        record_type: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Search performance data by keyword.
 
         Args:
@@ -1834,7 +1824,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         Returns:
             List of matching records with relevance scores.
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         keyword_lower = keyword.lower()
 
         # Search ratings
@@ -1885,7 +1875,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         query: str,
         limit: int = 10,
         min_confidence: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for similar performance records (fallback for semantic search).
 
         Uses keyword matching as a fallback when vector search is unavailable.
@@ -1913,11 +1903,11 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
     def get_all_records(
         self,
-        record_type: Optional[str] = None,
-        agent_name: Optional[str] = None,
-        domain: Optional[str] = None,
+        record_type: str | None = None,
+        agent_name: str | None = None,
+        domain: str | None = None,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get all performance records with optional filtering.
 
         Args:
@@ -1929,7 +1919,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
         Returns:
             List of matching records.
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         # Collect ratings
         if record_type is None or record_type == "rating":
@@ -1966,7 +1956,6 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
         return results[:limit]
 
-
 # =============================================================================
 # Backwards Compatibility Aliases
 # =============================================================================
@@ -1974,7 +1963,6 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 # These allow existing code to continue using EloAdapter and RankingAdapter names
 EloAdapter = PerformanceAdapter
 RankingAdapter = PerformanceAdapter
-
 
 __all__ = [
     # Main adapter

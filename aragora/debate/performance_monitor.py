@@ -31,7 +31,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 from contextlib import contextmanager
 
@@ -43,18 +43,16 @@ DEFAULT_SLOW_ROUND_THRESHOLD = 30.0
 # Maximum number of slow debates to retain in memory
 MAX_SLOW_DEBATES_HISTORY = 100
 
-
 @dataclass
 class PhaseMetric:
     """Metric for a single phase within a round."""
 
     phase_name: str
     start_time: float
-    end_time: Optional[float] = None
-    duration_seconds: Optional[float] = None
+    end_time: float | None = None
+    duration_seconds: float | None = None
     agent_count: int = 0
-    error: Optional[str] = None
-
+    error: str | None = None
 
 @dataclass
 class RoundMetric:
@@ -62,8 +60,8 @@ class RoundMetric:
 
     round_num: int
     start_time: float
-    end_time: Optional[float] = None
-    duration_seconds: Optional[float] = None
+    end_time: float | None = None
+    duration_seconds: float | None = None
     phases: dict[str, PhaseMetric] = field(default_factory=dict)
     is_slow: bool = False
     slow_threshold: float = DEFAULT_SLOW_ROUND_THRESHOLD
@@ -74,13 +72,12 @@ class RoundMetric:
         return sum(p.duration_seconds or 0 for p in self.phases.values())
 
     @property
-    def slowest_phase(self) -> Optional[tuple[str, float]]:
+    def slowest_phase(self) -> tuple[str, float] | None:
         """Return (phase_name, duration) of slowest phase."""
         if not self.phases:
             return None
         slowest = max(self.phases.items(), key=lambda x: x[1].duration_seconds or 0)
         return (slowest[0], slowest[1].duration_seconds or 0)
-
 
 @dataclass
 class DebateMetric:
@@ -89,8 +86,8 @@ class DebateMetric:
     debate_id: str
     task: str
     start_time: float
-    end_time: Optional[float] = None
-    duration_seconds: Optional[float] = None
+    end_time: float | None = None
+    duration_seconds: float | None = None
     rounds: dict[int, RoundMetric] = field(default_factory=dict)
     outcome: str = "in_progress"
     agent_names: list[str] = field(default_factory=list)
@@ -109,13 +106,12 @@ class DebateMetric:
             return 0.0
         return sum(r.duration_seconds or 0 for r in completed) / len(completed)
 
-    def get_slowest_round(self) -> Optional[tuple[int, float]]:
+    def get_slowest_round(self) -> tuple[int, float] | None:
         """Return (round_num, duration) of slowest round."""
         if not self.rounds:
             return None
         slowest = max(self.rounds.items(), key=lambda x: x[1].duration_seconds or 0)
         return (slowest[0], slowest[1].duration_seconds or 0)
-
 
 @dataclass
 class SlowDebateRecord:
@@ -127,8 +123,8 @@ class SlowDebateRecord:
     total_duration: float
     round_count: int
     slow_round_count: int
-    slowest_round: Optional[tuple[int, float]]
-    slowest_phase: Optional[tuple[str, float]]
+    slowest_round: tuple[int, float] | None
+    slowest_phase: tuple[str, float] | None
     agent_names: list[str]
 
     def to_dict(self) -> dict[str, Any]:
@@ -144,7 +140,6 @@ class SlowDebateRecord:
             "slowest_phase": self.slowest_phase,
             "agent_count": len(self.agent_names),
         }
-
 
 class DebatePerformanceMonitor:
     """
@@ -203,7 +198,7 @@ class DebatePerformanceMonitor:
         self,
         debate_id: str,
         task: str = "",
-        agent_names: Optional[list[str]] = None,
+        agent_names: list[str] | None = None,
     ) -> Generator[DebateMetric, None, None]:
         """
         Context manager to track a complete debate.
@@ -374,7 +369,7 @@ class DebatePerformanceMonitor:
                 except ImportError:
                     pass
 
-    def get_active_debate(self, debate_id: str) -> Optional[DebateMetric]:
+    def get_active_debate(self, debate_id: str) -> DebateMetric | None:
         """Get metrics for an active debate."""
         return self._active_debates.get(debate_id)
 
@@ -430,7 +425,7 @@ class DebatePerformanceMonitor:
     def get_slow_debates(
         self,
         limit: int = 20,
-        threshold_seconds: Optional[float] = None,
+        threshold_seconds: float | None = None,
     ) -> list[dict[str, Any]]:
         """
         Get list of slow debates for diagnostics.
@@ -509,7 +504,7 @@ class DebatePerformanceMonitor:
         slowest_round = metric.get_slowest_round()
 
         # Find slowest phase across all rounds
-        slowest_phase: Optional[tuple[str, float]] = None
+        slowest_phase: tuple[str, float] | None = None
         for round_metric in metric.rounds.values():
             round_slowest = round_metric.slowest_phase
             if round_slowest:
@@ -557,10 +552,8 @@ class DebatePerformanceMonitor:
         except ImportError:
             pass
 
-
 # Global instance for convenience
-_default_monitor: Optional[DebatePerformanceMonitor] = None
-
+_default_monitor: DebatePerformanceMonitor | None = None
 
 def get_debate_monitor() -> DebatePerformanceMonitor:
     """Get the default debate performance monitor instance."""
@@ -568,7 +561,6 @@ def get_debate_monitor() -> DebatePerformanceMonitor:
     if _default_monitor is None:
         _default_monitor = DebatePerformanceMonitor()
     return _default_monitor
-
 
 __all__ = [
     "DebatePerformanceMonitor",

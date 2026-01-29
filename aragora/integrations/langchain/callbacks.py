@@ -8,7 +8,7 @@ and integrating with LangChain's callback system.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,6 @@ except ImportError:
 
         pass
 
-
 class AragoraCallbackHandler(BaseCallbackHandler):
     """
     LangChain callback handler for Aragora integration.
@@ -62,17 +61,17 @@ class AragoraCallbackHandler(BaseCallbackHandler):
     """
 
     aragora_url: str = "http://localhost:8080"
-    api_token: Optional[str] = None
-    debate_id: Optional[str] = None
-    session_id: Optional[str] = None
+    api_token: str | None = None
+    debate_id: str | None = None
+    session_id: str | None = None
     timeout_seconds: float = 10.0
 
     def __init__(
         self,
         aragora_url: str = "http://localhost:8080",
-        api_token: Optional[str] = None,
-        debate_id: Optional[str] = None,
-        session_id: Optional[str] = None,
+        api_token: str | None = None,
+        debate_id: str | None = None,
+        session_id: str | None = None,
         **kwargs: Any,
     ):
         """
@@ -90,9 +89,9 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         self.api_token = api_token
         self.debate_id = debate_id
         self.session_id = session_id
-        self._events: List[Dict[str, Any]] = []
+        self._events: list[dict[str, Any]] = []
 
-    def _send_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _send_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Send event to Aragora (fire and forget)."""
 
         event = {
@@ -109,13 +108,13 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def on_llm_start(
         self,
-        serialized: Dict[str, Any],
-        prompts: List[str],
+        serialized: dict[str, Any],
+        prompts: list[str],
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        parent_run_id: UUID | None = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Called when LLM starts."""
@@ -133,7 +132,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         response: LLMResult,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
+        parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
         """Called when LLM ends."""
@@ -154,7 +153,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         error: BaseException,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
+        parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
         """Called on LLM error."""
@@ -168,13 +167,13 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def on_chain_start(
         self,
-        serialized: Dict[str, Any],
-        inputs: Dict[str, Any],
+        serialized: dict[str, Any],
+        inputs: dict[str, Any],
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        parent_run_id: UUID | None = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Called when chain starts."""
@@ -188,10 +187,10 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def on_chain_end(
         self,
-        outputs: Dict[str, Any],
+        outputs: dict[str, Any],
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
+        parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
         """Called when chain ends."""
@@ -205,13 +204,13 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def on_tool_start(
         self,
-        serialized: Dict[str, Any],
+        serialized: dict[str, Any],
         input_str: str,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        parent_run_id: UUID | None = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Called when tool starts."""
@@ -228,7 +227,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         output: str,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
+        parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
         """Called when tool ends."""
@@ -245,7 +244,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         action: AgentAction,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
+        parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
         """Called on agent action."""
@@ -262,7 +261,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         finish: AgentFinish,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
+        parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
         """Called when agent finishes."""
@@ -273,7 +272,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
             },
         )
 
-    def get_events(self) -> List[Dict[str, Any]]:
+    def get_events(self) -> list[dict[str, Any]]:
         """Get all recorded events."""
         return self._events.copy()
 

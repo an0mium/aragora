@@ -115,7 +115,8 @@ Comprehensive assessment across 6 dimensions: test health, code quality, API cov
 ### Score: 6.5/10
 
 ### Critical Finding
-**.env file contains exposed secrets** - API keys committed to repository
+No `.env` file is tracked in the repo, but secret-scanning should be re-run
+to confirm there are no leaked credentials in history or artifacts.
 
 ### Other Issues
 | Issue | Severity | Location |
@@ -126,8 +127,8 @@ Comprehensive assessment across 6 dimensions: test health, code quality, API cov
 | CORS misconfiguration | LOW | Server config |
 
 ### Recommendations
-1. **IMMEDIATE**: Rotate all exposed API keys
-2. Add `.env` to `.gitignore` (verify)
+1. **IMMEDIATE**: Re-run secret scanning and rotate any detected keys
+2. Confirm `.env` is ignored (already configured in `.gitignore`)
 3. Implement secrets management (Vault, AWS Secrets Manager)
 4. SQL parameterization audit
 
@@ -239,3 +240,34 @@ Comprehensive assessment across 6 dimensions: test health, code quality, API cov
 ### Fixed Test Files
 - `test_documents_batch.py` - Removed skip, rewrote for current API
 - `test_broadcast.py` - Removed skip, rewrote for current API
+
+---
+
+## Session 2 Results (2026-01-29 continued)
+
+### Security Fixes
+| Fix | Location | Impact |
+|-----|----------|--------|
+| SQL injection | `connectors/accounting/qbo.py` | 6 vulnerabilities fixed |
+| RBAC gaps | `handlers/audit_export.py` | 3 functions protected |
+
+### Performance Fixes
+| Fix | Location | Impact |
+|-----|----------|--------|
+| Gmail N+1 query | `gmail/messages.py` | Reduced N+1 to batch (6→2 queries) |
+
+### Code Quality Improvements
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Type ignores | 1,651 | 1,554 | -97 |
+| Tests collected | 69,383 | 69,706 | +323 |
+
+### Documentation Created
+- `docs/architecture/n+1-query-audit.md` - N+1 pattern findings
+- `docs/architecture/metrics-refactoring-plan.md` - Metrics module refactor plan
+
+### Key Findings from Exploration
+1. **6 N+1 query patterns** identified with remediation roadmap
+2. **Metrics module** already partially refactored (1,559 LOC vs expected 3,536)
+3. **RBAC coverage** higher than expected (~90% already protected)
+4. **PostgreSQL pool** already configurable via environment variables

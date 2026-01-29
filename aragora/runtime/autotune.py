@@ -12,12 +12,12 @@ Key features:
 - Model tier selection (cheap vs expensive)
 - Round count optimization
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Callable, Optional
-
 
 class CostTier(Enum):
     """Model cost tiers."""
@@ -26,7 +26,6 @@ class CostTier(Enum):
     CHEAP = "cheap"  # GPT-3.5, Claude Haiku, Gemini Flash
     STANDARD = "standard"  # GPT-4o, Claude Sonnet
     EXPENSIVE = "expensive"  # GPT-4, Claude Opus, Gemini Pro
-
 
 @dataclass
 class AutotuneConfig:
@@ -60,7 +59,6 @@ class AutotuneConfig:
     # Default model tiers
     default_tier: CostTier = CostTier.STANDARD
 
-
 @dataclass
 class RunMetrics:
     """Metrics collected during a debate run."""
@@ -84,8 +82,8 @@ class RunMetrics:
     duration_seconds: float = 0.0
 
     # Timestamps
-    started_at: Optional[str] = None
-    ended_at: Optional[str] = None
+    started_at: str | None = None
+    ended_at: str | None = None
 
     # Per-round metrics
     round_metrics: list[dict] = field(default_factory=list)
@@ -139,7 +137,6 @@ class RunMetrics:
             "round_metrics": self.round_metrics,
         }
 
-
 class StopReason(Enum):
     """Why the autotuner decided to stop."""
 
@@ -152,17 +149,15 @@ class StopReason(Enum):
     USER_REQUESTED = "user_requested"
     ERROR = "error"
 
-
 @dataclass
 class AutotuneDecision:
     """Decision from the autotuner."""
 
     should_continue: bool
-    stop_reason: Optional[StopReason] = None
+    stop_reason: StopReason | None = None
     recommended_tier: CostTier = CostTier.STANDARD
     suggested_action: str = ""
     metrics_summary: dict = field(default_factory=dict)
-
 
 class Autotuner:
     """
@@ -175,10 +170,10 @@ class Autotuner:
     - Stop immediately (budget exceeded)
     """
 
-    def __init__(self, config: Optional[AutotuneConfig] = None):
+    def __init__(self, config: AutotuneConfig | None = None):
         self.config = config or AutotuneConfig()
         self.metrics = RunMetrics()
-        self._start_time: Optional[datetime] = None
+        self._start_time: datetime | None = None
         self._current_tier = self.config.default_tier
 
     def start(self):
@@ -333,7 +328,6 @@ class Autotuner:
 
         return min(affordable_rounds, max_remaining, 3)  # Max 3 more rounds suggested
 
-
 class AutotunedDebateRunner:
     """
     Wrapper to run debates with autotuning.
@@ -344,7 +338,7 @@ class AutotunedDebateRunner:
     def __init__(
         self,
         arena,  # Arena instance
-        config: Optional[AutotuneConfig] = None,
+        config: AutotuneConfig | None = None,
     ):
         self.arena = arena
         self.tuner = Autotuner(config)
@@ -377,7 +371,7 @@ class AutotunedDebateRunner:
         self,
         round_num: int,
         stats: dict,
-        user_callback: Optional[Callable],
+        user_callback: Callable | None,
     ):
         """Handle round completion."""
         # Record metrics

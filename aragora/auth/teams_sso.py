@@ -25,7 +25,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.auth.sso import SSOUser
@@ -42,24 +42,23 @@ AZURE_AD_AUTHORITY = f"https://login.microsoftonline.com/{AZURE_AD_TENANT_ID}"
 AZURE_AD_TOKEN_URL = f"{AZURE_AD_AUTHORITY}/oauth2/v2.0/token"
 AZURE_AD_JWKS_URL = f"{AZURE_AD_AUTHORITY}/discovery/v2.0/keys"
 
-
 @dataclass
 class TeamsTokenInfo:
     """Information extracted from a Teams/Azure AD token."""
 
     oid: str  # Azure AD object ID
     tid: str  # Tenant ID
-    upn: Optional[str] = None  # User principal name
-    email: Optional[str] = None
-    name: Optional[str] = None
-    given_name: Optional[str] = None
-    family_name: Optional[str] = None
-    preferred_username: Optional[str] = None
-    iss: Optional[str] = None  # Issuer
-    aud: Optional[str] = None  # Audience
-    exp: Optional[int] = None  # Expiration
-    iat: Optional[int] = None  # Issued at
-    raw_claims: Dict[str, Any] = None
+    upn: str | None = None  # User principal name
+    email: str | None = None
+    name: str | None = None
+    given_name: str | None = None
+    family_name: str | None = None
+    preferred_username: str | None = None
+    iss: str | None = None  # Issuer
+    aud: str | None = None  # Audience
+    exp: int | None = None  # Expiration
+    iat: int | None = None  # Issued at
+    raw_claims: dict[str, Any] = None
 
     def __post_init__(self):
         if self.raw_claims is None:
@@ -70,7 +69,6 @@ class TeamsTokenInfo:
         if self.exp is None:
             return False
         return time.time() > self.exp
-
 
 class TeamsSSO:
     """
@@ -83,9 +81,9 @@ class TeamsSSO:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        tenant_id: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        tenant_id: str | None = None,
     ):
         """Initialize Teams SSO handler.
 
@@ -98,7 +96,7 @@ class TeamsSSO:
         self.client_secret = client_secret or AZURE_AD_CLIENT_SECRET
         self.tenant_id = tenant_id or AZURE_AD_TENANT_ID
         self._identity_bridge = None
-        self._jwks_cache: Optional[Any] = None  # PyJWKClient when available
+        self._jwks_cache: Any | None = None  # PyJWKClient when available
         self._jwks_cache_time: float = 0
 
     def _get_identity_bridge(self):
@@ -111,7 +109,7 @@ class TeamsSSO:
 
     async def authenticate_from_activity(
         self,
-        activity: Dict[str, Any],
+        activity: dict[str, Any],
         create_user_if_missing: bool = True,
     ) -> Optional["SSOUser"]:
         """
@@ -181,7 +179,7 @@ class TeamsSSO:
     async def validate_token(
         self,
         token: str,
-    ) -> Optional[TeamsTokenInfo]:
+    ) -> TeamsTokenInfo | None:
         """
         Validate an Azure AD token.
 
@@ -254,7 +252,7 @@ class TeamsSSO:
             logger.error(f"Token validation failed: {e}")
             return None
 
-    async def _get_signing_key(self, kid: str) -> Optional[Any]:
+    async def _get_signing_key(self, kid: str) -> Any | None:
         """Get signing key from JWKS cache or fetch fresh.
 
         Args:
@@ -292,8 +290,8 @@ class TeamsSSO:
     async def exchange_token(
         self,
         token: str,
-        scopes: Optional[list] = None,
-    ) -> Optional[Dict[str, Any]]:
+        scopes: list | None = None,
+    ) -> Optional[dict[str, Any]]:
         """
         Exchange a Teams SSO token using on-behalf-of (OBO) flow.
 
@@ -349,7 +347,7 @@ class TeamsSSO:
     async def get_user_from_graph(
         self,
         access_token: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """
         Fetch user profile from Microsoft Graph API.
 
@@ -381,10 +379,8 @@ class TeamsSSO:
             logger.error(f"Graph API error: {e}")
             return None
 
-
 # Singleton instance
-_sso: Optional[TeamsSSO] = None
-
+_sso: TeamsSSO | None = None
 
 def get_teams_sso() -> TeamsSSO:
     """Get or create the Teams SSO singleton."""

@@ -47,7 +47,6 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 P = ParamSpec("P")
 
-
 class CircuitState(str, Enum):
     """Circuit breaker states."""
 
@@ -55,20 +54,18 @@ class CircuitState(str, Enum):
     OPEN = "open"  # Failing fast
     HALF_OPEN = "half_open"  # Testing recovery
 
-
 class CircuitBreakerOpenError(Exception):
     """Raised when circuit breaker is open and request is rejected."""
 
     def __init__(
         self,
         message: str = "Circuit breaker is open",
-        circuit_name: Optional[str] = None,
-        cooldown_remaining: Optional[float] = None,
+        circuit_name: str | None = None,
+        cooldown_remaining: float | None = None,
     ):
         super().__init__(message)
         self.circuit_name = circuit_name
         self.cooldown_remaining = cooldown_remaining
-
 
 @dataclass
 class CircuitBreakerConfig:
@@ -88,11 +85,10 @@ class CircuitBreakerConfig:
     success_threshold: int = 3
     cooldown_seconds: float = 60.0
     half_open_max_requests: int = 3
-    failure_rate_threshold: Optional[float] = None  # 0.0-1.0
+    failure_rate_threshold: float | None = None  # 0.0-1.0
     window_size: float = 60.0
     excluded_exceptions: tuple[type[Exception], ...] = ()
     on_state_change: Optional[Callable[[str, CircuitState, CircuitState], None]] = None
-
 
 @dataclass
 class CircuitBreakerStats:
@@ -101,13 +97,13 @@ class CircuitBreakerStats:
     state: CircuitState
     failure_count: int
     success_count: int
-    last_failure_time: Optional[float]
-    last_success_time: Optional[float]
+    last_failure_time: float | None
+    last_success_time: float | None
     consecutive_failures: int
     consecutive_successes: int
     total_requests: int
     total_failures: int
-    cooldown_remaining: Optional[float] = None
+    cooldown_remaining: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -123,7 +119,6 @@ class CircuitBreakerStats:
             "cooldown_remaining": self.cooldown_remaining,
         }
 
-
 class BaseCircuitBreaker:
     """Base circuit breaker implementation.
 
@@ -138,7 +133,7 @@ class BaseCircuitBreaker:
     def __init__(
         self,
         name: str,
-        config: Optional[CircuitBreakerConfig] = None,
+        config: CircuitBreakerConfig | None = None,
     ):
         self.name = name
         self.config = config or CircuitBreakerConfig()
@@ -150,9 +145,9 @@ class BaseCircuitBreaker:
         self._consecutive_successes = 0
         self._total_requests = 0
         self._total_failures = 0
-        self._last_failure_time: Optional[float] = None
-        self._last_success_time: Optional[float] = None
-        self._opened_at: Optional[float] = None
+        self._last_failure_time: float | None = None
+        self._last_success_time: float | None = None
+        self._opened_at: float | None = None
         self._half_open_requests = 0
         self._last_accessed = time.time()
 
@@ -242,7 +237,7 @@ class BaseCircuitBreaker:
                 if self._consecutive_successes >= self.config.success_threshold:
                     self._transition_to(CircuitState.CLOSED)
 
-    def record_failure(self, exception: Optional[Exception] = None) -> None:
+    def record_failure(self, exception: Exception | None = None) -> None:
         """Record a failed operation.
 
         Args:
@@ -376,11 +371,10 @@ class BaseCircuitBreaker:
         failures = sum(1 for _, success in self._recent_results if not success)
         return failures / len(self._recent_results)
 
-
 def with_circuit_breaker(
     name: str,
-    config: Optional[CircuitBreakerConfig] = None,
-    circuit_breaker: Optional[BaseCircuitBreaker] = None,
+    config: CircuitBreakerConfig | None = None,
+    circuit_breaker: BaseCircuitBreaker | None = None,
 ) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Decorator for async functions with circuit breaker protection.
 
@@ -422,11 +416,10 @@ def with_circuit_breaker(
 
     return decorator
 
-
 def with_circuit_breaker_sync(
     name: str,
-    config: Optional[CircuitBreakerConfig] = None,
-    circuit_breaker: Optional[BaseCircuitBreaker] = None,
+    config: CircuitBreakerConfig | None = None,
+    circuit_breaker: BaseCircuitBreaker | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator for sync functions with circuit breaker protection.
 
@@ -457,7 +450,6 @@ def with_circuit_breaker_sync(
 
     return decorator
 
-
 # =============================================================================
 # Global Circuit Breaker Registry (backward-compatible with aragora.resilience)
 # =============================================================================
@@ -465,12 +457,11 @@ def with_circuit_breaker_sync(
 _circuit_breakers: dict[str, BaseCircuitBreaker] = {}
 _circuit_breakers_lock = threading.Lock()
 
-
 def get_circuit_breaker(
     name: str,
-    failure_threshold: Optional[int] = None,
-    cooldown_seconds: Optional[float] = None,
-    config: Optional[CircuitBreakerConfig] = None,
+    failure_threshold: int | None = None,
+    cooldown_seconds: float | None = None,
+    config: CircuitBreakerConfig | None = None,
 ) -> BaseCircuitBreaker:
     """Get or create a named circuit breaker from the global registry.
 
@@ -512,7 +503,6 @@ def get_circuit_breaker(
 
         return _circuit_breakers[name]
 
-
 def reset_all_circuit_breakers() -> None:
     """Reset all global circuit breakers. Useful for testing."""
     with _circuit_breakers_lock:
@@ -520,7 +510,6 @@ def reset_all_circuit_breakers() -> None:
             cb.reset()
         count = len(_circuit_breakers)
     logger.info(f"Reset {count} circuit breakers")
-
 
 def get_all_circuit_breakers() -> dict[str, BaseCircuitBreaker]:
     """Get all registered circuit breakers.

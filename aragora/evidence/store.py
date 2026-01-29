@@ -7,6 +7,7 @@ Provides persistence for evidence snippets including:
 - Debate-specific evidence tracking
 - Evidence deduplication
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -14,7 +15,7 @@ import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.evidence.metadata import MetadataEnricher
 from aragora.evidence.quality import QualityContext, QualityScorer
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
 
 logger = logging.getLogger(__name__)
-
 
 class EvidenceStore(SQLiteStore):
     """SQLite-based evidence persistence store."""
@@ -85,9 +85,9 @@ class EvidenceStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
-        enricher: Optional[MetadataEnricher] = None,
-        scorer: Optional[QualityScorer] = None,
+        db_path: Path | None = None,
+        enricher: MetadataEnricher | None = None,
+        scorer: QualityScorer | None = None,
         km_adapter: Optional["EvidenceAdapter"] = None,
         km_min_reliability: float = 0.6,
     ):
@@ -121,7 +121,7 @@ class EvidenceStore(SQLiteStore):
         content: str,
         limit: int = 5,
         min_similarity: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Query Knowledge Mound for similar evidence (reverse flow).
 
         This enables cross-session deduplication and context enrichment.
@@ -152,7 +152,7 @@ class EvidenceStore(SQLiteStore):
         topic: str,
         limit: int = 10,
         min_reliability: float = 0.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Query Knowledge Mound for evidence on a topic (reverse flow).
 
         This enables context enrichment before debates.
@@ -186,9 +186,9 @@ class EvidenceStore(SQLiteStore):
         snippet: str,
         url: str = "",
         reliability_score: float = 0.5,
-        metadata: Optional[Dict[str, Any]] = None,
-        debate_id: Optional[str] = None,
-        round_number: Optional[int] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        debate_id: str | None = None,
+        round_number: int | None = None,
         enrich: bool = True,
         score_quality: bool = True,
     ) -> str:
@@ -322,8 +322,8 @@ class EvidenceStore(SQLiteStore):
     def save_evidence_snippet(
         self,
         snippet: Any,  # EvidenceSnippet
-        debate_id: Optional[str] = None,
-        round_number: Optional[int] = None,
+        debate_id: str | None = None,
+        round_number: int | None = None,
     ) -> str:
         """Save an EvidenceSnippet object.
 
@@ -351,8 +351,8 @@ class EvidenceStore(SQLiteStore):
         self,
         pack: Any,  # EvidencePack
         debate_id: str,
-        round_number: Optional[int] = None,
-    ) -> List[str]:
+        round_number: int | None = None,
+    ) -> list[str]:
         """Save all evidence from an EvidencePack.
 
         Args:
@@ -373,7 +373,7 @@ class EvidenceStore(SQLiteStore):
             saved_ids.append(evidence_id)
         return saved_ids
 
-    def get_evidence(self, evidence_id: str) -> Optional[Dict[str, Any]]:
+    def get_evidence(self, evidence_id: str) -> Optional[dict[str, Any]]:
         """Get evidence by ID.
 
         Args:
@@ -401,8 +401,8 @@ class EvidenceStore(SQLiteStore):
     def get_debate_evidence(
         self,
         debate_id: str,
-        round_number: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        round_number: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Get all evidence for a debate.
 
         Args:
@@ -446,10 +446,10 @@ class EvidenceStore(SQLiteStore):
         self,
         query: str,
         limit: int = 20,
-        source_filter: Optional[str] = None,
+        source_filter: str | None = None,
         min_reliability: float = 0.0,
-        context: Optional[QualityContext] = None,
-    ) -> List[Dict[str, Any]]:
+        context: QualityContext | None = None,
+    ) -> list[dict[str, Any]]:
         """Search evidence using full-text search.
 
         Args:
@@ -479,7 +479,7 @@ class EvidenceStore(SQLiteStore):
                 JOIN evidence e ON evidence_fts.evidence_id = e.id
                 WHERE evidence_fts MATCH ?
             """
-            params: List[Any] = [sanitized_query]
+            params: list[Any] = [sanitized_query]
 
             if source_filter:
                 base_query += " AND e.source = ?"
@@ -518,8 +518,8 @@ class EvidenceStore(SQLiteStore):
         self,
         content: str,
         limit: int = 10,
-        exclude_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        exclude_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Find similar evidence based on content.
 
         Uses a simple keyword-based similarity search.
@@ -570,7 +570,7 @@ class EvidenceStore(SQLiteStore):
                 JOIN evidence e ON evidence_fts.evidence_id = e.id
                 WHERE evidence_fts MATCH ?
             """
-            params: List[Any] = [query]
+            params: list[Any] = [query]
 
             if exclude_id:
                 base_query += " AND e.id != ?"
@@ -585,7 +585,7 @@ class EvidenceStore(SQLiteStore):
     def mark_used_in_consensus(
         self,
         debate_id: str,
-        evidence_ids: List[str],
+        evidence_ids: list[str],
     ) -> None:
         """Mark evidence as used in consensus.
 
@@ -654,7 +654,7 @@ class EvidenceStore(SQLiteStore):
             )
             return cursor.rowcount
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get store statistics.
 
         Returns:
@@ -705,7 +705,7 @@ class EvidenceStore(SQLiteStore):
         batch_size: int = 1000,
         preserve_high_reliability: bool = True,
         reliability_threshold: float = 0.8,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Clean up expired evidence based on retention policy.
 
         Removes evidence older than retention_days that is not linked to
@@ -820,7 +820,7 @@ class EvidenceStore(SQLiteStore):
                 "duration_ms": duration_ms,
             }
 
-    def get_retention_statistics(self, retention_days: int = 90) -> Dict[str, Any]:
+    def get_retention_statistics(self, retention_days: int = 90) -> dict[str, Any]:
         """Get statistics about evidence that would be affected by retention policy.
 
         Args:
@@ -872,7 +872,7 @@ class EvidenceStore(SQLiteStore):
                 "deletable": deletable,
             }
 
-    def _row_to_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert a database row to dictionary."""
         data = dict(row)
 
@@ -901,21 +901,20 @@ class EvidenceStore(SQLiteStore):
         if hasattr(self, "_manager") and self._manager:
             self._manager.close()
 
-
 class InMemoryEvidenceStore:
     """In-memory evidence store for testing and ephemeral use."""
 
     def __init__(
         self,
-        enricher: Optional[MetadataEnricher] = None,
-        scorer: Optional[QualityScorer] = None,
+        enricher: MetadataEnricher | None = None,
+        scorer: QualityScorer | None = None,
     ):
         """Initialize in-memory store."""
         self.enricher = enricher or MetadataEnricher()
         self.scorer = scorer or QualityScorer()
-        self._evidence: Dict[str, Dict[str, Any]] = {}
-        self._debate_evidence: Dict[str, Dict[str, Dict[str, Any]]] = {}
-        self._content_hashes: Dict[str, str] = {}  # hash -> evidence_id
+        self._evidence: dict[str, dict[str, Any]] = {}
+        self._debate_evidence: dict[str, dict[str, dict[str, Any]]] = {}
+        self._content_hashes: dict[str, str] = {}  # hash -> evidence_id
 
     def save_evidence(
         self,
@@ -925,9 +924,9 @@ class InMemoryEvidenceStore:
         snippet: str,
         url: str = "",
         reliability_score: float = 0.5,
-        metadata: Optional[Dict[str, Any]] = None,
-        debate_id: Optional[str] = None,
-        round_number: Optional[int] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        debate_id: str | None = None,
+        round_number: int | None = None,
         enrich: bool = True,
         score_quality: bool = True,
     ) -> str:
@@ -983,15 +982,15 @@ class InMemoryEvidenceStore:
 
         return evidence_id
 
-    def get_evidence(self, evidence_id: str) -> Optional[Dict[str, Any]]:
+    def get_evidence(self, evidence_id: str) -> Optional[dict[str, Any]]:
         """Get evidence by ID."""
         return self._evidence.get(evidence_id)
 
     def get_debate_evidence(
         self,
         debate_id: str,
-        round_number: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        round_number: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Get evidence for a debate."""
         if debate_id not in self._debate_evidence:
             return []
@@ -1011,10 +1010,10 @@ class InMemoryEvidenceStore:
         self,
         query: str,
         limit: int = 20,
-        source_filter: Optional[str] = None,
+        source_filter: str | None = None,
         min_reliability: float = 0.0,
-        context: Optional[QualityContext] = None,
-    ) -> List[Dict[str, Any]]:
+        context: QualityContext | None = None,
+    ) -> list[dict[str, Any]]:
         """Search evidence by keyword."""
         query_lower = query.lower()
         results = []
@@ -1052,9 +1051,9 @@ class InMemoryEvidenceStore:
             return True
         return False
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get store statistics."""
-        by_source: Dict[str, int] = {}
+        by_source: dict[str, int] = {}
         total_reliability = 0.0
 
         for evidence in self._evidence.values():

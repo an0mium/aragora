@@ -18,10 +18,9 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 # Fields that should always be encrypted when present
 SENSITIVE_FIELDS: frozenset[str] = frozenset(
@@ -58,13 +57,11 @@ SENSITIVE_FIELDS: frozenset[str] = frozenset(
     }
 )
 
-
 def _get_encryption_service():
     """Lazily import and get encryption service to avoid circular imports."""
     from aragora.security import get_encryption_service
 
     return get_encryption_service()
-
 
 def is_encryption_available() -> bool:
     """Check if encryption is available (cryptography library installed)."""
@@ -75,16 +72,14 @@ def is_encryption_available() -> bool:
     except ImportError:
         return False
 
-
 def is_encryption_configured() -> bool:
     """Check if a persistent encryption key is configured."""
     return bool(os.environ.get("ARAGORA_ENCRYPTION_KEY"))
 
-
 def encrypt_sensitive(
     data: dict[str, Any],
-    record_id: Optional[str] = None,
-    additional_fields: Optional[set[str]] = None,
+    record_id: str | None = None,
+    additional_fields: set[str] | None = None,
 ) -> dict[str, Any]:
     """
     Encrypt sensitive fields in a dictionary before storage.
@@ -138,11 +133,10 @@ def encrypt_sensitive(
         # In case of encryption failure, don't store unencrypted
         raise EncryptionError(f"Failed to encrypt data: {e}") from e
 
-
 def decrypt_sensitive(
     data: dict[str, Any],
-    record_id: Optional[str] = None,
-    additional_fields: Optional[set[str]] = None,
+    record_id: str | None = None,
+    additional_fields: set[str] | None = None,
 ) -> dict[str, Any]:
     """
     Decrypt sensitive fields in a dictionary after retrieval.
@@ -192,14 +186,12 @@ def decrypt_sensitive(
         logger.error(f"Failed to decrypt sensitive fields: {e}")
         raise DecryptionError(f"Failed to decrypt data: {e}") from e
 
-
 def is_field_encrypted(data: dict[str, Any], field_name: str) -> bool:
     """Check if a specific field is encrypted."""
     if field_name not in data:
         return False
     value = data[field_name]
     return isinstance(value, dict) and value.get("_encrypted") is True
-
 
 def get_encrypted_field_names(data: dict[str, Any]) -> list[str]:
     """Get list of field names that are currently encrypted."""
@@ -209,18 +201,15 @@ def get_encrypted_field_names(data: dict[str, Any]) -> list[str]:
         if isinstance(value, dict) and value.get("_encrypted") is True
     ]
 
-
 class EncryptionError(Exception):
     """Raised when encryption fails."""
 
     pass
 
-
 class DecryptionError(Exception):
     """Raised when decryption fails."""
 
     pass
-
 
 __all__ = [
     "SENSITIVE_FIELDS",

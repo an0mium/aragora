@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
@@ -39,7 +39,6 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
-
 
 class BackupHandler(BaseHandler):
     """
@@ -78,9 +77,9 @@ class BackupHandler(BaseHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
         query_params = query_params or {}
@@ -138,7 +137,7 @@ class BackupHandler(BaseHandler):
             return error_response(f"Internal error: {str(e)}", 500)
 
     @require_permission("backups:read")
-    async def _list_backups(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _list_backups(self, query_params: dict[str, str]) -> HandlerResult:
         """
         List backups with filtering and pagination.
 
@@ -216,7 +215,7 @@ class BackupHandler(BaseHandler):
         return json_response(backup.to_dict())
 
     @require_permission("backups:create")
-    async def _create_backup(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _create_backup(self, body: dict[str, Any]) -> HandlerResult:
         """
         Create a new backup.
 
@@ -305,7 +304,7 @@ class BackupHandler(BaseHandler):
         return json_response(result.to_dict())
 
     @require_permission("backups:restore")
-    async def _restore_test(self, backup_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _restore_test(self, backup_id: str, body: dict[str, Any]) -> HandlerResult:
         """
         Test restore a backup (dry-run).
 
@@ -377,7 +376,7 @@ class BackupHandler(BaseHandler):
             return error_response(f"Delete failed: {str(e)}", 500)
 
     @require_permission("backups:delete")
-    async def _cleanup_expired(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _cleanup_expired(self, body: dict[str, Any]) -> HandlerResult:
         """
         Run retention policy cleanup.
 
@@ -441,7 +440,7 @@ class BackupHandler(BaseHandler):
             }
         )
 
-    def _parse_timestamp(self, value: Optional[str]) -> Optional[datetime]:
+    def _parse_timestamp(self, value: str | None) -> datetime | None:
         """Parse timestamp from string (ISO date or unix timestamp)."""
         if not value:
             return None
@@ -461,7 +460,6 @@ class BackupHandler(BaseHandler):
             pass
 
         return None
-
 
 # Handler factory function for registration
 def create_backup_handler(server_context: ServerContext) -> BackupHandler:

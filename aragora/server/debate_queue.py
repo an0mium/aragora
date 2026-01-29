@@ -35,7 +35,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
 from urllib.parse import urlparse
@@ -54,7 +54,6 @@ BLOCKED_METADATA_HOSTNAMES = frozenset(
         "instance-data",
     ]
 )
-
 
 def validate_webhook_url(url: str) -> tuple[bool, str]:
     """Validate webhook URL to prevent SSRF and malformed requests."""
@@ -125,17 +124,16 @@ def validate_webhook_url(url: str) -> tuple[bool, str]:
 
     return True, ""
 
-
 def sanitize_webhook_headers(
-    headers: Optional[Dict[str, Any]],
-) -> tuple[Dict[str, str], Optional[str]]:
+    headers: Optional[dict[str, Any]],
+) -> tuple[dict[str, str], str | None]:
     """Validate and sanitize webhook headers."""
     if headers is None:
         return {}, None
     if not isinstance(headers, dict):
         return {}, "webhook_headers must be an object"
 
-    sanitized: Dict[str, str] = {}
+    sanitized: dict[str, str] = {}
     for key, value in headers.items():
         if len(sanitized) >= MAX_WEBHOOK_HEADER_COUNT:
             return {}, "webhook_headers exceeds maximum header count"
@@ -149,7 +147,6 @@ def sanitize_webhook_headers(
 
     return sanitized, None
 
-
 class BatchStatus(str, Enum):
     """Status of a batch request."""
 
@@ -160,7 +157,6 @@ class BatchStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-
 class ItemStatus(str, Enum):
     """Status of an individual batch item."""
 
@@ -169,7 +165,6 @@ class ItemStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
 
 @dataclass
 class BatchItem:
@@ -180,18 +175,18 @@ class BatchItem:
     rounds: int = DEFAULT_ROUNDS
     consensus: str = "majority"
     priority: int = 0  # Higher = runs first
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Populated during execution
     item_id: str = field(default_factory=lambda: f"item_{uuid.uuid4().hex[:8]}")
     status: ItemStatus = ItemStatus.QUEUED
-    debate_id: Optional[str] = None
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    debate_id: str | None = None
+    result: Optional[dict[str, Any]] = None
+    error: str | None = None
+    started_at: float | None = None
+    completed_at: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return {
             "item_id": self.item_id,
@@ -215,7 +210,7 @@ class BatchItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BatchItem":
+    def from_dict(cls, data: dict[str, Any]) -> "BatchItem":
         """Create from dictionary (e.g., parsed JSON)."""
         question = str(data.get("question", "")).strip()
         if not question:
@@ -258,24 +253,23 @@ class BatchItem:
             metadata=metadata,
         )
 
-
 @dataclass
 class BatchRequest:
     """A batch of debate requests to process."""
 
-    items: List[BatchItem]
-    webhook_url: Optional[str] = None  # Called when batch completes
-    webhook_headers: Dict[str, str] = field(default_factory=dict)
-    max_parallel: Optional[int] = None  # Override queue's default
+    items: list[BatchItem]
+    webhook_url: str | None = None  # Called when batch completes
+    webhook_headers: dict[str, str] = field(default_factory=dict)
+    max_parallel: int | None = None  # Override queue's default
 
     # Populated during execution
     batch_id: str = field(default_factory=lambda: f"batch_{uuid.uuid4().hex[:12]}")
     status: BatchStatus = BatchStatus.PENDING
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    started_at: float | None = None
+    completed_at: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         completed = sum(1 for i in self.items if i.status == ItemStatus.COMPLETED)
         failed = sum(1 for i in self.items if i.status == ItemStatus.FAILED)
@@ -305,12 +299,11 @@ class BatchRequest:
             "items": [item.to_dict() for item in self.items],
         }
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Get summary without individual items (for list endpoints)."""
         result = self.to_dict()
         del result["items"]
         return result
-
 
 class DebateQueue:
     """
@@ -330,7 +323,7 @@ class DebateQueue:
     def __init__(
         self,
         max_concurrent: int = 3,
-        debate_executor: Optional[Callable] = None,
+        debate_executor: Callable | None = None,
     ):
         """
         Initialize the debate queue.
@@ -338,20 +331,20 @@ class DebateQueue:
         Args:
             max_concurrent: Maximum debates to run in parallel
             debate_executor: Callable that runs a single debate.
-                            Signature: async (item: BatchItem) -> Dict[str, Any]
+                            Signature: async (item: BatchItem) -> dict[str, Any]
         """
         self.max_concurrent = max_concurrent
         self.debate_executor = debate_executor
 
         # Active batches by batch_id
-        self._batches: Dict[str, BatchRequest] = {}
+        self._batches: dict[str, BatchRequest] = {}
 
         # Processing state
         self._processing_lock = asyncio.Lock()
         self._active_count = 0
 
         # Background processing task
-        self._processor_task: Optional[asyncio.Task] = None
+        self._processor_task: asyncio.Task | None = None
         self._shutdown = False
 
     async def submit_batch(self, batch: BatchRequest) -> str:
@@ -384,14 +377,14 @@ class DebateQueue:
 
         return batch.batch_id
 
-    def get_batch_status(self, batch_id: str) -> Optional[Dict[str, Any]]:
+    def get_batch_status(self, batch_id: str) -> Optional[dict[str, Any]]:
         """Get status of a batch."""
         batch = self._batches.get(batch_id)
         if batch:
             return batch.to_dict()
         return None
 
-    def get_batch_summary(self, batch_id: str) -> Optional[Dict[str, Any]]:
+    def get_batch_summary(self, batch_id: str) -> Optional[dict[str, Any]]:
         """Get summary of a batch (without individual items)."""
         batch = self._batches.get(batch_id)
         if batch:
@@ -400,9 +393,9 @@ class DebateQueue:
 
     def list_batches(
         self,
-        status: Optional[BatchStatus] = None,
+        status: BatchStatus | None = None,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List batches, optionally filtered by status."""
         batches = list(self._batches.values())
 
@@ -454,7 +447,7 @@ class DebateQueue:
             # Process item
             await self._process_item(batch, item)
 
-    async def _get_next_work(self) -> Optional[tuple[BatchRequest, BatchItem]]:
+    async def _get_next_work(self) -> tuple[BatchRequest, BatchItem] | None:
         """Get the next item to process."""
         async with self._processing_lock:
             if self._active_count >= self.max_concurrent:
@@ -625,11 +618,9 @@ class DebateQueue:
             except asyncio.CancelledError:
                 pass
 
-
 # Global queue instance
-_queue: Optional[DebateQueue] = None
+_queue: DebateQueue | None = None
 _queue_lock = asyncio.Lock()
-
 
 async def get_debate_queue() -> DebateQueue:
     """Get the global debate queue instance."""
@@ -642,11 +633,9 @@ async def get_debate_queue() -> DebateQueue:
             _queue = DebateQueue(max_concurrent=MAX_CONCURRENT_DEBATES)
         return _queue
 
-
-def get_debate_queue_sync() -> Optional[DebateQueue]:
+def get_debate_queue_sync() -> DebateQueue | None:
     """Get the global debate queue instance (sync version)."""
     return _queue
-
 
 __all__ = [
     "DebateQueue",

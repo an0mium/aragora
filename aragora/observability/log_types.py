@@ -11,8 +11,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class AuditBackend(str, Enum):
     """Supported audit log backends."""
@@ -21,7 +20,6 @@ class AuditBackend(str, Enum):
     POSTGRESQL = "postgresql"  # PostgreSQL with indexed queries
     S3_OBJECT_LOCK = "s3_object_lock"  # S3 with Object Lock (WORM compliance)
     QLDB = "qldb"  # AWS QLDB (cryptographic verification, queryable)
-
 
 @dataclass
 class AuditEntry:
@@ -48,13 +46,13 @@ class AuditEntry:
 
     # Additional context
     details: dict[str, Any] = field(default_factory=dict)
-    correlation_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
+    correlation_id: str | None = None
+    workspace_id: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
 
     # Integrity
-    signature: Optional[str] = None  # Optional cryptographic signature
+    signature: str | None = None  # Optional cryptographic signature
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -121,7 +119,6 @@ class AuditEntry:
         content_bytes = json.dumps(content, sort_keys=True).encode("utf-8")
         return hashlib.sha256(content_bytes).hexdigest()
 
-
 @dataclass
 class DailyAnchor:
     """Daily hash anchor for external verification."""
@@ -146,7 +143,6 @@ class DailyAnchor:
             "created_at": self.created_at.isoformat(),
         }
 
-
 @dataclass
 class VerificationResult:
     """Result of integrity verification."""
@@ -155,7 +151,7 @@ class VerificationResult:
     entries_checked: int
     errors: list[str]
     warnings: list[str]
-    first_error_sequence: Optional[int] = None
+    first_error_sequence: int | None = None
     verification_time_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:

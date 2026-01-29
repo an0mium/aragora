@@ -17,7 +17,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 import aiohttp
 
@@ -26,7 +26,6 @@ from aragora.reasoning.provenance import SourceType
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
-
 
 # Microsoft Graph Calendar API scopes
 CALENDAR_SCOPES_READONLY = [
@@ -42,7 +41,6 @@ CALENDAR_SCOPES_FULL = [
 # Default to read-only for inbox integration
 CALENDAR_SCOPES = CALENDAR_SCOPES_READONLY
 
-
 @dataclass
 class OutlookCalendarEvent:
     """Represents an Outlook calendar event."""
@@ -50,32 +48,32 @@ class OutlookCalendarEvent:
     id: str
     calendar_id: str
     subject: str
-    body_preview: Optional[str] = None
-    body_content: Optional[str] = None
-    location: Optional[str] = None
-    start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    body_preview: str | None = None
+    body_content: str | None = None
+    location: str | None = None
+    start: datetime | None = None
+    end: datetime | None = None
     all_day: bool = False
     show_as: str = "busy"  # free, tentative, busy, oof, workingElsewhere
     is_cancelled: bool = False
     is_organizer: bool = False
-    organizer_email: Optional[str] = None
-    organizer_name: Optional[str] = None
-    attendees: List[Dict[str, Any]] = field(default_factory=list)
-    web_link: Optional[str] = None
-    online_meeting_url: Optional[str] = None
-    online_meeting_provider: Optional[str] = None
+    organizer_email: str | None = None
+    organizer_name: str | None = None
+    attendees: list[dict[str, Any]] = field(default_factory=list)
+    web_link: str | None = None
+    online_meeting_url: str | None = None
+    online_meeting_provider: str | None = None
     is_online_meeting: bool = False
-    recurrence: Optional[Dict[str, Any]] = None
-    series_master_id: Optional[str] = None
-    response_status: Optional[str] = None
+    recurrence: Optional[dict[str, Any]] = None
+    series_master_id: str | None = None
+    response_status: str | None = None
     sensitivity: str = "normal"  # normal, personal, private, confidential
     importance: str = "normal"  # low, normal, high
-    categories: List[str] = field(default_factory=list)
-    created: Optional[datetime] = None
-    last_modified: Optional[datetime] = None
+    categories: list[str] = field(default_factory=list)
+    created: datetime | None = None
+    last_modified: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -107,7 +105,6 @@ class OutlookCalendarEvent:
             "last_modified": self.last_modified.isoformat() if self.last_modified else None,
         }
 
-
 @dataclass
 class OutlookFreeBusySlot:
     """Represents a busy time slot from schedule info."""
@@ -116,13 +113,12 @@ class OutlookFreeBusySlot:
     end: datetime
     status: str = "busy"  # free, tentative, busy, oof, workingElsewhere
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "start": self.start.isoformat(),
             "end": self.end.isoformat(),
             "status": self.status,
         }
-
 
 @dataclass
 class OutlookCalendarInfo:
@@ -130,15 +126,15 @@ class OutlookCalendarInfo:
 
     id: str
     name: str
-    color: Optional[str] = None
+    color: str | None = None
     is_default: bool = False
     can_edit: bool = True
     can_share: bool = True
     can_view_private_items: bool = True
-    owner_email: Optional[str] = None
-    owner_name: Optional[str] = None
+    owner_email: str | None = None
+    owner_name: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -150,7 +146,6 @@ class OutlookCalendarInfo:
             "owner_email": self.owner_email,
             "owner_name": self.owner_name,
         }
-
 
 class OutlookCalendarConnector(EnterpriseConnector):
     """
@@ -195,7 +190,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        calendar_ids: Optional[List[str]] = None,
+        calendar_ids: Optional[list[str]] = None,
         max_results: int = 250,
         user_id: str = "me",
         **kwargs,
@@ -215,9 +210,9 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self.user_id = user_id
 
         # OAuth tokens
-        self._access_token: Optional[str] = None
-        self._refresh_token: Optional[str] = None
-        self._token_expiry: Optional[datetime] = None
+        self._access_token: str | None = None
+        self._refresh_token: str | None = None
+        self._token_expiry: datetime | None = None
         self._token_lock: asyncio.Lock = asyncio.Lock()
 
         # Circuit breaker for API calls
@@ -228,7 +223,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         )
 
         # HTTP session
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -361,9 +356,9 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        code: str | None = None,
+        redirect_uri: str | None = None,
+        refresh_token: str | None = None,
     ) -> bool:
         """
         Authenticate with Outlook Calendar.
@@ -432,9 +427,9 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict] = None,
-        json_data: Optional[Dict] = None,
-    ) -> Dict[str, Any]:
+        params: dict | None = None,
+        json_data: dict | None = None,
+    ) -> dict[str, Any]:
         """Make authenticated API request."""
         token = await self._ensure_token()
         session = await self._get_session()
@@ -491,7 +486,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
             self._circuit_breaker.record_failure()
             raise
 
-    async def get_calendars(self) -> List[OutlookCalendarInfo]:
+    async def get_calendars(self) -> list[OutlookCalendarInfo]:
         """Get list of user's calendars."""
         data = await self._api_request("GET", "/calendars")
 
@@ -516,12 +511,12 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
     async def get_events(
         self,
-        calendar_id: Optional[str] = None,
-        time_min: Optional[datetime] = None,
-        time_max: Optional[datetime] = None,
-        query: Optional[str] = None,
-        max_results: Optional[int] = None,
-    ) -> List[OutlookCalendarEvent]:
+        calendar_id: str | None = None,
+        time_min: datetime | None = None,
+        time_max: datetime | None = None,
+        query: str | None = None,
+        max_results: int | None = None,
+    ) -> list[OutlookCalendarEvent]:
         """
         Get events from a calendar.
 
@@ -535,7 +530,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         Returns:
             List of calendar events
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "$top": max_results or self.max_results,
             "$orderby": "start/dateTime",
         }
@@ -601,8 +596,8 @@ class OutlookCalendarConnector(EnterpriseConnector):
         return events
 
     def _parse_event(
-        self, item: Dict[str, Any], calendar_id: str
-    ) -> Optional[OutlookCalendarEvent]:
+        self, item: dict[str, Any], calendar_id: str
+    ) -> OutlookCalendarEvent | None:
         """Parse API response into OutlookCalendarEvent."""
         try:
             # Parse start time
@@ -718,8 +713,8 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        email_addresses: Optional[List[str]] = None,
-    ) -> Dict[str, List[OutlookFreeBusySlot]]:
+        email_addresses: Optional[list[str]] = None,
+    ) -> dict[str, list[OutlookFreeBusySlot]]:
         """
         Get free/busy schedule information.
 
@@ -754,7 +749,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
         data = await self._api_request("POST", "/calendar/getSchedule", json_data=request_body)
 
-        result: Dict[str, List[OutlookFreeBusySlot]] = {}
+        result: dict[str, list[OutlookFreeBusySlot]] = {}
         for schedule in data.get("value", []):
             email = schedule.get("scheduleId", "")
             busy_slots = []
@@ -780,8 +775,8 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        calendar_ids: Optional[List[str]] = None,
-    ) -> Dict[str, List[OutlookFreeBusySlot]]:
+        calendar_ids: Optional[list[str]] = None,
+    ) -> dict[str, list[OutlookFreeBusySlot]]:
         """
         Get free/busy information for calendars.
 
@@ -798,7 +793,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         if not calendar_ids:
             calendar_ids = self.calendar_ids or [None]  # None = default calendar
 
-        result: Dict[str, List[OutlookFreeBusySlot]] = {}
+        result: dict[str, list[OutlookFreeBusySlot]] = {}
 
         for cal_id in calendar_ids:
             try:
@@ -835,7 +830,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        calendar_ids: Optional[List[str]] = None,
+        calendar_ids: Optional[list[str]] = None,
     ) -> bool:
         """
         Check if user is available during a time range.
@@ -862,8 +857,8 @@ class OutlookCalendarConnector(EnterpriseConnector):
     async def get_upcoming_events(
         self,
         hours: int = 24,
-        calendar_ids: Optional[List[str]] = None,
-    ) -> List[OutlookCalendarEvent]:
+        calendar_ids: Optional[list[str]] = None,
+    ) -> list[OutlookCalendarEvent]:
         """
         Get upcoming events within a time window.
 
@@ -901,8 +896,8 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         proposed_start: datetime,
         proposed_end: datetime,
-        calendar_ids: Optional[List[str]] = None,
-    ) -> List[OutlookCalendarEvent]:
+        calendar_ids: Optional[list[str]] = None,
+    ) -> list[OutlookCalendarEvent]:
         """
         Find events that conflict with a proposed time.
 
@@ -940,8 +935,8 @@ class OutlookCalendarConnector(EnterpriseConnector):
     async def get_event(
         self,
         event_id: str,
-        calendar_id: Optional[str] = None,
-    ) -> Optional[OutlookCalendarEvent]:
+        calendar_id: str | None = None,
+    ) -> OutlookCalendarEvent | None:
         """
         Get a specific event by ID.
 
@@ -974,7 +969,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         full_sync: bool = False,
         batch_size: int = 100,
-        max_items: Optional[int] = None,
+        max_items: int | None = None,
     ) -> SyncResult:
         """
         Sync events from calendars.
@@ -1046,7 +1041,6 @@ class OutlookCalendarConnector(EnterpriseConnector):
                     )
             except Exception as e:
                 logger.warning(f"Failed to sync events from calendar {cal_id}: {e}")
-
 
 __all__ = [
     "OutlookCalendarConnector",

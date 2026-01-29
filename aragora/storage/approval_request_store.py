@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 _approval_request_store: Optional["ApprovalRequestStoreBackend"] = None
 _store_lock = threading.RLock()
 
-
 @dataclass
 class ApprovalRequestItem:
     """
@@ -59,20 +58,20 @@ class ApprovalRequestItem:
     status: str = "pending"  # pending, approved, rejected, expired
 
     # Request details
-    description: Optional[str] = None
+    description: str | None = None
     request_data: dict[str, Any] = field(default_factory=dict)
-    response_data: Optional[dict[str, Any]] = None
+    response_data: dict[str, Any] | None = None
 
     # Requester/responder
-    requester_id: Optional[str] = None
-    responder_id: Optional[str] = None
+    requester_id: str | None = None
+    responder_id: str | None = None
 
     # Timing
-    expires_at: Optional[str] = None
-    responded_at: Optional[str] = None
+    expires_at: str | None = None
+    responded_at: str | None = None
 
     # Metadata
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
     priority: int = 3  # 1=highest, 5=lowest
     tags: list[str] = field(default_factory=list)
 
@@ -142,12 +141,11 @@ class ApprovalRequestItem:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
-
 class ApprovalRequestStoreBackend(ABC):
     """Abstract base class for approval request storage backends."""
 
     @abstractmethod
-    async def get(self, request_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, request_id: str) -> dict[str, Any] | None:
         """Get request data by ID."""
         pass
 
@@ -192,7 +190,7 @@ class ApprovalRequestStoreBackend(ABC):
         request_id: str,
         status: str,
         responder_id: str,
-        response_data: Optional[dict[str, Any]] = None,
+        response_data: dict[str, Any] | None = None,
     ) -> bool:
         """Record a response to an approval request."""
         pass
@@ -201,7 +199,6 @@ class ApprovalRequestStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
-
 
 class InMemoryApprovalRequestStore(ApprovalRequestStoreBackend):
     """
@@ -215,7 +212,7 @@ class InMemoryApprovalRequestStore(ApprovalRequestStoreBackend):
         self._data: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
 
-    async def get(self, request_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, request_id: str) -> dict[str, Any] | None:
         """Get request data by ID."""
         with self._lock:
             return self._data.get(request_id)
@@ -275,7 +272,7 @@ class InMemoryApprovalRequestStore(ApprovalRequestStoreBackend):
         request_id: str,
         status: str,
         responder_id: str,
-        response_data: Optional[dict[str, Any]] = None,
+        response_data: dict[str, Any] | None = None,
     ) -> bool:
         """Record a response to an approval request."""
         with self._lock:
@@ -293,7 +290,6 @@ class InMemoryApprovalRequestStore(ApprovalRequestStoreBackend):
         """No-op for in-memory store."""
         pass
 
-
 class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
     """
     SQLite-backed approval request store.
@@ -301,7 +297,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
     Suitable for single-instance deployments.
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         """
         Initialize SQLite store.
 
@@ -362,7 +358,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
             finally:
                 conn.close()
 
-    async def get(self, request_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, request_id: str) -> dict[str, Any] | None:
         """Get request data by ID."""
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -524,7 +520,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
         request_id: str,
         status: str,
         responder_id: str,
-        response_data: Optional[dict[str, Any]] = None,
+        response_data: dict[str, Any] | None = None,
     ) -> bool:
         """Record a response to an approval request."""
         with self._lock:
@@ -573,7 +569,6 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
         """No-op for SQLite (connections are per-operation)."""
         pass
 
-
 class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
     """
     Redis-backed approval request store with SQLite fallback.
@@ -588,8 +583,8 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
 
     def __init__(
         self,
-        fallback_db_path: Optional[Path] = None,
-        redis_url: Optional[str] = None,
+        fallback_db_path: Path | None = None,
+        redis_url: str | None = None,
     ) -> None:
         """
         Initialize Redis store with SQLite fallback.
@@ -625,7 +620,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             self._using_fallback = True
             self._redis_client = None
 
-    async def get(self, request_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, request_id: str) -> dict[str, Any] | None:
         """Get request data by ID."""
         if self._using_fallback:
             return await self._fallback.get(request_id)
@@ -782,7 +777,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
         request_id: str,
         status: str,
         responder_id: str,
-        response_data: Optional[dict[str, Any]] = None,
+        response_data: dict[str, Any] | None = None,
     ) -> bool:
         """Record a response to an approval request."""
         # Update SQLite fallback
@@ -834,7 +829,6 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             except Exception as e:
                 logger.debug(f"Redis close failed: {e}")
 
-
 class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
     """
     PostgreSQL-backed approval request store.
@@ -885,11 +879,11 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
         self._initialized = True
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
 
-    async def get(self, request_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, request_id: str) -> dict[str, Any] | None:
         """Get request data by ID."""
         return await self.get_async(request_id)
 
-    async def get_async(self, request_id: str) -> Optional[dict[str, Any]]:
+    async def get_async(self, request_id: str) -> dict[str, Any] | None:
         """Get request data by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1070,7 +1064,7 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
         request_id: str,
         status: str,
         responder_id: str,
-        response_data: Optional[dict[str, Any]] = None,
+        response_data: dict[str, Any] | None = None,
     ) -> bool:
         """Record a response to an approval request."""
         return await self.respond_async(request_id, status, responder_id, response_data)
@@ -1080,7 +1074,7 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
         request_id: str,
         status: str,
         responder_id: str,
-        response_data: Optional[dict[str, Any]] = None,
+        response_data: dict[str, Any] | None = None,
     ) -> bool:
         """Record a response to an approval request asynchronously."""
         async with self._pool.acquire() as conn:
@@ -1120,7 +1114,6 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
     async def close(self) -> None:
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
-
 
 def get_approval_request_store() -> ApprovalRequestStoreBackend:
     """
@@ -1166,7 +1159,6 @@ def get_approval_request_store() -> ApprovalRequestStoreBackend:
 
         return _approval_request_store
 
-
 def set_approval_request_store(store: ApprovalRequestStoreBackend) -> None:
     """Set a custom approval request store instance."""
     global _approval_request_store
@@ -1174,14 +1166,12 @@ def set_approval_request_store(store: ApprovalRequestStoreBackend) -> None:
     with _store_lock:
         _approval_request_store = store
 
-
 def reset_approval_request_store() -> None:
     """Reset the global approval request store (for testing)."""
     global _approval_request_store
 
     with _store_lock:
         _approval_request_store = None
-
 
 __all__ = [
     "ApprovalRequestItem",

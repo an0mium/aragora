@@ -32,8 +32,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Optional
 
 @dataclass
 class AgentContribution:
@@ -43,8 +42,7 @@ class AgentContribution:
     position: str  # "for", "against", "neutral"
     key_point: str
     confidence: float = 0.5
-    icon_url: Optional[str] = None
-
+    icon_url: str | None = None
 
 @dataclass
 class RoundProgress:
@@ -52,9 +50,8 @@ class RoundProgress:
 
     round_number: int
     total_rounds: int
-    agent_messages: List[Dict[str, str]] = field(default_factory=list)
-    current_consensus: Optional[str] = None
-
+    agent_messages: list[dict[str, str]] = field(default_factory=list)
+    current_consensus: str | None = None
 
 class TeamsAdaptiveCards:
     """Builder for Teams Adaptive Cards."""
@@ -82,10 +79,10 @@ class TeamsAdaptiveCards:
 
     @classmethod
     def wrap_as_card(
-        cls, body: List[Dict[str, Any]], actions: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
+        cls, body: list[dict[str, Any]], actions: Optional[list[dict[str, Any]]] = None
+    ) -> dict[str, Any]:
         """Wrap body elements as a full Adaptive Card."""
-        card: Dict[str, Any] = {
+        card: dict[str, Any] = {
             "type": "AdaptiveCard",
             "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
             "version": "1.5",
@@ -100,11 +97,11 @@ class TeamsAdaptiveCards:
         cls,
         topic: str,
         initiated_by: str,
-        agents: List[str],
-        debate_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        agents: list[str],
+        debate_id: str | None = None,
+    ) -> dict[str, Any]:
         """Create a card for when a debate is starting."""
-        body: List[Dict[str, Any]] = [
+        body: list[dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "accent",
@@ -224,12 +221,12 @@ class TeamsAdaptiveCards:
         cls,
         topic: str,
         progress: RoundProgress,
-        debate_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        debate_id: str | None = None,
+    ) -> dict[str, Any]:
         """Create a card showing debate progress."""
         progress_pct = int((progress.round_number / progress.total_rounds) * 100)
 
-        body: List[Dict[str, Any]] = [
+        body: list[dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "emphasis",
@@ -359,13 +356,13 @@ class TeamsAdaptiveCards:
         topic: str,
         verdict: str,
         debate_id: str,
-        options: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        options: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
         """Create a card for voting on a debate outcome."""
         if options is None:
             options = ["Agree", "Disagree", "Abstain"]
 
-        body: List[Dict[str, Any]] = [
+        body: list[dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "emphasis",
@@ -409,7 +406,7 @@ class TeamsAdaptiveCards:
             },
         ]
 
-        actions: List[Dict[str, Any]] = []
+        actions: list[dict[str, Any]] = []
         for option in options:
             vote_value = option.lower().replace(" ", "_")
             style = "positive" if option.lower() == "agree" else "default"
@@ -436,17 +433,17 @@ class TeamsAdaptiveCards:
         topic: str,
         verdict: str,
         confidence: float,
-        agents: List[AgentContribution],
+        agents: list[AgentContribution],
         rounds_completed: int = 3,
-        receipt_id: Optional[str] = None,
-        debate_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        receipt_id: str | None = None,
+        debate_id: str | None = None,
+    ) -> dict[str, Any]:
         """Create a comprehensive verdict card."""
         confidence_color = (
             "Good" if confidence >= 0.7 else ("Warning" if confidence >= 0.5 else "Attention")
         )
 
-        body: List[Dict[str, Any]] = [
+        body: list[dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "good",
@@ -615,7 +612,7 @@ class TeamsAdaptiveCards:
                 }
             )
 
-        actions: List[Dict[str, Any]] = []
+        actions: list[dict[str, Any]] = []
         if receipt_id:
             actions.append(
                 {
@@ -648,11 +645,11 @@ class TeamsAdaptiveCards:
         cls,
         title: str,
         message: str,
-        suggestions: Optional[List[str]] = None,
-        retry_action: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        suggestions: Optional[list[str]] = None,
+        retry_action: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Create an error card with troubleshooting suggestions."""
-        body: List[Dict[str, Any]] = [
+        body: list[dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "attention",
@@ -694,7 +691,7 @@ class TeamsAdaptiveCards:
                     }
                 )
 
-        actions: List[Dict[str, Any]] = []
+        actions: list[dict[str, Any]] = []
         if retry_action:
             actions.append(
                 {
@@ -721,8 +718,8 @@ class TeamsAdaptiveCards:
         verdict: str,
         timestamp: str,
         hash_preview: str,
-        verification_url: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        verification_url: str | None = None,
+    ) -> dict[str, Any]:
         """Create a decision receipt card."""
         body = [
             {
@@ -805,7 +802,6 @@ class TeamsAdaptiveCards:
             )
 
         return cls.wrap_as_card(body, actions)
-
 
 __all__ = [
     "TeamsAdaptiveCards",

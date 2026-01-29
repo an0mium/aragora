@@ -11,11 +11,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class VectorBackend(str, Enum):
     """Supported vector store backends."""
@@ -24,7 +23,6 @@ class VectorBackend(str, Enum):
     QDRANT = "qdrant"
     CHROMA = "chroma"
     MEMORY = "memory"  # In-memory for testing
-
 
 @dataclass
 class VectorSearchResult:
@@ -39,7 +37,7 @@ class VectorSearchResult:
     content: str
     score: float
     metadata: dict[str, Any] = field(default_factory=dict)
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
@@ -51,7 +49,6 @@ class VectorSearchResult:
             "embedding": self.embedding,
         }
 
-
 @dataclass
 class VectorStoreConfig:
     """
@@ -62,8 +59,8 @@ class VectorStoreConfig:
     """
 
     backend: VectorBackend = VectorBackend.MEMORY
-    url: Optional[str] = None
-    api_key: Optional[str] = None
+    url: str | None = None
+    api_key: str | None = None
     collection_name: str = "knowledge_mound"
     embedding_dimensions: int = 1536
     distance_metric: str = "cosine"  # cosine, euclidean, dot_product
@@ -91,7 +88,6 @@ class VectorStoreConfig:
             embedding_dimensions=int(os.getenv("EMBEDDING_DIMENSIONS", "1536")),
             distance_metric=os.getenv("DISTANCE_METRIC", "cosine"),
         )
-
 
 class BaseVectorStore(ABC):
     """
@@ -165,7 +161,7 @@ class BaseVectorStore(ABC):
     async def create_collection(
         self,
         name: str,
-        schema: Optional[dict[str, Any]] = None,
+        schema: dict[str, Any] | None = None,
     ) -> None:
         """
         Create a new collection/index.
@@ -222,8 +218,8 @@ class BaseVectorStore(ABC):
         id: str,
         embedding: list[float],
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> str:
         """
         Insert or update a vector with content and metadata.
@@ -244,7 +240,7 @@ class BaseVectorStore(ABC):
     async def upsert_batch(
         self,
         items: Sequence[dict[str, Any]],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[str]:
         """
         Batch upsert multiple vectors.
@@ -264,7 +260,7 @@ class BaseVectorStore(ABC):
     async def delete(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """
         Delete vectors by ID.
@@ -282,7 +278,7 @@ class BaseVectorStore(ABC):
     async def delete_by_filter(
         self,
         filters: dict[str, Any],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """
         Delete vectors matching filter criteria.
@@ -305,8 +301,8 @@ class BaseVectorStore(ABC):
         self,
         embedding: list[float],
         limit: int = 10,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
         min_score: float = 0.0,
     ) -> list[VectorSearchResult]:
         """
@@ -331,8 +327,8 @@ class BaseVectorStore(ABC):
         embedding: list[float],
         limit: int = 10,
         alpha: float = 0.5,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """
         Hybrid search combining vector and keyword matching.
@@ -358,8 +354,8 @@ class BaseVectorStore(ABC):
     async def get_by_id(
         self,
         id: str,
-        namespace: Optional[str] = None,
-    ) -> Optional[VectorSearchResult]:
+        namespace: str | None = None,
+    ) -> VectorSearchResult | None:
         """
         Get a specific vector by ID.
 
@@ -376,7 +372,7 @@ class BaseVectorStore(ABC):
     async def get_by_ids(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """
         Get multiple vectors by ID.
@@ -393,8 +389,8 @@ class BaseVectorStore(ABC):
     @abstractmethod
     async def count(
         self,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> int:
         """
         Count vectors matching optional filters.

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ...base import (
     HandlerResult,
@@ -42,13 +42,12 @@ _SERVER_START_TIME = time.time()
 
 # Health check cache for performance
 # K8s probes need 5s TTL to ensure fast responses; detailed checks use 2s
-_HEALTH_CACHE: Dict[str, Any] = {}
+_HEALTH_CACHE: dict[str, Any] = {}
 _HEALTH_CACHE_TTL = 5.0  # seconds for K8s probes (liveness/readiness)
 _HEALTH_CACHE_TTL_DETAILED = 2.0  # seconds for detailed health checks
-_HEALTH_CACHE_TIMESTAMPS: Dict[str, float] = {}
+_HEALTH_CACHE_TIMESTAMPS: dict[str, float] = {}
 
-
-def _get_cached_health(key: str) -> Optional[Dict[str, Any]]:
+def _get_cached_health(key: str) -> Optional[dict[str, Any]]:
     """Get cached health result if still valid."""
     if key in _HEALTH_CACHE:
         cached_time = _HEALTH_CACHE_TIMESTAMPS.get(key, 0)
@@ -56,12 +55,10 @@ def _get_cached_health(key: str) -> Optional[Dict[str, Any]]:
             return _HEALTH_CACHE[key]
     return None
 
-
-def _set_cached_health(key: str, value: Dict[str, Any]) -> None:
+def _set_cached_health(key: str, value: dict[str, Any]) -> None:
     """Cache health check result."""
     _HEALTH_CACHE[key] = value
     _HEALTH_CACHE_TIMESTAMPS[key] = time.time()
-
 
 # Import module functions
 from .kubernetes import liveness_probe, readiness_probe_fast, readiness_dependencies
@@ -82,7 +79,6 @@ from .helpers import (
 from .probes import ProbesMixin
 from .knowledge import KnowledgeMixin
 from .stores import StoresMixin
-
 
 class HealthHandler(SecureHandler):
     """Handler for health and readiness endpoints.
@@ -146,8 +142,8 @@ class HealthHandler(SecureHandler):
         return path in self.ROUTES
 
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route health endpoint requests with RBAC for non-public routes."""
         # K8s probes are public - no auth required
         if path not in self.PUBLIC_ROUTES:
@@ -241,7 +237,7 @@ class HealthHandler(SecureHandler):
     def _deployment_diagnostics(self) -> HandlerResult:
         return deployment_diagnostics(self)
 
-    def _generate_checklist(self, result) -> Dict[str, Any]:
+    def _generate_checklist(self, result) -> dict[str, Any]:
         from .diagnostics import _generate_checklist
 
         return _generate_checklist(result)
@@ -258,31 +254,30 @@ class HealthHandler(SecureHandler):
     def _component_health_status(self) -> HandlerResult:
         return component_health_status(self)
 
-    def _check_filesystem_health(self) -> Dict[str, Any]:
+    def _check_filesystem_health(self) -> dict[str, Any]:
         """Check filesystem write access to data directory."""
         from ..health_utils import check_filesystem_health
 
         nomic_dir = self.get_nomic_dir()
         return check_filesystem_health(nomic_dir)
 
-    def _check_redis_health(self) -> Dict[str, Any]:
+    def _check_redis_health(self) -> dict[str, Any]:
         """Check Redis connectivity if configured."""
         from ..health_utils import check_redis_health
 
         return check_redis_health()
 
-    def _check_ai_providers_health(self) -> Dict[str, Any]:
+    def _check_ai_providers_health(self) -> dict[str, Any]:
         """Check AI provider API key availability."""
         from ..health_utils import check_ai_providers_health
 
         return check_ai_providers_health()
 
-    def _check_security_services(self) -> Dict[str, Any]:
+    def _check_security_services(self) -> dict[str, Any]:
         """Check security services health."""
         from ..health_utils import check_security_services
 
         return check_security_services()
-
 
 __all__ = [
     # Main handler

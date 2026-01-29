@@ -9,7 +9,7 @@ Provides SDK methods for enterprise audit features:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..models import (
     AuditFinding,
@@ -23,7 +23,6 @@ from ..models import (
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
-
 
 class AuditAPI:
     """API interface for enterprise audit features.
@@ -42,7 +41,7 @@ class AuditAPI:
     # Preset Management
     # =========================================================================
 
-    def list_presets(self) -> List[AuditPreset]:
+    def list_presets(self) -> list[AuditPreset]:
         """
         List available audit presets.
 
@@ -58,7 +57,7 @@ class AuditAPI:
         presets = response.get("presets", []) if isinstance(response, dict) else response
         return [AuditPreset(**p) for p in presets]
 
-    async def list_presets_async(self) -> List[AuditPreset]:
+    async def list_presets_async(self) -> list[AuditPreset]:
         """Async version of list_presets()."""
         response = await self._client._get_async("/api/audit/presets")
         presets = response.get("presets", []) if isinstance(response, dict) else response
@@ -88,7 +87,7 @@ class AuditAPI:
     # Audit Type Registry
     # =========================================================================
 
-    def list_audit_types(self) -> List[AuditTypeInfo]:
+    def list_audit_types(self) -> list[AuditTypeInfo]:
         """
         List registered audit types with their capabilities.
 
@@ -105,7 +104,7 @@ class AuditAPI:
         types = response.get("audit_types", []) if isinstance(response, dict) else response
         return [AuditTypeInfo(**t) for t in types]
 
-    async def list_audit_types_async(self) -> List[AuditTypeInfo]:
+    async def list_audit_types_async(self) -> list[AuditTypeInfo]:
         """Async version of list_audit_types()."""
         response = await self._client._get_async("/api/audit/types")
         types = response.get("audit_types", []) if isinstance(response, dict) else response
@@ -156,7 +155,7 @@ class AuditAPI:
         finding_id: str,
         status: FindingWorkflowStatus | str,
         comment: str = "",
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> FindingWorkflowData:
         """
         Update the workflow status of a finding.
@@ -201,7 +200,7 @@ class AuditAPI:
         finding_id: str,
         status: FindingWorkflowStatus | str,
         comment: str = "",
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> FindingWorkflowData:
         """Async version of update_finding_status()."""
         if isinstance(status, FindingWorkflowStatus):
@@ -226,7 +225,7 @@ class AuditAPI:
         self,
         finding_id: str,
         comment: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> FindingWorkflowData:
         """
         Add a comment to a finding's history.
@@ -254,7 +253,7 @@ class AuditAPI:
         self,
         finding_id: str,
         comment: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> FindingWorkflowData:
         """Async version of add_finding_comment()."""
         headers = {}
@@ -272,7 +271,7 @@ class AuditAPI:
         self,
         finding_id: str,
         assignee_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> FindingWorkflowData:
         """
         Assign a finding to a user.
@@ -300,7 +299,7 @@ class AuditAPI:
         self,
         finding_id: str,
         assignee_id: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> FindingWorkflowData:
         """Async version of assign_finding()."""
         headers = {}
@@ -318,7 +317,7 @@ class AuditAPI:
         self,
         finding_id: str,
         priority: int,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> FindingWorkflowData:
         """
         Set the priority of a finding.
@@ -349,7 +348,7 @@ class AuditAPI:
         self,
         finding_id: str,
         priority: int,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> FindingWorkflowData:
         """Async version of set_finding_priority()."""
         if priority < 1 or priority > 5:
@@ -368,10 +367,10 @@ class AuditAPI:
 
     def bulk_update_findings(
         self,
-        finding_ids: List[str],
+        finding_ids: list[str],
         action: str,
         value: Any = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform bulk action on multiple findings.
@@ -402,10 +401,10 @@ class AuditAPI:
 
     async def bulk_update_findings_async(
         self,
-        finding_ids: List[str],
+        finding_ids: list[str],
         action: str,
         value: Any = None,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """Async version of bulk_update_findings()."""
         headers = {}
@@ -429,7 +428,7 @@ class AuditAPI:
 
     def run_quick_audit(
         self,
-        document_ids: List[str],
+        document_ids: list[str],
         preset: str = "Code Security",
     ) -> QuickAuditResult:
         """
@@ -459,7 +458,7 @@ class AuditAPI:
 
     async def run_quick_audit_async(
         self,
-        document_ids: List[str],
+        document_ids: list[str],
         preset: str = "Code Security",
     ) -> QuickAuditResult:
         """Async version of run_quick_audit()."""
@@ -478,14 +477,14 @@ class AuditAPI:
 
     def search_findings(
         self,
-        query: Optional[str] = None,
-        severity: Optional[str] = None,
-        status: Optional[str] = None,
-        audit_type: Optional[str] = None,
-        assigned_to: Optional[str] = None,
+        query: str | None = None,
+        severity: str | None = None,
+        status: str | None = None,
+        audit_type: str | None = None,
+        assigned_to: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """
         Search findings across all audit sessions.
 
@@ -519,14 +518,14 @@ class AuditAPI:
 
     async def search_findings_async(
         self,
-        query: Optional[str] = None,
-        severity: Optional[str] = None,
-        status: Optional[str] = None,
-        audit_type: Optional[str] = None,
-        assigned_to: Optional[str] = None,
+        query: str | None = None,
+        severity: str | None = None,
+        status: str | None = None,
+        audit_type: str | None = None,
+        assigned_to: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Async version of search_findings()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if query:

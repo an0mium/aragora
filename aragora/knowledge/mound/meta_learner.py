@@ -28,7 +28,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.memory.embeddings import cosine_similarity, unpack_embedding
 
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemory
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class RetrievalMetrics:
@@ -49,9 +48,8 @@ class RetrievalMetrics:
     useful_retrievals: int = 0
     useless_retrievals: int = 0
     retrieval_rate: float = 0.0  # retrievals per hour
-    by_domain: Dict[str, int] = field(default_factory=dict)
-    by_tier: Dict[str, int] = field(default_factory=dict)
-
+    by_domain: dict[str, int] = field(default_factory=dict)
+    by_tier: dict[str, int] = field(default_factory=dict)
 
 @dataclass
 class TierOptimizationRecommendation:
@@ -65,7 +63,6 @@ class TierOptimizationRecommendation:
     reasoning: str
     confidence: float
 
-
 @dataclass
 class CoalescenceResult:
     """Result of duplicate coalescing operation."""
@@ -74,8 +71,7 @@ class CoalescenceResult:
     duplicates_found: int
     items_merged: int
     storage_saved_bytes: int
-    merge_details: List[Dict[str, Any]] = field(default_factory=list)
-
+    merge_details: list[dict[str, Any]] = field(default_factory=list)
 
 class KnowledgeMoundMetaLearner:
     """
@@ -111,8 +107,8 @@ class KnowledgeMoundMetaLearner:
         self._optimization_interval = timedelta(hours=optimization_interval_hours)
 
         # Track optimization history
-        self._last_optimization: Optional[datetime] = None
-        self._optimization_history: List[Dict[str, Any]] = []
+        self._last_optimization: datetime | None = None
+        self._optimization_history: list[dict[str, Any]] = []
 
     # =========================================================================
     # Retrieval Recording
@@ -122,9 +118,9 @@ class KnowledgeMoundMetaLearner:
         self,
         km_id: str,
         rank_position: int,
-        was_useful: Optional[bool] = None,
-        query: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
+        was_useful: bool | None = None,
+        query: str | None = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Record a retrieval event for learning.
@@ -146,7 +142,7 @@ class KnowledgeMoundMetaLearner:
                 # Recording a retrieval increases importance
                 await self._record_continuum_access(entry.id, was_useful)
 
-    async def _get_continuum_entry(self, km_id: str) -> Optional[Any]:
+    async def _get_continuum_entry(self, km_id: str) -> Any | None:
         """Look up corresponding ContinuumMemory entry."""
         # Get source info from semantic index
         entry = await self._semantic_store.get_entry(km_id)
@@ -156,7 +152,7 @@ class KnowledgeMoundMetaLearner:
                 return self._continuum.get_by_id(entry.source_id)  # type: ignore[attr-defined]
         return None
 
-    async def _record_continuum_access(self, entry_id: str, was_useful: Optional[bool]) -> None:
+    async def _record_continuum_access(self, entry_id: str, was_useful: bool | None) -> None:
         """Record access in ContinuumMemory for tier management."""
         if not self._continuum:
             return
@@ -179,7 +175,7 @@ class KnowledgeMoundMetaLearner:
 
     async def get_retrieval_metrics(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
     ) -> RetrievalMetrics:
         """
         Get aggregated retrieval metrics.
@@ -217,7 +213,7 @@ class KnowledgeMoundMetaLearner:
         self,
         min_age_days: int = 7,
         max_retrievals: int = 2,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Identify knowledge that exists but is rarely retrieved.
 
@@ -250,7 +246,7 @@ class KnowledgeMoundMetaLearner:
     # Tier Optimization
     # =========================================================================
 
-    async def optimize_tier_thresholds(self) -> List[TierOptimizationRecommendation]:
+    async def optimize_tier_thresholds(self) -> list[TierOptimizationRecommendation]:
         """
         Analyze retrieval patterns and recommend tier threshold adjustments.
 
@@ -309,12 +305,12 @@ class KnowledgeMoundMetaLearner:
 
         return recommendations
 
-    async def _analyze_tier_retrieval_patterns(self) -> Dict[str, Dict[str, Any]]:
+    async def _analyze_tier_retrieval_patterns(self) -> dict[str, dict[str, Any]]:
         """Analyze retrieval patterns for each tier."""
         if not self._continuum:
             return {}
 
-        tier_metrics: Dict[str, Dict[str, Any]] = {}
+        tier_metrics: dict[str, dict[str, Any]] = {}
 
         for tier in ["fast", "medium", "slow", "glacial"]:
             # Get entries in this tier
@@ -351,10 +347,10 @@ class KnowledgeMoundMetaLearner:
     def _calculate_tier_recommendations(
         self,
         tier: str,
-        metrics: Dict[str, Any],
+        metrics: dict[str, Any],
         current_promo: float,
         current_demo: float,
-    ) -> Tuple[float, float, str]:
+    ) -> tuple[float, float, str]:
         """Calculate recommended thresholds based on metrics."""
         avg_retrievals = metrics.get("avg_retrievals", 0)
         zero_pct = metrics.get("zero_retrievals", 0) / max(metrics.get("total_entries", 1), 1)
@@ -390,7 +386,7 @@ class KnowledgeMoundMetaLearner:
 
     async def apply_recommendations(
         self,
-        recommendations: List[TierOptimizationRecommendation],
+        recommendations: list[TierOptimizationRecommendation],
     ) -> bool:
         """
         Apply tier threshold recommendations to ContinuumMemory.
@@ -468,7 +464,7 @@ class KnowledgeMoundMetaLearner:
 
         # Process in batches to avoid memory issues
         offset = 0
-        all_candidates: List[Tuple[str, str, float]] = []
+        all_candidates: list[tuple[str, str, float]] = []
 
         while offset < total:
             batch = await self._get_entries_batch(offset, batch_size)
@@ -503,11 +499,11 @@ class KnowledgeMoundMetaLearner:
 
         return result
 
-    async def _get_entries_batch(self, offset: int, limit: int) -> List[Dict[str, Any]]:
+    async def _get_entries_batch(self, offset: int, limit: int) -> list[dict[str, Any]]:
         """Get a batch of entries with embeddings."""
         return await asyncio.to_thread(self._sync_get_entries_batch, offset, limit)
 
-    def _sync_get_entries_batch(self, offset: int, limit: int) -> List[Dict[str, Any]]:
+    def _sync_get_entries_batch(self, offset: int, limit: int) -> list[dict[str, Any]]:
         """Synchronous batch retrieval."""
         rows = self._semantic_store.fetch_all(
             """
@@ -554,7 +550,7 @@ class KnowledgeMoundMetaLearner:
     # Statistics
     # =========================================================================
 
-    async def get_learning_stats(self) -> Dict[str, Any]:
+    async def get_learning_stats(self) -> dict[str, Any]:
         """Get meta-learning statistics."""
         retrieval_metrics = await self.get_retrieval_metrics()
 
@@ -571,7 +567,6 @@ class KnowledgeMoundMetaLearner:
             "continuum_connected": self._continuum is not None,
             "tenant_id": self._tenant_id,
         }
-
 
 __all__ = [
     "KnowledgeMoundMetaLearner",

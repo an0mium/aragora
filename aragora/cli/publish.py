@@ -8,18 +8,17 @@ Usage:
     aragora publish <debate-id> --format html --output ./reports/
     aragora publish latest --format md  # Most recent debate
 """
+from __future__ import annotations
 
 import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.core import DebateResult
 from aragora.debate.traces import DebateTrace
 
-
-def generate_html_report(result: DebateResult, trace: Optional[DebateTrace] = None) -> str:
+def generate_html_report(result: DebateResult, trace: DebateTrace | None = None) -> str:
     """Generate an interactive HTML report from a debate result."""
 
     # Build message timeline
@@ -253,8 +252,7 @@ def generate_html_report(result: DebateResult, trace: Optional[DebateTrace] = No
 """
     return html
 
-
-def generate_markdown_report(result: DebateResult, trace: Optional[DebateTrace] = None) -> str:
+def generate_markdown_report(result: DebateResult, trace: DebateTrace | None = None) -> str:
     """Generate a Markdown report from a debate result."""
 
     messages_md = ""
@@ -317,8 +315,7 @@ def generate_markdown_report(result: DebateResult, trace: Optional[DebateTrace] 
 """
     return md
 
-
-def generate_json_report(result: DebateResult, trace: Optional[DebateTrace] = None) -> str:
+def generate_json_report(result: DebateResult, trace: DebateTrace | None = None) -> str:
     """Generate a JSON report from a debate result."""
     data = {
         "id": result.id,
@@ -352,12 +349,11 @@ def generate_json_report(result: DebateResult, trace: Optional[DebateTrace] = No
     }
     return json.dumps(data, indent=2)
 
-
 def publish_debate(
     result: DebateResult,
     output_dir: str = ".",
     format: str = "html",
-    trace: Optional[DebateTrace] = None,
+    trace: DebateTrace | None = None,
 ) -> Path:
     """
     Publish a debate result to a file.
@@ -393,7 +389,6 @@ def publish_debate(
     filepath.write_text(content)
 
     return filepath
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -470,7 +465,6 @@ Examples:
     else:
         print("No debate to publish. Use --demo for a demo report.")
         print("In a full implementation, this would load from debate history.")
-
 
 if __name__ == "__main__":
     main()

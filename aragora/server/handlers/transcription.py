@@ -15,7 +15,7 @@ import logging
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded job store for persistence
 _job_store = None
 
-
 def _get_job_store():
     """Get or create the job store for transcription job persistence."""
     global _job_store
@@ -44,7 +43,6 @@ def _get_job_store():
         except Exception as e:
             logger.debug(f"Job store not available: {e}")
     return _job_store
-
 
 # Rate limiters (per minute limits)
 _audio_limiter = RateLimiter(requests_per_minute=10)
@@ -59,10 +57,9 @@ AUDIO_FORMATS = {".mp3", ".wav", ".m4a", ".webm", ".ogg", ".flac", ".aac"}
 VIDEO_FORMATS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
 
 # In-memory job cache (backed by durable store)
-_transcription_jobs: Dict[str, Dict[str, Any]] = {}
+_transcription_jobs: dict[str, dict[str, Any]] = {}
 
-
-def _save_job(job_id: str, job_data: Dict[str, Any]) -> None:
+def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
     """Save a transcription job to both memory and durable store."""
     _transcription_jobs[job_id] = job_data
 
@@ -103,8 +100,7 @@ def _save_job(job_id: str, job_data: Dict[str, Any]) -> None:
         except Exception as e:
             logger.debug(f"Failed to persist transcription job: {e}")
 
-
-def _get_job(job_id: str) -> Optional[Dict[str, Any]]:
+def _get_job(job_id: str) -> Optional[dict[str, Any]]:
     """Get a transcription job from memory cache or durable store."""
     # Check memory cache first
     if job_id in _transcription_jobs:
@@ -146,8 +142,7 @@ def _get_job(job_id: str) -> Optional[Dict[str, Any]]:
 
     return None
 
-
-def _check_transcription_available() -> tuple[bool, Optional[str]]:
+def _check_transcription_available() -> tuple[bool, str | None]:
     """Check if transcription module is available."""
     try:
         from aragora.transcription import get_available_backends
@@ -160,7 +155,6 @@ def _check_transcription_available() -> tuple[bool, Optional[str]]:
         return True, None
     except ImportError:
         return False, "Transcription module not installed."
-
 
 class TranscriptionHandler(BaseHandler):
     """Handler for audio/video transcription endpoints."""
@@ -195,7 +189,7 @@ class TranscriptionHandler(BaseHandler):
         return False
 
     @require_permission("transcription:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/transcription/config":
             return self._get_config()
@@ -208,7 +202,7 @@ class TranscriptionHandler(BaseHandler):
 
     async def handle_post(
         self, path: str, query_params: dict, handler=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         client_ip = get_client_ip(handler)
 
@@ -605,7 +599,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected error getting YouTube info: {e}")
             return error_response(safe_error_message(e, "video info"), 500)
 
-    def _parse_multipart(self, handler, content_type: str) -> tuple[Optional[bytes], str, dict]:
+    def _parse_multipart(self, handler, content_type: str) -> tuple[bytes | None, str, dict]:
         """Parse multipart form data.
 
         Returns:

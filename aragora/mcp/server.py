@@ -21,7 +21,7 @@ import sys
 import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, cast
+from typing import Any, Callable, Coroutine, Optional, cast
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
 
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Rate limiting configuration (requests per minute per tool)
 # Can be overridden via MCP_RATE_LIMIT_{TOOL_NAME} env vars
-DEFAULT_RATE_LIMITS: Dict[str, int] = {
+DEFAULT_RATE_LIMITS: dict[str, int] = {
     "run_debate": int(os.environ.get("MCP_RATE_LIMIT_RUN_DEBATE", "10")),
     "run_gauntlet": int(os.environ.get("MCP_RATE_LIMIT_RUN_GAUNTLET", "20")),
     "list_agents": int(os.environ.get("MCP_RATE_LIMIT_LIST_AGENTS", "60")),
@@ -51,12 +51,11 @@ MAX_QUESTION_LENGTH = 10000
 MAX_CONTENT_LENGTH = 100000
 MAX_QUERY_LENGTH = 1000
 
-
 class RateLimiterBase(ABC):
     """Abstract base class for rate limiters."""
 
     @abstractmethod
-    def check(self, tool_name: str) -> Tuple[bool, Optional[str]]:
+    def check(self, tool_name: str) -> tuple[bool, str | None]:
         """Check if a request is allowed.
 
         Returns:
@@ -69,7 +68,6 @@ class RateLimiterBase(ABC):
         """Get remaining requests for a tool."""
         pass
 
-
 class RateLimiter(RateLimiterBase):
     """Simple in-memory rate limiter with per-tool limits.
 
@@ -77,12 +75,12 @@ class RateLimiter(RateLimiterBase):
     use RedisRateLimiter instead.
     """
 
-    def __init__(self, limits: Optional[Dict[str, int]] = None):
+    def __init__(self, limits: Optional[dict[str, int]] = None):
         self._limits = limits or DEFAULT_RATE_LIMITS
-        self._requests: Dict[str, List[float]] = defaultdict(list)
+        self._requests: dict[str, list[float]] = defaultdict(list)
         self._window_seconds = 60
 
-    def check(self, tool_name: str) -> Tuple[bool, Optional[str]]:
+    def check(self, tool_name: str) -> tuple[bool, str | None]:
         """Check if a request is allowed.
 
         Returns:
@@ -113,7 +111,6 @@ class RateLimiter(RateLimiterBase):
         current_count = len([t for t in self._requests[tool_name] if t > window_start])
         return max(0, limit - current_count)
 
-
 class RedisRateLimiter(RateLimiterBase):
     """Redis-backed rate limiter for multi-instance deployments.
 
@@ -132,8 +129,8 @@ class RedisRateLimiter(RateLimiterBase):
 
     def __init__(
         self,
-        limits: Optional[Dict[str, int]] = None,
-        redis_url: Optional[str] = None,
+        limits: Optional[dict[str, int]] = None,
+        redis_url: str | None = None,
         key_prefix: str = "mcp:ratelimit:",
     ):
         self._limits = limits or DEFAULT_RATE_LIMITS
@@ -162,7 +159,7 @@ class RedisRateLimiter(RateLimiterBase):
                 self._connected = False
         return self._redis
 
-    def check(self, tool_name: str) -> Tuple[bool, Optional[str]]:
+    def check(self, tool_name: str) -> tuple[bool, str | None]:
         """Check if a request is allowed using Redis sorted set.
 
         Uses sliding window algorithm with Redis sorted sets.
@@ -240,7 +237,7 @@ class RedisRateLimiter(RateLimiterBase):
             logger.warning(f"Redis get_remaining failed: {e}")
             return limit
 
-    def reset(self, tool_name: Optional[str] = None) -> None:
+    def reset(self, tool_name: str | None = None) -> None:
         """Reset rate limit counters.
 
         Args:
@@ -267,11 +264,10 @@ class RedisRateLimiter(RateLimiterBase):
         except Exception as e:
             logger.warning(f"Redis reset failed: {e}")
 
-
 def create_rate_limiter(
-    backend: Optional[str] = None,
-    limits: Optional[Dict[str, int]] = None,
-    redis_url: Optional[str] = None,
+    backend: str | None = None,
+    limits: Optional[dict[str, int]] = None,
+    redis_url: str | None = None,
 ) -> RateLimiterBase:
     """Factory function to create the appropriate rate limiter.
 
@@ -303,7 +299,6 @@ def create_rate_limiter(
         logger.info("Using in-memory rate limiter")
         return RateLimiter(limits=limits)
 
-
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
@@ -314,7 +309,6 @@ from mcp.types import (
 )
 
 MCP_AVAILABLE = True  # Kept for backwards compatibility
-
 
 class AragoraMCPServer:
     """
@@ -338,9 +332,9 @@ class AragoraMCPServer:
 
     def __init__(
         self,
-        rate_limits: Optional[Dict[str, int]] = None,
-        rate_limit_backend: Optional[str] = None,
-        redis_url: Optional[str] = None,
+        rate_limits: Optional[dict[str, int]] = None,
+        rate_limit_backend: str | None = None,
+        redis_url: str | None = None,
     ):
         """Initialize the MCP server.
 
@@ -359,10 +353,10 @@ class AragoraMCPServer:
             redis_url=redis_url,
         )
         self._setup_handlers()
-        self._debates_cache: Dict[str, Dict[str, Any]] = {}
-        self._agents_cache: Dict[str, Dict[str, Any]] = {}
+        self._debates_cache: dict[str, dict[str, Any]] = {}
+        self._agents_cache: dict[str, dict[str, Any]] = {}
 
-    def _validate_input(self, tool_name: str, arguments: Dict[str, Any]) -> Optional[str]:
+    def _validate_input(self, tool_name: str, arguments: dict[str, Any]) -> str | None:
         """Validate tool input arguments.
 
         Returns error message if validation fails, None otherwise.
@@ -387,7 +381,7 @@ class AragoraMCPServer:
 
         return None
 
-    def _sanitize_arguments(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_arguments(self, arguments: dict[str, Any]) -> dict[str, Any]:
         """Sanitize tool arguments to prevent injection attacks.
 
         Returns sanitized copy of arguments.
@@ -405,7 +399,7 @@ class AragoraMCPServer:
         """Set up MCP request handlers."""
 
         @self.server.list_tools()
-        async def list_tools() -> List[Tool]:
+        async def list_tools() -> list[Tool]:
             """List available tools from tools.py metadata."""
             from aragora.mcp.tools import TOOLS_METADATA
 
@@ -416,9 +410,9 @@ class AragoraMCPServer:
                 required = []
 
                 for param_name, param_info in cast(
-                    Dict[str, Any], meta.get("parameters", {})
+                    dict[str, Any], meta.get("parameters", {})
                 ).items():
-                    prop: Dict[str, Any] = {"type": param_info.get("type", "string")}
+                    prop: dict[str, Any] = {"type": param_info.get("type", "string")}
                     if "default" in param_info:
                         prop["default"] = param_info["default"]
                     if "description" in param_info:
@@ -434,7 +428,7 @@ class AragoraMCPServer:
                     if param_info.get("required", False):
                         required.append(param_name)
 
-                input_schema: Dict[str, Any] = {
+                input_schema: dict[str, Any] = {
                     "type": "object",
                     "properties": properties,
                 }
@@ -452,7 +446,7 @@ class AragoraMCPServer:
             return tools
 
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
+        async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             """Handle tool calls with rate limiting and input validation."""
             from aragora.mcp.tools import TOOLS_METADATA
 
@@ -485,16 +479,16 @@ class AragoraMCPServer:
                     ]
 
                 # Find tool function from metadata
-                tool_func: Optional[Callable[..., Coroutine[Any, Any, Dict[str, Any]]]] = None
+                tool_func: Optional[Callable[..., Coroutine[Any, Any, dict[str, Any]]]] = None
                 for meta in TOOLS_METADATA:
                     if meta["name"] == name:
                         tool_func = cast(
-                            Callable[..., Coroutine[Any, Any, Dict[str, Any]]], meta["function"]
+                            Callable[..., Coroutine[Any, Any, dict[str, Any]]], meta["function"]
                         )
                         break
 
                 if tool_func is None:
-                    result: Dict[str, Any] = {"error": f"Unknown tool: {name}"}
+                    result: dict[str, Any] = {"error": f"Unknown tool: {name}"}
                 else:
                     # Call the tool function with sanitized arguments
                     sanitized_args = self._sanitize_arguments(arguments)
@@ -529,7 +523,7 @@ class AragoraMCPServer:
                 ]
 
         @self.server.list_resources()
-        async def list_resources() -> List[Resource]:
+        async def list_resources() -> list[Resource]:
             """List available resources (cached debates)."""
             resources = []
             for debate_id, debate_data in self._debates_cache.items():
@@ -544,7 +538,7 @@ class AragoraMCPServer:
             return resources
 
         @self.server.list_resource_templates()
-        async def list_resource_templates() -> List[ResourceTemplate]:
+        async def list_resource_templates() -> list[ResourceTemplate]:
             """List resource templates."""
             return [
                 ResourceTemplate(
@@ -605,7 +599,7 @@ class AragoraMCPServer:
 
             return json.dumps({"error": f"Unknown resource: {uri}"})
 
-    async def _run_debate(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run_debate(self, args: dict[str, Any]) -> dict[str, Any]:
         """Run a debate and return results."""
         import time
         import uuid
@@ -654,7 +648,7 @@ class AragoraMCPServer:
         )
 
         # Run debate
-        arena = Arena(env, cast(List[Any], agents), protocol)
+        arena = Arena(env, cast(list[Any], agents), protocol)
         result = await arena.run()
 
         # Generate debate ID
@@ -675,7 +669,7 @@ class AragoraMCPServer:
 
         return debate_data
 
-    async def _run_gauntlet(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run_gauntlet(self, args: dict[str, Any]) -> dict[str, Any]:
         """Run gauntlet stress-test."""
         from aragora.gauntlet import (
             CODE_REVIEW_GAUNTLET,
@@ -727,7 +721,7 @@ class AragoraMCPServer:
             "summary": result.summary() if hasattr(result, "summary") else str(result),
         }
 
-    async def _list_agents(self) -> Dict[str, Any]:
+    async def _list_agents(self) -> dict[str, Any]:
         """List available agents."""
         from aragora.agents.base import list_available_agents
 
@@ -752,7 +746,7 @@ class AragoraMCPServer:
                 "note": "Fallback list - some agents may not be available",
             }
 
-    async def _get_debate(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _get_debate(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get a previous debate by ID."""
         debate_id = args.get("debate_id", "")
 
@@ -777,7 +771,7 @@ class AragoraMCPServer:
 
         return {"error": f"Debate {debate_id} not found"}
 
-    async def _search_debates(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _search_debates(self, args: dict[str, Any]) -> dict[str, Any]:
         """Search debates by topic, date, or agents."""
 
         query = args.get("query", "")
@@ -859,7 +853,7 @@ class AragoraMCPServer:
             },
         }
 
-    async def _get_agent_history(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _get_agent_history(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get agent debate history and stats."""
         agent_name = args.get("agent_name", "")
         include_debates = args.get("include_debates", True)
@@ -868,7 +862,7 @@ class AragoraMCPServer:
         if not agent_name:
             return {"error": "agent_name is required"}
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "agent_name": agent_name,
             "elo_rating": 1500,  # Default
             "total_debates": 0,
@@ -927,13 +921,13 @@ class AragoraMCPServer:
 
         return result
 
-    async def _get_consensus_proofs(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _get_consensus_proofs(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get formal verification proofs from debates."""
         debate_id = args.get("debate_id", "")
         proof_type = args.get("proof_type", "all")
         limit = args.get("limit", 10)
 
-        proofs: List[Dict[str, Any]] = []
+        proofs: list[dict[str, Any]] = []
 
         # If specific debate requested, get proofs from that debate
         if debate_id:
@@ -975,14 +969,14 @@ class AragoraMCPServer:
             "proof_type": proof_type,
         }
 
-    async def _list_trending_topics(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _list_trending_topics(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get trending topics from Pulse."""
         platform = args.get("platform", "all")
         category = args.get("category", "")
         min_score = args.get("min_score", 0.5)
         limit = args.get("limit", 10)
 
-        topics: List[Dict[str, Any]] = []
+        topics: list[dict[str, Any]] = []
 
         try:
             from aragora.pulse import PulseManager, SchedulerConfig, TopicSelector
@@ -1053,7 +1047,6 @@ class AragoraMCPServer:
                 self.server.create_initialization_options(),
             )
 
-
 async def run_server() -> None:
     """Run the Aragora MCP server."""
     if not MCP_AVAILABLE:
@@ -1063,7 +1056,6 @@ async def run_server() -> None:
 
     server = AragoraMCPServer()
     await server.run()
-
 
 def main() -> None:
     """Main entry point."""
@@ -1079,7 +1071,6 @@ def main() -> None:
     except Exception as e:
         logger.error(f"Server error: {e}", exc_info=True)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

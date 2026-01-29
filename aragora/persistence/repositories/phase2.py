@@ -31,19 +31,17 @@ import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.persistence.repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Inbox Repository
 # =============================================================================
 
-
-class InboxRepository(BaseRepository[Dict[str, Any]]):
+class InboxRepository(BaseRepository[dict[str, Any]]):
     """
     Repository for inbox prioritization and state management.
 
@@ -123,7 +121,7 @@ class InboxRepository(BaseRepository[Dict[str, Any]]):
             ON sender_stats(user_id);
         """
 
-    def _to_entity(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _to_entity(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert a database row to a dictionary."""
         result = dict(row)
         # Parse JSON fields
@@ -137,7 +135,7 @@ class InboxRepository(BaseRepository[Dict[str, Any]]):
             result["metadata"] = json.loads(result["metadata"])
         return result
 
-    def _from_entity(self, entity: Dict[str, Any]) -> Dict[str, Any]:
+    def _from_entity(self, entity: dict[str, Any]) -> dict[str, Any]:
         """Convert an entity to database row format."""
         result = dict(entity)
         # Serialize JSON fields
@@ -162,10 +160,10 @@ class InboxRepository(BaseRepository[Dict[str, Any]]):
         email_id: str,
         priority: str,
         confidence: float,
-        reasoning: Optional[str] = None,
-        tier_used: Optional[str] = None,
-        scores: Optional[Dict[str, float]] = None,
-        suggested_labels: Optional[List[str]] = None,
+        reasoning: str | None = None,
+        tier_used: str | None = None,
+        scores: Optional[dict[str, float]] = None,
+        suggested_labels: Optional[list[str]] = None,
         auto_archive: bool = False,
     ) -> str:
         """Save email prioritization result."""
@@ -199,7 +197,7 @@ class InboxRepository(BaseRepository[Dict[str, Any]]):
             )
             return record_id
 
-    def get_prioritization(self, user_id: str, email_id: str) -> Optional[Dict[str, Any]]:
+    def get_prioritization(self, user_id: str, email_id: str) -> Optional[dict[str, Any]]:
         """Get prioritization for a specific email."""
         with self._connection(readonly=True) as conn:
             row = conn.execute(
@@ -212,8 +210,8 @@ class InboxRepository(BaseRepository[Dict[str, Any]]):
         self,
         user_id: str,
         limit: int = 50,
-        priority_filter: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        priority_filter: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get recent prioritizations for a user."""
         with self._connection(readonly=True) as conn:
             if priority_filter:
@@ -241,9 +239,9 @@ class InboxRepository(BaseRepository[Dict[str, Any]]):
         user_id: str,
         email_id: str,
         action: str,
-        params: Optional[Dict[str, Any]] = None,
-        predicted_priority: Optional[str] = None,
-        actual_feedback: Optional[str] = None,
+        params: Optional[dict[str, Any]] = None,
+        predicted_priority: str | None = None,
+        actual_feedback: str | None = None,
     ) -> None:
         """Record a user action on an email."""
         now = datetime.utcnow().isoformat()
@@ -265,13 +263,11 @@ class InboxRepository(BaseRepository[Dict[str, Any]]):
                 ),
             )
 
-
 # =============================================================================
 # Security Scan Repository
 # =============================================================================
 
-
-class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
+class SecurityScanRepository(BaseRepository[dict[str, Any]]):
     """
     Repository for security scan results and vulnerability findings.
 
@@ -384,7 +380,7 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
             ON metrics_results(repository, created_at DESC);
         """
 
-    def _to_entity(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _to_entity(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert a database row to a dictionary."""
         result = dict(row)
         # Parse JSON fields
@@ -402,7 +398,7 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
                     pass
         return result
 
-    def _from_entity(self, entity: Dict[str, Any]) -> Dict[str, Any]:
+    def _from_entity(self, entity: dict[str, Any]) -> dict[str, Any]:
         """Convert an entity to database row format."""
         result = dict(entity)
         for field in [
@@ -427,10 +423,10 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
         repository: str,
         scan_type: str,
         status: str,
-        branch: Optional[str] = None,
-        commit_sha: Optional[str] = None,
-        error: Optional[str] = None,
-        summary: Optional[Dict[str, Any]] = None,
+        branch: str | None = None,
+        commit_sha: str | None = None,
+        error: str | None = None,
+        summary: Optional[dict[str, Any]] = None,
     ) -> str:
         """Save or update a scan result."""
         now = datetime.utcnow().isoformat()
@@ -458,7 +454,7 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
             )
             return scan_id
 
-    def get_scan(self, scan_id: str) -> Optional[Dict[str, Any]]:
+    def get_scan(self, scan_id: str) -> Optional[dict[str, Any]]:
         """Get a specific scan by ID."""
         with self._connection(readonly=True) as conn:
             row = conn.execute(
@@ -471,8 +467,8 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
         self,
         repository: str,
         limit: int = 10,
-        scan_type: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        scan_type: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get recent scans for a repository."""
         with self._connection(readonly=True) as conn:
             if scan_type:
@@ -501,17 +497,17 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
         scan_id: str,
         title: str,
         severity: str,
-        cve_id: Optional[str] = None,
-        description: Optional[str] = None,
-        cvss_score: Optional[float] = None,
-        package_name: Optional[str] = None,
-        package_ecosystem: Optional[str] = None,
-        vulnerable_versions: Optional[List[str]] = None,
-        patched_versions: Optional[List[str]] = None,
-        file_path: Optional[str] = None,
-        line_number: Optional[int] = None,
+        cve_id: str | None = None,
+        description: str | None = None,
+        cvss_score: float | None = None,
+        package_name: str | None = None,
+        package_ecosystem: str | None = None,
+        vulnerable_versions: Optional[list[str]] = None,
+        patched_versions: Optional[list[str]] = None,
+        file_path: str | None = None,
+        line_number: int | None = None,
         fix_available: bool = False,
-        recommended_version: Optional[str] = None,
+        recommended_version: str | None = None,
     ) -> str:
         """Save a vulnerability finding."""
         now = datetime.utcnow().isoformat()
@@ -549,8 +545,8 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
     def get_vulnerabilities(
         self,
         scan_id: str,
-        severity_filter: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        severity_filter: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get vulnerabilities for a scan."""
         with self._connection(readonly=True) as conn:
             if severity_filter:
@@ -565,13 +561,11 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
                 ).fetchall()
             return [self._to_entity(row) for row in rows]
 
-
 # =============================================================================
 # PR Review Repository
 # =============================================================================
 
-
-class PRReviewRepository(BaseRepository[Dict[str, Any]]):
+class PRReviewRepository(BaseRepository[dict[str, Any]]):
     """
     Repository for PR review results and comments.
 
@@ -635,7 +629,7 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
             ON review_comments(file_path);
         """
 
-    def _to_entity(self, row: sqlite3.Row) -> Dict[str, Any]:
+    def _to_entity(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert a database row to a dictionary."""
         result = dict(row)
         if "metrics" in result and result["metrics"]:
@@ -645,7 +639,7 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
                 pass
         return result
 
-    def _from_entity(self, entity: Dict[str, Any]) -> Dict[str, Any]:
+    def _from_entity(self, entity: dict[str, Any]) -> dict[str, Any]:
         """Convert an entity to database row format."""
         result = dict(entity)
         if "metrics" in result and result["metrics"] and not isinstance(result["metrics"], str):
@@ -663,12 +657,12 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
         repository: str,
         pr_number: int,
         status: str,
-        verdict: Optional[str] = None,
-        summary: Optional[str] = None,
-        error: Optional[str] = None,
-        metrics: Optional[Dict[str, Any]] = None,
-        debate_id: Optional[str] = None,
-        created_by: Optional[str] = None,
+        verdict: str | None = None,
+        summary: str | None = None,
+        error: str | None = None,
+        metrics: Optional[dict[str, Any]] = None,
+        debate_id: str | None = None,
+        created_by: str | None = None,
     ) -> str:
         """Save or update a PR review."""
         now = datetime.utcnow().isoformat()
@@ -698,7 +692,7 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
             )
             return review_id
 
-    def get_review(self, review_id: str) -> Optional[Dict[str, Any]]:
+    def get_review(self, review_id: str) -> Optional[dict[str, Any]]:
         """Get a specific review by ID."""
         with self._connection(readonly=True) as conn:
             row = conn.execute(
@@ -712,7 +706,7 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
         repository: str,
         pr_number: int,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get reviews for a specific PR."""
         with self._connection(readonly=True) as conn:
             rows = conn.execute(
@@ -732,9 +726,9 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
         file_path: str,
         body: str,
         severity: str,
-        line_number: Optional[int] = None,
-        suggestion: Optional[str] = None,
-        category: Optional[str] = None,
+        line_number: int | None = None,
+        suggestion: str | None = None,
+        category: str | None = None,
         side: str = "RIGHT",
     ) -> str:
         """Save a review comment."""
@@ -763,7 +757,7 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
             )
             return comment_id
 
-    def get_comments(self, review_id: str) -> List[Dict[str, Any]]:
+    def get_comments(self, review_id: str) -> list[dict[str, Any]]:
         """Get comments for a review."""
         with self._connection(readonly=True) as conn:
             rows = conn.execute(
@@ -772,21 +766,17 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
             ).fetchall()
             return [self._to_entity(row) for row in rows]
 
-
 # =============================================================================
 # Repository Factory
 # =============================================================================
-
 
 def get_inbox_repository() -> InboxRepository:
     """Get the inbox repository singleton."""
     return InboxRepository()
 
-
 def get_security_scan_repository() -> SecurityScanRepository:
     """Get the security scan repository singleton."""
     return SecurityScanRepository()
-
 
 def get_pr_review_repository() -> PRReviewRepository:
     """Get the PR review repository singleton."""

@@ -23,7 +23,6 @@ from typing import Any, Callable, Optional
 logger = logging.getLogger(__name__)
 import uuid
 
-
 class NodeType(Enum):
     """Type of debate graph node."""
 
@@ -36,7 +35,6 @@ class NodeType(Enum):
     COUNTERFACTUAL = "counterfactual"
     CONCLUSION = "conclusion"
 
-
 class BranchReason(Enum):
     """Why a branch was created."""
 
@@ -47,7 +45,6 @@ class BranchReason(Enum):
     UNCERTAINTY = "uncertainty"
     USER_REQUESTED = "user_requested"
 
-
 class MergeStrategy(Enum):
     """How to merge branches back together."""
 
@@ -56,7 +53,6 @@ class MergeStrategy(Enum):
     VOTE = "vote"  # Agents vote on best outcome
     WEIGHTED = "weighted"  # Weight by confidence scores
     PRESERVE_ALL = "preserve_all"  # Keep all as alternatives
-
 
 @dataclass
 class DebateNode:
@@ -71,7 +67,7 @@ class DebateNode:
     # Graph structure
     parent_ids: list[str] = field(default_factory=list)
     child_ids: list[str] = field(default_factory=list)
-    branch_id: Optional[str] = None
+    branch_id: str | None = None
 
     # Metrics
     confidence: float = 0.0
@@ -125,7 +121,6 @@ class DebateNode:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class Branch:
     """A branch in the debate graph."""
@@ -134,14 +129,14 @@ class Branch:
     name: str
     reason: BranchReason
     start_node_id: str
-    end_node_id: Optional[str] = None
+    end_node_id: str | None = None
 
     # Branch metadata
     hypothesis: str = ""
     confidence: float = 0.0
     is_active: bool = True
     is_merged: bool = False
-    merged_into: Optional[str] = None
+    merged_into: str | None = None
 
     # Metrics
     node_count: int = 0
@@ -180,7 +175,6 @@ class Branch:
             total_agreement=data.get("total_agreement", 0.0),
         )
 
-
 @dataclass
 class MergeResult:
     """Result of merging branches."""
@@ -204,7 +198,6 @@ class MergeResult:
             "insights_preserved": self.insights_preserved,
             "conflicts_resolved": self.conflicts_resolved,
         }
-
 
 @dataclass
 class BranchPolicy:
@@ -232,7 +225,7 @@ class BranchPolicy:
         current_branches: int,
         current_depth: int,
         alternative_score: float = 0.0,
-    ) -> tuple[bool, Optional[BranchReason]]:
+    ) -> tuple[bool, BranchReason | None]:
         """Determine if a branch should be created."""
 
         # Check limits
@@ -252,7 +245,6 @@ class BranchPolicy:
             return True, BranchReason.ALTERNATIVE_APPROACH
 
         return False, None
-
 
 class ConvergenceScorer:
     """Detects when branches should merge based on convergence."""
@@ -325,7 +317,6 @@ class ConvergenceScorer:
         score = self.score_convergence(branch_a, branch_b, nodes_a, nodes_b)
         return score >= self.threshold
 
-
 class DebateGraph:
     """
     Graph-based debate structure with branching and merging.
@@ -336,8 +327,8 @@ class DebateGraph:
 
     def __init__(
         self,
-        debate_id: Optional[str] = None,
-        branch_policy: Optional[BranchPolicy] = None,
+        debate_id: str | None = None,
+        branch_policy: BranchPolicy | None = None,
     ):
         self.debate_id = debate_id or str(uuid.uuid4())
         self.policy = branch_policy or BranchPolicy()
@@ -346,7 +337,7 @@ class DebateGraph:
         # Graph structure
         self.nodes: dict[str, DebateNode] = {}
         self.branches: dict[str, Branch] = {}
-        self.root_id: Optional[str] = None
+        self.root_id: str | None = None
 
         # Main branch (trunk)
         self.main_branch_id = "main"
@@ -382,12 +373,12 @@ class DebateGraph:
         node_type: NodeType,
         agent_id: str,
         content: str,
-        parent_id: Optional[str] = None,
-        branch_id: Optional[str] = None,
-        claims: Optional[list[str]] = None,
-        evidence: Optional[list[str]] = None,
+        parent_id: str | None = None,
+        branch_id: str | None = None,
+        claims: list[str] | None = None,
+        evidence: list[str] | None = None,
         confidence: float = 0.0,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> DebateNode:
         """Add a node to the debate graph."""
 
@@ -654,7 +645,6 @@ class DebateGraph:
 
         return graph
 
-
 class GraphReplayBuilder:
     """Replay and analyze graph-based debates."""
 
@@ -731,14 +721,13 @@ class GraphReplayBuilder:
             "leaf_nodes": len(self.graph.get_leaf_nodes()),
         }
 
-
 class GraphDebateOrchestrator:
     """Orchestrate graph-based debates with automatic branching."""
 
     def __init__(
         self,
         agents: list,  # List of Agent objects
-        policy: Optional[BranchPolicy] = None,
+        policy: BranchPolicy | None = None,
     ):
         self.agents = agents
         self.policy = policy or BranchPolicy()
@@ -770,7 +759,7 @@ class GraphDebateOrchestrator:
         self,
         task: str,
         max_rounds: int = 5,
-        run_agent_fn: Optional[Callable] = None,
+        run_agent_fn: Callable | None = None,
         on_node: Optional[Callable[[DebateNode], None]] = None,
         on_branch: Optional[Callable[[Branch], None]] = None,
         on_merge: Optional[Callable[[MergeResult], None]] = None,
@@ -1118,7 +1107,7 @@ class GraphDebateOrchestrator:
     def evaluate_disagreement(
         self,
         responses: list[tuple[str, str, float]],  # (agent_id, content, confidence)
-    ) -> tuple[float, Optional[str]]:
+    ) -> tuple[float, str | None]:
         """
         Evaluate disagreement among agent responses.
         Returns (disagreement_score, alternative_content if branch needed)

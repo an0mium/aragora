@@ -4,12 +4,13 @@ Aragora REPL command - Interactive debate mode.
 Provides an interactive shell for running debates, querying memory,
 and exploring the Aragora system.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 import readline
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 from aragora.agents.base import AgentType
 
@@ -30,7 +31,6 @@ COMMANDS = {
     "/config": "Show current configuration",
     "/memory": "Query memory for a topic",
 }
-
 
 class AragoraREPL:
     """Interactive Aragora REPL."""
@@ -57,7 +57,7 @@ class AragoraREPL:
             logger.debug(f"Failed to load readline history: {e}")
 
         # Tab completion for commands
-        def completer(text: str, state: int) -> Optional[str]:
+        def completer(text: str, state: int) -> str | None:
             options = [cmd for cmd in COMMANDS if cmd.startswith(text)]
             if state < len(options):
                 return options[state]
@@ -285,7 +285,6 @@ class AragoraREPL:
                 break
 
         self._save_history()
-
 
 def cmd_repl(args) -> None:
     """Handle 'repl' command."""

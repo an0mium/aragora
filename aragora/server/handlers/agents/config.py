@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from ..base import (
     SAFE_AGENT_PATTERN,
@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 # Global config loader instance
 _config_loader: Any = None
 
-
 def get_config_loader() -> Any:
     """Get or create the global AgentConfigLoader instance."""
     global _config_loader
@@ -54,7 +53,6 @@ def get_config_loader() -> Any:
         except ImportError as e:
             logger.warning(f"AgentConfigLoader not available: {e}")
     return _config_loader
-
 
 class AgentConfigHandler(SecureHandler):
     """Handler for agent configuration endpoints.
@@ -84,7 +82,7 @@ class AgentConfigHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route config requests to appropriate methods with RBAC."""
         # Determine required permission based on endpoint
         try:
@@ -124,7 +122,7 @@ class AgentConfigHandler(SecureHandler):
 
         return None
 
-    def _handle_config_endpoint(self, path: str, query_params: dict) -> Optional[HandlerResult]:
+    def _handle_config_endpoint(self, path: str, query_params: dict) -> HandlerResult | None:
         """Handle /api/agents/configs/{name}/* endpoints."""
         parts = path.split("/")
         if len(parts) < 5:

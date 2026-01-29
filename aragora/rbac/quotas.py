@@ -39,7 +39,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ PERSISTENCE_ENABLED = os.environ.get("ARAGORA_QUOTA_PERSISTENCE", "").lower() in
     "yes",
 )
 
-
 class QuotaPeriod(str, Enum):
     """Time period for quota limits."""
 
@@ -60,7 +59,6 @@ class QuotaPeriod(str, Enum):
     MONTHLY = "monthly"
     PER_REQUEST = "per_request"  # Single request limit
 
-
 @dataclass
 class QuotaPolicy:
     """Policy defining resource usage limits."""
@@ -69,9 +67,9 @@ class QuotaPolicy:
     limit: int
     period: QuotaPeriod
     cost_per_unit: float = 0.0
-    cost_center: Optional[str] = None
+    cost_center: str | None = None
     hard_limit: bool = True  # If True, block on exceed; if False, warn only
-    burst_limit: Optional[int] = None  # Allow short-term burst above limit
+    burst_limit: int | None = None  # Allow short-term burst above limit
     burst_window_seconds: int = 60
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -88,7 +86,6 @@ class QuotaPolicy:
             "burst_window_seconds": self.burst_window_seconds,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class QuotaUsage:
@@ -122,14 +119,13 @@ class QuotaUsage:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class UsageRecord:
     """Individual usage record for tracking."""
 
     user_id: str
-    org_id: Optional[str]
-    workspace_id: Optional[str]
+    org_id: str | None
+    workspace_id: str | None
     resource_type: str
     amount: int
     cost: float
@@ -169,7 +165,6 @@ class UsageRecord:
             metadata=data.get("metadata", {}),
         )
 
-
 class QuotaEnforcer:
     """
     Enforces resource quotas and tracks usage.
@@ -192,7 +187,7 @@ class QuotaEnforcer:
         "exports": QuotaPolicy("exports", 50, QuotaPeriod.DAILY, cost_per_unit=0.02),
     }
 
-    def __init__(self, enable_persistence: Optional[bool] = None):
+    def __init__(self, enable_persistence: bool | None = None):
         """Initialize quota enforcer.
 
         Args:
@@ -206,13 +201,13 @@ class QuotaEnforcer:
         self._persistence_enabled = (
             enable_persistence if enable_persistence is not None else PERSISTENCE_ENABLED
         )
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_checked = False
 
         if self._persistence_enabled:
             self._load_from_persistence()
 
-    def _get_redis(self) -> Optional[Any]:
+    def _get_redis(self) -> Any | None:
         """Get Redis client (lazy initialization)."""
         if self._redis_checked:
             return self._redis
@@ -302,7 +297,7 @@ class QuotaEnforcer:
     def set_policy(
         self,
         policy: QuotaPolicy,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> None:
         """
         Set a quota policy.
@@ -326,8 +321,8 @@ class QuotaEnforcer:
     def get_policy(
         self,
         resource_type: str,
-        org_id: Optional[str] = None,
-    ) -> Optional[QuotaPolicy]:
+        org_id: str | None = None,
+    ) -> QuotaPolicy | None:
         """
         Get quota policy for a resource type.
 
@@ -352,8 +347,8 @@ class QuotaEnforcer:
         user_id: str,
         resource_type: str,
         amount: int = 1,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> bool:
         """
         Check if a quota allows the requested usage.
@@ -405,10 +400,10 @@ class QuotaEnforcer:
         user_id: str,
         resource_type: str,
         amount: int = 1,
-        cost: Optional[float] = None,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        cost: float | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> UsageRecord:
         """
         Record resource usage.
@@ -462,9 +457,9 @@ class QuotaEnforcer:
         self,
         user_id: str,
         resource_type: str,
-        period: Optional[QuotaPeriod] = None,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        period: QuotaPeriod | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> QuotaUsage:
         """
         Get usage statistics for a resource.
@@ -512,8 +507,8 @@ class QuotaEnforcer:
     async def get_all_usage(
         self,
         user_id: str,
-        org_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> dict[str, QuotaUsage]:
         """
         Get usage for all tracked resources.
@@ -544,7 +539,7 @@ class QuotaEnforcer:
         self,
         org_id: str,
         period: QuotaPeriod = QuotaPeriod.MONTHLY,
-        cost_center: Optional[str] = None,
+        cost_center: str | None = None,
     ) -> dict[str, Any]:
         """
         Get cost report for an organization.
@@ -628,8 +623,8 @@ class QuotaEnforcer:
         self,
         user_id: str,
         resource_type: str,
-        org_id: Optional[str],
-        workspace_id: Optional[str],
+        org_id: str | None,
+        workspace_id: str | None,
     ) -> str:
         """Generate storage key for usage records."""
         parts = [user_id, resource_type]
@@ -644,8 +639,8 @@ class QuotaEnforcer:
         user_id: str,
         resource_type: str,
         period: QuotaPeriod,
-        org_id: Optional[str],
-        workspace_id: Optional[str],
+        org_id: str | None,
+        workspace_id: str | None,
     ) -> int:
         """Get current usage for a period."""
         period_start, _ = self._get_period_bounds(period)
@@ -660,7 +655,7 @@ class QuotaEnforcer:
         user_id: str,
         resource_type: str,
         window_seconds: int,
-        org_id: Optional[str],
+        org_id: str | None,
     ) -> int:
         """Get usage in burst window."""
         window_start = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
@@ -675,8 +670,8 @@ class QuotaEnforcer:
         user_id: str,
         resource_type: str,
         period: QuotaPeriod,
-        org_id: Optional[str],
-        workspace_id: Optional[str],
+        org_id: str | None,
+        workspace_id: str | None,
     ) -> float:
         """Get total cost for a period."""
         period_start, _ = self._get_period_bounds(period)
@@ -715,7 +710,6 @@ class QuotaEnforcer:
             end = now
 
         return start, end
-
 
 # Decorator for quota enforcement
 def require_quota(resource_type: str, amount: int = 1):
@@ -759,7 +753,6 @@ def require_quota(resource_type: str, amount: int = 1):
 
     return decorator
 
-
 class QuotaExceededError(Exception):
     """Raised when a quota limit is exceeded."""
 
@@ -768,10 +761,8 @@ class QuotaExceededError(Exception):
         self.resource_type = resource_type
         self.limit = limit
 
-
 # Singleton instance
-_enforcer: Optional[QuotaEnforcer] = None
-
+_enforcer: QuotaEnforcer | None = None
 
 def get_quota_enforcer() -> QuotaEnforcer:
     """Get the global QuotaEnforcer instance."""
@@ -779,7 +770,6 @@ def get_quota_enforcer() -> QuotaEnforcer:
     if _enforcer is None:
         _enforcer = QuotaEnforcer()
     return _enforcer
-
 
 __all__ = [
     "QuotaPeriod",

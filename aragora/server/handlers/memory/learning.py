@@ -14,7 +14,6 @@ import json
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
 
 from aragora.rbac.decorators import require_permission  # noqa: F401
 
@@ -37,7 +36,6 @@ LEARNING_PERMISSION = "memory:write"
 # Rate limiter for learning endpoints (30 requests per minute - ML operations)
 _learning_limiter = RateLimiter(requests_per_minute=30)
 
-
 class LearningHandler(SecureHandler):
     """Handler for cross-cycle learning analytics endpoints.
 
@@ -57,7 +55,7 @@ class LearningHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -87,7 +85,7 @@ class LearningHandler(SecureHandler):
             return self._get_aggregated_insights(limit)
         return None
 
-    def _get_nomic_dir(self) -> Optional[Path]:
+    def _get_nomic_dir(self) -> Path | None:
         """Get the nomic directory path."""
         nomic_dir = self.ctx.get("nomic_dir")
         if nomic_dir:

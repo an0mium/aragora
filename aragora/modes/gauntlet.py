@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, Optional
 
 from aragora.core import Agent
 from aragora.debate.consensus import (
@@ -76,11 +76,10 @@ try:
     PERSONAS_AVAILABLE = True
 except ImportError:
     PERSONAS_AVAILABLE = False
-    RegulatoryPersona: Optional[Type[Any]] = None
-    PersonaAttack: Optional[Type[Any]] = None
+    RegulatoryPersona: Optional[type[Any]] = None
+    PersonaAttack: Optional[type[Any]] = None
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class GauntletProgress:
@@ -92,15 +91,13 @@ class GauntletProgress:
     percent: float  # 0-100
     message: str  # Human-readable status
     findings_so_far: int = 0  # Findings discovered so far
-    current_task: Optional[str] = None  # Current sub-task
-
+    current_task: str | None = None  # Current sub-task
 
 # Type for progress callback
 ProgressCallback = Callable[[GauntletProgress], None]
 
 # InputType and Verdict are imported from aragora.gauntlet.types (canonical source)
 # This ensures consistency across the gauntlet system
-
 
 @dataclass
 class Finding:
@@ -112,7 +109,7 @@ class Finding:
     title: str
     description: str
     evidence: str = ""
-    mitigation: Optional[str] = None
+    mitigation: str | None = None
     source: str = ""  # Which component found this
     verified: bool = False  # Was this formally verified?
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -128,7 +125,6 @@ class Finding:
             return "MEDIUM"
         return "LOW"
 
-
 @dataclass
 class VerifiedClaim:
     """A claim that was formally verified."""
@@ -136,9 +132,8 @@ class VerifiedClaim:
     claim: str
     verified: bool
     verification_method: str  # "z3", "lean", "manual"
-    proof_hash: Optional[str] = None
+    proof_hash: str | None = None
     verification_time_ms: float = 0.0
-
 
 @dataclass
 class GauntletConfig:
@@ -147,13 +142,13 @@ class GauntletConfig:
     # Input configuration
     input_type: InputType = InputType.SPEC
     input_content: str = ""
-    input_path: Optional[Path] = None
+    input_path: Path | None = None
 
     # Which attack types to run (None = all)
-    attack_types: Optional[list[AttackType]] = None
+    attack_types: list[AttackType] | None = None
 
     # Which probe types to run (None = all)
-    probe_types: Optional[list[ProbeType]] = None
+    probe_types: list[ProbeType] | None = None
 
     # Thresholds
     severity_threshold: float = 0.5  # Findings below this are filtered
@@ -179,7 +174,7 @@ class GauntletConfig:
 
     # Regulatory persona for compliance-aware stress testing
     # Can be a RegulatoryPersona instance or string name ("gdpr", "hipaa", "ai_act", "security")
-    persona: Optional[Any] = None  # RegulatoryPersona or str
+    persona: Any | None = None  # RegulatoryPersona or str
 
     def __post_init__(self):
         # Load content from path if provided
@@ -189,7 +184,6 @@ class GauntletConfig:
         # Resolve persona string to instance
         if self.persona and isinstance(self.persona, str) and PERSONAS_AVAILABLE:
             self.persona = get_persona(self.persona)
-
 
 @dataclass
 class GauntletResult:
@@ -232,9 +226,9 @@ class GauntletResult:
     risk_assessments: list[RiskAssessment] = field(default_factory=list)
 
     # Sub-results (for drill-down)
-    redteam_result: Optional[RedTeamResult] = None
-    probe_report: Optional[VulnerabilityReport] = None
-    audit_verdict: Optional[DeepAuditVerdict] = None
+    redteam_result: RedTeamResult | None = None
+    probe_report: VulnerabilityReport | None = None
+    audit_verdict: DeepAuditVerdict | None = None
 
     # Metadata
     agents_involved: list[str] = field(default_factory=list)
@@ -354,7 +348,6 @@ class GauntletResult:
 
         return "\n".join(lines)
 
-
 class GauntletOrchestrator:
     """
     Orchestrates comprehensive adversarial stress-testing.
@@ -375,8 +368,8 @@ class GauntletOrchestrator:
     def __init__(
         self,
         agents: list[Agent],
-        run_agent_fn: Optional[Callable] = None,
-        on_progress: Optional[ProgressCallback] = None,
+        run_agent_fn: Callable | None = None,
+        on_progress: ProgressCallback | None = None,
     ):
         """
         Initialize Gauntlet orchestrator.
@@ -398,7 +391,7 @@ class GauntletOrchestrator:
 
         # Tracking
         self._finding_counter = 0
-        self._start_time: Optional[datetime] = None
+        self._start_time: datetime | None = None
         self._findings_count = 0
 
     def _emit_progress(
@@ -408,7 +401,7 @@ class GauntletOrchestrator:
         total_phases: int,
         percent: float,
         message: str,
-        current_task: Optional[str] = None,
+        current_task: str | None = None,
     ) -> None:
         """Emit progress update if callback is configured."""
         if self.on_progress:
@@ -461,9 +454,9 @@ class GauntletOrchestrator:
         unverified_claims: list[str] = []
 
         # Initialize sub-results
-        redteam_result: Optional[RedTeamResult] = None
-        probe_report: Optional[VulnerabilityReport] = None
-        audit_verdict: Optional[DeepAuditVerdict] = None
+        redteam_result: RedTeamResult | None = None
+        probe_report: VulnerabilityReport | None = None
+        audit_verdict: DeepAuditVerdict | None = None
         risk_assessments: list[RiskAssessment] = []
 
         # 1. Risk Assessment (fast, run first)
@@ -742,7 +735,7 @@ class GauntletOrchestrator:
         }
         return mapping.get(level, 0.5)
 
-    async def _run_redteam(self, config: GauntletConfig) -> Optional[RedTeamResult]:
+    async def _run_redteam(self, config: GauntletConfig) -> RedTeamResult | None:
         """Run red-team adversarial testing."""
         logger.info("Running red-team attacks...")
 
@@ -888,7 +881,7 @@ class GauntletOrchestrator:
 
         return findings
 
-    async def _run_probing(self, config: GauntletConfig) -> Optional[VulnerabilityReport]:
+    async def _run_probing(self, config: GauntletConfig) -> VulnerabilityReport | None:
         """Run capability probing on agents."""
         logger.info("Running capability probes...")
 
@@ -912,7 +905,7 @@ class GauntletOrchestrator:
             logger.warning(f"Probing failed: {e}")
             return None
 
-    async def _run_deep_audit(self, config: GauntletConfig) -> Optional[DeepAuditVerdict]:
+    async def _run_deep_audit(self, config: GauntletConfig) -> DeepAuditVerdict | None:
         """Run deep audit analysis."""
         logger.info("Running deep audit...")
 
@@ -1142,9 +1135,9 @@ class GauntletOrchestrator:
 
     def _calculate_coverage_score(
         self,
-        redteam: Optional[RedTeamResult],
-        probe: Optional[VulnerabilityReport],
-        audit: Optional[DeepAuditVerdict],
+        redteam: RedTeamResult | None,
+        probe: VulnerabilityReport | None,
+        audit: DeepAuditVerdict | None,
     ) -> float:
         """Calculate test coverage score."""
         scores = []
@@ -1205,7 +1198,6 @@ class GauntletOrchestrator:
         confidence = robustness_score * (1 - risk_score * 0.2)
         return Verdict.APPROVED, min(0.95, confidence)
 
-
 # Convenience function for quick stress-testing
 async def run_gauntlet(
     input_content: str,
@@ -1240,7 +1232,6 @@ async def run_gauntlet(
     )
     orchestrator = GauntletOrchestrator(agents)
     return await orchestrator.run(config)
-
 
 # Pre-configured Gauntlet profiles
 QUICK_GAUNTLET = GauntletConfig(
@@ -1282,7 +1273,6 @@ POLICY_GAUNTLET = GauntletConfig(
     severity_threshold=0.3,  # More sensitive
 )
 
-
 # Compliance-focused gauntlet profiles
 def get_compliance_gauntlet(persona_name: str = "gdpr") -> GauntletConfig:
     """
@@ -1310,7 +1300,6 @@ def get_compliance_gauntlet(persona_name: str = "gdpr") -> GauntletConfig:
         severity_threshold=0.3,
         persona=persona_name,  # Will be resolved in __post_init__
     )
-
 
 GDPR_GAUNTLET = get_compliance_gauntlet("gdpr") if PERSONAS_AVAILABLE else None
 HIPAA_GAUNTLET = get_compliance_gauntlet("hipaa") if PERSONAS_AVAILABLE else None

@@ -32,13 +32,12 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 # Schema files
 SCHEMAS_DIR = Path(__file__).parent.parent / "schemas"
-
 
 @dataclass
 class MigrationStats:
@@ -55,7 +54,6 @@ class MigrationStats:
     def __post_init__(self):
         if self.errors is None:
             self.errors = []
-
 
 @dataclass
 class ConsolidationResult:
@@ -88,7 +86,6 @@ class ConsolidationResult:
             ],
             "errors": self.errors[:10],  # Limit to first 10 errors
         }
-
 
 # Mapping of legacy databases to their tables and target consolidated database
 MIGRATION_MAP = {
@@ -964,14 +961,13 @@ MIGRATION_MAP = {
     },
 }
 
-
 class DatabaseConsolidator:
     """Handles migration from legacy databases to consolidated schema."""
 
     def __init__(
         self,
         source_dir: Path,
-        target_dir: Optional[Path] = None,
+        target_dir: Path | None = None,
         backup: bool = True,
     ):
         """
@@ -988,7 +984,7 @@ class DatabaseConsolidator:
         self.stats: list[MigrationStats] = []
         self.errors: list[str] = []
 
-    def _get_connection(self, db_path: Path) -> Optional[sqlite3.Connection]:
+    def _get_connection(self, db_path: Path) -> sqlite3.Connection | None:
         """Get a database connection with WAL mode."""
         if not db_path.exists():
             return None
@@ -1054,7 +1050,7 @@ class DatabaseConsolidator:
         columns: list[str],
         source_db: str,
         target_db: str,
-        transform: Optional[Callable] = None,
+        transform: Callable | None = None,
         dry_run: bool = False,
     ) -> MigrationStats:
         """Migrate a single table."""
@@ -1275,7 +1271,6 @@ class DatabaseConsolidator:
 
         return report
 
-
 def main() -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -1400,7 +1395,6 @@ def main() -> int:
     # No command specified
     parser.print_help()
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

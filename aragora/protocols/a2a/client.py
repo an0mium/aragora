@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 import httpx
 
@@ -25,20 +25,18 @@ from aragora.protocols.a2a.types import (
 
 logger = logging.getLogger(__name__)
 
-
 class A2AClientError(Exception):
     """Error from A2A client operations."""
 
     def __init__(
         self,
         message: str,
-        agent_name: Optional[str] = None,
-        task_id: Optional[str] = None,
+        agent_name: str | None = None,
+        task_id: str | None = None,
     ):
         super().__init__(message)
         self.agent_name = agent_name
         self.task_id = task_id
-
 
 class A2AClient:
     """
@@ -67,10 +65,10 @@ class A2AClient:
         self._max_retries = max_retries
 
         # Agent registry cache
-        self._agents: Dict[str, AgentCard] = {}
+        self._agents: dict[str, AgentCard] = {}
 
         # HTTP client
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> "A2AClient":
         """Async context manager entry."""
@@ -92,8 +90,8 @@ class A2AClient:
     async def discover_agents(
         self,
         registry_url: str,
-        capability: Optional[AgentCapability] = None,
-    ) -> List[AgentCard]:
+        capability: AgentCapability | None = None,
+    ) -> list[AgentCard]:
         """
         Discover agents from a registry.
 
@@ -140,7 +138,7 @@ class A2AClient:
         self._agents[agent.name] = agent
         logger.debug(f"Registered agent: {agent.name}")
 
-    def get_agent(self, name: str) -> Optional[AgentCard]:
+    def get_agent(self, name: str) -> AgentCard | None:
         """Get a registered agent by name."""
         return self._agents.get(name)
 
@@ -148,11 +146,11 @@ class A2AClient:
         self,
         agent_name: str,
         instruction: str,
-        context: Optional[List[ContextItem]] = None,
-        capability: Optional[AgentCapability] = None,
+        context: Optional[list[ContextItem]] = None,
+        capability: AgentCapability | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
-        timeout_ms: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        timeout_ms: int | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> TaskResult:
         """
         Invoke an agent synchronously.
@@ -215,9 +213,9 @@ class A2AClient:
         self,
         agent_name: str,
         instruction: str,
-        context: Optional[List[ContextItem]] = None,
-        capability: Optional[AgentCapability] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        context: Optional[list[ContextItem]] = None,
+        capability: AgentCapability | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Invoke an agent with streaming output.
 
@@ -341,8 +339,8 @@ class A2AClient:
 
     def list_agents(
         self,
-        capability: Optional[AgentCapability] = None,
-    ) -> List[AgentCard]:
+        capability: AgentCapability | None = None,
+    ) -> list[AgentCard]:
         """
         List registered agents.
 
@@ -358,7 +356,6 @@ class A2AClient:
             agents = [a for a in agents if a.supports_capability(capability)]
 
         return agents
-
 
 __all__ = [
     "A2AClient",

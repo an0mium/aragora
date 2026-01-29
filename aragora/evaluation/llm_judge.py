@@ -21,11 +21,10 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class EvaluationDimension(str, Enum):
     """The 8 evaluation dimensions for LLM-as-Judge."""
@@ -39,9 +38,8 @@ class EvaluationDimension(str, Enum):
     CREATIVITY = "creativity"
     SAFETY = "safety"
 
-
 # Default dimension weights (sum to 1.0)
-DEFAULT_WEIGHTS: Dict[EvaluationDimension, float] = {
+DEFAULT_WEIGHTS: dict[EvaluationDimension, float] = {
     EvaluationDimension.RELEVANCE: 0.20,
     EvaluationDimension.ACCURACY: 0.20,
     EvaluationDimension.COMPLETENESS: 0.15,
@@ -53,7 +51,7 @@ DEFAULT_WEIGHTS: Dict[EvaluationDimension, float] = {
 }
 
 # Use case specific weight profiles
-WEIGHT_PROFILES: Dict[str, Dict[EvaluationDimension, float]] = {
+WEIGHT_PROFILES: dict[str, dict[EvaluationDimension, float]] = {
     "factual_qa": {
         EvaluationDimension.RELEVANCE: 0.20,
         EvaluationDimension.ACCURACY: 0.30,
@@ -106,7 +104,6 @@ WEIGHT_PROFILES: Dict[str, Dict[EvaluationDimension, float]] = {
     },
 }
 
-
 @dataclass
 class EvaluationRubric:
     """Scoring rubric for a dimension."""
@@ -130,9 +127,8 @@ class EvaluationRubric:
 - Score 5 (Excellent): {self.score_5}
 """
 
-
 # Default rubrics for each dimension
-DEFAULT_RUBRICS: Dict[EvaluationDimension, EvaluationRubric] = {
+DEFAULT_RUBRICS: dict[EvaluationDimension, EvaluationRubric] = {
     EvaluationDimension.RELEVANCE: EvaluationRubric(
         dimension=EvaluationDimension.RELEVANCE,
         description="How well does the response address the query/task?",
@@ -207,7 +203,6 @@ DEFAULT_RUBRICS: Dict[EvaluationDimension, EvaluationRubric] = {
     ),
 }
 
-
 @dataclass
 class DimensionScore:
     """Score for a single evaluation dimension."""
@@ -216,9 +211,9 @@ class DimensionScore:
     score: float  # 1-5 scale
     confidence: float  # 0-1 scale
     feedback: str
-    examples: List[str] = field(default_factory=list)  # Specific examples from response
+    examples: list[str] = field(default_factory=list)  # Specific examples from response
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "dimension": self.dimension.value,
@@ -228,7 +223,6 @@ class DimensionScore:
             "examples": self.examples,
         }
 
-
 @dataclass
 class EvaluationResult:
     """Complete evaluation result."""
@@ -237,23 +231,23 @@ class EvaluationResult:
     response_id: str = ""
 
     # Scores per dimension
-    dimension_scores: Dict[EvaluationDimension, DimensionScore] = field(default_factory=dict)
+    dimension_scores: dict[EvaluationDimension, DimensionScore] = field(default_factory=dict)
 
     # Aggregate scores
     overall_score: float = 0.0  # Weighted average (1-5 scale)
     overall_confidence: float = 0.0  # Average confidence
 
     # Metadata
-    weights_used: Dict[str, float] = field(default_factory=dict)
+    weights_used: dict[str, float] = field(default_factory=dict)
     judge_model: str = ""
     use_case: str = ""
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Qualitative feedback
     summary: str = ""
-    strengths: List[str] = field(default_factory=list)
-    weaknesses: List[str] = field(default_factory=list)
-    suggestions: List[str] = field(default_factory=list)
+    strengths: list[str] = field(default_factory=list)
+    weaknesses: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
 
     # Quality gate result
     passes_threshold: bool = False
@@ -261,7 +255,7 @@ class EvaluationResult:
 
     def calculate_overall_score(
         self,
-        weights: Optional[Dict[EvaluationDimension, float]] = None,
+        weights: Optional[dict[EvaluationDimension, float]] = None,
     ) -> float:
         """Calculate weighted overall score."""
         if not self.dimension_scores:
@@ -290,7 +284,7 @@ class EvaluationResult:
 
         return self.overall_score
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -310,7 +304,6 @@ class EvaluationResult:
             "threshold_used": self.threshold_used,
         }
 
-
 @dataclass
 class PairwiseResult:
     """Result of pairwise comparison."""
@@ -320,12 +313,12 @@ class PairwiseResult:
     response_b_id: str = ""
     winner: str = ""  # "A", "B", or "tie"
     confidence: float = 0.0
-    dimension_preferences: Dict[str, str] = field(default_factory=dict)  # dimension -> winner
+    dimension_preferences: dict[str, str] = field(default_factory=dict)  # dimension -> winner
     explanation: str = ""
     judge_model: str = ""
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -339,7 +332,6 @@ class PairwiseResult:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 @dataclass
 class JudgeConfig:
     """Configuration for LLM judge."""
@@ -351,9 +343,9 @@ class JudgeConfig:
 
     # Evaluation settings
     use_case: str = "default"
-    dimensions: Optional[List[EvaluationDimension]] = None  # None = all
-    custom_weights: Optional[Dict[EvaluationDimension, float]] = None
-    custom_rubrics: Optional[Dict[EvaluationDimension, EvaluationRubric]] = None
+    dimensions: Optional[list[EvaluationDimension]] = None  # None = all
+    custom_weights: Optional[dict[EvaluationDimension, float]] = None
+    custom_rubrics: Optional[dict[EvaluationDimension, EvaluationRubric]] = None
 
     # Quality gate
     pass_threshold: float = 3.5  # Minimum overall score to pass
@@ -363,8 +355,7 @@ class JudgeConfig:
     secondary_model: str = "gpt-4o"
 
     # Workspace isolation
-    workspace_id: Optional[str] = None
-
+    workspace_id: str | None = None
 
 class LLMJudge:
     """
@@ -374,7 +365,7 @@ class LLMJudge:
     across 8 dimensions with calibrated scoring.
     """
 
-    def __init__(self, config: Optional[JudgeConfig] = None):
+    def __init__(self, config: JudgeConfig | None = None):
         """
         Initialize LLM judge.
 
@@ -402,9 +393,9 @@ class LLMJudge:
         self,
         query: str,
         response: str,
-        context: Optional[str] = None,
-        reference: Optional[str] = None,
-        response_id: Optional[str] = None,
+        context: str | None = None,
+        reference: str | None = None,
+        response_id: str | None = None,
     ) -> EvaluationResult:
         """
         Evaluate a response across all dimensions.
@@ -470,9 +461,9 @@ class LLMJudge:
         query: str,
         response_a: str,
         response_b: str,
-        context: Optional[str] = None,
-        response_a_id: Optional[str] = None,
-        response_b_id: Optional[str] = None,
+        context: str | None = None,
+        response_a_id: str | None = None,
+        response_b_id: str | None = None,
     ) -> PairwiseResult:
         """
         Compare two responses pairwise.
@@ -519,8 +510,8 @@ class LLMJudge:
 
     async def evaluate_batch(
         self,
-        items: List[Dict[str, Any]],
-    ) -> List[EvaluationResult]:
+        items: list[dict[str, Any]],
+    ) -> list[EvaluationResult]:
         """
         Evaluate multiple responses in parallel.
 
@@ -547,8 +538,8 @@ class LLMJudge:
         self,
         query: str,
         response: str,
-        context: Optional[str] = None,
-        reference: Optional[str] = None,
+        context: str | None = None,
+        reference: str | None = None,
     ) -> str:
         """Build the evaluation prompt with rubrics."""
         rubrics_text = "\n".join(self._rubrics[dim].to_prompt() for dim in self._dimensions)
@@ -603,7 +594,7 @@ Provide your evaluation:"""
         query: str,
         response_a: str,
         response_b: str,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> str:
         """Build the pairwise comparison prompt."""
         context_section = f"\n**Context:**\n{context}\n" if context else ""
@@ -694,9 +685,9 @@ Provide your comparison:"""
                 data = response.json()
                 return data["content"][0]["text"]
 
-    def _parse_evaluation(self, text: str) -> Dict[EvaluationDimension, DimensionScore]:
+    def _parse_evaluation(self, text: str) -> dict[EvaluationDimension, DimensionScore]:
         """Parse evaluation response into dimension scores."""
-        scores: Dict[EvaluationDimension, DimensionScore] = {}
+        scores: dict[EvaluationDimension, DimensionScore] = {}
 
         # Extract JSON from response
         json_match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
@@ -762,7 +753,7 @@ Provide your comparison:"""
             return min(5.0, max(1.0, float(match.group(1))))
         return 3.0  # Default middle score
 
-    def _extract_feedback(self, text: str) -> Dict[str, Any]:
+    def _extract_feedback(self, text: str) -> dict[str, Any]:
         """Extract qualitative feedback from evaluation."""
         feedback = {
             "summary": "",
@@ -790,7 +781,7 @@ Provide your comparison:"""
 
         return feedback
 
-    def _parse_comparison(self, text: str) -> Dict[str, Any]:
+    def _parse_comparison(self, text: str) -> dict[str, Any]:
         """Parse comparison response."""
         result = {
             "winner": "tie",
@@ -823,8 +814,8 @@ Provide your comparison:"""
         result: EvaluationResult,
         query: str,
         response: str,
-        context: Optional[str],
-        reference: Optional[str],
+        context: str | None,
+        reference: str | None,
     ) -> None:
         """Get secondary evaluation from another model for reliability."""
         try:
@@ -874,14 +865,13 @@ Provide your comparison:"""
         except Exception as e:
             logger.warning(f"Secondary evaluation failed: {e}")
 
-
 # Convenience functions
 async def evaluate_response(
     query: str,
     response: str,
     use_case: str = "default",
-    context: Optional[str] = None,
-    reference: Optional[str] = None,
+    context: str | None = None,
+    reference: str | None = None,
 ) -> EvaluationResult:
     """
     Convenience function to evaluate a single response.
@@ -905,13 +895,12 @@ async def evaluate_response(
         reference=reference,
     )
 
-
 async def compare_responses(
     query: str,
     response_a: str,
     response_b: str,
     use_case: str = "default",
-    context: Optional[str] = None,
+    context: str | None = None,
 ) -> PairwiseResult:
     """
     Convenience function to compare two responses.
@@ -934,7 +923,6 @@ async def compare_responses(
         response_b=response_b,
         context=context,
     )
-
 
 __all__ = [
     "EvaluationDimension",

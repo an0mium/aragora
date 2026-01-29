@@ -1,7 +1,7 @@
 """Monitoring HTTP handlers (trends and anomalies)."""
+from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aiohttp import web
 
@@ -16,9 +16,8 @@ from aragora.rbac.checker import get_permission_checker
 logger = logging.getLogger(__name__)
 
 # Global instances
-_trend_monitor: Optional[TrendMonitor] = None
-_anomaly_detector: Optional[AnomalyDetector] = None
-
+_trend_monitor: TrendMonitor | None = None
+_anomaly_detector: AnomalyDetector | None = None
 
 def get_trend_monitor() -> TrendMonitor:
     """Get or create the global trend monitor instance."""
@@ -27,12 +26,10 @@ def get_trend_monitor() -> TrendMonitor:
         _trend_monitor = TrendMonitor()
     return _trend_monitor
 
-
 def set_trend_monitor(monitor: TrendMonitor) -> None:
     """Set the global trend monitor instance."""
     global _trend_monitor
     _trend_monitor = monitor
-
 
 def get_anomaly_detector() -> AnomalyDetector:
     """Get or create the global anomaly detector instance."""
@@ -41,12 +38,10 @@ def get_anomaly_detector() -> AnomalyDetector:
         _anomaly_detector = AnomalyDetector()
     return _anomaly_detector
 
-
 def set_anomaly_detector(detector: AnomalyDetector) -> None:
     """Set the global anomaly detector instance."""
     global _anomaly_detector
     _anomaly_detector = detector
-
 
 class MonitoringHandler:
     """HTTP handlers for monitoring operations."""

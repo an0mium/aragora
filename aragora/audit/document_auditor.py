@@ -33,7 +33,6 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
-
 class AuditStatus(str, Enum):
     """Status of an audit session."""
 
@@ -44,7 +43,6 @@ class AuditStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-
 class AuditType(str, Enum):
     """Types of document audits."""
 
@@ -53,7 +51,6 @@ class AuditType(str, Enum):
     CONSISTENCY = "consistency"
     QUALITY = "quality"
     ALL = "all"
-
 
 class FindingSeverity(str, Enum):
     """Severity levels for audit findings."""
@@ -64,7 +61,6 @@ class FindingSeverity(str, Enum):
     LOW = "low"
     INFO = "info"
 
-
 class FindingStatus(str, Enum):
     """Status of an audit finding."""
 
@@ -74,7 +70,6 @@ class FindingStatus(str, Enum):
     FALSE_POSITIVE = "false_positive"
     WONT_FIX = "wont_fix"
 
-
 @dataclass
 class AuditFinding:
     """A finding from the document audit."""
@@ -82,7 +77,7 @@ class AuditFinding:
     id: str = field(default_factory=lambda: str(uuid4()))
     session_id: str = ""
     document_id: str = ""
-    chunk_id: Optional[str] = None
+    chunk_id: str | None = None
 
     # Classification
     audit_type: AuditType = AuditType.QUALITY
@@ -172,7 +167,6 @@ class AuditFinding:
             tags=data.get("tags", []),
         )
 
-
 @dataclass
 class AuditSession:
     """An audit session tracking state and progress."""
@@ -202,15 +196,15 @@ class AuditSession:
 
     # Timing
     created_at: datetime = field(default_factory=datetime.utcnow)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     # Metadata
     created_by: str = ""
     org_id: str = ""
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Get audit duration in seconds."""
         if not self.started_at:
             return None
@@ -252,7 +246,6 @@ class AuditSession:
             "org_id": self.org_id,
         }
 
-
 @dataclass
 class AuditConfig:
     """Configuration for document auditing."""
@@ -289,7 +282,6 @@ class AuditConfig:
     store_findings_as_facts: bool = True  # Store findings in knowledge base
     knowledge_workspace_id: str = "default"  # Workspace for knowledge operations
 
-
 class DocumentAuditor:
     """
     Orchestrates multi-agent document auditing.
@@ -300,7 +292,7 @@ class DocumentAuditor:
 
     def __init__(
         self,
-        config: Optional[AuditConfig] = None,
+        config: AuditConfig | None = None,
         on_finding: Optional[Callable[[AuditFinding], None]] = None,
         on_progress: Optional[Callable[[str, float, str], None]] = None,
     ):
@@ -325,7 +317,7 @@ class DocumentAuditor:
         self._load_handlers()
 
         # Knowledge pipeline integration
-        self._knowledge_adapter: Optional[Any] = None
+        self._knowledge_adapter: Any | None = None
         if self.config.use_knowledge_pipeline:
             self._init_knowledge_adapter()
 
@@ -380,10 +372,10 @@ class DocumentAuditor:
     async def create_session(
         self,
         document_ids: list[str],
-        audit_types: Optional[list[str]] = None,
+        audit_types: list[str] | None = None,
         name: str = "",
         description: str = "",
-        model: Optional[str] = None,
+        model: str | None = None,
         created_by: str = "",
         org_id: str = "",
     ) -> AuditSession:
@@ -423,14 +415,14 @@ class DocumentAuditor:
 
         return session
 
-    def get_session(self, session_id: str) -> Optional[AuditSession]:
+    def get_session(self, session_id: str) -> AuditSession | None:
         """Get an audit session by ID."""
         return self._sessions.get(session_id)
 
     def list_sessions(
         self,
-        org_id: Optional[str] = None,
-        status: Optional[AuditStatus] = None,
+        org_id: str | None = None,
+        status: AuditStatus | None = None,
         limit: int = 100,
     ) -> list[AuditSession]:
         """List audit sessions with optional filtering."""
@@ -921,9 +913,9 @@ Is this a valid finding? Respond with:
     def get_findings(
         self,
         session_id: str,
-        severity: Optional[FindingSeverity] = None,
-        audit_type: Optional[AuditType] = None,
-        status: Optional[FindingStatus] = None,
+        severity: FindingSeverity | None = None,
+        audit_type: AuditType | None = None,
+        status: FindingStatus | None = None,
     ) -> list[AuditFinding]:
         """Get findings for a session with optional filtering."""
         session = self._sessions.get(session_id)
@@ -963,18 +955,15 @@ Is this a valid finding? Respond with:
 
         return False
 
-
 # Global instance
-_auditor: Optional[DocumentAuditor] = None
+_auditor: DocumentAuditor | None = None
 
-
-def get_document_auditor(config: Optional[AuditConfig] = None) -> DocumentAuditor:
+def get_document_auditor(config: AuditConfig | None = None) -> DocumentAuditor:
     """Get or create global document auditor instance."""
     global _auditor
     if _auditor is None:
         _auditor = DocumentAuditor(config)
     return _auditor
-
 
 __all__ = [
     "DocumentAuditor",

@@ -14,13 +14,12 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Global manager instance for session persistence
 _manager = None
-
 
 async def _get_manager():
     """Get or create the canvas manager instance."""
@@ -31,13 +30,12 @@ async def _get_manager():
         _manager = CanvasStateManager()
     return _manager
 
-
 async def canvas_create_tool(
     name: str = "Untitled Canvas",
     description: str = "",
     owner_id: str = "",
     workspace_id: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a new canvas.
 
@@ -68,10 +66,9 @@ async def canvas_create_tool(
         logger.error(f"Canvas creation failed: {e}")
         return {"success": False, "error": str(e)}
 
-
 async def canvas_get_tool(
     canvas_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get canvas state.
 
@@ -108,7 +105,6 @@ async def canvas_get_tool(
         logger.error(f"Canvas get failed: {e}")
         return {"error": str(e)}
 
-
 async def canvas_add_node_tool(
     canvas_id: str,
     node_type: str = "text",
@@ -116,7 +112,7 @@ async def canvas_add_node_tool(
     x: int = 100,
     y: int = 100,
     data: str = "{}",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Add a node to a canvas.
 
@@ -173,14 +169,13 @@ async def canvas_add_node_tool(
         logger.error(f"Canvas add_node failed: {e}")
         return {"error": str(e)}
 
-
 async def canvas_add_edge_tool(
     canvas_id: str,
     source_id: str,
     target_id: str,
     edge_type: str = "default",
     label: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Add an edge between nodes.
 
@@ -231,12 +226,11 @@ async def canvas_add_edge_tool(
         logger.error(f"Canvas add_edge failed: {e}")
         return {"error": str(e)}
 
-
 async def canvas_execute_action_tool(
     canvas_id: str,
     action: str,
     params: str = "{}",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Execute a canvas action.
 
@@ -274,12 +268,11 @@ async def canvas_execute_action_tool(
         logger.error(f"Canvas execute_action failed: {e}")
         return {"error": str(e)}
 
-
 async def canvas_list_tool(
     owner_id: str = "",
     workspace_id: str = "",
     limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List available canvases.
 
@@ -323,11 +316,10 @@ async def canvas_list_tool(
         logger.error(f"Canvas list failed: {e}")
         return {"canvases": [], "count": 0, "error": str(e)}
 
-
 async def canvas_delete_node_tool(
     canvas_id: str,
     node_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete a node from canvas.
 
@@ -352,7 +344,6 @@ async def canvas_delete_node_tool(
     except Exception as e:
         logger.error(f"Canvas delete_node failed: {e}")
         return {"error": str(e)}
-
 
 __all__ = [
     "canvas_create_tool",

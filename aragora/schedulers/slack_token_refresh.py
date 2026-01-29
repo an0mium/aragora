@@ -19,7 +19,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, List, Optional, Protocol
+from typing import Any, Callable, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,6 @@ _slack_token_refresh_total: Any = None
 _slack_token_refresh_failures: Any = None
 _slack_workspaces_active: Any = None
 _slack_refresh_duration: Any = None
-
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics if available."""
@@ -70,12 +69,10 @@ def _init_metrics() -> bool:
         logger.debug("prometheus_client not available, metrics disabled")
         return False
 
-
 def _record_refresh_success() -> None:
     """Record a successful token refresh."""
     if _slack_token_refresh_total:
         _slack_token_refresh_total.labels(status="success").inc()
-
 
 def _record_refresh_failure(error_type: str = "unknown") -> None:
     """Record a failed token refresh."""
@@ -84,19 +81,16 @@ def _record_refresh_failure(error_type: str = "unknown") -> None:
     if _slack_token_refresh_failures:
         _slack_token_refresh_failures.labels(error_type=error_type).inc()
 
-
 def _update_active_workspaces(count: int) -> None:
     """Update the active workspaces gauge."""
     if _slack_workspaces_active:
         _slack_workspaces_active.set(count)
-
 
 # Configuration from environment
 SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID", "")
 SLACK_CLIENT_SECRET = os.environ.get("SLACK_CLIENT_SECRET", "")
 DEFAULT_REFRESH_INTERVAL_MINUTES = int(os.environ.get("SLACK_TOKEN_REFRESH_INTERVAL", "30"))
 DEFAULT_EXPIRY_WINDOW_HOURS = int(os.environ.get("SLACK_TOKEN_EXPIRY_WINDOW", "2"))
-
 
 class WorkspaceStoreProtocol(Protocol):
     """Protocol for workspace store to allow dependency injection."""
@@ -111,7 +105,6 @@ class WorkspaceStoreProtocol(Protocol):
         """Refresh a workspace's access token."""
         ...
 
-
 @dataclass
 class RefreshResult:
     """Result of a token refresh attempt."""
@@ -119,9 +112,8 @@ class RefreshResult:
     workspace_id: str
     workspace_name: str
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-
 
 @dataclass
 class RefreshStats:
@@ -131,8 +123,7 @@ class RefreshStats:
     refreshed: int = 0
     failed: int = 0
     skipped: int = 0
-    results: List[RefreshResult] = field(default_factory=list)
-
+    results: list[RefreshResult] = field(default_factory=list)
 
 class SlackTokenRefreshScheduler:
     """
@@ -155,8 +146,8 @@ class SlackTokenRefreshScheduler:
         store: WorkspaceStoreProtocol,
         interval_minutes: int = DEFAULT_REFRESH_INTERVAL_MINUTES,
         expiry_window_hours: int = DEFAULT_EXPIRY_WINDOW_HOURS,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
         on_refresh_failure: Optional[Callable[[RefreshResult], None]] = None,
     ):
         """
@@ -177,10 +168,10 @@ class SlackTokenRefreshScheduler:
         self.client_secret = client_secret or SLACK_CLIENT_SECRET
         self.on_refresh_failure = on_refresh_failure
 
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._running = False
-        self._last_run: Optional[datetime] = None
-        self._last_stats: Optional[RefreshStats] = None
+        self._last_run: datetime | None = None
+        self._last_stats: RefreshStats | None = None
 
         # Initialize Prometheus metrics
         _init_metrics()
@@ -191,12 +182,12 @@ class SlackTokenRefreshScheduler:
         return self._running and self._task is not None and not self._task.done()
 
     @property
-    def last_run(self) -> Optional[datetime]:
+    def last_run(self) -> datetime | None:
         """Get the timestamp of the last refresh cycle."""
         return self._last_run
 
     @property
-    def last_stats(self) -> Optional[RefreshStats]:
+    def last_stats(self) -> RefreshStats | None:
         """Get statistics from the last refresh cycle."""
         return self._last_stats
 

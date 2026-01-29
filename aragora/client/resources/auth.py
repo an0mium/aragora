@@ -13,13 +13,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class User:
@@ -27,12 +26,11 @@ class User:
 
     id: str
     email: str
-    name: Optional[str] = None
+    name: str | None = None
     mfa_enabled: bool = False
-    created_at: Optional[datetime] = None
-    last_login: Optional[datetime] = None
-    roles: List[str] = field(default_factory=list)
-
+    created_at: datetime | None = None
+    last_login: datetime | None = None
+    roles: list[str] = field(default_factory=list)
 
 @dataclass
 class Session:
@@ -42,9 +40,8 @@ class Session:
     user_id: str
     expires_at: datetime
     created_at: datetime
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-
+    ip_address: str | None = None
+    user_agent: str | None = None
 
 @dataclass
 class APIKey:
@@ -54,10 +51,9 @@ class APIKey:
     name: str
     key_prefix: str
     created_at: datetime
-    last_used: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
-    scopes: List[str] = field(default_factory=list)
-
+    last_used: datetime | None = None
+    expires_at: datetime | None = None
+    scopes: list[str] = field(default_factory=list)
 
 @dataclass
 class MFASetupResult:
@@ -65,8 +61,7 @@ class MFASetupResult:
 
     secret: str
     qr_code_url: str
-    backup_codes: List[str] = field(default_factory=list)
-
+    backup_codes: list[str] = field(default_factory=list)
 
 class AuthAPI:
     """API interface for authentication and MFA."""
@@ -82,8 +77,8 @@ class AuthAPI:
         self,
         email: str,
         password: str,
-        mfa_code: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        mfa_code: str | None = None,
+    ) -> dict[str, Any]:
         """
         Authenticate a user.
 
@@ -95,7 +90,7 @@ class AuthAPI:
         Returns:
             Authentication result with tokens
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "email": email,
             "password": password,
         }
@@ -108,10 +103,10 @@ class AuthAPI:
         self,
         email: str,
         password: str,
-        mfa_code: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        mfa_code: str | None = None,
+    ) -> dict[str, Any]:
         """Async version of login()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "email": email,
             "password": password,
         }
@@ -130,7 +125,7 @@ class AuthAPI:
         await self._client._post_async("/api/v1/auth/logout", {})
         return True
 
-    def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
+    def refresh_token(self, refresh_token: str) -> dict[str, Any]:
         """
         Refresh an access token.
 
@@ -143,7 +138,7 @@ class AuthAPI:
         body = {"refresh_token": refresh_token}
         return self._client._post("/api/v1/auth/refresh", body)
 
-    async def refresh_token_async(self, refresh_token: str) -> Dict[str, Any]:
+    async def refresh_token_async(self, refresh_token: str) -> dict[str, Any]:
         """Async version of refresh_token()."""
         body = {"refresh_token": refresh_token}
         return await self._client._post_async("/api/v1/auth/refresh", body)
@@ -160,11 +155,11 @@ class AuthAPI:
 
     def update_profile(
         self,
-        name: Optional[str] = None,
-        email: Optional[str] = None,
+        name: str | None = None,
+        email: str | None = None,
     ) -> User:
         """Update current user profile."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if email is not None:
@@ -175,11 +170,11 @@ class AuthAPI:
 
     async def update_profile_async(
         self,
-        name: Optional[str] = None,
-        email: Optional[str] = None,
+        name: str | None = None,
+        email: str | None = None,
     ) -> User:
         """Async version of update_profile()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if email is not None:
@@ -310,21 +305,21 @@ class AuthAPI:
         await self._client._post_async("/api/v1/auth/mfa/disable", body)
         return True
 
-    def get_backup_codes(self) -> List[str]:
+    def get_backup_codes(self) -> list[str]:
         """Generate new MFA backup codes."""
         response = self._client._post("/api/v1/auth/mfa/backup-codes", {})
         return response.get("codes", [])
 
-    async def get_backup_codes_async(self) -> List[str]:
+    async def get_backup_codes_async(self) -> list[str]:
         """Async version of get_backup_codes()."""
         response = await self._client._post_async("/api/v1/auth/mfa/backup-codes", {})
         return response.get("codes", [])
 
-    def get_mfa_status(self) -> Dict[str, Any]:
+    def get_mfa_status(self) -> dict[str, Any]:
         """Get MFA status for current user."""
         return self._client._get("/api/v1/auth/mfa/status")
 
-    async def get_mfa_status_async(self) -> Dict[str, Any]:
+    async def get_mfa_status_async(self) -> dict[str, Any]:
         """Async version of get_mfa_status()."""
         return await self._client._get_async("/api/v1/auth/mfa/status")
 
@@ -332,13 +327,13 @@ class AuthAPI:
     # Sessions
     # =========================================================================
 
-    def list_sessions(self) -> List[Session]:
+    def list_sessions(self) -> list[Session]:
         """List active sessions for the current user."""
         response = self._client._get("/api/v1/auth/sessions")
         sessions = response.get("sessions", [])
         return [Session(**s) for s in sessions]
 
-    async def list_sessions_async(self) -> List[Session]:
+    async def list_sessions_async(self) -> list[Session]:
         """Async version of list_sessions()."""
         response = await self._client._get_async("/api/v1/auth/sessions")
         sessions = response.get("sessions", [])
@@ -378,13 +373,13 @@ class AuthAPI:
     # API Keys
     # =========================================================================
 
-    def list_api_keys(self) -> List[APIKey]:
+    def list_api_keys(self) -> list[APIKey]:
         """List API keys for the current user."""
         response = self._client._get("/api/v1/auth/api-keys")
         keys = response.get("keys", response.get("api_keys", []))
         return [APIKey(**k) for k in keys]
 
-    async def list_api_keys_async(self) -> List[APIKey]:
+    async def list_api_keys_async(self) -> list[APIKey]:
         """Async version of list_api_keys()."""
         response = await self._client._get_async("/api/v1/auth/api-keys")
         keys = response.get("keys", response.get("api_keys", []))
@@ -393,9 +388,9 @@ class AuthAPI:
     def create_api_key(
         self,
         name: str,
-        scopes: Optional[List[str]] = None,
-        expires_in_days: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        scopes: Optional[list[str]] = None,
+        expires_in_days: int | None = None,
+    ) -> dict[str, Any]:
         """
         Create a new API key.
 
@@ -407,7 +402,7 @@ class AuthAPI:
         Returns:
             Created API key (full key only shown once)
         """
-        body: Dict[str, Any] = {"name": name}
+        body: dict[str, Any] = {"name": name}
         if scopes:
             body["scopes"] = scopes
         if expires_in_days:
@@ -418,11 +413,11 @@ class AuthAPI:
     async def create_api_key_async(
         self,
         name: str,
-        scopes: Optional[List[str]] = None,
-        expires_in_days: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        scopes: Optional[list[str]] = None,
+        expires_in_days: int | None = None,
+    ) -> dict[str, Any]:
         """Async version of create_api_key()."""
-        body: Dict[str, Any] = {"name": name}
+        body: dict[str, Any] = {"name": name}
         if scopes:
             body["scopes"] = scopes
         if expires_in_days:
@@ -439,7 +434,6 @@ class AuthAPI:
         """Async version of revoke_api_key()."""
         await self._client._delete_async(f"/api/v1/auth/api-keys/{key_id}")
         return True
-
 
 __all__ = [
     "AuthAPI",

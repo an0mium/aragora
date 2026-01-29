@@ -4,27 +4,26 @@ Core validation utilities for request processing.
 Provides ValidationResult dataclass and fundamental validation functions
 for JSON bodies, content types, and field-level validation.
 """
+from __future__ import annotations
 
 import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Max JSON body size (1MB by default, lower than file upload limit)
 MAX_JSON_BODY_SIZE = 1 * 1024 * 1024
 
-
 @dataclass
 class ValidationResult:
     """Result of validation check."""
 
     is_valid: bool
-    error: Optional[str] = None
-    data: Optional[Any] = None
-
+    error: str | None = None
+    data: Any | None = None
 
 def validate_json_body(
     body: bytes,
@@ -55,7 +54,6 @@ def validate_json_body(
     except UnicodeDecodeError:
         return ValidationResult(is_valid=False, error="Invalid UTF-8 encoding in request body")
 
-
 def validate_content_type(
     content_type: str, expected: str = "application/json"
 ) -> ValidationResult:
@@ -80,7 +78,6 @@ def validate_content_type(
 
     return ValidationResult(is_valid=True)
 
-
 def validate_required_fields(data: dict, fields: list[str]) -> ValidationResult:
     """Validate that required fields are present.
 
@@ -100,13 +97,12 @@ def validate_required_fields(data: dict, fields: list[str]) -> ValidationResult:
 
     return ValidationResult(is_valid=True)
 
-
 def validate_string_field(
     data: dict,
     field: str,
     min_length: int = 0,
     max_length: int = 1000,
-    pattern: Optional[re.Pattern] = None,
+    pattern: re.Pattern | None = None,
     required: bool = True,
 ) -> ValidationResult:
     """Validate a string field.
@@ -147,14 +143,13 @@ def validate_string_field(
 
     return ValidationResult(is_valid=True)
 
-
 def validate_string(
-    value: Optional[str],
+    value: str | None,
     field_name: str,
-    pattern: Optional[re.Pattern] = None,
+    pattern: re.Pattern | None = None,
     min_length: int = 0,
     max_length: int = 1000,
-) -> tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """Validate a string value directly.
 
     Unlike validate_string_field which operates on a dict, this validates
@@ -168,7 +163,7 @@ def validate_string(
         max_length: Maximum string length
 
     Returns:
-        Tuple of (is_valid: bool, error_message: Optional[str])
+        Tuple of (is_valid: bool, error_message: str | None)
     """
     if value is None:
         return False, f"Missing required field: {field_name}"
@@ -187,12 +182,11 @@ def validate_string(
 
     return True, None
 
-
 def validate_int_field(
     data: dict,
     field: str,
-    min_value: Optional[int] = None,
-    max_value: Optional[int] = None,
+    min_value: int | None = None,
+    max_value: int | None = None,
     required: bool = True,
 ) -> ValidationResult:
     """Validate an integer field.
@@ -229,12 +223,11 @@ def validate_int_field(
 
     return ValidationResult(is_valid=True)
 
-
 def validate_float_field(
     data: dict,
     field: str,
-    min_value: Optional[float] = None,
-    max_value: Optional[float] = None,
+    min_value: float | None = None,
+    max_value: float | None = None,
     required: bool = True,
 ) -> ValidationResult:
     """Validate a float field.
@@ -271,13 +264,12 @@ def validate_float_field(
 
     return ValidationResult(is_valid=True)
 
-
 def validate_list_field(
     data: dict,
     field: str,
     min_length: int = 0,
     max_length: int = 100,
-    item_type: Optional[type] = None,
+    item_type: type | None = None,
     required: bool = True,
 ) -> ValidationResult:
     """Validate a list field.
@@ -323,7 +315,6 @@ def validate_list_field(
 
     return ValidationResult(is_valid=True)
 
-
 def validate_enum_field(
     data: dict,
     field: str,
@@ -355,7 +346,6 @@ def validate_enum_field(
         )
 
     return ValidationResult(is_valid=True)
-
 
 def sanitize_string(value: str, max_length: int = 1000) -> str:
     """Sanitize a string by stripping and truncating.

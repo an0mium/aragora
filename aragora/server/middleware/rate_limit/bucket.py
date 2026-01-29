@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from .base import BURST_MULTIPLIER
 
@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     import redis
 
 logger = logging.getLogger(__name__)
-
 
 class TokenBucket:
     """
@@ -72,7 +71,6 @@ class TokenBucket:
     def remaining(self) -> int:
         """Get remaining tokens (approximate, no lock)."""
         return max(0, int(self.tokens))
-
 
 class RedisTokenBucket:
     """
@@ -140,7 +138,7 @@ class RedisTokenBucket:
         self.rate_per_minute = rate_per_minute
         self.burst_size = burst_size or int(rate_per_minute * BURST_MULTIPLIER)
         self.ttl_seconds = ttl_seconds
-        self._consume_sha: Optional[str] = None
+        self._consume_sha: str | None = None
 
     def _get_consume_script(self) -> str:
         """Get or register the consume Lua script."""
@@ -207,6 +205,5 @@ class RedisTokenBucket:
         except Exception as e:
             logger.debug(f"Error getting remaining tokens, defaulting to burst_size: {e}")
             return self.burst_size
-
 
 __all__ = ["TokenBucket", "RedisTokenBucket"]

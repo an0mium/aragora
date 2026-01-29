@@ -37,7 +37,6 @@ __all__ = [
     "get_cv_builder",
 ]
 
-
 @dataclass
 class ReliabilityMetrics:
     """Reliability statistics for an agent."""
@@ -67,7 +66,6 @@ class ReliabilityMetrics:
             "p99_latency_ms": self.p99_latency_ms,
             "is_reliable": self.is_reliable,
         }
-
 
 @dataclass
 class DomainPerformance:
@@ -112,7 +110,6 @@ class DomainPerformance:
             "composite_score": self.composite_score,
             "has_meaningful_data": self.has_meaningful_data,
         }
-
 
 @dataclass
 class AgentCV:
@@ -192,7 +189,7 @@ class AgentCV:
 
     def compute_selection_score(
         self,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         elo_weight: float = 0.3,
         calibration_weight: float = 0.2,
         reliability_weight: float = 0.2,
@@ -311,7 +308,6 @@ class AgentCV:
             data_sources=data.get("data_sources", []),
         )
 
-
 class CVBuilder:
     """
     Builder for constructing AgentCV from data sources.
@@ -330,7 +326,7 @@ class CVBuilder:
         self,
         elo_system: Optional["EloSystem"] = None,
         calibration_tracker: Optional["CalibrationTracker"] = None,
-        performance_monitor: Optional[Any] = None,
+        performance_monitor: Any | None = None,
     ):
         self.elo_system = elo_system
         self.calibration_tracker = calibration_tracker
@@ -501,10 +497,8 @@ class CVBuilder:
 
         return cvs
 
-
 # Singleton builder instance
-_cv_builder: Optional[CVBuilder] = None
-
+_cv_builder: CVBuilder | None = None
 
 def get_cv_builder() -> CVBuilder:
     """Get the global CVBuilder singleton instance.

@@ -8,10 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 
 from .types import ControlPlanePolicy, EnforcementLevel
-
 
 @dataclass
 class PolicyConflict:
@@ -26,7 +25,7 @@ class PolicyConflict:
     severity: str  # "warning", "error"
     detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
             "policy_a_id": self.policy_a_id,
@@ -38,7 +37,6 @@ class PolicyConflict:
             "severity": self.severity,
             "detected_at": self.detected_at.isoformat(),
         }
-
 
 class PolicyConflictDetector:
     """
@@ -58,8 +56,8 @@ class PolicyConflictDetector:
 
     def detect_conflicts(
         self,
-        policies: List[ControlPlanePolicy],
-    ) -> List[PolicyConflict]:
+        policies: list[ControlPlanePolicy],
+    ) -> list[PolicyConflict]:
         """
         Detect conflicts between a set of policies.
 
@@ -69,7 +67,7 @@ class PolicyConflictDetector:
         Returns:
             List of detected conflicts
         """
-        conflicts: List[PolicyConflict] = []
+        conflicts: list[PolicyConflict] = []
         enabled_policies = [p for p in policies if p.enabled]
 
         for i, policy_a in enumerate(enabled_policies):
@@ -128,9 +126,9 @@ class PolicyConflictDetector:
         self,
         policy_a: ControlPlanePolicy,
         policy_b: ControlPlanePolicy,
-    ) -> List[PolicyConflict]:
+    ) -> list[PolicyConflict]:
         """Check for conflicting agent restrictions."""
-        conflicts: List[PolicyConflict] = []
+        conflicts: list[PolicyConflict] = []
 
         # Conflict: A allows an agent that B blocks
         if policy_a.agent_allowlist and policy_b.agent_blocklist:
@@ -203,9 +201,9 @@ class PolicyConflictDetector:
         self,
         policy_a: ControlPlanePolicy,
         policy_b: ControlPlanePolicy,
-    ) -> List[PolicyConflict]:
+    ) -> list[PolicyConflict]:
         """Check for conflicting region constraints."""
-        conflicts: List[PolicyConflict] = []
+        conflicts: list[PolicyConflict] = []
 
         rc_a = policy_a.region_constraint
         rc_b = policy_b.region_constraint
@@ -261,9 +259,9 @@ class PolicyConflictDetector:
         self,
         policy_a: ControlPlanePolicy,
         policy_b: ControlPlanePolicy,
-    ) -> List[PolicyConflict]:
+    ) -> list[PolicyConflict]:
         """Check for inconsistent enforcement levels on similar policies."""
-        conflicts: List[PolicyConflict] = []
+        conflicts: list[PolicyConflict] = []
 
         # Warning when similar policies have different enforcement levels
         # (can cause confusion about actual behavior)
@@ -301,14 +299,14 @@ class PolicyConflictDetector:
         self,
         policy_a: ControlPlanePolicy,
         policy_b: ControlPlanePolicy,
-    ) -> List[PolicyConflict]:
+    ) -> list[PolicyConflict]:
         """Check for conflicting SLA requirements between overlapping policies.
 
         Detects situations where two policies with overlapping scope have
         significantly different SLA requirements that could cause confusion
         or impossible-to-satisfy conditions.
         """
-        conflicts: List[PolicyConflict] = []
+        conflicts: list[PolicyConflict] = []
 
         # Skip if either policy has no SLA requirements
         if not policy_a.sla or not policy_b.sla:

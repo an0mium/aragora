@@ -18,7 +18,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.sandbox.policies import (
     ToolPolicy,
@@ -28,14 +28,12 @@ from aragora.sandbox.policies import (
 
 logger = logging.getLogger(__name__)
 
-
 class ExecutionMode(str, Enum):
     """Mode of sandbox execution."""
 
     DOCKER = "docker"
     SUBPROCESS = "subprocess"
     MOCK = "mock"  # For testing
-
 
 class ExecutionStatus(str, Enum):
     """Status of sandbox execution."""
@@ -46,7 +44,6 @@ class ExecutionStatus(str, Enum):
     FAILED = "failed"
     TIMEOUT = "timeout"
     POLICY_DENIED = "policy_denied"
-
 
 @dataclass
 class ExecutionResult:
@@ -61,7 +58,7 @@ class ExecutionResult:
     memory_used_mb: float = 0.0
     files_created: list[str] = field(default_factory=list)
     policy_violations: list[str] = field(default_factory=list)
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -78,19 +75,17 @@ class ExecutionResult:
             "error_message": self.error_message,
         }
 
-
 @dataclass
 class SandboxConfig:
     """Configuration for sandbox execution."""
 
     mode: ExecutionMode = ExecutionMode.SUBPROCESS
-    policy: Optional[ToolPolicy] = None
+    policy: ToolPolicy | None = None
     docker_image: str = "python:3.11-slim"
     workspace_base: str = "/tmp/sandbox"
     cleanup_on_complete: bool = True
     capture_output: bool = True
     network_enabled: bool = False
-
 
 class SandboxExecutor:
     """
@@ -102,7 +97,7 @@ class SandboxExecutor:
     - Mock: For testing without actual execution
     """
 
-    def __init__(self, config: Optional[SandboxConfig] = None):
+    def __init__(self, config: SandboxConfig | None = None):
         self.config = config or SandboxConfig()
         self.policy = self.config.policy or create_default_policy()
         self.checker = ToolPolicyChecker(self.policy)
@@ -115,9 +110,9 @@ class SandboxExecutor:
         self,
         code: str,
         language: str = "python",
-        timeout: Optional[float] = None,
-        env: Optional[dict[str, str]] = None,
-        files: Optional[dict[str, str]] = None,
+        timeout: float | None = None,
+        env: dict[str, str] | None = None,
+        files: dict[str, str] | None = None,
     ) -> ExecutionResult:
         """
         Execute code in the sandbox.
@@ -213,7 +208,7 @@ class SandboxExecutor:
         code_file: Path,
         language: str,
         timeout: float,
-        env: Optional[dict[str, str]],
+        env: dict[str, str] | None,
     ) -> ExecutionResult:
         """Execute code using subprocess with resource limits."""
         import time
@@ -316,7 +311,7 @@ class SandboxExecutor:
         code_file: Path,
         language: str,
         timeout: float,
-        env: Optional[dict[str, str]],
+        env: dict[str, str] | None,
     ) -> ExecutionResult:
         """Execute code in a Docker container."""
         import time
@@ -445,7 +440,6 @@ class SandboxExecutor:
         self.config.policy = policy
         self.checker = ToolPolicyChecker(policy)
 
-
 # Convenience function
 async def execute_sandboxed(
     code: str,
@@ -455,7 +449,6 @@ async def execute_sandboxed(
     """Execute code in a default sandbox."""
     executor = SandboxExecutor()
     return await executor.execute(code, language, timeout)
-
 
 __all__ = [
     "ExecutionMode",

@@ -25,46 +25,41 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING
 
 from aragora.config import MAX_ROUNDS
 
 if TYPE_CHECKING:
     pass
 
-
 # =============================================================================
 # Type Protocols for External Connectors
 # =============================================================================
 
-
 class ConfluenceConnectorProtocol(Protocol):
     """Protocol for Confluence connector with page content fetching."""
 
-    async def get_page_content(self, page_id: str) -> Optional[str]:
+    async def get_page_content(self, page_id: str) -> str | None:
         """Fetch content from a Confluence page."""
         ...
-
 
 class GitHubConnectorProtocol(Protocol):
     """Protocol for GitHub connector with PR/issue content fetching."""
 
-    async def get_pr_content(self, owner: str, repo: str, number: int) -> Optional[str]:
+    async def get_pr_content(self, owner: str, repo: str, number: int) -> str | None:
         """Fetch content from a GitHub PR."""
         ...
 
-    async def get_issue_content(self, owner: str, repo: str, number: int) -> Optional[str]:
+    async def get_issue_content(self, owner: str, repo: str, number: int) -> str | None:
         """Fetch content from a GitHub issue."""
         ...
-
 
 class JiraConnectorProtocol(Protocol):
     """Protocol for Jira connector with issue fetching."""
 
-    async def get_issue(self, issue_key: str) -> Optional[Dict[str, Any]]:
+    async def get_issue(self, issue_key: str) -> Optional[dict[str, Any]]:
         """Fetch a Jira issue."""
         ...
-
 
 class EmailSenderProtocol(Protocol):
     """Protocol for email sending function."""
@@ -73,14 +68,12 @@ class EmailSenderProtocol(Protocol):
         """Send an email."""
         ...
 
-
 class KnowledgeMoundProtocol(Protocol):
     """Protocol for Knowledge Mound search interface."""
 
-    async def search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    async def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search the knowledge mound."""
         ...
-
 
 # Type alias for recommend_agents function
 RecommendAgentsFunc = Callable[[str], "Any"]
@@ -95,11 +88,9 @@ from aragora.server.http_utils import run_async
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 class TeamStrategy(Enum):
     """Strategy for selecting the agent team."""
@@ -110,7 +101,6 @@ class TeamStrategy(Enum):
     FAST = "fast"  # Optimize for speed
     RANDOM = "random"  # Random selection
 
-
 class OutputFormat(Enum):
     """Format for vetted decisionmaking output."""
 
@@ -119,7 +109,6 @@ class OutputFormat(Enum):
     SUMMARY = "summary"  # Condensed summary
     GITHUB_REVIEW = "github_review"  # GitHub PR review format
     SLACK_MESSAGE = "slack_message"  # Slack-formatted message
-
 
 @dataclass
 class KnowledgeContextSource:
@@ -138,14 +127,13 @@ class KnowledgeContextSource:
         parts = source_str.split(":", 1)
         return cls(source_type=parts[0], source_id=parts[1])
 
-
 @dataclass
 class OutputChannel:
     """A channel to route vetted decisionmaking results to."""
 
     channel_type: str  # slack, teams, discord, telegram, email, webhook
     channel_id: str  # Channel ID, email address, webhook URL
-    thread_id: Optional[str] = None  # Optional thread/conversation ID
+    thread_id: str | None = None  # Optional thread/conversation ID
 
     @classmethod
     def from_string(cls, channel_str: str) -> "OutputChannel":
@@ -173,30 +161,29 @@ class OutputChannel:
 
         return cls(channel_type=channel_type, channel_id=remaining)
 
-
 @dataclass
 class OrchestrationRequest:
     """Request for a unified orchestration vetted decisionmaking session."""
 
     question: str
-    knowledge_sources: List[KnowledgeContextSource] = field(default_factory=list)
-    workspaces: List[str] = field(default_factory=list)
+    knowledge_sources: list[KnowledgeContextSource] = field(default_factory=list)
+    workspaces: list[str] = field(default_factory=list)
     team_strategy: TeamStrategy = TeamStrategy.BEST_FOR_DOMAIN
-    agents: List[str] = field(default_factory=list)
-    output_channels: List[OutputChannel] = field(default_factory=list)
+    agents: list[str] = field(default_factory=list)
+    output_channels: list[OutputChannel] = field(default_factory=list)
     output_format: OutputFormat = OutputFormat.STANDARD
     require_consensus: bool = True
     priority: str = "normal"
     max_rounds: int = MAX_ROUNDS
     timeout_seconds: float = 300.0
-    template: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    template: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Assigned by system
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OrchestrationRequest":
+    def from_dict(cls, data: dict[str, Any]) -> "OrchestrationRequest":
         """Create from request payload."""
         # Parse knowledge sources
         knowledge_sources = []
@@ -266,7 +253,6 @@ class OrchestrationRequest:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class OrchestrationResult:
     """Result of a unified orchestration vetted decisionmaking session."""
@@ -274,18 +260,18 @@ class OrchestrationResult:
     request_id: str
     success: bool
     consensus_reached: bool = False
-    final_answer: Optional[str] = None
-    confidence: Optional[float] = None
-    agents_participated: List[str] = field(default_factory=list)
+    final_answer: str | None = None
+    confidence: float | None = None
+    agents_participated: list[str] = field(default_factory=list)
     rounds_completed: int = 0
     duration_seconds: float = 0.0
-    knowledge_context_used: List[str] = field(default_factory=list)
-    channels_notified: List[str] = field(default_factory=list)
-    receipt_id: Optional[str] = None
-    error: Optional[str] = None
+    knowledge_context_used: list[str] = field(default_factory=list)
+    channels_notified: list[str] = field(default_factory=list)
+    receipt_id: str | None = None
+    error: str | None = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "request_id": self.request_id,
@@ -302,7 +288,6 @@ class OrchestrationResult:
             "error": self.error,
             "created_at": self.created_at,
         }
-
 
 # =============================================================================
 # Deliberation Templates - Import from templates module
@@ -327,14 +312,14 @@ except ImportError:
 
         name: str
         description: str
-        default_agents: List[str] = field(default_factory=list)
-        default_knowledge_sources: List[str] = field(default_factory=list)
+        default_agents: list[str] = field(default_factory=list)
+        default_knowledge_sources: list[str] = field(default_factory=list)
         output_format: OutputFormat = OutputFormat.STANDARD
         consensus_threshold: float = 0.7
         max_rounds: int = MAX_ROUNDS
-        personas: List[str] = field(default_factory=list)
+        personas: list[str] = field(default_factory=list)
 
-        def to_dict(self) -> Dict[str, Any]:
+        def to_dict(self) -> dict[str, Any]:
             """Convert to dictionary."""
             return {
                 "name": self.name,
@@ -349,7 +334,7 @@ except ImportError:
 
     # Fallback templates - type ignores needed because the fallback DeliberationTemplate
     # dataclass is defined conditionally and mypy doesn't recognize the enum type correctly
-    TEMPLATES: Dict[str, Any] = {  # type: ignore[no-redef]
+    TEMPLATES: dict[str, Any] = {  # type: ignore[no-redef]
         "code_review": DeliberationTemplate(
             name="code_review",
             description="Multi-agent code review with security focus",
@@ -376,20 +361,16 @@ except ImportError:
     def _get_template(name: Any) -> Any:  # type: ignore[misc]
         return TEMPLATES.get(name)
 
-
 # =============================================================================
 # In-Memory State (Production would use Redis/DB)
 # =============================================================================
 
-
-_orchestration_requests: Dict[str, OrchestrationRequest] = {}
-_orchestration_results: Dict[str, OrchestrationResult] = {}
-
+_orchestration_requests: dict[str, OrchestrationRequest] = {}
+_orchestration_results: dict[str, OrchestrationResult] = {}
 
 # =============================================================================
 # Handler Implementation
 # =============================================================================
-
 
 class OrchestrationHandler(SecureHandler):
     """
@@ -410,8 +391,8 @@ class OrchestrationHandler(SecureHandler):
         return path.startswith("/api/v1/orchestration/")
 
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route GET requests."""
         # Require authentication for all orchestration operations
         try:
@@ -440,10 +421,10 @@ class OrchestrationHandler(SecureHandler):
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
-        data: Dict[str, Any],
-        query_params: Dict[str, Any],
+        data: dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route POST requests."""
         # Require authentication for all orchestration operations
         try:
@@ -472,7 +453,7 @@ class OrchestrationHandler(SecureHandler):
     # Endpoint Handlers
     # =========================================================================
 
-    def _get_templates(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _get_templates(self, query_params: dict[str, Any]) -> HandlerResult:
         """
         GET /api/v1/orchestration/templates
 
@@ -515,7 +496,7 @@ class OrchestrationHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=30)
     def _handle_deliberate(
-        self, data: Dict[str, Any], handler: Any, sync: bool = False
+        self, data: dict[str, Any], handler: Any, sync: bool = False
     ) -> HandlerResult:
         """
         POST /api/v1/orchestration/deliberate
@@ -604,12 +585,12 @@ class OrchestrationHandler(SecureHandler):
         import time
 
         start_time = time.time()
-        knowledge_context_used: List[str] = []
-        channels_notified: List[str] = []
+        knowledge_context_used: list[str] = []
+        channels_notified: list[str] = []
 
         try:
             # Step 1: Fetch knowledge context
-            context_parts: List[str] = []
+            context_parts: list[str] = []
             for source in request.knowledge_sources:
                 try:
                     context = await self._fetch_knowledge_context(source)
@@ -636,7 +617,7 @@ class OrchestrationHandler(SecureHandler):
 
             # coordinator may be None if not configured in server context
             raw_coordinator = self.ctx.get("control_plane_coordinator")
-            coordinator: Optional[ControlPlaneCoordinator] = (
+            coordinator: ControlPlaneCoordinator | None = (
                 typing_cast(ControlPlaneCoordinator, raw_coordinator)
                 if raw_coordinator is not None
                 else None
@@ -737,7 +718,7 @@ class OrchestrationHandler(SecureHandler):
                 knowledge_context_used=knowledge_context_used,
             )
 
-    async def _fetch_knowledge_context(self, source: KnowledgeContextSource) -> Optional[str]:
+    async def _fetch_knowledge_context(self, source: KnowledgeContextSource) -> str | None:
         """Fetch context from a knowledge source."""
         source_type = source.source_type.lower()
 
@@ -767,7 +748,7 @@ class OrchestrationHandler(SecureHandler):
 
     async def _fetch_chat_context(
         self, platform: str, source: KnowledgeContextSource
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Fetch context from any chat platform using the registry.
 
@@ -794,7 +775,7 @@ class OrchestrationHandler(SecureHandler):
             logger.warning(f"Failed to fetch {platform} context: {e}")
         return None
 
-    async def _fetch_confluence_context(self, source: KnowledgeContextSource) -> Optional[str]:
+    async def _fetch_confluence_context(self, source: KnowledgeContextSource) -> str | None:
         """Fetch content from a Confluence page.
 
         Note: ConfluenceConnector requires base_url configuration. This method
@@ -828,7 +809,7 @@ class OrchestrationHandler(SecureHandler):
             logger.warning(f"Failed to fetch Confluence context: {e}")
         return None
 
-    async def _fetch_github_context(self, source: KnowledgeContextSource) -> Optional[str]:
+    async def _fetch_github_context(self, source: KnowledgeContextSource) -> str | None:
         """Fetch content from a GitHub PR or issue.
 
         Uses the GitHubConnector's search method to retrieve content.
@@ -859,7 +840,7 @@ class OrchestrationHandler(SecureHandler):
             logger.warning(f"Failed to fetch GitHub context: {e}")
         return None
 
-    async def _fetch_document_context(self, source: KnowledgeContextSource) -> Optional[str]:
+    async def _fetch_document_context(self, source: KnowledgeContextSource) -> str | None:
         """Fetch content from knowledge mound."""
         try:
             from aragora.knowledge.mound import get_knowledge_mound
@@ -879,7 +860,7 @@ class OrchestrationHandler(SecureHandler):
             logger.warning(f"Failed to fetch document context: {e}")
         return None
 
-    async def _fetch_jira_context(self, source: KnowledgeContextSource) -> Optional[str]:
+    async def _fetch_jira_context(self, source: KnowledgeContextSource) -> str | None:
         """Fetch content from a Jira issue.
 
         Note: JiraConnector requires base_url configuration. This method
@@ -910,7 +891,7 @@ class OrchestrationHandler(SecureHandler):
             logger.warning(f"Failed to fetch Jira context: {e}")
         return None
 
-    async def _select_agent_team(self, request: OrchestrationRequest) -> List[str]:
+    async def _select_agent_team(self, request: OrchestrationRequest) -> list[str]:
         """Select agent team based on strategy."""
         # If agents explicitly specified, use them
         if request.agents:
@@ -1073,11 +1054,9 @@ class OrchestrationHandler(SecureHandler):
         except Exception as e:
             logger.warning(f"Failed to send to webhook: {e}")
 
-
 # =============================================================================
 # Module Exports
 # =============================================================================
-
 
 handler = OrchestrationHandler({})
 

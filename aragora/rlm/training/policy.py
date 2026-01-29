@@ -17,10 +17,8 @@ import logging
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class PolicyState:
@@ -48,7 +46,7 @@ class PolicyState:
     # Feedback from previous iteration
     previous_confidence: float = 0.0
     previous_ready: bool = True
-    feedback: Optional[str] = None
+    feedback: str | None = None
 
     # Features for ML models
     features: dict[str, float] = field(default_factory=dict)
@@ -69,7 +67,6 @@ class PolicyState:
         extra_features = list(self.features.values())
 
         return base_features + extra_features
-
 
 class Policy(ABC):
     """Abstract base class for RLM policies."""
@@ -100,7 +97,6 @@ class Policy(ABC):
         """
         pass
 
-
 class StrategyPolicy(Policy):
     """
     Policy for selecting decomposition strategies.
@@ -111,7 +107,7 @@ class StrategyPolicy(Policy):
 
     def __init__(
         self,
-        strategies: Optional[list[str]] = None,
+        strategies: list[str] | None = None,
         default_strategy: str = "auto",
         exploration_rate: float = 0.1,
     ):
@@ -206,7 +202,6 @@ class StrategyPolicy(Policy):
         current = self._weights[strategy].get(feature, 0.0)
         self._weights[strategy][feature] = current + learning_rate * delta
 
-
 class RefinementPolicy(Policy):
     """
     Policy for deciding when to continue refinement.
@@ -269,7 +264,6 @@ class RefinementPolicy(Policy):
             "refine": 1 - accept_prob,
         }
 
-
 @dataclass
 class CompositePolicy(Policy):
     """
@@ -304,10 +298,9 @@ class CompositePolicy(Policy):
             return self.policies[self.selection_order[0]].get_action_probs(state)
         return {}
 
-    def get_policy(self, name: str) -> Optional[Policy]:
+    def get_policy(self, name: str) -> Policy | None:
         """Get a specific sub-policy."""
         return self.policies.get(name)
-
 
 __all__ = [
     "PolicyState",

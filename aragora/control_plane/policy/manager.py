@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.observability import get_logger
 
@@ -43,7 +43,6 @@ except ImportError:
     HAS_PROMETHEUS = False
     prometheus_record_policy = None  # type: ignore[assignment]  # Optional module fallback
 
-
 class ControlPlanePolicyManager:
     """
     Manages control plane policies and evaluates them for task dispatch.
@@ -65,12 +64,12 @@ class ControlPlanePolicyManager:
         Args:
             violation_callback: Optional callback for violations (e.g., audit logging)
         """
-        self._policies: Dict[str, ControlPlanePolicy] = {}
-        self._violations: List[PolicyViolation] = []
+        self._policies: dict[str, ControlPlanePolicy] = {}
+        self._violations: list[PolicyViolation] = []
         self._violation_callback = violation_callback
 
         # Metrics
-        self._metrics: Dict[str, int] = {
+        self._metrics: dict[str, int] = {
             "evaluations": 0,
             "allowed": 0,
             "denied": 0,
@@ -96,16 +95,16 @@ class ControlPlanePolicyManager:
             return True
         return False
 
-    def get_policy(self, policy_id: str) -> Optional[ControlPlanePolicy]:
+    def get_policy(self, policy_id: str) -> ControlPlanePolicy | None:
         """Get a policy by ID."""
         return self._policies.get(policy_id)
 
     def list_policies(
         self,
         enabled_only: bool = True,
-        task_type: Optional[str] = None,
-        workspace: Optional[str] = None,
-    ) -> List[ControlPlanePolicy]:
+        task_type: str | None = None,
+        workspace: str | None = None,
+    ) -> list[ControlPlanePolicy]:
         """List policies with optional filters."""
         policies = list(self._policies.values())
 
@@ -121,7 +120,7 @@ class ControlPlanePolicyManager:
         # Sort by priority (descending)
         return sorted(policies, key=lambda p: -p.priority)
 
-    def _extract_control_plane_policy(self, policy: Any) -> Optional[ControlPlanePolicy]:
+    def _extract_control_plane_policy(self, policy: Any) -> ControlPlanePolicy | None:
         """Extract a control plane policy from a compliance policy record."""
         metadata = getattr(policy, "metadata", {}) or {}
         payload = metadata.get("control_plane_policy") or metadata.get("control_plane")
@@ -168,9 +167,9 @@ class ControlPlanePolicyManager:
 
     def sync_from_compliance_store(
         self,
-        store: Optional[Any] = None,
+        store: Any | None = None,
         replace: bool = True,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> int:
         """
         Load control plane policies from the compliance policy store.
@@ -236,10 +235,10 @@ class ControlPlanePolicyManager:
         task_type: str,
         agent_id: str,
         region: str,
-        capabilities: Optional[List[str]] = None,
-        workspace: Optional[str] = None,
-        data_region: Optional[str] = None,
-        task_id: Optional[str] = None,
+        capabilities: Optional[list[str]] = None,
+        workspace: str | None = None,
+        data_region: str | None = None,
+        task_id: str | None = None,
     ) -> PolicyEvaluationResult:
         """
         Evaluate policies for a task dispatch.
@@ -382,13 +381,13 @@ class ControlPlanePolicyManager:
     def evaluate_sla_compliance(
         self,
         policy_id: str,
-        execution_seconds: Optional[float] = None,
-        queue_seconds: Optional[float] = None,
-        available_agents: Optional[int] = None,
-        task_id: Optional[str] = None,
-        task_type: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        workspace: Optional[str] = None,
+        execution_seconds: float | None = None,
+        queue_seconds: float | None = None,
+        available_agents: int | None = None,
+        task_id: str | None = None,
+        task_type: str | None = None,
+        agent_id: str | None = None,
+        workspace: str | None = None,
     ) -> PolicyEvaluationResult:
         """
         Evaluate SLA compliance for a running or completed task.
@@ -478,10 +477,10 @@ class ControlPlanePolicyManager:
         self,
         policy: ControlPlanePolicy,
         reason: str,
-        task_type: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        region: Optional[str] = None,
-        sla_violation: Optional[str] = None,
+        task_type: str | None = None,
+        agent_id: str | None = None,
+        region: str | None = None,
+        sla_violation: str | None = None,
     ) -> PolicyEvaluationResult:
         """Create a deny/warn result based on enforcement level."""
         if policy.enforcement_level == EnforcementLevel.WARN:
@@ -511,11 +510,11 @@ class ControlPlanePolicyManager:
         policy: ControlPlanePolicy,
         violation_type: str,
         description: str,
-        task_id: Optional[str] = None,
-        task_type: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        region: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        task_id: str | None = None,
+        task_type: str | None = None,
+        agent_id: str | None = None,
+        region: str | None = None,
+        workspace_id: str | None = None,
     ) -> PolicyViolation:
         """Record a policy violation."""
         self._metrics["violations"] += 1
@@ -564,10 +563,10 @@ class ControlPlanePolicyManager:
         decision: str,
         task_type: str,
         reason: str,
-        workspace_id: Optional[str] = None,
-        task_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        violations: Optional[List[str]] = None,
+        workspace_id: str | None = None,
+        task_id: str | None = None,
+        agent_id: str | None = None,
+        violations: Optional[list[str]] = None,
     ) -> None:
         """Fire audit log entry asynchronously (fire and forget)."""
         if not HAS_AUDIT or log_policy_decision is None:
@@ -614,11 +613,11 @@ class ControlPlanePolicyManager:
 
     def get_violations(
         self,
-        policy_id: Optional[str] = None,
-        violation_type: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        policy_id: str | None = None,
+        violation_type: str | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
-    ) -> List[PolicyViolation]:
+    ) -> list[PolicyViolation]:
         """Get recorded violations with optional filters."""
         violations = self._violations
 
@@ -633,7 +632,7 @@ class ControlPlanePolicyManager:
 
         return sorted(violations, key=lambda v: v.timestamp, reverse=True)[:limit]
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get policy evaluation metrics."""
         return {
             **self._metrics,
@@ -647,7 +646,7 @@ class ControlPlanePolicyManager:
         self._violations = []
         return count
 
-    def sync_from_store(self, workspace: Optional[str] = None) -> int:
+    def sync_from_store(self, workspace: str | None = None) -> int:
         """
         Sync policies from the persistent ControlPlanePolicyStore.
 

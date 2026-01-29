@@ -17,18 +17,16 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Role-Based Access Control
 # =============================================================================
-
 
 class Permission(str, Enum):
     """Knowledge Mound permissions."""
@@ -53,7 +51,6 @@ class Permission(str, Enum):
     # System permissions
     ADMIN = "admin"  # Full access
 
-
 class BuiltinRole(str, Enum):
     """Built-in role templates."""
 
@@ -63,7 +60,6 @@ class BuiltinRole(str, Enum):
     MANAGER = "manager"  # Full item access + sharing
     ADMIN = "admin"  # Full access including user management
 
-
 @dataclass
 class Role:
     """A role with associated permissions."""
@@ -71,10 +67,10 @@ class Role:
     id: str
     name: str
     description: str
-    permissions: Set[Permission]
-    workspace_id: Optional[str] = None  # None = global role
+    permissions: set[Permission]
+    workspace_id: str | None = None  # None = global role
     created_at: datetime = field(default_factory=datetime.now)
-    created_by: Optional[str] = None
+    created_by: str | None = None
     is_builtin: bool = False
 
     def has_permission(self, permission: Permission) -> bool:
@@ -83,7 +79,7 @@ class Role:
             return True
         return permission in self.permissions
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -96,7 +92,6 @@ class Role:
             "is_builtin": self.is_builtin,
         }
 
-
 @dataclass
 class RoleAssignment:
     """Assignment of a role to a user."""
@@ -104,10 +99,10 @@ class RoleAssignment:
     id: str
     user_id: str
     role_id: str
-    workspace_id: Optional[str] = None  # None = global assignment
+    workspace_id: str | None = None  # None = global assignment
     assigned_at: datetime = field(default_factory=datetime.now)
-    assigned_by: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    assigned_by: str | None = None
+    expires_at: datetime | None = None
 
     def is_expired(self) -> bool:
         """Check if assignment has expired."""
@@ -115,7 +110,7 @@ class RoleAssignment:
             return False
         return datetime.now() > self.expires_at
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -127,9 +122,8 @@ class RoleAssignment:
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
         }
 
-
 # Built-in role definitions
-BUILTIN_ROLES: Dict[BuiltinRole, Role] = {
+BUILTIN_ROLES: dict[BuiltinRole, Role] = {
     BuiltinRole.VIEWER: Role(
         id="builtin:viewer",
         name="Viewer",
@@ -175,15 +169,14 @@ BUILTIN_ROLES: Dict[BuiltinRole, Role] = {
     ),
 }
 
-
 class RBACManager:
     """Manages role-based access control."""
 
     def __init__(self):
         """Initialize RBAC manager."""
-        self._roles: Dict[str, Role] = {}
-        self._assignments: Dict[str, RoleAssignment] = {}
-        self._user_roles: Dict[str, Set[str]] = {}  # user_id -> role_ids
+        self._roles: dict[str, Role] = {}
+        self._assignments: dict[str, RoleAssignment] = {}
+        self._user_roles: dict[str, set[str]] = {}  # user_id -> role_ids
         self._lock = asyncio.Lock()
 
         # Initialize builtin roles
@@ -193,10 +186,10 @@ class RBACManager:
     async def create_role(
         self,
         name: str,
-        permissions: Set[Permission],
+        permissions: set[Permission],
         description: str = "",
-        workspace_id: Optional[str] = None,
-        created_by: Optional[str] = None,
+        workspace_id: str | None = None,
+        created_by: str | None = None,
     ) -> Role:
         """Create a new custom role.
 
@@ -231,9 +224,9 @@ class RBACManager:
         self,
         user_id: str,
         role_id: str,
-        workspace_id: Optional[str] = None,
-        assigned_by: Optional[str] = None,
-        expires_at: Optional[datetime] = None,
+        workspace_id: str | None = None,
+        assigned_by: str | None = None,
+        expires_at: datetime | None = None,
     ) -> RoleAssignment:
         """Assign a role to a user.
 
@@ -275,7 +268,7 @@ class RBACManager:
         self,
         user_id: str,
         role_id: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> bool:
         """Revoke a role from a user.
 
@@ -312,7 +305,7 @@ class RBACManager:
         self,
         user_id: str,
         permission: Permission,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> bool:
         """Check if user has a permission.
 
@@ -345,8 +338,8 @@ class RBACManager:
     async def get_user_permissions(
         self,
         user_id: str,
-        workspace_id: Optional[str] = None,
-    ) -> Set[Permission]:
+        workspace_id: str | None = None,
+    ) -> set[Permission]:
         """Get all permissions for a user.
 
         Args:
@@ -356,7 +349,7 @@ class RBACManager:
         Returns:
             Set of permissions
         """
-        permissions: Set[Permission] = set()
+        permissions: set[Permission] = set()
 
         async with self._lock:
             role_ids = self._user_roles.get(user_id, set())
@@ -380,8 +373,8 @@ class RBACManager:
     async def get_user_roles(
         self,
         user_id: str,
-        workspace_id: Optional[str] = None,
-    ) -> List[Role]:
+        workspace_id: str | None = None,
+    ) -> list[Role]:
         """Get all roles for a user."""
         async with self._lock:
             role_ids = self._user_roles.get(user_id, set())
@@ -398,11 +391,9 @@ class RBACManager:
 
             return roles
 
-
 # =============================================================================
 # Audit Trail
 # =============================================================================
-
 
 class AuditAction(str, Enum):
     """Auditable actions in Knowledge Mound."""
@@ -432,7 +423,6 @@ class AuditAction(str, Enum):
     IMPORT = "import"
     BULK_DELETE = "bulk_delete"
 
-
 @dataclass
 class AuditEntry:
     """An entry in the audit trail."""
@@ -442,15 +432,15 @@ class AuditEntry:
     actor_id: str  # User who performed action
     resource_type: str  # Type of resource affected
     resource_id: str  # ID of resource affected
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
-    details: Dict[str, Any] = field(default_factory=dict)
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
+    details: dict[str, Any] = field(default_factory=dict)
+    ip_address: str | None = None
+    user_agent: str | None = None
     success: bool = True
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -467,7 +457,6 @@ class AuditEntry:
             "error_message": self.error_message,
         }
 
-
 class AuditTrail:
     """Manages audit trail logging with optional persistent storage."""
 
@@ -475,7 +464,7 @@ class AuditTrail:
         self,
         max_entries: int = 100000,
         enable_persistence: bool = True,
-        db_path: Optional[str] = None,
+        db_path: str | None = None,
     ):
         """Initialize audit trail.
 
@@ -484,7 +473,7 @@ class AuditTrail:
             enable_persistence: Enable SQLite persistence (default True)
             db_path: Optional custom database path
         """
-        self._entries: List[AuditEntry] = []
+        self._entries: list[AuditEntry] = []
         self._max_entries = max_entries
         self._lock = asyncio.Lock()
         self._enable_persistence = enable_persistence
@@ -589,12 +578,12 @@ class AuditTrail:
         actor_id: str,
         resource_type: str,
         resource_id: str,
-        workspace_id: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        workspace_id: str | None = None,
+        details: Optional[dict[str, Any]] = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
         success: bool = True,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> AuditEntry:
         """Log an audit entry.
 
@@ -645,18 +634,18 @@ class AuditTrail:
 
     async def query(
         self,
-        actor_id: Optional[str] = None,
-        action: Optional[AuditAction] = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        actor_id: str | None = None,
+        action: AuditAction | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        workspace_id: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         success_only: bool = False,
         limit: int = 100,
         offset: int = 0,
         from_database: bool = True,
-    ) -> List[AuditEntry]:
+    ) -> list[AuditEntry]:
         """Query audit entries.
 
         Args:
@@ -727,17 +716,17 @@ class AuditTrail:
 
     async def _query_from_db(
         self,
-        actor_id: Optional[str] = None,
-        action: Optional[AuditAction] = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        actor_id: str | None = None,
+        action: AuditAction | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        workspace_id: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         success_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> Optional[List[AuditEntry]]:
+    ) -> Optional[list[AuditEntry]]:
         """Query entries from the database."""
         await self._ensure_db()
         if not self._db_initialized:
@@ -748,7 +737,7 @@ class AuditTrail:
             import json
 
             conditions = []
-            params: List[Any] = []
+            params: list[Any] = []
 
             if actor_id:
                 conditions.append("actor_id = ?")
@@ -815,7 +804,7 @@ class AuditTrail:
         self,
         user_id: str,
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get activity summary for a user.
 
         Args:
@@ -834,8 +823,8 @@ class AuditTrail:
             start_time=start_time,
         )
 
-        by_action: Dict[str, int] = {}
-        by_resource: Dict[str, int] = {}
+        by_action: dict[str, int] = {}
+        by_resource: dict[str, int] = {}
 
         for entry in entries:
             by_action[entry.action.value] = by_action.get(entry.action.value, 0) + 1
@@ -850,10 +839,10 @@ class AuditTrail:
             "success_rate": sum(1 for e in entries if e.success) / len(entries) if entries else 1.0,
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get audit trail statistics."""
-        by_action: Dict[str, int] = {}
-        by_resource: Dict[str, int] = {}
+        by_action: dict[str, int] = {}
+        by_resource: dict[str, int] = {}
         failures = 0
 
         for entry in self._entries:
@@ -872,17 +861,15 @@ class AuditTrail:
             ),
         }
 
-
 # =============================================================================
 # Governance Mixin
 # =============================================================================
 
-
 class GovernanceMixin:
     """Mixin for governance operations on KnowledgeMound."""
 
-    _rbac_manager: Optional[RBACManager] = None
-    _audit_trail: Optional[AuditTrail] = None
+    _rbac_manager: RBACManager | None = None
+    _audit_trail: AuditTrail | None = None
 
     def _get_rbac_manager(self) -> RBACManager:
         """Get or create RBAC manager."""
@@ -900,10 +887,10 @@ class GovernanceMixin:
     async def create_role(
         self,
         name: str,
-        permissions: Set[Permission],
+        permissions: set[Permission],
         description: str = "",
-        workspace_id: Optional[str] = None,
-        created_by: Optional[str] = None,
+        workspace_id: str | None = None,
+        created_by: str | None = None,
     ) -> Role:
         """Create a new role."""
         return await self._get_rbac_manager().create_role(
@@ -914,8 +901,8 @@ class GovernanceMixin:
         self,
         user_id: str,
         role_id: str,
-        workspace_id: Optional[str] = None,
-        assigned_by: Optional[str] = None,
+        workspace_id: str | None = None,
+        assigned_by: str | None = None,
     ) -> RoleAssignment:
         """Assign a role to a user."""
         return await self._get_rbac_manager().assign_role(
@@ -926,7 +913,7 @@ class GovernanceMixin:
         self,
         user_id: str,
         role_id: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> bool:
         """Revoke a role from a user."""
         return await self._get_rbac_manager().revoke_role(user_id, role_id, workspace_id)
@@ -935,7 +922,7 @@ class GovernanceMixin:
         self,
         user_id: str,
         permission: Permission,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> bool:
         """Check if user has a permission."""
         return await self._get_rbac_manager().check_permission(user_id, permission, workspace_id)
@@ -943,8 +930,8 @@ class GovernanceMixin:
     async def get_user_permissions(
         self,
         user_id: str,
-        workspace_id: Optional[str] = None,
-    ) -> Set[Permission]:
+        workspace_id: str | None = None,
+    ) -> set[Permission]:
         """Get all permissions for a user."""
         return await self._get_rbac_manager().get_user_permissions(user_id, workspace_id)
 
@@ -955,8 +942,8 @@ class GovernanceMixin:
         actor_id: str,
         resource_type: str,
         resource_id: str,
-        workspace_id: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        workspace_id: str | None = None,
+        details: Optional[dict[str, Any]] = None,
         success: bool = True,
     ) -> AuditEntry:
         """Log an audit entry."""
@@ -972,11 +959,11 @@ class GovernanceMixin:
 
     async def query_audit(
         self,
-        actor_id: Optional[str] = None,
-        action: Optional[AuditAction] = None,
-        workspace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        action: AuditAction | None = None,
+        workspace_id: str | None = None,
         limit: int = 100,
-    ) -> List[AuditEntry]:
+    ) -> list[AuditEntry]:
         """Query audit entries."""
         return await self._get_audit_trail().query(
             actor_id=actor_id,
@@ -989,21 +976,19 @@ class GovernanceMixin:
         self,
         user_id: str,
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get activity summary for a user."""
         return await self._get_audit_trail().get_user_activity(user_id, days)
 
-    def get_governance_stats(self) -> Dict[str, Any]:
+    def get_governance_stats(self) -> dict[str, Any]:
         """Get governance statistics."""
         return {
             "audit": self._get_audit_trail().get_stats(),
         }
 
-
 # Singleton instances
-_rbac_manager: Optional[RBACManager] = None
-_audit_trail: Optional[AuditTrail] = None
-
+_rbac_manager: RBACManager | None = None
+_audit_trail: AuditTrail | None = None
 
 def get_rbac_manager() -> RBACManager:
     """Get the global RBAC manager instance."""
@@ -1011,7 +996,6 @@ def get_rbac_manager() -> RBACManager:
     if _rbac_manager is None:
         _rbac_manager = RBACManager()
     return _rbac_manager
-
 
 def get_audit_trail() -> AuditTrail:
     """Get the global audit trail instance."""

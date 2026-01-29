@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -64,7 +64,6 @@ _shared_debate_store = None
 
 MAX_TOPIC_LENGTH = 200
 
-
 def get_pulse_manager():
     """Get or create the shared PulseManager singleton.
 
@@ -95,7 +94,6 @@ def get_pulse_manager():
                     return None
     return _shared_pulse_manager
 
-
 def get_scheduled_debate_store():
     """Get or create the shared ScheduledDebateStore singleton."""
     global _shared_debate_store
@@ -112,7 +110,6 @@ def get_scheduled_debate_store():
                     logger.warning(f"Failed to initialize ScheduledDebateStore: {e}")
                     return None
     return _shared_debate_store
-
 
 def get_pulse_scheduler():
     """Get or create the shared PulseDebateScheduler singleton.
@@ -171,7 +168,6 @@ def get_pulse_scheduler():
                     return None
     return _shared_scheduler
 
-
 class PulseHandler(BaseHandler):
     """Handler for pulse/trending topic endpoints."""
 
@@ -194,7 +190,7 @@ class PulseHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("pulse:read")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route pulse requests to appropriate methods."""
         logger.debug(f"Pulse request: {path} params={query_params}")
         if path == "/api/v1/pulse/trending":
@@ -391,7 +387,7 @@ class PulseHandler(BaseHandler):
         return json_response(analytics)
 
     @require_permission("pulse:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle POST requests for pulse endpoints."""
         if path == "/api/v1/pulse/debate-topic":
             return self._start_debate_on_topic(handler)
@@ -406,7 +402,7 @@ class PulseHandler(BaseHandler):
         return None
 
     @require_permission("pulse:update")
-    def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_patch(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle PATCH requests for pulse endpoints."""
         if path == "/api/v1/pulse/scheduler/config":
             return self._update_scheduler_config(handler)

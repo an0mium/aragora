@@ -11,11 +11,11 @@ Usage:
         adapter_name = "my_adapter"
         source_type = "my_source"  # For SemanticStore
 
-        def _get_record_by_id(self, record_id: str) -> Optional[Any]:
+        def _get_record_by_id(self, record_id: str) -> Any | None:
             # Return the full record from your source system
             return self._source.get(record_id)
 
-        def _record_to_dict(self, record: Any) -> Dict[str, Any]:
+        def _record_to_dict(self, record: Any) -> dict[str, Any]:
             # Convert your record to a dictionary
             return record.to_dict()
 """
@@ -25,13 +25,12 @@ from __future__ import annotations
 import logging
 import time
 from abc import abstractmethod
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass  # SemanticStore import for type hints
 
 logger = logging.getLogger(__name__)
-
 
 class SemanticSearchMixin:
     """Mixin providing semantic vector search for adapters.
@@ -61,12 +60,12 @@ class SemanticSearchMixin:
         """Expected from KnowledgeMoundAdapter."""
         pass  # Will be provided by base class
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Expected from KnowledgeMoundAdapter."""
         pass  # Will be provided by base class
 
     @abstractmethod
-    def _get_record_by_id(self, record_id: str) -> Optional[Any]:
+    def _get_record_by_id(self, record_id: str) -> Any | None:
         """Get a full record by its ID from the source system.
 
         Args:
@@ -78,7 +77,7 @@ class SemanticSearchMixin:
         raise NotImplementedError
 
     @abstractmethod
-    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> Dict[str, Any]:
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> dict[str, Any]:
         """Convert a record to a dictionary for API responses.
 
         Args:
@@ -109,9 +108,9 @@ class SemanticSearchMixin:
         query: str,
         limit: int = 10,
         min_similarity: float = 0.6,
-        tenant_id: Optional[str] = None,
-        fallback_fn: Optional[Callable[..., List[Dict[str, Any]]]] = None,
-    ) -> List[Dict[str, Any]]:
+        tenant_id: str | None = None,
+        fallback_fn: Optional[Callable[..., list[dict[str, Any]]]] = None,
+    ) -> list[dict[str, Any]]:
         """Perform semantic vector search over records.
 
         Uses the Knowledge Mound's SemanticStore for embedding-based similarity
@@ -178,7 +177,7 @@ class SemanticSearchMixin:
                 logger.debug(f"[{self.adapter_name}] Semantic search failed, falling back: {e}")
 
             # Fallback to keyword search
-            fallback_results: List[Dict[str, Any]]
+            fallback_results: list[dict[str, Any]]
             if fallback_fn:
                 fallback_results = fallback_fn(query, limit=limit, min_confidence=min_similarity)
             elif hasattr(self, "search_similar"):
@@ -194,7 +193,7 @@ class SemanticSearchMixin:
         finally:
             self._record_metric("semantic_search", success, time.time() - start)
 
-    def _enrich_semantic_results(self, results: List[Any]) -> List[Dict[str, Any]]:
+    def _enrich_semantic_results(self, results: list[Any]) -> list[dict[str, Any]]:
         """Enrich semantic search results with full record data.
 
         Args:
@@ -227,6 +226,5 @@ class SemanticSearchMixin:
                 )
 
         return enriched
-
 
 __all__ = ["SemanticSearchMixin"]

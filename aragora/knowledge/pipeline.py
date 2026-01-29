@@ -52,7 +52,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional
 
 from aragora.documents.chunking import (
     ChunkingConfig,
@@ -100,7 +100,6 @@ except ImportError:
     UNSTRUCTURED_AVAILABLE = False
     UnstructuredParser = None  # type: ignore[misc]  # Optional module fallback
 
-
 @dataclass
 class PipelineConfig:
     """Configuration for the knowledge pipeline."""
@@ -111,28 +110,27 @@ class PipelineConfig:
     # Chunking
     chunk_size: int = 512
     chunk_overlap: int = 50
-    chunking_strategy: Optional[str] = None  # Auto-select if None
+    chunking_strategy: str | None = None  # Auto-select if None
 
     # Embedding
     use_weaviate: bool = False
     weaviate_url: str = "http://localhost:8080"
-    weaviate_api_key: Optional[str] = None
+    weaviate_api_key: str | None = None
 
     # Fact extraction
     extract_facts: bool = True
     min_fact_confidence: float = 0.5
 
     # Storage
-    fact_db_path: Optional[Path] = None
+    fact_db_path: Path | None = None
 
     # Knowledge Mound integration
     use_knowledge_mound: bool = False
-    mound_config: Optional[Any] = None  # MoundConfig if available
+    mound_config: Any | None = None  # MoundConfig if available
 
     # Concurrency
     max_concurrent_embeddings: int = 10
     embedding_batch_size: int = 100
-
 
 @dataclass
 class ProcessingResult:
@@ -147,8 +145,8 @@ class ProcessingResult:
     total_tokens: int
     duration_ms: int
     success: bool
-    error: Optional[str] = None
-    document: Optional[IngestedDocument] = None
+    error: str | None = None
+    document: IngestedDocument | None = None
     chunks: list[DocumentChunk] = field(default_factory=list)
     facts: list[Fact] = field(default_factory=list)
 
@@ -167,7 +165,6 @@ class ProcessingResult:
             "error": self.error,
         }
 
-
 class KnowledgePipeline:
     """
     End-to-end document processing pipeline for enterprise knowledge management.
@@ -178,13 +175,13 @@ class KnowledgePipeline:
 
     def __init__(
         self,
-        config: Optional[PipelineConfig] = None,
-        fact_store: Optional[Union[FactStore, InMemoryFactStore]] = None,
+        config: PipelineConfig | None = None,
+        fact_store: Optional[FactStore | InMemoryFactStore] = None,
         embedding_service: Optional[
-            Union[WeaviateEmbeddingService, InMemoryEmbeddingService]
+            WeaviateEmbeddingService | InMemoryEmbeddingService
         ] = None,
-        agents: Optional[list] = None,
-        knowledge_mound: Optional[Any] = None,  # KnowledgeMound if available
+        agents: list | None = None,
+        knowledge_mound: Any | None = None,  # KnowledgeMound if available
     ):
         """
         Initialize the knowledge pipeline.
@@ -202,11 +199,11 @@ class KnowledgePipeline:
         self._fact_store = fact_store
         self._embedding_service = embedding_service
         self._agents = agents or []
-        self._query_engine: Optional[Union[DatasetQueryEngine, SimpleQueryEngine]] = None
+        self._query_engine: Optional[DatasetQueryEngine | SimpleQueryEngine] = None
         self._knowledge_mound = knowledge_mound
 
         # Parser
-        self._parser: Optional[Any] = None
+        self._parser: Any | None = None
 
         # State
         self._running = False
@@ -321,8 +318,8 @@ class KnowledgePipeline:
         self,
         content: bytes,
         filename: str,
-        tags: Optional[list[str]] = None,
-        extract_facts: Optional[bool] = None,
+        tags: list[str] | None = None,
+        extract_facts: bool | None = None,
     ) -> ProcessingResult:
         """
         Process a single document through the pipeline.
@@ -418,7 +415,7 @@ class KnowledgePipeline:
     async def process_batch(
         self,
         files: list[tuple[bytes, str]],
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> list[ProcessingResult]:
         """
         Process multiple documents.
@@ -441,7 +438,7 @@ class KnowledgePipeline:
         content: bytes,
         filename: str,
         document_id: str,
-        tags: Optional[list[str]],
+        tags: list[str] | None,
     ) -> tuple[IngestedDocument, str]:
         """Parse document content and extract text."""
         if self._parser and UNSTRUCTURED_AVAILABLE:
@@ -601,7 +598,7 @@ Include dates, numbers, names, and specific claims where possible."""
         document: IngestedDocument,
         chunks: list[DocumentChunk],
         facts: list[Fact],
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> int:
         """
         Sync document, chunks, and facts to the Knowledge Mound.
@@ -688,7 +685,7 @@ Include dates, numbers, names, and specific claims where possible."""
     async def query(
         self,
         question: str,
-        options: Optional[QueryOptions] = None,
+        options: QueryOptions | None = None,
         use_mound: bool = True,
     ) -> QueryResult:
         """
@@ -739,7 +736,7 @@ Include dates, numbers, names, and specific claims where possible."""
         self,
         query: str,
         limit: int = 20,
-        sources: Optional[list[str]] = None,
+        sources: list[str] | None = None,
     ) -> Any:
         """
         Query the Knowledge Mound directly for unified cross-source search.
@@ -791,7 +788,7 @@ Include dates, numbers, names, and specific claims where possible."""
 
     async def get_facts(
         self,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 50,
         min_confidence: float = 0.0,
     ) -> list[Fact]:
@@ -835,7 +832,7 @@ Include dates, numbers, names, and specific claims where possible."""
         if self._fact_store:
             fact_stats = self._fact_store.get_statistics(self.config.workspace_id)
 
-        mound_stats: Dict[str, Any] = {}
+        mound_stats: dict[str, Any] = {}
         if self._knowledge_mound:
             try:
                 # Sync call - stats are usually lightweight
@@ -921,14 +918,13 @@ Include dates, numbers, names, and specific claims where possible."""
         """Get the Knowledge Mound instance (if available)."""
         return self._knowledge_mound
 
-
 # Convenience function
 async def create_pipeline(
     workspace_id: str,
     use_weaviate: bool = False,
     weaviate_url: str = "http://localhost:8080",
     use_knowledge_mound: bool = False,
-    mound_config: Optional[Any] = None,
+    mound_config: Any | None = None,
 ) -> KnowledgePipeline:
     """
     Create and start a knowledge pipeline.

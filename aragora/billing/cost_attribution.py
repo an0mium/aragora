@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 from aragora.observability import get_logger
@@ -25,7 +25,6 @@ if TYPE_CHECKING:
     from aragora.billing.cost_tracker import CostTracker
 
 logger = get_logger(__name__)
-
 
 class AttributionLevel(str, Enum):
     """Levels of cost attribution."""
@@ -38,7 +37,6 @@ class AttributionLevel(str, Enum):
     TEAM = "team"
     PROJECT = "project"
 
-
 class AllocationMethod(str, Enum):
     """Methods for allocating shared costs."""
 
@@ -46,7 +44,6 @@ class AllocationMethod(str, Enum):
     PROPORTIONAL = "proportional"  # Distribute based on usage proportion
     EQUAL = "equal"  # Split equally among entities
     WEIGHTED = "weighted"  # Use custom weights
-
 
 @dataclass
 class CostAllocation:
@@ -60,8 +57,7 @@ class CostAllocation:
     api_calls: int = 0
     allocation_method: AllocationMethod = AllocationMethod.DIRECT
     allocation_weight: float = 1.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AttributionEntry:
@@ -86,19 +82,19 @@ class AttributionEntry:
     agent_name: str = ""
 
     # Attribution targets
-    user_id: Optional[str] = None
-    task_id: Optional[str] = None
-    debate_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    org_id: Optional[str] = None
-    team_id: Optional[str] = None
-    project_id: Optional[str] = None
+    user_id: str | None = None
+    task_id: str | None = None
+    debate_id: str | None = None
+    workspace_id: str | None = None
+    org_id: str | None = None
+    team_id: str | None = None
+    project_id: str | None = None
 
     # Additional context
     operation: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -123,7 +119,6 @@ class AttributionEntry:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class AttributionSummary:
     """Summary of costs for an entity."""
@@ -140,19 +135,19 @@ class AttributionSummary:
     total_api_calls: int = 0
 
     # Breakdowns
-    cost_by_model: Dict[str, Decimal] = field(default_factory=dict)
-    cost_by_provider: Dict[str, Decimal] = field(default_factory=dict)
-    cost_by_agent: Dict[str, Decimal] = field(default_factory=dict)
-    cost_by_operation: Dict[str, Decimal] = field(default_factory=dict)
+    cost_by_model: dict[str, Decimal] = field(default_factory=dict)
+    cost_by_provider: dict[str, Decimal] = field(default_factory=dict)
+    cost_by_agent: dict[str, Decimal] = field(default_factory=dict)
+    cost_by_operation: dict[str, Decimal] = field(default_factory=dict)
 
     # Time series
-    daily_costs: List[Dict[str, Any]] = field(default_factory=list)
+    daily_costs: list[dict[str, Any]] = field(default_factory=list)
 
     # Derived metrics
     avg_cost_per_call: Decimal = Decimal("0")
     avg_tokens_per_call: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "entity_id": self.entity_id,
@@ -172,7 +167,6 @@ class AttributionSummary:
             "avg_tokens_per_call": self.avg_tokens_per_call,
         }
 
-
 @dataclass
 class ChargebackReport:
     """Chargeback report for billing purposes."""
@@ -183,25 +177,25 @@ class ChargebackReport:
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Scope
-    org_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    org_id: str | None = None
+    workspace_id: str | None = None
 
     # Totals
     total_cost_usd: Decimal = Decimal("0")
 
     # Allocations by entity
-    allocations_by_user: Dict[str, CostAllocation] = field(default_factory=dict)
-    allocations_by_team: Dict[str, CostAllocation] = field(default_factory=dict)
-    allocations_by_project: Dict[str, CostAllocation] = field(default_factory=dict)
+    allocations_by_user: dict[str, CostAllocation] = field(default_factory=dict)
+    allocations_by_team: dict[str, CostAllocation] = field(default_factory=dict)
+    allocations_by_project: dict[str, CostAllocation] = field(default_factory=dict)
 
     # Shared costs
     shared_costs_usd: Decimal = Decimal("0")
     shared_cost_allocation_method: AllocationMethod = AllocationMethod.PROPORTIONAL
 
     # Metadata
-    notes: List[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -240,7 +234,6 @@ class ChargebackReport:
             "notes": self.notes,
         }
 
-
 class CostAttributor:
     """
     Tracks and attributes costs at multiple levels.
@@ -269,10 +262,10 @@ class CostAttributor:
         self._max_entries = max_entries
 
         # Attribution entries (most recent)
-        self._entries: List[AttributionEntry] = []
+        self._entries: list[AttributionEntry] = []
 
         # Aggregated stats by entity
-        self._user_costs: Dict[str, Dict[str, Any]] = defaultdict(
+        self._user_costs: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "total_cost": Decimal("0"),
                 "tokens_in": 0,
@@ -282,7 +275,7 @@ class CostAttributor:
                 "by_agent": defaultdict(lambda: Decimal("0")),
             }
         )
-        self._task_costs: Dict[str, Dict[str, Any]] = defaultdict(
+        self._task_costs: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "total_cost": Decimal("0"),
                 "tokens_in": 0,
@@ -292,13 +285,13 @@ class CostAttributor:
                 "workspace_id": None,
             }
         )
-        self._team_costs: Dict[str, Dict[str, Any]] = defaultdict(
+        self._team_costs: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "total_cost": Decimal("0"),
                 "members": set(),
             }
         )
-        self._project_costs: Dict[str, Dict[str, Any]] = defaultdict(
+        self._project_costs: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "total_cost": Decimal("0"),
                 "tasks": set(),
@@ -306,10 +299,10 @@ class CostAttributor:
         )
 
         # User-to-team mapping
-        self._user_teams: Dict[str, str] = {}
+        self._user_teams: dict[str, str] = {}
 
         # Task-to-project mapping
-        self._task_projects: Dict[str, str] = {}
+        self._task_projects: dict[str, str] = {}
 
         logger.info("CostAttributor initialized", max_entries=max_entries)
 
@@ -336,15 +329,15 @@ class CostAttributor:
         model: str = "",
         agent_id: str = "",
         agent_name: str = "",
-        user_id: Optional[str] = None,
-        task_id: Optional[str] = None,
-        debate_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        org_id: Optional[str] = None,
+        user_id: str | None = None,
+        task_id: str | None = None,
+        debate_id: str | None = None,
+        workspace_id: str | None = None,
+        org_id: str | None = None,
         operation: str = "",
         source_type: str = "api_call",
         source_id: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> AttributionEntry:
         """
         Record a cost and attribute it to relevant entities.
@@ -450,8 +443,8 @@ class CostAttributor:
     def get_user_summary(
         self,
         user_id: str,
-        period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None,
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
     ) -> AttributionSummary:
         """
         Get cost summary for a user.
@@ -493,7 +486,7 @@ class CostAttributor:
             ) / summary.total_api_calls
 
         # Calculate daily costs from entries
-        daily_totals: Dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+        daily_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
         for entry in self._entries:
             if entry.user_id == user_id:
                 if period_start <= entry.timestamp <= period_end:
@@ -506,7 +499,7 @@ class CostAttributor:
 
         return summary
 
-    def get_task_summary(self, task_id: str) -> Dict[str, Any]:
+    def get_task_summary(self, task_id: str) -> dict[str, Any]:
         """
         Get cost summary for a task.
 
@@ -532,9 +525,9 @@ class CostAttributor:
     def get_team_summary(
         self,
         team_id: str,
-        period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Get cost summary for a team.
 
@@ -565,7 +558,7 @@ class CostAttributor:
             "member_costs": member_costs,
         }
 
-    def get_project_summary(self, project_id: str) -> Dict[str, Any]:
+    def get_project_summary(self, project_id: str) -> dict[str, Any]:
         """
         Get cost summary for a project.
 
@@ -593,10 +586,10 @@ class CostAttributor:
 
     def generate_chargeback_report(
         self,
-        workspace_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None,
+        workspace_id: str | None = None,
+        org_id: str | None = None,
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
         allocation_method: AllocationMethod = AllocationMethod.DIRECT,
     ) -> ChargebackReport:
         """
@@ -636,9 +629,9 @@ class CostAttributor:
                 relevant_entries.append(entry)
 
         # Calculate allocations
-        user_allocations: Dict[str, CostAllocation] = {}
-        team_allocations: Dict[str, CostAllocation] = {}
-        project_allocations: Dict[str, CostAllocation] = {}
+        user_allocations: dict[str, CostAllocation] = {}
+        team_allocations: dict[str, CostAllocation] = {}
+        project_allocations: dict[str, CostAllocation] = {}
         shared_cost = Decimal("0")
 
         for entry in relevant_entries:
@@ -718,9 +711,9 @@ class CostAttributor:
 
     def get_top_users_by_cost(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get top users by cost.
 
@@ -763,7 +756,7 @@ class CostAttributor:
         entity_id: str,
         granularity: str = "daily",
         period_days: int = 30,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get cost trends over time for an entity.
 
@@ -780,7 +773,7 @@ class CostAttributor:
         period_start = period_end - timedelta(days=period_days)
 
         # Aggregate by time bucket
-        buckets: Dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+        buckets: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
         for entry in self._entries:
             if period_start <= entry.timestamp <= period_end:
@@ -806,7 +799,6 @@ class CostAttributor:
         return [
             {"period": period, "cost_usd": str(cost)} for period, cost in sorted(buckets.items())
         ]
-
 
 # Factory function for easy instantiation
 def create_cost_attributor(

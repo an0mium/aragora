@@ -38,7 +38,7 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,6 @@ DEFAULT_TTL_SECONDS = int(os.environ.get("ARAGORA_ORIGIN_TTL", 86400))
 
 # Maximum LRU cache size
 MAX_CACHE_SIZE = int(os.environ.get("ARAGORA_ORIGIN_CACHE_SIZE", 10000))
-
 
 @dataclass
 class OriginRecord:
@@ -59,12 +58,12 @@ class OriginRecord:
     channel_id: str
     user_id: str
     created_at: float = field(default_factory=time.time)
-    expires_at: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    thread_id: Optional[str] = None
-    message_id: Optional[str] = None
+    expires_at: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    thread_id: str | None = None
+    message_id: str | None = None
     result_sent: bool = False
-    result_sent_at: Optional[float] = None
+    result_sent_at: float | None = None
 
     def __post_init__(self):
         if self.expires_at is None:
@@ -74,7 +73,7 @@ class OriginRecord:
         """Check if this origin has expired."""
         return self.expires_at is not None and time.time() > self.expires_at
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "origin_id": self.origin_id,
             "origin_type": self.origin_type,
@@ -91,7 +90,7 @@ class OriginRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OriginRecord":
+    def from_dict(cls, data: dict[str, Any]) -> "OriginRecord":
         return cls(
             origin_id=data["origin_id"],
             origin_type=data["origin_type"],
@@ -107,7 +106,6 @@ class OriginRecord:
             result_sent_at=data.get("result_sent_at"),
         )
 
-
 class PersistentOriginStore:
     """
     Persistent origin store with PostgreSQL primary and SQLite fallback.
@@ -119,7 +117,7 @@ class PersistentOriginStore:
 
     def __init__(
         self,
-        database_url: Optional[str] = None,
+        database_url: str | None = None,
         cache_size: int = MAX_CACHE_SIZE,
     ):
         """
@@ -135,13 +133,13 @@ class PersistentOriginStore:
         self._database_url = database_url
         self._cache_size = cache_size
         self._initialized = False
-        self._pool: Optional[Any] = None  # asyncpg.Pool when using PostgreSQL
-        self._sqlite_path: Optional[str] = None
+        self._pool: Any | None = None  # asyncpg.Pool when using PostgreSQL
+        self._sqlite_path: str | None = None
         self._use_postgres = False
 
         # In-memory LRU cache: origin_id -> OriginRecord
-        self._cache: Dict[str, OriginRecord] = {}
-        self._cache_order: List[str] = []  # For LRU eviction
+        self._cache: dict[str, OriginRecord] = {}
+        self._cache_order: list[str] = []  # For LRU eviction
 
     async def initialize(self) -> None:
         """Initialize database connection and schema."""
@@ -283,10 +281,10 @@ class PersistentOriginStore:
         platform: str,
         channel_id: str,
         user_id: str,
-        thread_id: Optional[str] = None,
-        message_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        ttl_seconds: Optional[int] = None,
+        thread_id: str | None = None,
+        message_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        ttl_seconds: int | None = None,
     ) -> OriginRecord:
         """
         Register a new routing origin.
@@ -336,7 +334,7 @@ class PersistentOriginStore:
         logger.debug(f"Registered origin {origin_id} ({origin_type}) from {platform}")
         return origin
 
-    async def get_origin(self, origin_id: str) -> Optional[OriginRecord]:
+    async def get_origin(self, origin_id: str) -> OriginRecord | None:
         """
         Get an origin by ID.
 
@@ -370,7 +368,7 @@ class PersistentOriginStore:
     async def mark_result_sent(
         self,
         origin_id: str,
-        result_data: Optional[Dict[str, Any]] = None,
+        result_data: Optional[dict[str, Any]] = None,
     ) -> bool:
         """
         Mark that the result has been sent for an origin.
@@ -407,10 +405,10 @@ class PersistentOriginStore:
 
     async def list_pending(
         self,
-        origin_type: Optional[str] = None,
-        platform: Optional[str] = None,
+        origin_type: str | None = None,
+        platform: str | None = None,
         limit: int = 100,
-    ) -> List[OriginRecord]:
+    ) -> list[OriginRecord]:
         """
         List origins that haven't had results sent yet.
 
@@ -489,7 +487,7 @@ class PersistentOriginStore:
                 origin.result_sent_at,
             )
 
-    async def _load_postgres(self, origin_id: str) -> Optional[OriginRecord]:
+    async def _load_postgres(self, origin_id: str) -> OriginRecord | None:
         """Load origin from PostgreSQL."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -523,8 +521,8 @@ class PersistentOriginStore:
         return None
 
     async def _list_pending_postgres(
-        self, origin_type: Optional[str], platform: Optional[str], limit: int
-    ) -> List[OriginRecord]:
+        self, origin_type: str | None, platform: str | None, limit: int
+    ) -> list[OriginRecord]:
         """List pending origins from PostgreSQL."""
         conditions = ["result_sent = FALSE", "expires_at > NOW()"]
         params: list[str | int] = []
@@ -616,12 +614,12 @@ class PersistentOriginStore:
         conn.commit()
         conn.close()
 
-    async def _load_sqlite(self, origin_id: str) -> Optional[OriginRecord]:
+    async def _load_sqlite(self, origin_id: str) -> OriginRecord | None:
         """Load origin from SQLite."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._load_sqlite_sync, origin_id)
 
-    def _load_sqlite_sync(self, origin_id: str) -> Optional[OriginRecord]:
+    def _load_sqlite_sync(self, origin_id: str) -> OriginRecord | None:
         """Synchronous SQLite load."""
         conn = sqlite3.connect(self._sqlite_path)
         cursor = conn.execute("SELECT * FROM routing_origins WHERE origin_id = ?", (origin_id,))
@@ -647,8 +645,8 @@ class PersistentOriginStore:
         return None
 
     async def _list_pending_sqlite(
-        self, origin_type: Optional[str], platform: Optional[str], limit: int
-    ) -> List[OriginRecord]:
+        self, origin_type: str | None, platform: str | None, limit: int
+    ) -> list[OriginRecord]:
         """List pending origins from SQLite."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -656,13 +654,13 @@ class PersistentOriginStore:
         )
 
     def _list_pending_sqlite_sync(
-        self, origin_type: Optional[str], platform: Optional[str], limit: int
-    ) -> List[OriginRecord]:
+        self, origin_type: str | None, platform: str | None, limit: int
+    ) -> list[OriginRecord]:
         """Synchronous SQLite list pending."""
         conn = sqlite3.connect(self._sqlite_path)
 
         conditions = ["result_sent = 0", "expires_at > ?"]
-        params: List[Any] = [time.time()]
+        params: list[Any] = [time.time()]
 
         if origin_type:
             conditions.append("origin_type = ?")
@@ -751,11 +749,9 @@ class PersistentOriginStore:
         if origin_id in self._cache_order:
             self._cache_order.remove(origin_id)
 
-
 # Global singleton
-_store: Optional[PersistentOriginStore] = None
+_store: PersistentOriginStore | None = None
 _store_lock = asyncio.Lock()
-
 
 async def get_origin_store() -> PersistentOriginStore:
     """Get the global PersistentOriginStore instance."""
@@ -767,12 +763,10 @@ async def get_origin_store() -> PersistentOriginStore:
                 await _store.initialize()
     return _store
 
-
 def reset_origin_store() -> None:
     """Reset the global origin store (for testing)."""
     global _store
     _store = None
-
 
 __all__ = [
     "PersistentOriginStore",

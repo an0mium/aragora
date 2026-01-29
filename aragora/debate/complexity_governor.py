@@ -23,7 +23,6 @@ from aragora.core import TaskComplexity
 
 logger = logging.getLogger(__name__)
 
-
 # Timeout scaling factors based on task complexity
 COMPLEXITY_TIMEOUT_FACTORS = {
     TaskComplexity.SIMPLE: 0.5,  # 90s instead of 180s
@@ -31,7 +30,6 @@ COMPLEXITY_TIMEOUT_FACTORS = {
     TaskComplexity.COMPLEX: 1.5,  # 270s
     TaskComplexity.UNKNOWN: 0.75,  # 135s (conservative for unknown)
 }
-
 
 def classify_task_complexity(task: str) -> TaskComplexity:
     """Classify task complexity based on text signals.
@@ -102,7 +100,6 @@ def classify_task_complexity(task: str) -> TaskComplexity:
 
     return TaskComplexity.MODERATE
 
-
 class StressLevel(Enum):
     """System stress levels."""
 
@@ -110,7 +107,6 @@ class StressLevel(Enum):
     ELEVATED = "elevated"  # Some pressure, slight adjustments
     HIGH = "high"  # Significant pressure, major adjustments
     CRITICAL = "critical"  # Emergency mode, minimal operation
-
 
 @dataclass
 class GovernorConstraints:
@@ -123,8 +119,8 @@ class GovernorConstraints:
 
     # Timing constraints - defaults from AGENT_TIMEOUT_SECONDS config
     # Set to None to use config value, or override explicitly
-    agent_timeout_seconds: Optional[float] = None
-    round_timeout_seconds: Optional[float] = None
+    agent_timeout_seconds: float | None = None
+    round_timeout_seconds: float | None = None
 
     # Complexity constraints
     max_agents_per_round: int = 5
@@ -159,7 +155,6 @@ class GovernorConstraints:
             "enable_formal_verification": self.enable_formal_verification,
         }
 
-
 @dataclass
 class AgentPerformanceMetrics:
     """Performance metrics for an agent."""
@@ -189,7 +184,6 @@ class AgentPerformanceMetrics:
         if self.total_requests == 0:
             return 0.0
         return self.timeout_count / self.total_requests
-
 
 class AdaptiveComplexityGovernor:
     """
@@ -269,7 +263,7 @@ class AdaptiveComplexityGovernor:
 
     def __init__(
         self,
-        initial_constraints: Optional[GovernorConstraints] = None,
+        initial_constraints: GovernorConstraints | None = None,
         stress_callback: Optional[Callable[[StressLevel], None]] = None,
     ):
         """
@@ -586,10 +580,8 @@ class AdaptiveComplexityGovernor:
         self.current_constraints = self.CONSTRAINT_PRESETS[StressLevel.NOMINAL]
         logger.info("governor_reset")
 
-
 # Global governor instance
-_governor: Optional[AdaptiveComplexityGovernor] = None
-
+_governor: AdaptiveComplexityGovernor | None = None
 
 def get_complexity_governor() -> AdaptiveComplexityGovernor:
     """Get the global complexity governor instance."""
@@ -597,7 +589,6 @@ def get_complexity_governor() -> AdaptiveComplexityGovernor:
     if _governor is None:
         _governor = AdaptiveComplexityGovernor()
     return _governor
-
 
 def reset_complexity_governor() -> None:
     """Reset the global complexity governor (for testing)."""

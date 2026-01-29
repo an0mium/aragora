@@ -32,10 +32,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class SyncItemType(Enum):
     """Types of items that can be synced."""
@@ -45,17 +44,15 @@ class SyncItemType(Enum):
     EVENT = "event"
     METRICS = "metrics"
 
-
 @dataclass
 class SyncItem:
     """An item queued for sync to Supabase."""
 
     item_type: SyncItemType
-    data: Dict[str, Any]
+    data: dict[str, Any]
     created_at: datetime = field(default_factory=datetime.now)
     retries: int = 0
-    last_error: Optional[str] = None
-
+    last_error: str | None = None
 
 @dataclass
 class SyncStatus:
@@ -66,9 +63,8 @@ class SyncStatus:
     queue_size: int
     synced_count: int
     failed_count: int
-    last_sync_at: Optional[datetime]
-    last_error: Optional[str]
-
+    last_sync_at: datetime | None
+    last_error: str | None
 
 class SupabaseSyncService:
     """
@@ -109,11 +105,11 @@ class SupabaseSyncService:
         # Statistics
         self._synced_count = 0
         self._failed_count = 0
-        self._last_sync_at: Optional[datetime] = None
-        self._last_error: Optional[str] = None
+        self._last_sync_at: datetime | None = None
+        self._last_error: str | None = None
 
         # Background thread
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._running = False
 
@@ -186,7 +182,7 @@ class SupabaseSyncService:
         self._running = False
         logger.info("SupabaseSyncService stopped")
 
-    def queue_debate(self, debate_data: Dict[str, Any]) -> bool:
+    def queue_debate(self, debate_data: dict[str, Any]) -> bool:
         """
         Queue a debate result for sync.
 
@@ -204,7 +200,7 @@ class SupabaseSyncService:
         logger.debug(f"Queued debate for sync: {debate_data.get('id', 'unknown')}")
         return True
 
-    def queue_cycle(self, cycle_data: Dict[str, Any]) -> bool:
+    def queue_cycle(self, cycle_data: dict[str, Any]) -> bool:
         """
         Queue a nomic cycle for sync.
 
@@ -221,7 +217,7 @@ class SupabaseSyncService:
         self._queue.put(item)
         return True
 
-    def queue_event(self, event_data: Dict[str, Any]) -> bool:
+    def queue_event(self, event_data: dict[str, Any]) -> bool:
         """
         Queue a stream event for sync.
 
@@ -238,7 +234,7 @@ class SupabaseSyncService:
         self._queue.put(item)
         return True
 
-    def queue_metrics(self, metrics_data: Dict[str, Any]) -> bool:
+    def queue_metrics(self, metrics_data: dict[str, Any]) -> bool:
         """
         Queue agent metrics for sync.
 
@@ -312,7 +308,7 @@ class SupabaseSyncService:
 
         logger.debug("Sync loop stopped")
 
-    def _get_batch(self) -> List[SyncItem]:
+    def _get_batch(self) -> list[SyncItem]:
         """Get a batch of items from the queue."""
         batch = []
         try:
@@ -323,7 +319,7 @@ class SupabaseSyncService:
             pass
         return batch
 
-    def _sync_batch(self, batch: List[SyncItem]) -> int:
+    def _sync_batch(self, batch: list[SyncItem]) -> int:
         """
         Sync a batch of items to Supabase.
 
@@ -434,11 +430,9 @@ class SupabaseSyncService:
             logger.debug(f"Sync item error: {e}")
             raise
 
-
 # Singleton instance
-_sync_service: Optional[SupabaseSyncService] = None
+_sync_service: SupabaseSyncService | None = None
 _sync_service_lock = threading.Lock()
-
 
 def get_sync_service() -> SupabaseSyncService:
     """
@@ -459,7 +453,6 @@ def get_sync_service() -> SupabaseSyncService:
                 _sync_service.start()
 
     return _sync_service
-
 
 def shutdown_sync_service(timeout: float = 5.0) -> None:
     """

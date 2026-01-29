@@ -36,7 +36,7 @@ import logging
 import secrets
 import zipfile
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -49,7 +49,6 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
-
 
 class ReceiptsHandler(BaseHandler):
     """
@@ -97,9 +96,9 @@ class ReceiptsHandler(BaseHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
         query_params = query_params or {}
@@ -191,7 +190,7 @@ class ReceiptsHandler(BaseHandler):
             return error_response(f"Internal error: {str(e)}", 500)
 
     @require_permission("receipts:read")
-    async def _list_receipts(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _list_receipts(self, query_params: dict[str, str]) -> HandlerResult:
         """
         List receipts with filtering and pagination.
 
@@ -266,7 +265,7 @@ class ReceiptsHandler(BaseHandler):
         )
 
     @require_permission("receipts:read")
-    async def _search_receipts(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _search_receipts(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Full-text search across receipt content.
 
@@ -343,7 +342,7 @@ class ReceiptsHandler(BaseHandler):
         return json_response(receipt.to_full_dict())
 
     @require_permission("receipts:read")
-    async def _export_receipt(self, receipt_id: str, query_params: Dict[str, str]) -> HandlerResult:
+    async def _export_receipt(self, receipt_id: str, query_params: dict[str, str]) -> HandlerResult:
         """
         Export receipt in specified format.
 
@@ -469,7 +468,7 @@ class ReceiptsHandler(BaseHandler):
         return json_response(result.to_dict())
 
     @require_permission("receipts:verify")
-    async def _verify_batch(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _verify_batch(self, body: dict[str, Any]) -> HandlerResult:
         """
         Batch verify multiple receipt signatures.
 
@@ -508,7 +507,7 @@ class ReceiptsHandler(BaseHandler):
         )
 
     @require_permission("receipts:send")
-    async def _send_to_channel(self, receipt_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _send_to_channel(self, receipt_id: str, body: dict[str, Any]) -> HandlerResult:
         """
         Send a decision receipt to a specified channel.
 
@@ -579,10 +578,10 @@ class ReceiptsHandler(BaseHandler):
 
     async def _send_to_slack(
         self,
-        formatted: Dict[str, Any],
+        formatted: dict[str, Any],
         channel_id: str,
-        workspace_id: Optional[str],
-    ) -> Dict[str, Any]:
+        workspace_id: str | None,
+    ) -> dict[str, Any]:
         """Send formatted receipt to Slack channel."""
         from aragora.storage.slack_workspace_store import get_slack_workspace_store
 
@@ -613,10 +612,10 @@ class ReceiptsHandler(BaseHandler):
 
     async def _send_to_teams(
         self,
-        formatted: Dict[str, Any],
+        formatted: dict[str, Any],
         channel_id: str,
-        workspace_id: Optional[str],
-    ) -> Dict[str, Any]:
+        workspace_id: str | None,
+    ) -> dict[str, Any]:
         """Send formatted receipt to Teams channel."""
         from aragora.storage.teams_workspace_store import get_teams_workspace_store
 
@@ -650,10 +649,10 @@ class ReceiptsHandler(BaseHandler):
 
     async def _send_to_email(
         self,
-        formatted: Dict[str, Any],
+        formatted: dict[str, Any],
         email_address: str,
-        options: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
         """Send formatted receipt via email."""
         import os
         import smtplib
@@ -688,10 +687,10 @@ class ReceiptsHandler(BaseHandler):
 
     async def _send_to_discord(
         self,
-        formatted: Dict[str, Any],
+        formatted: dict[str, Any],
         channel_id: str,
-        options: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
         """Send formatted receipt to Discord channel."""
         import os
         import urllib.request
@@ -719,7 +718,7 @@ class ReceiptsHandler(BaseHandler):
         self,
         receipt_id: str,
         channel_type: str,
-        query_params: Dict[str, str],
+        query_params: dict[str, str],
     ) -> HandlerResult:
         """
         Get receipt formatted for a specific channel type.
@@ -765,7 +764,7 @@ class ReceiptsHandler(BaseHandler):
         return json_response(status)
 
     @require_permission("receipts:read")
-    async def _get_dsar(self, user_id: str, query_params: Dict[str, str]) -> HandlerResult:
+    async def _get_dsar(self, user_id: str, query_params: dict[str, str]) -> HandlerResult:
         """Handle GDPR DSAR. Endpoint: GET /api/v2/receipts/dsar/{user_id}"""
         if not user_id or len(user_id) < 3:
             return error_response("Valid user_id required (minimum 3 characters)", 400)
@@ -792,7 +791,7 @@ class ReceiptsHandler(BaseHandler):
         )
 
     @require_permission("receipts:share")
-    async def _share_receipt(self, receipt_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _share_receipt(self, receipt_id: str, body: dict[str, Any]) -> HandlerResult:
         """
         Create a shareable link for a receipt.
 
@@ -896,7 +895,7 @@ class ReceiptsHandler(BaseHandler):
         )
 
     @require_permission("receipts:sign")
-    async def _sign_batch(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _sign_batch(self, body: dict[str, Any]) -> HandlerResult:
         """
         Batch sign multiple receipts.
 
@@ -980,7 +979,7 @@ class ReceiptsHandler(BaseHandler):
         )
 
     @require_permission("receipts:export")
-    async def _batch_export(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _batch_export(self, body: dict[str, Any]) -> HandlerResult:
         """
         Batch export multiple receipts to a ZIP file.
 
@@ -1073,7 +1072,7 @@ class ReceiptsHandler(BaseHandler):
             },
         )
 
-    def _parse_timestamp(self, value: Optional[str]) -> Optional[float]:
+    def _parse_timestamp(self, value: str | None) -> float | None:
         """Parse timestamp from string (ISO date or unix timestamp)."""
         if not value:
             return None
@@ -1092,7 +1091,6 @@ class ReceiptsHandler(BaseHandler):
             pass
 
         return None
-
 
 # Handler factory function for registration
 def create_receipts_handler(server_context: ServerContext) -> ReceiptsHandler:

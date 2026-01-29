@@ -31,7 +31,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,6 @@ try:
 except ImportError:
     aioredis = None
     REDIS_AVAILABLE = False
-
 
 class RedisBroadcastBridge:
     """
@@ -78,9 +77,9 @@ class RedisBroadcastBridge:
         self._broadcaster = broadcaster
         self._redis_url = redis_url
         self._instance_id = instance_id
-        self._redis: Optional[Any] = None
-        self._pubsub: Optional[Any] = None
-        self._listener_task: Optional[asyncio.Task] = None
+        self._redis: Any | None = None
+        self._pubsub: Any | None = None
+        self._listener_task: asyncio.Task | None = None
         self._connected = False
         self._running = False
 
@@ -317,14 +316,12 @@ class RedisBroadcastBridge:
 
         return result
 
-
 # Singleton bridge instance
-_bridge: Optional[RedisBroadcastBridge] = None
-
+_bridge: RedisBroadcastBridge | None = None
 
 async def get_broadcast_bridge(
     broadcaster: Any = None,
-    redis_url: Optional[str] = None,
+    redis_url: str | None = None,
 ) -> RedisBroadcastBridge:
     """Get or create the global broadcast bridge.
 
@@ -348,7 +345,6 @@ async def get_broadcast_bridge(
 
     return _bridge
 
-
 async def reset_broadcast_bridge() -> None:
     """Reset the global broadcast bridge (for testing)."""
     global _bridge
@@ -356,7 +352,6 @@ async def reset_broadcast_bridge() -> None:
     if _bridge is not None:
         await _bridge.disconnect()
         _bridge = None
-
 
 __all__ = [
     "RedisBroadcastBridge",

@@ -8,17 +8,16 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def query_memory_tool(
     query: str,
     tier: str = "all",
     limit: int = 10,
     min_importance: float = 0.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Query memories from the continuum memory system.
 
@@ -32,7 +31,7 @@ async def query_memory_tool(
         Dict with matching memories and count
     """
     limit = min(max(limit, 1), 100)
-    memories: List[Dict[str, Any]] = []
+    memories: list[dict[str, Any]] = []
 
     try:
         from aragora.memory.continuum import ContinuumMemory, MemoryTier
@@ -77,13 +76,12 @@ async def query_memory_tool(
         "tier": tier,
     }
 
-
 async def store_memory_tool(
     content: str,
     tier: str = "medium",
     importance: float = 0.5,
     tags: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Store a memory in the continuum memory system.
 
@@ -131,8 +129,7 @@ async def store_memory_tool(
     except Exception as e:
         return {"error": f"Failed to store memory: {e}"}
 
-
-async def get_memory_pressure_tool() -> Dict[str, Any]:
+async def get_memory_pressure_tool() -> dict[str, Any]:
     """
     Get current memory pressure and utilization.
 
@@ -168,7 +165,6 @@ async def get_memory_pressure_tool() -> Dict[str, Any]:
         return {"error": "Continuum memory not available"}
     except Exception as e:
         return {"error": f"Failed to get memory pressure: {e}"}
-
 
 __all__ = [
     "query_memory_tool",

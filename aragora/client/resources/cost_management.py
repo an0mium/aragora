@@ -14,13 +14,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CostBreakdownItem:
@@ -30,7 +29,6 @@ class CostBreakdownItem:
     cost: float
     percentage: float
 
-
 @dataclass
 class DailyCost:
     """Daily cost data point."""
@@ -38,7 +36,6 @@ class DailyCost:
     date: str
     cost: float
     tokens: int = 0
-
 
 @dataclass
 class CostAlert:
@@ -51,7 +48,6 @@ class CostAlert:
     timestamp: str
     acknowledged: bool = False
 
-
 @dataclass
 class CostSummary:
     """Cost summary data."""
@@ -61,11 +57,10 @@ class CostSummary:
     tokens_used: int
     api_calls: int
     last_updated: str
-    cost_by_provider: List[CostBreakdownItem] = field(default_factory=list)
-    cost_by_feature: List[CostBreakdownItem] = field(default_factory=list)
-    daily_costs: List[DailyCost] = field(default_factory=list)
-    alerts: List[CostAlert] = field(default_factory=list)
-
+    cost_by_provider: list[CostBreakdownItem] = field(default_factory=list)
+    cost_by_feature: list[CostBreakdownItem] = field(default_factory=list)
+    daily_costs: list[DailyCost] = field(default_factory=list)
+    alerts: list[CostAlert] = field(default_factory=list)
 
 @dataclass
 class Budget:
@@ -73,10 +68,9 @@ class Budget:
 
     workspace_id: str
     monthly_limit: float
-    daily_limit: Optional[float] = None
+    daily_limit: float | None = None
     current_spend: float = 0.0
-    alert_thresholds: List[int] = field(default_factory=lambda: [50, 80, 100])
-
+    alert_thresholds: list[int] = field(default_factory=lambda: [50, 80, 100])
 
 @dataclass
 class CostRecommendation:
@@ -89,8 +83,7 @@ class CostRecommendation:
     estimated_savings: float
     effort: str  # low, medium, high
     status: str  # pending, applied, dismissed
-    created_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
 
 @dataclass
 class EfficiencyMetrics:
@@ -102,8 +95,7 @@ class EfficiencyMetrics:
     total_tokens: int
     total_calls: int
     total_cost: float
-    model_utilization: List[Dict[str, Any]] = field(default_factory=list)
-
+    model_utilization: list[dict[str, Any]] = field(default_factory=list)
 
 @dataclass
 class CostForecast:
@@ -114,8 +106,7 @@ class CostForecast:
     projected_cost: float
     confidence_interval: tuple[float, float] = (0.0, 0.0)
     trend: str = "stable"  # increasing, decreasing, stable
-    daily_projections: List[Dict[str, Any]] = field(default_factory=list)
-
+    daily_projections: list[dict[str, Any]] = field(default_factory=list)
 
 class CostManagementAPI:
     """API interface for cost management."""
@@ -161,7 +152,7 @@ class CostManagementAPI:
         workspace_id: str = "default",
         time_range: str = "7d",
         group_by: str = "provider",
-    ) -> tuple[List[CostBreakdownItem], float]:
+    ) -> tuple[list[CostBreakdownItem], float]:
         """
         Get detailed cost breakdown.
 
@@ -187,7 +178,7 @@ class CostManagementAPI:
         workspace_id: str = "default",
         time_range: str = "7d",
         group_by: str = "provider",
-    ) -> tuple[List[CostBreakdownItem], float]:
+    ) -> tuple[list[CostBreakdownItem], float]:
         """Async version of get_breakdown()."""
         params = {
             "workspace_id": workspace_id,
@@ -202,7 +193,7 @@ class CostManagementAPI:
         self,
         workspace_id: str = "default",
         time_range: str = "7d",
-    ) -> tuple[List[DailyCost], float, float]:
+    ) -> tuple[list[DailyCost], float, float]:
         """
         Get usage timeline data.
 
@@ -222,7 +213,7 @@ class CostManagementAPI:
         self,
         workspace_id: str = "default",
         time_range: str = "7d",
-    ) -> tuple[List[DailyCost], float, float]:
+    ) -> tuple[list[DailyCost], float, float]:
         """Async version of get_timeline()."""
         params = {"workspace_id": workspace_id, "range": time_range}
         response = await self._client._get_async("/api/costs/timeline", params=params)
@@ -233,7 +224,7 @@ class CostManagementAPI:
     # Alerts
     # =========================================================================
 
-    def get_alerts(self, workspace_id: str = "default") -> List[CostAlert]:
+    def get_alerts(self, workspace_id: str = "default") -> list[CostAlert]:
         """
         Get budget alerts.
 
@@ -247,7 +238,7 @@ class CostManagementAPI:
         response = self._client._get("/api/costs/alerts", params=params)
         return [self._parse_alert(a) for a in response.get("alerts", [])]
 
-    async def get_alerts_async(self, workspace_id: str = "default") -> List[CostAlert]:
+    async def get_alerts_async(self, workspace_id: str = "default") -> list[CostAlert]:
         """Async version of get_alerts()."""
         params = {"workspace_id": workspace_id}
         response = await self._client._get_async("/api/costs/alerts", params=params)
@@ -286,8 +277,8 @@ class CostManagementAPI:
         self,
         budget: float,
         workspace_id: str = "default",
-        daily_limit: Optional[float] = None,
-        name: Optional[str] = None,
+        daily_limit: float | None = None,
+        name: str | None = None,
     ) -> Budget:
         """
         Set budget limits.
@@ -301,7 +292,7 @@ class CostManagementAPI:
         Returns:
             Budget object.
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "budget": budget,
             "workspace_id": workspace_id,
         }
@@ -321,11 +312,11 @@ class CostManagementAPI:
         self,
         budget: float,
         workspace_id: str = "default",
-        daily_limit: Optional[float] = None,
-        name: Optional[str] = None,
+        daily_limit: float | None = None,
+        name: str | None = None,
     ) -> Budget:
         """Async version of set_budget()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "budget": budget,
             "workspace_id": workspace_id,
         }
@@ -348,9 +339,9 @@ class CostManagementAPI:
     def get_recommendations(
         self,
         workspace_id: str = "default",
-        status: Optional[str] = None,
-        type_filter: Optional[str] = None,
-    ) -> List[CostRecommendation]:
+        status: str | None = None,
+        type_filter: str | None = None,
+    ) -> list[CostRecommendation]:
         """
         Get cost optimization recommendations.
 
@@ -362,7 +353,7 @@ class CostManagementAPI:
         Returns:
             List of CostRecommendation objects.
         """
-        params: Dict[str, Any] = {"workspace_id": workspace_id}
+        params: dict[str, Any] = {"workspace_id": workspace_id}
         if status:
             params["status"] = status
         if type_filter:
@@ -374,11 +365,11 @@ class CostManagementAPI:
     async def get_recommendations_async(
         self,
         workspace_id: str = "default",
-        status: Optional[str] = None,
-        type_filter: Optional[str] = None,
-    ) -> List[CostRecommendation]:
+        status: str | None = None,
+        type_filter: str | None = None,
+    ) -> list[CostRecommendation]:
         """Async version of get_recommendations()."""
-        params: Dict[str, Any] = {"workspace_id": workspace_id}
+        params: dict[str, Any] = {"workspace_id": workspace_id}
         if status:
             params["status"] = status
         if type_filter:
@@ -388,7 +379,7 @@ class CostManagementAPI:
         return [self._parse_recommendation(r) for r in response.get("recommendations", [])]
 
     def apply_recommendation(
-        self, recommendation_id: str, user_id: Optional[str] = None
+        self, recommendation_id: str, user_id: str | None = None
     ) -> CostRecommendation:
         """
         Apply a recommendation.
@@ -400,7 +391,7 @@ class CostManagementAPI:
         Returns:
             Updated CostRecommendation object.
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if user_id:
             body["user_id"] = user_id
 
@@ -408,10 +399,10 @@ class CostManagementAPI:
         return self._parse_recommendation(response.get("recommendation", response))
 
     async def apply_recommendation_async(
-        self, recommendation_id: str, user_id: Optional[str] = None
+        self, recommendation_id: str, user_id: str | None = None
     ) -> CostRecommendation:
         """Async version of apply_recommendation()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if user_id:
             body["user_id"] = user_id
 
@@ -509,7 +500,7 @@ class CostManagementAPI:
     def simulate_scenario(
         self,
         workspace_id: str,
-        scenario: Dict[str, Any],
+        scenario: dict[str, Any],
         days: int = 30,
     ) -> CostForecast:
         """
@@ -534,7 +525,7 @@ class CostManagementAPI:
     async def simulate_scenario_async(
         self,
         workspace_id: str,
-        scenario: Dict[str, Any],
+        scenario: dict[str, Any],
         days: int = 30,
     ) -> CostForecast:
         """Async version of simulate_scenario()."""
@@ -550,7 +541,7 @@ class CostManagementAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_summary(self, data: Dict[str, Any]) -> CostSummary:
+    def _parse_summary(self, data: dict[str, Any]) -> CostSummary:
         """Parse summary data into CostSummary object."""
         cost_by_provider = [self._parse_breakdown_item(p) for p in data.get("costByProvider", [])]
         cost_by_feature = [self._parse_breakdown_item(f) for f in data.get("costByFeature", [])]
@@ -569,7 +560,7 @@ class CostManagementAPI:
             alerts=alerts,
         )
 
-    def _parse_breakdown_item(self, data: Dict[str, Any]) -> CostBreakdownItem:
+    def _parse_breakdown_item(self, data: dict[str, Any]) -> CostBreakdownItem:
         """Parse breakdown item data."""
         return CostBreakdownItem(
             name=data.get("name", ""),
@@ -577,7 +568,7 @@ class CostManagementAPI:
             percentage=data.get("percentage", 0.0),
         )
 
-    def _parse_daily_cost(self, data: Dict[str, Any]) -> DailyCost:
+    def _parse_daily_cost(self, data: dict[str, Any]) -> DailyCost:
         """Parse daily cost data."""
         return DailyCost(
             date=data.get("date", ""),
@@ -585,7 +576,7 @@ class CostManagementAPI:
             tokens=data.get("tokens", 0),
         )
 
-    def _parse_alert(self, data: Dict[str, Any]) -> CostAlert:
+    def _parse_alert(self, data: dict[str, Any]) -> CostAlert:
         """Parse alert data."""
         return CostAlert(
             id=data.get("id", ""),
@@ -596,7 +587,7 @@ class CostManagementAPI:
             acknowledged=data.get("acknowledged", False),
         )
 
-    def _parse_recommendation(self, data: Dict[str, Any]) -> CostRecommendation:
+    def _parse_recommendation(self, data: dict[str, Any]) -> CostRecommendation:
         """Parse recommendation data."""
         created_at = None
         if data.get("created_at"):
@@ -616,7 +607,7 @@ class CostManagementAPI:
             created_at=created_at,
         )
 
-    def _parse_efficiency(self, data: Dict[str, Any]) -> EfficiencyMetrics:
+    def _parse_efficiency(self, data: dict[str, Any]) -> EfficiencyMetrics:
         """Parse efficiency metrics data."""
         metrics = data.get("metrics", data)
         return EfficiencyMetrics(
@@ -629,7 +620,7 @@ class CostManagementAPI:
             model_utilization=data.get("model_utilization", []),
         )
 
-    def _parse_forecast(self, data: Dict[str, Any]) -> CostForecast:
+    def _parse_forecast(self, data: dict[str, Any]) -> CostForecast:
         """Parse forecast data."""
         ci = data.get("confidence_interval", [0.0, 0.0])
         return CostForecast(
@@ -640,7 +631,6 @@ class CostManagementAPI:
             trend=data.get("trend", "stable"),
             daily_projections=data.get("daily_projections", []),
         )
-
 
 __all__ = [
     "CostManagementAPI",

@@ -19,13 +19,12 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
 from ..document_auditor import AuditFinding, FindingSeverity
 
 logger = logging.getLogger(__name__)
-
 
 class AIRiskCategory(str, Enum):
     """Categories of AI-specific security findings."""
@@ -42,7 +41,6 @@ class AIRiskCategory(str, Enum):
     COMPLIANCE = "ai_compliance"
     DOCUMENTATION = "documentation"
 
-
 class AIFramework(str, Enum):
     """Known AI/ML frameworks for pattern targeting."""
 
@@ -57,7 +55,6 @@ class AIFramework(str, Enum):
     GUIDANCE = "guidance"
     SEMANTIC_KERNEL = "semantic_kernel"
 
-
 @dataclass
 class AIVulnerabilityPattern:
     """Pattern for detecting AI-specific vulnerabilities."""
@@ -68,10 +65,9 @@ class AIVulnerabilityPattern:
     severity: FindingSeverity
     description: str
     recommendation: str
-    cwe: Optional[str] = None
+    cwe: str | None = None
     frameworks: list[str] = field(default_factory=lambda: ["*"])
     flags: int = re.IGNORECASE | re.MULTILINE
-
 
 @dataclass
 class AISecretPattern:
@@ -82,7 +78,6 @@ class AISecretPattern:
     severity: FindingSeverity
     provider: str
     description: str = ""
-
 
 class AISystemsAuditor(BaseAuditor):
     """
@@ -620,7 +615,6 @@ class AISystemsAuditor(BaseAuditor):
             "top_risks": top_risks,
             "recommendations": recommendations,
         }
-
 
 # Convenience function for quick audit
 async def audit_ai_code(

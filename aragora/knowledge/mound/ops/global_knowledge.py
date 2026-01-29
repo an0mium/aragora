@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -31,14 +31,13 @@ logger = logging.getLogger(__name__)
 # Special workspace ID for global/system knowledge
 SYSTEM_WORKSPACE_ID = "__system__"
 
-
 class GlobalKnowledgeProtocol(Protocol):
     """Protocol defining expected interface for GlobalKnowledge mixin."""
 
     config: "MoundConfig"
     workspace_id: str
-    _meta_store: Optional[Any]
-    _cache: Optional[Any]
+    _meta_store: Any | None
+    _cache: Any | None
     _initialized: bool
 
     def _ensure_initialized(self) -> None: ...
@@ -51,11 +50,11 @@ class GlobalKnowledgeProtocol(Protocol):
         sources: Any = ("all",),
         filters: Any = None,
         limit: int = 20,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> "QueryResult": ...
 
     async def get(
-        self, node_id: str, workspace_id: Optional[str] = None
+        self, node_id: str, workspace_id: str | None = None
     ) -> Optional["KnowledgeItem"]: ...
 
     # Mixin methods that call each other
@@ -64,9 +63,9 @@ class GlobalKnowledgeProtocol(Protocol):
         content: str,
         source: str,
         confidence: float = 0.9,
-        evidence_ids: Optional[List[str]] = None,
+        evidence_ids: Optional[list[str]] = None,
         verified_by: str = "system",
-        topics: Optional[List[str]] = None,
+        topics: Optional[list[str]] = None,
     ) -> str: ...
 
     async def query_global_knowledge(
@@ -74,9 +73,8 @@ class GlobalKnowledgeProtocol(Protocol):
         query: str,
         limit: int = 10,
         min_confidence: float = 0.5,
-        topics: Optional[List[str]] = None,
-    ) -> List["KnowledgeItem"]: ...
-
+        topics: Optional[list[str]] = None,
+    ) -> list["KnowledgeItem"]: ...
 
 class GlobalKnowledgeMixin:
     """Mixin providing global knowledge operations for KnowledgeMound."""
@@ -86,9 +84,9 @@ class GlobalKnowledgeMixin:
         content: str,
         source: str,
         confidence: float = 0.9,
-        evidence_ids: Optional[List[str]] = None,
-        verified_by: Optional[str] = None,
-        topics: Optional[List[str]] = None,
+        evidence_ids: Optional[list[str]] = None,
+        verified_by: str | None = None,
+        topics: Optional[list[str]] = None,
     ) -> str:
         """
         Store a verified fact in the global knowledge mound.
@@ -142,8 +140,8 @@ class GlobalKnowledgeMixin:
         query: str,
         limit: int = 20,
         min_confidence: float = 0.0,
-        topics: Optional[List[str]] = None,
-    ) -> List["KnowledgeItem"]:
+        topics: Optional[list[str]] = None,
+    ) -> list["KnowledgeItem"]:
         """
         Query the global knowledge mound (verified facts only).
 
@@ -196,7 +194,7 @@ class GlobalKnowledgeMixin:
         workspace_id: str,
         promoted_by: str,
         reason: str,
-        additional_evidence: Optional[List[str]] = None,
+        additional_evidence: Optional[list[str]] = None,
     ) -> str:
         """
         Promote a workspace knowledge item to global verified fact.
@@ -257,8 +255,8 @@ class GlobalKnowledgeMixin:
     async def get_system_facts(
         self: GlobalKnowledgeProtocol,
         limit: int = 100,
-        topics: Optional[List[str]] = None,
-    ) -> List["KnowledgeItem"]:
+        topics: Optional[list[str]] = None,
+    ) -> list["KnowledgeItem"]:
         """
         Get all verified facts from the global knowledge mound.
 
@@ -278,10 +276,10 @@ class GlobalKnowledgeMixin:
 
     async def merge_global_results(
         self: GlobalKnowledgeProtocol,
-        workspace_results: List["KnowledgeItem"],
+        workspace_results: list["KnowledgeItem"],
         query: str,
         global_limit: int = 5,
-    ) -> List["KnowledgeItem"]:
+    ) -> list["KnowledgeItem"]:
         """
         Merge workspace query results with relevant global knowledge.
 

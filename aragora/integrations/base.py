@@ -9,12 +9,13 @@ Provides common functionality for debate notifications including:
 
 All platform-specific integrations should extend BaseIntegration.
 """
+from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -23,11 +24,9 @@ from aragora.core import DebateResult
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Common Data Structures
 # =============================================================================
-
 
 @dataclass
 class FormattedDebateData:
@@ -36,17 +35,16 @@ class FormattedDebateData:
     debate_id: str
     question: str
     question_truncated: str
-    answer: Optional[str]
-    answer_truncated: Optional[str]
+    answer: str | None
+    answer_truncated: str | None
     total_rounds: int
-    confidence: Optional[float]
-    confidence_percent: Optional[str]
+    confidence: float | None
+    confidence_percent: str | None
     agents: list[str]
     agents_display: str
     agent_count: int
     stats_line: str
     debate_url: str
-
 
 @dataclass
 class FormattedConsensusData:
@@ -62,7 +60,6 @@ class FormattedConsensusData:
     agents_display: str
     debate_url: str
 
-
 @dataclass
 class FormattedErrorData:
     """Common error data structure for notifications."""
@@ -70,23 +67,20 @@ class FormattedErrorData:
     debate_id: str
     error: str
     error_truncated: str
-    phase: Optional[str]
-
+    phase: str | None
 
 @dataclass
 class FormattedLeaderboardData:
     """Common leaderboard data structure for notifications."""
 
     title: str
-    domain: Optional[str]
+    domain: str | None
     rankings: list[dict[str, Any]]
     leaderboard_url: str
-
 
 # =============================================================================
 # Base Integration Class
 # =============================================================================
-
 
 class BaseIntegration(ABC):
     """
@@ -117,7 +111,7 @@ class BaseIntegration(ABC):
     DEFAULT_AGENTS_DISPLAY_LIMIT = 5
 
     def __init__(self) -> None:
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._message_count = 0
         self._last_reset = datetime.now()
 
@@ -334,7 +328,7 @@ class BaseIntegration(ABC):
         debate_id: str,
         answer: str,
         confidence: float,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         answer_limit: int = DEFAULT_ANSWER_LIMIT,
         agents_limit: int = DEFAULT_AGENTS_DISPLAY_LIMIT,
     ) -> FormattedConsensusData:
@@ -367,7 +361,7 @@ class BaseIntegration(ABC):
         self,
         debate_id: str,
         error: str,
-        phase: Optional[str] = None,
+        phase: str | None = None,
         error_limit: int = DEFAULT_ERROR_LIMIT,
     ) -> FormattedErrorData:
         """Format error alert data.
@@ -391,7 +385,7 @@ class BaseIntegration(ABC):
     def format_leaderboard_data(
         self,
         rankings: list[dict[str, Any]],
-        domain: Optional[str] = None,
+        domain: str | None = None,
         limit: int = 10,
     ) -> FormattedLeaderboardData:
         """Format leaderboard update data.
@@ -433,7 +427,6 @@ class BaseIntegration(ABC):
             .replace(">", "&gt;")
             .replace('"', "&quot;")
         )
-
 
 # =============================================================================
 # Exports

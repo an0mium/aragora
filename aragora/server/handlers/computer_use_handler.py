@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -61,7 +61,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
 class ComputerUseHandler(BaseHandler):
     """
     HTTP request handler for computer use API endpoints.
@@ -81,12 +80,12 @@ class ComputerUseHandler(BaseHandler):
 
     def __init__(self, server_context):
         super().__init__(server_context)
-        self._orchestrator: Optional[ComputerUseOrchestrator] = None
-        self._tasks: Dict[str, Dict[str, Any]] = {}  # In-memory task store
-        self._action_stats: Dict[str, Dict[str, int]] = {}
-        self._policies: Dict[str, ComputerPolicy] = {}
+        self._orchestrator: ComputerUseOrchestrator | None = None
+        self._tasks: dict[str, dict[str, Any]] = {}  # In-memory task store
+        self._action_stats: dict[str, dict[str, int]] = {}
+        self._policies: dict[str, ComputerPolicy] = {}
 
-    def _get_orchestrator(self) -> Optional[ComputerUseOrchestrator]:
+    def _get_orchestrator(self) -> ComputerUseOrchestrator | None:
         """Get or create computer use orchestrator."""
         if not COMPUTER_USE_AVAILABLE:
             return None
@@ -100,7 +99,7 @@ class ComputerUseHandler(BaseHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_auth_context(self, handler) -> Optional[AuthorizationContext]:
+    def _get_auth_context(self, handler) -> AuthorizationContext | None:
         """Build AuthorizationContext from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
@@ -120,7 +119,7 @@ class ComputerUseHandler(BaseHandler):
             org_id=auth_ctx.org_id,
         )
 
-    def _check_rbac_permission(self, handler, permission_key: str) -> Optional[HandlerResult]:
+    def _check_rbac_permission(self, handler, permission_key: str) -> HandlerResult | None:
         """Check RBAC permission. Returns None if allowed, error response if denied."""
         if not RBAC_AVAILABLE:
             return None
@@ -142,7 +141,7 @@ class ComputerUseHandler(BaseHandler):
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):
             return None
@@ -174,7 +173,7 @@ class ComputerUseHandler(BaseHandler):
 
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if not self.can_handle(path):
             return None
@@ -451,6 +450,5 @@ class ComputerUseHandler(BaseHandler):
             },
             status=201,
         )
-
 
 __all__ = ["ComputerUseHandler"]

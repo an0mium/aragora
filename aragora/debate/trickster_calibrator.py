@@ -28,14 +28,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.outcome_tracker import ConsensusOutcome, OutcomeTracker
     from aragora.debate.trickster import EvidencePoweredTrickster
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CalibrationDataPoint:
@@ -47,7 +46,6 @@ class CalibrationDataPoint:
     outcome_success: bool
     outcome_confidence: float
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-
 
 @dataclass
 class CalibrationResult:
@@ -61,7 +59,6 @@ class CalibrationResult:
     false_positive_rate: float  # Intervened when not needed
     miss_rate: float  # Didn't intervene when needed
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-
 
 @dataclass
 class TricksterCalibrator:
@@ -89,7 +86,7 @@ class TricksterCalibrator:
     # Calibration settings
     min_samples: int = 20  # Minimum outcomes before calibrating
     recalibrate_interval: int = 50  # Recalibrate every N debates
-    sensitivity_bounds: Tuple[float, float] = (0.3, 0.9)  # Min/max sensitivity
+    sensitivity_bounds: tuple[float, float] = (0.3, 0.9)  # Min/max sensitivity
     adjustment_step: float = 0.05  # How much to adjust per calibration
 
     # Thresholds for decision
@@ -97,10 +94,10 @@ class TricksterCalibrator:
     miss_tolerance: float = 0.2  # Max miss rate before raising
 
     # State tracking
-    _data_points: List[CalibrationDataPoint] = field(default_factory=list, repr=False)
-    _intervention_history: Dict[str, int] = field(default_factory=dict, repr=False)
+    _data_points: list[CalibrationDataPoint] = field(default_factory=list, repr=False)
+    _intervention_history: dict[str, int] = field(default_factory=dict, repr=False)
     _debates_since_calibration: int = field(default=0, repr=False)
-    _calibration_history: List[CalibrationResult] = field(default_factory=list, repr=False)
+    _calibration_history: list[CalibrationResult] = field(default_factory=list, repr=False)
 
     def record_intervention(self, debate_id: str, intervention_count: int = 1) -> None:
         """Record that Trickster intervened in a debate.
@@ -152,7 +149,7 @@ class TricksterCalibrator:
             outcome.implementation_succeeded,
         )
 
-    def maybe_recalibrate(self, force: bool = False) -> Optional[CalibrationResult]:
+    def maybe_recalibrate(self, force: bool = False) -> CalibrationResult | None:
         """Check if recalibration is needed and run if so.
 
         Args:
@@ -180,7 +177,7 @@ class TricksterCalibrator:
 
         return self.calibrate()
 
-    def calibrate(self) -> Optional[CalibrationResult]:
+    def calibrate(self) -> CalibrationResult | None:
         """Run calibration analysis and adjust Trickster sensitivity.
 
         Returns:
@@ -263,7 +260,7 @@ class TricksterCalibrator:
 
         return result
 
-    def _analyze_outcomes(self) -> Dict[str, float]:
+    def _analyze_outcomes(self) -> dict[str, float]:
         """Analyze outcomes to compute calibration metrics.
 
         Returns:
@@ -360,7 +357,7 @@ class TricksterCalibrator:
         sensitivity = max(self.sensitivity_bounds[0], min(self.sensitivity_bounds[1], sensitivity))
         self._apply_sensitivity(sensitivity)
 
-    def get_calibration_summary(self) -> Dict[str, Any]:
+    def get_calibration_summary(self) -> dict[str, Any]:
         """Get summary of calibration state and history.
 
         Returns:
@@ -384,7 +381,7 @@ class TricksterCalibrator:
             "pending_interventions": len(self._intervention_history),
         }
 
-    def get_calibration_history(self, limit: int = 10) -> List[CalibrationResult]:
+    def get_calibration_history(self, limit: int = 10) -> list[CalibrationResult]:
         """Get recent calibration history.
 
         Args:
@@ -401,7 +398,6 @@ class TricksterCalibrator:
         self._intervention_history.clear()
         self._debates_since_calibration = 0
         logger.debug("trickster_calibrator data cleared")
-
 
 def create_trickster_calibrator(
     trickster: Optional["EvidencePoweredTrickster"] = None,
@@ -423,7 +419,6 @@ def create_trickster_calibrator(
         outcome_tracker=outcome_tracker,
         **kwargs,
     )
-
 
 __all__ = [
     "TricksterCalibrator",

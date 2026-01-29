@@ -21,7 +21,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.schema import SHARE_UPDATE_SCHEMA, validate_against_schema
@@ -37,7 +37,6 @@ from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-
 class DebateVisibility(str, Enum):
     """Visibility level for a debate."""
 
@@ -45,23 +44,22 @@ class DebateVisibility(str, Enum):
     TEAM = "team"  # Organization members can access
     PUBLIC = "public"  # Anyone with link can access
 
-
 @dataclass
 class ShareSettings:
     """Sharing settings for a debate."""
 
     debate_id: str
     visibility: DebateVisibility = DebateVisibility.PRIVATE
-    share_token: Optional[str] = None
+    share_token: str | None = None
     created_at: float = field(default_factory=time.time)
-    expires_at: Optional[float] = None  # None = no expiration
+    expires_at: float | None = None  # None = no expiration
     allow_comments: bool = False
     allow_forking: bool = False
     view_count: int = 0
-    owner_id: Optional[str] = None
-    org_id: Optional[str] = None
+    owner_id: str | None = None
+    org_id: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return {
             "debate_id": self.debate_id,
@@ -89,7 +87,7 @@ class ShareSettings:
         return time.time() > self.expires_at
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ShareSettings":
+    def from_dict(cls, data: dict[str, Any]) -> "ShareSettings":
         """Create from dictionary."""
         return cls(
             debate_id=data["debate_id"],
@@ -104,9 +102,7 @@ class ShareSettings:
             org_id=data.get("org_id"),
         )
 
-
 MAX_SHARE_SETTINGS = 10000  # Prevent unbounded memory growth
-
 
 class ShareStore:
     """In-memory store for sharing settings (thread-safe).
@@ -115,16 +111,16 @@ class ShareStore:
     """
 
     def __init__(self):
-        self._settings: Dict[str, ShareSettings] = {}
-        self._tokens: Dict[str, str] = {}  # token -> debate_id
+        self._settings: dict[str, ShareSettings] = {}
+        self._tokens: dict[str, str] = {}  # token -> debate_id
         self._lock = threading.Lock()
 
-    def get(self, debate_id: str) -> Optional[ShareSettings]:
+    def get(self, debate_id: str) -> ShareSettings | None:
         """Get sharing settings for a debate (thread-safe)."""
         with self._lock:
             return self._settings.get(debate_id)
 
-    def get_by_token(self, token: str) -> Optional[ShareSettings]:
+    def get_by_token(self, token: str) -> ShareSettings | None:
         """Get sharing settings by share token (thread-safe)."""
         with self._lock:
             debate_id = self._tokens.get(token)
@@ -178,13 +174,11 @@ class ShareStore:
             if settings:
                 settings.view_count += 1
 
-
 # Global store instance with thread-safe initialization
 # Can be either in-memory ShareStore or SQLite-backed ShareLinkStore
 # Use Any to allow dynamic ShareLinkStore assignment without import cycle
-_share_store: Optional[Any] = None
+_share_store: Any | None = None
 _share_store_lock = threading.Lock()
-
 
 def get_share_store() -> Any:
     """Get the global share store instance (thread-safe).
@@ -209,7 +203,6 @@ def get_share_store() -> Any:
                     _share_store = ShareStore()
     return _share_store
 
-
 class SharingHandler(BaseHandler):
     """Handler for debate sharing endpoints."""
 
@@ -230,7 +223,7 @@ class SharingHandler(BaseHandler):
         self._store = get_share_store()
 
     @require_permission("sharing:read")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle GET requests."""
         # Shared debate access (public endpoint)
         if path.startswith("/api/v1/shared/"):
@@ -247,7 +240,7 @@ class SharingHandler(BaseHandler):
         return None
 
     @require_permission("sharing:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle POST requests."""
         # Revoke share link
         if path.endswith("/share/revoke"):
@@ -265,7 +258,7 @@ class SharingHandler(BaseHandler):
 
         return None
 
-    def _extract_debate_id(self, path: str) -> Tuple[Optional[str], Optional[str]]:
+    def _extract_debate_id(self, path: str) -> tuple[str | None, str | None]:
         """Extract debate ID from path."""
         try:
             # Path format: /api/debates/{id}/share or /api/debates/{id}/share/revoke
@@ -486,7 +479,7 @@ class SharingHandler(BaseHandler):
         # Use secrets for cryptographically secure token
         return secrets.token_urlsafe(16)
 
-    def _get_debate_data(self, debate_id: str) -> Optional[Dict[str, Any]]:
+    def _get_debate_data(self, debate_id: str) -> Optional[dict[str, Any]]:
         """Get debate data for sharing.
 
         Fetches the debate artifact from the DebateStorage database.
@@ -501,7 +494,6 @@ class SharingHandler(BaseHandler):
             logger.warning(f"Could not fetch debate {debate_id}: {e}")
 
         return None
-
 
 __all__ = [
     "SharingHandler",

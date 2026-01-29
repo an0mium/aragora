@@ -13,13 +13,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class Repository:
@@ -31,10 +30,9 @@ class Repository:
     provider: str  # github, gitlab, bitbucket
     branch: str = "main"
     status: str = "active"  # active, syncing, error
-    last_synced_at: Optional[datetime] = None
+    last_synced_at: datetime | None = None
     file_count: int = 0
-    language_stats: Dict[str, float] = field(default_factory=dict)
-
+    language_stats: dict[str, float] = field(default_factory=dict)
 
 @dataclass
 class CodeFile:
@@ -44,9 +42,8 @@ class CodeFile:
     language: str
     size_bytes: int
     lines: int
-    last_modified: Optional[datetime] = None
+    last_modified: datetime | None = None
     complexity_score: float = 0.0
-
 
 @dataclass
 class DependencyInfo:
@@ -56,10 +53,9 @@ class DependencyInfo:
     version: str
     type: str  # direct, transitive
     ecosystem: str  # npm, pip, maven, etc.
-    latest_version: Optional[str] = None
+    latest_version: str | None = None
     has_vulnerabilities: bool = False
     vulnerability_count: int = 0
-
 
 @dataclass
 class SecurityFinding:
@@ -70,12 +66,11 @@ class SecurityFinding:
     severity: str  # critical, high, medium, low
     title: str
     description: str
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
-    cwe_id: Optional[str] = None
-    recommendation: Optional[str] = None
+    file_path: str | None = None
+    line_number: int | None = None
+    cwe_id: str | None = None
+    recommendation: str | None = None
     status: str = "open"  # open, fixed, ignored
-
 
 @dataclass
 class AnalysisResult:
@@ -84,11 +79,10 @@ class AnalysisResult:
     repository_id: str
     analysis_type: str
     status: str  # pending, running, completed, failed
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     findings_count: int = 0
-    summary: Dict[str, Any] = field(default_factory=dict)
-
+    summary: dict[str, Any] = field(default_factory=dict)
 
 class CodebaseAPI:
     """API interface for codebase analysis."""
@@ -102,10 +96,10 @@ class CodebaseAPI:
 
     def list_repositories(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[Repository], int]:
+    ) -> tuple[list[Repository], int]:
         """
         List connected repositories.
 
@@ -117,7 +111,7 @@ class CodebaseAPI:
         Returns:
             Tuple of (list of Repository objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -127,12 +121,12 @@ class CodebaseAPI:
 
     async def list_repositories_async(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[Repository], int]:
+    ) -> tuple[list[Repository], int]:
         """Async version of list_repositories()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -145,7 +139,7 @@ class CodebaseAPI:
         url: str,
         provider: str,
         branch: str = "main",
-        access_token: Optional[str] = None,
+        access_token: str | None = None,
     ) -> Repository:
         """
         Connect a new repository.
@@ -159,7 +153,7 @@ class CodebaseAPI:
         Returns:
             Connected Repository object.
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "url": url,
             "provider": provider,
             "branch": branch,
@@ -175,10 +169,10 @@ class CodebaseAPI:
         url: str,
         provider: str,
         branch: str = "main",
-        access_token: Optional[str] = None,
+        access_token: str | None = None,
     ) -> Repository:
         """Async version of connect_repository()."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "url": url,
             "provider": provider,
             "branch": branch,
@@ -253,10 +247,10 @@ class CodebaseAPI:
         self,
         repository_id: str,
         path: str = "",
-        language: Optional[str] = None,
+        language: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[CodeFile], int]:
+    ) -> tuple[list[CodeFile], int]:
         """
         List files in a repository.
 
@@ -270,7 +264,7 @@ class CodebaseAPI:
         Returns:
             Tuple of (list of CodeFile objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if path:
             params["path"] = path
         if language:
@@ -286,12 +280,12 @@ class CodebaseAPI:
         self,
         repository_id: str,
         path: str = "",
-        language: Optional[str] = None,
+        language: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[CodeFile], int]:
+    ) -> tuple[list[CodeFile], int]:
         """Async version of list_files()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if path:
             params["path"] = path
         if language:
@@ -335,9 +329,9 @@ class CodebaseAPI:
     def list_dependencies(
         self,
         repository_id: str,
-        ecosystem: Optional[str] = None,
+        ecosystem: str | None = None,
         vulnerable_only: bool = False,
-    ) -> List[DependencyInfo]:
+    ) -> list[DependencyInfo]:
         """
         List dependencies for a repository.
 
@@ -349,7 +343,7 @@ class CodebaseAPI:
         Returns:
             List of DependencyInfo objects.
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if ecosystem:
             params["ecosystem"] = ecosystem
         if vulnerable_only:
@@ -363,11 +357,11 @@ class CodebaseAPI:
     async def list_dependencies_async(
         self,
         repository_id: str,
-        ecosystem: Optional[str] = None,
+        ecosystem: str | None = None,
         vulnerable_only: bool = False,
-    ) -> List[DependencyInfo]:
+    ) -> list[DependencyInfo]:
         """Async version of list_dependencies()."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if ecosystem:
             params["ecosystem"] = ecosystem
         if vulnerable_only:
@@ -407,11 +401,11 @@ class CodebaseAPI:
     def list_security_findings(
         self,
         repository_id: str,
-        severity: Optional[str] = None,
-        status: Optional[str] = None,
+        severity: str | None = None,
+        status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[SecurityFinding], int]:
+    ) -> tuple[list[SecurityFinding], int]:
         """
         List security findings for a repository.
 
@@ -425,7 +419,7 @@ class CodebaseAPI:
         Returns:
             Tuple of (list of SecurityFinding objects, total count).
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if severity:
             params["severity"] = severity
         if status:
@@ -441,13 +435,13 @@ class CodebaseAPI:
     async def list_security_findings_async(
         self,
         repository_id: str,
-        severity: Optional[str] = None,
-        status: Optional[str] = None,
+        severity: str | None = None,
+        status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[List[SecurityFinding], int]:
+    ) -> tuple[list[SecurityFinding], int]:
         """Async version of list_security_findings()."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if severity:
             params["severity"] = severity
         if status:
@@ -502,7 +496,7 @@ class CodebaseAPI:
     # Helper Methods
     # =========================================================================
 
-    def _parse_repository(self, data: Dict[str, Any]) -> Repository:
+    def _parse_repository(self, data: dict[str, Any]) -> Repository:
         """Parse repository data into Repository object."""
         last_synced_at = None
         if data.get("last_synced_at"):
@@ -525,7 +519,7 @@ class CodebaseAPI:
             language_stats=data.get("language_stats", {}),
         )
 
-    def _parse_file(self, data: Dict[str, Any]) -> CodeFile:
+    def _parse_file(self, data: dict[str, Any]) -> CodeFile:
         """Parse file data into CodeFile object."""
         last_modified = None
         if data.get("last_modified"):
@@ -543,7 +537,7 @@ class CodebaseAPI:
             complexity_score=data.get("complexity_score", 0.0),
         )
 
-    def _parse_dependency(self, data: Dict[str, Any]) -> DependencyInfo:
+    def _parse_dependency(self, data: dict[str, Any]) -> DependencyInfo:
         """Parse dependency data into DependencyInfo object."""
         return DependencyInfo(
             name=data.get("name", ""),
@@ -555,7 +549,7 @@ class CodebaseAPI:
             vulnerability_count=data.get("vulnerability_count", 0),
         )
 
-    def _parse_finding(self, data: Dict[str, Any]) -> SecurityFinding:
+    def _parse_finding(self, data: dict[str, Any]) -> SecurityFinding:
         """Parse finding data into SecurityFinding object."""
         return SecurityFinding(
             id=data.get("id", ""),
@@ -570,7 +564,7 @@ class CodebaseAPI:
             status=data.get("status", "open"),
         )
 
-    def _parse_analysis_result(self, data: Dict[str, Any]) -> AnalysisResult:
+    def _parse_analysis_result(self, data: dict[str, Any]) -> AnalysisResult:
         """Parse analysis result data into AnalysisResult object."""
         started_at = None
         completed_at = None
@@ -596,7 +590,6 @@ class CodebaseAPI:
             findings_count=data.get("findings_count", 0),
             summary=data.get("summary", {}),
         )
-
 
 __all__ = [
     "CodebaseAPI",

@@ -35,7 +35,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.collaboration.slack import SlackConnector
@@ -46,41 +46,37 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class SlackActivitySignal:
     """Signal from Slack activity."""
 
     user_email: str
     is_online: bool = False
-    active_channels: List[str] = field(default_factory=list)
+    active_channels: list[str] = field(default_factory=list)
     recent_mentions: int = 0
-    urgent_threads: List[str] = field(default_factory=list)
-    last_activity: Optional[datetime] = None
+    urgent_threads: list[str] = field(default_factory=list)
+    last_activity: datetime | None = None
     activity_score: float = 0.0
-
 
 @dataclass
 class DriveActivitySignal:
     """Signal from Google Drive activity."""
 
     user_email: str
-    recently_edited_files: List[str] = field(default_factory=list)
-    recently_viewed_files: List[str] = field(default_factory=list)
-    shared_with_me_recent: List[str] = field(default_factory=list)
+    recently_edited_files: list[str] = field(default_factory=list)
+    recently_viewed_files: list[str] = field(default_factory=list)
+    shared_with_me_recent: list[str] = field(default_factory=list)
     activity_score: float = 0.0
-
 
 @dataclass
 class CalendarSignal:
     """Signal from Google Calendar."""
 
     user_email: str
-    upcoming_meetings: List[Dict[str, Any]] = field(default_factory=list)
-    busy_periods: List[tuple[datetime, datetime]] = field(default_factory=list)
-    next_free_slot: Optional[datetime] = None
+    upcoming_meetings: list[dict[str, Any]] = field(default_factory=list)
+    busy_periods: list[tuple[datetime, datetime]] = field(default_factory=list)
+    next_free_slot: datetime | None = None
     meeting_density_score: float = 0.0  # 0=free, 1=back-to-back meetings
-
 
 @dataclass
 class ChannelContext:
@@ -90,20 +86,20 @@ class ChannelContext:
     timestamp: datetime = field(default_factory=datetime.now)
 
     # Channel-specific signals
-    slack: Optional[SlackActivitySignal] = None
-    drive: Optional[DriveActivitySignal] = None
-    calendar: Optional[CalendarSignal] = None
+    slack: SlackActivitySignal | None = None
+    drive: DriveActivitySignal | None = None
+    calendar: CalendarSignal | None = None
 
     # Derived signals
     overall_activity_score: float = 0.0
     is_likely_busy: bool = False
-    suggested_response_window: Optional[str] = None
+    suggested_response_window: str | None = None
 
     # Related entities
-    active_projects: List[str] = field(default_factory=list)
-    active_contacts: List[str] = field(default_factory=list)
+    active_projects: list[str] = field(default_factory=list)
+    active_contacts: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "user_email": self.user_email,
@@ -147,7 +143,6 @@ class ChannelContext:
             ),
         }
 
-
 @dataclass
 class EmailContextBoost:
     """Context-based priority boosts for an email."""
@@ -160,20 +155,19 @@ class EmailContextBoost:
     calendar_urgency_boost: float = 0.0
 
     # Explanations
-    slack_reason: Optional[str] = None
-    drive_reason: Optional[str] = None
-    calendar_reason: Optional[str] = None
+    slack_reason: str | None = None
+    drive_reason: str | None = None
+    calendar_reason: str | None = None
 
     # Related context
-    related_slack_channels: List[str] = field(default_factory=list)
-    related_drive_files: List[str] = field(default_factory=list)
-    related_meetings: List[str] = field(default_factory=list)
+    related_slack_channels: list[str] = field(default_factory=list)
+    related_drive_files: list[str] = field(default_factory=list)
+    related_meetings: list[str] = field(default_factory=list)
 
     @property
     def total_boost(self) -> float:
         """Total combined boost."""
         return self.slack_activity_boost + self.drive_relevance_boost + self.calendar_urgency_boost
-
 
 class CrossChannelContextService:
     """
@@ -211,10 +205,10 @@ class CrossChannelContextService:
         self._user_id = user_id
 
         # Context cache (ephemeral, performance only)
-        self._context_cache: Dict[str, tuple[datetime, ChannelContext]] = {}
+        self._context_cache: dict[str, tuple[datetime, ChannelContext]] = {}
 
         # Email-user mapping for Slack correlation (in-memory cache, backed by store)
-        self._email_to_slack_id: Dict[str, str] = {}
+        self._email_to_slack_id: dict[str, str] = {}
 
     async def get_user_context(
         self,
@@ -306,7 +300,7 @@ class CrossChannelContextService:
         self,
         sender_email: str,
         lookback_hours: int = 24,
-    ) -> Optional[SlackActivitySignal]:
+    ) -> SlackActivitySignal | None:
         """
         Get recent Slack activity for an email sender.
 
@@ -326,7 +320,7 @@ class CrossChannelContextService:
         self,
         user_email: str,
         lookback_hours: int = 24,
-    ) -> Optional[SlackActivitySignal]:
+    ) -> SlackActivitySignal | None:
         """Get Slack activity signal for a user."""
         if not self.slack:
             return None
@@ -401,7 +395,7 @@ class CrossChannelContextService:
             logger.warning(f"Failed to get Slack signal for {user_email}: {e}")
             return signal
 
-    async def _resolve_slack_user(self, email: str) -> Optional[str]:
+    async def _resolve_slack_user(self, email: str) -> str | None:
         """Resolve email address to Slack user ID."""
         # Check in-memory cache first
         if email in self._email_to_slack_id:
@@ -628,7 +622,7 @@ class CrossChannelContextService:
 
         return context
 
-    def clear_cache(self, user_email: Optional[str] = None) -> None:
+    def clear_cache(self, user_email: str | None = None) -> None:
         """
         Clear context cache.
 
@@ -663,10 +657,9 @@ class CrossChannelContextService:
             logger.warning(f"Failed to load mappings from store: {e}")
             return 0
 
-
 # Factory function for easy instantiation
 async def create_context_service(
-    slack_token: Optional[str] = None,
+    slack_token: str | None = None,
     knowledge_mound: Optional["KnowledgeMound"] = None,
     user_id: str = "default",
     load_mappings: bool = True,

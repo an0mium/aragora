@@ -8,13 +8,14 @@ Phase 3: Code generation
 - Pre-verification review
 - Design approval gate
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from . import ImplementResult
 from .scope_limiter import ScopeLimiter
@@ -39,7 +40,6 @@ SAFETY RULES:
 3. NEVER simplify code by removing features
 4. Preserve ALL existing imports, classes, and functions"""
 
-
 class ImplementPhase:
     """
     Handles code implementation from design specifications.
@@ -51,21 +51,21 @@ class ImplementPhase:
         self,
         aragora_path: Path,
         plan_generator: Optional[Callable[[str, Path], Any]] = None,
-        executor: Optional[Any] = None,
+        executor: Any | None = None,
         progress_loader: Optional[Callable[[Path], Any]] = None,
         progress_saver: Optional[Callable[[Any, Path], None]] = None,
         progress_clearer: Optional[Callable[[Path], None]] = None,
-        protected_files: Optional[List[str]] = None,
+        protected_files: Optional[list[str]] = None,
         cycle_count: int = 0,
         log_fn: Optional[Callable[[str], None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
         record_replay_fn: Optional[Callable[..., None]] = None,
         save_state_fn: Optional[Callable[[dict], None]] = None,
-        constitution_verifier: Optional[Any] = None,
+        constitution_verifier: Any | None = None,
         design_gate: Optional["DesignGate"] = None,
         # Legacy API compatibility
-        codex_agent: Optional[Any] = None,
-        backup_path: Optional[Path] = None,
+        codex_agent: Any | None = None,
+        backup_path: Path | None = None,
     ):
         """
         Initialize the implement phase.
@@ -104,7 +104,7 @@ class ImplementPhase:
         # Legacy API compatibility
         self.codex = codex_agent
         self.backup_path = backup_path or (aragora_path / ".nomic" / "backups")
-        self._backup_manifest: Optional[dict] = None
+        self._backup_manifest: dict | None = None
 
     # =========================================================================
     # Legacy API methods (for backward compatibility with tests)
@@ -230,7 +230,7 @@ class ImplementPhase:
             "patterns_found": patterns_found,
         }
 
-    async def create_backup(self, files: List[str]) -> dict:
+    async def create_backup(self, files: list[str]) -> dict:
         """
         Legacy API: Create backup of files before modification.
 
@@ -433,7 +433,7 @@ class ImplementPhase:
         if progress and hasattr(progress, "plan") and progress.plan.design_hash == design_hash:
             self._log("  Resuming from checkpoint...")
             plan = progress.plan
-            completed: Set[str] = set(progress.completed_tasks)
+            completed: set[str] = set(progress.completed_tasks)
             stash_ref = progress.git_stash_ref
         else:
             # Generate new plan
@@ -699,7 +699,7 @@ CRITICAL SAFETY RULES:
                 diff_summary="",
             )
 
-    async def _git_stash_create(self) -> Optional[str]:
+    async def _git_stash_create(self) -> str | None:
         """Create a git stash for rollback."""
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -716,7 +716,7 @@ CRITICAL SAFETY RULES:
             self._log(f"  [git] Failed to create stash: {e}")
             return None
 
-    async def _git_stash_pop(self, stash_ref: Optional[str]) -> bool:
+    async def _git_stash_pop(self, stash_ref: str | None) -> bool:
         """Pop a git stash to rollback changes."""
         if not stash_ref:
             return False
@@ -753,7 +753,7 @@ CRITICAL SAFETY RULES:
             self._log(f"  [git] Failed to get diff: {e}")
             return ""
 
-    async def _get_modified_files(self) -> List[str]:
+    async def _get_modified_files(self) -> list[str]:
         """Get list of modified files."""
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -773,9 +773,9 @@ CRITICAL SAFETY RULES:
 
     async def _verify_constitution_compliance(
         self,
-        modified_files: List[str],
+        modified_files: list[str],
         diff: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Verify modified files don't violate Constitution rules.
 
         Args:
@@ -831,6 +831,5 @@ CRITICAL SAFETY RULES:
             return "; ".join(violations[:3])  # Limit to first 3 violations
 
         return None
-
 
 __all__ = ["ImplementPhase"]

@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class OrganizationRepository:
     """
     Repository for organization and team management operations.
@@ -75,7 +74,7 @@ class OrganizationRepository:
         self,
         name: str,
         owner_id: str,
-        slug: Optional[str] = None,
+        slug: str | None = None,
         tier: Optional["SubscriptionTier"] = None,
     ) -> "Organization":
         """

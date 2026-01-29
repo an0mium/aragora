@@ -17,7 +17,7 @@ import logging
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.persistence.db_config import DatabaseType, get_db_path
@@ -26,7 +26,6 @@ from aragora.storage.base_store import SQLiteStore
 from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class LearningMetrics(SerializableMixin):
@@ -39,10 +38,9 @@ class LearningMetrics(SerializableMixin):
     consensus_rate: float = 0.0  # % of debates reaching consensus
     avg_cycles_to_consensus: float = 0.0
     prediction_accuracy: float = 0.0  # Agent calibration quality
-    tier_efficiency: Dict[str, float] = field(default_factory=dict)
+    tier_efficiency: dict[str, float] = field(default_factory=dict)
 
     # to_dict() and from_dict() inherited from SerializableMixin
-
 
 @dataclass
 class HyperparameterState(SerializableMixin):
@@ -76,7 +74,6 @@ class HyperparameterState(SerializableMixin):
     meta_learning_rate: float = 0.01  # Rate at which hyperparams change
 
     # to_dict() and from_dict() inherited from SerializableMixin
-
 
 class MetaLearner(SQLiteStore):
     """
@@ -131,7 +128,7 @@ class MetaLearner(SQLiteStore):
             db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self.state = self._load_state()
-        self.metrics_history: List[LearningMetrics] = []
+        self.metrics_history: list[LearningMetrics] = []
 
     def _load_state(self) -> HyperparameterState:
         """Load the most recent hyperparameter state.
@@ -184,7 +181,7 @@ class MetaLearner(SQLiteStore):
             logger.warning(f"Failed to save hyperparameter state: {e}")
             # Continue with in-memory state - next save may succeed
 
-    def get_current_hyperparams(self) -> Dict[str, Any]:
+    def get_current_hyperparams(self) -> dict[str, Any]:
         """Get current hyperparameters for ContinuumMemory."""
         return {
             "surprise_weight_success": self.state.surprise_weight_success,
@@ -198,7 +195,7 @@ class MetaLearner(SQLiteStore):
     def evaluate_learning_efficiency(
         self,
         cms,  # ContinuumMemory instance
-        cycle_results: Dict[str, Any],
+        cycle_results: dict[str, Any],
     ) -> LearningMetrics:
         """
         Evaluate how well the learning system is performing.
@@ -309,7 +306,7 @@ class MetaLearner(SQLiteStore):
 
         return metrics
 
-    def adjust_hyperparameters(self, metrics: LearningMetrics) -> Dict[str, Any]:
+    def adjust_hyperparameters(self, metrics: LearningMetrics) -> dict[str, Any]:
         """
         Self-modify learning parameters based on performance.
 
@@ -429,7 +426,7 @@ class MetaLearner(SQLiteStore):
         # Meta learning rate: 0.001 to 0.1
         self.state.meta_learning_rate = max(0.001, min(0.1, self.state.meta_learning_rate))
 
-    def get_adjustment_history(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_adjustment_history(self, limit: int = 20) -> list[dict[str, Any]]:
         """Get recent hyperparameter adjustments.
 
         Returns empty list if database is unavailable.
@@ -469,7 +466,7 @@ class MetaLearner(SQLiteStore):
         self.state = HyperparameterState()
         self._save_state(reason="reset to defaults")
 
-    def get_learning_summary(self) -> Dict[str, Any]:
+    def get_learning_summary(self) -> dict[str, Any]:
         """Get a summary of meta-learning performance."""
         if not self.metrics_history:
             return {"status": "no data"}
@@ -485,7 +482,7 @@ class MetaLearner(SQLiteStore):
             "trend": self._compute_trend(recent),
         }
 
-    def _compute_trend(self, recent_metrics: List[LearningMetrics]) -> str:
+    def _compute_trend(self, recent_metrics: list[LearningMetrics]) -> str:
         """Compute overall learning trend from recent metrics."""
         if len(recent_metrics) < 2:
             return "insufficient_data"

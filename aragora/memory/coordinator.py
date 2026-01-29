@@ -22,7 +22,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Callable, Awaitable
+from typing import TYPE_CHECKING, Any, Optional, Callable, Awaitable
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -34,7 +34,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class WriteStatus(Enum):
     """Status of a write operation."""
 
@@ -43,7 +42,6 @@ class WriteStatus(Enum):
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
 
-
 @dataclass
 class WriteOperation:
     """A single write operation within a transaction."""
@@ -51,9 +49,9 @@ class WriteOperation:
     id: str
     target: str  # continuum, consensus, critique, mound
     status: WriteStatus = WriteStatus.PENDING
-    data: Dict[str, Any] = field(default_factory=dict)
-    result: Optional[Any] = None
-    error: Optional[str] = None
+    data: dict[str, Any] = field(default_factory=dict)
+    result: Any | None = None
+    error: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
 
     def mark_success(self, result: Any = None) -> None:
@@ -66,16 +64,15 @@ class WriteOperation:
         self.status = WriteStatus.FAILED
         self.error = error
 
-
 @dataclass
 class MemoryTransaction:
     """A transaction containing multiple write operations."""
 
     id: str
     debate_id: str
-    operations: List[WriteOperation] = field(default_factory=list)
+    operations: list[WriteOperation] = field(default_factory=list)
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     rolled_back: bool = False
 
     @property
@@ -89,14 +86,13 @@ class MemoryTransaction:
         statuses = {op.status for op in self.operations}
         return WriteStatus.FAILED in statuses and WriteStatus.SUCCESS in statuses
 
-    def get_failed_operations(self) -> List[WriteOperation]:
+    def get_failed_operations(self) -> list[WriteOperation]:
         """Get all failed operations."""
         return [op for op in self.operations if op.status == WriteStatus.FAILED]
 
-    def get_successful_operations(self) -> List[WriteOperation]:
+    def get_successful_operations(self) -> list[WriteOperation]:
         """Get all successful operations."""
         return [op for op in self.operations if op.status == WriteStatus.SUCCESS]
-
 
 @dataclass
 class CoordinatorOptions:
@@ -118,7 +114,6 @@ class CoordinatorOptions:
     max_retries: int = 2
     retry_delay_seconds: float = 0.5
 
-
 @dataclass
 class CoordinatorMetrics:
     """Metrics for memory coordination operations."""
@@ -129,8 +124,7 @@ class CoordinatorMetrics:
     full_failures: int = 0
     rollbacks_performed: int = 0
     total_writes: int = 0
-    writes_per_target: Dict[str, int] = field(default_factory=dict)
-
+    writes_per_target: dict[str, int] = field(default_factory=dict)
 
 class MemoryCoordinator:
     """
@@ -168,7 +162,7 @@ class MemoryCoordinator:
         consensus_memory: Optional["ConsensusMemory"] = None,
         critique_store: Optional["CritiqueStore"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
-        options: Optional[CoordinatorOptions] = None,
+        options: CoordinatorOptions | None = None,
     ):
         """
         Initialize the memory coordinator.
@@ -188,7 +182,7 @@ class MemoryCoordinator:
         self.metrics = CoordinatorMetrics()
 
         # Rollback handlers for each target
-        self._rollback_handlers: Dict[str, Callable[[WriteOperation], Awaitable[bool]]] = {}
+        self._rollback_handlers: dict[str, Callable[[WriteOperation], Awaitable[bool]]] = {}
 
         # Register default rollback handlers for available systems
         self._register_default_rollback_handlers()
@@ -290,7 +284,7 @@ class MemoryCoordinator:
     async def commit_debate_outcome(
         self,
         ctx: "DebateContext",
-        options: Optional[CoordinatorOptions] = None,
+        options: CoordinatorOptions | None = None,
     ) -> MemoryTransaction:
         """
         Commit a debate outcome to all configured memory systems.
@@ -361,7 +355,7 @@ class MemoryCoordinator:
         ctx: "DebateContext",
         result: "DebateResult",
         opts: CoordinatorOptions,
-    ) -> List[WriteOperation]:
+    ) -> list[WriteOperation]:
         """Build write operations based on configuration."""
         operations = []
 
@@ -490,7 +484,7 @@ class MemoryCoordinator:
                 else:
                     op.mark_failed(str(e))
 
-    async def _write_continuum(self, data: Dict[str, Any]) -> str:
+    async def _write_continuum(self, data: dict[str, Any]) -> str:
         """Write to ContinuumMemory."""
         if not self.continuum_memory:
             raise ValueError("ContinuumMemory not configured")
@@ -507,7 +501,7 @@ class MemoryCoordinator:
         logger.debug("[coordinator] Stored in continuum: %s", entry_id)
         return entry_id
 
-    async def _write_consensus(self, data: Dict[str, Any]) -> str:
+    async def _write_consensus(self, data: dict[str, Any]) -> str:
         """Write to ConsensusMemory."""
         if not self.consensus_memory:
             raise ValueError("ConsensusMemory not configured")
@@ -541,7 +535,7 @@ class MemoryCoordinator:
         logger.debug("[coordinator] Stored in consensus: %s", record.id)
         return record.id
 
-    async def _write_critique(self, data: Dict[str, Any]) -> str:
+    async def _write_critique(self, data: dict[str, Any]) -> str:
         """Write to CritiqueStore."""
         if not self.critique_store:
             raise ValueError("CritiqueStore not configured")
@@ -554,7 +548,7 @@ class MemoryCoordinator:
         logger.debug("[coordinator] Stored in critique: %s", debate_id)
         return debate_id
 
-    async def _write_mound(self, data: Dict[str, Any]) -> str:
+    async def _write_mound(self, data: dict[str, Any]) -> str:
         """Write to KnowledgeMound."""
         if not self.knowledge_mound:
             raise ValueError("KnowledgeMound not configured")
@@ -630,7 +624,7 @@ class MemoryCoordinator:
                     self.metrics.writes_per_target.get(op.target, 0) + 1
                 )
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get current coordinator metrics."""
         return {
             "total_transactions": self.metrics.total_transactions,
@@ -646,7 +640,6 @@ class MemoryCoordinator:
                 else 0.0
             ),
         }
-
 
 __all__ = [
     "MemoryCoordinator",

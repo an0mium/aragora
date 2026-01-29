@@ -1,13 +1,12 @@
 """Type definitions for the unified embedding service."""
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 # =============================================================================
 # Embedding Exception Hierarchy
 # =============================================================================
-
 
 class EmbeddingError(Exception):
     """Base exception for embedding operations.
@@ -24,15 +23,14 @@ class EmbeddingError(Exception):
     def __init__(
         self,
         message: str,
-        provider: Optional[str] = None,
-        status_code: Optional[int] = None,
-        original_error: Optional[Exception] = None,
+        provider: str | None = None,
+        status_code: int | None = None,
+        original_error: Exception | None = None,
     ):
         super().__init__(message)
         self.provider = provider
         self.status_code = status_code
         self.original_error = original_error
-
 
 class EmbeddingRateLimitError(EmbeddingError):
     """Rate limit exceeded - retryable after backoff."""
@@ -42,13 +40,12 @@ class EmbeddingRateLimitError(EmbeddingError):
     def __init__(
         self,
         message: str = "Rate limit exceeded",
-        provider: Optional[str] = None,
-        retry_after: Optional[float] = None,
+        provider: str | None = None,
+        retry_after: float | None = None,
         **kwargs,
     ):
         super().__init__(message, provider=provider, status_code=429, **kwargs)
         self.retry_after = retry_after
-
 
 class EmbeddingAuthError(EmbeddingError):
     """Authentication/authorization error - not retryable."""
@@ -58,11 +55,10 @@ class EmbeddingAuthError(EmbeddingError):
     def __init__(
         self,
         message: str = "Authentication failed",
-        provider: Optional[str] = None,
+        provider: str | None = None,
         **kwargs,
     ):
         super().__init__(message, provider=provider, status_code=401, **kwargs)
-
 
 class EmbeddingTimeoutError(EmbeddingError):
     """Request timeout - retryable."""
@@ -72,13 +68,12 @@ class EmbeddingTimeoutError(EmbeddingError):
     def __init__(
         self,
         message: str = "Request timed out",
-        provider: Optional[str] = None,
-        timeout: Optional[float] = None,
+        provider: str | None = None,
+        timeout: float | None = None,
         **kwargs,
     ):
         super().__init__(message, provider=provider, **kwargs)
         self.timeout = timeout
-
 
 class EmbeddingConnectionError(EmbeddingError):
     """Connection error - retryable."""
@@ -88,13 +83,12 @@ class EmbeddingConnectionError(EmbeddingError):
     def __init__(
         self,
         message: str = "Connection failed",
-        provider: Optional[str] = None,
-        host: Optional[str] = None,
+        provider: str | None = None,
+        host: str | None = None,
         **kwargs,
     ):
         super().__init__(message, provider=provider, **kwargs)
         self.host = host
-
 
 class EmbeddingQuotaError(EmbeddingError):
     """Quota exceeded - not immediately retryable."""
@@ -104,11 +98,10 @@ class EmbeddingQuotaError(EmbeddingError):
     def __init__(
         self,
         message: str = "Quota exceeded",
-        provider: Optional[str] = None,
+        provider: str | None = None,
         **kwargs,
     ):
         super().__init__(message, provider=provider, status_code=402, **kwargs)
-
 
 class EmbeddingModelError(EmbeddingError):
     """Invalid model or model unavailable - not retryable."""
@@ -118,13 +111,12 @@ class EmbeddingModelError(EmbeddingError):
     def __init__(
         self,
         message: str = "Model not available",
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
+        provider: str | None = None,
+        model: str | None = None,
         **kwargs,
     ):
         super().__init__(message, provider=provider, **kwargs)
         self.model = model
-
 
 class EmbeddingCircuitOpenError(EmbeddingError):
     """Circuit breaker is open - retryable after cooldown."""
@@ -134,18 +126,16 @@ class EmbeddingCircuitOpenError(EmbeddingError):
     def __init__(
         self,
         message: str = "Circuit breaker open",
-        provider: Optional[str] = None,
-        cooldown_remaining: Optional[float] = None,
+        provider: str | None = None,
+        cooldown_remaining: float | None = None,
         **kwargs,
     ):
         super().__init__(message, provider=provider, **kwargs)
         self.cooldown_remaining = cooldown_remaining
 
-
 # =============================================================================
 # Enums and Configuration
 # =============================================================================
-
 
 class EmbeddingProvider(str, Enum):
     """Available embedding providers."""
@@ -154,7 +144,6 @@ class EmbeddingProvider(str, Enum):
     GEMINI = "gemini"
     OLLAMA = "ollama"
     HASH = "hash"  # Fallback hash-based embeddings
-
 
 @dataclass
 class EmbeddingConfig:
@@ -170,10 +159,10 @@ class EmbeddingConfig:
         cache_max_size: Maximum cache entries
     """
 
-    provider: Optional[str] = None  # Auto-detect if None
-    model: Optional[str] = None  # Provider default if None
+    provider: str | None = None  # Auto-detect if None
+    model: str | None = None  # Provider default if None
     dimension: int = 1536  # text-embedding-3-small default
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
     # Cache settings
     cache_enabled: bool = True
@@ -186,7 +175,7 @@ class EmbeddingConfig:
     timeout: float = 30.0
 
     # Provider-specific
-    ollama_host: Optional[str] = None  # Default: http://localhost:11434
+    ollama_host: str | None = None  # Default: http://localhost:11434
 
     def __post_init__(self):
         """Set dimension based on model if known."""
@@ -199,7 +188,6 @@ class EmbeddingConfig:
         }
         if self.model and self.model in model_dimensions:
             self.dimension = model_dimensions[self.model]
-
 
 @dataclass
 class EmbeddingResult:
@@ -224,7 +212,6 @@ class EmbeddingResult:
     def __post_init__(self):
         if self.dimension == 0 and self.embedding:
             self.dimension = len(self.embedding)
-
 
 @dataclass
 class CacheStats:

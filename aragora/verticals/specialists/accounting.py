@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.core import Message
 from aragora.verticals.base import VerticalSpecialistAgent
@@ -23,7 +23,6 @@ from aragora.verticals.config import (
 from aragora.verticals.registry import VerticalRegistry
 
 logger = logging.getLogger(__name__)
-
 
 # Accounting vertical configuration
 ACCOUNTING_CONFIG = VerticalConfig(
@@ -145,7 +144,6 @@ consultation with qualified accounting professionals for specific matters.""",
     tags=["accounting", "finance", "audit", "SOX", "GAAP"],
 )
 
-
 @VerticalRegistry.register(
     "accounting",
     config=ACCOUNTING_CONFIG,
@@ -203,8 +201,8 @@ class AccountingSpecialist(VerticalSpecialistAgent):
     async def _execute_tool(
         self,
         tool: ToolConfig,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute an accounting tool."""
         tool_name = tool.name
 
@@ -219,21 +217,21 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
-    async def _sec_filings_search(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _sec_filings_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search SEC filings."""
         return {
             "filings": [],
             "message": "SEC filings search not yet implemented - requires SEC EDGAR API",
         }
 
-    async def _gaap_lookup(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _gaap_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up GAAP standards."""
         return {
             "standards": [],
             "message": "GAAP lookup not yet implemented",
         }
 
-    async def _calculate_ratios(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _calculate_ratios(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Calculate financial ratios."""
         ratios = {}
 
@@ -262,7 +260,7 @@ class AccountingSpecialist(VerticalSpecialistAgent):
 
         return {"ratios": ratios}
 
-    async def _tax_reference(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _tax_reference(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up tax regulations."""
         return {
             "regulations": [],
@@ -273,7 +271,7 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check content against accounting compliance frameworks."""
         violations = []
 
@@ -290,7 +288,7 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check SOX compliance."""
         violations = []
         content_lower = content.lower()
@@ -344,7 +342,7 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check GAAP compliance."""
         violations = []
         content_lower = content.lower()
@@ -383,7 +381,7 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check PCAOB auditing standards compliance."""
         violations = []
 
@@ -410,7 +408,7 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         self,
         task: str,
         system_prompt: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
         **kwargs: Any,
     ) -> Message:
         """Generate an accounting analysis response."""
@@ -427,7 +425,7 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         self,
         statement_text: str,
         statement_type: str = "balance_sheet",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze a financial statement for compliance and issues.
 
@@ -467,7 +465,7 @@ class AccountingSpecialist(VerticalSpecialistAgent):
     async def review_internal_controls(
         self,
         control_description: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Review internal control documentation.
 

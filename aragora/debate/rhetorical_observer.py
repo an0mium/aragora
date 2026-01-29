@@ -21,7 +21,6 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-
 class RhetoricalPattern(Enum):
     """Rhetorical patterns to detect."""
 
@@ -34,7 +33,6 @@ class RhetoricalPattern(Enum):
     RHETORICAL_QUESTION = "rhetorical_question"
     ANALOGY = "analogy"
     QUALIFICATION = "qualification"
-
 
 @dataclass
 class RhetoricalObservation:
@@ -58,7 +56,6 @@ class RhetoricalObservation:
             "audience_commentary": self.audience_commentary,
             "timestamp": self.timestamp,
         }
-
 
 class RhetoricalAnalysisObserver:
     """
@@ -544,10 +541,8 @@ class RhetoricalAnalysisObserver:
         self.observations = []
         self.agent_patterns = {}
 
-
 # Global observer instance
-_observer: Optional[RhetoricalAnalysisObserver] = None
-
+_observer: RhetoricalAnalysisObserver | None = None
 
 def get_rhetorical_observer() -> RhetoricalAnalysisObserver:
     """Get the global rhetorical observer instance."""
@@ -555,7 +550,6 @@ def get_rhetorical_observer() -> RhetoricalAnalysisObserver:
     if _observer is None:
         _observer = RhetoricalAnalysisObserver()
     return _observer
-
 
 def reset_rhetorical_observer() -> None:
     """Reset the global observer (for testing)."""

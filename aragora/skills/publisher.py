@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .base import Skill, SkillCapability, SkillManifest
 from .marketplace import (
@@ -40,7 +40,6 @@ from .marketplace import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ValidationIssue:
     """A validation issue found during skill validation."""
@@ -48,10 +47,10 @@ class ValidationIssue:
     severity: str  # error, warning, info
     code: str
     message: str
-    field: Optional[str] = None
-    suggestion: Optional[str] = None
+    field: str | None = None
+    suggestion: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "severity": self.severity,
@@ -61,18 +60,17 @@ class ValidationIssue:
             "suggestion": self.suggestion,
         }
 
-
 @dataclass
 class ValidationResult:
     """Result of skill validation."""
 
     is_valid: bool
-    issues: List[ValidationIssue] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    manifest: Optional[SkillManifest] = None
+    issues: list[ValidationIssue] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    manifest: SkillManifest | None = None
 
     @property
-    def errors(self) -> List[ValidationIssue]:
+    def errors(self) -> list[ValidationIssue]:
         """Get error-level issues."""
         return [i for i in self.issues if i.severity == "error"]
 
@@ -81,7 +79,7 @@ class ValidationResult:
         """Check if there are any errors."""
         return any(i.severity == "error" for i in self.issues)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "is_valid": self.is_valid,
@@ -89,7 +87,6 @@ class ValidationResult:
             "warnings": self.warnings,
             "error_count": len(self.errors),
         }
-
 
 class SkillPublisher:
     """
@@ -114,7 +111,7 @@ class SkillPublisher:
     # Reserved skill name prefixes
     RESERVED_PREFIXES = ["aragora", "system", "admin", "internal"]
 
-    def __init__(self, marketplace: Optional[SkillMarketplace] = None):
+    def __init__(self, marketplace: SkillMarketplace | None = None):
         """Initialize the publisher."""
         self._marketplace = marketplace or get_marketplace()
 
@@ -132,7 +129,7 @@ class SkillPublisher:
         Returns:
             ValidationResult with any issues found
         """
-        issues: List[ValidationIssue] = []
+        issues: list[ValidationIssue] = []
         manifest = skill.manifest
 
         # Validate manifest fields
@@ -163,7 +160,7 @@ class SkillPublisher:
             manifest=manifest if is_valid else None,
         )
 
-    def _validate_manifest(self, manifest: SkillManifest) -> List[ValidationIssue]:
+    def _validate_manifest(self, manifest: SkillManifest) -> list[ValidationIssue]:
         """Validate manifest required fields."""
         issues = []
 
@@ -254,7 +251,7 @@ class SkillPublisher:
 
         return issues
 
-    def _validate_version(self, version: str) -> List[ValidationIssue]:
+    def _validate_version(self, version: str) -> list[ValidationIssue]:
         """Validate semantic version format."""
         issues = []
 
@@ -274,9 +271,9 @@ class SkillPublisher:
 
         return issues
 
-    def _validate_capabilities(self, manifest: SkillManifest) -> List[ValidationIssue]:
+    def _validate_capabilities(self, manifest: SkillManifest) -> list[ValidationIssue]:
         """Validate declared capabilities."""
-        issues: List[ValidationIssue] = []
+        issues: list[ValidationIssue] = []
 
         for capability in manifest.capabilities:
             if not isinstance(capability, SkillCapability):
@@ -291,9 +288,9 @@ class SkillPublisher:
 
         return issues
 
-    def _validate_input_schema(self, manifest: SkillManifest) -> List[ValidationIssue]:
+    def _validate_input_schema(self, manifest: SkillManifest) -> list[ValidationIssue]:
         """Validate input schema structure."""
-        issues: List[ValidationIssue] = []
+        issues: list[ValidationIssue] = []
         schema = manifest.input_schema
 
         if not schema:
@@ -323,7 +320,7 @@ class SkillPublisher:
 
         return issues
 
-    def _check_sensitive_capabilities(self, manifest: SkillManifest) -> List[ValidationIssue]:
+    def _check_sensitive_capabilities(self, manifest: SkillManifest) -> list[ValidationIssue]:
         """Check for sensitive capabilities that need review."""
         issues = []
 
@@ -342,7 +339,7 @@ class SkillPublisher:
 
         return issues
 
-    def _check_reserved_names(self, manifest: SkillManifest) -> List[ValidationIssue]:
+    def _check_reserved_names(self, manifest: SkillManifest) -> list[ValidationIssue]:
         """Check for reserved name prefixes."""
         issues = []
 
@@ -373,7 +370,7 @@ class SkillPublisher:
         tier: SkillTier = SkillTier.FREE,
         changelog: str = "Initial release",
         **kwargs: Any,
-    ) -> Tuple[bool, Optional[SkillListing], List[ValidationIssue]]:
+    ) -> tuple[bool, SkillListing | None, list[ValidationIssue]]:
         """
         Publish a skill to the marketplace.
 
@@ -429,7 +426,7 @@ class SkillPublisher:
         skill: Skill,
         author_id: str,
         changelog: str = "",
-    ) -> Tuple[bool, Optional[SkillListing], List[ValidationIssue]]:
+    ) -> tuple[bool, SkillListing | None, list[ValidationIssue]]:
         """
         Publish a new version of an existing skill.
 
@@ -546,7 +543,7 @@ class SkillPublisher:
         self,
         skill_id: str,
         author_id: str,
-        replacement_skill_id: Optional[str] = None,
+        replacement_skill_id: str | None = None,
         message: str = "",
     ) -> bool:
         """

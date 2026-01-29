@@ -26,7 +26,6 @@ from typing import Optional, Protocol, Union, runtime_checkable
 
 from aragora.core import Critique, Message
 
-
 @runtime_checkable
 class GenerativeAgent(Protocol):
     """
@@ -42,7 +41,7 @@ class GenerativeAgent(Protocol):
     async def generate(
         self,
         prompt: str,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
     ) -> str:
         """Generate a response to the given prompt.
 
@@ -54,7 +53,6 @@ class GenerativeAgent(Protocol):
             Generated text response
         """
         ...
-
 
 @runtime_checkable
 class CritiqueCapable(Protocol):
@@ -69,7 +67,7 @@ class CritiqueCapable(Protocol):
 
     def _build_context_prompt(
         self,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
         truncate: bool = False,
         sanitize_fn: Optional[Callable[[str], str]] = None,
     ) -> str:
@@ -106,8 +104,8 @@ class CritiqueCapable(Protocol):
     async def critique(
         self,
         proposal: str,
-        target_agent: Optional[str] = None,
-        context: Optional[list[Message]] = None,
+        target_agent: str | None = None,
+        context: list[Message] | None = None,
     ) -> Critique:
         """Critique another agent's proposal.
 
@@ -120,7 +118,6 @@ class CritiqueCapable(Protocol):
             Structured critique
         """
         ...
-
 
 @runtime_checkable
 class StreamingAgent(Protocol):
@@ -136,7 +133,7 @@ class StreamingAgent(Protocol):
     async def generate_stream(
         self,
         prompt: str,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream tokens from the agent.
 
@@ -148,7 +145,6 @@ class StreamingAgent(Protocol):
             Text chunks as they are generated
         """
         ...
-
 
 @runtime_checkable
 class CircuitBreakerAware(Protocol):
@@ -174,14 +170,13 @@ class CircuitBreakerAware(Protocol):
         """Record a successful operation."""
         ...
 
-    def record_failure(self, error: Optional[Exception] = None) -> None:
+    def record_failure(self, error: Exception | None = None) -> None:
         """Record a failed operation.
 
         Args:
             error: The exception that caused the failure
         """
         ...
-
 
 @runtime_checkable
 class FallbackCapable(Protocol):
@@ -209,9 +204,9 @@ class FallbackCapable(Protocol):
     async def fallback_generate(
         self,
         prompt: str,
-        context: Optional[list[Message]],
+        context: list[Message] | None,
         original_status: int,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Attempt to generate using fallback provider.
 
         Args:
@@ -223,7 +218,6 @@ class FallbackCapable(Protocol):
             Generated text if fallback succeeds, None otherwise
         """
         ...
-
 
 @runtime_checkable
 class TokenTrackingAgent(Protocol):
@@ -253,7 +247,6 @@ class TokenTrackingAgent(Protocol):
         """
         ...
 
-
 class OpenAICompatibleBase(Protocol):
     """
     Protocol for the base class expected by OpenAICompatibleMixin.
@@ -264,14 +257,14 @@ class OpenAICompatibleBase(Protocol):
 
     name: str
     agent_type: str
-    api_key: Optional[str]
-    base_url: Optional[str]
+    api_key: str | None
+    base_url: str | None
     model: str
     timeout: int
 
     def _build_context_prompt(
         self,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
         truncate: bool = False,
         sanitize_fn: Optional[Callable[[str], str]] = None,
     ) -> str:
@@ -291,10 +284,8 @@ class OpenAICompatibleBase(Protocol):
         """Record token usage for billing."""
         ...
 
-
 # Type alias for any agent
 AnyAgent = Union[GenerativeAgent, CritiqueCapable, StreamingAgent]
-
 
 __all__ = [
     "GenerativeAgent",

@@ -6,6 +6,7 @@ All connectors inherit from BaseConnector and implement:
 - fetch(): Retrieve specific evidence by ID
 - record(): Store evidence in provenance chain
 """
+from __future__ import annotations
 
 __all__ = [
     "BaseConnector",
@@ -30,7 +31,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
@@ -53,7 +54,6 @@ from aragora.connectors.exceptions import (
     ConnectorCircuitOpenError,
 )
 
-
 @dataclass
 class Evidence:
     """
@@ -70,9 +70,9 @@ class Evidence:
     title: str = ""
 
     # Metadata
-    created_at: Optional[str] = None
-    author: Optional[str] = None
-    url: Optional[str] = None
+    created_at: str | None = None
+    author: str | None = None
+    url: str | None = None
 
     # Reliability indicators
     confidence: float = 0.5  # Base confidence in source
@@ -139,7 +139,6 @@ class Evidence:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class ConnectorHealth:
     """
@@ -152,9 +151,9 @@ class ConnectorHealth:
     is_available: bool  # Whether required dependencies are installed
     is_configured: bool  # Whether required credentials are configured
     is_healthy: bool  # Whether the connector is operational
-    latency_ms: Optional[float] = None  # Response latency if checked
-    error: Optional[str] = None  # Error message if unhealthy
-    last_check: Optional[datetime] = None
+    latency_ms: float | None = None  # Response latency if checked
+    error: str | None = None  # Error message if unhealthy
+    last_check: datetime | None = None
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -168,7 +167,6 @@ class ConnectorHealth:
             "last_check": self.last_check.isoformat() if self.last_check else None,
             "metadata": self.metadata,
         }
-
 
 class BaseConnector(ABC):
     """
@@ -282,7 +280,7 @@ class BaseConnector(ABC):
 
     def __init__(
         self,
-        provenance: Optional[ProvenanceManager] = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.5,
         max_cache_entries: int = 500,
         cache_ttl_seconds: float = 3600.0,  # 1 hour default TTL
@@ -294,7 +292,7 @@ class BaseConnector(ABC):
         self.provenance = provenance
         self.default_confidence = default_confidence
         # Cache stores (timestamp, evidence) tuples for TTL support
-        self._cache: OrderedDict[str, Tuple[float, Evidence]] = OrderedDict()
+        self._cache: OrderedDict[str, tuple[float, Evidence]] = OrderedDict()
         self._max_cache_entries = max_cache_entries
         self._cache_ttl = cache_ttl_seconds
         # Retry configuration
@@ -319,7 +317,7 @@ class BaseConnector(ABC):
                 self._enable_circuit_breaker = False
         return self._circuit_breaker
 
-    def _cache_get(self, evidence_id: str) -> Optional[Evidence]:
+    def _cache_get(self, evidence_id: str) -> Evidence | None:
         """Get from cache if not expired."""
         # Lazy import metrics
         try:
@@ -496,7 +494,7 @@ class BaseConnector(ABC):
         except ImportError:
             metrics_available = False
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         connector_type = self.name.lower().replace(" ", "_")
 
         for attempt in range(self._max_retries + 1):
@@ -657,7 +655,7 @@ class BaseConnector(ABC):
         raise NotImplementedError("Subclasses must implement search method")
 
     @abstractmethod
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a specific piece of evidence by ID.
 
@@ -672,9 +670,9 @@ class BaseConnector(ABC):
     def record_evidence(
         self,
         evidence: Evidence,
-        claim_id: Optional[str] = None,
+        claim_id: str | None = None,
         support_type: str = "supports",
-    ) -> Optional[ProvenanceRecord]:
+    ) -> ProvenanceRecord | None:
         """
         Record evidence in the provenance chain.
 
@@ -718,10 +716,10 @@ class BaseConnector(ABC):
     async def search_and_record(
         self,
         query: str,
-        claim_id: Optional[str] = None,
+        claim_id: str | None = None,
         limit: int = 5,
         **kwargs,
-    ) -> list[tuple[Evidence, Optional[ProvenanceRecord]]]:
+    ) -> list[tuple[Evidence, ProvenanceRecord | None]]:
         """
         Search for evidence and record all results.
 
@@ -763,7 +761,6 @@ class BaseConnector(ABC):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(source={self.source_type.value})"
-
 
 # Alias for backward compatibility
 Connector = BaseConnector

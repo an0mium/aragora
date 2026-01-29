@@ -10,13 +10,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemory, ContinuumMemoryEntry
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class StrategyRecommendation:
@@ -25,8 +24,7 @@ class StrategyRecommendation:
     estimated_rounds: int
     confidence: float
     reasoning: str
-    relevant_memories: List[str]  # Memory IDs used in analysis
-
+    relevant_memories: list[str]  # Memory IDs used in analysis
 
 class DebateStrategy:
     """
@@ -76,7 +74,7 @@ class DebateStrategy:
     def estimate_rounds(
         self,
         task: str,
-        default_rounds: Optional[int] = None,
+        default_rounds: int | None = None,
         respect_minimum: bool = True,
     ) -> StrategyRecommendation:
         """Estimate optimal number of debate rounds based on memory confidence.
@@ -190,7 +188,7 @@ class DebateStrategy:
     async def estimate_rounds_async(
         self,
         task: str,
-        default_rounds: Optional[int] = None,
+        default_rounds: int | None = None,
         respect_minimum: bool = True,
     ) -> StrategyRecommendation:
         """Async version of estimate_rounds.
@@ -291,7 +289,7 @@ class DebateStrategy:
             relevant_memories=[],
         )
 
-    def get_relevant_context(self, task: str, limit: int = 3) -> List["ContinuumMemoryEntry"]:
+    def get_relevant_context(self, task: str, limit: int = 3) -> list["ContinuumMemoryEntry"]:
         """Get relevant memories to include as debate context.
 
         Prioritizes glacial and slow tier memories with high success rates.

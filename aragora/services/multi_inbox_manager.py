@@ -33,7 +33,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from aragora.services.email_prioritization import EmailPriorityResult
 
 logger = logging.getLogger(__name__)
-
 
 class AccountType(Enum):
     """Type of email account for context-aware prioritization."""
@@ -51,7 +50,6 @@ class AccountType(Enum):
     BUSINESS = "business"
     SHARED = "shared"
     OTHER = "other"
-
 
 @dataclass
 class InboxAccount:
@@ -64,19 +62,19 @@ class InboxAccount:
 
     # Connection state
     is_connected: bool = False
-    last_sync: Optional[datetime] = None
-    sync_error: Optional[str] = None
+    last_sync: datetime | None = None
+    sync_error: str | None = None
 
     # Account-specific settings
     priority_weight: float = 1.0  # Weight for this account in unified scoring
-    auto_archive_labels: List[str] = field(default_factory=list)
+    auto_archive_labels: list[str] = field(default_factory=list)
     vip_override: bool = False  # VIPs from this account override others
 
     # Statistics
     total_emails: int = 0
     unread_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "account_id": self.account_id,
@@ -91,7 +89,6 @@ class InboxAccount:
             "unread_count": self.unread_count,
         }
 
-
 @dataclass
 class UnifiedEmail:
     """Email with multi-account context."""
@@ -101,15 +98,15 @@ class UnifiedEmail:
     account_type: AccountType
 
     # Cross-account context
-    sender_seen_in_accounts: List[str] = field(default_factory=list)
-    sender_replied_from_accounts: List[str] = field(default_factory=list)
+    sender_seen_in_accounts: list[str] = field(default_factory=list)
+    sender_replied_from_accounts: list[str] = field(default_factory=list)
     is_cross_account_important: bool = False
 
     # Prioritization result
     priority_result: Optional["EmailPriorityResult"] = None
     unified_score: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "id": self.email.id,
@@ -130,7 +127,6 @@ class UnifiedEmail:
             "confidence": self.priority_result.confidence if self.priority_result else None,
         }
 
-
 @dataclass
 class CrossAccountSenderProfile:
     """Sender profile aggregated across all accounts."""
@@ -138,9 +134,9 @@ class CrossAccountSenderProfile:
     sender_email: str
 
     # Presence across accounts
-    seen_in_accounts: Set[str] = field(default_factory=set)
-    replied_from_accounts: Set[str] = field(default_factory=set)
-    starred_in_accounts: Set[str] = field(default_factory=set)
+    seen_in_accounts: set[str] = field(default_factory=set)
+    replied_from_accounts: set[str] = field(default_factory=set)
+    starred_in_accounts: set[str] = field(default_factory=set)
 
     # Aggregate statistics
     total_emails_received: int = 0
@@ -148,11 +144,11 @@ class CrossAccountSenderProfile:
     total_emails_replied: int = 0
 
     # Per-account breakdown
-    account_stats: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    account_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
     # Computed importance
     cross_account_importance: float = 0.0
-    importance_reasons: List[str] = field(default_factory=list)
+    importance_reasons: list[str] = field(default_factory=list)
 
     @property
     def account_count(self) -> int:
@@ -210,7 +206,6 @@ class CrossAccountSenderProfile:
 
         return self.cross_account_importance
 
-
 class MultiInboxManager:
     """
     Manager for multiple Gmail accounts with unified prioritization.
@@ -219,8 +214,8 @@ class MultiInboxManager:
     def __init__(
         self,
         user_id: str = "default",
-        prioritizer: Optional[Any] = None,
-        sender_history: Optional[Any] = None,
+        prioritizer: Any | None = None,
+        sender_history: Any | None = None,
     ):
         """
         Initialize multi-inbox manager.
@@ -235,11 +230,11 @@ class MultiInboxManager:
         self.sender_history = sender_history
 
         # Connected accounts
-        self._accounts: Dict[str, InboxAccount] = {}
-        self._connectors: Dict[str, "GmailConnector"] = {}
+        self._accounts: dict[str, InboxAccount] = {}
+        self._connectors: dict[str, "GmailConnector"] = {}
 
         # Cross-account sender profiles
-        self._sender_profiles: Dict[str, CrossAccountSenderProfile] = {}
+        self._sender_profiles: dict[str, CrossAccountSenderProfile] = {}
 
         # Locks for thread safety
         self._accounts_lock = asyncio.Lock()
@@ -249,7 +244,7 @@ class MultiInboxManager:
         self,
         account_id: str,
         refresh_token: str,
-        email_address: Optional[str] = None,
+        email_address: str | None = None,
         account_type: AccountType = AccountType.OTHER,
         is_primary: bool = False,
         priority_weight: float = 1.0,
@@ -322,11 +317,11 @@ class MultiInboxManager:
                 return True
             return False
 
-    def get_accounts(self) -> List[InboxAccount]:
+    def get_accounts(self) -> list[InboxAccount]:
         """Get all connected accounts."""
         return list(self._accounts.values())
 
-    def get_account(self, account_id: str) -> Optional[InboxAccount]:
+    def get_account(self, account_id: str) -> InboxAccount | None:
         """Get a specific account."""
         return self._accounts.get(account_id)
 
@@ -334,7 +329,7 @@ class MultiInboxManager:
         self,
         account_id: str,
         max_messages: int = 100,
-        labels: Optional[List[str]] = None,
+        labels: Optional[list[str]] = None,
     ) -> int:
         """
         Sync messages from a specific account.
@@ -378,7 +373,7 @@ class MultiInboxManager:
     async def sync_all_accounts(
         self,
         max_messages_per_account: int = 100,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Sync all connected accounts.
 
@@ -388,7 +383,7 @@ class MultiInboxManager:
         results = {}
 
         # Sync accounts concurrently
-        async def sync_one(account_id: str) -> Tuple[str, int]:
+        async def sync_one(account_id: str) -> tuple[str, int]:
             try:
                 count = await self.sync_account(account_id, max_messages_per_account)
                 return account_id, count
@@ -408,8 +403,8 @@ class MultiInboxManager:
         self,
         limit: int = 50,
         include_read: bool = False,
-        labels: Optional[List[str]] = None,
-    ) -> List[UnifiedEmail]:
+        labels: Optional[list[str]] = None,
+    ) -> list[UnifiedEmail]:
         """
         Get unified, prioritized inbox across all accounts.
 
@@ -421,7 +416,7 @@ class MultiInboxManager:
         Returns:
             List of UnifiedEmail sorted by priority
         """
-        all_emails: List[UnifiedEmail] = []
+        all_emails: list[UnifiedEmail] = []
 
         # Fetch from all accounts
         for account_id, connector in self._connectors.items():
@@ -486,8 +481,8 @@ class MultiInboxManager:
 
     async def _prioritize_unified_emails(
         self,
-        emails: List[UnifiedEmail],
-    ) -> List[UnifiedEmail]:
+        emails: list[UnifiedEmail],
+    ) -> list[UnifiedEmail]:
         """Prioritize emails with cross-account context."""
         if not self.prioritizer:
             # Simple scoring without prioritizer
@@ -542,7 +537,7 @@ class MultiInboxManager:
     async def get_sender_profile(
         self,
         sender_email: str,
-    ) -> Optional[CrossAccountSenderProfile]:
+    ) -> CrossAccountSenderProfile | None:
         """
         Get cross-account sender profile.
 
@@ -563,7 +558,7 @@ class MultiInboxManager:
     async def get_sender_importance(
         self,
         sender_email: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get sender importance analysis across all accounts.
 
@@ -604,7 +599,7 @@ class MultiInboxManager:
     async def _update_sender_profiles(
         self,
         account_id: str,
-        messages: List[Any],
+        messages: list[Any],
     ) -> None:
         """Update sender profiles from synced messages."""
         async with self._profiles_lock:
@@ -724,7 +719,7 @@ class MultiInboxManager:
             except Exception as e:
                 logger.debug(f"Failed to record in sender history: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get manager statistics."""
         return {
             "user_id": self.user_id,
@@ -736,11 +731,10 @@ class MultiInboxManager:
             ),
         }
 
-
 # Factory function
 async def create_multi_inbox_manager(
     user_id: str = "default",
-    accounts: Optional[List[Dict[str, Any]]] = None,
+    accounts: Optional[list[dict[str, Any]]] = None,
 ) -> MultiInboxManager:
     """
     Create and initialize a multi-inbox manager.

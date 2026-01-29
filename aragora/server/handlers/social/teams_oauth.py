@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
@@ -58,13 +58,11 @@ TEAMS_SCOPES = os.environ.get("TEAMS_SCOPES", DEFAULT_SCOPES)
 MS_OAUTH_AUTHORIZE_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 MS_OAUTH_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 
-
 def _get_state_store():
     """Get the centralized OAuth state store."""
     from aragora.server.oauth_state_store import get_oauth_state_store
 
     return get_oauth_state_store()
-
 
 class TeamsOAuthHandler(SecureHandler):
     """Handler for Microsoft Teams OAuth installation flow.
@@ -91,10 +89,10 @@ class TeamsOAuthHandler(SecureHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        handler: Optional[Any] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
+        handler: Any | None = None,
     ) -> HandlerResult:
         """Route OAuth requests to appropriate methods.
 
@@ -136,7 +134,7 @@ class TeamsOAuthHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def _handle_install(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _handle_install(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Initiate Microsoft Teams OAuth installation flow.
 
@@ -192,7 +190,7 @@ class TeamsOAuthHandler(SecureHandler):
             },
         )
 
-    async def _handle_callback(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _handle_callback(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Handle OAuth callback from Microsoft.
 
@@ -394,7 +392,7 @@ class TeamsOAuthHandler(SecureHandler):
             body=success_html.encode("utf-8"),
         )
 
-    async def _handle_refresh(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _handle_refresh(self, body: dict[str, Any]) -> HandlerResult:
         """
         Refresh expired tokens for a tenant.
 
@@ -475,7 +473,6 @@ class TeamsOAuthHandler(SecureHandler):
                 "expires_in": expires_in,
             }
         )
-
 
 # Handler factory function for registration
 def create_teams_oauth_handler(server_context: Any) -> TeamsOAuthHandler:

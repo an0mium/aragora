@@ -25,13 +25,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants and Enums
@@ -39,7 +38,6 @@ logger = logging.getLogger(__name__)
 
 AUDIT_STREAM_KEY = "aragora:audit:log"
 AUDIT_RETENTION_DAYS = 90  # Default retention period
-
 
 class AuditAction(Enum):
     """Types of auditable actions."""
@@ -96,7 +94,6 @@ class AuditAction(Enum):
     SYSTEM_SHUTDOWN = "system.shutdown"
     SYSTEM_ERROR = "system.error"
 
-
 class ActorType(Enum):
     """Types of actors that can perform actions."""
 
@@ -106,11 +103,9 @@ class ActorType(Enum):
     API = "api"
     SCHEDULER = "scheduler"
 
-
 # =============================================================================
 # Data Classes
 # =============================================================================
-
 
 @dataclass
 class AuditActor:
@@ -118,11 +113,11 @@ class AuditActor:
 
     actor_type: ActorType
     actor_id: str
-    actor_name: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
+    actor_name: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "type": self.actor_type.value,
@@ -133,7 +128,7 @@ class AuditActor:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AuditActor":
+    def from_dict(cls, data: dict[str, Any]) -> "AuditActor":
         """Create from dictionary."""
         return cls(
             actor_type=ActorType(data.get("type", "system")),
@@ -142,7 +137,6 @@ class AuditActor:
             ip_address=data.get("ip_address"),
             user_agent=data.get("user_agent"),
         )
-
 
 @dataclass
 class AuditEntry:
@@ -153,16 +147,16 @@ class AuditEntry:
     resource_type: str
     resource_id: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    workspace_id: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    workspace_id: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
     outcome: str = "success"  # success, failure, partial
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     # Assigned by the system
     entry_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     sequence_number: int = 0
-    previous_hash: Optional[str] = None
-    entry_hash: Optional[str] = None
+    previous_hash: str | None = None
+    entry_hash: str | None = None
 
     def compute_hash(self) -> str:
         """Compute cryptographic hash of the entry for tamper detection."""
@@ -183,7 +177,7 @@ class AuditEntry:
         content = json.dumps(data, sort_keys=True)
         return hashlib.sha256(content.encode()).hexdigest()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
             "entry_id": self.entry_id,
@@ -202,7 +196,7 @@ class AuditEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AuditEntry":
+    def from_dict(cls, data: dict[str, Any]) -> "AuditEntry":
         """Create from dictionary."""
         return cls(
             entry_id=data.get("entry_id", str(uuid.uuid4())),
@@ -224,23 +218,22 @@ class AuditEntry:
             entry_hash=data.get("entry_hash"),
         )
 
-
 @dataclass
 class AuditQuery:
     """Query parameters for searching audit logs."""
 
     # Time range
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
 
     # Filters
-    actions: Optional[List[AuditAction]] = None
-    actor_types: Optional[List[ActorType]] = None
-    actor_ids: Optional[List[str]] = None
-    resource_types: Optional[List[str]] = None
-    resource_ids: Optional[List[str]] = None
-    workspace_ids: Optional[List[str]] = None
-    outcomes: Optional[List[str]] = None
+    actions: Optional[list[AuditAction]] = None
+    actor_types: Optional[list[ActorType]] = None
+    actor_ids: Optional[list[str]] = None
+    resource_types: Optional[list[str]] = None
+    resource_ids: Optional[list[str]] = None
+    workspace_ids: Optional[list[str]] = None
+    outcomes: Optional[list[str]] = None
 
     # Pagination
     limit: int = 100
@@ -280,11 +273,9 @@ class AuditQuery:
 
         return True
 
-
 # =============================================================================
 # Audit Log Storage
 # =============================================================================
-
 
 class AuditLog:
     """
@@ -323,12 +314,12 @@ class AuditLog:
         self._redis_url = redis_url
         self._stream_key = stream_key
         self._retention_days = retention_days
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._sequence_number = 0
-        self._last_hash: Optional[str] = None
+        self._last_hash: str | None = None
 
         # Local fallback storage
-        self._local_entries: List[AuditEntry] = []
+        self._local_entries: list[AuditEntry] = []
 
     async def connect(self) -> None:
         """Connect to Redis."""
@@ -391,10 +382,10 @@ class AuditLog:
         actor: AuditActor,
         resource_type: str,
         resource_id: str,
-        workspace_id: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        workspace_id: str | None = None,
+        details: Optional[dict[str, Any]] = None,
         outcome: str = "success",
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> AuditEntry:
         """
         Append an entry to the audit log.
@@ -445,7 +436,7 @@ class AuditLog:
 
         return entry
 
-    async def query(self, query: AuditQuery) -> List[AuditEntry]:
+    async def query(self, query: AuditQuery) -> list[AuditEntry]:
         """
         Query the audit log.
 
@@ -460,7 +451,7 @@ class AuditLog:
         else:
             return self._query_local(query)
 
-    async def verify_integrity(self, start_seq: int = 0, end_seq: Optional[int] = None) -> bool:
+    async def verify_integrity(self, start_seq: int = 0, end_seq: int | None = None) -> bool:
         """
         Verify the integrity of the audit log chain.
 
@@ -557,7 +548,7 @@ class AuditLog:
         else:
             raise ValueError(f"Unsupported export format: {format}")
 
-    def _export_syslog(self, entries: List[AuditEntry]) -> str:
+    def _export_syslog(self, entries: list[AuditEntry]) -> str:
         """Export in RFC 5424 syslog format."""
         lines = []
         for e in entries:
@@ -580,10 +571,10 @@ class AuditLog:
 
         return "\n".join(lines)
 
-    def _export_soc2(self, entries: List[AuditEntry], query: AuditQuery) -> str:
+    def _export_soc2(self, entries: list[AuditEntry], query: AuditQuery) -> str:
         """Export in SOC 2 compliance report format."""
         # Group entries by control category
-        controls: Dict[str, List[AuditEntry]] = {
+        controls: dict[str, list[AuditEntry]] = {
             "CC6.1": [],  # Logical and physical access controls
             "CC6.2": [],  # System operations
             "CC6.3": [],  # Change management
@@ -643,10 +634,10 @@ class AuditLog:
         }
         return descriptions.get(control, "Unknown Control")
 
-    def _export_iso27001(self, entries: List[AuditEntry], query: AuditQuery) -> str:
+    def _export_iso27001(self, entries: list[AuditEntry], query: AuditQuery) -> str:
         """Export in ISO 27001 audit evidence format."""
         # Group by ISO 27001 control domains
-        domains: Dict[str, List[AuditEntry]] = {
+        domains: dict[str, list[AuditEntry]] = {
             "A.9": [],  # Access control
             "A.12": [],  # Operations security
             "A.14": [],  # System acquisition, development and maintenance
@@ -757,10 +748,10 @@ class AuditLog:
             logger.error(f"Failed to enforce retention: {e}")
             return 0
 
-    async def get_retention_status(self) -> Dict[str, Any]:
+    async def get_retention_status(self) -> dict[str, Any]:
         """Get retention policy status."""
         total_entries = 0
-        oldest_entry: Optional[datetime] = None
+        oldest_entry: datetime | None = None
 
         if self._redis:
             try:
@@ -796,7 +787,7 @@ class AuditLog:
             ),
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get audit log statistics."""
         return {
             "total_entries": self._sequence_number,
@@ -843,9 +834,9 @@ class AuditLog:
         else:
             self._local_entries.append(entry)
 
-    async def _query_redis(self, query: AuditQuery) -> List[AuditEntry]:
+    async def _query_redis(self, query: AuditQuery) -> list[AuditEntry]:
         """Query entries from Redis."""
-        entries: List[AuditEntry] = []
+        entries: list[AuditEntry] = []
 
         try:
             # Determine time range for Redis XRANGE
@@ -878,16 +869,14 @@ class AuditLog:
         # Apply pagination
         return entries[query.offset : query.offset + query.limit]
 
-    def _query_local(self, query: AuditQuery) -> List[AuditEntry]:
+    def _query_local(self, query: AuditQuery) -> list[AuditEntry]:
         """Query entries from local storage."""
         matching = [e for e in self._local_entries if query.matches(e)]
         return matching[query.offset : query.offset + query.limit]
 
-
 # =============================================================================
 # Helper Functions
 # =============================================================================
-
 
 def create_system_actor() -> AuditActor:
     """Create a system actor for automated actions."""
@@ -897,8 +886,7 @@ def create_system_actor() -> AuditActor:
         actor_name="Aragora Control Plane",
     )
 
-
-def create_agent_actor(agent_id: str, agent_name: Optional[str] = None) -> AuditActor:
+def create_agent_actor(agent_id: str, agent_name: str | None = None) -> AuditActor:
     """Create an agent actor."""
     return AuditActor(
         actor_type=ActorType.AGENT,
@@ -906,11 +894,10 @@ def create_agent_actor(agent_id: str, agent_name: Optional[str] = None) -> Audit
         actor_name=agent_name or agent_id,
     )
 
-
 def create_user_actor(
     user_id: str,
-    user_name: Optional[str] = None,
-    ip_address: Optional[str] = None,
+    user_name: str | None = None,
+    ip_address: str | None = None,
 ) -> AuditActor:
     """Create a user actor."""
     return AuditActor(
@@ -920,37 +907,33 @@ def create_user_actor(
         ip_address=ip_address,
     )
 
-
 # =============================================================================
 # Convenience Logging Functions
 # =============================================================================
 
 # Global audit log instance for convenience functions
-_audit_log: Optional[AuditLog] = None
+_audit_log: AuditLog | None = None
 
-
-def get_audit_log() -> Optional[AuditLog]:
+def get_audit_log() -> AuditLog | None:
     """Get the global audit log instance."""
     return _audit_log
-
 
 def set_audit_log(audit_log: AuditLog) -> None:
     """Set the global audit log instance."""
     global _audit_log
     _audit_log = audit_log
 
-
 async def log_policy_decision(
     policy_id: str,
     decision: str,  # "allow", "deny", "warn"
     task_type: str,
     reason: str,
-    workspace_id: Optional[str] = None,
-    task_id: Optional[str] = None,
-    agent_id: Optional[str] = None,
-    violations: Optional[List[str]] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-) -> Optional[AuditEntry]:
+    workspace_id: str | None = None,
+    task_id: str | None = None,
+    agent_id: str | None = None,
+    violations: Optional[list[str]] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> AuditEntry | None:
     """
     Log a policy decision to the audit trail.
 
@@ -999,16 +982,15 @@ async def log_policy_decision(
         outcome="success" if decision.lower() in ("allow", "warn") else "failure",
     )
 
-
 async def log_deliberation_event(
     task_id: str,
     event_type: str,
-    details: Dict[str, Any],
-    workspace_id: Optional[str] = None,
-    agent_id: Optional[str] = None,
+    details: dict[str, Any],
+    workspace_id: str | None = None,
+    agent_id: str | None = None,
     outcome: str = "success",
-    error_message: Optional[str] = None,
-) -> Optional[AuditEntry]:
+    error_message: str | None = None,
+) -> AuditEntry | None:
     """
     Log a deliberation event to the audit trail.
 
@@ -1058,14 +1040,13 @@ async def log_deliberation_event(
         error_message=error_message,
     )
 
-
 async def log_deliberation_started(
     task_id: str,
     question: str,
-    agents: List[str],
+    agents: list[str],
     sla_timeout_seconds: float,
-    workspace_id: Optional[str] = None,
-) -> Optional[AuditEntry]:
+    workspace_id: str | None = None,
+) -> AuditEntry | None:
     """Log deliberation start event."""
     return await log_deliberation_event(
         task_id=task_id,
@@ -1078,7 +1059,6 @@ async def log_deliberation_started(
         workspace_id=workspace_id,
     )
 
-
 async def log_deliberation_completed(
     task_id: str,
     success: bool,
@@ -1086,9 +1066,9 @@ async def log_deliberation_completed(
     confidence: float,
     duration_seconds: float,
     sla_compliant: bool,
-    workspace_id: Optional[str] = None,
-    winner: Optional[str] = None,
-) -> Optional[AuditEntry]:
+    workspace_id: str | None = None,
+    winner: str | None = None,
+) -> AuditEntry | None:
     """Log deliberation completion event."""
     return await log_deliberation_event(
         task_id=task_id,
@@ -1105,14 +1085,13 @@ async def log_deliberation_completed(
         outcome="success" if success else "failure",
     )
 
-
 async def log_deliberation_sla_event(
     task_id: str,
     level: str,  # "warning", "critical", "violated"
     elapsed_seconds: float,
     timeout_seconds: float,
-    workspace_id: Optional[str] = None,
-) -> Optional[AuditEntry]:
+    workspace_id: str | None = None,
+) -> AuditEntry | None:
     """Log deliberation SLA event."""
     return await log_deliberation_event(
         task_id=task_id,
@@ -1126,7 +1105,6 @@ async def log_deliberation_sla_event(
         workspace_id=workspace_id,
         outcome="partial" if level in ("warning", "critical") else "failure",
     )
-
 
 # =============================================================================
 # Exports

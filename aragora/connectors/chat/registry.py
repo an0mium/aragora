@@ -9,20 +9,19 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, Optional, Type
+from typing import Any, Optional
 
 from .base import ChatPlatformConnector
 
 logger = logging.getLogger(__name__)
 
 # Registry of connector classes
-_CONNECTOR_CLASSES: Dict[str, Type[ChatPlatformConnector]] = {}
+_CONNECTOR_CLASSES: dict[str, type[ChatPlatformConnector]] = {}
 
 # Singleton instances
-_CONNECTOR_INSTANCES: Dict[str, ChatPlatformConnector] = {}
+_CONNECTOR_INSTANCES: dict[str, ChatPlatformConnector] = {}
 
-
-def register_connector(platform: str, connector_class: Type[ChatPlatformConnector]) -> None:
+def register_connector(platform: str, connector_class: type[ChatPlatformConnector]) -> None:
     """
     Register a connector class for a platform.
 
@@ -33,11 +32,10 @@ def register_connector(platform: str, connector_class: Type[ChatPlatformConnecto
     _CONNECTOR_CLASSES[platform.lower()] = connector_class
     logger.debug(f"Registered chat connector: {platform}")
 
-
 def get_connector(
     platform: str,
     **config: Any,
-) -> Optional[ChatPlatformConnector]:
+) -> ChatPlatformConnector | None:
     """
     Get or create a connector instance for a platform.
 
@@ -77,8 +75,7 @@ def get_connector(
         logger.error(f"Failed to create {platform} connector: {e}")
         return None
 
-
-def _lazy_load_connector(platform: str) -> Optional[Type[ChatPlatformConnector]]:
+def _lazy_load_connector(platform: str) -> Optional[type[ChatPlatformConnector]]:
     """Lazy-load connector class on first access."""
     try:
         if platform == "slack":
@@ -137,7 +134,6 @@ def _lazy_load_connector(platform: str) -> Optional[Type[ChatPlatformConnector]]
 
     return None
 
-
 def list_available_platforms() -> list[str]:
     """List all registered platform identifiers."""
     # Ensure all connectors are loaded
@@ -154,7 +150,6 @@ def list_available_platforms() -> list[str]:
         _lazy_load_connector(platform)
 
     return list(_CONNECTOR_CLASSES.keys())
-
 
 def get_configured_platforms() -> list[str]:
     """List platforms that have required environment variables set."""
@@ -194,8 +189,7 @@ def get_configured_platforms() -> list[str]:
 
     return configured
 
-
-def get_all_connectors(**config: Any) -> Dict[str, ChatPlatformConnector]:
+def get_all_connectors(**config: Any) -> dict[str, ChatPlatformConnector]:
     """
     Get connectors for all configured platforms.
 
@@ -214,11 +208,9 @@ def get_all_connectors(**config: Any) -> Dict[str, ChatPlatformConnector]:
 
     return connectors
 
-
 def clear_instances() -> None:
     """Clear all cached connector instances (for testing)."""
     _CONNECTOR_INSTANCES.clear()
-
 
 class ChatPlatformRegistry:
     """
@@ -230,17 +222,17 @@ class ChatPlatformRegistry:
 
     def __init__(self):
         """Initialize the registry."""
-        self._connectors: Dict[str, ChatPlatformConnector] = {}
+        self._connectors: dict[str, ChatPlatformConnector] = {}
 
     def register(self, connector: ChatPlatformConnector) -> None:
         """Register a connector instance."""
         self._connectors[connector.platform_name] = connector
 
-    def get(self, platform: str) -> Optional[ChatPlatformConnector]:
+    def get(self, platform: str) -> ChatPlatformConnector | None:
         """Get a registered connector by platform name."""
         return self._connectors.get(platform.lower())
 
-    def all(self) -> Dict[str, ChatPlatformConnector]:
+    def all(self) -> dict[str, ChatPlatformConnector]:
         """Get all registered connectors."""
         return dict(self._connectors)
 
@@ -251,9 +243,9 @@ class ChatPlatformRegistry:
     async def broadcast(
         self,
         text: str,
-        channels: Dict[str, str],  # platform -> channel_id
-        blocks: Optional[Dict[str, list[dict]]] = None,  # platform -> blocks
-    ) -> Dict[str, bool]:
+        channels: dict[str, str],  # platform -> channel_id
+        blocks: Optional[dict[str, list[dict]]] = None,  # platform -> blocks
+    ) -> dict[str, bool]:
         """
         Broadcast a message to multiple platforms.
 
@@ -293,10 +285,8 @@ class ChatPlatformRegistry:
         for platform, connector in get_all_connectors(**config).items():
             self.register(connector)
 
-
 # Global registry instance
-_registry: Optional[ChatPlatformRegistry] = None
-
+_registry: ChatPlatformRegistry | None = None
 
 def get_registry() -> ChatPlatformRegistry:
     """Get or create the global chat platform registry."""

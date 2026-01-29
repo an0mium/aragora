@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .base import DeviceConnector, DeviceConnectorConfig
 from .models import (
@@ -38,7 +38,6 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-
 class AlexaRequestType(Enum):
     """Alexa request types."""
 
@@ -50,7 +49,6 @@ class AlexaRequestType(Enum):
     # Smart Home
     DISCOVERY = "Alexa.Discovery"
     REPORT_STATE = "Alexa.ReportState"
-
 
 class AlexaIntent(Enum):
     """Built-in and custom Alexa intents."""
@@ -70,18 +68,16 @@ class AlexaIntent(Enum):
     VOTE = "VoteIntent"
     GET_STATUS = "GetStatusIntent"
 
-
 @dataclass
 class AlexaUser:
     """Alexa user information from account linking."""
 
     user_id: str
-    access_token: Optional[str] = None
-    consent_token: Optional[str] = None
-    api_access_token: Optional[str] = None
-    api_endpoint: Optional[str] = None
-    permissions: Dict[str, Any] = field(default_factory=dict)
-
+    access_token: str | None = None
+    consent_token: str | None = None
+    api_access_token: str | None = None
+    api_endpoint: str | None = None
+    permissions: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AlexaSession:
@@ -89,9 +85,8 @@ class AlexaSession:
 
     session_id: str
     is_new: bool = False
-    attributes: Dict[str, Any] = field(default_factory=dict)
-    user: Optional[AlexaUser] = None
-
+    attributes: dict[str, Any] = field(default_factory=dict)
+    user: AlexaUser | None = None
 
 class AlexaConnector(DeviceConnector):
     """
@@ -106,7 +101,7 @@ class AlexaConnector(DeviceConnector):
     - Smart Home skill capabilities
     """
 
-    def __init__(self, config: Optional[DeviceConnectorConfig] = None):
+    def __init__(self, config: DeviceConnectorConfig | None = None):
         """Initialize the Alexa connector."""
         super().__init__(config)
 
@@ -120,11 +115,11 @@ class AlexaConnector(DeviceConnector):
         )
 
         # OAuth token cache
-        self._access_token: Optional[str] = None
+        self._access_token: str | None = None
         self._token_expires_at: float = 0
 
         # Intent handlers
-        self._intent_handlers: Dict[str, Any] = {}
+        self._intent_handlers: dict[str, Any] = {}
         self._register_default_handlers()
 
     # ==========================================================================
@@ -142,7 +137,7 @@ class AlexaConnector(DeviceConnector):
         return "Amazon Alexa"
 
     @property
-    def supported_device_types(self) -> List[DeviceType]:
+    def supported_device_types(self) -> list[DeviceType]:
         """Return list of device types this connector supports."""
         return [DeviceType.ALEXA]
 
@@ -281,7 +276,7 @@ class AlexaConnector(DeviceConnector):
         # For now, basic validation passes
         return True
 
-    def verify_skill_id(self, request_data: Dict[str, Any]) -> bool:
+    def verify_skill_id(self, request_data: dict[str, Any]) -> bool:
         """
         Verify the skill ID in the request matches configuration.
 
@@ -365,7 +360,7 @@ class AlexaConnector(DeviceConnector):
             reprompt="What would you like to do?",
         )
 
-    def parse_alexa_request(self, request_data: Dict[str, Any]) -> VoiceDeviceRequest:
+    def parse_alexa_request(self, request_data: dict[str, Any]) -> VoiceDeviceRequest:
         """
         Parse an Alexa skill request into VoiceDeviceRequest.
 
@@ -381,7 +376,7 @@ class AlexaConnector(DeviceConnector):
 
         # Extract intent and slots
         intent_name = ""
-        slots: Dict[str, Any] = {}
+        slots: dict[str, Any] = {}
 
         request_type = request_obj.get("type", "")
 
@@ -430,8 +425,8 @@ class AlexaConnector(DeviceConnector):
     def build_alexa_response(
         self,
         response: VoiceDeviceResponse,
-        session_attributes: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        session_attributes: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Build an Alexa skill response from VoiceDeviceResponse.
 
@@ -442,7 +437,7 @@ class AlexaConnector(DeviceConnector):
         Returns:
             Alexa response JSON
         """
-        alexa_response: Dict[str, Any] = {
+        alexa_response: dict[str, Any] = {
             "version": "1.0",
             "response": {
                 "outputSpeech": {
@@ -464,7 +459,7 @@ class AlexaConnector(DeviceConnector):
 
         # Add card if provided
         if response.card_title or response.card_content:
-            card: Dict[str, Any] = {"type": "Simple"}
+            card: dict[str, Any] = {"type": "Simple"}
             if response.card_title:
                 card["title"] = response.card_title
             if response.card_content:
@@ -820,7 +815,7 @@ class AlexaConnector(DeviceConnector):
     # Health and Status
     # ==========================================================================
 
-    async def get_health(self) -> Dict[str, Any]:
+    async def get_health(self) -> dict[str, Any]:
         """Get health status for the Alexa connector."""
         health = await super().get_health()
 

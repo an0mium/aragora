@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -41,7 +41,6 @@ MAX_CONTENT_SIZE = 1024 * 1024
 
 logger = logging.getLogger(__name__)
 
-
 class InsightsHandler(SecureHandler):
     """Handler for insights-related endpoints.
 
@@ -66,13 +65,13 @@ class InsightsHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests with RBAC - routes to handle_get with context."""
         return await self.handle_get(path, query_params, handler, self.ctx)
 
     async def handle_get(  # type: ignore[override]
         self, path: str, query: dict, handler, ctx: ServerContext
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests for insights endpoints with RBAC."""
         # Normalize path to handle both /api/... and /api/v1/... paths
         normalized = strip_version_prefix(path)
@@ -106,7 +105,7 @@ class InsightsHandler(SecureHandler):
 
     async def handle_post(  # type: ignore[override]
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests for insights endpoints with RBAC."""
         # Normalize path to handle both /api/... and /api/v1/... paths
         normalized = strip_version_prefix(path)

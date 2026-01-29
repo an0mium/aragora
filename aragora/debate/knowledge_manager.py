@@ -13,7 +13,7 @@ Handles Knowledge Mound operations including:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult, Environment
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
 
 logger = logging.getLogger(__name__)
-
 
 class ArenaKnowledgeManager:
     """Manages Knowledge Mound operations for Arena debates.
@@ -54,7 +53,7 @@ class ArenaKnowledgeManager:
         enable_auto_revalidation: bool = False,
         revalidation_staleness_threshold: float = 0.7,
         revalidation_check_interval_seconds: int = 3600,
-        notify_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        notify_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
     ):
         """Initialize the knowledge manager.
 
@@ -77,29 +76,29 @@ class ArenaKnowledgeManager:
 
         # Components initialized during initialize()
         self._knowledge_ops: Optional["KnowledgeMoundOperations"] = None
-        self._km_metrics: Optional[Any] = None
-        self.knowledge_bridge_hub: Optional[Any] = None
-        self.revalidation_scheduler: Optional[Any] = None
-        self._km_coordinator: Optional[Any] = None
-        self._km_adapters: Dict[str, Any] = {}
+        self._km_metrics: Any | None = None
+        self.knowledge_bridge_hub: Any | None = None
+        self.revalidation_scheduler: Any | None = None
+        self._km_coordinator: Any | None = None
+        self._km_adapters: dict[str, Any] = {}
 
         # Culture hint storage
-        self._culture_consensus_hint: Optional[str] = None
+        self._culture_consensus_hint: str | None = None
         self._culture_extra_critiques: int = 0
-        self._culture_early_consensus: Optional[float] = None
-        self._culture_domain_patterns: Dict[str, Any] = {}
+        self._culture_early_consensus: float | None = None
+        self._culture_domain_patterns: dict[str, Any] = {}
 
     def initialize(
         self,
-        continuum_memory: Optional[Any] = None,
-        consensus_memory: Optional[Any] = None,
-        elo_system: Optional[Any] = None,
-        cost_tracker: Optional[Any] = None,
-        insight_store: Optional[Any] = None,
-        flip_detector: Optional[Any] = None,
-        evidence_store: Optional[Any] = None,
-        pulse_manager: Optional[Any] = None,
-        memory: Optional[Any] = None,
+        continuum_memory: Any | None = None,
+        consensus_memory: Any | None = None,
+        elo_system: Any | None = None,
+        cost_tracker: Any | None = None,
+        insight_store: Any | None = None,
+        flip_detector: Any | None = None,
+        evidence_store: Any | None = None,
+        pulse_manager: Any | None = None,
+        memory: Any | None = None,
     ) -> None:
         """Initialize KM infrastructure components.
 
@@ -266,7 +265,7 @@ class ArenaKnowledgeManager:
         except Exception as e:
             logger.warning(f"[arena] Failed to initialize KM context: {e}")
 
-    def get_culture_hints(self, debate_id: str) -> Dict[str, Any]:
+    def get_culture_hints(self, debate_id: str) -> dict[str, Any]:
         """Retrieve culture hints from cross-subscriber manager.
 
         Args:
@@ -290,7 +289,7 @@ class ArenaKnowledgeManager:
             logger.debug(f"[arena] Failed to get culture hints: {e}")
             return {}
 
-    def apply_culture_hints(self, hints: Dict[str, Any]) -> None:
+    def apply_culture_hints(self, hints: dict[str, Any]) -> None:
         """Apply culture-derived hints to protocol and debate configuration.
 
         Args:
@@ -330,7 +329,7 @@ class ArenaKnowledgeManager:
         except Exception as e:
             logger.warning(f"[arena] Unexpected error applying culture hints: {e}")
 
-    async def fetch_context(self, task: str, limit: int = 10) -> Optional[str]:
+    async def fetch_context(self, task: str, limit: int = 10) -> str | None:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
         Args:
@@ -356,7 +355,7 @@ class ArenaKnowledgeManager:
         await self._knowledge_ops.ingest_debate_outcome(result, env=env)
 
     @property
-    def culture_consensus_hint(self) -> Optional[str]:
+    def culture_consensus_hint(self) -> str | None:
         """Get culture-recommended consensus method."""
         return self._culture_consensus_hint
 
@@ -366,11 +365,11 @@ class ArenaKnowledgeManager:
         return self._culture_extra_critiques
 
     @property
-    def culture_early_consensus(self) -> Optional[float]:
+    def culture_early_consensus(self) -> float | None:
         """Get culture-recommended early consensus threshold."""
         return self._culture_early_consensus
 
     @property
-    def culture_domain_patterns(self) -> Dict[str, Any]:
+    def culture_domain_patterns(self) -> dict[str, Any]:
         """Get culture domain patterns."""
         return self._culture_domain_patterns

@@ -6,6 +6,7 @@ Handles tournament winner predictions, Brier scores, and calibration leaderboard
 
 Also includes domain-specific calibration tracking for grounded personas.
 """
+from __future__ import annotations
 
 import logging
 import math
@@ -27,7 +28,6 @@ logger = logging.getLogger(__name__)
 # Use centralized config
 CALIBRATION_MIN_COUNT = ELO_CALIBRATION_MIN_COUNT
 
-
 @dataclass
 class CalibrationPrediction:
     """A single calibration prediction record."""
@@ -36,8 +36,7 @@ class CalibrationPrediction:
     predictor_agent: str
     predicted_winner: str
     confidence: float
-    created_at: Optional[str] = None
-
+    created_at: str | None = None
 
 @dataclass
 class BucketStats:
@@ -51,7 +50,6 @@ class BucketStats:
     accuracy: float
     expected_accuracy: float
     brier_score: float
-
 
 class CalibrationEngine:
     """
@@ -255,7 +253,6 @@ class CalibrationEngine:
         outcome = 1.0 if correct else 0.0
         return (confidence - outcome) ** 2
 
-
 class DomainCalibrationEngine:
     """
     Domain-specific prediction calibration tracking.
@@ -384,7 +381,7 @@ class DomainCalibrationEngine:
     def get_domain_stats(
         self,
         agent_name: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> dict[str, Any]:
         """
         Get calibration statistics for an agent.
@@ -444,7 +441,7 @@ class DomainCalibrationEngine:
     def get_calibration_curve(
         self,
         agent_name: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> list[BucketStats]:
         """
         Get calibration broken down by confidence bucket.

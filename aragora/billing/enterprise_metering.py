@@ -41,13 +41,12 @@ from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from uuid import uuid4
 
 from .usage import PROVIDER_PRICING
 
 logger = logging.getLogger(__name__)
-
 
 class BudgetAlertLevel(Enum):
     """Budget alert threshold levels."""
@@ -56,7 +55,6 @@ class BudgetAlertLevel(Enum):
     WARNING = "warning"  # 75% of budget
     CRITICAL = "critical"  # 90% of budget
     EXCEEDED = "exceeded"  # Over budget
-
 
 class InvoiceStatus(Enum):
     """Invoice statuses."""
@@ -67,20 +65,19 @@ class InvoiceStatus(Enum):
     OVERDUE = "overdue"
     CANCELLED = "cancelled"
 
-
 @dataclass
 class TokenUsageRecord:
     """Record of token usage for a single API call."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
     tenant_id: str = ""
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    user_id: str | None = None
+    workspace_id: str | None = None
 
     # Provider/model info
     provider: str = ""
     model: str = ""
-    model_version: Optional[str] = None
+    model_version: str | None = None
 
     # Token counts
     tokens_in: int = 0
@@ -95,20 +92,20 @@ class TokenUsageRecord:
     discount_applied: Decimal = Decimal("0")
 
     # Context
-    debate_id: Optional[str] = None
-    agent_id: Optional[str] = None
+    debate_id: str | None = None
+    agent_id: str | None = None
     request_type: str = "chat"  # chat, debate, analysis, etc.
-    endpoint: Optional[str] = None
+    endpoint: str | None = None
 
     # Metadata
-    latency_ms: Optional[int] = None
+    latency_ms: int | None = None
     success: bool = True
-    error_code: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    error_code: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -137,7 +134,6 @@ class TokenUsageRecord:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 @dataclass
 class BudgetConfig:
     """Budget configuration for a tenant."""
@@ -145,13 +141,12 @@ class BudgetConfig:
     tenant_id: str
     monthly_budget: Decimal = Decimal("0")  # 0 = unlimited
     daily_limit: Decimal = Decimal("0")  # 0 = unlimited
-    alert_thresholds: List[int] = field(default_factory=lambda: [50, 75, 90])
-    alert_emails: List[str] = field(default_factory=list)
+    alert_thresholds: list[int] = field(default_factory=lambda: [50, 75, 90])
+    alert_emails: list[str] = field(default_factory=list)
     auto_suspend_on_exceed: bool = False
     rollover_unused: bool = False
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-
 
 @dataclass
 class CostBreakdown:
@@ -167,28 +162,28 @@ class CostBreakdown:
     total_requests: int = 0
 
     # By provider
-    cost_by_provider: Dict[str, Decimal] = field(default_factory=dict)
-    tokens_by_provider: Dict[str, int] = field(default_factory=dict)
+    cost_by_provider: dict[str, Decimal] = field(default_factory=dict)
+    tokens_by_provider: dict[str, int] = field(default_factory=dict)
 
     # By model
-    cost_by_model: Dict[str, Decimal] = field(default_factory=dict)
-    tokens_by_model: Dict[str, int] = field(default_factory=dict)
+    cost_by_model: dict[str, Decimal] = field(default_factory=dict)
+    tokens_by_model: dict[str, int] = field(default_factory=dict)
 
     # By request type
-    cost_by_type: Dict[str, Decimal] = field(default_factory=dict)
+    cost_by_type: dict[str, Decimal] = field(default_factory=dict)
 
     # By user (for multi-user tenants)
-    cost_by_user: Dict[str, Decimal] = field(default_factory=dict)
+    cost_by_user: dict[str, Decimal] = field(default_factory=dict)
 
     # By day
-    cost_by_day: Dict[str, Decimal] = field(default_factory=dict)
+    cost_by_day: dict[str, Decimal] = field(default_factory=dict)
 
     # Efficiency metrics
     avg_cost_per_request: Decimal = Decimal("0")
     avg_tokens_per_request: int = 0
     cache_hit_rate: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "tenant_id": self.tenant_id,
@@ -215,7 +210,6 @@ class CostBreakdown:
             },
         }
 
-
 @dataclass
 class Invoice:
     """Invoice for a billing period."""
@@ -232,19 +226,19 @@ class Invoice:
     total: Decimal = Decimal("0")
 
     # Line items
-    line_items: List[Dict[str, Any]] = field(default_factory=list)
+    line_items: list[dict[str, Any]] = field(default_factory=list)
 
     # Status
     status: InvoiceStatus = InvoiceStatus.DRAFT
-    due_date: Optional[datetime] = None
-    paid_at: Optional[datetime] = None
+    due_date: datetime | None = None
+    paid_at: datetime | None = None
 
     # Metadata
     currency: str = "USD"
-    notes: Optional[str] = None
+    notes: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -263,7 +257,6 @@ class Invoice:
             "notes": self.notes,
             "created_at": self.created_at.isoformat(),
         }
-
 
 @dataclass
 class UsageForecast:
@@ -285,14 +278,14 @@ class UsageForecast:
 
     # Budget status
     budget_remaining: Decimal = Decimal("0")
-    days_until_budget_exceeded: Optional[int] = None
+    days_until_budget_exceeded: int | None = None
     will_exceed_budget: bool = False
 
     # Confidence
     confidence: float = 0.0
     data_points_used: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "tenant_id": self.tenant_id,
@@ -315,7 +308,6 @@ class UsageForecast:
             "data_points_used": self.data_points_used,
         }
 
-
 class EnterpriseMeter:
     """
     Enterprise-grade usage metering for ENTERPRISE_PLUS tier.
@@ -324,7 +316,7 @@ class EnterpriseMeter:
     and invoice generation.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize enterprise meter.
 
@@ -332,14 +324,14 @@ class EnterpriseMeter:
             db_path: Path to SQLite database
         """
         self.db_path = db_path or Path(".nomic/enterprise_billing.db")
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self._lock = asyncio.Lock()
         self._initialized = False
 
         # In-memory buffers
-        self._usage_buffer: List[TokenUsageRecord] = []
+        self._usage_buffer: list[TokenUsageRecord] = []
         self._buffer_size = 50
-        self._flush_task: Optional[asyncio.Task] = None
+        self._flush_task: asyncio.Task | None = None
 
     async def initialize(self) -> None:
         """Initialize database and start background tasks."""
@@ -462,15 +454,15 @@ class EnterpriseMeter:
         model: str,
         tokens_in: int,
         tokens_out: int,
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        debate_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+        debate_id: str | None = None,
+        agent_id: str | None = None,
         request_type: str = "chat",
         cached_tokens: int = 0,
-        latency_ms: Optional[int] = None,
+        latency_ms: int | None = None,
         success: bool = True,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> TokenUsageRecord:
         """
         Record token usage for billing.
@@ -544,7 +536,7 @@ class EnterpriseMeter:
         model: str,
         tokens_in: int,
         tokens_out: int,
-    ) -> Tuple[Decimal, Decimal]:
+    ) -> tuple[Decimal, Decimal]:
         """Calculate input and output costs."""
         provider_prices = PROVIDER_PRICING.get(
             provider.lower(),
@@ -618,8 +610,8 @@ class EnterpriseMeter:
     async def get_cost_breakdown(
         self,
         tenant_id: str,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> CostBreakdown:
         """
         Get detailed cost breakdown for a tenant.
@@ -779,8 +771,8 @@ class EnterpriseMeter:
         self,
         tenant_id: str,
         monthly_budget: Decimal,
-        daily_limit: Optional[Decimal] = None,
-        alert_emails: Optional[List[str]] = None,
+        daily_limit: Decimal | None = None,
+        alert_emails: Optional[list[str]] = None,
         auto_suspend: bool = False,
     ) -> BudgetConfig:
         """
@@ -829,7 +821,7 @@ class EnterpriseMeter:
         logger.info(f"Set budget for tenant {tenant_id}: ${monthly_budget}")
         return config
 
-    async def get_budget(self, tenant_id: str) -> Optional[BudgetConfig]:
+    async def get_budget(self, tenant_id: str) -> BudgetConfig | None:
         """Get budget configuration for a tenant."""
         if not self._initialized:
             await self.initialize()
@@ -857,7 +849,7 @@ class EnterpriseMeter:
         self,
         tenant_id: str,
         cost_added: Decimal,
-    ) -> Optional[BudgetAlertLevel]:
+    ) -> BudgetAlertLevel | None:
         """Check if budget alerts should be sent."""
         config = await self.get_budget(tenant_id)
         if not config or config.monthly_budget == Decimal("0"):
@@ -1141,16 +1133,16 @@ class EnterpriseMeter:
     async def get_invoices(
         self,
         tenant_id: str,
-        status: Optional[InvoiceStatus] = None,
+        status: InvoiceStatus | None = None,
         limit: int = 20,
-    ) -> List[Invoice]:
+    ) -> list[Invoice]:
         """Get invoices for a tenant."""
         if not self._initialized:
             await self.initialize()
 
         cursor = self._conn.cursor()
         query = "SELECT * FROM invoices WHERE tenant_id = ?"
-        params: List[Any] = [tenant_id]
+        params: list[Any] = [tenant_id]
 
         if status:
             query += " AND status = ?"
@@ -1184,7 +1176,7 @@ class EnterpriseMeter:
 
         return invoices
 
-    def _get_tenant_id(self) -> Optional[str]:
+    def _get_tenant_id(self) -> str | None:
         """Get current tenant ID from context."""
         try:
             from aragora.tenancy.context import get_current_tenant_id
@@ -1202,10 +1194,8 @@ class EnterpriseMeter:
             self._conn.close()
             self._conn = None
 
-
 # Module-level instance
-_enterprise_meter: Optional[EnterpriseMeter] = None
-
+_enterprise_meter: EnterpriseMeter | None = None
 
 def get_enterprise_meter() -> EnterpriseMeter:
     """Get or create the enterprise meter."""
@@ -1213,7 +1203,6 @@ def get_enterprise_meter() -> EnterpriseMeter:
     if _enterprise_meter is None:
         _enterprise_meter = EnterpriseMeter()
     return _enterprise_meter
-
 
 __all__ = [
     "EnterpriseMeter",

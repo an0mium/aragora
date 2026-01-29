@@ -13,7 +13,7 @@ Features:
 
 Usage:
     # Create a data loader for users
-    async def batch_load_users(ids: List[str]) -> List[User]:
+    async def batch_load_users(ids: list[str]) -> list[User]:
         users = await db.users.find({"_id": {"$in": ids}})
         return [users.get(id) for id in ids]
 
@@ -34,9 +34,7 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Dict,
     Generic,
-    List,
     Optional,
     TypeVar,
 )
@@ -47,7 +45,6 @@ logger = logging.getLogger(__name__)
 K = TypeVar("K")  # Key type
 V = TypeVar("V")  # Value type
 
-
 @dataclass
 class LoaderStats:
     """Statistics for a DataLoader instance."""
@@ -55,7 +52,7 @@ class LoaderStats:
     loads: int = 0
     batches: int = 0
     cache_hits: int = 0
-    batch_sizes: List[int] = field(default_factory=list)
+    batch_sizes: list[int] = field(default_factory=list)
     total_load_time_ms: float = 0.0
     queue_overflows: int = 0  # Count of requests rejected due to queue overflow
     max_queue_size_seen: int = 0  # Peak queue size observed
@@ -74,7 +71,7 @@ class LoaderStats:
             return 0.0
         return (self.cache_hits / self.loads) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "loads": self.loads,
@@ -87,14 +84,12 @@ class LoaderStats:
             "max_queue_size_seen": self.max_queue_size_seen,
         }
 
-
 @dataclass
 class BatchRequest(Generic[K]):
     """A pending batch request."""
 
     key: K
     future: asyncio.Future[Any]
-
 
 class DataLoader(Generic[K, V]):
     """
@@ -106,7 +101,7 @@ class DataLoader(Generic[K, V]):
 
     def __init__(
         self,
-        batch_fn: Callable[[List[K]], Awaitable[List[V]]],
+        batch_fn: Callable[[list[K]], Awaitable[list[V]]],
         *,
         max_batch_size: int = 100,
         cache: bool = True,
@@ -136,12 +131,12 @@ class DataLoader(Generic[K, V]):
         self._max_queue_size = max_queue_size
 
         # Pending batch requests
-        self._queue: List[BatchRequest[K]] = []
+        self._queue: list[BatchRequest[K]] = []
         self._batch_scheduled = False
-        self._batch_timer: Optional[asyncio.TimerHandle] = None
+        self._batch_timer: asyncio.TimerHandle | None = None
 
         # Request-level cache
-        self._cache: Dict[str, V] = {}
+        self._cache: dict[str, V] = {}
 
         # Statistics
         self._stats = LoaderStats()
@@ -215,7 +210,7 @@ class DataLoader(Generic[K, V]):
 
         return await future
 
-    async def load_many(self, keys: List[K]) -> List[V]:
+    async def load_many(self, keys: list[K]) -> list[V]:
         """
         Load multiple items by keys.
 
@@ -300,7 +295,7 @@ class DataLoader(Generic[K, V]):
             cache_key = self._cache_key_fn(key)
             self._cache[cache_key] = value
 
-    def clear(self, key: Optional[K] = None) -> None:
+    def clear(self, key: K | None = None) -> None:
         """
         Clear the cache.
 
@@ -332,7 +327,6 @@ class DataLoader(Generic[K, V]):
         self._cache.clear()
         self._stats = LoaderStats()
 
-
 class BatchResolver:
     """
     Manages multiple DataLoaders for different entity types.
@@ -343,12 +337,12 @@ class BatchResolver:
 
     def __init__(self):
         """Initialize BatchResolver."""
-        self._loaders: Dict[str, DataLoader[Any, Any]] = {}
+        self._loaders: dict[str, DataLoader[Any, Any]] = {}
 
     def register(
         self,
         name: str,
-        batch_fn: Callable[[List[Any]], Awaitable[List[Any]]],
+        batch_fn: Callable[[list[Any]], Awaitable[list[Any]]],
         **kwargs: Any,
     ) -> DataLoader[Any, Any]:
         """
@@ -378,17 +372,15 @@ class BatchResolver:
         for loader in self._loaders.values():
             loader.clear_all()
 
-    def stats(self) -> Dict[str, Dict[str, Any]]:
+    def stats(self) -> dict[str, dict[str, Any]]:
         """Get stats for all loaders."""
         return {name: loader.stats.to_dict() for name, loader in self._loaders.items()}
-
 
 # Request-scoped loader storage
 _request_loaders: WeakValueDictionary[int, BatchResolver] = WeakValueDictionary()
 
-
 def create_data_loader(
-    batch_fn: Callable[[List[K]], Awaitable[List[V]]],
+    batch_fn: Callable[[list[K]], Awaitable[list[V]]],
     **kwargs: Any,
 ) -> DataLoader[K, V]:
     """
@@ -405,14 +397,12 @@ def create_data_loader(
     """
     return DataLoader(batch_fn, **kwargs)
 
-
 # Pre-built batch functions for common patterns
 
-
 async def batch_by_id(
-    ids: List[str],
-    fetch_fn: Callable[[List[str]], Awaitable[Dict[str, Any]]],
-) -> List[Optional[Any]]:
+    ids: list[str],
+    fetch_fn: Callable[[list[str]], Awaitable[dict[str, Any]]],
+) -> list[Any | None]:
     """
     Standard batch function that fetches by ID and returns in order.
 
@@ -425,7 +415,6 @@ async def batch_by_id(
     """
     results = await fetch_fn(ids)
     return [results.get(id) for id in ids]
-
 
 __all__ = [
     "DataLoader",

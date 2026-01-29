@@ -14,7 +14,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.storage.base_store import SQLiteStore
 
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class StoredTemplate:
@@ -76,7 +75,6 @@ class StoredTemplate:
         result["workflow_definition"] = self.workflow_definition
         return result
 
-
 @dataclass
 class StoredReview:
     """Review stored in the marketplace."""
@@ -104,7 +102,6 @@ class StoredReview:
             "helpful_count": self.helpful_count,
             "created_at": self.created_at,
         }
-
 
 class MarketplaceStore(SQLiteStore):
     """
@@ -200,7 +197,7 @@ class MarketplaceStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Optional[Union[str, Path]] = None,
+        db_path: Optional[str | Path] = None,
         auto_init: bool = True,
     ):
         """Initialize the marketplace store.
@@ -249,7 +246,7 @@ class MarketplaceStore(SQLiteStore):
         category: str,
         pattern: str,
         workflow_definition: dict[str, Any],
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> StoredTemplate:
         """Create a new template.
 
@@ -332,7 +329,7 @@ class MarketplaceStore(SQLiteStore):
         logger.info(f"Created template: {template.id} ({template.name})")
         return template
 
-    def get_template(self, template_id: str) -> Optional[StoredTemplate]:
+    def get_template(self, template_id: str) -> StoredTemplate | None:
         """Get a template by ID.
 
         Args:
@@ -354,8 +351,8 @@ class MarketplaceStore(SQLiteStore):
 
     def list_templates(
         self,
-        category: Optional[str] = None,
-        search: Optional[str] = None,
+        category: str | None = None,
+        search: str | None = None,
         sort_by: str = "rating",
         limit: int = 50,
         offset: int = 0,
@@ -474,8 +471,8 @@ class MarketplaceStore(SQLiteStore):
 
     def list_templates_with_rank(
         self,
-        category: Optional[str] = None,
-        search: Optional[str] = None,
+        category: str | None = None,
+        search: str | None = None,
         sort_by: str = "rating",
         limit: int = 50,
         offset: int = 0,
@@ -815,7 +812,6 @@ class MarketplaceStore(SQLiteStore):
             created_at=row[8],
         )
 
-
 class PostgresMarketplaceStore:
     """
     PostgreSQL-backed marketplace store.
@@ -956,7 +952,7 @@ class PostgresMarketplaceStore:
         category: str,
         pattern: str,
         workflow_definition: dict[str, Any],
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> StoredTemplate:
         """Create a new template (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -981,7 +977,7 @@ class PostgresMarketplaceStore:
         category: str,
         pattern: str,
         workflow_definition: dict[str, Any],
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> StoredTemplate:
         """Create a new template asynchronously."""
         template_id = f"tpl-{uuid.uuid4().hex[:12]}"
@@ -1045,11 +1041,11 @@ class PostgresMarketplaceStore:
         logger.info(f"Created template: {template.id} ({template.name})")
         return template
 
-    def get_template(self, template_id: str) -> Optional[StoredTemplate]:
+    def get_template(self, template_id: str) -> StoredTemplate | None:
         """Get a template by ID (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.get_template_async(template_id))
 
-    async def get_template_async(self, template_id: str) -> Optional[StoredTemplate]:
+    async def get_template_async(self, template_id: str) -> StoredTemplate | None:
         """Get a template by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1071,8 +1067,8 @@ class PostgresMarketplaceStore:
 
     def list_templates(
         self,
-        category: Optional[str] = None,
-        search: Optional[str] = None,
+        category: str | None = None,
+        search: str | None = None,
         sort_by: str = "rating",
         limit: int = 50,
         offset: int = 0,
@@ -1084,8 +1080,8 @@ class PostgresMarketplaceStore:
 
     async def list_templates_async(
         self,
-        category: Optional[str] = None,
-        search: Optional[str] = None,
+        category: str | None = None,
+        search: str | None = None,
         sort_by: str = "rating",
         limit: int = 50,
         offset: int = 0,
@@ -1500,12 +1496,10 @@ class PostgresMarketplaceStore:
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
-
 # Default instance
-_marketplace_store: Optional[Union[MarketplaceStore, PostgresMarketplaceStore]] = None
+_marketplace_store: Optional[MarketplaceStore | PostgresMarketplaceStore] = None
 
-
-def get_marketplace_store() -> Union[MarketplaceStore, PostgresMarketplaceStore]:
+def get_marketplace_store() -> MarketplaceStore | PostgresMarketplaceStore:
     """
     Get or create the default marketplace store instance.
 
@@ -1553,18 +1547,15 @@ def get_marketplace_store() -> Union[MarketplaceStore, PostgresMarketplaceStore]
 
     return _marketplace_store
 
-
-def set_marketplace_store(store: Union[MarketplaceStore, PostgresMarketplaceStore]) -> None:
+def set_marketplace_store(store: MarketplaceStore | PostgresMarketplaceStore) -> None:
     """Set a custom marketplace store instance."""
     global _marketplace_store
     _marketplace_store = store
-
 
 def reset_marketplace_store() -> None:
     """Reset the global marketplace store (for testing)."""
     global _marketplace_store
     _marketplace_store = None
-
 
 __all__ = [
     "StoredTemplate",

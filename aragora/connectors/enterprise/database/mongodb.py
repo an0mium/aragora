@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -33,7 +33,6 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 class MongoDBConnector(EnterpriseConnector):
     """
     MongoDB connector for enterprise data sync.
@@ -50,12 +49,12 @@ class MongoDBConnector(EnterpriseConnector):
         host: str = "localhost",
         port: int = 27017,
         database: str = "test",
-        collections: Optional[List[str]] = None,
+        collections: Optional[list[str]] = None,
         timestamp_field: str = "updated_at",
-        content_fields: Optional[List[str]] = None,
-        title_field: Optional[str] = None,
+        content_fields: Optional[list[str]] = None,
+        title_field: str | None = None,
         use_change_streams: bool = False,
-        connection_string: Optional[str] = None,
+        connection_string: str | None = None,
         **kwargs,
     ):
         connector_id = f"mongodb_{host}_{database}"
@@ -76,9 +75,9 @@ class MongoDBConnector(EnterpriseConnector):
         self._change_stream_task = None
 
         # CDC support
-        self._cdc_manager: Optional[CDCStreamManager] = None
-        self._change_handlers: List[ChangeEventHandler] = []
-        self._resume_token_store: Optional[ResumeTokenStore] = None
+        self._cdc_manager: CDCStreamManager | None = None
+        self._change_handlers: list[ChangeEventHandler] = []
+        self._resume_token_store: ResumeTokenStore | None = None
 
     @property
     def cdc_manager(self) -> CDCStreamManager:
@@ -143,7 +142,7 @@ class MongoDBConnector(EnterpriseConnector):
             logger.error("motor not installed. Run: pip install motor")
             raise
 
-    async def _discover_collections(self) -> List[str]:
+    async def _discover_collections(self) -> list[str]:
         """Discover collections in the database."""
         await self._get_client()
         if self._db is None:
@@ -152,7 +151,7 @@ class MongoDBConnector(EnterpriseConnector):
         # Filter out system collections
         return [c for c in collections if not c.startswith("system.")]
 
-    def _document_to_content(self, doc: Dict[str, Any]) -> str:
+    def _document_to_content(self, doc: dict[str, Any]) -> str:
         """Convert a document to text content for indexing."""
         if self.content_fields:
             filtered = {k: v for k, v in doc.items() if k in self.content_fields}
@@ -174,7 +173,7 @@ class MongoDBConnector(EnterpriseConnector):
 
         return "\n".join(parts)
 
-    def _get_document_title(self, doc: Dict[str, Any], collection: str) -> str:
+    def _get_document_title(self, doc: dict[str, Any], collection: str) -> str:
         """Extract title from document."""
         if self.title_field and doc.get(self.title_field):
             return str(doc[self.title_field])
@@ -231,7 +230,7 @@ class MongoDBConnector(EnterpriseConnector):
                 collection = self._db[collection_name]
 
                 # Build query filter
-                query: Dict[str, Any] = {}
+                query: dict[str, Any] = {}
 
                 if state.last_item_timestamp:
                     query[self.timestamp_field] = {"$gt": state.last_item_timestamp}
@@ -434,7 +433,7 @@ class MongoDBConnector(EnterpriseConnector):
                         logger.warning(f"[{self.name}] Invalid resume token, starting fresh")
 
                 # Start change stream with resume support
-                watch_kwargs: Dict[str, Any] = {"pipeline": pipeline}
+                watch_kwargs: dict[str, Any] = {"pipeline": pipeline}
                 if resume_after:
                     watch_kwargs["resume_after"] = resume_after
 
@@ -448,7 +447,7 @@ class MongoDBConnector(EnterpriseConnector):
 
         self._change_stream_task = asyncio.create_task(change_stream_loop())
 
-    async def _handle_change(self, change: Dict[str, Any]):
+    async def _handle_change(self, change: dict[str, Any]):
         """Handle a change stream event and emit ChangeEvent."""
         try:
             # Create unified ChangeEvent from MongoDB change stream
@@ -491,7 +490,7 @@ class MongoDBConnector(EnterpriseConnector):
             self._client = None
             self._db = None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle webhook for database changes."""
         collection = payload.get("collection")
         operation = payload.get("operation")
@@ -527,8 +526,8 @@ class MongoDBConnector(EnterpriseConnector):
     async def aggregate(
         self,
         collection_name: str,
-        pipeline: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        pipeline: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         """
         Run an aggregation pipeline on a collection.
 

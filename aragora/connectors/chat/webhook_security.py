@@ -27,10 +27,8 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 class WebhookVerificationError(Exception):
     """
@@ -49,17 +47,14 @@ class WebhookVerificationError(Exception):
             f"(development environments only)."
         )
 
-
 def get_environment() -> str:
     """Get the current environment."""
     return os.environ.get("ARAGORA_ENV", "development").lower()
-
 
 def is_production_environment() -> bool:
     """Check if running in production or staging environment."""
     env = get_environment()
     return env in ("production", "prod", "staging", "stage")
-
 
 def is_webhook_verification_required() -> bool:
     """
@@ -83,7 +78,6 @@ def is_webhook_verification_required() -> bool:
     )
 
     return not allow_unverified
-
 
 def should_allow_unverified(source: str) -> bool:
     """
@@ -123,7 +117,6 @@ def should_allow_unverified(source: str) -> bool:
 
     return allow_unverified
 
-
 @dataclass
 class WebhookVerificationResult:
     """Result of webhook verification."""
@@ -131,17 +124,16 @@ class WebhookVerificationResult:
     verified: bool
     source: str
     method: str
-    error: Optional[str] = None
+    error: str | None = None
 
     def __bool__(self) -> bool:
         return self.verified
-
 
 def log_verification_attempt(
     source: str,
     success: bool,
     method: str,
-    error: Optional[str] = None,
+    error: str | None = None,
 ) -> WebhookVerificationResult:
     """
     Log a webhook verification attempt for audit purposes.
@@ -170,7 +162,6 @@ def log_verification_attempt(
         )
 
     return result
-
 
 def verify_slack_signature(
     timestamp: str,
@@ -281,7 +272,6 @@ def verify_slack_signature(
             error="Signature mismatch",
         )
 
-
 __all__ = [
     "WebhookVerificationError",
     "WebhookVerificationResult",
@@ -296,14 +286,11 @@ __all__ = [
     "Ed25519Verifier",
 ]
 
-
 # =============================================================================
 # Unified Webhook Verifier Protocol
 # =============================================================================
 
-
 from abc import ABC, abstractmethod
-
 
 class WebhookVerifier(ABC):
     """
@@ -358,7 +345,6 @@ class WebhookVerifier(ABC):
                 return v
         return ""
 
-
 class HMACVerifier(WebhookVerifier):
     """
     HMAC-based webhook signature verifier.
@@ -396,7 +382,7 @@ class HMACVerifier(WebhookVerifier):
         source: str,
         algorithm: str = "sha256",
         signature_header: str = "X-Signature",
-        timestamp_header: Optional[str] = None,
+        timestamp_header: str | None = None,
         signature_prefix: str = "",
         body_template: str = "{body}",
         max_timestamp_age: int = 300,  # 5 minutes
@@ -518,7 +504,6 @@ class HMACVerifier(WebhookVerifier):
                 method=f"hmac-{self.algorithm}",
                 error="Signature mismatch",
             )
-
 
 class Ed25519Verifier(WebhookVerifier):
     """

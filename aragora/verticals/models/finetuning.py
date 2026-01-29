@@ -12,10 +12,9 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class FinetuningConfig:
@@ -33,7 +32,7 @@ class FinetuningConfig:
     lora_r: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.1
-    target_modules: List[str] = field(
+    target_modules: list[str] = field(
         default_factory=lambda: ["q_proj", "k_proj", "v_proj", "o_proj"]
     )
 
@@ -57,7 +56,7 @@ class FinetuningConfig:
     eval_steps: int = 100
     save_steps: int = 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "base_model_id": self.base_model_id,
@@ -84,7 +83,6 @@ class FinetuningConfig:
             "save_steps": self.save_steps,
         }
 
-
 @dataclass
 class TrainingExample:
     """A single training example for fine-tuning."""
@@ -94,7 +92,7 @@ class TrainingExample:
     output: str
     vertical: str
     source: str = "custom"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_prompt(self, template: str = "alpaca") -> str:
         """
@@ -140,7 +138,6 @@ class TrainingExample:
         else:
             return f"{self.instruction}\n{self.input}\n{self.output}"
 
-
 class VerticalFineTuningPipeline:
     """
     Fine-tuning pipeline for vertical specialist models.
@@ -155,7 +152,7 @@ class VerticalFineTuningPipeline:
     def __init__(
         self,
         config: FinetuningConfig,
-        data_dir: Optional[str] = None,
+        data_dir: str | None = None,
     ):
         """
         Initialize the pipeline.
@@ -169,9 +166,9 @@ class VerticalFineTuningPipeline:
         self._model = None
         self._tokenizer = None
         self._trainer = None
-        self._training_examples: List[TrainingExample] = []
+        self._training_examples: list[TrainingExample] = []
 
-    def load_base_model(self, quantization: Optional[str] = "4bit") -> None:
+    def load_base_model(self, quantization: str | None = "4bit") -> None:
         """
         Load the base model for fine-tuning.
 
@@ -323,7 +320,7 @@ class VerticalFineTuningPipeline:
         self,
         debate_id: str,
         topic: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         final_answer: str,
     ) -> None:
         """
@@ -403,8 +400,8 @@ class VerticalFineTuningPipeline:
     def train(
         self,
         dataset: Any,
-        resume_from_checkpoint: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        resume_from_checkpoint: str | None = None,
+    ) -> dict[str, Any]:
         """
         Run the fine-tuning training.
 
@@ -479,7 +476,7 @@ class VerticalFineTuningPipeline:
             logger.error(f"Missing dependencies for training: {e}")
             raise
 
-    def save_adapter(self, path: Optional[str] = None) -> str:
+    def save_adapter(self, path: str | None = None) -> str:
         """
         Save the trained LoRA adapter.
 
@@ -507,7 +504,7 @@ class VerticalFineTuningPipeline:
         logger.info(f"Adapter saved to: {save_path}")
         return save_path
 
-    def get_training_stats(self) -> Dict[str, Any]:
+    def get_training_stats(self) -> dict[str, Any]:
         """Get training statistics."""
         return {
             "num_examples": len(self._training_examples),

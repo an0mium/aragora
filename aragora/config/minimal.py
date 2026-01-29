@@ -20,14 +20,13 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Environment variable to enable minimal mode
 MINIMAL_MODE_ENV = "ARAGORA_MODE"
 MINIMAL_MODE_VALUE = "minimal"
-
 
 @dataclass
 class MinimalModeConfig:
@@ -52,18 +51,15 @@ class MinimalModeConfig:
     enable_metrics: bool = True
     enable_tracing: bool = False  # Skip distributed tracing
 
-
 def is_minimal_mode() -> bool:
     """Check if minimal mode is enabled."""
     return os.environ.get(MINIMAL_MODE_ENV, "").lower() == MINIMAL_MODE_VALUE
-
 
 def get_minimal_config() -> MinimalModeConfig:
     """Get minimal mode configuration."""
     return MinimalModeConfig()
 
-
-def apply_minimal_mode(config: Optional[MinimalModeConfig] = None) -> Dict[str, Any]:
+def apply_minimal_mode(config: MinimalModeConfig | None = None) -> dict[str, Any]:
     """Apply minimal mode environment variables.
 
     This function sets environment variables to configure Aragora for
@@ -78,7 +74,7 @@ def apply_minimal_mode(config: Optional[MinimalModeConfig] = None) -> Dict[str, 
     if config is None:
         config = get_minimal_config()
 
-    applied: Dict[str, Any] = {}
+    applied: dict[str, Any] = {}
 
     # Database configuration
     os.environ.setdefault("ARAGORA_DB_BACKEND", config.db_backend)
@@ -118,8 +114,7 @@ def apply_minimal_mode(config: Optional[MinimalModeConfig] = None) -> Dict[str, 
     logger.info(f"Applied minimal mode configuration: {applied}")
     return applied
 
-
-def check_minimal_requirements() -> Dict[str, bool]:
+def check_minimal_requirements() -> dict[str, bool]:
     """Check if minimal requirements are met.
 
     Returns:
@@ -142,7 +137,6 @@ def check_minimal_requirements() -> Dict[str, bool]:
     requirements["pydantic"] = importlib.util.find_spec("pydantic") is not None
 
     return requirements
-
 
 def get_minimal_startup_message() -> str:
     """Get startup message for minimal mode."""
@@ -169,7 +163,6 @@ For production with high availability, consider:
 ============================================================
 """
 
-
 class InMemoryCache:
     """Simple in-memory cache for minimal mode.
 
@@ -177,13 +170,13 @@ class InMemoryCache:
     """
 
     def __init__(self, max_size: int = 10000):
-        self._cache: Dict[str, tuple[Any, float]] = {}
+        self._cache: dict[str, tuple[Any, float]] = {}
         self._max_size = max_size
         import threading
 
         self._lock = threading.RLock()
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get value from cache."""
         import time
 
@@ -228,10 +221,8 @@ class InMemoryCache:
         """Get current cache size."""
         return len(self._cache)
 
-
 # Global cache instance for minimal mode
-_minimal_cache: Optional[InMemoryCache] = None
-
+_minimal_cache: InMemoryCache | None = None
 
 def get_minimal_cache() -> InMemoryCache:
     """Get the global minimal mode cache instance."""
@@ -240,7 +231,6 @@ def get_minimal_cache() -> InMemoryCache:
         config = get_minimal_config()
         _minimal_cache = InMemoryCache(max_size=config.cache_max_size)
     return _minimal_cache
-
 
 # Auto-apply minimal mode if environment variable is set
 if is_minimal_mode():

@@ -20,7 +20,7 @@ import logging
 import os
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import DeviceConnector, DeviceConnectorConfig
 from .models import (
@@ -34,7 +34,6 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class FCMConnector(DeviceConnector):
     """
@@ -63,10 +62,10 @@ class FCMConnector(DeviceConnector):
     # FCM HTTP v1 API endpoint
     FCM_ENDPOINT = "https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
 
-    def __init__(self, config: Optional[DeviceConnectorConfig] = None):
+    def __init__(self, config: DeviceConnectorConfig | None = None):
         super().__init__(config)
-        self._project_id: Optional[str] = None
-        self._access_token: Optional[str] = None
+        self._project_id: str | None = None
+        self._access_token: str | None = None
         self._token_expires_at: float = 0
 
     @property
@@ -78,7 +77,7 @@ class FCMConnector(DeviceConnector):
         return "Firebase Cloud Messaging"
 
     @property
-    def supported_device_types(self) -> List[DeviceType]:
+    def supported_device_types(self) -> list[DeviceType]:
         return [DeviceType.ANDROID, DeviceType.WEB]
 
     async def initialize(self) -> bool:
@@ -220,9 +219,9 @@ class FCMConnector(DeviceConnector):
         self,
         device: DeviceToken,
         message: DeviceMessage,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build FCM message payload."""
-        fcm_msg: Dict[str, Any] = {
+        fcm_msg: dict[str, Any] = {
             "token": device.push_token,
             "notification": {
                 "title": message.title,
@@ -296,7 +295,7 @@ class FCMConnector(DeviceConnector):
 
     async def send_batch(
         self,
-        devices: List[DeviceToken],
+        devices: list[DeviceToken],
         message: DeviceMessage,
         **kwargs: Any,
     ) -> BatchSendResult:
@@ -348,7 +347,6 @@ class FCMConnector(DeviceConnector):
             tokens_to_remove=tokens_to_remove,
         )
 
-
 class APNsConnector(DeviceConnector):
     """
     Apple Push Notification service (APNs) connector.
@@ -378,16 +376,16 @@ class APNsConnector(DeviceConnector):
 
     def __init__(
         self,
-        config: Optional[DeviceConnectorConfig] = None,
+        config: DeviceConnectorConfig | None = None,
         use_sandbox: bool = False,
     ):
         super().__init__(config)
         self._use_sandbox = use_sandbox
-        self._key_id: Optional[str] = None
-        self._team_id: Optional[str] = None
-        self._bundle_id: Optional[str] = None
-        self._private_key: Optional[str] = None
-        self._jwt_token: Optional[str] = None
+        self._key_id: str | None = None
+        self._team_id: str | None = None
+        self._bundle_id: str | None = None
+        self._private_key: str | None = None
+        self._jwt_token: str | None = None
         self._token_issued_at: float = 0
 
     @property
@@ -399,7 +397,7 @@ class APNsConnector(DeviceConnector):
         return "Apple Push Notification service"
 
     @property
-    def supported_device_types(self) -> List[DeviceType]:
+    def supported_device_types(self) -> list[DeviceType]:
         return [DeviceType.IOS]
 
     @property
@@ -542,9 +540,9 @@ class APNsConnector(DeviceConnector):
                 timestamp=datetime.now(timezone.utc),
             )
 
-    def _build_apns_payload(self, message: DeviceMessage) -> Dict[str, Any]:
+    def _build_apns_payload(self, message: DeviceMessage) -> dict[str, Any]:
         """Build APNs notification payload."""
-        aps: Dict[str, Any] = {
+        aps: dict[str, Any] = {
             "alert": {
                 "title": message.title,
                 "body": message.body,
@@ -563,7 +561,7 @@ class APNsConnector(DeviceConnector):
         if message.mutable_content:
             aps["mutable-content"] = 1
 
-        payload: Dict[str, Any] = {"aps": aps}
+        payload: dict[str, Any] = {"aps": aps}
 
         # Add custom data
         if message.data:
@@ -605,7 +603,6 @@ class APNsConnector(DeviceConnector):
         except ValueError:
             return False
 
-
 class WebPushConnector(DeviceConnector):
     """
     Web Push connector using VAPID.
@@ -628,11 +625,11 @@ class WebPushConnector(DeviceConnector):
         )
     """
 
-    def __init__(self, config: Optional[DeviceConnectorConfig] = None):
+    def __init__(self, config: DeviceConnectorConfig | None = None):
         super().__init__(config)
-        self._vapid_public: Optional[str] = None
-        self._vapid_private: Optional[str] = None
-        self._vapid_subject: Optional[str] = None
+        self._vapid_public: str | None = None
+        self._vapid_private: str | None = None
+        self._vapid_subject: str | None = None
 
     @property
     def platform_name(self) -> str:
@@ -643,7 +640,7 @@ class WebPushConnector(DeviceConnector):
         return "Web Push (VAPID)"
 
     @property
-    def supported_device_types(self) -> List[DeviceType]:
+    def supported_device_types(self) -> list[DeviceType]:
         return [DeviceType.WEB]
 
     async def initialize(self) -> bool:

@@ -23,7 +23,7 @@ import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.reasoning.provenance import (
@@ -44,20 +44,17 @@ PROVENANCE_SOURCE = KnowledgeSource.DEBATE  # Evidence from debates
 logger = logging.getLogger(__name__)
 
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 class ProvenanceAdapterError(Exception):
     """Base exception for provenance adapter errors."""
 
     pass
 
-
 class ChainNotFoundError(ProvenanceAdapterError):
     """Raised when a provenance chain is not found."""
 
     pass
-
 
 @dataclass
 class ProvenanceIngestionResult:
@@ -68,15 +65,15 @@ class ProvenanceIngestionResult:
     records_ingested: int
     citations_ingested: int
     relationships_created: int
-    knowledge_item_ids: List[str]
-    errors: List[str]
+    knowledge_item_ids: list[str]
+    errors: list[str]
 
     @property
     def success(self) -> bool:
         """Check if ingestion was successful."""
         return len(self.errors) == 0 and self.records_ingested > 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "chain_id": self.chain_id,
@@ -88,7 +85,6 @@ class ProvenanceIngestionResult:
             "errors": self.errors,
             "success": self.success,
         }
-
 
 class ProvenanceAdapter:
     """
@@ -122,10 +118,10 @@ class ProvenanceAdapter:
 
     def __init__(
         self,
-        mound: Optional[Any] = None,
-        provenance_store: Optional[Any] = None,
+        mound: Any | None = None,
+        provenance_store: Any | None = None,
         enable_dual_write: bool = True,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         auto_ingest: bool = True,
     ):
         """
@@ -143,7 +139,7 @@ class ProvenanceAdapter:
         self._enable_dual_write = enable_dual_write
         self._event_callback = event_callback
         self._auto_ingest = auto_ingest
-        self._ingested_chains: Dict[str, ProvenanceIngestionResult] = {}
+        self._ingested_chains: dict[str, ProvenanceIngestionResult] = {}
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""
@@ -157,7 +153,7 @@ class ProvenanceAdapter:
         """Set the ProvenanceStore instance."""
         self._provenance_store = store
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -168,8 +164,8 @@ class ProvenanceAdapter:
     async def ingest_provenance(
         self,
         manager: "ProvenanceManager",
-        workspace_id: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        workspace_id: str | None = None,
+        tags: Optional[list[str]] = None,
     ) -> ProvenanceIngestionResult:
         """
         Ingest provenance data into the Knowledge Mound.
@@ -185,8 +181,8 @@ class ProvenanceAdapter:
         Returns:
             ProvenanceIngestionResult with counts and any errors
         """
-        errors: List[str] = []
-        knowledge_item_ids: List[str] = []
+        errors: list[str] = []
+        knowledge_item_ids: list[str] = []
         records_ingested = 0
         citations_ingested = 0
         relationships_created = 0
@@ -335,8 +331,8 @@ class ProvenanceAdapter:
         self,
         record: "ProvenanceRecord",
         manager: "ProvenanceManager",
-        workspace_id: Optional[str],
-        tags: List[str],
+        workspace_id: str | None,
+        tags: list[str],
     ) -> KnowledgeItem:
         """Convert a provenance record to a knowledge item."""
         item_id = f"{self.RECORD_PREFIX}{record.id}"
@@ -389,8 +385,8 @@ class ProvenanceAdapter:
         self,
         citation: Any,  # Citation type
         manager: "ProvenanceManager",
-        workspace_id: Optional[str],
-        tags: List[str],
+        workspace_id: str | None,
+        tags: list[str],
     ) -> KnowledgeItem:
         """Convert a citation to a knowledge item."""
         citation_id = f"{citation.claim_id}:{citation.evidence_id}"
@@ -433,8 +429,8 @@ class ProvenanceAdapter:
     def _chain_to_summary_item(
         self,
         manager: "ProvenanceManager",
-        workspace_id: Optional[str],
-        tags: List[str],
+        workspace_id: str | None,
+        tags: list[str],
     ) -> KnowledgeItem:
         """Create a summary knowledge item for the chain."""
         item_id = f"{self.ID_PREFIX}{manager.chain.chain_id}"
@@ -486,7 +482,7 @@ class ProvenanceAdapter:
             },
         )
 
-    async def _store_item(self, item: KnowledgeItem) -> Optional[str]:
+    async def _store_item(self, item: KnowledgeItem) -> str | None:
         """Store a knowledge item in the mound."""
         if not self._mound:
             return None
@@ -528,9 +524,9 @@ class ProvenanceAdapter:
     async def find_related_evidence(
         self,
         query: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         limit: int = 5,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """
         Find evidence related to a query.
 
@@ -562,8 +558,8 @@ class ProvenanceAdapter:
     async def find_citations_for_claim(
         self,
         claim_id: str,
-        workspace_id: Optional[str] = None,
-    ) -> List[KnowledgeItem]:
+        workspace_id: str | None = None,
+    ) -> list[KnowledgeItem]:
         """
         Find citations for a specific claim.
 
@@ -591,11 +587,11 @@ class ProvenanceAdapter:
 
         return []
 
-    def get_ingestion_result(self, chain_id: str) -> Optional[ProvenanceIngestionResult]:
+    def get_ingestion_result(self, chain_id: str) -> ProvenanceIngestionResult | None:
         """Get the ingestion result for a chain."""
         return self._ingested_chains.get(chain_id)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         total_records = sum(r.records_ingested for r in self._ingested_chains.values())
         total_citations = sum(r.citations_ingested for r in self._ingested_chains.values())
@@ -610,7 +606,6 @@ class ProvenanceAdapter:
             "provenance_store_connected": self._provenance_store is not None,
             "auto_ingest_enabled": self._auto_ingest,
         }
-
 
 __all__ = [
     "ProvenanceAdapter",

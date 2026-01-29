@@ -33,20 +33,19 @@ import logging
 import time
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class BatchedEvent:
     """A single event in a batch."""
 
     event_type: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "type": self.event_type,
@@ -54,12 +53,11 @@ class BatchedEvent:
             "timestamp": self.timestamp,
         }
 
-
 @dataclass
 class EventBatch:
     """A batch of events ready for emission."""
 
-    events: List[BatchedEvent] = field(default_factory=list)
+    events: list[BatchedEvent] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
 
     @property
@@ -70,7 +68,7 @@ class EventBatch:
     def age_ms(self) -> float:
         return (time.time() - self.created_at) * 1000
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "type": "km_batch",
@@ -82,11 +80,9 @@ class EventBatch:
             "batch_created_at": self.created_at,
         }
 
-
 # Type alias for callbacks
-EventCallback = Callable[[str, Dict[str, Any]], None]
-AsyncEventCallback = Callable[[str, Dict[str, Any]], "asyncio.Future[None]"]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
+AsyncEventCallback = Callable[[str, dict[str, Any]], "asyncio.Future[None]"]
 
 class EventBatcher:
     """
@@ -108,11 +104,11 @@ class EventBatcher:
 
     def __init__(
         self,
-        callback: Optional[Union[EventCallback, AsyncEventCallback]] = None,
+        callback: Optional[EventCallback | AsyncEventCallback] = None,
         batch_interval_ms: float = 100.0,
         max_batch_size: int = 50,
-        batch_event_types: Optional[List[str]] = None,
-        passthrough_event_types: Optional[List[str]] = None,
+        batch_event_types: Optional[list[str]] = None,
+        passthrough_event_types: Optional[list[str]] = None,
     ):
         """
         Initialize the event batcher.
@@ -135,9 +131,9 @@ class EventBatcher:
         self._lock = Lock()
 
         # Background task for time-based emission
-        self._flush_task: Optional[asyncio.Task] = None
+        self._flush_task: asyncio.Task | None = None
         self._running = False
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
         # Statistics
         self._total_events_queued = 0
@@ -145,11 +141,11 @@ class EventBatcher:
         self._total_batches_emitted = 0
         self._passthrough_events = 0
 
-    def set_callback(self, callback: Union[EventCallback, AsyncEventCallback]) -> None:
+    def set_callback(self, callback: EventCallback | AsyncEventCallback) -> None:
         """Set the callback for emitting batched events."""
         self._callback = callback
 
-    def start(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
+    def start(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Start the background flush task."""
         if self._running:
             return
@@ -178,7 +174,7 @@ class EventBatcher:
         # Flush any remaining events
         await self.flush()
 
-    def queue_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def queue_event(self, event_type: str, data: dict[str, Any]) -> None:
         """
         Queue an event for batching.
 
@@ -215,7 +211,7 @@ class EventBatcher:
         if should_flush:
             self._schedule_flush()
 
-    def _emit_immediately(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_immediately(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event immediately (bypass batching)."""
         if not self._callback:
             return
@@ -310,7 +306,7 @@ class EventBatcher:
             logger.warning(f"Failed to emit batch: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get batching statistics."""
         with self._lock:
             pending = len(self._batch.events)
@@ -335,7 +331,6 @@ class EventBatcher:
         self._total_events_emitted = 0
         self._total_batches_emitted = 0
         self._passthrough_events = 0
-
 
 class AdapterEventBatcher:
     """
@@ -371,7 +366,7 @@ class AdapterEventBatcher:
         self._batcher = batcher
         self._prefix = prefix
 
-    def event_callback(self, event_type: str, data: Dict[str, Any]) -> None:
+    def event_callback(self, event_type: str, data: dict[str, Any]) -> None:
         """
         Callback function to pass to adapters.
 
@@ -384,10 +379,9 @@ class AdapterEventBatcher:
         self._batcher.queue_event(event_type, data)
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get batcher statistics."""
         return self._batcher.get_stats()
-
 
 __all__ = [
     "EventBatcher",

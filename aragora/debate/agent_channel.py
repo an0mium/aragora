@@ -36,11 +36,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Callable, Coroutine
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class MessageType(Enum):
     """Types of inter-agent messages."""
@@ -53,7 +52,6 @@ class MessageType(Enum):
     RESPONSE = "response"  # Response to a query
     SIGNAL = "signal"  # Control signal (ready, done, etc.)
 
-
 @dataclass
 class ChannelMessage:
     """A message in an agent channel."""
@@ -64,9 +62,9 @@ class ChannelMessage:
     message_type: MessageType
     content: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    recipient: Optional[str] = None  # None for broadcast
+    recipient: str | None = None  # None for broadcast
     metadata: dict[str, Any] = field(default_factory=dict)
-    reply_to: Optional[str] = None  # For threaded conversations
+    reply_to: str | None = None  # For threaded conversations
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -96,7 +94,6 @@ class ChannelMessage:
             metadata=data.get("metadata", {}),
             reply_to=data.get("reply_to"),
         )
-
 
 class AgentChannel:
     """
@@ -195,8 +192,8 @@ class AgentChannel:
         sender: str,
         content: str,
         message_type: MessageType = MessageType.BROADCAST,
-        metadata: Optional[dict[str, Any]] = None,
-        reply_to: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        reply_to: str | None = None,
     ) -> ChannelMessage:
         """
         Broadcast a message to all agents in the channel.
@@ -252,9 +249,9 @@ class AgentChannel:
         recipient: str,
         content: str,
         message_type: MessageType = MessageType.DIRECT,
-        metadata: Optional[dict[str, Any]] = None,
-        reply_to: Optional[str] = None,
-    ) -> Optional[ChannelMessage]:
+        metadata: dict[str, Any] | None = None,
+        reply_to: str | None = None,
+    ) -> ChannelMessage | None:
         """
         Send a direct message to a specific agent.
 
@@ -303,8 +300,8 @@ class AgentChannel:
     async def receive(
         self,
         agent_name: str,
-        timeout: Optional[float] = None,
-    ) -> Optional[ChannelMessage]:
+        timeout: float | None = None,
+    ) -> ChannelMessage | None:
         """
         Receive next message for an agent.
 
@@ -392,8 +389,8 @@ class AgentChannel:
     def get_history(
         self,
         limit: int = 100,
-        sender: Optional[str] = None,
-        message_type: Optional[MessageType] = None,
+        sender: str | None = None,
+        message_type: MessageType | None = None,
     ) -> list[ChannelMessage]:
         """
         Get filtered message history.
@@ -467,7 +464,6 @@ class AgentChannel:
 
         return "\n".join(lines)
 
-
 class ChannelManager:
     """
     Manager for agent communication channels.
@@ -504,7 +500,7 @@ class ChannelManager:
             logger.info(f"Created channel: {channel_id}")
             return channel
 
-    async def get_channel(self, channel_id: str) -> Optional[AgentChannel]:
+    async def get_channel(self, channel_id: str) -> AgentChannel | None:
         """Get a channel by ID."""
         return self._channels.get(channel_id)
 
@@ -554,10 +550,8 @@ class ChannelManager:
                 count += 1
         return count
 
-
 # Default manager instance
-_default_manager: Optional[ChannelManager] = None
-
+_default_manager: ChannelManager | None = None
 
 def get_channel_manager() -> ChannelManager:
     """Get or create the default channel manager."""
@@ -566,12 +560,10 @@ def get_channel_manager() -> ChannelManager:
         _default_manager = ChannelManager()
     return _default_manager
 
-
 def reset_channel_manager() -> None:
     """Reset the default channel manager (for testing)."""
     global _default_manager
     _default_manager = None
-
 
 __all__ = [
     "AgentChannel",

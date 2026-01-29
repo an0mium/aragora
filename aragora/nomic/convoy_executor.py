@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.implement.executor import HybridExecutor
 from aragora.implement.types import ImplementTask, TaskResult
@@ -25,12 +27,10 @@ from aragora.nomic.hook_queue import HookQueue
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ReviewResult:
     approved: bool
     notes: str
-
 
 class GastownConvoyExecutor:
     """Execute ImplementPlan tasks via Gastown-style convoys and beads."""
@@ -38,10 +38,15 @@ class GastownConvoyExecutor:
     def __init__(
         self,
         repo_path: Path,
-        implementers: List[Any],
-        reviewers: Optional[List[Any]] = None,
-        bead_dir: Optional[Path] = None,
-        convoy_dir: Optional[Path] = None,
+        implementers: list[Any],
+        reviewers: Optional[list[Any]] = None,
+        bead_dir: Path | None = None,
+        convoy_dir: Path | None = None,
+        allow_parallel: bool | None = None,
+        max_parallel: int | None = None,
+        enable_tests: bool | None = None,
+        test_command: str | None = None,
+        test_timeout: int | None = None,
         log_fn: Optional[Callable[[str], None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
     ) -> None:
@@ -50,6 +55,24 @@ class GastownConvoyExecutor:
         self.reviewers = [a for a in (reviewers or []) if a is not None]
         self._log = log_fn or (lambda msg: logger.info(msg))
         self._stream_emit = stream_emit_fn or (lambda *args, **kwargs: None)
+
+        if allow_parallel is None:
+            allow_parallel = os.environ.get("NOMIC_CONVOY_PARALLEL_TASKS", "0") == "1"
+        if max_parallel is None:
+            max_parallel = int(os.environ.get("NOMIC_CONVOY_MAX_PARALLEL", "2"))
+        if enable_tests is None:
+            enable_tests = os.environ.get("NOMIC_CONVOY_TESTS", "0") == "1"
+        if test_command is None:
+            test_command = os.environ.get("NOMIC_CONVOY_TEST_COMMAND", "")
+        if test_timeout is None:
+            test_timeout = int(os.environ.get("NOMIC_CONVOY_TEST_TIMEOUT", "600"))
+
+        self._allow_parallel = allow_parallel
+        self._max_parallel = max_parallel
+        self._enable_tests = enable_tests
+        self._test_command = test_command
+        self._test_timeout = test_timeout
+        self._test_lock = asyncio.Lock()
 
         base_dir = bead_dir or (self.repo_path / ".nomic" / "convoys")
         self.bead_dir = Path(base_dir)
@@ -64,7 +87,7 @@ class GastownConvoyExecutor:
             bead_store=self.bead_store,
         )
         self._executor = HybridExecutor(self.repo_path)
-        self._hook_queues: Dict[str, HookQueue] = {}
+        self._hook_queues: dict[str, HookQueue] = {}
         self._initialized = False
 
     async def _register_agents(self) -> None:
@@ -99,17 +122,18 @@ class GastownConvoyExecutor:
 
     async def execute_plan(
         self,
-        tasks: List[ImplementTask],
+        tasks: list[ImplementTask],
         completed: set[str],
         on_task_complete=None,
-    ) -> List[TaskResult]:
+        stop_on_failure: bool = False,
+    ) -> list[TaskResult]:
         await self._ensure_initialized()
         if not self.implementers:
             raise RuntimeError("No implementer agents available for convoy execution")
 
         # Create beads for tasks
         convoy_id = f"nomic-{uuid.uuid4().hex[:8]}"
-        bead_ids: Dict[str, str] = {}
+        bead_ids: dict[str, str] = {}
         for task in tasks:
             bead = Bead.create(
                 bead_type=BeadType.TASK,
@@ -162,15 +186,11 @@ class GastownConvoyExecutor:
                 await hook.push(assignment.bead_id, priority=assignment.priority)
 
         # Execute tasks respecting dependencies
-        results: List[TaskResult] = []
-        # Iterate tasks in plan order (dependencies already encoded)
-        for task in tasks:
-            if task.id in completed:
-                continue
-            if not all(dep in completed for dep in task.dependencies):
-                self._log(f"  [convoy] Skipping {task.id} (dependencies unmet)")
-                continue
+        results: list[TaskResult] = []
+        pending = {task.id: task for task in tasks if task.id not in completed}
+        completion_lock = asyncio.Lock()
 
+        async def run_task(task: ImplementTask) -> TaskResult:
             bead_id = bead_ids[task.id]
             assignment = await self.coordinator.get_assignment(bead_id)
             agent = self._select_agent_for_assignment(assignment.agent_id if assignment else None)
@@ -183,15 +203,30 @@ class GastownConvoyExecutor:
             review = await self._review_task(task, agent, result.diff)
 
             if result.success and review.approved:
-                completed.add(task.id)
-                await self.bead_store.update_status(bead_id, BeadStatus.COMPLETED)
-                await self.coordinator.update_assignment_status(bead_id, AssignmentStatus.COMPLETED)
-                hook = self._hook_queues.get(agent.name)
-                if hook:
-                    await hook.complete(bead_id)
-                if on_task_complete:
-                    on_task_complete(task.id, result)
-            else:
+                tests_ok, test_notes = await self._run_task_tests(task)
+                if not tests_ok:
+                    result = TaskResult(
+                        task_id=task.id,
+                        success=False,
+                        diff=result.diff,
+                        error=f"tests_failed: {test_notes}"[:800],
+                        model_used=result.model_used,
+                        duration_seconds=result.duration_seconds,
+                    )
+                else:
+                    async with completion_lock:
+                        completed.add(task.id)
+                    await self.bead_store.update_status(bead_id, BeadStatus.COMPLETED)
+                    await self.coordinator.update_assignment_status(
+                        bead_id, AssignmentStatus.COMPLETED
+                    )
+                    hook = self._hook_queues.get(agent.name)
+                    if hook:
+                        await hook.complete(bead_id)
+                    if on_task_complete:
+                        on_task_complete(task.id, result)
+
+            if not result.success or not review.approved:
                 reason = result.error or review.notes or "review_blocked"
                 result = TaskResult(
                     task_id=task.id,
@@ -209,11 +244,76 @@ class GastownConvoyExecutor:
                 if hook:
                     await hook.fail(bead_id, reason)
 
-            results.append(result)
+            return result
+
+        while pending:
+            ready = [
+                task
+                for task in pending.values()
+                if all(dep in completed for dep in task.dependencies)
+            ]
+            if not ready:
+                for task in list(pending.values()):
+                    results.append(
+                        TaskResult(
+                            task_id=task.id,
+                            success=False,
+                            error="dependencies_unmet",
+                        )
+                    )
+                break
+
+            if not self._allow_parallel or self._max_parallel <= 1 or len(ready) == 1:
+                task = ready[0]
+                pending.pop(task.id, None)
+                result = await run_task(task)
+                results.append(result)
+                if stop_on_failure and not result.success:
+                    break
+                continue
+
+            batch: list[ImplementTask] = []
+            used_files: set[str] = set()
+            for task in ready:
+                task_files = set(task.files or [])
+                if not task_files:
+                    if not batch:
+                        batch = [task]
+                    break
+                if used_files & task_files:
+                    continue
+                batch.append(task)
+                used_files.update(task_files)
+                if len(batch) >= self._max_parallel:
+                    break
+
+            if not batch:
+                batch = [ready[0]]
+
+            for task in batch:
+                pending.pop(task.id, None)
+
+            batch_results = await asyncio.gather(
+                *[run_task(task) for task in batch],
+                return_exceptions=True,
+            )
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    results.append(
+                        TaskResult(
+                            task_id="unknown",
+                            success=False,
+                            error=str(result),
+                        )
+                    )
+                else:
+                    results.append(result)
+                if stop_on_failure and not isinstance(result, Exception) and not result.success:
+                    return results
 
         return results
 
-    def _select_agent_for_assignment(self, agent_id: Optional[str]) -> Any:
+    def _select_agent_for_assignment(self, agent_id: str | None) -> Any:
         if agent_id:
             for agent in self.implementers:
                 if agent.name == agent_id:
@@ -280,6 +380,54 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
 
         return ReviewResult(approved=True, notes="approved")
 
+    async def _run_task_tests(self, task: ImplementTask) -> tuple[bool, str]:
+        """Run tests for a task if enabled."""
+        if not self._enable_tests:
+            return True, "tests_disabled"
+
+        command, use_shell = self._get_test_command(task)
+        if not command:
+            return True, "no_tests_selected"
+
+        async with self._test_lock:
+            try:
+                result = await asyncio.to_thread(
+                    subprocess.run,
+                    command,
+                    cwd=self.repo_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=self._test_timeout,
+                    shell=use_shell,
+                )
+            except subprocess.TimeoutExpired:
+                return False, "test_timeout"
+            except Exception as exc:
+                return False, f"test_error: {exc}"
+
+        output = (result.stdout or "") + (result.stderr or "")
+        return result.returncode == 0, output[-2000:]
+
+    def _get_test_command(self, task: ImplementTask) -> tuple[object | None, bool]:
+        if self._test_command:
+            return self._test_command, True
+
+        test_files = [f for f in (task.files or []) if self._is_test_file(f)]
+        if not test_files:
+            return None, False
+
+        return ["pytest", *test_files], False
+
+    @staticmethod
+    def _is_test_file(path: str) -> bool:
+        normalized = path.replace("\\", "/")
+        if normalized.startswith("tests/"):
+            return True
+        if "/tests/" in normalized:
+            return True
+        basename = normalized.rsplit("/", 1)[-1]
+        return basename.startswith("test_") or basename.endswith("_test.py")
+
     @staticmethod
     def _is_codex_agent(agent: Any) -> bool:
         # Works with AirlockProxy by inspecting wrapped_agent
@@ -287,6 +435,5 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
         name = getattr(wrapped, "name", "").lower()
         cls_name = wrapped.__class__.__name__.lower()
         return "codex" in name or "codex" in cls_name
-
 
 __all__ = ["GastownConvoyExecutor"]

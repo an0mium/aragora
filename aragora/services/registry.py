@@ -32,12 +32,11 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, overload
+from typing import Any, Callable, Optional, TypeVar, overload
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
-
 
 class ServiceScope(Enum):
     """Service lifecycle scope."""
@@ -45,21 +44,20 @@ class ServiceScope(Enum):
     SINGLETON = "singleton"  # One instance for entire application
     TRANSIENT = "transient"  # New instance on each resolve
 
-
 @dataclass
 class ServiceDescriptor:
     """Metadata about a registered service."""
 
-    service_type: Type
+    service_type: type
     scope: ServiceScope = ServiceScope.SINGLETON
-    instance: Optional[Any] = None
+    instance: Any | None = None
     factory: Optional[Callable[[], Any]] = None
     on_shutdown: Optional[Callable[[Any], None]] = None
     registered_at: float = field(default_factory=time.time)
     resolve_count: int = 0
-    last_resolved_at: Optional[float] = None
+    last_resolved_at: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for stats/logging."""
         return {
             "type": self.service_type.__name__,
@@ -72,7 +70,6 @@ class ServiceDescriptor:
             "last_resolved_at": self.last_resolved_at,
         }
 
-
 @dataclass
 class RegistryStats:
     """Statistics about the service registry."""
@@ -83,9 +80,9 @@ class RegistryStats:
     initialized_count: int
     pending_count: int
     total_resolves: int
-    services: List[Dict[str, Any]]
+    services: list[dict[str, Any]]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_services": self.total_services,
@@ -97,14 +94,12 @@ class RegistryStats:
             "services": self.services,
         }
 
-
 class ServiceNotFoundError(Exception):
     """Raised when a requested service is not registered."""
 
-    def __init__(self, service_type: Type) -> None:
+    def __init__(self, service_type: type) -> None:
         self.service_type = service_type
         super().__init__(f"Service not found: {service_type.__name__}")
-
 
 class ServiceRegistry:
     """
@@ -140,8 +135,8 @@ class ServiceRegistry:
 
     def __init__(self) -> None:
         """Initialize the service registry."""
-        self._services: Dict[Type, Any] = {}
-        self._factories: Dict[Type, Callable[[], Any]] = {}
+        self._services: dict[type, Any] = {}
+        self._factories: dict[type, Callable[[], Any]] = {}
         self._service_lock = threading.RLock()
 
     @classmethod
@@ -176,7 +171,7 @@ class ServiceRegistry:
                 logger.debug("ServiceRegistry reset - all services cleared")
             cls._instance = None
 
-    def register(self, service_type: Type[T], instance: T) -> None:
+    def register(self, service_type: type[T], instance: T) -> None:
         """
         Register a service instance.
 
@@ -197,7 +192,7 @@ class ServiceRegistry:
 
     def register_factory(
         self,
-        service_type: Type[T],
+        service_type: type[T],
         factory: Callable[[], T],
     ) -> None:
         """
@@ -224,16 +219,16 @@ class ServiceRegistry:
             logger.debug(f"Registered factory: {service_type.__name__}")
 
     @overload
-    def resolve(self, service_type: Type[T]) -> T: ...
+    def resolve(self, service_type: type[T]) -> T: ...
 
     @overload
-    def resolve(self, service_type: Type[T], default: Optional[T]) -> Optional[T]: ...
+    def resolve(self, service_type: type[T], default: T | None) -> T | None: ...
 
     def resolve(
         self,
-        service_type: Type[T],
-        default: Optional[T] = None,
-    ) -> Optional[T]:
+        service_type: type[T],
+        default: T | None = None,
+    ) -> T | None:
         """
         Resolve a service by type.
 
@@ -275,7 +270,7 @@ class ServiceRegistry:
 
             raise ServiceNotFoundError(service_type)
 
-    def has(self, service_type: Type) -> bool:
+    def has(self, service_type: type) -> bool:
         """
         Check if a service is registered.
 
@@ -290,7 +285,7 @@ class ServiceRegistry:
         with self._service_lock:
             return service_type in self._services or service_type in self._factories
 
-    def unregister(self, service_type: Type) -> bool:
+    def unregister(self, service_type: type) -> bool:
         """
         Unregister a service.
 
@@ -391,19 +386,15 @@ class ServiceRegistry:
             logger.info(f"ServiceRegistry shutdown complete ({hooks_called} hooks called)")
             return hooks_called
 
-
 # Module-level convenience functions
 
+@overload
+def get_service(service_type: type[T]) -> T: ...
 
 @overload
-def get_service(service_type: Type[T]) -> T: ...
+def get_service(service_type: type[T], default: T | None) -> T | None: ...
 
-
-@overload
-def get_service(service_type: Type[T], default: Optional[T]) -> Optional[T]: ...
-
-
-def get_service(service_type: Type[T], default: Optional[T] = None) -> Optional[T]:
+def get_service(service_type: type[T], default: T | None = None) -> T | None:
     """
     Get a service from the global registry.
 
@@ -419,8 +410,7 @@ def get_service(service_type: Type[T], default: Optional[T] = None) -> Optional[
     """
     return ServiceRegistry.get().resolve(service_type, default)
 
-
-def register_service(service_type: Type[T], instance: T) -> None:
+def register_service(service_type: type[T], instance: T) -> None:
     """
     Register a service in the global registry.
 
@@ -430,8 +420,7 @@ def register_service(service_type: Type[T], instance: T) -> None:
     """
     ServiceRegistry.get().register(service_type, instance)
 
-
-def has_service(service_type: Type) -> bool:
+def has_service(service_type: type) -> bool:
     """
     Check if a service is registered.
 

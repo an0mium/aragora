@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class EventEmitter:
     """Handles event emission for Arena debates.
 
@@ -46,7 +45,7 @@ class EventEmitter:
         self,
         event_bus: Optional["EventBus"] = None,
         event_bridge: Optional["EventEmitterBridge"] = None,
-        hooks: Optional[dict] = None,
+        hooks: dict | None = None,
         persona_manager: Optional["PersonaManager"] = None,
     ) -> None:
         """Initialize event emitter.
@@ -473,6 +472,5 @@ class EventEmitter:
             total_rounds=total_rounds,
             duration_ms=duration_ms,
         )
-
 
 __all__ = ["EventEmitter"]

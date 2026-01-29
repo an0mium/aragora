@@ -9,22 +9,21 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Dict, Optional, Set, Tuple
+from typing import Optional
 
 from aragora.server.versioning.router import APIVersion
 
 # Current release version
 API_RELEASE_VERSION = "2.0.3"
 
-
 @dataclass
 class VersionConfig:
     """Configuration for API versioning."""
 
     current: APIVersion = APIVersion.V2
-    supported: Set[APIVersion] = field(default_factory=lambda: {APIVersion.V1, APIVersion.V2})
-    deprecated: Set[APIVersion] = field(default_factory=lambda: {APIVersion.V1})
-    sunset_dates: Dict[APIVersion, str] = field(
+    supported: set[APIVersion] = field(default_factory=lambda: {APIVersion.V1, APIVersion.V2})
+    deprecated: set[APIVersion] = field(default_factory=lambda: {APIVersion.V1})
+    sunset_dates: dict[APIVersion, str] = field(
         default_factory=lambda: {
             APIVersion.V1: "2026-12-31",
         }
@@ -37,26 +36,22 @@ class VersionConfig:
     def is_deprecated(self, version: APIVersion) -> bool:
         return version in self.deprecated
 
-    def get_sunset_date(self, version: APIVersion) -> Optional[str]:
+    def get_sunset_date(self, version: APIVersion) -> str | None:
         return self.sunset_dates.get(version)
-
 
 # Global config
 _config = VersionConfig()
 
-
 def get_version_config() -> VersionConfig:
     """Get current version configuration."""
     return _config
-
 
 def set_version_config(config: VersionConfig) -> None:
     """Set version configuration."""
     global _config
     _config = config
 
-
-def extract_version(path: str, headers: Optional[Dict[str, str]] = None) -> Tuple[APIVersion, bool]:
+def extract_version(path: str, headers: Optional[dict[str, str]] = None) -> tuple[APIVersion, bool]:
     """
     Extract API version from request path or headers.
 
@@ -99,8 +94,7 @@ def extract_version(path: str, headers: Optional[Dict[str, str]] = None) -> Tupl
     # Legacy path (no version prefix)
     return config.default_for_legacy, True
 
-
-def _deprecation_level(sunset: Optional[str]) -> str:
+def _deprecation_level(sunset: str | None) -> str:
     if not sunset:
         return "warning"
     try:
@@ -114,13 +108,12 @@ def _deprecation_level(sunset: Optional[str]) -> str:
         return "critical"
     return "warning"
 
-
 def version_response_headers(
     version: APIVersion,
     is_legacy: bool = False,
     *,
-    path: Optional[str] = None,
-) -> Dict[str, str]:
+    path: str | None = None,
+) -> dict[str, str]:
     """Generate response headers for a version."""
     config = get_version_config()
     supported = ",".join(v.value for v in config.supported)
@@ -154,8 +147,7 @@ def version_response_headers(
 
     return headers
 
-
-def normalize_path_version(path: str, target_version: Optional[APIVersion] = None) -> str:
+def normalize_path_version(path: str, target_version: APIVersion | None = None) -> str:
     """Normalize path to use specific version prefix."""
     config = get_version_config()
     target = target_version or config.current
@@ -172,7 +164,6 @@ def normalize_path_version(path: str, target_version: Optional[APIVersion] = Non
     rest = path[4:]  # Remove /api
     return f"/api/{target.value}{rest}"
 
-
 def strip_version_prefix(path: str) -> str:
     """Remove version prefix from path, keeping /api/."""
     match = re.match(r"^/api/v\d+(/.*)?$", path)
@@ -182,18 +173,15 @@ def strip_version_prefix(path: str) -> str:
     # Already no version prefix, return as-is
     return path
 
-
 def is_versioned_path(path: str) -> bool:
     """Check if path has version prefix."""
     return bool(re.match(r"^/api/v\d+/", path))
-
 
 def is_legacy_path(path: str) -> bool:
     """Check if path is legacy (no version)."""
     return path.startswith("/api/") and not is_versioned_path(path)
 
-
-def get_path_version(path: str) -> Optional[APIVersion]:
+def get_path_version(path: str) -> APIVersion | None:
     """Extract version from path, or None if not versioned."""
     match = re.match(r"^/api/(v\d+)/", path)
     if match:

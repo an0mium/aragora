@@ -14,8 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
-
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -32,14 +31,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class PruningHandlerProtocol(Protocol):
     """Protocol for handlers that use PruningOperationsMixin."""
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
-
 
 class PruningOperationsMixin:
     """Mixin providing pruning API endpoints."""
@@ -122,7 +119,7 @@ class PruningOperationsMixin:
     async def execute_prune(
         self,
         workspace_id: str,
-        item_ids: List[str],
+        item_ids: list[str],
         action: str = "archive",
         reason: str = "manual_prune",
     ) -> HandlerResult:
@@ -196,7 +193,7 @@ class PruningOperationsMixin:
     async def auto_prune(
         self,
         workspace_id: str,
-        policy_id: Optional[str] = None,
+        policy_id: str | None = None,
         staleness_threshold: float = 0.9,
         min_age_days: int = 30,
         action: str = "archive",
@@ -288,7 +285,7 @@ class PruningOperationsMixin:
         self,
         workspace_id: str,
         limit: int = 50,
-        since: Optional[str] = None,
+        since: str | None = None,
     ) -> HandlerResult:
         """
         Get pruning history for a workspace.

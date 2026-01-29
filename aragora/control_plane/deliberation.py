@@ -22,7 +22,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from aragora.core.decision import (
     DecisionConfig,
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Constants and Enums
 # =============================================================================
@@ -48,7 +47,6 @@ DELIBERATION_TASK_TYPE = "deliberation"
 DEFAULT_DELIBERATION_TIMEOUT = 300.0  # 5 minutes
 DEFAULT_SLA_WARNING_THRESHOLD = 0.8  # Warn at 80% of timeout
 DEFAULT_SLA_CRITICAL_THRESHOLD = 0.95  # Critical at 95% of timeout
-
 
 class DeliberationStatus(Enum):
     """Status of a deliberation task."""
@@ -62,7 +60,6 @@ class DeliberationStatus(Enum):
     TIMEOUT = "timeout"  # Exceeded SLA timeout
     CANCELLED = "cancelled"  # Manually cancelled
 
-
 class SLAComplianceLevel(Enum):
     """SLA compliance levels."""
 
@@ -71,11 +68,9 @@ class SLAComplianceLevel(Enum):
     CRITICAL = "critical"  # Near timeout
     VIOLATED = "violated"  # Exceeded timeout
 
-
 # =============================================================================
 # Data Classes
 # =============================================================================
-
 
 @dataclass
 class DeliberationSLA:
@@ -100,27 +95,25 @@ class DeliberationSLA:
             return SLAComplianceLevel.WARNING
         return SLAComplianceLevel.COMPLIANT
 
-
 @dataclass
 class DeliberationMetrics:
     """Metrics collected during deliberation execution."""
 
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    started_at: float | None = None
+    completed_at: float | None = None
     rounds_completed: int = 0
     total_agent_responses: int = 0
-    consensus_confidence: Optional[float] = None
-    agent_contributions: Dict[str, int] = field(default_factory=dict)
+    consensus_confidence: float | None = None
+    agent_contributions: dict[str, int] = field(default_factory=dict)
     sla_compliance: SLAComplianceLevel = SLAComplianceLevel.COMPLIANT
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Get total duration in seconds."""
         if self.started_at is None:
             return None
         end = self.completed_at or time.time()
         return end - self.started_at
-
 
 @dataclass
 class DeliberationTask:
@@ -131,22 +124,22 @@ class DeliberationTask:
     """
 
     question: str
-    context: Optional[str] = None
-    agents: List[str] = field(default_factory=list)
-    required_capabilities: List[str] = field(default_factory=lambda: ["debate"])
+    context: str | None = None
+    agents: list[str] = field(default_factory=list)
+    required_capabilities: list[str] = field(default_factory=lambda: ["debate"])
     priority: str = "normal"  # low, normal, high, urgent
     sla: DeliberationSLA = field(default_factory=DeliberationSLA)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Assigned by the system
     task_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     status: DeliberationStatus = DeliberationStatus.PENDING
     metrics: DeliberationMetrics = field(default_factory=DeliberationMetrics)
-    result: Optional[DecisionResult] = None
-    error: Optional[str] = None
+    result: DecisionResult | None = None
+    error: str | None = None
 
-    def to_payload(self) -> Dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Convert to task payload for scheduler."""
         return {
             "question": self.question,
@@ -163,7 +156,7 @@ class DeliberationTask:
         }
 
     @classmethod
-    def from_payload(cls, task_id: str, payload: Dict[str, Any]) -> "DeliberationTask":
+    def from_payload(cls, task_id: str, payload: dict[str, Any]) -> "DeliberationTask":
         """Create from task payload."""
         sla_data = payload.get("sla", {})
         return cls(
@@ -181,7 +174,6 @@ class DeliberationTask:
             metadata=payload.get("metadata", {}),
         )
 
-
 @dataclass
 class DeliberationOutcome:
     """
@@ -194,12 +186,11 @@ class DeliberationOutcome:
     request_id: str
     success: bool
     consensus_reached: bool
-    consensus_confidence: Optional[float] = None
-    winning_position: Optional[str] = None
-    agent_performances: Dict[str, AgentPerformance] = field(default_factory=dict)
+    consensus_confidence: float | None = None
+    winning_position: str | None = None
+    agent_performances: dict[str, AgentPerformance] = field(default_factory=dict)
     duration_seconds: float = 0.0
     sla_compliant: bool = True
-
 
 @dataclass
 class AgentPerformance:
@@ -212,19 +203,17 @@ class AgentPerformance:
     position_changed: bool = False  # Did they change their position during debate
     final_position_correct: bool = False  # Was their final position the consensus
 
-
 # =============================================================================
 # Record Builders
 # =============================================================================
 
-
 def build_decision_record(
     request_id: str,
-    result: Optional[DecisionResult] = None,
-    status: Optional[str] = None,
-    error: Optional[str] = None,
-    metrics: Optional[DeliberationMetrics] = None,
-) -> Dict[str, Any]:
+    result: DecisionResult | None = None,
+    status: str | None = None,
+    error: str | None = None,
+    metrics: DeliberationMetrics | None = None,
+) -> dict[str, Any]:
     """Build a DecisionResultStore record with optional metrics."""
     resolved_status = status or ("completed" if result and result.success else "failed")
     record = {
@@ -246,22 +235,19 @@ def build_decision_record(
 
     return record
 
-
 # =============================================================================
 # Core Functions
 # =============================================================================
 
-
 async def run_deliberation(
     request: DecisionRequest,
-    router: Optional[Any] = None,
+    router: Any | None = None,
 ) -> DecisionResult:
     """Run a deliberation and persist the result."""
     decision_router = router or get_decision_router()
     result = await decision_router.route(request)
     save_decision_result(request.request_id, build_decision_record(request.request_id, result))
     return result
-
 
 def record_deliberation_error(request_id: str, error: str, status: str = "failed") -> None:
     """Persist a deliberation error result."""
@@ -276,11 +262,9 @@ def record_deliberation_error(request_id: str, error: str, status: str = "failed
     )
     logger.warning("deliberation_failed", extra={"request_id": request_id, "error": error})
 
-
 # =============================================================================
 # Deliberation Manager
 # =============================================================================
-
 
 class DeliberationManager:
     """
@@ -315,7 +299,7 @@ class DeliberationManager:
         self,
         coordinator: Optional["ControlPlaneCoordinator"] = None,
         elo_callback: Optional[Callable[[DeliberationOutcome], None]] = None,
-        notification_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        notification_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
     ):
         """
         Initialize the deliberation manager.
@@ -328,8 +312,8 @@ class DeliberationManager:
         self._coordinator = coordinator
         self._elo_callback = elo_callback
         self._notification_callback = notification_callback
-        self._active_deliberations: Dict[str, DeliberationTask] = {}
-        self._sla_monitors: Dict[str, asyncio.Task[None]] = {}
+        self._active_deliberations: dict[str, DeliberationTask] = {}
+        self._sla_monitors: dict[str, asyncio.Task[None]] = {}
 
     def set_coordinator(self, coordinator: "ControlPlaneCoordinator") -> None:
         """Set the coordinator after initialization."""
@@ -338,15 +322,15 @@ class DeliberationManager:
     async def submit_deliberation(
         self,
         question: str,
-        context: Optional[str] = None,
-        agents: Optional[List[str]] = None,
-        required_capabilities: Optional[List[str]] = None,
+        context: str | None = None,
+        agents: Optional[list[str]] = None,
+        required_capabilities: Optional[list[str]] = None,
         priority: str = "normal",
         timeout_seconds: float = DEFAULT_DELIBERATION_TIMEOUT,
         max_rounds: int = 5,
         min_agents: int = 2,
         consensus_required: bool = True,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Submit a deliberation task to the control plane.
@@ -432,8 +416,8 @@ class DeliberationManager:
     async def wait_for_outcome(
         self,
         task_id: str,
-        timeout: Optional[float] = None,
-    ) -> Optional[DeliberationOutcome]:
+        timeout: float | None = None,
+    ) -> DeliberationOutcome | None:
         """
         Wait for a deliberation to complete and return the outcome.
 
@@ -465,7 +449,7 @@ class DeliberationManager:
     async def execute_deliberation(
         self,
         task: DeliberationTask,
-        router: Optional[Any] = None,
+        router: Any | None = None,
     ) -> DeliberationOutcome:
         """
         Execute a deliberation task (called by worker/agent).
@@ -555,7 +539,7 @@ class DeliberationManager:
             # Stop SLA monitor
             self._stop_sla_monitor(task.task_id)
 
-    def get_active_deliberations(self) -> List[DeliberationTask]:
+    def get_active_deliberations(self) -> list[DeliberationTask]:
         """Get all active deliberation tasks."""
         return [
             task
@@ -570,11 +554,11 @@ class DeliberationManager:
             )
         ]
 
-    def get_deliberation_stats(self) -> Dict[str, Any]:
+    def get_deliberation_stats(self) -> dict[str, Any]:
         """Get statistics about deliberations."""
-        by_status: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
         sla_violations = 0
-        durations: List[float] = []
+        durations: list[float] = []
 
         for task in self._active_deliberations.values():
             status = task.status.value
@@ -639,7 +623,7 @@ class DeliberationManager:
         if monitor and not monitor.done():
             monitor.cancel()
 
-    def _emit_notification(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_notification(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit a notification event if a callback is configured."""
         if not self._notification_callback:
             return
@@ -699,19 +683,17 @@ class DeliberationManager:
             sla_compliant=task.metrics.sla_compliance != SLAComplianceLevel.VIOLATED,
         )
 
-
 # =============================================================================
 # Worker Integration
 # =============================================================================
 
-
 async def handle_deliberation_task(
     task_id: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     coordinator: "ControlPlaneCoordinator",
-    router: Optional[Any] = None,
+    router: Any | None = None,
     elo_callback: Optional[Callable[[DeliberationOutcome], None]] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Handle a claimed deliberation task from the scheduler.
 
@@ -747,7 +729,6 @@ async def handle_deliberation_task(
         "duration_seconds": outcome.duration_seconds,
         "sla_compliant": outcome.sla_compliant,
     }
-
 
 # =============================================================================
 # Exports

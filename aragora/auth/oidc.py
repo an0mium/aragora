@@ -34,7 +34,7 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from types import ModuleType
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import urlencode, urljoin
 
 from .sso import (
@@ -56,7 +56,7 @@ from jwt import PyJWKClient
 HAS_JWT = True
 
 # Optional: httpx for async HTTP
-httpx: Optional[ModuleType] = None
+httpx: ModuleType | None = None
 try:
     import httpx as _httpx
 
@@ -64,7 +64,6 @@ try:
     HAS_HTTPX = True
 except ImportError:
     HAS_HTTPX = False
-
 
 def _is_production_mode() -> bool:
     """Check if running in production mode.
@@ -76,7 +75,6 @@ def _is_production_mode() -> bool:
 
     env = os.environ.get("ARAGORA_ENV", "production").lower()
     return env not in ("development", "dev", "local", "test")
-
 
 def _allow_dev_auth_fallback() -> bool:
     """Check if dev auth fallback is explicitly allowed.
@@ -91,13 +89,11 @@ def _allow_dev_auth_fallback() -> bool:
         return False
     return os.environ.get("ARAGORA_ALLOW_DEV_AUTH_FALLBACK", "").lower() in ("1", "true", "yes")
 
-
 class OIDCError(SSOError):
     """OIDC-specific error."""
 
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    def __init__(self, message: str, details: dict | None = None):
         super().__init__(message, "OIDC_ERROR", details)
-
 
 @dataclass
 class OIDCConfig(SSOConfig):
@@ -122,17 +118,17 @@ class OIDCConfig(SSOConfig):
     end_session_endpoint: str = ""
 
     # Scopes
-    scopes: List[str] = field(default_factory=lambda: ["openid", "email", "profile"])
+    scopes: list[str] = field(default_factory=lambda: ["openid", "email", "profile"])
 
     # PKCE (Proof Key for Code Exchange)
     use_pkce: bool = True
 
     # Token validation
     validate_tokens: bool = True
-    allowed_audiences: List[str] = field(default_factory=list)
+    allowed_audiences: list[str] = field(default_factory=list)
 
     # Claim mapping (OIDC claim -> user field)
-    claim_mapping: Dict[str, str] = field(
+    claim_mapping: dict[str, str] = field(
         default_factory=lambda: {
             "sub": "id",
             "email": "email",
@@ -226,7 +222,7 @@ class OIDCConfig(SSOConfig):
             **kwargs,
         )
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate OIDC configuration."""
         errors = super().validate()
 
@@ -242,9 +238,8 @@ class OIDCConfig(SSOConfig):
 
         return errors
 
-
 # Well-known provider configurations
-PROVIDER_CONFIGS: Dict[str, Dict[str, str]] = {
+PROVIDER_CONFIGS: dict[str, dict[str, str]] = {
     "azure_ad": {
         "authorization_endpoint": "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize",
         "token_endpoint": "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
@@ -270,7 +265,6 @@ PROVIDER_CONFIGS: Dict[str, Dict[str, str]] = {
         # GitHub doesn't use JWKS (uses opaque tokens)
     },
 }
-
 
 class OIDCProvider(SSOProvider):
     """
@@ -302,20 +296,20 @@ class OIDCProvider(SSOProvider):
             )
 
         # PKCE state (code_verifier stored by state)
-        self._pkce_store: Dict[str, str] = {}
+        self._pkce_store: dict[str, str] = {}
 
         # Discovery cache
-        self._discovery_cache: Optional[Dict[str, Any]] = None
+        self._discovery_cache: Optional[dict[str, Any]] = None
         self._discovery_cached_at: float = 0
 
         # JWKS client
-        self._jwks_client: Optional[Any] = None
+        self._jwks_client: Any | None = None
 
     @property
     def provider_type(self) -> SSOProviderType:
         return self.config.provider_type
 
-    async def _discover_endpoints(self) -> Dict[str, Any]:
+    async def _discover_endpoints(self) -> dict[str, Any]:
         """Fetch OIDC discovery document."""
         # Check cache (1 hour TTL)
         if self._discovery_cache and time.time() - self._discovery_cached_at < 3600:
@@ -382,10 +376,10 @@ class OIDCProvider(SSOProvider):
 
     async def get_authorization_url(
         self,
-        state: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
-        nonce: Optional[str] = None,
+        state: str | None = None,
+        redirect_uri: str | None = None,
+        scopes: Optional[list[str]] = None,
+        nonce: str | None = None,
         **kwargs,
     ) -> str:
         """
@@ -442,9 +436,9 @@ class OIDCProvider(SSOProvider):
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        saml_response: Optional[str] = None,
-        state: Optional[str] = None,
+        code: str | None = None,
+        saml_response: str | None = None,
+        state: str | None = None,
         **kwargs: Any,
     ) -> SSOUser:
         """
@@ -493,8 +487,8 @@ class OIDCProvider(SSOProvider):
     async def _exchange_code(
         self,
         code: str,
-        code_verifier: Optional[str],
-    ) -> Dict[str, Any]:
+        code_verifier: str | None,
+    ) -> dict[str, Any]:
         """Exchange authorization code for tokens."""
         token_endpoint = await self._get_endpoint("token_endpoint")
         if not token_endpoint:
@@ -526,7 +520,7 @@ class OIDCProvider(SSOProvider):
                         token_endpoint, data=data, headers=headers, timeout=30.0
                     )
                     response.raise_for_status()
-                    result: Dict[str, Any] = response.json()
+                    result: dict[str, Any] = response.json()
                     return result
             else:
                 # Fallback to sync
@@ -550,12 +544,12 @@ class OIDCProvider(SSOProvider):
             logger.error(f"Token exchange failed - invalid data: {e}")
             raise SSOAuthenticationError(f"Token exchange failed: {e}")
 
-    async def _get_user_info(self, tokens: Dict[str, Any]) -> SSOUser:
+    async def _get_user_info(self, tokens: dict[str, Any]) -> SSOUser:
         """Get user info from tokens or userinfo endpoint."""
         access_token = tokens.get("access_token")
         id_token = tokens.get("id_token")
 
-        claims: Dict[str, Any] = {}
+        claims: dict[str, Any] = {}
 
         # Parse ID token if available
         if id_token and HAS_JWT:
@@ -585,7 +579,7 @@ class OIDCProvider(SSOProvider):
         # Map claims to user
         return self._claims_to_user(claims, tokens)
 
-    async def _validate_id_token(self, id_token: str) -> Dict[str, Any]:
+    async def _validate_id_token(self, id_token: str) -> dict[str, Any]:
         """Validate and decode ID token using JWKS."""
         if not HAS_JWT:
             raise SSOError("PyJWT required for ID token validation")
@@ -617,7 +611,7 @@ class OIDCProvider(SSOProvider):
             issuer=self.config.issuer_url,
         )
 
-    async def _fetch_userinfo(self, access_token: str) -> Dict[str, Any]:
+    async def _fetch_userinfo(self, access_token: str) -> dict[str, Any]:
         """Fetch user info from userinfo endpoint."""
         userinfo_endpoint = await self._get_endpoint("userinfo_endpoint")
         if not userinfo_endpoint:
@@ -649,8 +643,8 @@ class OIDCProvider(SSOProvider):
 
     def _claims_to_user(
         self,
-        claims: Dict[str, Any],
-        tokens: Dict[str, Any],
+        claims: dict[str, Any],
+        tokens: dict[str, Any],
     ) -> SSOUser:
         """Map OIDC claims to SSOUser."""
         mapping = self.config.claim_mapping
@@ -691,9 +685,9 @@ class OIDCProvider(SSOProvider):
 
     def _find_claim_key(
         self,
-        claims: Dict[str, Any],
+        claims: dict[str, Any],
         target: str,
-        mapping: Dict[str, str],
+        mapping: dict[str, str],
     ) -> str:
         """Find the claim key that maps to target field."""
         for claim_key, field_name in mapping.items():
@@ -703,10 +697,10 @@ class OIDCProvider(SSOProvider):
 
     def _extract_list_claim(
         self,
-        claims: Dict[str, Any],
+        claims: dict[str, Any],
         target: str,
-        mapping: Dict[str, str],
-    ) -> List[str]:
+        mapping: dict[str, str],
+    ) -> list[str]:
         """Extract a list-valued claim."""
         key = self._find_claim_key(claims, target, mapping)
         value = claims.get(key, [])
@@ -717,7 +711,7 @@ class OIDCProvider(SSOProvider):
             return [value]
         return []
 
-    async def refresh_token(self, user: SSOUser) -> Optional[SSOUser]:
+    async def refresh_token(self, user: SSOUser) -> SSOUser | None:
         """Refresh access token using refresh token."""
         if not user.refresh_token:
             return None
@@ -779,7 +773,7 @@ class OIDCProvider(SSOProvider):
             logger.warning(f"Token refresh failed - invalid response: {e}")
             return None
 
-    async def logout(self, user: SSOUser) -> Optional[str]:
+    async def logout(self, user: SSOUser) -> str | None:
         """Get logout URL for IdP-initiated logout."""
         end_session = await self._get_endpoint("end_session_endpoint")
         if not end_session:
@@ -794,7 +788,6 @@ class OIDCProvider(SSOProvider):
         if params:
             return f"{end_session}?{urlencode(params)}"
         return end_session
-
 
 __all__ = [
     "OIDCError",

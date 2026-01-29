@@ -26,7 +26,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.knowledge.mound.event_batcher import EventBatcher, AdapterEventBatcher
 
@@ -35,19 +35,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class KMSubscription:
     """A subscription to KM events."""
 
     client_id: str
-    event_types: Set[str] = field(default_factory=set)
-    sources: Set[str] = field(default_factory=set)  # Empty = all sources
+    event_types: set[str] = field(default_factory=set)
+    sources: set[str] = field(default_factory=set)  # Empty = all sources
     min_confidence: float = 0.0
-    workspace_id: Optional[str] = None  # None = all workspaces
+    workspace_id: str | None = None  # None = all workspaces
     created_at: float = field(default_factory=lambda: __import__("time").time())
 
-    def matches(self, event_type: str, data: Dict[str, Any]) -> bool:
+    def matches(self, event_type: str, data: dict[str, Any]) -> bool:
         """Check if event matches this subscription."""
         # Check event type (empty set = subscribe to all)
         if self.event_types and event_type not in self.event_types:
@@ -72,7 +71,6 @@ class KMSubscription:
 
         return True
 
-
 class KMSubscriptionManager:
     """
     Manages KM event subscriptions per client.
@@ -87,16 +85,16 @@ class KMSubscriptionManager:
     """
 
     def __init__(self):
-        self._subscriptions: Dict[str, KMSubscription] = {}
+        self._subscriptions: dict[str, KMSubscription] = {}
         self._lock = Lock()
 
     def subscribe(
         self,
         client_id: str,
-        event_types: Optional[List[str]] = None,
-        sources: Optional[List[str]] = None,
+        event_types: Optional[list[str]] = None,
+        sources: Optional[list[str]] = None,
         min_confidence: float = 0.0,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> KMSubscription:
         """
         Subscribe a client to KM events.
@@ -148,11 +146,11 @@ class KMSubscriptionManager:
     def update_subscription(
         self,
         client_id: str,
-        add_types: Optional[List[str]] = None,
-        remove_types: Optional[List[str]] = None,
-        add_sources: Optional[List[str]] = None,
-        remove_sources: Optional[List[str]] = None,
-    ) -> Optional[KMSubscription]:
+        add_types: Optional[list[str]] = None,
+        remove_types: Optional[list[str]] = None,
+        add_sources: Optional[list[str]] = None,
+        remove_sources: Optional[list[str]] = None,
+    ) -> KMSubscription | None:
         """
         Update an existing subscription.
 
@@ -185,8 +183,8 @@ class KMSubscriptionManager:
     def get_subscribers(
         self,
         event_type: str,
-        data: Dict[str, Any],
-    ) -> List[str]:
+        data: dict[str, Any],
+    ) -> list[str]:
         """
         Get clients that should receive an event.
 
@@ -204,21 +202,21 @@ class KMSubscriptionManager:
                     matching.append(client_id)
         return matching
 
-    def get_subscription(self, client_id: str) -> Optional[KMSubscription]:
+    def get_subscription(self, client_id: str) -> KMSubscription | None:
         """Get a client's subscription."""
         with self._lock:
             return self._subscriptions.get(client_id)
 
-    def get_all_subscriptions(self) -> Dict[str, KMSubscription]:
+    def get_all_subscriptions(self) -> dict[str, KMSubscription]:
         """Get all subscriptions (copy)."""
         with self._lock:
             return dict(self._subscriptions)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get subscription statistics."""
         with self._lock:
-            type_counts: Dict[str, int] = {}
-            source_counts: Dict[str, int] = {}
+            type_counts: dict[str, int] = {}
+            source_counts: dict[str, int] = {}
 
             for sub in self._subscriptions.values():
                 for t in sub.event_types:
@@ -231,7 +229,6 @@ class KMSubscriptionManager:
                 "event_type_subscriptions": type_counts,
                 "source_subscriptions": source_counts,
             }
-
 
 class KMWebSocketBridge:
     """
@@ -252,7 +249,7 @@ class KMWebSocketBridge:
         broadcaster: Optional["WebSocketBroadcaster"] = None,
         batch_interval_ms: float = 100.0,
         max_batch_size: int = 50,
-        passthrough_events: Optional[list[str]] = None,
+        passthrough_events: list[str] | None = None,
         enable_subscriptions: bool = True,
     ):
         """
@@ -266,7 +263,7 @@ class KMWebSocketBridge:
             enable_subscriptions: Enable per-client filtering (default True)
         """
         self._broadcaster = broadcaster
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._enable_subscriptions = enable_subscriptions
 
         # Subscription manager for per-client filtering
@@ -291,7 +288,7 @@ class KMWebSocketBridge:
         """Set the broadcaster after initialization."""
         self._broadcaster = broadcaster
 
-    def start(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
+    def start(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Start the event batching loop."""
         self._loop = loop or asyncio.get_event_loop()
         self._batcher.start(self._loop)
@@ -302,7 +299,7 @@ class KMWebSocketBridge:
         await self._batcher.stop()
         logger.info("[km_websocket] Event batching stopped")
 
-    def queue_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def queue_event(self, event_type: str, data: dict[str, Any]) -> None:
         """
         Queue a KM event for batched delivery.
 
@@ -325,10 +322,10 @@ class KMWebSocketBridge:
     def subscribe(
         self,
         client_id: str,
-        event_types: Optional[List[str]] = None,
-        sources: Optional[List[str]] = None,
+        event_types: Optional[list[str]] = None,
+        sources: Optional[list[str]] = None,
         min_confidence: float = 0.0,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> KMSubscription:
         """
         Subscribe a client to KM events.
@@ -355,7 +352,7 @@ class KMWebSocketBridge:
         """Unsubscribe a client."""
         return self._subscriptions.unsubscribe(client_id)
 
-    def _emit_callback(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_callback(self, event_type: str, data: dict[str, Any]) -> None:
         """
         Callback invoked by batcher to emit events.
 
@@ -414,27 +411,23 @@ class KMWebSocketBridge:
         except Exception as e:
             logger.warning(f"[km_websocket] Failed to emit event: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get batching and subscription statistics."""
         stats = self._batcher.get_stats()
         stats["subscriptions"] = self._subscriptions.get_stats()
         return stats
 
-
 # Global bridge instance (can be replaced per-workspace)
-_global_bridge: Optional[KMWebSocketBridge] = None
+_global_bridge: KMWebSocketBridge | None = None
 
-
-def get_km_bridge() -> Optional[KMWebSocketBridge]:
+def get_km_bridge() -> KMWebSocketBridge | None:
     """Get the global KM WebSocket bridge."""
     return _global_bridge
-
 
 def set_km_bridge(bridge: KMWebSocketBridge) -> None:
     """Set the global KM WebSocket bridge."""
     global _global_bridge
     _global_bridge = bridge
-
 
 def create_km_bridge(
     broadcaster: Optional["WebSocketBroadcaster"] = None,
@@ -453,7 +446,6 @@ def create_km_bridge(
     global _global_bridge
     _global_bridge = KMWebSocketBridge(broadcaster, **kwargs)
     return _global_bridge
-
 
 __all__ = [
     "KMWebSocketBridge",

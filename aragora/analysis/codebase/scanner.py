@@ -24,7 +24,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .cve_client import CVEClient
 from .models import (
@@ -33,7 +33,6 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class DependencyScanner:
     """
@@ -57,7 +56,7 @@ class DependencyScanner:
 
     def __init__(
         self,
-        cve_client: Optional[CVEClient] = None,
+        cve_client: CVEClient | None = None,
         skip_dev_dependencies: bool = False,
         max_concurrency: int = 20,
     ):
@@ -91,8 +90,8 @@ class DependencyScanner:
     async def scan_repository(
         self,
         repo_path: str,
-        branch: Optional[str] = None,
-        commit_sha: Optional[str] = None,
+        branch: str | None = None,
+        commit_sha: str | None = None,
     ) -> ScanResult:
         """
         Scan a repository for vulnerable dependencies.
@@ -124,7 +123,7 @@ class DependencyScanner:
                 return result
 
             # Parse dependencies from all lock files
-            all_dependencies: List[DependencyInfo] = []
+            all_dependencies: list[DependencyInfo] = []
             for lock_file in lock_files:
                 deps = await self._parse_lock_file(lock_file)
                 all_dependencies.extend(deps)
@@ -168,7 +167,7 @@ class DependencyScanner:
 
     async def scan_files(
         self,
-        file_paths: List[str],
+        file_paths: list[str],
         repository: str = "unknown",
     ) -> ScanResult:
         """
@@ -188,7 +187,7 @@ class DependencyScanner:
         )
 
         try:
-            all_dependencies: List[DependencyInfo] = []
+            all_dependencies: list[DependencyInfo] = []
             for file_path in file_paths:
                 deps = await self._parse_lock_file(file_path)
                 all_dependencies.extend(deps)
@@ -223,7 +222,7 @@ class DependencyScanner:
 
         return result
 
-    def _find_lock_files(self, repo_path: str) -> List[str]:
+    def _find_lock_files(self, repo_path: str) -> list[str]:
         """Find all lock files in repository."""
         lock_files = []
         repo = Path(repo_path)
@@ -242,7 +241,7 @@ class DependencyScanner:
 
         return lock_files
 
-    async def _parse_lock_file(self, file_path: str) -> List[DependencyInfo]:
+    async def _parse_lock_file(self, file_path: str) -> list[DependencyInfo]:
         """Parse a lock file and return dependencies."""
         filename = os.path.basename(file_path)
         parser = self._parsers.get(filename)
@@ -262,8 +261,8 @@ class DependencyScanner:
 
     async def _query_vulnerabilities(
         self,
-        dependencies: List[DependencyInfo],
-    ) -> List[DependencyInfo]:
+        dependencies: list[DependencyInfo],
+    ) -> list[DependencyInfo]:
         """Query CVE databases for vulnerabilities."""
         semaphore = asyncio.Semaphore(self.max_concurrency)
 
@@ -290,7 +289,7 @@ class DependencyScanner:
     # Lock File Parsers
     # ==========================================================================
 
-    def _parse_npm_lock(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_npm_lock(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse package-lock.json."""
         deps = []
         try:
@@ -335,8 +334,8 @@ class DependencyScanner:
 
     def _parse_npm_deps_recursive(
         self,
-        dependencies: Dict[str, Any],
-        result: List[DependencyInfo],
+        dependencies: dict[str, Any],
+        result: list[DependencyInfo],
         file_path: str,
         direct: bool,
     ):
@@ -364,7 +363,7 @@ class DependencyScanner:
             if nested:
                 self._parse_npm_deps_recursive(nested, result, file_path, False)
 
-    def _parse_npm_package(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_npm_package(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse package.json (for version constraints, not exact versions)."""
         deps = []
         try:
@@ -400,12 +399,12 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_yarn_lock(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_yarn_lock(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse yarn.lock."""
-        deps: List[DependencyInfo] = []
+        deps: list[DependencyInfo] = []
 
         # Parse yarn.lock format
-        current_packages: List[str] = []
+        current_packages: list[str] = []
         current_version = ""
 
         for line in content.split("\n"):
@@ -467,7 +466,7 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_requirements(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_requirements(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse requirements.txt."""
         deps = []
 
@@ -499,7 +498,7 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_pipfile_lock(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_pipfile_lock(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse Pipfile.lock."""
         deps = []
         try:
@@ -537,7 +536,7 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_poetry_lock(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_poetry_lock(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse poetry.lock (TOML format)."""
         deps = []
 
@@ -591,9 +590,9 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_pyproject_toml(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_pyproject_toml(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse pyproject.toml (PEP 621 and Poetry formats)."""
-        deps: List[DependencyInfo] = []
+        deps: list[DependencyInfo] = []
 
         # Simple TOML parsing without external library
         # Handle both PEP 621 [project.dependencies] and Poetry [tool.poetry.dependencies]
@@ -735,9 +734,9 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_toml_array(self, start_str: str, full_content: str, start_line: str) -> List[str]:
+    def _parse_toml_array(self, start_str: str, full_content: str, start_line: str) -> list[str]:
         """Parse a TOML array that may span multiple lines."""
-        items: List[str] = []
+        items: list[str] = []
 
         # Handle single-line array
         if start_str.endswith("]"):
@@ -782,7 +781,7 @@ class DependencyScanner:
 
         return items
 
-    def _parse_pep508_dependency(self, dep_spec: str) -> Optional[tuple]:
+    def _parse_pep508_dependency(self, dep_spec: str) -> tuple | None:
         """Parse a PEP 508 dependency specification."""
         # Format: name[extras]>=version,<version;markers
         # Extract name and version
@@ -817,7 +816,7 @@ class DependencyScanner:
 
         return (name.lower(), version)
 
-    def _parse_go_mod(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_go_mod(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse go.mod."""
         deps = []
 
@@ -858,7 +857,7 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_go_sum(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_go_sum(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse go.sum (contains checksums, but also version info)."""
         deps = []
         seen = set()
@@ -888,7 +887,7 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_cargo_lock(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_cargo_lock(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse Cargo.lock (TOML format)."""
         deps = []
 
@@ -931,7 +930,7 @@ class DependencyScanner:
 
         return deps
 
-    def _parse_gemfile_lock(self, content: str, file_path: str) -> List[DependencyInfo]:
+    def _parse_gemfile_lock(self, content: str, file_path: str) -> list[DependencyInfo]:
         """Parse Gemfile.lock."""
         deps = []
 
@@ -962,6 +961,5 @@ class DependencyScanner:
                     )
 
         return deps
-
 
 __all__ = ["DependencyScanner"]

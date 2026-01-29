@@ -9,8 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 class MessageType(str, Enum):
     """Type of chat message."""
@@ -22,7 +21,6 @@ class MessageType(str, Enum):
     COMMAND = "command"
     INTERACTION = "interaction"
 
-
 class InteractionType(str, Enum):
     """Type of user interaction."""
 
@@ -30,7 +28,6 @@ class InteractionType(str, Enum):
     SELECT_MENU = "select_menu"
     MODAL_SUBMIT = "modal_submit"
     SHORTCUT = "shortcut"
-
 
 class UserRole(str, Enum):
     """User role in a channel or workspace."""
@@ -42,30 +39,29 @@ class UserRole(str, Enum):
     GUEST = "guest"
     UNKNOWN = "unknown"
 
-
 @dataclass
 class ChatUser:
     """Represents a user across chat platforms."""
 
     id: str
     platform: str
-    username: Optional[str] = None
-    display_name: Optional[str] = None
-    email: Optional[str] = None
-    avatar_url: Optional[str] = None
+    username: str | None = None
+    display_name: str | None = None
+    email: str | None = None
+    avatar_url: str | None = None
     is_bot: bool = False
     # Enrichment fields for context injection
-    timezone: Optional[str] = None  # IANA timezone (e.g., "America/New_York")
-    language: Optional[str] = None  # ISO 639-1 code (e.g., "en", "es")
-    locale: Optional[str] = None  # Full locale (e.g., "en-US")
+    timezone: str | None = None  # IANA timezone (e.g., "America/New_York")
+    language: str | None = None  # ISO 639-1 code (e.g., "en", "es")
+    locale: str | None = None  # Full locale (e.g., "en-US")
     role: UserRole = UserRole.UNKNOWN
     # Status and activity
-    status: Optional[str] = None  # "online", "away", "dnd", "offline"
-    last_active: Optional[datetime] = None
+    status: str | None = None  # "online", "away", "dnd", "offline"
+    last_active: datetime | None = None
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
     # Cache timestamp for TTL
-    _enriched_at: Optional[datetime] = field(default=None, repr=False)
+    _enriched_at: datetime | None = field(default=None, repr=False)
 
     @property
     def is_enriched(self) -> bool:
@@ -86,7 +82,6 @@ class ChatUser:
             "is_bot": self.is_bot,
         }
 
-
 class ChannelType(str, Enum):
     """Channel/conversation type."""
 
@@ -97,29 +92,28 @@ class ChannelType(str, Enum):
     THREAD = "thread"  # Thread within a channel
     UNKNOWN = "unknown"
 
-
 @dataclass
 class ChatChannel:
     """Represents a channel/conversation across platforms."""
 
     id: str
     platform: str
-    name: Optional[str] = None
+    name: str | None = None
     is_private: bool = False
     is_dm: bool = False
-    team_id: Optional[str] = None  # Workspace/Guild/Organization
+    team_id: str | None = None  # Workspace/Guild/Organization
     # Enrichment fields for context injection
     channel_type: ChannelType = ChannelType.UNKNOWN
-    topic: Optional[str] = None  # Channel topic/purpose
-    description: Optional[str] = None  # Longer channel description
-    member_count: Optional[int] = None
+    topic: str | None = None  # Channel topic/purpose
+    description: str | None = None  # Longer channel description
+    member_count: int | None = None
     # Timestamps
-    created_at: Optional[datetime] = None
-    last_activity: Optional[datetime] = None
+    created_at: datetime | None = None
+    last_activity: datetime | None = None
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
     # Cache timestamp for TTL
-    _enriched_at: Optional[datetime] = field(default=None, repr=False)
+    _enriched_at: datetime | None = field(default=None, repr=False)
 
     @property
     def is_enriched(self) -> bool:
@@ -140,7 +134,6 @@ class ChatChannel:
             "is_dm": self.is_dm,
         }
 
-
 @dataclass
 class ChatMessage:
     """Unified message structure for all chat platforms."""
@@ -153,15 +146,15 @@ class ChatMessage:
     message_type: MessageType = MessageType.TEXT
 
     # Threading
-    thread_id: Optional[str] = None
-    reply_to_id: Optional[str] = None
+    thread_id: str | None = None
+    reply_to_id: str | None = None
 
     # Timestamps
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    edited_at: Optional[datetime] = None
+    edited_at: datetime | None = None
 
     # Rich content
-    blocks: Optional[list[dict[str, Any]]] = None  # Platform-specific rich content
+    blocks: list[dict[str, Any] | None] = None  # Platform-specific rich content
     attachments: list[dict[str, Any]] = field(default_factory=list)
 
     # Platform-specific
@@ -191,7 +184,6 @@ class ChatMessage:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class BotCommand:
     """Represents a slash command or bot command."""
@@ -200,12 +192,11 @@ class BotCommand:
     text: str  # Full command text
     args: list[str] = field(default_factory=list)
     options: dict[str, Any] = field(default_factory=dict)
-    user: Optional[ChatUser] = None
-    channel: Optional[ChatChannel] = None
+    user: ChatUser | None = None
+    channel: ChatChannel | None = None
     platform: str = ""
-    response_url: Optional[str] = None  # For async responses
+    response_url: str | None = None  # For async responses
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class UserInteraction:
@@ -214,27 +205,25 @@ class UserInteraction:
     id: str
     interaction_type: InteractionType
     action_id: str
-    value: Optional[str] = None
+    value: str | None = None
     values: list[str] = field(default_factory=list)
-    user: Optional[ChatUser] = None
-    channel: Optional[ChatChannel] = None
-    message_id: Optional[str] = None
+    user: ChatUser | None = None
+    channel: ChatChannel | None = None
+    message_id: str | None = None
     platform: str = ""
-    response_url: Optional[str] = None
+    response_url: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class MessageBlock:
     """Generic rich message block."""
 
     type: str
-    text: Optional[str] = None
+    text: str | None = None
     fields: list[dict[str, Any]] = field(default_factory=list)
     elements: list[dict[str, Any]] = field(default_factory=list)
-    accessory: Optional[dict[str, Any]] = None
+    accessory: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class MessageButton:
@@ -242,11 +231,10 @@ class MessageButton:
 
     text: str
     action_id: str
-    value: Optional[str] = None
+    value: str | None = None
     style: str = "default"  # default, primary, danger
-    url: Optional[str] = None  # For link buttons
-    confirm: Optional[dict[str, Any]] = None  # Confirmation dialog
-
+    url: str | None = None  # For link buttons
+    confirm: dict[str, Any] | None = None  # Confirmation dialog
 
 @dataclass
 class FileAttachment:
@@ -256,10 +244,9 @@ class FileAttachment:
     filename: str
     content_type: str
     size: int
-    url: Optional[str] = None
-    content: Optional[bytes] = None
+    url: str | None = None
+    content: bytes | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class VoiceMessage:
@@ -270,10 +257,9 @@ class VoiceMessage:
     author: ChatUser
     duration_seconds: float
     file: FileAttachment
-    transcription: Optional[str] = None
+    transcription: str | None = None
     platform: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class SendMessageRequest:
@@ -281,30 +267,27 @@ class SendMessageRequest:
 
     channel_id: str
     text: str
-    blocks: Optional[list[dict[str, Any]]] = None
-    thread_id: Optional[str] = None
-    reply_to_id: Optional[str] = None
+    blocks: list[dict[str, Any] | None] = None
+    thread_id: str | None = None
+    reply_to_id: str | None = None
     attachments: list[dict[str, Any]] = field(default_factory=list)
     ephemeral: bool = False  # Only visible to specific user
-    ephemeral_user_id: Optional[str] = None
+    ephemeral_user_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class SendMessageResponse:
     """Response from sending a message."""
 
     success: bool
-    message_id: Optional[str] = None
-    channel_id: Optional[str] = None
-    timestamp: Optional[str] = None
-    error: Optional[str] = None
+    message_id: str | None = None
+    channel_id: str | None = None
+    timestamp: str | None = None
+    error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 # Alias for backwards compatibility
 MessageSendResult = SendMessageResponse
-
 
 @dataclass
 class WebhookEvent:
@@ -314,18 +297,17 @@ class WebhookEvent:
     event_type: str
     timestamp: datetime = field(default_factory=datetime.utcnow)
     raw_payload: dict[str, Any] = field(default_factory=dict)
-    message: Optional[ChatMessage] = None
-    command: Optional[BotCommand] = None
-    interaction: Optional[UserInteraction] = None
-    voice_message: Optional[VoiceMessage] = None
-    challenge: Optional[str] = None  # For URL verification
+    message: ChatMessage | None = None
+    command: BotCommand | None = None
+    interaction: UserInteraction | None = None
+    voice_message: VoiceMessage | None = None
+    challenge: str | None = None  # For URL verification
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_verification(self) -> bool:
         """Check if this is a URL verification challenge."""
         return self.challenge is not None
-
 
 @dataclass
 class ChatEvidence:
@@ -340,7 +322,7 @@ class ChatEvidence:
     source_id: str = ""  # Message ID or thread ID
     platform: str = ""  # slack, discord, teams, etc.
     channel_id: str = ""
-    channel_name: Optional[str] = None
+    channel_name: str | None = None
 
     # Content
     content: str = ""  # Message text
@@ -348,7 +330,7 @@ class ChatEvidence:
 
     # Author info
     author_id: str = ""
-    author_name: Optional[str] = None
+    author_name: str | None = None
     author_is_bot: bool = False
 
     # Timestamps
@@ -356,7 +338,7 @@ class ChatEvidence:
     collected_at: datetime = field(default_factory=datetime.utcnow)
 
     # Threading
-    thread_id: Optional[str] = None
+    thread_id: str | None = None
     is_thread_root: bool = False
     reply_count: int = 0
 
@@ -366,7 +348,7 @@ class ChatEvidence:
     freshness: float = 1.0  # Temporal freshness (1.0 = current)
 
     # Original message reference
-    source_message: Optional[ChatMessage] = None
+    source_message: ChatMessage | None = None
 
     # Additional metadata
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -381,9 +363,9 @@ class ChatEvidence:
         return 0.5 * self.relevance_score + 0.3 * self.freshness + 0.2 * self.confidence
 
     @property
-    def source_url(self) -> Optional[str]:
+    def source_url(self) -> str | None:
         """Get a URL to the original message if available."""
-        url: Optional[str] = self.metadata.get("permalink")
+        url: str | None = self.metadata.get("permalink")
         return url
 
     def to_dict(self) -> dict[str, Any]:
@@ -413,7 +395,7 @@ class ChatEvidence:
     def from_message(
         cls,
         message: ChatMessage,
-        query: Optional[str] = None,
+        query: str | None = None,
         relevance_score: float = 1.0,
     ) -> ChatEvidence:
         """Create ChatEvidence from a ChatMessage.
@@ -451,7 +433,6 @@ class ChatEvidence:
             metadata=metadata,
         )
 
-
 @dataclass
 class ChannelContext:
     """
@@ -466,8 +447,8 @@ class ChannelContext:
     participants: list[ChatUser] = field(default_factory=list)
 
     # Time range of fetched messages
-    oldest_timestamp: Optional[datetime] = None
-    newest_timestamp: Optional[datetime] = None
+    oldest_timestamp: datetime | None = None
+    newest_timestamp: datetime | None = None
 
     # Summary statistics
     message_count: int = 0
@@ -537,7 +518,7 @@ class ChannelContext:
     @staticmethod
     def from_message(
         message: ChatMessage,
-        query: Optional[str] = None,
+        query: str | None = None,
         relevance_score: float = 1.0,
     ) -> "ChatEvidence":
         """Create ChatEvidence from a ChatMessage."""
@@ -566,11 +547,9 @@ class ChannelContext:
             metadata=message.metadata,
         )
 
-
 # =============================================================================
 # Metadata Cache for TTL-based enrichment caching
 # =============================================================================
-
 
 @dataclass
 class MetadataCacheEntry:
@@ -586,7 +565,6 @@ class MetadataCacheEntry:
         from datetime import timedelta
 
         return datetime.utcnow() > self.enriched_at + timedelta(seconds=self.ttl_seconds)
-
 
 class MetadataCache:
     """
@@ -607,7 +585,7 @@ class MetadataCache:
         self._user_cache: dict[str, MetadataCacheEntry] = {}
         self._channel_cache: dict[str, MetadataCacheEntry] = {}
 
-    def get_user(self, user_id: str, platform: str) -> Optional[dict[str, Any]]:
+    def get_user(self, user_id: str, platform: str) -> dict[str, Any] | None:
         """
         Get cached user metadata.
 
@@ -632,7 +610,7 @@ class MetadataCache:
         user_id: str,
         platform: str,
         metadata: dict[str, Any],
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """
         Cache user metadata.
@@ -650,7 +628,7 @@ class MetadataCache:
             ttl_seconds=ttl or self.default_ttl,
         )
 
-    def get_channel(self, channel_id: str, platform: str) -> Optional[dict[str, Any]]:
+    def get_channel(self, channel_id: str, platform: str) -> dict[str, Any] | None:
         """
         Get cached channel metadata.
 
@@ -675,7 +653,7 @@ class MetadataCache:
         channel_id: str,
         platform: str,
         metadata: dict[str, Any],
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """
         Cache channel metadata.
@@ -716,10 +694,8 @@ class MetadataCache:
             "default_ttl_seconds": self.default_ttl,
         }
 
-
 # Global metadata cache instance
-_metadata_cache: Optional[MetadataCache] = None
-
+_metadata_cache: MetadataCache | None = None
 
 def get_metadata_cache() -> MetadataCache:
     """Get or create global metadata cache."""
@@ -728,10 +704,9 @@ def get_metadata_cache() -> MetadataCache:
         _metadata_cache = MetadataCache()
     return _metadata_cache
 
-
 def build_chat_context(
-    user: Optional[ChatUser] = None,
-    channel: Optional[ChatChannel] = None,
+    user: ChatUser | None = None,
+    channel: ChatChannel | None = None,
     include_user: bool = True,
     include_channel: bool = True,
 ) -> dict[str, Any]:

@@ -4,9 +4,10 @@ Marketplace Client for Aragora.
 Provides connectivity to remote marketplace servers for
 sharing and discovering templates across the community.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 import aiohttp
 
@@ -18,23 +19,21 @@ from .models import (
     TemplateMetadata,
 )
 
-
 @dataclass
 class MarketplaceConfig:
     """Configuration for the marketplace client."""
 
     base_url: str = "https://marketplace.aragora.ai/api/v1"
-    api_key: Optional[str] = None
+    api_key: str | None = None
     timeout: float = 30.0
-
 
 class MarketplaceClient:
     """Client for the Aragora template marketplace."""
 
-    def __init__(self, config: Optional[MarketplaceConfig] = None):
+    def __init__(self, config: MarketplaceConfig | None = None):
         """Initialize the marketplace client."""
         self.config = config or MarketplaceConfig()
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create an HTTP session."""
@@ -61,8 +60,8 @@ class MarketplaceClient:
         self,
         method: str,
         endpoint: str,
-        data: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make an HTTP request to the marketplace API."""
         session = await self._get_session()
@@ -78,10 +77,10 @@ class MarketplaceClient:
 
     async def search_templates(
         self,
-        query: Optional[str] = None,
-        category: Optional[TemplateCategory] = None,
-        template_type: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        query: str | None = None,
+        category: TemplateCategory | None = None,
+        template_type: str | None = None,
+        tags: list[str] | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -105,7 +104,7 @@ class MarketplaceClient:
 
     async def publish_template(
         self,
-        template: Union[AgentTemplate, DebateTemplate, WorkflowTemplate],
+        template: AgentTemplate | DebateTemplate | WorkflowTemplate,
     ) -> dict[str, Any]:
         """Publish a template to the marketplace."""
         return await self._request("POST", "/templates", data=template.to_dict())
@@ -113,7 +112,7 @@ class MarketplaceClient:
     async def update_template(
         self,
         template_id: str,
-        template: Union[AgentTemplate, DebateTemplate, WorkflowTemplate],
+        template: AgentTemplate | DebateTemplate | WorkflowTemplate,
     ) -> dict[str, Any]:
         """Update an existing template."""
         return await self._request("PUT", f"/templates/{template_id}", data=template.to_dict())
@@ -124,14 +123,14 @@ class MarketplaceClient:
 
     async def download_template(
         self, template_id: str
-    ) -> Union[AgentTemplate, DebateTemplate, WorkflowTemplate]:
+    ) -> AgentTemplate | DebateTemplate | WorkflowTemplate:
         """Download a template and convert to local object."""
         data = await self.get_template(template_id)
         return self._data_to_template(data)
 
     def _data_to_template(
         self, data: dict[str, Any]
-    ) -> Union[AgentTemplate, DebateTemplate, WorkflowTemplate]:
+    ) -> AgentTemplate | DebateTemplate | WorkflowTemplate:
         """Convert API data to a template object."""
         metadata = TemplateMetadata(
             id=data["metadata"]["id"],
@@ -182,7 +181,7 @@ class MarketplaceClient:
         self,
         template_id: str,
         score: int,
-        review: Optional[str] = None,
+        review: str | None = None,
     ) -> dict[str, Any]:
         """Rate a template."""
         data: dict[str, Any] = {"score": score}
@@ -244,7 +243,6 @@ class MarketplaceClient:
         """Get templates starred by the current user."""
         result = await self._request("GET", "/users/me/starred")
         return result.get("templates", [])
-
 
 class MarketplaceError(Exception):
     """Error from marketplace operations."""

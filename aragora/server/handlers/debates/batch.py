@@ -8,7 +8,7 @@ status checking, and queue management.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from aragora.exceptions import DebateStartError
 from aragora.server.validation.entities import SAFE_ID_PATTERN, validate_path_segment
@@ -30,13 +30,12 @@ from ..utils.rate_limit import rate_limit, user_rate_limit
 if TYPE_CHECKING:
     from aragora.server.debate_queue import BatchItem
 
-
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface that BatchOperationsMixin expects from its host class."""
 
     ctx: ServerContext
 
-    def read_json_body(self, handler: Any, max_size: int | None = None) -> Optional[dict]:
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict | None:
         """Read and parse JSON body from request handler."""
         ...
 
@@ -44,9 +43,7 @@ class _DebatesHandlerProtocol(Protocol):
         """Create a debate executor function for the batch queue."""
         ...
 
-
 logger = logging.getLogger(__name__)
-
 
 class BatchOperationsMixin:
     """Mixin providing batch debate operations for DebatesHandler."""
@@ -351,7 +348,7 @@ class BatchOperationsMixin:
 
     @handle_errors("list batches")
     def _list_batches(
-        self: _DebatesHandlerProtocol, limit: int, status_filter: Optional[str] = None
+        self: _DebatesHandlerProtocol, limit: int, status_filter: str | None = None
     ) -> HandlerResult:
         """List batch requests.
 
@@ -416,6 +413,5 @@ class BatchOperationsMixin:
                 "status_counts": status_counts,
             }
         )
-
 
 __all__ = ["BatchOperationsMixin"]

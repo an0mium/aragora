@@ -15,6 +15,7 @@ Novelty score = 1 - max(similarity to any prior proposal)
 - Medium novelty (0.3-0.7): Building on prior ideas
 - Low novelty (<0.15): Too similar, may need intervention
 """
+from __future__ import annotations
 
 __all__ = [
     "NoveltyScore",
@@ -24,12 +25,10 @@ __all__ = [
 
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
 
 from .convergence import SimilarityBackend, get_similarity_backend
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class NoveltyScore:
@@ -39,13 +38,12 @@ class NoveltyScore:
     round_num: int
     novelty: float  # 1 - max_similarity to prior proposals (0-1, higher = more novel)
     max_similarity: float  # Highest similarity to any prior proposal
-    most_similar_to: Optional[str] = None  # Agent whose proposal was most similar
+    most_similar_to: str | None = None  # Agent whose proposal was most similar
     prior_proposals_count: int = 0
 
     def is_low_novelty(self, threshold: float = 0.15) -> bool:
         """Check if novelty is below threshold."""
         return self.novelty < threshold
-
 
 @dataclass
 class NoveltyResult:
@@ -62,7 +60,6 @@ class NoveltyResult:
     def has_low_novelty(self) -> bool:
         """Check if any agent has low novelty."""
         return len(self.low_novelty_agents) > 0
-
 
 class NoveltyTracker:
     """
@@ -90,7 +87,7 @@ class NoveltyTracker:
 
     def __init__(
         self,
-        backend: Optional[SimilarityBackend] = None,
+        backend: SimilarityBackend | None = None,
         low_novelty_threshold: float = 0.15,
     ):
         """
@@ -157,7 +154,7 @@ class NoveltyTracker:
             else:
                 # Compare against all prior proposals
                 max_similarity = 0.0
-                most_similar_to: Optional[str] = None
+                most_similar_to: str | None = None
 
                 for prior_agent, prior_text in prior_proposals:
                     similarity = self.backend.compute_similarity(proposal, prior_text)

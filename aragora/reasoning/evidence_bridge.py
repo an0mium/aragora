@@ -23,12 +23,12 @@ Usage:
     # Update beliefs based on evidence
     updated_belief = bridge.update_belief_from_evidence(belief, evidence_list)
 """
+from __future__ import annotations
 
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from aragora.evidence.collector import EvidenceSnippet
 from aragora.reasoning.belief import BeliefDistribution
@@ -40,7 +40,6 @@ from aragora.reasoning.provenance import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class EvidenceLink:
@@ -54,7 +53,6 @@ class EvidenceLink:
     weight: float = 1.0
     timestamp: datetime = field(default_factory=datetime.now)
 
-
 @dataclass
 class EvidenceImpact:
     """Impact of evidence on a belief distribution."""
@@ -65,7 +63,6 @@ class EvidenceImpact:
     total_weight: float
     avg_relevance: float
     direction: str  # "supporting", "contradicting", "mixed", "neutral"
-
 
 class EvidenceProvenanceBridge:
     """
@@ -104,7 +101,7 @@ class EvidenceProvenanceBridge:
 
     def __init__(
         self,
-        provenance_manager: Optional[ProvenanceManager] = None,
+        provenance_manager: ProvenanceManager | None = None,
     ):
         """
         Initialize the evidence-provenance bridge.
@@ -127,7 +124,7 @@ class EvidenceProvenanceBridge:
     def register_evidence(
         self,
         snippet: EvidenceSnippet,
-        chain_id: Optional[str] = None,
+        chain_id: str | None = None,
     ) -> ProvenanceRecord:
         """
         Register an evidence snippet as a provenance record.
@@ -180,7 +177,7 @@ class EvidenceProvenanceBridge:
         logger.debug(f"Registered evidence {snippet.id} as provenance {record.id}")
         return record
 
-    def get_provenance_for_evidence(self, evidence_id: str) -> Optional[ProvenanceRecord]:
+    def get_provenance_for_evidence(self, evidence_id: str) -> ProvenanceRecord | None:
         """
         Get the provenance record for an evidence snippet.
 
@@ -380,7 +377,7 @@ class EvidenceProvenanceBridge:
     def create_evidence_chain(
         self,
         snippets: list[EvidenceSnippet],
-        claim_id: Optional[str] = None,
+        claim_id: str | None = None,
     ) -> str:
         """
         Create a provenance chain from multiple evidence snippets.
@@ -454,10 +451,8 @@ class EvidenceProvenanceBridge:
 
         return SourceType.UNKNOWN
 
-
 # Global bridge instance
-_global_bridge: Optional[EvidenceProvenanceBridge] = None
-
+_global_bridge: EvidenceProvenanceBridge | None = None
 
 def get_evidence_bridge() -> EvidenceProvenanceBridge:
     """Get or create the global evidence-provenance bridge."""
@@ -466,12 +461,10 @@ def get_evidence_bridge() -> EvidenceProvenanceBridge:
         _global_bridge = EvidenceProvenanceBridge()
     return _global_bridge
 
-
 def reset_evidence_bridge() -> None:
     """Reset the global bridge (for testing)."""
     global _global_bridge
     _global_bridge = None
-
 
 __all__ = [
     "EvidenceProvenanceBridge",

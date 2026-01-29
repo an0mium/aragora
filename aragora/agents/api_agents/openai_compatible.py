@@ -20,7 +20,6 @@ from aragora.core import Critique, Message
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentCircuitOpenError,
@@ -37,7 +36,6 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.fallback import QuotaFallbackMixin
 
 logger = logging.getLogger(__name__)
-
 
 class OpenAICompatibleMixin(QuotaFallbackMixin):
     """
@@ -78,7 +76,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
     # Methods inherited from CritiqueMixin (via APIAgent) - delegate to parent
     def _build_context_prompt(
         self,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
         truncate: bool = False,
         sanitize_fn: Optional["Callable[[str], str]"] = None,
     ) -> str:
@@ -401,6 +399,5 @@ REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
         return self._parse_critique(response, target_agent or "proposal", proposal)
-
 
 __all__ = ["OpenAICompatibleMixin"]

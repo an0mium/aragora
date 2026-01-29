@@ -9,6 +9,7 @@ Arena._run_inner() method, handling:
 - Message and event emission
 - Citation need extraction
 """
+from __future__ import annotations
 
 __all__ = [
     "ProposalPhase",
@@ -32,7 +33,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 def _record_calibration_adjustment(agent: str) -> None:
     """Record calibration adjustment metric with lazy import."""
     try:
@@ -41,7 +41,6 @@ def _record_calibration_adjustment(agent: str) -> None:
         record_calibration_adjustment(agent)
     except ImportError:
         pass
-
 
 class ProposalPhase:
     """
@@ -66,17 +65,17 @@ class ProposalPhase:
         position_tracker: Any = None,
         position_ledger: Any = None,
         recorder: Any = None,
-        hooks: Optional[dict] = None,
+        hooks: dict | None = None,
         # Calibration for proposal confidence scaling
         calibration_tracker: Any = None,
         # Callbacks for orchestrator methods
-        build_proposal_prompt: Optional[Callable] = None,
-        generate_with_agent: Optional[Callable] = None,
-        with_timeout: Optional[Callable] = None,
-        notify_spectator: Optional[Callable] = None,
-        update_role_assignments: Optional[Callable] = None,
-        record_grounded_position: Optional[Callable] = None,
-        extract_citation_needs: Optional[Callable] = None,
+        build_proposal_prompt: Callable | None = None,
+        generate_with_agent: Callable | None = None,
+        with_timeout: Callable | None = None,
+        notify_spectator: Callable | None = None,
+        update_role_assignments: Callable | None = None,
+        record_grounded_position: Callable | None = None,
+        extract_citation_needs: Callable | None = None,
         # Propulsion engine for push-based work assignment (Gastown pattern)
         propulsion_engine: Any = None,
         enable_propulsion: bool = False,

@@ -13,6 +13,7 @@ Endpoints:
 - GET  /api/evidence/statistics         - Get evidence store statistics
 - DELETE /api/evidence/:id              - Delete evidence by ID
 """
+from __future__ import annotations
 
 import logging
 from typing import Any, Optional
@@ -57,7 +58,6 @@ _evidence_read_limiter = RateLimiter(requests_per_minute=60)
 # Write/collect operations are more restrictive (expensive external API calls)
 _evidence_write_limiter = RateLimiter(requests_per_minute=10)
 
-
 class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for evidence-related API endpoints."""
 
@@ -88,8 +88,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     def __init__(self, server_context: dict):
         """Initialize with server context."""
         super().__init__(server_context)  # type: ignore[arg-type]
-        self._evidence_store: Optional[EvidenceStore] = None
-        self._evidence_collector: Optional[EvidenceCollector] = None
+        self._evidence_store: EvidenceStore | None = None
+        self._evidence_collector: EvidenceCollector | None = None
         self._km_adapter: Optional["EvidenceAdapter"] = None
 
     def _emit_km_event(self, event_emitter: Any, event_type: str, data: dict) -> None:
@@ -207,7 +207,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     @require_permission("evidence:read")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests for evidence endpoints."""
         # Rate limit check for read operations
         client_ip = get_client_ip(handler)
@@ -246,7 +246,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     @require_permission("evidence:create")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests for evidence endpoints."""
         # Rate limit check for write operations
         client_ip = get_client_ip(handler)
@@ -285,7 +285,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     @require_permission("evidence:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests for evidence endpoints."""
         # Rate limit check for delete operations (uses write limiter)
         client_ip = get_client_ip(handler)

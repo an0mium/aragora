@@ -17,7 +17,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -27,7 +27,6 @@ from aragora.connectors.enterprise.base import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class NotionPage:
@@ -40,12 +39,11 @@ class NotionPage:
     parent_type: str = ""  # workspace, page_id, database_id
     parent_id: str = ""
     created_by: str = ""
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
     last_edited_by: str = ""
-    last_edited_at: Optional[datetime] = None
+    last_edited_at: datetime | None = None
     archived: bool = False
-    properties: Dict[str, Any] = field(default_factory=dict)
-
+    properties: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class NotionDatabase:
@@ -55,10 +53,9 @@ class NotionDatabase:
     title: str
     url: str
     description: str = ""
-    properties: Dict[str, Any] = field(default_factory=dict)
-    created_at: Optional[datetime] = None
-    last_edited_at: Optional[datetime] = None
-
+    properties: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime | None = None
+    last_edited_at: datetime | None = None
 
 class NotionConnector(EnterpriseConnector):
     """
@@ -116,8 +113,8 @@ class NotionConnector(EnterpriseConnector):
         self.inline_child_content = inline_child_content
 
         # Cache
-        self._pages_cache: Dict[str, NotionPage] = {}
-        self._databases_cache: Dict[str, NotionDatabase] = {}
+        self._pages_cache: dict[str, NotionPage] = {}
+        self._databases_cache: dict[str, NotionDatabase] = {}
         self._synced_page_ids: set[str] = set()  # Track synced pages to avoid duplicates
 
     @property
@@ -128,7 +125,7 @@ class NotionConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"Notion ({self.workspace_name})"
 
-    async def _get_auth_header(self) -> Dict[str, str]:
+    async def _get_auth_header(self) -> dict[str, str]:
         """Get authentication header."""
         token = await self.credentials.get_credential("NOTION_API_TOKEN")
 
@@ -144,9 +141,9 @@ class NotionConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make a request to Notion API."""
         import httpx
 
@@ -170,11 +167,11 @@ class NotionConnector(EnterpriseConnector):
     async def _search_pages(
         self,
         query: str = "",
-        filter_type: Optional[str] = None,
-        start_cursor: Optional[str] = None,
-    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        filter_type: str | None = None,
+        start_cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """Search for pages and databases."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "page_size": 100,
         }
 
@@ -194,7 +191,7 @@ class NotionConnector(EnterpriseConnector):
 
         return results, next_cursor
 
-    async def _get_page(self, page_id: str) -> Optional[NotionPage]:
+    async def _get_page(self, page_id: str) -> NotionPage | None:
         """Get a page by ID."""
         try:
             data = await self._api_request(f"/pages/{page_id}")
@@ -203,7 +200,7 @@ class NotionConnector(EnterpriseConnector):
             logger.warning(f"[{self.name}] Failed to get page {page_id}: {e}")
             return None
 
-    async def _get_database(self, database_id: str) -> Optional[NotionDatabase]:
+    async def _get_database(self, database_id: str) -> NotionDatabase | None:
         """Get a database by ID."""
         try:
             data = await self._api_request(f"/databases/{database_id}")
@@ -215,10 +212,10 @@ class NotionConnector(EnterpriseConnector):
     async def _query_database(
         self,
         database_id: str,
-        start_cursor: Optional[str] = None,
-    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        start_cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """Query database entries."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "page_size": 100,
         }
 
@@ -239,10 +236,10 @@ class NotionConnector(EnterpriseConnector):
     async def _get_block_children(
         self,
         block_id: str,
-        start_cursor: Optional[str] = None,
-    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        start_cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """Get child blocks of a block."""
-        params: Dict[str, Any] = {"page_size": 100}
+        params: dict[str, Any] = {"page_size": 100}
 
         if start_cursor:
             params["start_cursor"] = start_cursor
@@ -358,7 +355,7 @@ class NotionConnector(EnterpriseConnector):
             if not cursor:
                 break
 
-    def _parse_page(self, data: Dict[str, Any]) -> NotionPage:
+    def _parse_page(self, data: dict[str, Any]) -> NotionPage:
         """Parse page data into NotionPage."""
         # Extract title from properties
         # Notion API can return properties with or without "type" field
@@ -411,7 +408,7 @@ class NotionConnector(EnterpriseConnector):
             properties=properties,
         )
 
-    def _parse_database(self, data: Dict[str, Any]) -> NotionDatabase:
+    def _parse_database(self, data: dict[str, Any]) -> NotionDatabase:
         """Parse database data into NotionDatabase."""
         # Extract title
         title_parts = data.get("title", [])
@@ -449,7 +446,7 @@ class NotionConnector(EnterpriseConnector):
             last_edited_at=last_edited_at,
         )
 
-    def _rich_text_to_string(self, rich_text: List[Dict[str, Any]]) -> str:
+    def _rich_text_to_string(self, rich_text: list[dict[str, Any]]) -> str:
         """Convert Notion rich text array to plain string."""
         parts = []
         for item in rich_text:
@@ -458,7 +455,7 @@ class NotionConnector(EnterpriseConnector):
                 parts.append(text)
         return "".join(parts)
 
-    def _extract_block_content(self, block: Dict[str, Any]) -> str:
+    def _extract_block_content(self, block: dict[str, Any]) -> str:
         """Extract text content from a block."""
         block_type = block.get("type", "")
         block_data = block.get(block_type, {})
@@ -565,7 +562,7 @@ class NotionConnector(EnterpriseConnector):
 
     def _extract_database_entry_content(
         self,
-        entry: Dict[str, Any],
+        entry: dict[str, Any],
         database: NotionDatabase,
     ) -> str:
         """Extract content from a database entry."""
@@ -925,7 +922,7 @@ class NotionConnector(EnterpriseConnector):
 
         return results
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific Notion page."""
         from aragora.connectors.base import Evidence
 
@@ -962,10 +959,10 @@ class NotionConnector(EnterpriseConnector):
         self,
         parent_id: str,
         title: str,
-        content: Optional[str] = None,
+        content: str | None = None,
         parent_type: str = "page_id",
-        properties: Optional[Dict[str, Any]] = None,
-    ) -> Optional[NotionPage]:
+        properties: Optional[dict[str, Any]] = None,
+    ) -> NotionPage | None:
         """
         Create a new Notion page.
 
@@ -981,13 +978,13 @@ class NotionConnector(EnterpriseConnector):
         """
         try:
             # Build page properties
-            page_properties: Dict[str, Any] = properties or {}
+            page_properties: dict[str, Any] = properties or {}
 
             # Set title property
             page_properties["title"] = {"title": [{"type": "text", "text": {"content": title}}]}
 
             # Build request body
-            body: Dict[str, Any] = {
+            body: dict[str, Any] = {
                 "parent": {parent_type: parent_id},
                 "properties": page_properties,
             }
@@ -1010,9 +1007,9 @@ class NotionConnector(EnterpriseConnector):
     async def update_page(
         self,
         page_id: str,
-        properties: Optional[Dict[str, Any]] = None,
-        archived: Optional[bool] = None,
-    ) -> Optional[NotionPage]:
+        properties: Optional[dict[str, Any]] = None,
+        archived: bool | None = None,
+    ) -> NotionPage | None:
         """
         Update a Notion page's properties.
 
@@ -1025,7 +1022,7 @@ class NotionConnector(EnterpriseConnector):
             Updated NotionPage, or None if failed
         """
         try:
-            body: Dict[str, Any] = {}
+            body: dict[str, Any] = {}
 
             if properties:
                 body["properties"] = properties
@@ -1121,9 +1118,9 @@ class NotionConnector(EnterpriseConnector):
     async def add_database_entry(
         self,
         database_id: str,
-        properties: Dict[str, Any],
-        content: Optional[str] = None,
-    ) -> Optional[NotionPage]:
+        properties: dict[str, Any],
+        content: str | None = None,
+    ) -> NotionPage | None:
         """
         Add an entry to a Notion database.
 
@@ -1149,8 +1146,8 @@ class NotionConnector(EnterpriseConnector):
     async def update_database_entry(
         self,
         entry_id: str,
-        properties: Dict[str, Any],
-    ) -> Optional[NotionPage]:
+        properties: dict[str, Any],
+    ) -> NotionPage | None:
         """
         Update a database entry.
 
@@ -1163,7 +1160,7 @@ class NotionConnector(EnterpriseConnector):
         """
         return await self.update_page(entry_id, properties=properties)
 
-    def _text_to_blocks(self, text: str) -> List[Dict[str, Any]]:
+    def _text_to_blocks(self, text: str) -> list[dict[str, Any]]:
         """Convert plain text to Notion blocks."""
         blocks = []
 
@@ -1267,7 +1264,7 @@ class NotionConnector(EnterpriseConnector):
         self,
         prop_type: str,
         value: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build a Notion property value for database entries.
 
         Args:
@@ -1315,6 +1312,5 @@ class NotionConnector(EnterpriseConnector):
             return {"status": {"name": str(value)} if value else None}
 
         return {}
-
 
 __all__ = ["NotionConnector", "NotionPage", "NotionDatabase"]

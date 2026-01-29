@@ -6,6 +6,7 @@ Provides utilities for:
 - Judge termination checks
 - Synthesis and final verdict generation
 """
+from __future__ import annotations
 
 import logging
 import random
@@ -17,7 +18,6 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
-
 
 class JudgmentPhase:
     """Handles judge selection and judgment logic.
@@ -159,7 +159,7 @@ class JudgmentPhase:
         self,
         round_num: int,
         proposals: dict[str, str],
-        judge_response: Optional[str] = None,
+        judge_response: str | None = None,
     ) -> tuple[bool, str]:
         """Determine if the debate should terminate based on judge evaluation.
 

@@ -9,12 +9,11 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 class KnowledgeMixin:
     """Mixin providing Knowledge Mound health checks.
@@ -42,9 +41,9 @@ class KnowledgeMixin:
         Returns:
             JSON response with comprehensive KM health metrics
         """
-        components: Dict[str, Dict[str, Any]] = {}
+        components: dict[str, dict[str, Any]] = {}
         all_healthy = True
-        warnings: List[str] = []
+        warnings: list[str] = []
         start_time = time.time()
 
         # 1. Check if Knowledge Mound module is available
@@ -160,7 +159,7 @@ class KnowledgeMixin:
             }
         )
 
-    def _check_km_storage(self, mound: Any) -> Dict[str, Any]:
+    def _check_km_storage(self, mound: Any) -> dict[str, Any]:
         """Check Knowledge Mound storage backend."""
         try:
             import os
@@ -198,7 +197,7 @@ class KnowledgeMixin:
                 "warning": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_culture_accumulator(self, mound: Any) -> Dict[str, Any]:
+    def _check_culture_accumulator(self, mound: Any) -> dict[str, Any]:
         """Check culture accumulator status."""
         try:
             if mound is not None:
@@ -236,7 +235,7 @@ class KnowledgeMixin:
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_staleness_tracker(self, mound: Any) -> Dict[str, Any]:
+    def _check_staleness_tracker(self, mound: Any) -> dict[str, Any]:
         """Check staleness tracker status."""
         try:
             if mound is not None:
@@ -262,7 +261,7 @@ class KnowledgeMixin:
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_rlm_integration(self) -> Dict[str, Any]:
+    def _check_rlm_integration(self) -> dict[str, Any]:
         """Check RLM integration status."""
         try:
             from aragora.rlm import HAS_OFFICIAL_RLM
@@ -293,7 +292,7 @@ class KnowledgeMixin:
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_debate_integration(self) -> Dict[str, Any]:
+    def _check_debate_integration(self) -> dict[str, Any]:
         """Check debate integration via knowledge_mound_ops."""
         try:
             from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats  # type: ignore[attr-defined]
@@ -319,7 +318,7 @@ class KnowledgeMixin:
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_km_redis_cache(self) -> Dict[str, Any]:
+    def _check_km_redis_cache(self) -> dict[str, Any]:
         """Check Redis cache for Knowledge Mound."""
         try:
             import os
@@ -352,7 +351,7 @@ class KnowledgeMixin:
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_km_adapters(self) -> Dict[str, Any]:
+    def _check_km_adapters(self) -> dict[str, Any]:
         """Check bidirectional KM adapters."""
         try:
             from aragora.knowledge.mound.adapters import (
@@ -402,7 +401,7 @@ class KnowledgeMixin:
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_control_plane_adapter(self) -> Dict[str, Any]:
+    def _check_control_plane_adapter(self) -> dict[str, Any]:
         """Check Control Plane adapter."""
         try:
             from aragora.knowledge.mound.adapters.control_plane_adapter import (  # noqa: F401
@@ -435,7 +434,7 @@ class KnowledgeMixin:
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_km_metrics(self) -> Dict[str, Any]:
+    def _check_km_metrics(self) -> dict[str, Any]:
         """Check KM metrics availability."""
         try:
             from aragora.observability.metrics.km import (  # noqa: F401
@@ -462,13 +461,13 @@ class KnowledgeMixin:
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
-    def _check_confidence_decay(self) -> Dict[str, Any]:
+    def _check_confidence_decay(self) -> dict[str, Any]:
         """Check Confidence Decay Scheduler status.
 
         Returns:
             Dict with 'component' (health status) and 'warnings' (list of warnings)
         """
-        warnings: List[str] = []
+        warnings: list[str] = []
         try:
             from aragora.knowledge.mound.confidence_decay_scheduler import (
                 get_decay_scheduler,
@@ -538,6 +537,5 @@ class KnowledgeMixin:
                 },
                 "warnings": warnings,
             }
-
 
 __all__ = ["KnowledgeMixin"]

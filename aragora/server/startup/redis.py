@@ -3,12 +3,12 @@ Server startup Redis initialization.
 
 This module handles Redis HA and Redis state backend initialization.
 """
+from __future__ import annotations
 
 import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def init_redis_ha() -> dict[str, Any]:
     """Initialize Redis High-Availability connection.
@@ -36,7 +36,7 @@ async def init_redis_ha() -> dict[str, Any]:
             "mode": str,
             "healthy": bool,
             "description": str,
-            "error": Optional[str],
+            "error": str | None,
         }
     """
     result: dict[str, Any] = {
@@ -123,7 +123,6 @@ async def init_redis_ha() -> dict[str, Any]:
         logger.warning(f"Redis HA initialization failed: {e}")
 
     return result
-
 
 async def init_redis_state_backend() -> bool:
     """Initialize Redis-backed state management for horizontal scaling.

@@ -7,7 +7,7 @@ Provides mixin classes for handling Slack slash commands.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from aragora.server.handlers.base import HandlerResult
 from aragora.server.handlers.social.slack.utils.responses import (
@@ -16,7 +16,6 @@ from aragora.server.handlers.social.slack.utils.responses import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class CommandsMixin:
     """Mixin providing basic Slack slash command implementations.
@@ -59,7 +58,7 @@ class CommandsMixin:
             store = EloSystem()
             agents = store.get_all_ratings()
 
-            blocks: List[Dict[str, Any]] = [
+            blocks: list[dict[str, Any]] = [
                 {
                     "type": "header",
                     "text": {
@@ -131,7 +130,7 @@ class CommandsMixin:
                 line = f"{i}. *{agent.agent_name}*: {agent.elo:.0f} ELO"
                 agent_lines.append(line)
 
-            blocks: List[Dict[str, Any]] = [
+            blocks: list[dict[str, Any]] = [
                 {
                     "type": "header",
                     "text": {
@@ -212,7 +211,7 @@ class CommandsMixin:
                 line = f"{medal}. *{agent.agent_name}*: {agent.elo:.0f} ELO ({agent.wins}W/{agent.losses}L)"
                 lines.append(line)
 
-            blocks: List[Dict[str, Any]] = [
+            blocks: list[dict[str, Any]] = [
                 {
                     "type": "header",
                     "text": {
@@ -248,6 +247,5 @@ class CommandsMixin:
                 f"Error getting leaderboard: {str(e)[:100]}",
                 response_type="ephemeral",
             )
-
 
 __all__ = ["CommandsMixin"]

@@ -5,13 +5,14 @@ Provides a lightweight, synchronous, read-only event stream that visualizes
 the internal state of the debate in real-time to the terminal (stdout).
 Safe for TTY, encoding, and NO_COLOR environments.
 """
+from __future__ import annotations
 
 import logging
 import os
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Optional, TextIO
+from typing import TextIO
 
 from .events import EVENT_ASCII, EVENT_STYLES, SpectatorEvents
 
@@ -37,7 +38,6 @@ VALID_EVENT_TYPES = frozenset(
         SpectatorEvents.ERROR,
     ]
 )
-
 
 @dataclass
 class SpectatorStream:
@@ -96,8 +96,8 @@ class SpectatorStream:
         event_type: str,
         agent: str = "",
         details: str = "",
-        metric: Optional[float] = None,
-        round_number: Optional[int] = None,
+        metric: float | None = None,
+        round_number: int | None = None,
     ) -> None:
         """
         Emit a spectator event.
@@ -134,8 +134,8 @@ class SpectatorStream:
         event_type: str,
         agent: str,
         details: str,
-        metric: Optional[float],
-        round_number: Optional[int],
+        metric: float | None,
+        round_number: int | None,
     ) -> None:
         """Emit JSON-formatted event."""
         import json
@@ -157,8 +157,8 @@ class SpectatorStream:
         event_type: str,
         agent: str,
         details: str,
-        metric: Optional[float],
-        round_number: Optional[int],
+        metric: float | None,
+        round_number: int | None,
     ) -> None:
         """Emit text-formatted event (plain or ANSI)."""
         # ANSI codes

@@ -13,13 +13,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class KnowledgeNode:
@@ -29,13 +28,12 @@ class KnowledgeNode:
     content: str
     node_type: str
     confidence: float = 0.8
-    workspace_id: Optional[str] = None
-    domain: Optional[str] = None
-    source_debate_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
+    workspace_id: str | None = None
+    domain: str | None = None
+    source_debate_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 @dataclass
 class KnowledgeSearchResult:
@@ -46,31 +44,28 @@ class KnowledgeSearchResult:
     score: float
     node_type: str
     confidence: float
-    domain: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    domain: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class KnowledgeStats:
     """Statistics about the Knowledge Mound."""
 
     total_nodes: int
-    nodes_by_type: Dict[str, int]
-    nodes_by_tier: Dict[str, int]
+    nodes_by_type: dict[str, int]
+    nodes_by_tier: dict[str, int]
     total_relationships: int
     average_confidence: float
     stale_nodes_count: int
-
 
 @dataclass
 class CoverageReport:
     """Domain coverage analysis report."""
 
-    domains: Dict[str, int]
+    domains: dict[str, int]
     coverage_score: float
-    gaps: List[str]
-    recommendations: List[str]
-
+    gaps: list[str]
+    recommendations: list[str]
 
 @dataclass
 class ContradictionResult:
@@ -82,8 +77,7 @@ class ContradictionResult:
     contradiction_type: str
     severity: str
     description: str
-    suggested_resolution: Optional[str] = None
-
+    suggested_resolution: str | None = None
 
 class KnowledgeAPI:
     """API interface for Knowledge Mound operations."""
@@ -99,10 +93,10 @@ class KnowledgeAPI:
         self,
         query: str,
         limit: int = 10,
-        workspace_id: Optional[str] = None,
-        domain: Optional[str] = None,
+        workspace_id: str | None = None,
+        domain: str | None = None,
         min_confidence: float = 0.0,
-    ) -> List[KnowledgeSearchResult]:
+    ) -> list[KnowledgeSearchResult]:
         """
         Search the knowledge base.
 
@@ -116,7 +110,7 @@ class KnowledgeAPI:
         Returns:
             List of matching knowledge entries
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "query": query,
             "limit": limit,
         }
@@ -135,12 +129,12 @@ class KnowledgeAPI:
         self,
         query: str,
         limit: int = 10,
-        workspace_id: Optional[str] = None,
-        domain: Optional[str] = None,
+        workspace_id: str | None = None,
+        domain: str | None = None,
         min_confidence: float = 0.0,
-    ) -> List[KnowledgeSearchResult]:
+    ) -> list[KnowledgeSearchResult]:
         """Async version of search()."""
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "query": query,
             "limit": limit,
         }
@@ -159,8 +153,8 @@ class KnowledgeAPI:
         self,
         query: str,
         limit: int = 10,
-        workspace_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        workspace_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Perform semantic search on the Knowledge Mound.
 
@@ -186,8 +180,8 @@ class KnowledgeAPI:
         self,
         query: str,
         limit: int = 10,
-        workspace_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        workspace_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Async version of semantic_query()."""
         body = {
             "query": query,
@@ -208,9 +202,9 @@ class KnowledgeAPI:
         content: str,
         node_type: str = "fact",
         confidence: float = 0.8,
-        workspace_id: Optional[str] = None,
-        domain: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        workspace_id: str | None = None,
+        domain: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> KnowledgeNode:
         """
         Create a new knowledge node.
@@ -246,9 +240,9 @@ class KnowledgeAPI:
         content: str,
         node_type: str = "fact",
         confidence: float = 0.8,
-        workspace_id: Optional[str] = None,
-        domain: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        workspace_id: str | None = None,
+        domain: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> KnowledgeNode:
         """Async version of create_node()."""
         body = {
@@ -279,12 +273,12 @@ class KnowledgeAPI:
     def update_node(
         self,
         node_id: str,
-        content: Optional[str] = None,
-        confidence: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        content: str | None = None,
+        confidence: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> KnowledgeNode:
         """Update a knowledge node."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if content is not None:
             body["content"] = content
         if confidence is not None:
@@ -298,12 +292,12 @@ class KnowledgeAPI:
     async def update_node_async(
         self,
         node_id: str,
-        content: Optional[str] = None,
-        confidence: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        content: str | None = None,
+        confidence: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> KnowledgeNode:
         """Async version of update_node()."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if content is not None:
             body["content"] = content
         if confidence is not None:
@@ -328,26 +322,26 @@ class KnowledgeAPI:
     # Statistics and Analytics
     # =========================================================================
 
-    def get_stats(self, workspace_id: Optional[str] = None) -> KnowledgeStats:
+    def get_stats(self, workspace_id: str | None = None) -> KnowledgeStats:
         """Get Knowledge Mound statistics."""
         params = {"workspace_id": workspace_id} if workspace_id else None
         response = self._client._get("/api/v1/knowledge/mound/stats", params)
         return KnowledgeStats(**response)
 
-    async def get_stats_async(self, workspace_id: Optional[str] = None) -> KnowledgeStats:
+    async def get_stats_async(self, workspace_id: str | None = None) -> KnowledgeStats:
         """Async version of get_stats()."""
         params = {"workspace_id": workspace_id} if workspace_id else None
         response = await self._client._get_async("/api/v1/knowledge/mound/stats", params)
         return KnowledgeStats(**response)
 
-    def get_coverage_analytics(self, workspace_id: Optional[str] = None) -> CoverageReport:
+    def get_coverage_analytics(self, workspace_id: str | None = None) -> CoverageReport:
         """Get domain coverage analytics."""
         params = {"workspace_id": workspace_id} if workspace_id else None
         response = self._client._get("/api/v1/knowledge/mound/analytics/coverage", params)
         return CoverageReport(**response)
 
     async def get_coverage_analytics_async(
-        self, workspace_id: Optional[str] = None
+        self, workspace_id: str | None = None
     ) -> CoverageReport:
         """Async version of get_coverage_analytics()."""
         params = {"workspace_id": workspace_id} if workspace_id else None
@@ -357,31 +351,31 @@ class KnowledgeAPI:
         return CoverageReport(**response)
 
     def get_usage_analytics(
-        self, workspace_id: Optional[str] = None, days: int = 30
-    ) -> Dict[str, Any]:
+        self, workspace_id: str | None = None, days: int = 30
+    ) -> dict[str, Any]:
         """Get usage analytics."""
-        params: Dict[str, Any] = {"days": days}
+        params: dict[str, Any] = {"days": days}
         if workspace_id:
             params["workspace_id"] = workspace_id
         return self._client._get("/api/v1/knowledge/mound/analytics/usage", params)
 
     async def get_usage_analytics_async(
-        self, workspace_id: Optional[str] = None, days: int = 30
-    ) -> Dict[str, Any]:
+        self, workspace_id: str | None = None, days: int = 30
+    ) -> dict[str, Any]:
         """Async version of get_usage_analytics()."""
-        params: Dict[str, Any] = {"days": days}
+        params: dict[str, Any] = {"days": days}
         if workspace_id:
             params["workspace_id"] = workspace_id
         return await self._client._get_async("/api/v1/knowledge/mound/analytics/usage", params)
 
-    def get_quality_snapshot(self, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_quality_snapshot(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Capture current quality metrics snapshot."""
         params = {"workspace_id": workspace_id} if workspace_id else None
         return self._client._get("/api/v1/knowledge/mound/analytics/quality/snapshot", params)
 
     async def get_quality_snapshot_async(
-        self, workspace_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
         """Async version of get_quality_snapshot()."""
         params = {"workspace_id": workspace_id} if workspace_id else None
         return await self._client._get_async(
@@ -392,28 +386,28 @@ class KnowledgeAPI:
     # Health and Dashboard
     # =========================================================================
 
-    def get_health(self) -> Dict[str, Any]:
+    def get_health(self) -> dict[str, Any]:
         """Get Knowledge Mound health status."""
         return self._client._get("/api/v1/knowledge/mound/dashboard/health")
 
-    async def get_health_async(self) -> Dict[str, Any]:
+    async def get_health_async(self) -> dict[str, Any]:
         """Async version of get_health()."""
         return await self._client._get_async("/api/v1/knowledge/mound/dashboard/health")
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get Knowledge Mound metrics."""
         return self._client._get("/api/v1/knowledge/mound/dashboard/metrics")
 
-    async def get_metrics_async(self) -> Dict[str, Any]:
+    async def get_metrics_async(self) -> dict[str, Any]:
         """Async version of get_metrics()."""
         return await self._client._get_async("/api/v1/knowledge/mound/dashboard/metrics")
 
-    def get_adapters(self) -> List[Dict[str, Any]]:
+    def get_adapters(self) -> list[dict[str, Any]]:
         """Get Knowledge Mound adapter status."""
         response = self._client._get("/api/v1/knowledge/mound/dashboard/adapters")
         return response.get("adapters", [])
 
-    async def get_adapters_async(self) -> List[Dict[str, Any]]:
+    async def get_adapters_async(self) -> list[dict[str, Any]]:
         """Async version of get_adapters()."""
         response = await self._client._get_async("/api/v1/knowledge/mound/dashboard/adapters")
         return response.get("adapters", [])
@@ -424,9 +418,9 @@ class KnowledgeAPI:
 
     def detect_contradictions(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         threshold: float = 0.7,
-    ) -> List[ContradictionResult]:
+    ) -> list[ContradictionResult]:
         """
         Detect contradictions in the knowledge base.
 
@@ -437,7 +431,7 @@ class KnowledgeAPI:
         Returns:
             List of detected contradictions
         """
-        body: Dict[str, Any] = {"threshold": threshold}
+        body: dict[str, Any] = {"threshold": threshold}
         if workspace_id:
             body["workspace_id"] = workspace_id
 
@@ -447,11 +441,11 @@ class KnowledgeAPI:
 
     async def detect_contradictions_async(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         threshold: float = 0.7,
-    ) -> List[ContradictionResult]:
+    ) -> list[ContradictionResult]:
         """Async version of detect_contradictions()."""
-        body: Dict[str, Any] = {"threshold": threshold}
+        body: dict[str, Any] = {"threshold": threshold}
         if workspace_id:
             body["workspace_id"] = workspace_id
 
@@ -465,8 +459,8 @@ class KnowledgeAPI:
         self,
         contradiction_id: str,
         resolution: str,
-        keep_node_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        keep_node_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Resolve a knowledge contradiction.
 
@@ -490,8 +484,8 @@ class KnowledgeAPI:
         self,
         contradiction_id: str,
         resolution: str,
-        keep_node_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        keep_node_id: str | None = None,
+    ) -> dict[str, Any]:
         """Async version of resolve_contradiction()."""
         body = {"resolution": resolution}
         if keep_node_id:
@@ -509,7 +503,7 @@ class KnowledgeAPI:
         self,
         debate_id: str,
         auto_promote: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Extract knowledge from a completed debate.
 
@@ -530,7 +524,7 @@ class KnowledgeAPI:
         self,
         debate_id: str,
         auto_promote: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Async version of extract_from_debate()."""
         body = {
             "debate_id": debate_id,
@@ -538,16 +532,15 @@ class KnowledgeAPI:
         }
         return await self._client._post_async("/api/v1/knowledge/mound/extraction/debate", body)
 
-    def promote_extracted(self, extraction_ids: List[str]) -> Dict[str, Any]:
+    def promote_extracted(self, extraction_ids: list[str]) -> dict[str, Any]:
         """Promote extracted knowledge to permanent storage."""
         body = {"extraction_ids": extraction_ids}
         return self._client._post("/api/v1/knowledge/mound/extraction/promote", body)
 
-    async def promote_extracted_async(self, extraction_ids: List[str]) -> Dict[str, Any]:
+    async def promote_extracted_async(self, extraction_ids: list[str]) -> dict[str, Any]:
         """Async version of promote_extracted()."""
         body = {"extraction_ids": extraction_ids}
         return await self._client._post_async("/api/v1/knowledge/mound/extraction/promote", body)
-
 
 __all__ = [
     "KnowledgeAPI",

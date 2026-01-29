@@ -24,13 +24,12 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
-
 
 class ContextStrategy(Enum):
     """Strategy for managing context in extended debates."""
@@ -39,7 +38,6 @@ class ContextStrategy(Enum):
     SLIDING_WINDOW = "sliding_window"  # Keep last N rounds full, compress rest
     HIERARCHICAL = "hierarchical"  # Multi-level compression
     ADAPTIVE = "adaptive"  # Auto-select based on context size
-
 
 @dataclass
 class ExtendedDebateConfig:
@@ -83,7 +81,6 @@ class ExtendedDebateConfig:
     context_strategy: ContextStrategy = ContextStrategy.ADAPTIVE
     """Strategy for managing context."""
 
-
 @dataclass
 class RoundSummary:
     """Summary of a debate round for context compression."""
@@ -94,8 +91,7 @@ class RoundSummary:
     key_points: list[str]
     consensus_progress: float
     token_count: int
-    compressed_at: Optional[float] = None
-
+    compressed_at: float | None = None
 
 @dataclass
 class ExtendedContextState:
@@ -111,13 +107,12 @@ class ExtendedContextState:
     compressed_history: str = ""
 
     # RLM context
-    rlm_context: Optional[Any] = None
+    rlm_context: Any | None = None
 
     # Statistics
     compressions_performed: int = 0
     tokens_saved: int = 0
     compression_time_total: float = 0.0
-
 
 class RLMContextManager:
     """
@@ -127,7 +122,7 @@ class RLMContextManager:
     rounds at full detail for coherent debate continuation.
     """
 
-    def __init__(self, config: Optional[ExtendedDebateConfig] = None):
+    def __init__(self, config: ExtendedDebateConfig | None = None):
         """Initialize the context manager."""
         self.config = config or ExtendedDebateConfig()
         self._state = ExtendedContextState()
@@ -400,7 +395,6 @@ class RLMContextManager:
     def reset(self) -> None:
         """Reset the context manager state."""
         self._state = ExtendedContextState()
-
 
 def create_extended_config(
     max_rounds: int = 100,

@@ -12,12 +12,11 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import BaseRepository, EntityNotFoundError
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DebateEntity:
@@ -30,26 +29,26 @@ class DebateEntity:
     id: str
     slug: str
     task: str
-    agents: List[str]
+    agents: list[str]
     artifact_json: str
     consensus_reached: bool = False
     confidence: float = 0.0
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
     view_count: int = 0
-    audio_path: Optional[str] = None
-    audio_generated_at: Optional[datetime] = None
-    audio_duration_seconds: Optional[int] = None
+    audio_path: str | None = None
+    audio_generated_at: datetime | None = None
+    audio_duration_seconds: int | None = None
 
-    def to_artifact(self) -> Dict[str, Any]:
+    def to_artifact(self) -> dict[str, Any]:
         """Parse artifact_json and return the full artifact dict."""
         return json.loads(self.artifact_json)
 
     @classmethod
     def from_artifact(
         cls,
-        artifact: Dict[str, Any],
+        artifact: dict[str, Any],
         slug: str,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> "DebateEntity":
         """
         Create entity from artifact dict.
@@ -72,7 +71,6 @@ class DebateEntity:
             confidence=artifact.get("confidence", 0.0),
         )
 
-
 @dataclass
 class DebateMetadata:
     """Summary metadata for a stored debate."""
@@ -80,12 +78,11 @@ class DebateMetadata:
     slug: str
     debate_id: str
     task: str
-    agents: List[str]
+    agents: list[str]
     consensus_reached: bool
     confidence: float
     created_at: datetime
     view_count: int = 0
-
 
 class DebateRepository(BaseRepository[DebateEntity]):
     """
@@ -215,7 +212,7 @@ class DebateRepository(BaseRepository[DebateEntity]):
             audio_duration_seconds=row["audio_duration_seconds"],
         )
 
-    def _from_entity(self, entity: DebateEntity) -> Dict[str, Any]:
+    def _from_entity(self, entity: DebateEntity) -> dict[str, Any]:
         """Convert entity to database columns."""
         return {
             "id": entity.id,
@@ -236,7 +233,7 @@ class DebateRepository(BaseRepository[DebateEntity]):
             "audio_duration_seconds": entity.audio_duration_seconds,
         }
 
-    def get_by_slug(self, slug: str) -> Optional[DebateEntity]:
+    def get_by_slug(self, slug: str) -> DebateEntity | None:
         """
         Get a debate by its URL slug.
 
@@ -296,7 +293,7 @@ class DebateRepository(BaseRepository[DebateEntity]):
         self,
         limit: int = 20,
         offset: int = 0,
-    ) -> List[DebateMetadata]:
+    ) -> list[DebateMetadata]:
         """
         List recent debates ordered by creation date.
 
@@ -343,7 +340,7 @@ class DebateRepository(BaseRepository[DebateEntity]):
         query: str,
         limit: int = 20,
         offset: int = 0,
-    ) -> List[DebateMetadata]:
+    ) -> list[DebateMetadata]:
         """
         Search debates by task description.
 
@@ -434,8 +431,8 @@ class DebateRepository(BaseRepository[DebateEntity]):
 
     def save_with_slug(
         self,
-        artifact: Dict[str, Any],
-        slug: Optional[str] = None,
+        artifact: dict[str, Any],
+        slug: str | None = None,
     ) -> str:
         """
         Save a debate artifact with auto-generated slug.

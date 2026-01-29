@@ -10,7 +10,7 @@ Handles:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.oauth_providers.base import (
     OAuthProvider,
@@ -28,7 +28,6 @@ GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_USERINFO_URL = "https://api.github.com/user"
 GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
-
 
 class GitHubOAuthProvider(OAuthProvider):
     """
@@ -64,8 +63,8 @@ class GitHubOAuthProvider(OAuthProvider):
     def get_authorization_url(
         self,
         state: str,
-        redirect_uri: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        redirect_uri: str | None = None,
+        scopes: Optional[list[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -100,7 +99,7 @@ class GitHubOAuthProvider(OAuthProvider):
     def exchange_code(
         self,
         code: str,
-        redirect_uri: Optional[str] = None,
+        redirect_uri: str | None = None,
     ) -> OAuthTokens:
         """
         Exchange authorization code for tokens.
@@ -162,7 +161,7 @@ class GitHubOAuthProvider(OAuthProvider):
             raw_data=user_data,
         )
 
-    def _fetch_primary_email(self, access_token: str) -> tuple[Optional[str], bool]:
+    def _fetch_primary_email(self, access_token: str) -> tuple[str | None, bool]:
         """
         Fetch primary email from GitHub emails API.
 
@@ -210,7 +209,7 @@ class GitHubOAuthProvider(OAuthProvider):
         visibility: str = "all",
         sort: str = "updated",
         per_page: int = 30,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get user's repositories (if repo scope is granted).
 
@@ -242,6 +241,5 @@ class GitHubOAuthProvider(OAuthProvider):
         except Exception as e:
             logger.warning(f"[{self.PROVIDER_NAME}] Failed to fetch repos: {e}")
             return []
-
 
 __all__ = ["GitHubOAuthProvider"]

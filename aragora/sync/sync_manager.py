@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class SyncManager:
     """
     Orchestrates directory synchronization with document storage.
@@ -42,7 +41,7 @@ class SyncManager:
     def __init__(
         self,
         document_store: Optional["DocumentStore"] = None,
-        config: Optional[SyncConfig] = None,
+        config: SyncConfig | None = None,
         on_progress: Optional[Callable[[str, int, int], None]] = None,
     ):
         """
@@ -200,7 +199,7 @@ class SyncManager:
         self._sync_states.clear()
         self._pending_changes.clear()
 
-    def get_state(self, path: str | Path) -> Optional[SyncState]:
+    def get_state(self, path: str | Path) -> SyncState | None:
         """Get sync state for a path."""
         root = Path(path).resolve()
         return self._sync_states.get(str(root))
@@ -381,7 +380,6 @@ class SyncManager:
             except Exception as e:
                 logger.error(f"Failed to delete {change.path}: {e}")
                 raise
-
 
 __all__ = [
     "SyncManager",

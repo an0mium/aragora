@@ -16,10 +16,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
+from typing import Any, Callable, Literal, Optional
 
 import yaml
-
 
 class StepStatus(Enum):
     """Status of a workflow step execution."""
@@ -31,7 +30,6 @@ class StepStatus(Enum):
     FAILED = "failed"
     WAITING = "waiting"  # Waiting for parallel steps or conditions
 
-
 class ExecutionPattern(Enum):
     """Patterns for step execution."""
 
@@ -39,7 +37,6 @@ class ExecutionPattern(Enum):
     PARALLEL = "parallel"  # Steps run concurrently (hive-mind)
     CONDITIONAL = "conditional"  # Step runs based on condition
     LOOP = "loop"  # Step repeats until condition met
-
 
 class NodeCategory(Enum):
     """Categories of visual workflow nodes."""
@@ -52,7 +49,6 @@ class NodeCategory(Enum):
     DEBATE = "debate"  # Aragora debate execution
     INTEGRATION = "integration"  # External system integration
 
-
 class EdgeType(Enum):
     """Types of edges in workflow graph."""
 
@@ -62,11 +58,9 @@ class EdgeType(Enum):
     APPROVAL = "approval"  # Human approval path
     REJECTION = "rejection"  # Human rejection path
 
-
 # =============================================================================
 # Visual Layout Types for Workflow Builder
 # =============================================================================
-
 
 @dataclass
 class Position:
@@ -75,15 +69,14 @@ class Position:
     x: float = 0.0
     y: float = 0.0
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert to dictionary."""
         return {"x": self.x, "y": self.y}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, float]) -> "Position":
+    def from_dict(cls, data: dict[str, float]) -> "Position":
         """Create from dictionary."""
         return cls(x=data.get("x", 0.0), y=data.get("y", 0.0))
-
 
 @dataclass
 class NodeSize:
@@ -92,15 +85,14 @@ class NodeSize:
     width: float = 200.0
     height: float = 100.0
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert to dictionary."""
         return {"width": self.width, "height": self.height}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, float]) -> "NodeSize":
+    def from_dict(cls, data: dict[str, float]) -> "NodeSize":
         """Create from dictionary."""
         return cls(width=data.get("width", 200.0), height=data.get("height", 100.0))
-
 
 @dataclass
 class VisualNodeData:
@@ -116,7 +108,7 @@ class VisualNodeData:
     dragging: bool = False  # Whether node is being dragged
     z_index: int = 0  # Stacking order
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "position": self.position.to_dict(),
@@ -131,7 +123,7 @@ class VisualNodeData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VisualNodeData":
+    def from_dict(cls, data: dict[str, Any]) -> "VisualNodeData":
         """Create from dictionary."""
         return cls(
             position=Position.from_dict(data.get("position", {})),
@@ -145,7 +137,6 @@ class VisualNodeData:
             z_index=data.get("z_index", 0),
         )
 
-
 @dataclass
 class VisualEdgeData:
     """Visual metadata for a workflow edge."""
@@ -158,7 +149,7 @@ class VisualEdgeData:
     source_handle: str = ""  # Source connection point
     target_handle: str = ""  # Target connection point
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "edge_type": self.edge_type.value,
@@ -171,7 +162,7 @@ class VisualEdgeData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VisualEdgeData":
+    def from_dict(cls, data: dict[str, Any]) -> "VisualEdgeData":
         """Create from dictionary."""
         return cls(
             edge_type=EdgeType(data.get("edge_type", "data_flow")),
@@ -182,7 +173,6 @@ class VisualEdgeData:
             source_handle=data.get("source_handle", ""),
             target_handle=data.get("target_handle", ""),
         )
-
 
 @dataclass
 class CanvasSettings:
@@ -200,7 +190,7 @@ class CanvasSettings:
     background_color: str = "#f7fafc"
     grid_color: str = "#e2e8f0"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "width": self.width,
@@ -217,7 +207,7 @@ class CanvasSettings:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CanvasSettings":
+    def from_dict(cls, data: dict[str, Any]) -> "CanvasSettings":
         """Create from dictionary."""
         return cls(
             width=data.get("width", 4000.0),
@@ -233,7 +223,6 @@ class CanvasSettings:
             grid_color=data.get("grid_color", "#e2e8f0"),
         )
 
-
 @dataclass
 class StepResult:
     """Result from a single workflow step execution."""
@@ -241,19 +230,18 @@ class StepResult:
     step_id: str
     step_name: str
     status: StepStatus
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     duration_ms: float = 0.0
     output: Any = None
-    error: Optional[str] = None
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    metrics: dict[str, Any] = field(default_factory=dict)
     retry_count: int = 0
 
     @property
     def success(self) -> bool:
         """Check if step completed successfully."""
         return self.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
-
 
 @dataclass
 class WorkflowResult:
@@ -262,19 +250,18 @@ class WorkflowResult:
     workflow_id: str
     definition_id: str
     success: bool
-    steps: List[StepResult]
+    steps: list[StepResult]
     total_duration_ms: float
     final_output: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     checkpoints_created: int = 0
 
-    def get_step_result(self, step_id: str) -> Optional[StepResult]:
+    def get_step_result(self, step_id: str) -> StepResult | None:
         """Get result for a specific step."""
         for step in self.steps:
             if step.step_id == step_id:
                 return step
         return None
-
 
 @dataclass
 class StepDefinition:
@@ -283,20 +270,20 @@ class StepDefinition:
     id: str
     name: str
     step_type: str  # Name of the step implementation class
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
     execution_pattern: ExecutionPattern = ExecutionPattern.SEQUENTIAL
     timeout_seconds: float = 120.0
     retries: int = 0
     optional: bool = False  # If True, workflow continues on failure
-    next_steps: List[str] = field(default_factory=list)  # Default transitions
+    next_steps: list[str] = field(default_factory=list)  # Default transitions
 
     # Visual metadata for workflow builder
     visual: VisualNodeData = field(default_factory=VisualNodeData)
     description: str = ""  # Human-readable description
-    inputs: Dict[str, Any] = field(default_factory=dict)  # Input parameter specs
-    outputs: Dict[str, Any] = field(default_factory=dict)  # Output parameter specs
+    inputs: dict[str, Any] = field(default_factory=dict)  # Input parameter specs
+    outputs: dict[str, Any] = field(default_factory=dict)  # Output parameter specs
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -315,7 +302,7 @@ class StepDefinition:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StepDefinition":
+    def from_dict(cls, data: dict[str, Any]) -> "StepDefinition":
         """Create from dictionary."""
         import uuid
 
@@ -341,7 +328,6 @@ class StepDefinition:
             outputs=data.get("outputs", {}),
         )
 
-
 @dataclass
 class TransitionRule:
     """Conditional transition between steps with visual metadata."""
@@ -356,7 +342,7 @@ class TransitionRule:
     visual: VisualEdgeData = field(default_factory=VisualEdgeData)
     label: str = ""  # Display label for the edge
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -369,7 +355,7 @@ class TransitionRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TransitionRule":
+    def from_dict(cls, data: dict[str, Any]) -> "TransitionRule":
         """Create from dictionary."""
         import uuid
 
@@ -390,7 +376,6 @@ class TransitionRule:
             label=data.get("label", ""),
         )
 
-
 class WorkflowCategory(Enum):
     """Industry categories for workflow templates."""
 
@@ -403,7 +388,6 @@ class WorkflowCategory(Enum):
     ACADEMIC = "academic"
     COMPLIANCE = "compliance"
     SME = "sme"
-
 
 @dataclass
 class WorkflowDefinition:
@@ -421,25 +405,25 @@ class WorkflowDefinition:
     name: str
     description: str = ""
     version: str = "1.0.0"
-    steps: List[StepDefinition] = field(default_factory=list)
-    transitions: List[TransitionRule] = field(default_factory=list)
-    entry_step: Optional[str] = None  # First step to execute
-    inputs: Dict[str, Any] = field(default_factory=dict)  # Input parameter definitions
-    outputs: Dict[str, Any] = field(default_factory=dict)  # Output parameter definitions
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    steps: list[StepDefinition] = field(default_factory=list)
+    transitions: list[TransitionRule] = field(default_factory=list)
+    entry_step: str | None = None  # First step to execute
+    inputs: dict[str, Any] = field(default_factory=dict)  # Input parameter definitions
+    outputs: dict[str, Any] = field(default_factory=dict)  # Output parameter definitions
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Visual workflow builder metadata
     canvas: CanvasSettings = field(default_factory=CanvasSettings)
     category: WorkflowCategory = WorkflowCategory.GENERAL
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     icon: str = ""  # Workflow icon for template gallery
     thumbnail: str = ""  # Thumbnail image URL for template gallery
 
     # Template metadata
     is_template: bool = False
-    template_id: Optional[str] = None  # ID of template this was created from
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    template_id: str | None = None  # ID of template this was created from
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     created_by: str = ""
     tenant_id: str = "default"
 
@@ -448,19 +432,19 @@ class WorkflowDefinition:
         if self.entry_step is None and self.steps:
             self.entry_step = self.steps[0].id
 
-    def get_step(self, step_id: str) -> Optional[StepDefinition]:
+    def get_step(self, step_id: str) -> StepDefinition | None:
         """Get step definition by ID."""
         for step in self.steps:
             if step.id == step_id:
                 return step
         return None
 
-    def get_transitions_from(self, step_id: str) -> List[TransitionRule]:
+    def get_transitions_from(self, step_id: str) -> list[TransitionRule]:
         """Get all transitions from a step, sorted by priority."""
         transitions = [t for t in self.transitions if t.from_step == step_id]
         return sorted(transitions, key=lambda t: -t.priority)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -487,7 +471,7 @@ class WorkflowDefinition:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowDefinition":
+    def from_dict(cls, data: dict[str, Any]) -> "WorkflowDefinition":
         """Create from dictionary."""
         created_at = data.get("created_at")
         updated_at = data.get("updated_at")
@@ -533,7 +517,7 @@ class WorkflowDefinition:
         return cls.from_dict(data)
 
     def clone(
-        self, new_id: Optional[str] = None, new_name: Optional[str] = None
+        self, new_id: str | None = None, new_name: str | None = None
     ) -> "WorkflowDefinition":
         """Create a copy of this workflow with optional new ID/name."""
         import uuid
@@ -547,7 +531,7 @@ class WorkflowDefinition:
         data["updated_at"] = None
         return WorkflowDefinition.from_dict(data)
 
-    def validate(self) -> Tuple[bool, List[str]]:
+    def validate(self) -> tuple[bool, list[str]]:
         """Validate workflow definition. Returns (is_valid, errors)."""
         errors = []
 
@@ -579,7 +563,6 @@ class WorkflowDefinition:
 
         return len(errors) == 0, errors
 
-
 @dataclass
 class WorkflowCheckpoint:
     """Checkpoint for workflow state persistence."""
@@ -588,13 +571,13 @@ class WorkflowCheckpoint:
     workflow_id: str
     definition_id: str
     current_step: str
-    completed_steps: List[str]
-    step_outputs: Dict[str, Any]
-    context_state: Dict[str, Any]
+    completed_steps: list[str]
+    step_outputs: dict[str, Any]
+    context_state: dict[str, Any]
     created_at: datetime
     checksum: str = ""  # For integrity verification
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -607,7 +590,6 @@ class WorkflowCheckpoint:
             "created_at": self.created_at.isoformat(),
             "checksum": self.checksum,
         }
-
 
 @dataclass
 class WorkflowConfig:
@@ -625,13 +607,12 @@ class WorkflowConfig:
 
     # Tracing and metrics
     enable_tracing: bool = True
-    trace_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None
+    trace_callback: Optional[Callable[[str, dict[str, Any]], None]] = None
     metrics_callback: Optional[Callable[[str, float], None]] = None
 
     # Parallel execution
     max_parallel_steps: int = 10
     parallel_timeout_seconds: float = 300.0
-
 
 # Type aliases
 StepType = Literal[
@@ -660,7 +641,6 @@ NODE_CATEGORY_COLORS = {
     NodeCategory.DEBATE: "#38b2ac",  # Teal
     NodeCategory.INTEGRATION: "#667eea",  # Indigo
 }
-
 
 __all__ = [
     # Enums

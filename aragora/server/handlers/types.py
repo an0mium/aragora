@@ -16,7 +16,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, TypedDict
+from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
 
@@ -24,25 +24,22 @@ from typing_extensions import NotRequired
 # Debate Request/Response Types
 # =============================================================================
 
-
 class CreateDebateRequest(TypedDict, total=False):
     """Request body for POST /api/debate or /api/debates."""
 
     task: str
     question: str  # Alternative to task
-    agents: List[str]
+    agents: list[str]
     mode: str
     rounds: int
     consensus: str
-
 
 class DebateUpdateRequest(TypedDict, total=False):
     """Request body for PATCH /api/debates/{id}."""
 
     title: str
     status: str  # "active", "paused", "concluded", "archived"
-    tags: List[str]
-
+    tags: list[str]
 
 class DebateSummaryResponse(TypedDict):
     """Response for debate summary."""
@@ -51,9 +48,8 @@ class DebateSummaryResponse(TypedDict):
     task: str
     status: str
     created_at: str
-    agents: List[str]
+    agents: list[str]
     round_count: int
-
 
 class DebateDetailResponse(TypedDict):
     """Detailed debate response with messages."""
@@ -62,32 +58,28 @@ class DebateDetailResponse(TypedDict):
     task: str
     status: str
     created_at: str
-    agents: List[str]
+    agents: list[str]
     round_count: int
-    messages: List[Dict[str, Any]]
-    consensus: NotRequired[Dict[str, Any]]
-
+    messages: list[dict[str, Any]]
+    consensus: NotRequired[dict[str, Any]]
 
 class DebateListResponse(TypedDict):
     """Response for GET /api/debates."""
 
-    debates: List[DebateSummaryResponse]
+    debates: list[DebateSummaryResponse]
     total: int
     offset: int
     limit: int
 
-
 # =============================================================================
 # Fork Request Types
 # =============================================================================
-
 
 class ForkRequest(TypedDict):
     """Request body for POST /api/debates/{id}/fork."""
 
     branch_point: int
     modified_context: NotRequired[str]
-
 
 class ForkResponse(TypedDict):
     """Response for debate fork."""
@@ -97,29 +89,25 @@ class ForkResponse(TypedDict):
     branch_point: int
     created_at: str
 
-
 # =============================================================================
 # Batch Operation Types
 # =============================================================================
-
 
 class BatchDebateItem(TypedDict, total=False):
     """Single item in batch debate submission."""
 
     task: str
     question: str
-    agents: List[str]
+    agents: list[str]
     rounds: int
     mode: str
-
 
 class BatchSubmitRequest(TypedDict):
     """Request body for POST /api/debates/batch."""
 
-    items: List[BatchDebateItem]
+    items: list[BatchDebateItem]
     webhook_url: NotRequired[str]
     max_parallel: NotRequired[int]
-
 
 class BatchSubmitResponse(TypedDict):
     """Response for batch debate submission."""
@@ -127,7 +115,6 @@ class BatchSubmitResponse(TypedDict):
     batch_id: str
     total_items: int
     status: str
-
 
 class BatchStatusResponse(TypedDict):
     """Response for GET /api/debates/batch/{id}/status."""
@@ -137,13 +124,11 @@ class BatchStatusResponse(TypedDict):
     total: int
     completed: int
     failed: int
-    results: NotRequired[List[Dict[str, Any]]]
-
+    results: NotRequired[list[dict[str, Any]]]
 
 # =============================================================================
 # Authentication Types
 # =============================================================================
-
 
 class UserRegisterRequest(TypedDict):
     """Request body for POST /api/auth/register."""
@@ -152,21 +137,18 @@ class UserRegisterRequest(TypedDict):
     password: str
     name: NotRequired[str]
 
-
 class UserLoginRequest(TypedDict):
     """Request body for POST /api/auth/login."""
 
     email: str
     password: str
 
-
 class AuthResponse(TypedDict):
     """Response for authentication endpoints."""
 
     token: str
-    user: Dict[str, Any]
+    user: dict[str, Any]
     expires_at: str
-
 
 class UserResponse(TypedDict):
     """User data in responses."""
@@ -178,11 +160,9 @@ class UserResponse(TypedDict):
     org_id: NotRequired[str]
     created_at: str
 
-
 # =============================================================================
 # Organization Types
 # =============================================================================
-
 
 class OrgCreateRequest(TypedDict):
     """Request body for POST /api/organizations."""
@@ -190,13 +170,11 @@ class OrgCreateRequest(TypedDict):
     name: str
     slug: NotRequired[str]
 
-
 class OrgInviteRequest(TypedDict):
     """Request body for POST /api/organizations/{id}/invite."""
 
     email: str
     role: NotRequired[str]  # "member" or "admin"
-
 
 class OrgResponse(TypedDict):
     """Organization data in responses."""
@@ -208,34 +186,29 @@ class OrgResponse(TypedDict):
     created_at: str
     member_count: NotRequired[int]
 
-
 # =============================================================================
 # Gauntlet Types
 # =============================================================================
-
 
 class GauntletRunRequest(TypedDict, total=False):
     """Request body for POST /api/gauntlet/run."""
 
     input_content: str  # Required
     input_type: str  # "spec", "code", "text", "url", "file"
-    agents: List[str]
+    agents: list[str]
     persona: str
     profile: str
-
 
 class GauntletResponse(TypedDict):
     """Response for gauntlet run."""
 
     run_id: str
     status: str
-    result: NotRequired[Dict[str, Any]]
-
+    result: NotRequired[dict[str, Any]]
 
 # =============================================================================
 # Verification Types
 # =============================================================================
-
 
 class VerificationRequest(TypedDict):
     """Request body for POST /api/verify."""
@@ -243,20 +216,17 @@ class VerificationRequest(TypedDict):
     claim: str
     context: NotRequired[str]
 
-
 class VerificationResponse(TypedDict):
     """Response for verification endpoint."""
 
     verified: bool
     confidence: float
-    evidence: List[Dict[str, Any]]
+    evidence: list[dict[str, Any]]
     reasoning: str
-
 
 # =============================================================================
 # Memory Types
 # =============================================================================
-
 
 class MemoryCleanupRequest(TypedDict, total=False):
     """Request body for POST /api/memory/cleanup."""
@@ -265,22 +235,19 @@ class MemoryCleanupRequest(TypedDict, total=False):
     archive: str  # "true" or "false"
     max_age_hours: float
 
-
 class MemoryEntry(TypedDict):
     """Memory entry in responses."""
 
     id: str
     tier: str
     content: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     created_at: str
     expires_at: NotRequired[str]
-
 
 # =============================================================================
 # Agent Types
 # =============================================================================
-
 
 class AgentConfigRequest(TypedDict, total=False):
     """Request body for agent configuration."""
@@ -291,7 +258,6 @@ class AgentConfigRequest(TypedDict, total=False):
     max_tokens: int
     system_prompt: str
 
-
 class AgentStatusResponse(TypedDict):
     """Response for agent status."""
 
@@ -301,34 +267,29 @@ class AgentStatusResponse(TypedDict):
     elo_rating: NotRequired[int]
     total_debates: NotRequired[int]
 
-
 # =============================================================================
 # Probe Types
 # =============================================================================
-
 
 class ProbeRunRequest(TypedDict, total=False):
     """Request body for POST /api/probes/run."""
 
     agent_name: str  # Required
-    probe_types: List[str]
+    probe_types: list[str]
     probes_per_type: int
     model_type: str
-
 
 class ProbeResultResponse(TypedDict):
     """Response for probe run."""
 
     probe_id: str
     agent_name: str
-    results: List[Dict[str, Any]]
-    summary: Dict[str, Any]
-
+    results: list[dict[str, Any]]
+    summary: dict[str, Any]
 
 # =============================================================================
 # Social/Sharing Types
 # =============================================================================
-
 
 class SocialPublishRequest(TypedDict, total=False):
     """Request body for POST /api/debates/{id}/publish."""
@@ -337,8 +298,7 @@ class SocialPublishRequest(TypedDict, total=False):
     thread_mode: str
     title: str
     description: str
-    tags: List[str]
-
+    tags: list[str]
 
 class ShareUpdateRequest(TypedDict, total=False):
     """Request body for PATCH /api/share/{id}."""
@@ -347,7 +307,6 @@ class ShareUpdateRequest(TypedDict, total=False):
     expires_in_hours: int
     allow_comments: str
     allow_forking: str
-
 
 class ShareResponse(TypedDict):
     """Response for share endpoints."""
@@ -358,11 +317,9 @@ class ShareResponse(TypedDict):
     url: str
     expires_at: NotRequired[str]
 
-
 # =============================================================================
 # Billing Types
 # =============================================================================
-
 
 class CheckoutSessionRequest(TypedDict):
     """Request body for POST /api/billing/checkout."""
@@ -371,13 +328,11 @@ class CheckoutSessionRequest(TypedDict):
     success_url: str
     cancel_url: str
 
-
 class CheckoutSessionResponse(TypedDict):
     """Response for checkout session creation."""
 
     session_id: str
     checkout_url: str
-
 
 class UsageResponse(TypedDict):
     """Response for GET /api/billing/usage."""
@@ -389,11 +344,9 @@ class UsageResponse(TypedDict):
     period_start: str
     period_end: str
 
-
 # =============================================================================
 # Plugin Types
 # =============================================================================
-
 
 class PluginRunRequest(TypedDict, total=False):
     """Request body for POST /api/plugins/{name}/run."""
@@ -402,13 +355,11 @@ class PluginRunRequest(TypedDict, total=False):
     config: str
     working_dir: str
 
-
 class PluginInstallRequest(TypedDict, total=False):
     """Request body for POST /api/plugins/{name}/install."""
 
     config: str
     enabled: str  # "true" or "false"
-
 
 class PluginResponse(TypedDict):
     """Response for plugin operations."""
@@ -418,20 +369,17 @@ class PluginResponse(TypedDict):
     enabled: bool
     status: str
 
-
 # =============================================================================
 # Internal Metrics Types
 # =============================================================================
-
 
 class ConvergenceMetrics(TypedDict):
     """Metrics from convergence detection during debate."""
 
     status: str  # "converged", "refining", "diverging"
     similarity: float
-    per_agent: Dict[str, float]
+    per_agent: dict[str, float]
     rounds_to_converge: NotRequired[int]
-
 
 class PhaseMetrics(TypedDict):
     """Metrics from phase execution."""
@@ -440,7 +388,6 @@ class PhaseMetrics(TypedDict):
     duration_ms: float
     status: str  # "completed", "failed", "skipped"
     error: NotRequired[str]
-
 
 class DebateMetrics(TypedDict):
     """Comprehensive debate metrics."""
@@ -452,8 +399,7 @@ class DebateMetrics(TypedDict):
     consensus_reached: bool
     confidence: float
     convergence: NotRequired[ConvergenceMetrics]
-    phases: NotRequired[List["PhaseMetrics"]]
-
+    phases: NotRequired[list["PhaseMetrics"]]
 
 class AgentPerformanceMetrics(TypedDict):
     """Per-agent performance metrics."""
@@ -465,7 +411,6 @@ class AgentPerformanceMetrics(TypedDict):
     avg_confidence: float
     calibration_score: NotRequired[float]
 
-
 class DashboardSummary(TypedDict):
     """Summary data for dashboard."""
 
@@ -475,59 +420,51 @@ class DashboardSummary(TypedDict):
     avg_confidence: float
     consensus_rate: float
 
-
 class DashboardResponse(TypedDict):
     """Full dashboard response."""
 
     summary: DashboardSummary
-    recent_activity: List[Dict[str, Any]]
-    agent_performance: List[AgentPerformanceMetrics]
-    top_domains: List[Dict[str, Any]]
+    recent_activity: list[dict[str, Any]]
+    agent_performance: list[AgentPerformanceMetrics]
+    top_domains: list[dict[str, Any]]
     generated_at: float
-
 
 # =============================================================================
 # Error Response Types
 # =============================================================================
-
 
 class ErrorDetail(TypedDict, total=False):
     """Error detail object in structured error responses."""
 
     code: str
     message: str
-    details: Dict[str, Any]
+    details: dict[str, Any]
     trace_id: str
     suggestion: str
-
 
 class ErrorResponse(TypedDict, total=False):
     """Structured error response body."""
 
     error: str | ErrorDetail
 
-
 # =============================================================================
 # Common Response Wrappers
 # =============================================================================
 
-
 class PaginatedResponse(TypedDict):
     """Base type for paginated responses."""
 
-    items: List[Any]
+    items: list[Any]
     total: int
     offset: int
     limit: int
     has_more: bool
-
 
 class StatusResponse(TypedDict):
     """Simple status response."""
 
     status: str
     message: NotRequired[str]
-
 
 __all__ = [
     # Debate types

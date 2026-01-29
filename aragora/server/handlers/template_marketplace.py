@@ -28,7 +28,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.control_plane.leader import (
     DistributedStateError,
@@ -55,7 +55,6 @@ _marketplace_limiter = RateLimiter(requests_per_minute=120)
 _publish_limiter = RateLimiter(requests_per_minute=10)
 _rate_limiter = RateLimiter(requests_per_minute=30)
 
-
 @dataclass
 class MarketplaceTemplate:
     """A template published to the marketplace."""
@@ -68,12 +67,12 @@ class MarketplaceTemplate:
     author_id: str
     author_name: str
     version: str = "1.0.0"
-    tags: List[str] = field(default_factory=list)
-    workflow_definition: Dict[str, Any] = field(default_factory=dict)
-    input_schema: Dict[str, Any] = field(default_factory=dict)
-    output_schema: Dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    workflow_definition: dict[str, Any] = field(default_factory=dict)
+    input_schema: dict[str, Any] = field(default_factory=dict)
+    output_schema: dict[str, Any] = field(default_factory=dict)
     documentation: str = ""
-    examples: List[Dict[str, Any]] = field(default_factory=list)
+    examples: list[dict[str, Any]] = field(default_factory=list)
     rating: float = 0.0
     rating_count: int = 0
     download_count: int = 0
@@ -82,7 +81,7 @@ class MarketplaceTemplate:
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -108,7 +107,7 @@ class MarketplaceTemplate:
             "updated_at": self.updated_at,
         }
 
-    def to_summary(self) -> Dict[str, Any]:
+    def to_summary(self) -> dict[str, Any]:
         """Convert to summary (for listings)."""
         return {
             "id": self.id,
@@ -129,7 +128,6 @@ class MarketplaceTemplate:
             "created_at": self.created_at,
         }
 
-
 @dataclass
 class TemplateReview:
     """A review for a marketplace template."""
@@ -144,7 +142,7 @@ class TemplateReview:
     helpful_count: int = 0
     created_at: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "template_id": self.template_id,
@@ -157,16 +155,14 @@ class TemplateReview:
             "created_at": self.created_at,
         }
 
-
 # In-memory storage (fallback when database unavailable)
-_marketplace_templates: Dict[str, MarketplaceTemplate] = {}
-_template_reviews: Dict[str, List[TemplateReview]] = {}
-_user_ratings: Dict[str, Dict[str, int]] = {}  # user_id -> {template_id: rating}
+_marketplace_templates: dict[str, MarketplaceTemplate] = {}
+_template_reviews: dict[str, list[TemplateReview]] = {}
+_user_ratings: dict[str, dict[str, int]] = {}  # user_id -> {template_id: rating}
 
 # Production persistence (optional)
 _use_persistent_store: bool = False
-_persistent_store: Optional[Any] = None
-
+_persistent_store: Any | None = None
 
 def _init_persistent_store() -> bool:
     """Initialize persistent store if available.
@@ -200,14 +196,12 @@ def _init_persistent_store() -> bool:
         _use_persistent_store = False
         return False
 
-
 def _get_persistent_store():
     """Get the persistent store, initializing if needed."""
     global _persistent_store
     if _persistent_store is None:
         _init_persistent_store()
     return _persistent_store if _use_persistent_store else None
-
 
 def _seed_marketplace_templates() -> None:
     """Seed marketplace with sample templates."""
@@ -417,7 +411,6 @@ def _seed_marketplace_templates() -> None:
     for template in sample_templates:
         _marketplace_templates[template.id] = template
 
-
 class TemplateMarketplaceHandler(BaseHandler):
     """Handler for template marketplace API endpoints."""
 
@@ -434,7 +427,7 @@ class TemplateMarketplaceHandler(BaseHandler):
         return path.startswith("/api/v1/marketplace/")
 
     @require_permission("marketplace:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route marketplace requests."""
         # Ensure marketplace is seeded
         _seed_marketplace_templates()
@@ -825,7 +818,7 @@ class TemplateMarketplaceHandler(BaseHandler):
     def _get_categories(self) -> HandlerResult:
         """Get marketplace categories with counts."""
         # Count templates per category
-        category_counts: Dict[str, Dict[str, Any]] = {}
+        category_counts: dict[str, dict[str, Any]] = {}
         for template in _marketplace_templates.values():
             cat = template.category
             if cat not in category_counts:

@@ -6,6 +6,7 @@ support for listing, filtering, and comparison operations.
 
 Supports both SQLite (default) and PostgreSQL (via DATABASE_URL env var).
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -14,7 +15,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -24,7 +25,6 @@ from aragora.storage.backends import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class GauntletMetadata:
@@ -40,10 +40,9 @@ class GauntletMetadata:
     high_count: int
     total_findings: int
     agents_used: list[str]
-    template_used: Optional[str]
+    template_used: str | None
     created_at: datetime
     duration_seconds: float
-
 
 @dataclass
 class GauntletInflightRun:
@@ -54,16 +53,16 @@ class GauntletInflightRun:
     input_type: str
     input_summary: str
     input_hash: str
-    persona: Optional[str]
+    persona: str | None
     profile: str
     agents: list[str]
     created_at: datetime
     updated_at: datetime
-    current_phase: Optional[str] = None
+    current_phase: str | None = None
     progress_percent: float = 0.0
-    error: Optional[str] = None
-    org_id: Optional[str] = None
-    config_json: Optional[str] = None
+    error: str | None = None
+    org_id: str | None = None
+    config_json: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -91,7 +90,6 @@ class GauntletInflightRun:
             "error": self.error,
             "org_id": self.org_id,
         }
-
 
 class GauntletStorage:
     """
@@ -123,8 +121,8 @@ class GauntletStorage:
     def __init__(
         self,
         db_path: str = "aragora_gauntlet.db",
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        backend: str | None = None,
+        database_url: str | None = None,
     ):
         """
         Initialize storage with database backend.
@@ -241,7 +239,7 @@ class GauntletStorage:
             except Exception as e:
                 logger.debug(f"Inflight index creation skipped: {e}")
 
-    def save(self, result: Any, org_id: Optional[str] = None) -> str:
+    def save(self, result: Any, org_id: str | None = None) -> str:
         """
         Save a GauntletResult to storage.
 
@@ -428,7 +426,7 @@ class GauntletStorage:
         logger.info(f"Saved gauntlet result: {gauntlet_id}")
         return gauntlet_id
 
-    def get(self, gauntlet_id: str, org_id: Optional[str] = None) -> Optional[dict]:
+    def get(self, gauntlet_id: str, org_id: str | None = None) -> dict | None:
         """
         Get a GauntletResult by ID.
 
@@ -455,9 +453,9 @@ class GauntletStorage:
         self,
         limit: int = 20,
         offset: int = 0,
-        org_id: Optional[str] = None,
-        verdict: Optional[str] = None,
-        min_severity: Optional[str] = None,
+        org_id: str | None = None,
+        verdict: str | None = None,
+        min_severity: str | None = None,
     ) -> list[GauntletMetadata]:
         """
         List recent Gauntlet results with optional filters.
@@ -535,7 +533,7 @@ class GauntletStorage:
         self,
         input_hash: str,
         limit: int = 10,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> list[GauntletMetadata]:
         """
         Get validation history for a specific input.
@@ -604,8 +602,8 @@ class GauntletStorage:
         self,
         id1: str,
         id2: str,
-        org_id: Optional[str] = None,
-    ) -> Optional[dict]:
+        org_id: str | None = None,
+    ) -> dict | None:
         """
         Compare two Gauntlet results.
 
@@ -665,7 +663,7 @@ class GauntletStorage:
             ),
         }
 
-    def delete(self, gauntlet_id: str, org_id: Optional[str] = None) -> bool:
+    def delete(self, gauntlet_id: str, org_id: str | None = None) -> bool:
         """
         Delete a Gauntlet result.
 
@@ -694,7 +692,7 @@ class GauntletStorage:
         logger.info(f"Deleted gauntlet result: {gauntlet_id}")
         return True
 
-    def count(self, org_id: Optional[str] = None, verdict: Optional[str] = None) -> int:
+    def count(self, org_id: str | None = None, verdict: str | None = None) -> int:
         """
         Count total Gauntlet results.
 
@@ -734,11 +732,11 @@ class GauntletStorage:
         input_type: str,
         input_summary: str,
         input_hash: str,
-        persona: Optional[str],
+        persona: str | None,
         profile: str,
         agents: list[str],
-        org_id: Optional[str] = None,
-        config_json: Optional[str] = None,
+        org_id: str | None = None,
+        config_json: str | None = None,
     ) -> str:
         """
         Save or create an inflight gauntlet run.
@@ -808,9 +806,9 @@ class GauntletStorage:
         self,
         gauntlet_id: str,
         status: str,
-        current_phase: Optional[str] = None,
-        progress_percent: Optional[float] = None,
-        error: Optional[str] = None,
+        current_phase: str | None = None,
+        progress_percent: float | None = None,
+        error: str | None = None,
     ) -> bool:
         """
         Update the status of an inflight run.
@@ -851,7 +849,7 @@ class GauntletStorage:
         logger.debug(f"Updated inflight gauntlet: {gauntlet_id} -> {status}")
         return True
 
-    def get_inflight(self, gauntlet_id: str) -> Optional[GauntletInflightRun]:
+    def get_inflight(self, gauntlet_id: str) -> GauntletInflightRun | None:
         """
         Get an inflight run by ID.
 
@@ -879,8 +877,8 @@ class GauntletStorage:
 
     def list_inflight(
         self,
-        status: Optional[str] = None,
-        org_id: Optional[str] = None,
+        status: str | None = None,
+        org_id: str | None = None,
         limit: int = 100,
     ) -> list[GauntletInflightRun]:
         """
@@ -920,7 +918,7 @@ class GauntletStorage:
     def list_stale_inflight(
         self,
         max_age_seconds: int = 7200,
-        status: Optional[str] = None,
+        status: str | None = None,
     ) -> list[GauntletInflightRun]:
         """
         List stale inflight runs (for recovery after restart).
@@ -1038,15 +1036,13 @@ class GauntletStorage:
             updated_at=parse_dt(row[14]),
         )
 
-
 # Module-level singleton for convenience
-_default_storage: Optional[GauntletStorage] = None
-
+_default_storage: GauntletStorage | None = None
 
 def get_storage(
     db_path: str = "aragora_gauntlet.db",
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    backend: str | None = None,
+    database_url: str | None = None,
 ) -> GauntletStorage:
     """
     Get or create the default GauntletStorage instance.
@@ -1067,7 +1063,6 @@ def get_storage(
             database_url=database_url,
         )
     return _default_storage
-
 
 def reset_storage() -> None:
     """Reset the default storage instance (for testing)."""

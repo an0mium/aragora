@@ -10,6 +10,7 @@ Searches:
 - Discussions (if enabled)
 - Code (via search API)
 """
+from __future__ import annotations
 
 __all__ = [
     "GitHubConnector",
@@ -21,7 +22,7 @@ import json
 import logging
 import re
 import subprocess
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config.timeouts import Timeouts
 from aragora.connectors.base import BaseConnector, Evidence
@@ -41,7 +42,6 @@ MAX_QUERY_LENGTH = 500
 # Allowed state values for issues/PRs
 ALLOWED_STATES = frozenset({"all", "open", "closed", "merged"})
 
-
 class GitHubConnector(BaseConnector):
     """
     Connector for GitHub issues, PRs, and code search.
@@ -52,10 +52,10 @@ class GitHubConnector(BaseConnector):
 
     def __init__(
         self,
-        repo: Optional[str] = None,  # owner/repo format
+        repo: str | None = None,  # owner/repo format
         provenance=None,
         use_gh_cli: bool = True,
-        token: Optional[str] = None,
+        token: str | None = None,
     ):
         super().__init__(provenance=provenance, default_confidence=0.7)
         # Validate repo format to prevent command injection
@@ -64,7 +64,7 @@ class GitHubConnector(BaseConnector):
         self.repo = repo
         self.use_gh_cli = use_gh_cli
         self.token = token
-        self._gh_available: Optional[bool] = None
+        self._gh_available: bool | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -115,7 +115,7 @@ class GitHubConnector(BaseConnector):
 
         return self._gh_available
 
-    async def _run_gh(self, args: list[str]) -> Optional[str]:
+    async def _run_gh(self, args: list[str]) -> str | None:
         """Run gh CLI command."""
         if not self._check_gh_cli():
             return None
@@ -370,7 +370,7 @@ class GitHubConnector(BaseConnector):
 
         return results
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """Fetch specific issue/PR by ID."""
         cached = self._cache_get(evidence_id)
         if cached is not None:
@@ -407,7 +407,7 @@ class GitHubConnector(BaseConnector):
 
         return None
 
-    async def _fetch_issue(self, repo: str, number: str) -> Optional[Evidence]:
+    async def _fetch_issue(self, repo: str, number: str) -> Evidence | None:
         """Fetch single issue."""
         args = [
             "issue",
@@ -460,7 +460,7 @@ class GitHubConnector(BaseConnector):
         self._cache_put(evidence.id, evidence)
         return evidence
 
-    async def _fetch_pr(self, repo: str, number: str) -> Optional[Evidence]:
+    async def _fetch_pr(self, repo: str, number: str) -> Evidence | None:
         """Fetch single PR."""
         args = [
             "pr",
@@ -514,7 +514,7 @@ class GitHubConnector(BaseConnector):
         self._cache_put(evidence.id, evidence)
         return evidence
 
-    async def fetch_pr_diff(self, pr_url: str) -> Optional[str]:
+    async def fetch_pr_diff(self, pr_url: str) -> str | None:
         """
         Fetch the diff for a pull request.
 
@@ -548,7 +548,7 @@ class GitHubConnector(BaseConnector):
         diff = await self._run_gh(args)
         return diff
 
-    async def fetch_pr_files(self, pr_url: str) -> Optional[list[dict]]:
+    async def fetch_pr_files(self, pr_url: str) -> list[dict] | None:
         """
         Fetch list of files changed in a pull request.
 
@@ -593,7 +593,7 @@ class GitHubConnector(BaseConnector):
         pr_url: str,
         body: str,
         event: str = "COMMENT",
-        comments: Optional[list[dict]] = None,
+        comments: list[dict] | None = None,
     ) -> bool:
         """
         Post a review to a pull request.

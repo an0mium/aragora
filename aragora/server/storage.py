@@ -4,6 +4,7 @@ SQLite-backed debate storage with permalink generation.
 Provides persistent storage for debate artifacts with human-readable
 URL slugs for sharing (e.g., rate-limiter-2026-01-01).
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -11,7 +12,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from aragora.storage.base_store import SQLiteStore
 
@@ -19,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
-
 
 def _validate_sql_identifier(name: str, max_length: int = 64) -> bool:
     """Validate SQL identifier to prevent injection.
@@ -39,13 +39,11 @@ def _validate_sql_identifier(name: str, max_length: int = 64) -> bool:
         return False
     return bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name))
 
-
 # Import from centralized location (defined here for backwards compatibility)
 from aragora.utils.sql_helpers import _escape_like_pattern
 
 # Re-export for backwards compatibility (tests expect DB_TIMEOUT from server.storage)
 from aragora.storage.schema import DB_TIMEOUT  # noqa: F401
-
 
 @dataclass
 class DebateMetadata:
@@ -60,7 +58,6 @@ class DebateMetadata:
     created_at: datetime
     view_count: int = 0
     is_public: bool = False  # If True, artifacts accessible without auth
-
 
 class DebateStorage(SQLiteStore):
     """
@@ -262,7 +259,7 @@ class DebateStorage(SQLiteStore):
         self,
         debate_id: str,
         audio_path: str,
-        duration_seconds: Optional[int] = None,
+        duration_seconds: int | None = None,
     ) -> bool:
         """
         Update audio information for a debate.
@@ -289,7 +286,7 @@ class DebateStorage(SQLiteStore):
             conn.commit()
             return cursor.rowcount > 0
 
-    def get_audio_info(self, debate_id: str) -> Optional[dict]:
+    def get_audio_info(self, debate_id: str) -> dict | None:
         """
         Get audio information for a debate.
 
@@ -320,7 +317,7 @@ class DebateStorage(SQLiteStore):
             "audio_duration_seconds": row[2],
         }
 
-    def save_dict(self, debate_data: dict, org_id: Optional[str] = None) -> str:
+    def save_dict(self, debate_data: dict, org_id: str | None = None) -> str:
         """
         Save debate data directly (without DebateArtifact).
 
@@ -360,7 +357,7 @@ class DebateStorage(SQLiteStore):
 
         return slug
 
-    def store(self, debate_data: dict, org_id: Optional[str] = None) -> str:
+    def store(self, debate_data: dict, org_id: str | None = None) -> str:
         """
         Store debate metadata (backwards-compatible alias for save_dict).
 
@@ -370,8 +367,8 @@ class DebateStorage(SQLiteStore):
         return debate_data.get("id", slug)
 
     def get_by_slug(
-        self, slug: str, org_id: Optional[str] = None, verify_ownership: bool = False
-    ) -> Optional[dict]:
+        self, slug: str, org_id: str | None = None, verify_ownership: bool = False
+    ) -> dict | None:
         """
         Get debate by slug, incrementing view count.
 
@@ -407,8 +404,8 @@ class DebateStorage(SQLiteStore):
         return json.loads(row[0]) if row else None
 
     def get_by_id(
-        self, debate_id: str, org_id: Optional[str] = None, verify_ownership: bool = False
-    ) -> Optional[dict]:
+        self, debate_id: str, org_id: str | None = None, verify_ownership: bool = False
+    ) -> dict | None:
         """
         Get debate by ID.
 
@@ -434,7 +431,7 @@ class DebateStorage(SQLiteStore):
             row = cursor.fetchone()
         return json.loads(row[0]) if row else None
 
-    def list_recent(self, limit: int = 20, org_id: Optional[str] = None) -> list[DebateMetadata]:
+    def list_recent(self, limit: int = 20, org_id: str | None = None) -> list[DebateMetadata]:
         """
         List recent debates, optionally filtered by organization.
 
@@ -499,7 +496,7 @@ class DebateStorage(SQLiteStore):
         query: str,
         limit: int = 20,
         offset: int = 0,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> tuple[list[DebateMetadata], int]:
         """
         Search debates by task/slug using efficient SQL LIKE queries.
@@ -594,7 +591,7 @@ class DebateStorage(SQLiteStore):
         return results, total
 
     def delete(
-        self, slug: str, org_id: Optional[str] = None, require_ownership: bool = False
+        self, slug: str, org_id: str | None = None, require_ownership: bool = False
     ) -> bool:
         """
         Delete a debate by slug.
@@ -633,7 +630,7 @@ class DebateStorage(SQLiteStore):
             row = cursor.fetchone()
         return bool(row and row[0])
 
-    def set_public(self, debate_id: str, is_public: bool, org_id: Optional[str] = None) -> bool:
+    def set_public(self, debate_id: str, is_public: bool, org_id: str | None = None) -> bool:
         """
         Set debate public/private status.
 
@@ -659,7 +656,7 @@ class DebateStorage(SQLiteStore):
             conn.commit()
         return updated
 
-    def get(self, debate_id: str) -> Optional[dict]:
+    def get(self, debate_id: str) -> dict | None:
         """
         Get debate by ID (alias for get_by_id for interface compatibility).
 
@@ -671,7 +668,7 @@ class DebateStorage(SQLiteStore):
         """
         return self.get_by_id(debate_id)
 
-    def get_debate(self, debate_id: str) -> Optional[dict]:
+    def get_debate(self, debate_id: str) -> dict | None:
         """
         Get debate by ID (handler-compatible alias).
 
@@ -683,7 +680,40 @@ class DebateStorage(SQLiteStore):
         """
         return self.get_by_id(debate_id)
 
-    def get_debate_by_slug(self, slug: str) -> Optional[dict]:
+    def get_debates_batch(self, debate_ids: list[str]) -> dict[str, dict | None]:
+        """
+        Get multiple debates by ID in a single query.
+
+        This is more efficient than calling get_debate() in a loop,
+        reducing N queries to 1.
+
+        Args:
+            debate_ids: List of debate IDs to fetch
+
+        Returns:
+            Dict mapping debate_id -> debate dict (or None if not found)
+        """
+        if not debate_ids:
+            return {}
+
+        # Initialize result with None for all requested IDs
+        result: dict[str, dict | None] = {did: None for did in debate_ids}
+
+        # Use parameterized query with IN clause
+        placeholders = ",".join("?" * len(debate_ids))
+        with self.connection() as conn:
+            cursor = conn.execute(
+                f"SELECT id, artifact_json FROM debates WHERE id IN ({placeholders})",
+                debate_ids,
+            )
+            for row in cursor.fetchall():
+                debate_id = row[0]
+                artifact_json = row[1]
+                result[debate_id] = json.loads(artifact_json) if artifact_json else None
+
+        return result
+
+    def get_debate_by_slug(self, slug: str) -> dict | None:
         """
         Get debate by slug (handler-compatible alias).
 
@@ -695,7 +725,7 @@ class DebateStorage(SQLiteStore):
         """
         return self.get_by_slug(slug)
 
-    def list_debates(self, limit: int = 20, org_id: Optional[str] = None) -> list[DebateMetadata]:
+    def list_debates(self, limit: int = 20, org_id: str | None = None) -> list[DebateMetadata]:
         """
         List debates (handler-compatible alias for list_recent).
 
@@ -708,12 +738,10 @@ class DebateStorage(SQLiteStore):
         """
         return self.list_recent(limit=limit, org_id=org_id)
 
-
 # Global storage instance
-_debate_storage: Optional[DebateStorage] = None
+_debate_storage: DebateStorage | None = None
 
-
-def get_debates_db() -> Optional[DebateStorage]:
+def get_debates_db() -> DebateStorage | None:
     """
     Get the global DebateStorage instance.
 

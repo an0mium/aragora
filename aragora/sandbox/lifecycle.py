@@ -31,7 +31,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from aragora.sandbox.executor import ExecutionStatus
 from aragora.sandbox.policies import (
@@ -47,7 +47,6 @@ from aragora.sandbox.pool import (
 
 logger = logging.getLogger(__name__)
 
-
 class SessionState(str, Enum):
     """State of a container session."""
 
@@ -56,7 +55,6 @@ class SessionState(str, Enum):
     SUSPENDED = "suspended"
     TERMINATING = "terminating"
     TERMINATED = "terminated"
-
 
 @dataclass
 class SessionConfig:
@@ -83,7 +81,7 @@ class SessionConfig:
     file_persistence: bool = True
     """Whether files persist between executions."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "max_execution_time_seconds": self.max_execution_time_seconds,
@@ -95,7 +93,6 @@ class SessionConfig:
             "file_persistence": self.file_persistence,
         }
 
-
 @dataclass
 class ContainerSession:
     """A container session for code execution."""
@@ -106,10 +103,10 @@ class ContainerSession:
     tenant_id: str
     """Tenant this session belongs to."""
 
-    user_id: Optional[str] = None
+    user_id: str | None = None
     """User who owns this session."""
 
-    container: Optional[PooledContainer] = None
+    container: PooledContainer | None = None
     """Container bound to this session."""
 
     state: SessionState = SessionState.CREATING
@@ -118,7 +115,7 @@ class ContainerSession:
     config: SessionConfig = field(default_factory=SessionConfig)
     """Session configuration."""
 
-    policy: Optional[ToolPolicy] = None
+    policy: ToolPolicy | None = None
     """Execution policy for this session."""
 
     created_at: float = field(default_factory=time.time)
@@ -133,13 +130,13 @@ class ContainerSession:
     total_execution_time_seconds: float = 0.0
     """Total execution time."""
 
-    files_created: List[str] = field(default_factory=list)
+    files_created: list[str] = field(default_factory=list)
     """Files created in the session workspace."""
 
-    environment: Dict[str, str] = field(default_factory=dict)
+    environment: dict[str, str] = field(default_factory=dict)
     """Environment variables for executions."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional metadata."""
 
     def is_expired(self) -> bool:
@@ -155,7 +152,7 @@ class ContainerSession:
             return False
         return not self.is_expired()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "session_id": self.session_id,
@@ -172,7 +169,6 @@ class ContainerSession:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class SessionExecutionResult:
     """Result of a session execution."""
@@ -184,11 +180,11 @@ class SessionExecutionResult:
     stdout: str = ""
     stderr: str = ""
     duration_seconds: float = 0.0
-    files_created: List[str] = field(default_factory=list)
-    policy_violations: List[str] = field(default_factory=list)
-    error_message: Optional[str] = None
+    files_created: list[str] = field(default_factory=list)
+    policy_violations: list[str] = field(default_factory=list)
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "session_id": self.session_id,
@@ -203,30 +199,25 @@ class SessionExecutionResult:
             "error_message": self.error_message,
         }
 
-
 class SessionError(Exception):
     """Base exception for session errors."""
 
     pass
-
 
 class SessionNotFoundError(SessionError):
     """Session not found."""
 
     pass
 
-
 class SessionExpiredError(SessionError):
     """Session has expired."""
 
     pass
 
-
 class ExecutionDeniedError(SessionError):
     """Execution denied by policy."""
 
     pass
-
 
 class SessionContainerManager:
     """
@@ -242,16 +233,16 @@ class SessionContainerManager:
 
     def __init__(
         self,
-        pool: Optional[ContainerPool] = None,
-        default_policy: Optional[ToolPolicy] = None,
+        pool: ContainerPool | None = None,
+        default_policy: ToolPolicy | None = None,
     ):
         """Initialize the session container manager."""
         self._pool = pool
         self._default_policy = default_policy or create_default_policy()
-        self._sessions: Dict[str, ContainerSession] = {}
-        self._tenant_sessions: Dict[str, Set[str]] = {}  # tenant_id -> session_ids
+        self._sessions: dict[str, ContainerSession] = {}
+        self._tenant_sessions: dict[str, set[str]] = {}  # tenant_id -> session_ids
         self._lock = asyncio.Lock()
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
         self._started = False
 
     @property
@@ -315,11 +306,11 @@ class SessionContainerManager:
     async def create_session(
         self,
         tenant_id: str,
-        user_id: Optional[str] = None,
-        config: Optional[SessionConfig] = None,
-        policy: Optional[ToolPolicy] = None,
-        session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        user_id: str | None = None,
+        config: SessionConfig | None = None,
+        policy: ToolPolicy | None = None,
+        session_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ContainerSession:
         """
         Create a new container session.
@@ -391,10 +382,10 @@ class SessionContainerManager:
 
     async def list_sessions(
         self,
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        state: Optional[SessionState] = None,
-    ) -> List[ContainerSession]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+        state: SessionState | None = None,
+    ) -> list[ContainerSession]:
         """
         List sessions with optional filtering.
 
@@ -494,8 +485,8 @@ class SessionContainerManager:
         session_id: str,
         code: str,
         language: str = "python",
-        timeout: Optional[float] = None,
-        env: Optional[Dict[str, str]] = None,
+        timeout: float | None = None,
+        env: Optional[dict[str, str]] = None,
     ) -> SessionExecutionResult:
         """
         Execute code in a session's container.
@@ -584,7 +575,7 @@ class SessionContainerManager:
         code: str,
         language: str,
         timeout: float,
-        env: Optional[Dict[str, str]],
+        env: Optional[dict[str, str]],
     ) -> SessionExecutionResult:
         """Execute code in the session's container."""
         if not session.container:
@@ -661,7 +652,7 @@ class SessionContainerManager:
                 pass
             raise
 
-    def _build_execution_command(self, language: str) -> Optional[List[str]]:
+    def _build_execution_command(self, language: str) -> Optional[list[str]]:
         """Build the execution command for a language."""
         commands = {
             "python": ["python3", "-c"],
@@ -691,7 +682,7 @@ class SessionContainerManager:
     # Tenant Operations
     # ==========================================================================
 
-    async def get_tenant_sessions(self, tenant_id: str) -> List[ContainerSession]:
+    async def get_tenant_sessions(self, tenant_id: str) -> list[ContainerSession]:
         """Get all sessions for a tenant."""
         async with self._lock:
             session_ids = self._tenant_sessions.get(tenant_id, set()).copy()
@@ -757,14 +748,14 @@ class SessionContainerManager:
     # Statistics
     # ==========================================================================
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get session manager statistics."""
         async with self._lock:
             sessions = list(self._sessions.values())
 
         total = len(sessions)
-        by_state: Dict[str, int] = {}
-        by_tenant: Dict[str, int] = {}
+        by_state: dict[str, int] = {}
+        by_tenant: dict[str, int] = {}
 
         for session in sessions:
             state = session.state.value
@@ -785,13 +776,11 @@ class SessionContainerManager:
             "pool_stats": self.pool.stats.to_dict() if self._pool else None,
         }
 
-
 # ==========================================================================
 # Global Instance
 # ==========================================================================
 
-_manager_instance: Optional[SessionContainerManager] = None
-
+_manager_instance: SessionContainerManager | None = None
 
 def get_session_manager() -> SessionContainerManager:
     """Get or create the global session container manager."""
@@ -800,12 +789,10 @@ def get_session_manager() -> SessionContainerManager:
         _manager_instance = SessionContainerManager()
     return _manager_instance
 
-
 def set_session_manager(manager: SessionContainerManager) -> None:
     """Set the global session container manager."""
     global _manager_instance
     _manager_instance = manager
-
 
 __all__ = [
     "ContainerSession",

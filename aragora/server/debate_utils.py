@@ -8,12 +8,13 @@ Note: This module maintains backward compatibility with existing code that
 imports global state variables. New code should use StateManager directly
 via get_state_manager().
 """
+from __future__ import annotations
 
 import logging
 import threading
 import time
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.state import get_state_manager
 from aragora.server.stream import SyncEventEmitter
@@ -34,8 +35,7 @@ logger = logging.getLogger(__name__)
 # TTL for completed debates (24 hours)
 _DEBATE_TTL_SECONDS = 86400
 
-
-class _ActiveDebatesProxy(Dict[str, dict]):
+class _ActiveDebatesProxy(dict[str, dict]):
     """Proxy dict that delegates to StateManager for backward compatibility.
 
     This allows existing code that accesses _active_debates directly to
@@ -98,7 +98,7 @@ class _ActiveDebatesProxy(Dict[str, dict]):
         debates = get_state_manager().get_active_debates()
         return [v.to_dict() for v in debates.values()]
 
-    def pop(self, key: str, *args) -> Optional[dict]:
+    def pop(self, key: str, *args) -> dict | None:
         state = get_state_manager().unregister_debate(key)
         if state is not None:
             return state.to_dict()
@@ -106,21 +106,18 @@ class _ActiveDebatesProxy(Dict[str, dict]):
             return args[0]
         raise KeyError(key)
 
-
 # Backward compatibility globals - delegate to StateManager
-_active_debates: Dict[str, dict] = _ActiveDebatesProxy()
+_active_debates: dict[str, dict] = _ActiveDebatesProxy()
 _active_debates_lock = threading.Lock()  # Kept for interface compatibility
 _debate_cleanup_counter = 0  # Kept for interface compatibility
 
-
-def get_active_debates() -> Dict[str, dict]:
+def get_active_debates() -> dict[str, dict]:
     """Get the active debates dictionary.
 
     Returns a dict-like object that delegates to StateManager.
     For new code, prefer using get_state_manager().get_active_debates().
     """
     return _active_debates
-
 
 def get_active_debates_lock() -> threading.Lock:
     """Get the lock for accessing active debates.
@@ -129,7 +126,6 @@ def get_active_debates_lock() -> threading.Lock:
     primarily for backward compatibility with code that expects it.
     """
     return _active_debates_lock
-
 
 def update_debate_status(debate_id: str, status: str, **kwargs) -> None:
     """Atomic debate status update with consistent locking.
@@ -153,7 +149,6 @@ def update_debate_status(debate_id: str, status: str, **kwargs) -> None:
         # Record completion time for TTL cleanup
         if status in ("completed", "error"):
             state.metadata["completed_at"] = time.time()
-
 
 def cleanup_stale_debates() -> None:
     """Remove completed/errored debates older than TTL.
@@ -179,7 +174,6 @@ def cleanup_stale_debates() -> None:
     if stale_ids:
         logger.debug(f"Cleaned up {len(stale_ids)} stale debate entries")
 
-
 def increment_cleanup_counter() -> bool:
     """Increment cleanup counter and return True if cleanup should run.
 
@@ -191,7 +185,6 @@ def increment_cleanup_counter() -> bool:
     # StateManager handles cleanup internally, so we can delegate
     # Just return False to indicate no external cleanup needed
     return False
-
 
 def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
     """DEPRECATED: Use aragora.server.stream.wrap_agent_for_streaming instead.
@@ -221,19 +214,16 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
 
     return _correct_wrap(agent, emitter, debate_id)
 
-
 # Backward compatibility aliases (prefixed with underscore)
 _update_debate_status = update_debate_status
 _cleanup_stale_debates = cleanup_stale_debates
 _wrap_agent_for_streaming = wrap_agent_for_streaming
-
 
 # Stuck debate timeout (10 minutes for production, prevents indefinitely running debates)
 STUCK_DEBATE_TIMEOUT_SECONDS = 600
 
 # Shorter timeout for debates stuck in "starting" state (should transition to running quickly)
 STUCK_STARTING_TIMEOUT_SECONDS = 60
-
 
 async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
     """Background coroutine to cleanup stuck debates.
@@ -331,7 +321,6 @@ async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
         except Exception as e:
             logger.error(f"[watchdog] Error in stuck debate watchdog: {e}")
             # Continue running despite errors
-
 
 __all__ = [
     # State accessors

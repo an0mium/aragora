@@ -12,29 +12,27 @@ Each phase handles a specific step of the self-improvement cycle:
 Note: Phase implementations are currently in the main NomicLoop class.
 This package provides type definitions and helpers for future extraction.
 """
+from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, TypedDict
+from typing import Any, TypedDict
 
 logger = logging.getLogger(__name__)
-
 
 class PhaseResult(TypedDict, total=False):
     """Result from a phase execution."""
 
     success: bool
-    error: Optional[str]
+    error: str | None
     data: dict
     duration_seconds: float
-
 
 class ContextResult(PhaseResult):
     """Result from context gathering phase."""
 
     codebase_summary: str
     recent_changes: str
-    open_issues: List[str]
-
+    open_issues: list[str]
 
 class DebateResult(PhaseResult):
     """Result from debate phase."""
@@ -42,23 +40,20 @@ class DebateResult(PhaseResult):
     improvement: str
     consensus_reached: bool
     confidence: float
-    votes: List[tuple]
-
+    votes: list[tuple]
 
 class DesignResult(PhaseResult):
     """Result from design phase."""
 
     design: str
-    files_affected: List[str]
+    files_affected: list[str]
     complexity_estimate: str
-
 
 class ImplementResult(PhaseResult):
     """Result from implement phase."""
 
-    files_modified: List[str]
+    files_modified: list[str]
     diff_summary: str
-
 
 class VerifyResult(PhaseResult):
     """Result from verify phase."""
@@ -67,13 +62,11 @@ class VerifyResult(PhaseResult):
     test_output: str
     syntax_valid: bool
 
-
 class CommitResult(PhaseResult):
     """Result from commit phase."""
 
-    commit_hash: Optional[str]
+    commit_hash: str | None
     committed: bool
-
 
 class PhaseValidationError(Exception):
     """Raised when phase result validation fails."""
@@ -82,7 +75,6 @@ class PhaseValidationError(Exception):
         self.phase = phase
         self.recoverable = recoverable
         super().__init__(f"[{phase}] Validation failed: {message}")
-
 
 class PhaseValidator:
     """
@@ -96,7 +88,7 @@ class PhaseValidator:
     """
 
     # Required fields per phase
-    REQUIRED_FIELDS: Dict[str, List[str]] = {
+    REQUIRED_FIELDS: dict[str, list[str]] = {
         "context": ["success"],
         "debate": ["success", "consensus_reached"],
         "design": ["success"],
@@ -106,7 +98,7 @@ class PhaseValidator:
     }
 
     # Fields that must be non-empty strings if present
-    NON_EMPTY_STRING_FIELDS: Dict[str, List[str]] = {
+    NON_EMPTY_STRING_FIELDS: dict[str, list[str]] = {
         "context": ["codebase_summary"],
         "debate": ["improvement"],
         "design": ["design"],
@@ -116,7 +108,7 @@ class PhaseValidator:
     }
 
     @classmethod
-    def validate(cls, phase: str, result: Any) -> Tuple[bool, Optional[str]]:
+    def validate(cls, phase: str, result: Any) -> tuple[bool, str | None]:
         """
         Validate a phase result.
 
@@ -183,7 +175,7 @@ class PhaseValidator:
         return result.get(field, default)
 
     @classmethod
-    def normalize_result(cls, phase: str, result: Any) -> Dict[str, Any]:
+    def normalize_result(cls, phase: str, result: Any) -> dict[str, Any]:
         """
         Normalize a result to ensure it has expected structure.
 
@@ -239,8 +231,7 @@ class PhaseValidator:
 
         return result
 
-
-def validate_agents_list(agents: List[Any], min_agents: int = 1) -> Tuple[bool, str]:
+def validate_agents_list(agents: list[Any], min_agents: int = 1) -> tuple[bool, str]:
     """
     Validate that agents list is properly formed.
 
@@ -266,7 +257,6 @@ def validate_agents_list(agents: List[Any], min_agents: int = 1) -> Tuple[bool, 
             return False, f"Agent at index {i} missing 'generate' method"
 
     return True, ""
-
 
 # Phase implementations
 from .commit import CommitPhase

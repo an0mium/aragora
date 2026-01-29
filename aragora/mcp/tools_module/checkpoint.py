@@ -7,16 +7,15 @@ Debate checkpoint management: create, list, resume, delete.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def create_checkpoint_tool(
     debate_id: str,
     label: str = "",
     storage_backend: str = "file",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a checkpoint for a debate to enable resume later.
 
@@ -153,12 +152,11 @@ async def create_checkpoint_tool(
     except Exception as e:
         return {"error": f"Failed to create checkpoint: {e}"}
 
-
 async def list_checkpoints_tool(
     debate_id: str = "",
     include_expired: bool = False,
     limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List checkpoints for a debate or all debates.
 
@@ -202,10 +200,9 @@ async def list_checkpoints_tool(
     except Exception as e:
         return {"error": f"Failed to list checkpoints: {e}"}
 
-
 async def resume_checkpoint_tool(
     checkpoint_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Resume a debate from a checkpoint.
 
@@ -243,10 +240,9 @@ async def resume_checkpoint_tool(
     except Exception as e:
         return {"error": f"Failed to resume checkpoint: {e}"}
 
-
 async def delete_checkpoint_tool(
     checkpoint_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete a checkpoint.
 
@@ -276,7 +272,6 @@ async def delete_checkpoint_tool(
         return {"error": "Checkpoint module not available"}
     except Exception as e:
         return {"error": f"Failed to delete checkpoint: {e}"}
-
 
 __all__ = [
     "create_checkpoint_tool",

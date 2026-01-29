@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     HandlerResult,
@@ -24,7 +24,6 @@ from ..secure import SecureHandler
 from .admin import admin_secure_endpoint
 
 logger = logging.getLogger(__name__)
-
 
 class SecurityHandler(SecureHandler):
     """Handler for security-related admin endpoints."""
@@ -47,8 +46,8 @@ class SecurityHandler(SecureHandler):
         return path in self.ROUTES
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route security endpoint requests."""
         handlers = {
             "/api/v1/admin/security/status": self._get_status,
@@ -66,7 +65,7 @@ class SecurityHandler(SecureHandler):
             return endpoint_handler(handler)
         return None
 
-    def handle_post(self, path: str, data: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, data: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for security endpoints."""
         if path in ("/api/v1/admin/security/rotate-key", "/api/admin/security/rotate-key"):
             return self._rotate_key(data, handler)
@@ -99,7 +98,7 @@ class SecurityHandler(SecureHandler):
             service = get_encryption_service()
             active_key = service.get_active_key()
 
-            result: Dict[str, Any] = {
+            result: dict[str, Any] = {
                 "crypto_available": True,
                 "active_key_id": service.get_active_key_id(),
             }
@@ -136,7 +135,7 @@ class SecurityHandler(SecureHandler):
         audit=True,
         audit_action="key_rotation",
     )
-    def _rotate_key(self, data: Dict[str, Any], handler: Any) -> HandlerResult:
+    def _rotate_key(self, data: dict[str, Any], handler: Any) -> HandlerResult:
         """
         Rotate encryption key.
 
@@ -214,9 +213,9 @@ class SecurityHandler(SecureHandler):
         try:
             from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
 
-            issues: List[str] = []
-            warnings: List[str] = []
-            checks: Dict[str, Any] = {}
+            issues: list[str] = []
+            warnings: list[str] = []
+            checks: dict[str, Any] = {}
 
             # Check 1: Crypto library
             checks["crypto_available"] = CRYPTO_AVAILABLE

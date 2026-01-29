@@ -16,12 +16,11 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 from collections import OrderedDict
 import threading
 
 logger = logging.getLogger(__name__)
-
 
 class ParticipantRole(str, Enum):
     """Roles a participant can have in a collaborative session."""
@@ -31,7 +30,6 @@ class ParticipantRole(str, Enum):
     CONTRIBUTOR = "contributor"  # Can vote and suggest
     MODERATOR = "moderator"  # Can moderate suggestions, kick users
 
-
 class SessionState(str, Enum):
     """State of a collaboration session."""
 
@@ -39,7 +37,6 @@ class SessionState(str, Enum):
     PAUSED = "paused"
     CLOSED = "closed"
     ARCHIVED = "archived"
-
 
 @dataclass
 class Participant:
@@ -84,7 +81,6 @@ class Participant:
             "is_online": self.is_online,
         }
 
-
 @dataclass
 class CollaborationSession:
     """A collaborative debate session."""
@@ -99,7 +95,7 @@ class CollaborationSession:
     org_id: str = ""
     title: str = ""
     description: str = ""
-    expires_at: Optional[float] = None
+    expires_at: float | None = None
     allow_anonymous: bool = False
     require_approval: bool = False
     metadata: dict = field(default_factory=dict)
@@ -153,7 +149,6 @@ class CollaborationSession:
             result["participants"] = [p.to_dict() for p in self.participants.values()]
         return result
 
-
 class CollaborationEventType(str, Enum):
     """Event types for collaboration."""
 
@@ -170,7 +165,6 @@ class CollaborationEventType(str, Enum):
     APPROVAL_REQUESTED = "approval_requested"
     APPROVAL_GRANTED = "approval_granted"
     APPROVAL_DENIED = "approval_denied"
-
 
 @dataclass
 class CollaborationEvent:
@@ -191,7 +185,6 @@ class CollaborationEvent:
             "user_id": self.user_id,
             "data": self.data,
         }
-
 
 class SessionManager:
     """
@@ -218,7 +211,7 @@ class SessionManager:
         self.presence_timeout = presence_timeout
         self.cleanup_interval = cleanup_interval
 
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
         self._access_count = 0
         self._cleanup_threshold = 100
 
@@ -319,7 +312,7 @@ class SessionManager:
         is_public: bool = False,
         max_participants: int = 50,
         org_id: str = "",
-        expires_in: Optional[float] = None,
+        expires_in: float | None = None,
         allow_anonymous: bool = False,
         require_approval: bool = False,
     ) -> CollaborationSession:
@@ -402,7 +395,7 @@ class SessionManager:
             logger.info(f"Created collaboration session {session_id} for debate {debate_id}")
             return session
 
-    def get_session(self, session_id: str) -> Optional[CollaborationSession]:
+    def get_session(self, session_id: str) -> CollaborationSession | None:
         """Get a session by ID."""
         self._maybe_cleanup()
         with self._lock:
@@ -436,7 +429,7 @@ class SessionManager:
         role: ParticipantRole = ParticipantRole.VOTER,
         display_name: str = "",
         avatar_url: str = "",
-    ) -> tuple[bool, str, Optional[Participant]]:
+    ) -> tuple[bool, str, Participant | None]:
         """
         Join a collaboration session.
 
@@ -749,11 +742,9 @@ class SessionManager:
                 "users_with_sessions": len(self._user_sessions),
             }
 
-
 # Global singleton instance
-_session_manager: Optional[SessionManager] = None
+_session_manager: SessionManager | None = None
 _manager_lock = threading.Lock()
-
 
 def get_session_manager() -> SessionManager:
     """Get the global session manager instance."""
@@ -762,7 +753,6 @@ def get_session_manager() -> SessionManager:
         if _session_manager is None:
             _session_manager = SessionManager()
         return _session_manager
-
 
 __all__ = [
     "ParticipantRole",

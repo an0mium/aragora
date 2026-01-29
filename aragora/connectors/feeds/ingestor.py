@@ -11,13 +11,14 @@ Production features:
 - Caching with configurable TTL
 - Parallel fetching with concurrency control
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 # Use defusedxml for XXE-safe XML parsing (prevents XXE attacks)
 import defusedxml.ElementTree as DefusedET
@@ -28,7 +29,6 @@ import httpx
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class FeedEntry:
@@ -42,10 +42,10 @@ class FeedEntry:
     author: str = ""
     published: str = ""
     updated: str = ""
-    categories: List[str] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
     source_url: str = ""
     source_name: str = ""
-    raw_data: Dict[str, Any] = field(default_factory=dict)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
     def to_debate_context(self) -> str:
         """Convert to debate context string."""
@@ -69,7 +69,6 @@ class FeedEntry:
         content = f"{self.title}|{self.link}|{self.summary or self.content}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-
 @dataclass
 class FeedSource:
     """Configuration for a feed source."""
@@ -88,7 +87,6 @@ class FeedSource:
 
             parsed = urlparse(self.url)
             self.name = parsed.netloc or self.url[:30]
-
 
 class FeedIngestor:
     """Ingests content from RSS/Atom feeds.
@@ -110,7 +108,7 @@ class FeedIngestor:
 
     def __init__(
         self,
-        sources: Optional[List[FeedSource]] = None,
+        sources: Optional[list[FeedSource]] = None,
         cache_ttl: int = 300,  # 5 minutes
         max_concurrent: int = 5,
         timeout: float = 30.0,
@@ -138,8 +136,8 @@ class FeedIngestor:
         self.user_agent = user_agent
 
         # Internal state
-        self._cache: Dict[str, tuple[List[FeedEntry], float]] = {}
-        self._circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self._cache: dict[str, tuple[list[FeedEntry], float]] = {}
+        self._circuit_breakers: dict[str, CircuitBreaker] = {}
         self._seen_hashes: set[str] = set()
 
     def add_source(self, source: FeedSource) -> None:
@@ -162,7 +160,7 @@ class FeedIngestor:
             self._circuit_breakers[url] = CircuitBreaker()
         return self._circuit_breakers[url]
 
-    async def _fetch_feed(self, source: FeedSource) -> List[FeedEntry]:
+    async def _fetch_feed(self, source: FeedSource) -> list[FeedEntry]:
         """Fetch and parse a single feed with retries and circuit breaker."""
         cb = self._get_circuit_breaker(source.url)
 
@@ -213,7 +211,7 @@ class FeedIngestor:
             cb.record_failure()
             return []
 
-    def _parse_feed(self, content: str, source: FeedSource) -> List[FeedEntry]:
+    def _parse_feed(self, content: str, source: FeedSource) -> list[FeedEntry]:
         """Parse RSS or Atom feed content."""
         try:
             root = DefusedET.fromstring(content)
@@ -230,7 +228,7 @@ class FeedIngestor:
             logger.warning(f"Unknown feed format: {root.tag}")
             return []
 
-    def _parse_rss(self, root: Element, source: FeedSource) -> List[FeedEntry]:
+    def _parse_rss(self, root: Element, source: FeedSource) -> list[FeedEntry]:
         """Parse RSS 2.0 feed."""
         entries: list[FeedEntry] = []
         channel = root.find("channel")
@@ -257,7 +255,7 @@ class FeedIngestor:
 
         return entries
 
-    def _parse_atom(self, root: Element, source: FeedSource) -> List[FeedEntry]:
+    def _parse_atom(self, root: Element, source: FeedSource) -> list[FeedEntry]:
         """Parse Atom feed."""
         entries = []
         ns = {"atom": "http://www.w3.org/2005/Atom"}
@@ -300,7 +298,7 @@ class FeedIngestor:
 
         return entries
 
-    def _get_text(self, element: Element, tag: str, ns: Optional[dict] = None) -> str:
+    def _get_text(self, element: Element, tag: str, ns: dict | None = None) -> str:
         """Get text content of a child element."""
         child = element.find(tag, ns) if ns else element.find(tag)
         if child is None and ns:
@@ -356,7 +354,7 @@ class FeedIngestor:
         self,
         deduplicate: bool = True,
         use_cache: bool = True,
-    ) -> List[FeedEntry]:
+    ) -> list[FeedEntry]:
         """Fetch entries from all enabled sources.
 
         Args:
@@ -371,7 +369,7 @@ class FeedIngestor:
             logger.warning("No enabled feed sources")
             return []
 
-        all_entries: List[FeedEntry] = []
+        all_entries: list[FeedEntry] = []
 
         # Check cache for each source
         sources_to_fetch = []
@@ -387,7 +385,7 @@ class FeedIngestor:
         if sources_to_fetch:
             sem = asyncio.Semaphore(self.max_concurrent)
 
-            async def fetch_with_limit(source: FeedSource) -> List[FeedEntry]:
+            async def fetch_with_limit(source: FeedSource) -> list[FeedEntry]:
                 async with sem:
                     entries = await self._fetch_feed(source)
                     # Cache the results
@@ -420,7 +418,7 @@ class FeedIngestor:
         logger.info(f"Fetched {len(all_entries)} entries from {len(enabled_sources)} sources")
         return all_entries
 
-    async def fetch_source(self, url: str) -> List[FeedEntry]:
+    async def fetch_source(self, url: str) -> list[FeedEntry]:
         """Fetch entries from a specific source by URL."""
         source = next((s for s in self.sources if s.url == url), None)
         if not source:
@@ -433,7 +431,7 @@ class FeedIngestor:
         self._seen_hashes.clear()
         logger.info("Feed cache cleared")
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return {
             "cached_feeds": len(self._cache),

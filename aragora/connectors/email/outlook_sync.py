@@ -49,7 +49,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import httpx
 
@@ -60,7 +60,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class OutlookSyncStatus(Enum):
     """Status of the sync service."""
 
@@ -69,7 +68,6 @@ class OutlookSyncStatus(Enum):
     WATCHING = "watching"
     ERROR = "error"
     STOPPED = "stopped"
-
 
 @dataclass
 class OutlookSyncConfig:
@@ -82,8 +80,8 @@ class OutlookSyncConfig:
     # Sync settings
     initial_sync_days: int = 7
     max_messages_per_sync: int = 100
-    sync_folders: List[str] = field(default_factory=lambda: ["Inbox"])
-    exclude_folders: List[str] = field(default_factory=lambda: ["Deleted Items", "Junk Email"])
+    sync_folders: list[str] = field(default_factory=lambda: ["Inbox"])
+    exclude_folders: list[str] = field(default_factory=lambda: ["Deleted Items", "Junk Email"])
 
     # Subscription settings (Graph subscriptions expire)
     subscription_expiry_minutes: int = 4230  # Max ~3 days for mail
@@ -100,9 +98,8 @@ class OutlookSyncConfig:
 
     # State persistence
     state_backend: str = "memory"  # "memory", "redis", "postgres"
-    redis_url: Optional[str] = None
-    postgres_dsn: Optional[str] = None
-
+    redis_url: str | None = None
+    postgres_dsn: str | None = None
 
 @dataclass
 class OutlookSyncState:
@@ -114,24 +111,24 @@ class OutlookSyncState:
 
     # Sync state
     delta_link: str = ""  # For incremental sync
-    last_sync: Optional[datetime] = None
+    last_sync: datetime | None = None
     initial_sync_complete: bool = False
 
     # Subscription state
-    subscription_id: Optional[str] = None
-    subscription_expiry: Optional[datetime] = None
+    subscription_id: str | None = None
+    subscription_expiry: datetime | None = None
     client_state: str = ""  # For validating webhooks
 
     # Statistics
     total_messages_synced: int = 0
     total_messages_prioritized: int = 0
     sync_errors: int = 0
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
     # Folders synced
-    synced_folder_ids: List[str] = field(default_factory=list)
+    synced_folder_ids: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for persistence."""
         return {
             "tenant_id": self.tenant_id,
@@ -153,7 +150,7 @@ class OutlookSyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OutlookSyncState":
+    def from_dict(cls, data: dict[str, Any]) -> "OutlookSyncState":
         """Create from dictionary."""
         state = cls(
             tenant_id=data.get("tenant_id", ""),
@@ -177,7 +174,6 @@ class OutlookSyncState:
 
         return state
 
-
 @dataclass
 class OutlookWebhookPayload:
     """Parsed webhook payload from Microsoft Graph."""
@@ -187,11 +183,11 @@ class OutlookWebhookPayload:
     resource: str  # Resource path (e.g., "Users/{id}/Messages/{id}")
     client_state: str
     tenant_id: str
-    resource_data: Dict[str, Any] = field(default_factory=dict)
-    raw_data: Dict[str, Any] = field(default_factory=dict)
+    resource_data: dict[str, Any] = field(default_factory=dict)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_graph(cls, notification: Dict[str, Any]) -> "OutlookWebhookPayload":
+    def from_graph(cls, notification: dict[str, Any]) -> "OutlookWebhookPayload":
         """
         Parse Microsoft Graph change notification.
 
@@ -218,7 +214,6 @@ class OutlookWebhookPayload:
             raw_data=notification,
         )
 
-
 @dataclass
 class OutlookSyncedMessage:
     """A message that was synced and prioritized."""
@@ -229,7 +224,6 @@ class OutlookSyncedMessage:
     account_id: str = ""
     is_new: bool = True
     change_type: str = "created"  # created, updated
-
 
 class OutlookSyncService:
     """
@@ -247,11 +241,11 @@ class OutlookSyncService:
         self,
         tenant_id: str,
         user_id: str,
-        config: Optional[OutlookSyncConfig] = None,
+        config: OutlookSyncConfig | None = None,
         outlook_connector: Optional["OutlookConnector"] = None,
         prioritizer: Optional["EmailPrioritizer"] = None,
         on_message_synced: Optional[Callable[[OutlookSyncedMessage], None]] = None,
-        on_batch_complete: Optional[Callable[[List[OutlookSyncedMessage]], None]] = None,
+        on_batch_complete: Optional[Callable[[list[OutlookSyncedMessage]], None]] = None,
     ):
         """
         Initialize Outlook sync service.
@@ -276,10 +270,10 @@ class OutlookSyncService:
         self._on_batch_complete = on_batch_complete
 
         # State
-        self._state: Optional[OutlookSyncState] = None
+        self._state: OutlookSyncState | None = None
         self._status = OutlookSyncStatus.IDLE
         self._sync_lock = asyncio.Lock()
-        self._renewal_task: Optional[asyncio.Task] = None
+        self._renewal_task: asyncio.Task | None = None
         self._running = False
 
     @property
@@ -288,13 +282,13 @@ class OutlookSyncService:
         return self._status
 
     @property
-    def state(self) -> Optional[OutlookSyncState]:
+    def state(self) -> OutlookSyncState | None:
         """Get current sync state."""
         return self._state
 
     async def start(
         self,
-        refresh_token: Optional[str] = None,
+        refresh_token: str | None = None,
         do_initial_sync: bool = True,
     ) -> bool:
         """
@@ -395,8 +389,8 @@ class OutlookSyncService:
 
     async def handle_webhook(
         self,
-        payload: Dict[str, Any],
-    ) -> List[OutlookSyncedMessage]:
+        payload: dict[str, Any],
+    ) -> list[OutlookSyncedMessage]:
         """
         Handle incoming Microsoft Graph change notification.
 
@@ -415,7 +409,7 @@ class OutlookSyncService:
         if not notifications:
             return []
 
-        synced_messages: List[OutlookSyncedMessage] = []
+        synced_messages: list[OutlookSyncedMessage] = []
 
         for notification in notifications:
             webhook = OutlookWebhookPayload.from_graph(notification)
@@ -471,7 +465,7 @@ class OutlookSyncService:
         logger.info("[OutlookSync] Handling subscription validation")
         return validation_token
 
-    async def force_sync(self) -> List[OutlookSyncedMessage]:
+    async def force_sync(self) -> list[OutlookSyncedMessage]:
         """
         Force an immediate sync.
 
@@ -483,7 +477,7 @@ class OutlookSyncService:
 
         return await self._incremental_sync()
 
-    def _extract_message_id(self, resource: str) -> Optional[str]:
+    def _extract_message_id(self, resource: str) -> str | None:
         """Extract message ID from Graph resource path."""
         # Resource format: "Users/{userId}/Messages/{messageId}"
         # or "me/messages/{messageId}"
@@ -496,11 +490,11 @@ class OutlookSyncService:
                 return parts[idx + 1]
         return None
 
-    async def _initial_sync(self) -> List[OutlookSyncedMessage]:
+    async def _initial_sync(self) -> list[OutlookSyncedMessage]:
         """Perform initial full sync."""
         async with self._sync_lock:
             self._status = OutlookSyncStatus.SYNCING
-            synced_messages: List[OutlookSyncedMessage] = []
+            synced_messages: list[OutlookSyncedMessage] = []
 
             try:
                 if not self._connector or not self._state:
@@ -590,11 +584,11 @@ class OutlookSyncService:
                 logger.error(f"[OutlookSync] Initial sync failed: {e}")
                 raise
 
-    async def _incremental_sync(self) -> List[OutlookSyncedMessage]:
+    async def _incremental_sync(self) -> list[OutlookSyncedMessage]:
         """Perform incremental sync using Delta Query API."""
         async with self._sync_lock:
             self._status = OutlookSyncStatus.SYNCING
-            synced_messages: List[OutlookSyncedMessage] = []
+            synced_messages: list[OutlookSyncedMessage] = []
 
             try:
                 if not self._connector or not self._state:
@@ -673,7 +667,7 @@ class OutlookSyncService:
         message: "EmailMessage",
         is_new: bool = True,
         change_type: str = "created",
-    ) -> Optional[OutlookSyncedMessage]:
+    ) -> OutlookSyncedMessage | None:
         """Process a synced message: prioritize and notify."""
         priority_result = None
 
@@ -866,7 +860,7 @@ class OutlookSyncService:
                 logger.error(f"[OutlookSync] Renewal loop error: {e}")
                 await asyncio.sleep(60)
 
-    async def _load_state(self) -> Optional[OutlookSyncState]:
+    async def _load_state(self) -> OutlookSyncState | None:
         """Load sync state from backend."""
         state_key = f"outlook_sync:{self.tenant_id}:{self.user_id}"
 
@@ -935,7 +929,7 @@ class OutlookSyncService:
             except Exception as e:
                 logger.warning(f"[OutlookSync] Failed to save state to Postgres: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get sync service statistics."""
         return {
             "tenant_id": self.tenant_id,
@@ -961,13 +955,12 @@ class OutlookSyncService:
             "last_error": self._state.last_error if self._state else None,
         }
 
-
 # Factory function
 async def start_outlook_sync(
     tenant_id: str,
     user_id: str,
     refresh_token: str,
-    config: Optional[OutlookSyncConfig] = None,
+    config: OutlookSyncConfig | None = None,
     on_message: Optional[Callable[[OutlookSyncedMessage], None]] = None,
 ) -> OutlookSyncService:
     """
@@ -992,7 +985,6 @@ async def start_outlook_sync(
 
     await service.start(refresh_token=refresh_token)
     return service
-
 
 __all__ = [
     "OutlookSyncService",

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 import yaml
@@ -37,11 +37,9 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Enums and Data Classes
 # =============================================================================
-
 
 class TemplateCategory(Enum):
     """Template categories for industry verticals."""
@@ -57,7 +55,6 @@ class TemplateCategory(Enum):
     DEVOPS = "devops"
     MARKETING = "marketing"
 
-
 class DeploymentStatus(Enum):
     """Deployment status."""
 
@@ -66,7 +63,6 @@ class DeploymentStatus(Enum):
     PAUSED = "paused"
     ARCHIVED = "archived"
     FAILED = "failed"
-
 
 @dataclass
 class TemplateMetadata:
@@ -77,7 +73,7 @@ class TemplateMetadata:
     description: str
     version: str
     category: TemplateCategory
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     icon: str = "document"
     author: str = "Aragora"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -85,15 +81,15 @@ class TemplateMetadata:
     downloads: int = 0
     rating: float = 0.0
     rating_count: int = 0
-    inputs: Dict[str, str] = field(default_factory=dict)
-    outputs: Dict[str, str] = field(default_factory=dict)
+    inputs: dict[str, str] = field(default_factory=dict)
+    outputs: dict[str, str] = field(default_factory=dict)
     steps_count: int = 0
     has_debate: bool = False
     has_human_checkpoint: bool = False
     estimated_duration: str = "varies"
-    file_path: Optional[str] = None
+    file_path: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -117,7 +113,6 @@ class TemplateMetadata:
             "estimated_duration": self.estimated_duration,
         }
 
-
 @dataclass
 class TemplateDeployment:
     """Record of a deployed template."""
@@ -127,12 +122,12 @@ class TemplateDeployment:
     tenant_id: str
     name: str
     status: DeploymentStatus
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
     deployed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_run: Optional[datetime] = None
+    last_run: datetime | None = None
     run_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -146,7 +141,6 @@ class TemplateDeployment:
             "run_count": self.run_count,
         }
 
-
 @dataclass
 class TemplateRating:
     """Template rating from a user."""
@@ -156,10 +150,10 @@ class TemplateRating:
     tenant_id: str
     user_id: str
     rating: int  # 1-5
-    review: Optional[str] = None
+    review: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -169,35 +163,31 @@ class TemplateRating:
             "created_at": self.created_at.isoformat(),
         }
 
-
 # =============================================================================
 # In-Memory Storage
 # =============================================================================
 
 # Template cache: template_id -> TemplateMetadata
-_templates_cache: Dict[str, TemplateMetadata] = {}
+_templates_cache: dict[str, TemplateMetadata] = {}
 
 # Deployments: tenant_id -> deployment_id -> TemplateDeployment
-_deployments: Dict[str, Dict[str, TemplateDeployment]] = {}
+_deployments: dict[str, dict[str, TemplateDeployment]] = {}
 
-# Ratings: template_id -> List[TemplateRating]
-_ratings: Dict[str, List[TemplateRating]] = {}
+# Ratings: template_id -> list[TemplateRating]
+_ratings: dict[str, list[TemplateRating]] = {}
 
 # Download counts: template_id -> count
-_download_counts: Dict[str, int] = {}
-
+_download_counts: dict[str, int] = {}
 
 # =============================================================================
 # Template Discovery
 # =============================================================================
 
-
 def _get_templates_dir() -> Path:
     """Get the workflow templates directory."""
     return Path(__file__).parent.parent.parent.parent / "workflow" / "templates"
 
-
-def _load_templates() -> Dict[str, TemplateMetadata]:
+def _load_templates() -> dict[str, TemplateMetadata]:
     """Load all templates from the templates directory."""
     global _templates_cache
 
@@ -221,8 +211,7 @@ def _load_templates() -> Dict[str, TemplateMetadata]:
     logger.info(f"Loaded {len(_templates_cache)} templates from {templates_dir}")
     return _templates_cache
 
-
-def _parse_template_file(file_path: Path) -> Optional[TemplateMetadata]:
+def _parse_template_file(file_path: Path) -> TemplateMetadata | None:
     """Parse a YAML template file into metadata."""
     try:
         with open(file_path) as f:
@@ -275,8 +264,7 @@ def _parse_template_file(file_path: Path) -> Optional[TemplateMetadata]:
         logger.warning(f"Error parsing template {file_path}: {e}")
         return None
 
-
-def _get_full_template(template_id: str) -> Optional[Dict[str, Any]]:
+def _get_full_template(template_id: str) -> Optional[dict[str, Any]]:
     """Load the full template content."""
     templates = _load_templates()
     meta = templates.get(template_id)
@@ -291,18 +279,15 @@ def _get_full_template(template_id: str) -> Optional[Dict[str, Any]]:
         logger.warning(f"Error loading template {template_id}: {e}")
         return None
 
-
-def _get_tenant_deployments(tenant_id: str) -> Dict[str, TemplateDeployment]:
+def _get_tenant_deployments(tenant_id: str) -> dict[str, TemplateDeployment]:
     """Get deployments for a tenant."""
     if tenant_id not in _deployments:
         _deployments[tenant_id] = {}
     return _deployments[tenant_id]
 
-
 # =============================================================================
 # Category Information
 # =============================================================================
-
 
 CATEGORY_INFO = {
     TemplateCategory.ACCOUNTING: {
@@ -367,11 +352,9 @@ CATEGORY_INFO = {
     },
 }
 
-
 # =============================================================================
 # Handler
 # =============================================================================
-
 
 class MarketplaceHandler(BaseHandler):
     """Handler for marketplace API endpoints."""
@@ -389,7 +372,7 @@ class MarketplaceHandler(BaseHandler):
         "/api/v1/marketplace/demo",
     ]
 
-    def __init__(self, server_context: Optional[Dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
         # Pre-load templates
@@ -482,7 +465,7 @@ class MarketplaceHandler(BaseHandler):
         """Extract tenant ID from request context."""
         return getattr(request, "tenant_id", "default")
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
         if hasattr(request, "json"):
             body = await request.json()
@@ -566,8 +549,8 @@ class MarketplaceHandler(BaseHandler):
         )
 
     def _get_related_templates(
-        self, template: TemplateMetadata, all_templates: Dict[str, TemplateMetadata]
-    ) -> List[Dict[str, Any]]:
+        self, template: TemplateMetadata, all_templates: dict[str, TemplateMetadata]
+    ) -> list[dict[str, Any]]:
         """Find related templates based on category and tags."""
         related = []
 
@@ -601,7 +584,7 @@ class MarketplaceHandler(BaseHandler):
         templates = _load_templates()
 
         # Count templates per category
-        category_counts: Dict[str, int] = {}
+        category_counts: dict[str, int] = {}
         for template in templates.values():
             cat = template.category.value
             category_counts[cat] = category_counts.get(cat, 0) + 1
@@ -899,7 +882,7 @@ class MarketplaceHandler(BaseHandler):
         templates = _load_templates()
 
         # Group by category
-        by_category: Dict[str, List[Dict[str, Any]]] = {}
+        by_category: dict[str, list[dict[str, Any]]] = {}
         for template in templates.values():
             cat = template.category.value
             if cat not in by_category:
@@ -929,16 +912,13 @@ class MarketplaceHandler(BaseHandler):
             }
         )
 
-
 # =============================================================================
 # Module-level helpers
 # =============================================================================
 
-
 def get_marketplace_handler() -> MarketplaceHandler:
     """Get a MarketplaceHandler instance."""
     return MarketplaceHandler()
-
 
 async def handle_marketplace(request: Any, path: str, method: str) -> HandlerResult:
     """Handle a marketplace request."""

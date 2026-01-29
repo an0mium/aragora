@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.selection_feedback import SelectionFeedbackLoop
@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from aragora.rlm.types import CompressionResult, RLMResult
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AgentRLMStats:
@@ -116,7 +115,6 @@ class AgentRLMStats:
             fidelity_score * 0.3 + confidence_score * 0.3 + sub_call_score * 0.3 + cache_bonus + 0.1
         )
 
-
 @dataclass
 class RLMSelectionBridgeConfig:
     """Configuration for the RLM-selection bridge."""
@@ -139,7 +137,6 @@ class RLMSelectionBridgeConfig:
     # Penalty for low fidelity
     low_fidelity_penalty: float = 0.1
 
-
 @dataclass
 class RLMSelectionBridge:
     """Bridges RLM compression/query metrics into SelectionFeedbackLoop decisions.
@@ -156,8 +153,8 @@ class RLMSelectionBridge:
     config: RLMSelectionBridgeConfig = field(default_factory=RLMSelectionBridgeConfig)
 
     # Internal state
-    _agent_stats: Dict[str, AgentRLMStats] = field(default_factory=dict, repr=False)
-    _rlm_adjustments: Dict[str, float] = field(default_factory=dict, repr=False)
+    _agent_stats: dict[str, AgentRLMStats] = field(default_factory=dict, repr=False)
+    _rlm_adjustments: dict[str, float] = field(default_factory=dict, repr=False)
 
     def record_compression(
         self,
@@ -357,7 +354,7 @@ class RLMSelectionBridge:
         """
         return self._rlm_adjustments.get(agent_name, 0.0)
 
-    def get_all_adjustments(self) -> Dict[str, float]:
+    def get_all_adjustments(self) -> dict[str, float]:
         """Get RLM adjustments for all tracked agents.
 
         Returns:
@@ -365,7 +362,7 @@ class RLMSelectionBridge:
         """
         return dict(self._rlm_adjustments)
 
-    def get_rlm_efficient_agents(self, threshold: float = 0.7) -> List[str]:
+    def get_rlm_efficient_agents(self, threshold: float = 0.7) -> list[str]:
         """Get agents with high RLM efficiency.
 
         Args:
@@ -381,7 +378,7 @@ class RLMSelectionBridge:
             and stats.efficiency_score >= threshold
         ]
 
-    def get_best_agents_for_long_debates(self, top_n: int = 5) -> List[str]:
+    def get_best_agents_for_long_debates(self, top_n: int = 5) -> list[str]:
         """Get agents best suited for long debates requiring RLM.
 
         Args:
@@ -425,7 +422,7 @@ class RLMSelectionBridge:
         logger.info(f"rlm_selection_synced agents_updated={updated}")
         return updated
 
-    def get_agent_stats(self, agent_name: str) -> Optional[AgentRLMStats]:
+    def get_agent_stats(self, agent_name: str) -> AgentRLMStats | None:
         """Get RLM statistics for an agent.
 
         Args:
@@ -436,7 +433,7 @@ class RLMSelectionBridge:
         """
         return self._agent_stats.get(agent_name)
 
-    def get_all_stats(self) -> Dict[str, AgentRLMStats]:
+    def get_all_stats(self) -> dict[str, AgentRLMStats]:
         """Get RLM statistics for all agents.
 
         Returns:
@@ -444,7 +441,7 @@ class RLMSelectionBridge:
         """
         return dict(self._agent_stats)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.
 
         Returns:
@@ -471,7 +468,6 @@ class RLMSelectionBridge:
         self._rlm_adjustments.clear()
         logger.debug("RLMSelectionBridge reset")
 
-
 def create_rlm_selection_bridge(
     rlm_bridge: Optional["RLMBridge"] = None,
     selection_feedback: Optional["SelectionFeedbackLoop"] = None,
@@ -493,7 +489,6 @@ def create_rlm_selection_bridge(
         selection_feedback=selection_feedback,
         config=config,
     )
-
 
 __all__ = [
     "RLMSelectionBridge",

@@ -12,14 +12,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding, AuditSession
     from aragora.knowledge import InMemoryEmbeddingService, InMemoryFactStore
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class KnowledgeAuditConfig:
@@ -40,7 +39,6 @@ class KnowledgeAuditConfig:
     # Workspace isolation
     workspace_id: str = "default"
 
-
 @dataclass
 class EnrichedChunk:
     """Document chunk enriched with knowledge base facts."""
@@ -55,7 +53,6 @@ class EnrichedChunk:
     fact_count: int = 0
     relevance_score: float = 0.0
 
-
 class AuditKnowledgeAdapter:
     """
     Adapts the audit system to use the knowledge pipeline.
@@ -66,11 +63,11 @@ class AuditKnowledgeAdapter:
     3. Query knowledge base for cross-document validation
     """
 
-    def __init__(self, config: Optional[KnowledgeAuditConfig] = None):
+    def __init__(self, config: KnowledgeAuditConfig | None = None):
         self.config = config or KnowledgeAuditConfig()
         self._initialized = False
-        self._fact_store: Optional[InMemoryFactStore] = None
-        self._embedding_service: Optional[InMemoryEmbeddingService] = None
+        self._fact_store: InMemoryFactStore | None = None
+        self._embedding_service: InMemoryEmbeddingService | None = None
 
     async def initialize(self) -> bool:
         """Initialize knowledge pipeline connection."""
@@ -94,7 +91,7 @@ class AuditKnowledgeAdapter:
     async def enrich_chunks(
         self,
         chunks: list[dict[str, Any]],
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[EnrichedChunk]:
         """
         Enrich document chunks with related facts from knowledge base.
@@ -192,7 +189,7 @@ class AuditKnowledgeAdapter:
         self,
         finding: "AuditFinding",
         session: "AuditSession",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store an audit finding as a verified fact.
 
@@ -285,7 +282,7 @@ class AuditKnowledgeAdapter:
     async def query_for_cross_references(
         self,
         finding: "AuditFinding",
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Query knowledge base for cross-references to a finding.
@@ -357,7 +354,7 @@ class AuditKnowledgeAdapter:
     async def validate_finding_with_knowledge(
         self,
         finding: "AuditFinding",
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Validate a finding against the knowledge base.
@@ -420,20 +417,17 @@ class AuditKnowledgeAdapter:
             logger.warning(f"Knowledge validation failed: {e}")
             return {"validated": False, "reason": str(e)}
 
-
 # Global adapter instance
-_adapter: Optional[AuditKnowledgeAdapter] = None
-
+_adapter: AuditKnowledgeAdapter | None = None
 
 def get_audit_knowledge_adapter(
-    config: Optional[KnowledgeAuditConfig] = None,
+    config: KnowledgeAuditConfig | None = None,
 ) -> AuditKnowledgeAdapter:
     """Get or create global audit knowledge adapter."""
     global _adapter
     if _adapter is None:
         _adapter = AuditKnowledgeAdapter(config)
     return _adapter
-
 
 __all__ = [
     "AuditKnowledgeAdapter",

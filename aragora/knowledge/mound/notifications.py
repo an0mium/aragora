@@ -36,11 +36,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class NotificationType(str, Enum):
     """Type of sharing notification."""
@@ -52,7 +51,6 @@ class NotificationType(str, Enum):
     SHARE_EXPIRED = "share_expired"
     FEDERATION_SYNC = "federation_sync"
 
-
 class NotificationChannel(str, Enum):
     """Notification delivery channel."""
 
@@ -61,14 +59,12 @@ class NotificationChannel(str, Enum):
     WEBHOOK = "webhook"
     TELEGRAM = "telegram"
 
-
 class NotificationStatus(str, Enum):
     """Status of an in-app notification."""
 
     UNREAD = "unread"
     READ = "read"
     DISMISSED = "dismissed"
-
 
 @dataclass
 class SharingNotification:
@@ -79,17 +75,17 @@ class SharingNotification:
     notification_type: NotificationType
     title: str
     message: str
-    item_id: Optional[str] = None
-    item_title: Optional[str] = None
-    from_user_id: Optional[str] = None
-    from_user_name: Optional[str] = None
-    workspace_id: Optional[str] = None
+    item_id: str | None = None
+    item_title: str | None = None
+    from_user_id: str | None = None
+    from_user_name: str | None = None
+    workspace_id: str | None = None
     status: NotificationStatus = NotificationStatus.UNREAD
     created_at: datetime = field(default_factory=datetime.now)
-    read_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    read_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -109,7 +105,7 @@ class SharingNotification:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SharingNotification":
+    def from_dict(cls, data: dict[str, Any]) -> "SharingNotification":
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -132,7 +128,6 @@ class SharingNotification:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class NotificationPreferences:
     """User preferences for sharing notifications."""
@@ -143,10 +138,9 @@ class NotificationPreferences:
     email_on_permission_change: bool = True
     in_app_enabled: bool = True
     telegram_enabled: bool = False
-    webhook_url: Optional[str] = None
-    quiet_hours_start: Optional[int] = None  # Hour (0-23)
-    quiet_hours_end: Optional[int] = None
-
+    webhook_url: str | None = None
+    quiet_hours_start: int | None = None  # Hour (0-23)
+    quiet_hours_end: int | None = None
 
 class InAppNotificationStore:
     """
@@ -156,8 +150,8 @@ class InAppNotificationStore:
     """
 
     def __init__(self):
-        self._notifications: Dict[str, List[SharingNotification]] = {}
-        self._preferences: Dict[str, NotificationPreferences] = {}
+        self._notifications: dict[str, list[SharingNotification]] = {}
+        self._preferences: dict[str, NotificationPreferences] = {}
 
     def add_notification(self, notification: SharingNotification) -> None:
         """Add a notification for a user."""
@@ -174,10 +168,10 @@ class InAppNotificationStore:
     def get_notifications(
         self,
         user_id: str,
-        status: Optional[NotificationStatus] = None,
+        status: NotificationStatus | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> List[SharingNotification]:
+    ) -> list[SharingNotification]:
         """Get notifications for a user."""
         notifications = self._notifications.get(user_id, [])
 
@@ -232,10 +226,8 @@ class InAppNotificationStore:
         """Set notification preferences for a user."""
         self._preferences[preferences.user_id] = preferences
 
-
 # Global store instance
-_notification_store: Optional[InAppNotificationStore] = None
-
+_notification_store: InAppNotificationStore | None = None
 
 def get_notification_store() -> InAppNotificationStore:
     """Get the global notification store instance."""
@@ -243,7 +235,6 @@ def get_notification_store() -> InAppNotificationStore:
     if _notification_store is None:
         _notification_store = InAppNotificationStore()
     return _notification_store
-
 
 class SharingNotifier:
     """
@@ -258,7 +249,7 @@ class SharingNotifier:
 
     def __init__(
         self,
-        store: Optional[InAppNotificationStore] = None,
+        store: InAppNotificationStore | None = None,
     ):
         self.store = store or get_notification_store()
 
@@ -269,10 +260,10 @@ class SharingNotifier:
         from_user_id: str,
         from_user_name: str,
         to_user_id: str,
-        to_user_email: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        permissions: Optional[List[str]] = None,
-    ) -> Dict[str, bool]:
+        to_user_email: str | None = None,
+        workspace_id: str | None = None,
+        permissions: Optional[list[str]] = None,
+    ) -> dict[str, bool]:
         """
         Notify a user that an item was shared with them.
 
@@ -348,8 +339,8 @@ class SharingNotifier:
         from_user_id: str,
         from_user_name: str,
         to_user_id: str,
-        to_user_email: Optional[str] = None,
-    ) -> Dict[str, bool]:
+        to_user_email: str | None = None,
+    ) -> dict[str, bool]:
         """Notify a user that an item share was revoked."""
         results = {}
         prefs = self.store.get_preferences(to_user_id)
@@ -390,10 +381,10 @@ class SharingNotifier:
         from_user_id: str,
         from_user_name: str,
         to_user_id: str,
-        to_user_email: Optional[str] = None,
-        old_permissions: Optional[List[str]] = None,
-        new_permissions: Optional[List[str]] = None,
-    ) -> Dict[str, bool]:
+        to_user_email: str | None = None,
+        old_permissions: Optional[list[str]] = None,
+        new_permissions: Optional[list[str]] = None,
+    ) -> dict[str, bool]:
         """Notify a user that their permissions on a shared item changed."""
         results = {}
         prefs = self.store.get_preferences(to_user_id)
@@ -436,10 +427,10 @@ class SharingNotifier:
         item_id: str,
         item_title: str,
         to_user_id: str,
-        to_user_email: Optional[str] = None,
-        expires_at: Optional[datetime] = None,
+        to_user_email: str | None = None,
+        expires_at: datetime | None = None,
         days_remaining: int = 3,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """Notify a user that their share access is expiring soon."""
         results = {}
         prefs = self.store.get_preferences(to_user_id)
@@ -511,7 +502,7 @@ class SharingNotifier:
         self,
         webhook_url: str,
         event: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
     ) -> bool:
         """Send webhook notification."""
         import json
@@ -608,9 +599,7 @@ You can manage notification preferences in your Aragora settings.
 - Aragora Knowledge Mound
 """
 
-
 # Convenience functions
-
 
 async def notify_item_shared(
     item_id: str,
@@ -618,10 +607,10 @@ async def notify_item_shared(
     from_user_id: str,
     from_user_name: str,
     to_user_id: str,
-    to_user_email: Optional[str] = None,
-    workspace_id: Optional[str] = None,
-    permissions: Optional[List[str]] = None,
-) -> Dict[str, bool]:
+    to_user_email: str | None = None,
+    workspace_id: str | None = None,
+    permissions: Optional[list[str]] = None,
+) -> dict[str, bool]:
     """Convenience function to notify about item sharing."""
     notifier = SharingNotifier()
     return await notifier.notify_item_shared(
@@ -635,15 +624,14 @@ async def notify_item_shared(
         permissions=permissions,
     )
 
-
 async def notify_share_revoked(
     item_id: str,
     item_title: str,
     from_user_id: str,
     from_user_name: str,
     to_user_id: str,
-    to_user_email: Optional[str] = None,
-) -> Dict[str, bool]:
+    to_user_email: str | None = None,
+) -> dict[str, bool]:
     """Convenience function to notify about share revocation."""
     notifier = SharingNotifier()
     return await notifier.notify_share_revoked(
@@ -655,47 +643,40 @@ async def notify_share_revoked(
         to_user_email=to_user_email,
     )
 
-
 def get_notifications_for_user(
     user_id: str,
-    status: Optional[NotificationStatus] = None,
+    status: NotificationStatus | None = None,
     limit: int = 20,
     offset: int = 0,
-) -> List[SharingNotification]:
+) -> list[SharingNotification]:
     """Get notifications for a user."""
     store = get_notification_store()
     return store.get_notifications(user_id, status=status, limit=limit, offset=offset)
-
 
 def get_unread_count(user_id: str) -> int:
     """Get count of unread notifications for a user."""
     store = get_notification_store()
     return store.get_unread_count(user_id)
 
-
 def mark_notification_read(notification_id: str, user_id: str) -> bool:
     """Mark a notification as read."""
     store = get_notification_store()
     return store.mark_as_read(notification_id, user_id)
-
 
 def mark_all_notifications_read(user_id: str) -> int:
     """Mark all notifications as read for a user."""
     store = get_notification_store()
     return store.mark_all_as_read(user_id)
 
-
 def get_notification_preferences(user_id: str) -> NotificationPreferences:
     """Get notification preferences for a user."""
     store = get_notification_store()
     return store.get_preferences(user_id)
 
-
 def set_notification_preferences(preferences: NotificationPreferences) -> None:
     """Set notification preferences for a user."""
     store = get_notification_store()
     store.set_preferences(preferences)
-
 
 __all__ = [
     "NotificationType",

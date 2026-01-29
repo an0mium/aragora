@@ -27,7 +27,6 @@ from aragora.server.handlers.base import (
     json_response,
 )
 
-
 if TYPE_CHECKING:
     from aragora.extensions.moltbot import VoiceProcessor
 
@@ -35,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 # Global voice processor instance (lazily initialized)
 _voice_processor: Optional["VoiceProcessor"] = None
-
 
 def get_voice_processor() -> "VoiceProcessor":
     """Get or create the voice processor instance."""
@@ -45,7 +43,6 @@ def get_voice_processor() -> "VoiceProcessor":
 
         _voice_processor = VoiceProcessor()
     return _voice_processor
-
 
 class MoltbotVoiceHandler(BaseHandler):
     """HTTP handler for Moltbot voice operations."""
@@ -65,7 +62,7 @@ class MoltbotVoiceHandler(BaseHandler):
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/moltbot/voice/sessions":
             return await self._handle_list_sessions(query_params, handler)
@@ -83,7 +80,7 @@ class MoltbotVoiceHandler(BaseHandler):
 
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/moltbot/voice/sessions":
             return await self._handle_create_session(handler)
@@ -106,7 +103,7 @@ class MoltbotVoiceHandler(BaseHandler):
 
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         if path.startswith("/api/v1/moltbot/voice/sessions/"):
             parts = path.split("/")

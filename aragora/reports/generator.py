@@ -18,13 +18,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding, AuditSession
 
 logger = logging.getLogger(__name__)
-
 
 class ReportFormat(str, Enum):
     """Supported report output formats."""
@@ -34,7 +33,6 @@ class ReportFormat(str, Enum):
     JSON = "json"
     HTML = "html"
 
-
 class ReportTemplate(str, Enum):
     """Report template styles."""
 
@@ -42,7 +40,6 @@ class ReportTemplate(str, Enum):
     DETAILED_FINDINGS = "detailed_findings"
     COMPLIANCE_ATTESTATION = "compliance_attestation"
     SECURITY_ASSESSMENT = "security_assessment"
-
 
 @dataclass
 class ReportConfig:
@@ -66,12 +63,11 @@ class ReportConfig:
 
     # Branding
     company_name: str = "Aragora"
-    logo_path: Optional[str] = None
+    logo_path: str | None = None
 
     # Metadata
     author: str = ""
     reviewer: str = ""
-
 
 @dataclass
 class ReportSection:
@@ -81,7 +77,6 @@ class ReportSection:
     content: str
     order: int = 0
     subsections: list["ReportSection"] = field(default_factory=list)
-
 
 @dataclass
 class GeneratedReport:
@@ -98,13 +93,12 @@ class GeneratedReport:
     findings_count: int = 0
     pages: int = 0
 
-    def save(self, path: Optional[Path] = None) -> Path:
+    def save(self, path: Path | None = None) -> Path:
         """Save report to file."""
         if path is None:
             path = Path(self.filename)
         path.write_bytes(self.content)
         return path
-
 
 class AuditReportGenerator:
     """
@@ -113,7 +107,7 @@ class AuditReportGenerator:
     Supports multiple templates and output formats.
     """
 
-    def __init__(self, config: Optional[ReportConfig] = None):
+    def __init__(self, config: ReportConfig | None = None):
         self.config = config or ReportConfig()
 
     async def generate(
@@ -711,7 +705,6 @@ Total Security Findings: {len(sec_findings)}
             logger.warning("weasyprint not installed, returning HTML for PDF request")
             logger.info("Install weasyprint for proper PDF: pip install weasyprint")
             return self._render_html(sections, session, findings)
-
 
 __all__ = [
     "AuditReportGenerator",

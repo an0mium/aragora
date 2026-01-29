@@ -41,15 +41,13 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Types and Enums
 # =============================================================================
-
 
 class DrillType(Enum):
     """Types of DR drills."""
@@ -61,7 +59,6 @@ class DrillType(Enum):
     NETWORK_FAILOVER = "network_failover"  # Quarterly
     MANUAL = "manual"  # Ad-hoc
 
-
 class DrillStatus(Enum):
     """Status of a DR drill."""
 
@@ -71,7 +68,6 @@ class DrillStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     PARTIAL = "partial"  # Some tests passed, some failed
-
 
 class ComponentType(Enum):
     """Types of components that can be tested."""
@@ -86,7 +82,6 @@ class ComponentType(Enum):
     SEARCH = "search"
     FULL_SYSTEM = "full_system"
 
-
 @dataclass
 class DrillStep:
     """A step in a DR drill."""
@@ -96,12 +91,11 @@ class DrillStep:
     component: ComponentType
     action: str  # backup, restore, failover, verify
     status: DrillStatus = DrillStatus.SCHEDULED
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     duration_seconds: float = 0.0
-    error_message: Optional[str] = None
-    metrics: Dict[str, Any] = field(default_factory=dict)
-
+    error_message: str | None = None
+    metrics: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class DRDrillResult:
@@ -111,15 +105,15 @@ class DRDrillResult:
     drill_type: DrillType
     status: DrillStatus = DrillStatus.SCHEDULED
     scheduled_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     initiated_by: str = "system"
-    steps: List[DrillStep] = field(default_factory=list)
+    steps: list[DrillStep] = field(default_factory=list)
 
     # Metrics
     total_duration_seconds: float = 0.0
-    rto_seconds: Optional[float] = None  # Recovery Time Objective achieved
-    rpo_seconds: Optional[float] = None  # Recovery Point Objective achieved
+    rto_seconds: float | None = None  # Recovery Time Objective achieved
+    rpo_seconds: float | None = None  # Recovery Point Objective achieved
     data_loss_bytes: int = 0
     success_rate: float = 0.0
 
@@ -133,9 +127,9 @@ class DRDrillResult:
     is_compliant: bool = False
 
     notes: str = ""
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "drill_id": self.drill_id,
@@ -161,11 +155,9 @@ class DRDrillResult:
             "recommendations": self.recommendations,
         }
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
-
 
 @dataclass
 class DRDrillConfig:
@@ -173,7 +165,7 @@ class DRDrillConfig:
 
     # Schedule (day of month/quarter)
     monthly_drill_day: int = 15  # 15th of each month
-    quarterly_drill_months: List[int] = field(default_factory=lambda: [3, 6, 9, 12])
+    quarterly_drill_months: list[int] = field(default_factory=lambda: [3, 6, 9, 12])
     annual_drill_month: int = 1  # January
 
     # Targets
@@ -181,25 +173,23 @@ class DRDrillConfig:
     target_rpo_seconds: float = 300.0  # 5 minutes
 
     # Notification
-    notification_email: Optional[str] = None
-    slack_webhook: Optional[str] = None
+    notification_email: str | None = None
+    slack_webhook: str | None = None
 
     # Storage
-    storage_path: Optional[str] = None
+    storage_path: str | None = None
 
     # Execution
     dry_run: bool = False  # If True, simulate drills without actual operations
-
 
 # =============================================================================
 # Storage Layer
 # =============================================================================
 
-
 class DRDrillStorage:
     """SQLite-backed storage for DR drills."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize storage."""
         self._db_path = db_path or ":memory:"
         self._local = threading.local()
@@ -346,7 +336,7 @@ class DRDrillStorage:
 
         conn.commit()
 
-    def get_drill(self, drill_id: str) -> Optional[DRDrillResult]:
+    def get_drill(self, drill_id: str) -> DRDrillResult | None:
         """Get a drill by ID."""
         import json
 
@@ -412,13 +402,13 @@ class DRDrillStorage:
         )
 
     def get_recent_drills(
-        self, limit: int = 10, drill_type: Optional[DrillType] = None
-    ) -> List[DRDrillResult]:
+        self, limit: int = 10, drill_type: DrillType | None = None
+    ) -> list[DRDrillResult]:
         """Get recent drills."""
         conn = self._get_conn()
 
         query = "SELECT drill_id FROM dr_drills"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if drill_type:
             query += " WHERE drill_type = ?"
@@ -461,14 +451,14 @@ class DRDrillStorage:
         conn.commit()
 
     def get_rto_rpo_trend(
-        self, drill_type: Optional[DrillType] = None, months: int = 12
-    ) -> List[Dict[str, Any]]:
+        self, drill_type: DrillType | None = None, months: int = 12
+    ) -> list[dict[str, Any]]:
         """Get RTO/RPO trend data."""
         conn = self._get_conn()
         cutoff = (datetime.now(timezone.utc) - timedelta(days=months * 30)).isoformat()
 
         query = "SELECT * FROM rto_rpo_history WHERE timestamp > ?"
-        params: List[Any] = [cutoff]
+        params: list[Any] = [cutoff]
 
         if drill_type:
             query += " AND drill_type = ?"
@@ -511,7 +501,7 @@ class DRDrillStorage:
         )
         conn.commit()
 
-    def get_due_schedules(self) -> List[Dict[str, Any]]:
+    def get_due_schedules(self) -> list[dict[str, Any]]:
         """Get schedules that are due to run."""
         conn = self._get_conn()
         now = datetime.now(timezone.utc).isoformat()
@@ -549,16 +539,14 @@ class DRDrillStorage:
         )
         conn.commit()
 
-
 # =============================================================================
 # DR Drill Scheduler
 # =============================================================================
 
-
 class DRDrillScheduler:
     """Main DR drill scheduler and executor."""
 
-    def __init__(self, config: Optional[DRDrillConfig] = None):
+    def __init__(self, config: DRDrillConfig | None = None):
         """Initialize scheduler.
 
         Args:
@@ -567,12 +555,12 @@ class DRDrillScheduler:
         self.config = config or DRDrillConfig()
         self._storage = DRDrillStorage(self.config.storage_path)
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
         # Component test handlers
-        self._test_handlers: Dict[ComponentType, Callable[[], Dict[str, Any]]] = {}
-        self._restore_handlers: Dict[ComponentType, Callable[[], Dict[str, Any]]] = {}
-        self._notification_handlers: List[Callable[[Dict[str, Any]], None]] = []
+        self._test_handlers: dict[ComponentType, Callable[[], dict[str, Any]]] = {}
+        self._restore_handlers: dict[ComponentType, Callable[[], dict[str, Any]]] = {}
+        self._notification_handlers: list[Callable[[dict[str, Any]], None]] = []
 
     # =========================================================================
     # Lifecycle
@@ -657,7 +645,7 @@ class DRDrillScheduler:
                 logger.error(f"Error in DR drill scheduler: {e}")
                 await asyncio.sleep(300)
 
-    async def _execute_scheduled_drill(self, schedule: Dict[str, Any]) -> None:
+    async def _execute_scheduled_drill(self, schedule: dict[str, Any]) -> None:
         """Execute a scheduled drill."""
         drill_type = DrillType(schedule["drill_type"])
         logger.info(f"Executing scheduled DR drill: {drill_type.value}")
@@ -691,7 +679,7 @@ class DRDrillScheduler:
     async def execute_drill(
         self,
         drill_type: DrillType,
-        components: Optional[List[ComponentType]] = None,
+        components: Optional[list[ComponentType]] = None,
         initiated_by: str = "system",
     ) -> DRDrillResult:
         """Execute a DR drill.
@@ -810,8 +798,8 @@ class DRDrillScheduler:
         return drill
 
     def _plan_drill_steps(
-        self, drill_type: DrillType, components: Optional[List[ComponentType]]
-    ) -> List[DrillStep]:
+        self, drill_type: DrillType, components: Optional[list[ComponentType]]
+    ) -> list[DrillStep]:
         """Plan steps for a drill."""
         steps = []
 
@@ -900,7 +888,7 @@ class DRDrillScheduler:
 
         return steps
 
-    async def _execute_step(self, step: DrillStep) -> Dict[str, Any]:
+    async def _execute_step(self, step: DrillStep) -> dict[str, Any]:
         """Execute a drill step."""
         # Look for registered handler
         if step.action in ["restore", "failover"]:
@@ -918,7 +906,7 @@ class DRDrillScheduler:
         # Default: simulate if no handler
         return await self._simulate_step(step)
 
-    async def _simulate_step(self, step: DrillStep) -> Dict[str, Any]:
+    async def _simulate_step(self, step: DrillStep) -> dict[str, Any]:
         """Simulate a drill step (for testing/dry-run)."""
         # Simulate some execution time
         await asyncio.sleep(0.1)
@@ -933,7 +921,7 @@ class DRDrillScheduler:
             },
         }
 
-    def _calculate_rpo(self, steps: List[DrillStep]) -> float:
+    def _calculate_rpo(self, steps: list[DrillStep]) -> float:
         """Calculate RPO from step metrics."""
         # Look for backup age or data lag metrics
         for step in steps:
@@ -946,8 +934,8 @@ class DRDrillScheduler:
         return 300.0  # 5 minutes default
 
     def _generate_recommendations(
-        self, drill: DRDrillResult, failed_steps: List[DrillStep]
-    ) -> List[str]:
+        self, drill: DRDrillResult, failed_steps: list[DrillStep]
+    ) -> list[str]:
         """Generate recommendations based on drill results."""
         recommendations = []
 
@@ -1011,18 +999,18 @@ class DRDrillScheduler:
     # =========================================================================
 
     def register_test_handler(
-        self, component: ComponentType, handler: Callable[[], Dict[str, Any]]
+        self, component: ComponentType, handler: Callable[[], dict[str, Any]]
     ) -> None:
         """Register a test handler for a component."""
         self._test_handlers[component] = handler
 
     def register_restore_handler(
-        self, component: ComponentType, handler: Callable[[], Dict[str, Any]]
+        self, component: ComponentType, handler: Callable[[], dict[str, Any]]
     ) -> None:
         """Register a restore handler for a component."""
         self._restore_handlers[component] = handler
 
-    def register_notification_handler(self, handler: Callable[[Dict[str, Any]], None]) -> None:
+    def register_notification_handler(self, handler: Callable[[dict[str, Any]], None]) -> None:
         """Register a notification handler."""
         self._notification_handlers.append(handler)
 
@@ -1030,23 +1018,23 @@ class DRDrillScheduler:
     # Queries
     # =========================================================================
 
-    def get_drill(self, drill_id: str) -> Optional[DRDrillResult]:
+    def get_drill(self, drill_id: str) -> DRDrillResult | None:
         """Get a drill by ID."""
         return self._storage.get_drill(drill_id)
 
     def get_recent_drills(
-        self, limit: int = 10, drill_type: Optional[DrillType] = None
-    ) -> List[DRDrillResult]:
+        self, limit: int = 10, drill_type: DrillType | None = None
+    ) -> list[DRDrillResult]:
         """Get recent drills."""
         return self._storage.get_recent_drills(limit, drill_type)
 
     def get_rto_rpo_trend(
-        self, drill_type: Optional[DrillType] = None, months: int = 12
-    ) -> List[Dict[str, Any]]:
+        self, drill_type: DrillType | None = None, months: int = 12
+    ) -> list[dict[str, Any]]:
         """Get RTO/RPO trend data for compliance reporting."""
         return self._storage.get_rto_rpo_trend(drill_type, months)
 
-    def get_compliance_report(self) -> Dict[str, Any]:
+    def get_compliance_report(self) -> dict[str, Any]:
         """Generate a compliance report."""
         recent = self.get_recent_drills(limit=20)
         trend = self.get_rto_rpo_trend(months=12)
@@ -1071,17 +1059,15 @@ class DRDrillScheduler:
             "last_drill": recent[0].to_dict() if recent else None,
         }
 
-
 # =============================================================================
 # Global Instance
 # =============================================================================
 
-_scheduler: Optional[DRDrillScheduler] = None
+_scheduler: DRDrillScheduler | None = None
 _scheduler_lock = threading.Lock()
 
-
 def get_dr_drill_scheduler(
-    config: Optional[DRDrillConfig] = None,
+    config: DRDrillConfig | None = None,
 ) -> DRDrillScheduler:
     """Get or create the global DR drill scheduler."""
     global _scheduler
@@ -1090,17 +1076,15 @@ def get_dr_drill_scheduler(
             _scheduler = DRDrillScheduler(config)
         return _scheduler
 
-
 async def schedule_dr_drill(
     drill_type: DrillType = DrillType.BACKUP_RESTORATION,
-    components: Optional[List[ComponentType]] = None,
+    components: Optional[list[ComponentType]] = None,
 ) -> DRDrillResult:
     """Convenience function to schedule a DR drill."""
     return await get_dr_drill_scheduler().execute_drill(
         drill_type=drill_type,
         components=components,
     )
-
 
 __all__ = [
     # Types

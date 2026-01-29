@@ -20,7 +20,7 @@ Security:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 
@@ -63,7 +63,6 @@ except ImportError:
     PodcastConfig: type[PodcastConfigType] | None = None  # type: ignore[name-defined,misc,no-redef]
     PodcastEpisode: type[PodcastEpisodeType] | None = None  # type: ignore[name-defined,misc,no-redef]
 
-
 class AudioHandler(BaseHandler):
     """Handler for audio file serving and podcast endpoints.
 
@@ -87,7 +86,7 @@ class AudioHandler(BaseHandler):
             return True
         return False
 
-    def _check_debate_access(self, debate_id: str, handler: Any) -> Optional[HandlerResult]:
+    def _check_debate_access(self, debate_id: str, handler: Any) -> HandlerResult | None:
         """Check if user has access to the debate's audio.
 
         For public debates, access is granted.
@@ -143,7 +142,7 @@ class AudioHandler(BaseHandler):
             logger.warning(f"Auth check failed for audio access: {e}")
             return error_response("Authentication required for private debate", 401)
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Handle GET requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)

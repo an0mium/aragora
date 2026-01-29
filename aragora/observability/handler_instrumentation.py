@@ -27,12 +27,11 @@ import logging
 import time
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Dict, Iterator, Optional, TypeVar
+from typing import Any, Callable, Iterator, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
-
 
 # Endpoint categorization for metric labels
 ENDPOINT_CATEGORIES = {
@@ -49,7 +48,6 @@ ENDPOINT_CATEGORIES = {
     "/api/workflows": "workflows",
 }
 
-
 def _categorize_endpoint(path: str) -> str:
     """Categorize an endpoint path for metric labels."""
     for prefix, category in ENDPOINT_CATEGORIES.items():
@@ -61,7 +59,6 @@ def _categorize_endpoint(path: str) -> str:
     if len(parts) >= 2:
         return f"{parts[0]}.{parts[1]}"
     return "other"
-
 
 def _safe_record_request(
     method: str,
@@ -79,8 +76,7 @@ def _safe_record_request(
     except Exception as e:
         logger.debug(f"Failed to record request metrics: {e}")
 
-
-def _safe_start_span(name: str, attributes: Optional[Dict[str, Any]] = None) -> Any:
+def _safe_start_span(name: str, attributes: Optional[dict[str, Any]] = None) -> Any:
     """Safely start a tracing span."""
     try:
         from aragora.observability.tracing import get_tracer
@@ -96,7 +92,6 @@ def _safe_start_span(name: str, attributes: Optional[Dict[str, Any]] = None) -> 
         logger.debug(f"Failed to start span: {e}")
         return _NoOpContextManager()
 
-
 class _NoOpContextManager:
     """No-op context manager for when observability is disabled."""
 
@@ -109,12 +104,11 @@ class _NoOpContextManager:
     def set_attribute(self, key: str, value: Any) -> None:
         pass
 
-    def set_attributes(self, attributes: Dict[str, Any]) -> None:
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
         pass
 
     def record_exception(self, exc: BaseException) -> None:
         pass
-
 
 @contextmanager
 def track_request(
@@ -122,7 +116,7 @@ def track_request(
     path: str,
     *,
     include_tracing: bool = True,
-) -> Iterator[Dict[str, Any]]:
+) -> Iterator[dict[str, Any]]:
     """Context manager for tracking request metrics and tracing.
 
     Args:
@@ -139,7 +133,7 @@ def track_request(
             ctx["status"] = 200
     """
     category = _categorize_endpoint(path)
-    context: Dict[str, Any] = {"status": 200, "error": None}
+    context: dict[str, Any] = {"status": 200, "error": None}
     start_time = time.perf_counter()
 
     span = None
@@ -165,7 +159,6 @@ def track_request(
 
         if span and hasattr(span, "__exit__"):
             span.__exit__(None, None, None)
-
 
 def instrument_handler(
     name: str,
@@ -257,7 +250,6 @@ def instrument_handler(
 
     return decorator
 
-
 class MetricsMiddleware:
     """Middleware for automatic handler instrumentation.
 
@@ -282,7 +274,7 @@ class MetricsMiddleware:
         *,
         enabled: bool = True,
         include_tracing: bool = True,
-        exclude_paths: Optional[list[str]] = None,
+        exclude_paths: list[str] | None = None,
     ):
         """Initialize middleware.
 
@@ -367,12 +359,11 @@ class MetricsMiddleware:
             if span and hasattr(span, "__exit__"):
                 span.__exit__(None, None, None)
 
-
 # Control Plane specific metrics recording functions
 def record_control_plane_operation(
     operation: str,
     status: str,
-    latency: Optional[float] = None,
+    latency: float | None = None,
 ) -> None:
     """Record a control plane operation metric.
 
@@ -398,11 +389,10 @@ def record_control_plane_operation(
     except Exception as e:
         logger.debug(f"Failed to record control plane operation: {e}")
 
-
 def record_agent_registration(
     agent_id: str,
     success: bool,
-    latency: Optional[float] = None,
+    latency: float | None = None,
 ) -> None:
     """Record agent registration metric."""
     record_control_plane_operation(
@@ -411,11 +401,10 @@ def record_agent_registration(
         latency,
     )
 
-
 def record_task_submission(
     task_type: str,
     success: bool,
-    latency: Optional[float] = None,
+    latency: float | None = None,
 ) -> None:
     """Record task submission metric."""
     record_control_plane_operation(
@@ -423,7 +412,6 @@ def record_task_submission(
         "success" if success else "failure",
         latency,
     )
-
 
 def record_deliberation_start(
     request_id: str,
@@ -434,7 +422,6 @@ def record_deliberation_start(
         "deliberation_start",
         "started",
     )
-
 
 def record_deliberation_complete(
     request_id: str,
@@ -459,7 +446,6 @@ def record_deliberation_complete(
         record_control_plane_operation("deliberation_sla", "compliant")
     else:
         record_control_plane_operation("deliberation_sla", "violated")
-
 
 __all__ = [
     # Decorators

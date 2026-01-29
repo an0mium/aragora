@@ -125,10 +125,8 @@ INSIGHT_INDEX_MIGRATION = """
 INSIGHT_COLUMNS = """id, type, title, description, confidence,
     debate_id, agents_involved, evidence, created_at, metadata"""
 
-
 # Import from centralized location (defined here for backwards compatibility)
 from aragora.utils.sql_helpers import _escape_like_pattern
-
 
 class InsightStore(SQLiteStore):
     """
@@ -328,14 +326,14 @@ class InsightStore(SQLiteStore):
         """
         return await asyncio.to_thread(self._sync_store_debate_insights, insights)
 
-    def _sync_get_insight(self, insight_id: str) -> Optional[tuple]:
+    def _sync_get_insight(self, insight_id: str) -> tuple | None:
         """Sync helper: Retrieve insight row by ID."""
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f"SELECT {INSIGHT_COLUMNS} FROM insights WHERE id = ?", (insight_id,))
             return cursor.fetchone()
 
-    async def get_insight(self, insight_id: str) -> Optional[Insight]:
+    async def get_insight(self, insight_id: str) -> Insight | None:
         """Retrieve a specific insight by ID."""
         row = await asyncio.to_thread(self._sync_get_insight, insight_id)
         if not row:
@@ -345,8 +343,8 @@ class InsightStore(SQLiteStore):
     def _sync_search(
         self,
         query: str,
-        insight_type: Optional[InsightType],
-        agent: Optional[str],
+        insight_type: InsightType | None,
+        agent: str | None,
         limit: int,
     ) -> list[tuple]:
         """Sync helper: Search insights."""
@@ -379,8 +377,8 @@ class InsightStore(SQLiteStore):
     async def search(
         self,
         query: str = "",
-        insight_type: Optional[InsightType] = None,
-        agent: Optional[str] = None,
+        insight_type: InsightType | None = None,
+        agent: str | None = None,
         limit: int = 20,
     ) -> list[Insight]:
         """
@@ -399,7 +397,7 @@ class InsightStore(SQLiteStore):
         return [self._row_to_insight(row) for row in rows]
 
     def _sync_get_common_patterns(
-        self, min_occurrences: int, category: Optional[str], limit: int
+        self, min_occurrences: int, category: str | None, limit: int
     ) -> list[tuple]:
         """Sync helper: Get common patterns."""
         with self.connection() as conn:
@@ -425,7 +423,7 @@ class InsightStore(SQLiteStore):
     async def get_common_patterns(
         self,
         min_occurrences: int = 2,
-        category: Optional[str] = None,
+        category: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
         """
@@ -448,7 +446,7 @@ class InsightStore(SQLiteStore):
             for row in rows
         ]
 
-    def _sync_get_agent_stats(self, agent_name: str) -> Optional[tuple]:
+    def _sync_get_agent_stats(self, agent_name: str) -> tuple | None:
         """Sync helper: Get agent stats."""
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -733,7 +731,7 @@ class InsightStore(SQLiteStore):
 
     def _sync_get_relevant_insights(
         self,
-        domain: Optional[str],
+        domain: str | None,
         min_confidence: float,
         limit: int,
     ) -> list[tuple]:
@@ -771,7 +769,7 @@ class InsightStore(SQLiteStore):
 
     async def get_relevant_insights(
         self,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         min_confidence: float = 0.7,
         limit: int = 5,
     ) -> list[Insight]:

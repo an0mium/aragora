@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
-
 
 @dataclass
 class Permission:
@@ -18,8 +17,7 @@ class Permission:
     description: str
     resource: str
     action: str
-    conditions: Optional[dict[str, Any]] = None
-
+    conditions: dict[str, Any] | None = None
 
 @dataclass
 class Role:
@@ -31,10 +29,9 @@ class Role:
     permissions: list[str]
     is_system: bool = False
     inherits_from: list[str] = field(default_factory=list)
-    tenant_id: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
+    tenant_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 @dataclass
 class RoleAssignment:
@@ -44,10 +41,9 @@ class RoleAssignment:
     user_id: str
     role_id: str
     role_name: str
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
     assigned_at: str = ""
-    assigned_by: Optional[str] = None
-
+    assigned_by: str | None = None
 
 @dataclass
 class PermissionCheck:
@@ -55,9 +51,8 @@ class PermissionCheck:
 
     allowed: bool
     permission: str
-    resource: Optional[str] = None
-    reason: Optional[str] = None
-
+    resource: str | None = None
+    reason: str | None = None
 
 class RBACAPI:
     """API interface for Role-Based Access Control (RBAC)."""
@@ -70,7 +65,7 @@ class RBACAPI:
     # -------------------------------------------------------------------------
 
     def list_roles(
-        self, tenant_id: Optional[str] = None, limit: int = 50, offset: int = 0
+        self, tenant_id: str | None = None, limit: int = 50, offset: int = 0
     ) -> tuple[list[Role], int]:
         """
         List all roles.
@@ -91,7 +86,7 @@ class RBACAPI:
         return roles, response.get("total", len(roles))
 
     async def list_roles_async(
-        self, tenant_id: Optional[str] = None, limit: int = 50, offset: int = 0
+        self, tenant_id: str | None = None, limit: int = 50, offset: int = 0
     ) -> tuple[list[Role], int]:
         """Async version of list_roles()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
@@ -124,8 +119,8 @@ class RBACAPI:
         name: str,
         description: str,
         permissions: list[str],
-        inherits_from: Optional[list[str]] = None,
-        tenant_id: Optional[str] = None,
+        inherits_from: list[str] | None = None,
+        tenant_id: str | None = None,
     ) -> Role:
         """
         Create a new role.
@@ -157,8 +152,8 @@ class RBACAPI:
         name: str,
         description: str,
         permissions: list[str],
-        inherits_from: Optional[list[str]] = None,
-        tenant_id: Optional[str] = None,
+        inherits_from: list[str] | None = None,
+        tenant_id: str | None = None,
     ) -> Role:
         """Async version of create_role()."""
         body: dict[str, Any] = {
@@ -176,10 +171,10 @@ class RBACAPI:
     def update_role(
         self,
         role_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        permissions: Optional[list[str]] = None,
-        inherits_from: Optional[list[str]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        permissions: list[str] | None = None,
+        inherits_from: list[str] | None = None,
     ) -> Role:
         """
         Update a role.
@@ -209,10 +204,10 @@ class RBACAPI:
     async def update_role_async(
         self,
         role_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        permissions: Optional[list[str]] = None,
-        inherits_from: Optional[list[str]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        permissions: list[str] | None = None,
+        inherits_from: list[str] | None = None,
     ) -> Role:
         """Async version of update_role()."""
         body: dict[str, Any] = {}
@@ -262,9 +257,9 @@ class RBACAPI:
     def check_permission(
         self,
         permission: str,
-        user_id: Optional[str] = None,
-        resource: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        user_id: str | None = None,
+        resource: str | None = None,
+        resource_id: str | None = None,
     ) -> PermissionCheck:
         """
         Check if a user has a specific permission.
@@ -291,9 +286,9 @@ class RBACAPI:
     async def check_permission_async(
         self,
         permission: str,
-        user_id: Optional[str] = None,
-        resource: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        user_id: str | None = None,
+        resource: str | None = None,
+        resource_id: str | None = None,
     ) -> PermissionCheck:
         """Async version of check_permission()."""
         body: dict[str, Any] = {"permission": permission}
@@ -312,9 +307,9 @@ class RBACAPI:
 
     def list_assignments(
         self,
-        user_id: Optional[str] = None,
-        role_id: Optional[str] = None,
-        tenant_id: Optional[str] = None,
+        user_id: str | None = None,
+        role_id: str | None = None,
+        tenant_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[RoleAssignment], int]:
@@ -344,9 +339,9 @@ class RBACAPI:
 
     async def list_assignments_async(
         self,
-        user_id: Optional[str] = None,
-        role_id: Optional[str] = None,
-        tenant_id: Optional[str] = None,
+        user_id: str | None = None,
+        role_id: str | None = None,
+        tenant_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[RoleAssignment], int]:
@@ -363,7 +358,7 @@ class RBACAPI:
         return assignments, response.get("total", len(assignments))
 
     def assign_role(
-        self, user_id: str, role_id: str, tenant_id: Optional[str] = None
+        self, user_id: str, role_id: str, tenant_id: str | None = None
     ) -> RoleAssignment:
         """
         Assign a role to a user.
@@ -383,7 +378,7 @@ class RBACAPI:
         return RoleAssignment(**response)
 
     async def assign_role_async(
-        self, user_id: str, role_id: str, tenant_id: Optional[str] = None
+        self, user_id: str, role_id: str, tenant_id: str | None = None
     ) -> RoleAssignment:
         """Async version of assign_role()."""
         body: dict[str, Any] = {"user_id": user_id, "role_id": role_id}
@@ -392,7 +387,7 @@ class RBACAPI:
         response = await self._client._post_async("/api/v1/rbac/assignments", data=body)
         return RoleAssignment(**response)
 
-    def revoke_role(self, user_id: str, role_id: str, tenant_id: Optional[str] = None) -> None:
+    def revoke_role(self, user_id: str, role_id: str, tenant_id: str | None = None) -> None:
         """
         Revoke a role from a user.
 
@@ -407,7 +402,7 @@ class RBACAPI:
         self._client._post("/api/v1/rbac/revoke", data=body)
 
     async def revoke_role_async(
-        self, user_id: str, role_id: str, tenant_id: Optional[str] = None
+        self, user_id: str, role_id: str, tenant_id: str | None = None
     ) -> None:
         """Async version of revoke_role()."""
         body: dict[str, Any] = {"user_id": user_id, "role_id": role_id}
@@ -440,7 +435,7 @@ class RBACAPI:
     # -------------------------------------------------------------------------
 
     def get_user_permissions(
-        self, user_id: Optional[str] = None, tenant_id: Optional[str] = None
+        self, user_id: str | None = None, tenant_id: str | None = None
     ) -> list[str]:
         """
         Get all effective permissions for a user.
@@ -461,7 +456,7 @@ class RBACAPI:
         return response.get("permissions", [])
 
     async def get_user_permissions_async(
-        self, user_id: Optional[str] = None, tenant_id: Optional[str] = None
+        self, user_id: str | None = None, tenant_id: str | None = None
     ) -> list[str]:
         """Async version of get_user_permissions()."""
         params: dict[str, Any] = {}
@@ -473,7 +468,7 @@ class RBACAPI:
         return response.get("permissions", [])
 
     def get_user_roles(
-        self, user_id: Optional[str] = None, tenant_id: Optional[str] = None
+        self, user_id: str | None = None, tenant_id: str | None = None
     ) -> list[Role]:
         """
         Get all roles assigned to a user.
@@ -494,7 +489,7 @@ class RBACAPI:
         return [Role(**r) for r in response.get("roles", [])]
 
     async def get_user_roles_async(
-        self, user_id: Optional[str] = None, tenant_id: Optional[str] = None
+        self, user_id: str | None = None, tenant_id: str | None = None
     ) -> list[Role]:
         """Async version of get_user_roles()."""
         params: dict[str, Any] = {}

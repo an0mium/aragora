@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -28,7 +28,6 @@ from aragora.connectors.enterprise.base import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # HL7 v2 Constants
@@ -42,7 +41,6 @@ DEFAULT_ENCODING_CHARS = "^~\\&"  # Component, Repetition, Escape, Subcomponent
 MLLP_START_BLOCK = b"\x0b"  # VT (vertical tab)
 MLLP_END_BLOCK = b"\x1c"  # FS (file separator)
 MLLP_CARRIAGE_RETURN = b"\x0d"  # CR
-
 
 class HL7MessageType(str, Enum):
     """HL7 v2 message types."""
@@ -80,7 +78,6 @@ class HL7MessageType(str, Enum):
     # Master Files
     MFN = "MFN"  # Master files notification
 
-
 class HL7SegmentType(str, Enum):
     """HL7 v2 segment types."""
 
@@ -104,19 +101,17 @@ class HL7SegmentType(str, Enum):
     AIL = "AIL"  # Appointment Information - Location
     AIP = "AIP"  # Appointment Information - Personnel
 
-
 # =============================================================================
 # HL7 v2 Data Structures
 # =============================================================================
-
 
 @dataclass
 class HL7Field:
     """Represents a single HL7 field with components and subcomponents."""
 
     value: str
-    components: List[str] = field(default_factory=list)
-    repetitions: List["HL7Field"] = field(default_factory=list)
+    components: list[str] = field(default_factory=list)
+    repetitions: list["HL7Field"] = field(default_factory=list)
 
     @classmethod
     def parse(
@@ -150,13 +145,12 @@ class HL7Field:
     def __str__(self) -> str:
         return self.value
 
-
 @dataclass
 class HL7Segment:
     """Represents an HL7 segment with fields."""
 
     segment_type: str
-    fields: List[HL7Field] = field(default_factory=list)
+    fields: list[HL7Field] = field(default_factory=list)
     raw: str = ""
 
     @classmethod
@@ -194,7 +188,7 @@ class HL7Segment:
 
         return cls(segment_type=segment_type, fields=fields, raw=raw)
 
-    def get_field(self, index: int) -> Optional[HL7Field]:
+    def get_field(self, index: int) -> HL7Field | None:
         """Get field by index (1-based)."""
         if 0 < index <= len(self.fields):
             return self.fields[index - 1]
@@ -212,7 +206,6 @@ class HL7Segment:
             return f.get_component(component_index, default)
         return default
 
-
 @dataclass
 class MSHSegment:
     """Message Header segment."""
@@ -223,7 +216,7 @@ class MSHSegment:
     sending_facility: str = ""
     receiving_application: str = ""
     receiving_facility: str = ""
-    message_datetime: Optional[datetime] = None
+    message_datetime: datetime | None = None
     security: str = ""
     message_type: str = ""
     message_control_id: str = ""
@@ -263,18 +256,17 @@ class MSHSegment:
             version_id=segment.get_field_value(12),
         )
 
-
 @dataclass
 class PIDSegment:
     """Patient Identification segment."""
 
     set_id: str = ""
     patient_id: str = ""  # PID-2 (deprecated)
-    patient_identifier_list: List[str] = field(default_factory=list)  # PID-3
+    patient_identifier_list: list[str] = field(default_factory=list)  # PID-3
     alternate_patient_id: str = ""  # PID-4
     patient_name: str = ""  # PID-5
     mothers_maiden_name: str = ""  # PID-6
-    date_of_birth: Optional[datetime] = None  # PID-7
+    date_of_birth: datetime | None = None  # PID-7
     administrative_sex: str = ""  # PID-8
     patient_alias: str = ""  # PID-9
     race: str = ""  # PID-10
@@ -331,7 +323,6 @@ class PIDSegment:
             ssn=segment.get_field_value(19),
         )
 
-
 @dataclass
 class PV1Segment:
     """Patient Visit segment."""
@@ -346,8 +337,8 @@ class PV1Segment:
     referring_doctor: str = ""  # PV1-8
     consulting_doctor: str = ""  # PV1-9
     hospital_service: str = ""  # PV1-10
-    admit_datetime: Optional[datetime] = None  # PV1-44
-    discharge_datetime: Optional[datetime] = None  # PV1-45
+    admit_datetime: datetime | None = None  # PV1-44
+    discharge_datetime: datetime | None = None  # PV1-45
     visit_number: str = ""  # PV1-19
 
     @classmethod
@@ -393,7 +384,6 @@ class PV1Segment:
             discharge_datetime=discharge_dt,
         )
 
-
 @dataclass
 class OBXSegment:
     """Observation/Result segment."""
@@ -409,9 +399,9 @@ class OBXSegment:
     probability: str = ""  # OBX-9
     nature_of_abnormal_test: str = ""  # OBX-10
     observation_result_status: str = ""  # OBX-11
-    effective_date: Optional[datetime] = None  # OBX-12
+    effective_date: datetime | None = None  # OBX-12
     user_defined_access_checks: str = ""  # OBX-13
-    datetime_of_observation: Optional[datetime] = None  # OBX-14
+    datetime_of_observation: datetime | None = None  # OBX-14
     producers_id: str = ""  # OBX-15
     responsible_observer: str = ""  # OBX-16
     observation_method: str = ""  # OBX-17
@@ -450,7 +440,6 @@ class OBXSegment:
             observation_method=segment.get_field_value(17),
         )
 
-
 @dataclass
 class ORCSegment:
     """Common Order segment."""
@@ -463,7 +452,7 @@ class ORCSegment:
     response_flag: str = ""  # ORC-6
     quantity_timing: str = ""  # ORC-7
     parent: str = ""  # ORC-8
-    datetime_of_transaction: Optional[datetime] = None  # ORC-9
+    datetime_of_transaction: datetime | None = None  # ORC-9
     entered_by: str = ""  # ORC-10
     verified_by: str = ""  # ORC-11
     ordering_provider: str = ""  # ORC-12
@@ -498,7 +487,6 @@ class ORCSegment:
             ordering_provider=segment.get_field_value(12),
         )
 
-
 @dataclass
 class OBRSegment:
     """Observation Request segment."""
@@ -508,15 +496,15 @@ class OBRSegment:
     filler_order_number: str = ""  # OBR-3
     universal_service_id: str = ""  # OBR-4
     priority: str = ""  # OBR-5
-    requested_datetime: Optional[datetime] = None  # OBR-6
-    observation_datetime: Optional[datetime] = None  # OBR-7
-    observation_end_datetime: Optional[datetime] = None  # OBR-8
+    requested_datetime: datetime | None = None  # OBR-6
+    observation_datetime: datetime | None = None  # OBR-7
+    observation_end_datetime: datetime | None = None  # OBR-8
     collection_volume: str = ""  # OBR-9
     collector_identifier: str = ""  # OBR-10
     specimen_action_code: str = ""  # OBR-11
     danger_code: str = ""  # OBR-12
     relevant_clinical_info: str = ""  # OBR-13
-    specimen_received_datetime: Optional[datetime] = None  # OBR-14
+    specimen_received_datetime: datetime | None = None  # OBR-14
     specimen_source: str = ""  # OBR-15
     ordering_provider: str = ""  # OBR-16
     result_status: str = ""  # OBR-25
@@ -525,7 +513,7 @@ class OBRSegment:
     def from_segment(cls, segment: HL7Segment) -> "OBRSegment":
         """Create OBR from parsed segment."""
 
-        def parse_dt(val: str) -> Optional[datetime]:
+        def parse_dt(val: str) -> datetime | None:
             if not val:
                 return None
             try:
@@ -556,7 +544,6 @@ class OBRSegment:
             ordering_provider=segment.get_field_value(16),
             result_status=segment.get_field_value(25),
         )
-
 
 @dataclass
 class SCHSegment:
@@ -619,27 +606,25 @@ class SCHSegment:
             filler_status_code=segment.get_field_value(25),
         )
 
-
 # =============================================================================
 # HL7 Message
 # =============================================================================
-
 
 @dataclass
 class HL7Message:
     """Complete HL7 v2 message."""
 
     raw: str
-    segments: List[HL7Segment] = field(default_factory=list)
+    segments: list[HL7Segment] = field(default_factory=list)
 
     # Typed segments (populated after parsing)
-    msh: Optional[MSHSegment] = None
-    pid: Optional[PIDSegment] = None
-    pv1: Optional[PV1Segment] = None
-    obx_list: List[OBXSegment] = field(default_factory=list)
-    orc: Optional[ORCSegment] = None
-    obr: Optional[OBRSegment] = None
-    sch: Optional[SCHSegment] = None
+    msh: MSHSegment | None = None
+    pid: PIDSegment | None = None
+    pv1: PV1Segment | None = None
+    obx_list: list[OBXSegment] = field(default_factory=list)
+    orc: ORCSegment | None = None
+    obr: OBRSegment | None = None
+    sch: SCHSegment | None = None
 
     @property
     def message_type(self) -> str:
@@ -658,15 +643,13 @@ class HL7Message:
             return self.pid.patient_identifier_list[0]
         return ""
 
-    def get_segments(self, segment_type: str) -> List[HL7Segment]:
+    def get_segments(self, segment_type: str) -> list[HL7Segment]:
         """Get all segments of a given type."""
         return [s for s in self.segments if s.segment_type == segment_type]
-
 
 # =============================================================================
 # HL7 Parser
 # =============================================================================
-
 
 class HL7Parser:
     """
@@ -726,7 +709,7 @@ class HL7Parser:
         encoding_chars = msh_line[4:8]  # Next 4 characters
 
         # Parse all segments
-        segments: List[HL7Segment] = []
+        segments: list[HL7Segment] = []
         for line in lines:
             try:
                 segment = HL7Segment.parse(line, field_sep, encoding_chars)
@@ -765,7 +748,7 @@ class HL7Parser:
                     raise
                 logger.warning(f"Failed to parse typed segment {segment.segment_type}: {e}")
 
-    def parse_mllp(self, data: bytes) -> List[HL7Message]:
+    def parse_mllp(self, data: bytes) -> list[HL7Message]:
         """
         Parse MLLP-framed HL7 messages.
 
@@ -777,7 +760,7 @@ class HL7Parser:
         Returns:
             List of parsed HL7 messages
         """
-        messages: List[HL7Message] = []
+        messages: list[HL7Message] = []
 
         # Split on MLLP delimiters
         # Format: 0x0B <message> 0x1C 0x0D
@@ -815,11 +798,9 @@ class HL7Parser:
         raw_bytes = message.raw.encode("utf-8")
         return MLLP_START_BLOCK + raw_bytes + MLLP_END_BLOCK + MLLP_CARRIAGE_RETURN
 
-
 # =============================================================================
 # PHI Redaction (HL7-specific)
 # =============================================================================
-
 
 @dataclass
 class HL7RedactionResult:
@@ -828,8 +809,7 @@ class HL7RedactionResult:
     original_hash: str  # SHA-256 of original for audit
     redacted_message: str
     redactions_count: int
-    redacted_fields: List[str]  # List of field paths that were redacted
-
+    redacted_fields: list[str]  # List of field paths that were redacted
 
 class HL7PHIRedactor:
     """
@@ -909,12 +889,12 @@ class HL7PHIRedactor:
             Redaction result with redacted message text
         """
         original_hash = hashlib.sha256(message.raw.encode()).hexdigest()
-        redacted_fields: List[str] = []
+        redacted_fields: list[str] = []
         redactions_count = 0
 
         # Work with raw message lines
         lines = message.raw.replace("\r\n", "\r").replace("\n", "\r").split("\r")
-        redacted_lines: List[str] = []
+        redacted_lines: list[str] = []
 
         for line in lines:
             if not line.strip():
@@ -954,9 +934,9 @@ class HL7PHIRedactor:
             redacted_fields=redacted_fields,
         )
 
-    def _redact_segment_fields(self, line: str, segment_type: str) -> Tuple[str, List[str]]:
+    def _redact_segment_fields(self, line: str, segment_type: str) -> tuple[str, list[str]]:
         """Redact specific fields in a segment line."""
-        redacted_fields: List[str] = []
+        redacted_fields: list[str] = []
 
         # Find field separator (first char after segment ID)
         if segment_type == "MSH":
@@ -999,7 +979,7 @@ class HL7PHIRedactor:
 
         return line, redacted_fields
 
-    def _redact_free_text(self, line: str) -> Tuple[str, int]:
+    def _redact_free_text(self, line: str) -> tuple[str, int]:
         """Redact PHI patterns in free text."""
         redactions = 0
         redacted = line
@@ -1012,11 +992,9 @@ class HL7PHIRedactor:
 
         return redacted, redactions
 
-
 # =============================================================================
 # HL7 v2 Connector
 # =============================================================================
-
 
 class HL7v2Connector(EnterpriseConnector):
     """
@@ -1046,11 +1024,11 @@ class HL7v2Connector(EnterpriseConnector):
         tenant_id: str = "default",
         # Source configuration
         source_type: str = "file",  # "file", "mllp", "http"
-        source_path: Optional[str] = None,  # For file source
+        source_path: str | None = None,  # For file source
         mllp_host: str = "0.0.0.0",
         mllp_port: int = 2575,
         # Message filtering
-        message_types: Optional[List[str]] = None,  # Filter by type (e.g., ["ADT", "ORU"])
+        message_types: Optional[list[str]] = None,  # Filter by type (e.g., ["ADT", "ORU"])
         # PHI handling
         enable_phi_redaction: bool = True,
         redact_dates: bool = True,
@@ -1059,7 +1037,7 @@ class HL7v2Connector(EnterpriseConnector):
         strict_parsing: bool = False,
         # Audit
         enable_audit_log: bool = True,
-        audit_log_path: Optional[str] = None,
+        audit_log_path: str | None = None,
         **kwargs,
     ):
         super().__init__(connector_id=connector_id, tenant_id=tenant_id, **kwargs)
@@ -1086,7 +1064,7 @@ class HL7v2Connector(EnterpriseConnector):
         )
 
         # MLLP server state
-        self._mllp_server: Optional[asyncio.AbstractServer] = None
+        self._mllp_server: asyncio.AbstractServer | None = None
         self._message_queue: asyncio.Queue[HL7Message] = asyncio.Queue()
 
         # Statistics
@@ -1115,7 +1093,7 @@ class HL7v2Connector(EnterpriseConnector):
                         break
 
                     try:
-                        messages: List[HL7Message] = []
+                        messages: list[HL7Message] = []
                         messages = self.parser.parse_mllp(data)
                         for msg in messages:
                             await self._message_queue.put(msg)
@@ -1180,7 +1158,7 @@ class HL7v2Connector(EnterpriseConnector):
 
     async def sync_items(  # type: ignore[override]
         self,
-        state: Optional[SyncState] = None,
+        state: SyncState | None = None,
     ) -> AsyncIterator[SyncItem]:
         """
         Sync HL7 messages from configured source.
@@ -1213,7 +1191,7 @@ class HL7v2Connector(EnterpriseConnector):
 
             # Find HL7 files (common extensions)
             patterns = ["*.hl7", "*.HL7", "*.txt"]
-            files: List[Path] = []
+            files: list[Path] = []
             for pattern in patterns:
                 files.extend(source_dir.glob(pattern))
 
@@ -1235,8 +1213,8 @@ class HL7v2Connector(EnterpriseConnector):
     async def _process_message(
         self,
         message: HL7Message,
-        source_file: Optional[str] = None,
-    ) -> Optional[SyncItem]:
+        source_file: str | None = None,
+    ) -> SyncItem | None:
         """Process a single HL7 message into a SyncItem."""
         # Check message type filter
         if self.message_types:
@@ -1256,7 +1234,7 @@ class HL7v2Connector(EnterpriseConnector):
             self._messages_redacted += 1
 
         # Build metadata
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "message_type": message.message_type,
             "message_control_id": message.message_control_id,
             "hl7_version": message.msh.version_id if message.msh else "unknown",
@@ -1299,7 +1277,7 @@ class HL7v2Connector(EnterpriseConnector):
     def _log_audit_event(
         self,
         message: HL7Message,
-        redaction_result: Optional[HL7RedactionResult],
+        redaction_result: HL7RedactionResult | None,
     ) -> None:
         """Log audit event for compliance."""
         audit_entry = {
@@ -1331,7 +1309,7 @@ class HL7v2Connector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         **kwargs,
-    ) -> List[SyncItem]:
+    ) -> list[SyncItem]:
         """Search processed HL7 messages (placeholder for Knowledge Mound integration)."""
         # This would typically query the Knowledge Mound
         logger.warning("HL7v2Connector.search() requires Knowledge Mound integration")
@@ -1341,12 +1319,12 @@ class HL7v2Connector(EnterpriseConnector):
         self,
         item_id: str,
         **kwargs,
-    ) -> Optional[SyncItem]:
+    ) -> SyncItem | None:
         """Fetch a specific HL7 message by ID (placeholder for Knowledge Mound integration)."""
         logger.warning("HL7v2Connector.fetch() requires Knowledge Mound integration")
         return None
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get connector statistics."""
         return {
             "messages_processed": self._messages_processed,

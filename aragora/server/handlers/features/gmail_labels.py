@@ -19,7 +19,7 @@ Provides REST API endpoints for Gmail label and filter operations:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     HandlerResult,
@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 # Gmail permissions
 GMAIL_READ_PERMISSION = "gmail:read"
 GMAIL_WRITE_PERMISSION = "gmail:write"
-
 
 class GmailLabelsHandler(SecureHandler):
     """Handler for Gmail labels and message modification endpoints.
@@ -65,9 +64,9 @@ class GmailLabelsHandler(SecureHandler):
     async def handle(  # type: ignore[override]
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests."""
         # RBAC: Require authentication and gmail:read permission
         try:
@@ -95,9 +94,9 @@ class GmailLabelsHandler(SecureHandler):
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route POST requests."""
         # RBAC: Require authentication and gmail:write permission
         try:
@@ -145,9 +144,9 @@ class GmailLabelsHandler(SecureHandler):
     async def handle_patch(  # type: ignore[override]
         self,
         path: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route PATCH requests."""
         # RBAC: Require authentication and gmail:write permission
         try:
@@ -174,9 +173,9 @@ class GmailLabelsHandler(SecureHandler):
     async def handle_delete(  # type: ignore[override]
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route DELETE requests."""
         # RBAC: Require authentication and gmail:write permission
         try:
@@ -241,7 +240,7 @@ class GmailLabelsHandler(SecureHandler):
             logger.error(f"[GmailLabels] List labels failed: {e}")
             return error_response(f"Failed to list labels: {e}", 500)
 
-    async def _create_label(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
+    async def _create_label(self, state: Any, body: dict[str, Any]) -> HandlerResult:
         """Create a new Gmail label."""
         name = body.get("name")
         if not name:
@@ -259,8 +258,8 @@ class GmailLabelsHandler(SecureHandler):
         self,
         state: Any,
         name: str,
-        options: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
         """Create label via Gmail API."""
         import httpx
 
@@ -288,7 +287,7 @@ class GmailLabelsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    async def _update_label(self, state: Any, label_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _update_label(self, state: Any, label_id: str, body: dict[str, Any]) -> HandlerResult:
         """Update a Gmail label."""
         try:
             label = await self._api_update_label(state, label_id, body)
@@ -302,14 +301,14 @@ class GmailLabelsHandler(SecureHandler):
         self,
         state: Any,
         label_id: str,
-        updates: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        updates: dict[str, Any],
+    ) -> dict[str, Any]:
         """Update label via Gmail API."""
         import httpx
 
         token = state.access_token
 
-        label_data: Dict[str, Any] = {}
+        label_data: dict[str, Any] = {}
         if "name" in updates:
             label_data["name"] = updates["name"]
         if "label_list_visibility" in updates:
@@ -362,7 +361,7 @@ class GmailLabelsHandler(SecureHandler):
         self,
         state: Any,
         message_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
     ) -> HandlerResult:
         """Add/remove labels from a message."""
         add_labels = body.get("add", [])
@@ -389,9 +388,9 @@ class GmailLabelsHandler(SecureHandler):
         self,
         state: Any,
         message_id: str,
-        add_labels: List[str],
-        remove_labels: List[str],
-    ) -> Dict[str, Any]:
+        add_labels: list[str],
+        remove_labels: list[str],
+    ) -> dict[str, Any]:
         """Modify message labels via Gmail API."""
         import httpx
 
@@ -413,7 +412,7 @@ class GmailLabelsHandler(SecureHandler):
         self,
         state: Any,
         message_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
     ) -> HandlerResult:
         """Mark message as read or unread."""
         is_read = body.get("read", True)
@@ -439,7 +438,7 @@ class GmailLabelsHandler(SecureHandler):
         self,
         state: Any,
         message_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
     ) -> HandlerResult:
         """Star or unstar a message."""
         is_starred = body.get("starred", True)
@@ -481,7 +480,7 @@ class GmailLabelsHandler(SecureHandler):
         self,
         state: Any,
         message_id: str,
-        body: Dict[str, Any],
+        body: dict[str, Any],
     ) -> HandlerResult:
         """Move message to trash or restore from trash."""
         to_trash = body.get("trash", True)
@@ -549,7 +548,7 @@ class GmailLabelsHandler(SecureHandler):
             logger.error(f"[GmailLabels] List filters failed: {e}")
             return error_response(f"Failed to list filters: {e}", 500)
 
-    async def _api_list_filters(self, state: Any) -> List[Dict[str, Any]]:
+    async def _api_list_filters(self, state: Any) -> list[dict[str, Any]]:
         """List filters via Gmail API."""
         import httpx
 
@@ -564,7 +563,7 @@ class GmailLabelsHandler(SecureHandler):
             data = response.json()
             return data.get("filter", [])
 
-    async def _create_filter(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
+    async def _create_filter(self, state: Any, body: dict[str, Any]) -> HandlerResult:
         """Create a Gmail filter."""
         criteria = body.get("criteria", {})
         action = body.get("action", {})
@@ -585,16 +584,16 @@ class GmailLabelsHandler(SecureHandler):
     async def _api_create_filter(
         self,
         state: Any,
-        criteria: Dict[str, Any],
-        action: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        criteria: dict[str, Any],
+        action: dict[str, Any],
+    ) -> dict[str, Any]:
         """Create filter via Gmail API."""
         import httpx
 
         token = state.access_token
 
         # Build criteria
-        filter_criteria: Dict[str, Any] = {}
+        filter_criteria: dict[str, Any] = {}
         if "from" in criteria:
             filter_criteria["from"] = criteria["from"]
         if "to" in criteria:
@@ -612,7 +611,7 @@ class GmailLabelsHandler(SecureHandler):
             filter_criteria["sizeComparison"] = criteria.get("size_comparison", "larger")
 
         # Build action
-        filter_action: Dict[str, Any] = {}
+        filter_action: dict[str, Any] = {}
         if "add_labels" in action:
             filter_action["addLabelIds"] = action["add_labels"]
         if "remove_labels" in action:
@@ -664,7 +663,6 @@ class GmailLabelsHandler(SecureHandler):
                 headers={"Authorization": f"Bearer {token}"},
             )
             response.raise_for_status()
-
 
 # Export for handler registration
 __all__ = ["GmailLabelsHandler"]

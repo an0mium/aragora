@@ -34,10 +34,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class QualityDimension(Enum):
     """Dimensions of quality assessment."""
@@ -60,7 +59,6 @@ class QualityDimension(Enum):
     VALIDATION = "validation"
     """Validation feedback history."""
 
-
 class OverconfidenceLevel(Enum):
     """Levels of overconfidence severity."""
 
@@ -75,7 +73,6 @@ class OverconfidenceLevel(Enum):
 
     SEVERE = "severe"
     """Severe overconfidence (ECE >= 0.2)."""
-
 
 class QualityTier(Enum):
     """Quality tiers for knowledge items."""
@@ -94,7 +91,6 @@ class QualityTier(Enum):
 
     UNRELIABLE = "unreliable"
     """Unreliable, should not be trusted (score < 0.3)."""
-
 
 @dataclass
 class CalibrationMetrics:
@@ -118,7 +114,7 @@ class CalibrationMetrics:
     underconfidence_ratio: float = 0.0
     """Ratio of underconfident predictions."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "brier_score": round(self.brier_score, 4),
@@ -128,7 +124,6 @@ class CalibrationMetrics:
             "overconfidence_ratio": round(self.overconfidence_ratio, 4),
             "underconfidence_ratio": round(self.underconfidence_ratio, 4),
         }
-
 
 @dataclass
 class SourceReliability:
@@ -146,16 +141,16 @@ class SourceReliability:
     correct_count: int = 0
     """Number of correct validations."""
 
-    last_validated: Optional[datetime] = None
+    last_validated: datetime | None = None
     """When last validated."""
 
     confidence_calibration: float = 1.0
     """Confidence scaling factor based on calibration."""
 
-    domain_scores: Dict[str, float] = field(default_factory=dict)
+    domain_scores: dict[str, float] = field(default_factory=dict)
     """Domain-specific reliability scores."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "source_id": self.source_id,
@@ -166,7 +161,6 @@ class SourceReliability:
             "confidence_calibration": round(self.confidence_calibration, 4),
             "domain_scores": {k: round(v, 4) for k, v in self.domain_scores.items()},
         }
-
 
 @dataclass
 class QualitySignals:
@@ -196,7 +190,7 @@ class QualitySignals:
     source_reliability: float = 0.0
     """Combined reliability of sources (0-1)."""
 
-    contributor_weights: Dict[str, float] = field(default_factory=dict)
+    contributor_weights: dict[str, float] = field(default_factory=dict)
     """Weights assigned to each contributor."""
 
     quality_tier: QualityTier = QualityTier.ACCEPTABLE
@@ -205,19 +199,19 @@ class QualitySignals:
     composite_quality_score: float = 0.0
     """Weighted combination of all quality dimensions (0-1)."""
 
-    dimension_scores: Dict[str, float] = field(default_factory=dict)
+    dimension_scores: dict[str, float] = field(default_factory=dict)
     """Individual scores for each quality dimension."""
 
-    warnings: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     """Quality warnings for this item."""
 
     computed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """When signals were computed."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional quality metadata."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "item_id": self.item_id,
@@ -236,7 +230,6 @@ class QualitySignals:
             "computed_at": self.computed_at.isoformat(),
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class ContributorCalibration:
@@ -260,7 +253,6 @@ class ContributorCalibration:
     reliability_weight: float = 1.0
     """Weight for this contributor."""
 
-
 @dataclass
 class QualityEngineConfig:
     """Configuration for the quality signal engine."""
@@ -283,7 +275,7 @@ class QualityEngineConfig:
     """Default weight for uncalibrated contributors."""
 
     # Quality dimension weights
-    dimension_weights: Dict[str, float] = field(
+    dimension_weights: dict[str, float] = field(
         default_factory=lambda: {
             QualityDimension.CONFIDENCE.value: 0.25,
             QualityDimension.CALIBRATION.value: 0.25,
@@ -307,7 +299,6 @@ class QualityEngineConfig:
     reliability_decay_factor: float = 0.95
     """Decay factor for older validations."""
 
-
 class QualitySignalEngine:
     """Engine for computing calibration-driven quality signals.
 
@@ -315,26 +306,26 @@ class QualitySignalEngine:
     contributor calibration, source reliability, and validation history.
     """
 
-    def __init__(self, config: Optional[QualityEngineConfig] = None):
+    def __init__(self, config: QualityEngineConfig | None = None):
         """Initialize the quality signal engine.
 
         Args:
             config: Optional configuration. Uses defaults if not provided.
         """
         self.config = config or QualityEngineConfig()
-        self._source_reliability_cache: Dict[str, SourceReliability] = {}
-        self._contributor_cache: Dict[str, ContributorCalibration] = {}
+        self._source_reliability_cache: dict[str, SourceReliability] = {}
+        self._contributor_cache: dict[str, ContributorCalibration] = {}
 
     def compute_quality_signals(
         self,
         item_id: str,
         raw_confidence: float,
-        contributors: List[str],
-        contributor_ratings: Optional[Dict[str, Any]] = None,
-        sources: Optional[List[str]] = None,
-        validation_history: Optional[Dict[str, List[bool]]] = None,
-        domain: Optional[str] = None,
-        created_at: Optional[datetime] = None,
+        contributors: list[str],
+        contributor_ratings: Optional[dict[str, Any]] = None,
+        sources: Optional[list[str]] = None,
+        validation_history: Optional[dict[str, list[bool]]] = None,
+        domain: str | None = None,
+        created_at: datetime | None = None,
     ) -> QualitySignals:
         """Compute quality signals for a knowledge item.
 
@@ -408,10 +399,10 @@ class QualitySignalEngine:
 
     def _extract_contributor_calibrations(
         self,
-        contributors: List[str],
-        contributor_ratings: Optional[Dict[str, Any]],
-        domain: Optional[str],
-    ) -> List[ContributorCalibration]:
+        contributors: list[str],
+        contributor_ratings: Optional[dict[str, Any]],
+        domain: str | None,
+    ) -> list[ContributorCalibration]:
         """Extract calibration data from contributor ratings.
 
         Args:
@@ -484,7 +475,7 @@ class QualitySignalEngine:
     def _compute_calibrated_confidence(
         self,
         raw_confidence: float,
-        contributor_calibrations: List[ContributorCalibration],
+        contributor_calibrations: list[ContributorCalibration],
     ) -> float:
         """Compute calibrated confidence from contributor data.
 
@@ -531,7 +522,7 @@ class QualitySignalEngine:
 
     def _compute_calibration_quality_index(
         self,
-        contributor_calibrations: List[ContributorCalibration],
+        contributor_calibrations: list[ContributorCalibration],
     ) -> float:
         """Compute overall calibration quality index.
 
@@ -572,7 +563,7 @@ class QualitySignalEngine:
 
     def _detect_overconfidence(
         self,
-        contributor_calibrations: List[ContributorCalibration],
+        contributor_calibrations: list[ContributorCalibration],
     ) -> OverconfidenceLevel:
         """Detect overconfidence in contributors.
 
@@ -612,8 +603,8 @@ class QualitySignalEngine:
 
     def _compute_source_reliability(
         self,
-        sources: List[str],
-        validation_history: Dict[str, List[bool]],
+        sources: list[str],
+        validation_history: dict[str, list[bool]],
     ) -> float:
         """Compute combined source reliability.
 
@@ -668,9 +659,9 @@ class QualitySignalEngine:
     def _compute_dimension_scores(
         self,
         signals: QualitySignals,
-        contributor_calibrations: List[ContributorCalibration],
-        created_at: Optional[datetime],
-    ) -> Dict[str, float]:
+        contributor_calibrations: list[ContributorCalibration],
+        created_at: datetime | None,
+    ) -> dict[str, float]:
         """Compute individual dimension scores.
 
         Args:
@@ -719,7 +710,7 @@ class QualitySignalEngine:
 
     def _compute_composite_score(
         self,
-        dimension_scores: Dict[str, float],
+        dimension_scores: dict[str, float],
     ) -> float:
         """Compute weighted composite quality score.
 
@@ -765,8 +756,8 @@ class QualitySignalEngine:
     def _generate_warnings(
         self,
         signals: QualitySignals,
-        contributor_calibrations: List[ContributorCalibration],
-    ) -> List[str]:
+        contributor_calibrations: list[ContributorCalibration],
+    ) -> list[str]:
         """Generate quality warnings.
 
         Args:
@@ -824,7 +815,7 @@ class QualitySignalEngine:
 
     def compute_expected_calibration_error(
         self,
-        predictions: List[Tuple[float, bool]],
+        predictions: list[tuple[float, bool]],
         num_buckets: int = 10,
     ) -> float:
         """Compute Expected Calibration Error (ECE).
@@ -843,7 +834,7 @@ class QualitySignalEngine:
             return 0.0
 
         bucket_size = 1.0 / num_buckets
-        buckets: Dict[int, List[Tuple[float, bool]]] = defaultdict(list)
+        buckets: dict[int, list[tuple[float, bool]]] = defaultdict(list)
 
         for confidence, correct in predictions:
             bucket_idx = min(int(confidence / bucket_size), num_buckets - 1)
@@ -867,7 +858,7 @@ class QualitySignalEngine:
     def detect_contributor_overconfidence(
         self,
         agent_name: str,
-        predictions: List[Tuple[float, bool]],
+        predictions: list[tuple[float, bool]],
         threshold: float = 0.1,
     ) -> bool:
         """Detect if a contributor is consistently overconfident.
@@ -898,9 +889,9 @@ class QualitySignalEngine:
 
     def batch_compute_signals(
         self,
-        items: List[Dict[str, Any]],
-        contributor_ratings: Optional[Dict[str, Any]] = None,
-    ) -> List[QualitySignals]:
+        items: list[dict[str, Any]],
+        contributor_ratings: Optional[dict[str, Any]] = None,
+    ) -> list[QualitySignals]:
         """Compute quality signals for multiple items.
 
         Args:
@@ -929,8 +920,8 @@ class QualitySignalEngine:
 
     def get_quality_summary(
         self,
-        signals_list: List[QualitySignals],
-    ) -> Dict[str, Any]:
+        signals_list: list[QualitySignals],
+    ) -> dict[str, Any]:
         """Generate summary statistics for multiple quality signals.
 
         Args:
@@ -943,7 +934,7 @@ class QualitySignalEngine:
             return {"count": 0}
 
         # Count by tier
-        tier_counts: Dict[str, int] = defaultdict(int)
+        tier_counts: dict[str, int] = defaultdict(int)
         for s in signals_list:
             tier_counts[s.quality_tier.value] += 1
 
@@ -974,13 +965,11 @@ class QualitySignalEngine:
             "avg_warnings_per_item": round(total_warnings / len(signals_list), 2),
         }
 
-
 # Singleton instance
-_quality_signal_engine: Optional[QualitySignalEngine] = None
-
+_quality_signal_engine: QualitySignalEngine | None = None
 
 def get_quality_signal_engine(
-    config: Optional[QualityEngineConfig] = None,
+    config: QualityEngineConfig | None = None,
 ) -> QualitySignalEngine:
     """Get or create the singleton quality signal engine.
 
@@ -994,7 +983,6 @@ def get_quality_signal_engine(
     if _quality_signal_engine is None:
         _quality_signal_engine = QualitySignalEngine(config)
     return _quality_signal_engine
-
 
 __all__ = [
     # Enums

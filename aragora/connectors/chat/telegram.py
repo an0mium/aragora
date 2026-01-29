@@ -15,7 +15,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,6 @@ except ImportError:
 
     def build_trace_headers() -> dict[str, str]:
         return {}
-
 
 def _classify_telegram_error(
     error_str: str,
@@ -86,7 +85,6 @@ def _classify_telegram_error(
         status_code=error_code,
     )
 
-
 from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
@@ -111,7 +109,6 @@ TELEGRAM_WEBHOOK_URL = os.environ.get("TELEGRAM_WEBHOOK_URL", "")
 # Telegram API
 TELEGRAM_API_BASE = "https://api.telegram.org/bot"
 
-
 class TelegramConnector(ChatPlatformConnector):
     """
     Telegram connector using Bot API.
@@ -129,8 +126,8 @@ class TelegramConnector(ChatPlatformConnector):
 
     def __init__(
         self,
-        bot_token: Optional[str] = None,
-        webhook_url: Optional[str] = None,
+        bot_token: str | None = None,
+        webhook_url: str | None = None,
         parse_mode: str = "MarkdownV2",
         **config: Any,
     ):
@@ -162,14 +159,14 @@ class TelegramConnector(ChatPlatformConnector):
     async def _telegram_api_request(
         self,
         endpoint: str,
-        payload: Optional[dict[str, Any]] = None,
+        payload: dict[str, Any] | None = None,
         operation: str = "api_call",
         *,
         method: str = "POST",
-        files: Optional[dict[str, Any]] = None,
-        timeout: Optional[float] = None,
+        files: dict[str, Any] | None = None,
+        timeout: float | None = None,
         max_retries: int = 3,
-    ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+    ) -> tuple[bool, dict[str, Any] | None, str | None]:
         """
         Make a Telegram API request with circuit breaker, retry, and timeout.
 
@@ -198,7 +195,7 @@ class TelegramConnector(ChatPlatformConnector):
         if not can_proceed:
             return False, None, cb_error
 
-        last_error: Optional[str] = None
+        last_error: str | None = None
         url = f"{self._api_base}/{endpoint}"
         request_timeout = timeout if timeout is not None else self._request_timeout
 
@@ -313,8 +310,8 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
-        thread_id: Optional[str] = None,
+        blocks: list[dict[str, Any] | None] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a message to a Telegram chat.
@@ -359,7 +356,7 @@ class TelegramConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Edit an existing message.
@@ -448,8 +445,8 @@ class TelegramConnector(ChatPlatformConnector):
         content: bytes,
         filename: str,
         content_type: str = "application/octet-stream",
-        title: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        title: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """Upload a file as a document.
@@ -571,7 +568,7 @@ class TelegramConnector(ChatPlatformConnector):
     async def handle_webhook(
         self,
         payload: dict[str, Any],
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> WebhookEvent:
         """Process incoming Telegram webhook update."""
@@ -666,7 +663,7 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         payload: dict[str, Any],
         **kwargs: Any,
-    ) -> Optional[BotCommand]:
+    ) -> BotCommand | None:
         """Parse a Telegram command (e.g., /start, /help)."""
         msg = payload.get("message", payload)
         text = msg.get("text", "")
@@ -751,7 +748,7 @@ class TelegramConnector(ChatPlatformConnector):
         audio_content: bytes,
         filename: str = "voice_response.mp3",
         content_type: str = "audio/mpeg",
-        reply_to: Optional[str] = None,
+        reply_to: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a voice message.
@@ -888,7 +885,7 @@ class TelegramConnector(ChatPlatformConnector):
     async def answer_callback_query(
         self,
         callback_query_id: str,
-        text: Optional[str] = None,
+        text: str | None = None,
         show_alert: bool = False,
         **kwargs: Any,
     ) -> bool:
@@ -913,7 +910,7 @@ class TelegramConnector(ChatPlatformConnector):
 
         return success
 
-    def _blocks_to_keyboard(self, blocks: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    def _blocks_to_keyboard(self, blocks: list[dict[str, Any]]) -> dict[str, Any] | None:
         """Convert generic blocks to Telegram inline keyboard."""
         buttons = []
 
@@ -954,10 +951,10 @@ class TelegramConnector(ChatPlatformConnector):
 
     def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        actions: Optional[list[MessageButton]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str] | None] = None,
+        actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Format content as Telegram-compatible blocks.
@@ -1000,9 +997,9 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
-        style: Optional[str] = None,
-        url: Optional[str] = None,
+        value: str | None = None,
+        style: str | None = None,
+        url: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Format a button for Telegram inline keyboard."""
@@ -1115,7 +1112,7 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         ephemeral: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -1145,7 +1142,7 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -1200,9 +1197,9 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         photo: str | bytes,
-        caption: Optional[str] = None,
-        thread_id: Optional[str] = None,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        caption: str | None = None,
+        thread_id: str | None = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a photo to a Telegram chat.
@@ -1268,13 +1265,13 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         video: str | bytes,
-        caption: Optional[str] = None,
-        thread_id: Optional[str] = None,
-        duration: Optional[int] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
+        caption: str | None = None,
+        thread_id: str | None = None,
+        duration: int | None = None,
+        width: int | None = None,
+        height: int | None = None,
         supports_streaming: bool = True,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a video to a Telegram chat.
@@ -1353,9 +1350,9 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         animation: str | bytes,
-        caption: Optional[str] = None,
-        thread_id: Optional[str] = None,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        caption: str | None = None,
+        thread_id: str | None = None,
+        blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send an animation (GIF) to a Telegram chat.
@@ -1392,7 +1389,7 @@ class TelegramConnector(ChatPlatformConnector):
                 payload["reply_markup"] = json.dumps(keyboard)
 
         # Handle bytes input (file upload) vs URL/file_id
-        files: Optional[dict[str, Any]] = None
+        files: dict[str, Any] | None = None
         if isinstance(animation, bytes):
             files = {"animation": ("animation.gif", animation, "image/gif")}
         else:
@@ -1420,7 +1417,7 @@ class TelegramConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         media: list[dict[str, Any]],
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> list[SendMessageResponse]:
         """Send a group of photos or videos as an album.
@@ -1494,8 +1491,8 @@ class TelegramConnector(ChatPlatformConnector):
         results: list[dict[str, Any]],
         cache_time: int = 300,
         is_personal: bool = False,
-        next_offset: Optional[str] = None,
-        button: Optional[dict[str, Any]] = None,
+        next_offset: str | None = None,
+        button: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> bool:
         """Answer an inline query with results.
@@ -1546,9 +1543,9 @@ class TelegramConnector(ChatPlatformConnector):
         result_id: str,
         title: str,
         message_text: str,
-        description: Optional[str] = None,
-        url: Optional[str] = None,
-        thumb_url: Optional[str] = None,
+        description: str | None = None,
+        url: str | None = None,
+        thumb_url: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build an InlineQueryResultArticle for use with answer_inline_query.
@@ -1592,8 +1589,8 @@ class TelegramConnector(ChatPlatformConnector):
     async def set_my_commands(
         self,
         commands: list[dict[str, str]],
-        scope: Optional[dict[str, Any]] = None,
-        language_code: Optional[str] = None,
+        scope: dict[str, Any] | None = None,
+        language_code: str | None = None,
         **kwargs: Any,
     ) -> bool:
         """Set the list of the bot's commands.
@@ -1629,7 +1626,7 @@ class TelegramConnector(ChatPlatformConnector):
 
         return success
 
-    async def get_me(self) -> Optional[dict[str, Any]]:
+    async def get_me(self) -> dict[str, Any] | None:
         """Get basic information about the bot.
 
         Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
@@ -1644,13 +1641,13 @@ class TelegramConnector(ChatPlatformConnector):
         )
 
         if success and data:
-            bot_info: Optional[dict[str, Any]] = data.get("result")
+            bot_info: dict[str, Any] | None = data.get("result")
             return bot_info
 
         logger.error(f"Failed to get bot info: {error}")
         return None
 
-    async def get_chat_member_count(self, channel_id: str) -> Optional[int]:
+    async def get_chat_member_count(self, channel_id: str) -> int | None:
         """Get the number of members in a chat.
 
         Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
@@ -1668,11 +1665,10 @@ class TelegramConnector(ChatPlatformConnector):
         )
 
         if success and data:
-            count: Optional[int] = data.get("result")
+            count: int | None = data.get("result")
             return count
 
         logger.error(f"Failed to get chat member count: {error}")
         return None
-
 
 __all__ = ["TelegramConnector"]

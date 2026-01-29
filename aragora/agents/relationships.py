@@ -18,7 +18,6 @@ __all__ = [
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.ranking.relationships import (
@@ -27,7 +26,6 @@ from aragora.ranking.relationships import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class RelationshipTracker(BaseRelationshipTracker):
     """
@@ -92,10 +90,10 @@ class RelationshipTracker(BaseRelationshipTracker):
         self,
         debate_id: str,
         participants: list[str],
-        winner: Optional[str],
+        winner: str | None,
         votes: dict[str, str],
         critiques: list[dict],
-        position_changes: Optional[dict[str, list[str]]] = None,
+        position_changes: dict[str, list[str] | None] = None,
     ) -> None:
         """
         Update all relationship metrics from a completed debate.

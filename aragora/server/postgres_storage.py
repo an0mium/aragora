@@ -4,6 +4,7 @@ PostgreSQL-backed debate storage with permalink generation.
 Provides persistent storage for debate artifacts with human-readable
 URL slugs for sharing (e.g., rate-limiter-2026-01-01).
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -11,7 +12,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.storage.postgres_store import PostgresStore
 
@@ -19,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
-
 
 @dataclass
 class DebateMetadata:
@@ -34,7 +34,6 @@ class DebateMetadata:
     created_at: datetime
     view_count: int = 0
     is_public: bool = False
-
 
 class PostgresDebateStorage(PostgresStore):
     """PostgreSQL-backed debate persistence with shareable permalinks.
@@ -137,13 +136,13 @@ class PostgresDebateStorage(PostgresStore):
         """Save artifact and return permalink slug (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.save_async(artifact))
 
-    def save_dict(self, debate_data: dict, org_id: Optional[str] = None) -> str:
+    def save_dict(self, debate_data: dict, org_id: str | None = None) -> str:
         """Save debate data directly (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.save_dict_async(debate_data, org_id)
         )
 
-    def store(self, debate_data: dict, org_id: Optional[str] = None) -> str:
+    def store(self, debate_data: dict, org_id: str | None = None) -> str:
         """Store debate metadata (sync wrapper)."""
         slug = self.save_dict(debate_data, org_id=org_id)
         return debate_data.get("id", slug)
@@ -151,9 +150,9 @@ class PostgresDebateStorage(PostgresStore):
     def get_by_slug(
         self,
         slug: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         verify_ownership: bool = False,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Get debate by slug (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_by_slug_async(slug, org_id, verify_ownership)
@@ -162,15 +161,15 @@ class PostgresDebateStorage(PostgresStore):
     def get_by_id(
         self,
         debate_id: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         verify_ownership: bool = False,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Get debate by ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_by_id_async(debate_id, org_id, verify_ownership)
         )
 
-    def list_recent(self, limit: int = 20, org_id: Optional[str] = None) -> list[DebateMetadata]:
+    def list_recent(self, limit: int = 20, org_id: str | None = None) -> list[DebateMetadata]:
         """List recent debates (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.list_recent_async(limit, org_id))
 
@@ -179,7 +178,7 @@ class PostgresDebateStorage(PostgresStore):
         query: str,
         limit: int = 20,
         offset: int = 0,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> tuple[list[DebateMetadata], int]:
         """Search debates (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
@@ -189,7 +188,7 @@ class PostgresDebateStorage(PostgresStore):
     def delete(
         self,
         slug: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         require_ownership: bool = False,
     ) -> bool:
         """Delete debate by slug (sync wrapper)."""
@@ -201,14 +200,14 @@ class PostgresDebateStorage(PostgresStore):
         self,
         debate_id: str,
         audio_path: str,
-        duration_seconds: Optional[int] = None,
+        duration_seconds: int | None = None,
     ) -> bool:
         """Update audio information (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.update_audio_async(debate_id, audio_path, duration_seconds)
         )
 
-    def get_audio_info(self, debate_id: str) -> Optional[dict]:
+    def get_audio_info(self, debate_id: str) -> dict | None:
         """Get audio information (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.get_audio_info_async(debate_id))
 
@@ -216,28 +215,34 @@ class PostgresDebateStorage(PostgresStore):
         """Check if debate is public (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.is_public_async(debate_id))
 
-    def set_public(self, debate_id: str, is_public: bool, org_id: Optional[str] = None) -> bool:
+    def set_public(self, debate_id: str, is_public: bool, org_id: str | None = None) -> bool:
         """Set debate public status (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.set_public_async(debate_id, is_public, org_id)
         )
 
     # Alias methods for interface compatibility
-    def get(self, debate_id: str) -> Optional[dict]:
+    def get(self, debate_id: str) -> dict | None:
         """Get debate by ID (alias)."""
         return self.get_by_id(debate_id)
 
-    def get_debate(self, debate_id: str) -> Optional[dict]:
+    def get_debate(self, debate_id: str) -> dict | None:
         """Get debate by ID (handler-compatible alias)."""
         return self.get_by_id(debate_id)
 
-    def get_debate_by_slug(self, slug: str) -> Optional[dict]:
+    def get_debate_by_slug(self, slug: str) -> dict | None:
         """Get debate by slug (handler-compatible alias)."""
         return self.get_by_slug(slug)
 
-    def list_debates(self, limit: int = 20, org_id: Optional[str] = None) -> list[DebateMetadata]:
+    def list_debates(self, limit: int = 20, org_id: str | None = None) -> list[DebateMetadata]:
         """List debates (handler-compatible alias)."""
         return self.list_recent(limit=limit, org_id=org_id)
+
+    def get_debates_batch(self, debate_ids: list[str]) -> dict[str, dict | None]:
+        """Get multiple debates by ID in a single query (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.get_debates_batch_async(debate_ids)
+        )
 
     # =========================================================================
     # Async implementations
@@ -294,7 +299,7 @@ class PostgresDebateStorage(PostgresStore):
 
         return slug
 
-    async def save_dict_async(self, debate_data: dict, org_id: Optional[str] = None) -> str:
+    async def save_dict_async(self, debate_data: dict, org_id: str | None = None) -> str:
         """Save debate data directly (without DebateArtifact)."""
         slug = await self.generate_slug_async(debate_data.get("task", "debate"))
         debate_id = debate_data.get("id", slug)
@@ -323,9 +328,9 @@ class PostgresDebateStorage(PostgresStore):
     async def get_by_slug_async(
         self,
         slug: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         verify_ownership: bool = False,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Get debate by slug, incrementing view count."""
         if not slug or len(slug) > 500:
             return None
@@ -355,9 +360,9 @@ class PostgresDebateStorage(PostgresStore):
     async def get_by_id_async(
         self,
         debate_id: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         verify_ownership: bool = False,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Get debate by ID."""
         async with self.connection() as conn:
             if verify_ownership and org_id:
@@ -380,7 +385,7 @@ class PostgresDebateStorage(PostgresStore):
         return None
 
     async def list_recent_async(
-        self, limit: int = 20, org_id: Optional[str] = None
+        self, limit: int = 20, org_id: str | None = None
     ) -> list[DebateMetadata]:
         """List recent debates."""
         async with self.connection() as conn:
@@ -416,7 +421,7 @@ class PostgresDebateStorage(PostgresStore):
         query: str,
         limit: int = 20,
         offset: int = 0,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> tuple[list[DebateMetadata], int]:
         """Search debates by task/slug using full-text search."""
         async with self.connection() as conn:
@@ -468,7 +473,7 @@ class PostgresDebateStorage(PostgresStore):
     async def delete_async(
         self,
         slug: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         require_ownership: bool = False,
     ) -> bool:
         """Delete debate by slug."""
@@ -487,7 +492,7 @@ class PostgresDebateStorage(PostgresStore):
         self,
         debate_id: str,
         audio_path: str,
-        duration_seconds: Optional[int] = None,
+        duration_seconds: int | None = None,
     ) -> bool:
         """Update audio information for a debate."""
         async with self.connection() as conn:
@@ -506,7 +511,7 @@ class PostgresDebateStorage(PostgresStore):
             )
             return result != "UPDATE 0"
 
-    async def get_audio_info_async(self, debate_id: str) -> Optional[dict]:
+    async def get_audio_info_async(self, debate_id: str) -> dict | None:
         """Get audio information for a debate."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -536,7 +541,7 @@ class PostgresDebateStorage(PostgresStore):
             return bool(row and row["is_public"])
 
     async def set_public_async(
-        self, debate_id: str, is_public: bool, org_id: Optional[str] = None
+        self, debate_id: str, is_public: bool, org_id: str | None = None
     ) -> bool:
         """Set debate public/private status."""
         async with self.connection() as conn:
@@ -554,6 +559,40 @@ class PostgresDebateStorage(PostgresStore):
                     debate_id,
                 )
             return result != "UPDATE 0"
+
+    async def get_debates_batch_async(self, debate_ids: list[str]) -> dict[str, dict | None]:
+        """
+        Get multiple debates by ID in a single query.
+
+        This is more efficient than calling get_debate() in a loop,
+        reducing N queries to 1.
+
+        Args:
+            debate_ids: List of debate IDs to fetch
+
+        Returns:
+            Dict mapping debate_id -> debate dict (or None if not found)
+        """
+        if not debate_ids:
+            return {}
+
+        # Initialize result with None for all requested IDs
+        result: dict[str, dict | None] = {did: None for did in debate_ids}
+
+        async with self.connection() as conn:
+            rows = await conn.fetch(
+                "SELECT id, artifact_json FROM debates WHERE id = ANY($1)",
+                debate_ids,
+            )
+            for row in rows:
+                debate_id = row["id"]
+                artifact_json = row["artifact_json"]
+                if isinstance(artifact_json, str):
+                    result[debate_id] = json.loads(artifact_json)
+                else:
+                    result[debate_id] = artifact_json
+
+        return result
 
     # =========================================================================
     # Helper methods

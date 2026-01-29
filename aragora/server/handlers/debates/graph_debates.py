@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import DEFAULT_ROUNDS
 from ..base import (
@@ -45,7 +45,6 @@ DEBATES_CREATE_PERMISSION = "debates:create"
 # Rate limiter for graph debates (5 requests per minute - branching debates are expensive)
 _graph_limiter = RateLimiter(requests_per_minute=5)
 
-
 class GraphDebatesHandler(SecureHandler):
     """Handler for graph debate endpoints.
 
@@ -76,7 +75,7 @@ class GraphDebatesHandler(SecureHandler):
 
     def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route GET requests through the async handler."""
         return self.handle_get(handler, path, query_params)
 

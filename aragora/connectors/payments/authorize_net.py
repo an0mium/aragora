@@ -30,20 +30,18 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-
 class AuthorizeNetEnvironment(str, Enum):
     """Authorize.net environment."""
 
     SANDBOX = "sandbox"
     PRODUCTION = "production"
-
 
 class TransactionType(str, Enum):
     """Transaction types."""
@@ -54,7 +52,6 @@ class TransactionType(str, Enum):
     REFUND = "refundTransaction"
     VOID = "voidTransaction"
     PRIOR_AUTH_CAPTURE = "priorAuthCaptureTransaction"
-
 
 class TransactionStatus(str, Enum):
     """Transaction status."""
@@ -67,7 +64,6 @@ class TransactionStatus(str, Enum):
     VOIDED = "voided"
     REFUNDED = "refunded"
 
-
 class PaymentMethodType(str, Enum):
     """Payment method types."""
 
@@ -75,7 +71,6 @@ class PaymentMethodType(str, Enum):
     BANK_ACCOUNT = "bank_account"
     APPLE_PAY = "apple_pay"
     GOOGLE_PAY = "google_pay"
-
 
 class CardType(str, Enum):
     """Credit card types."""
@@ -88,7 +83,6 @@ class CardType(str, Enum):
     DINERS = "DinersClub"
     UNKNOWN = "Unknown"
 
-
 @dataclass
 class AuthorizeNetCredentials:
     """Authorize.net API credentials."""
@@ -96,7 +90,7 @@ class AuthorizeNetCredentials:
     api_login_id: str
     transaction_key: str
     environment: AuthorizeNetEnvironment = AuthorizeNetEnvironment.SANDBOX
-    signature_key: Optional[str] = None
+    signature_key: str | None = None
 
     @classmethod
     def from_env(cls) -> AuthorizeNetCredentials:
@@ -118,24 +112,22 @@ class AuthorizeNetCredentials:
             signature_key=signature_key,
         )
 
-
 @dataclass
 class CreditCard:
     """Credit card payment method."""
 
     card_number: str
     expiration_date: str  # MMYY format
-    card_code: Optional[str] = None  # CVV
+    card_code: str | None = None  # CVV
 
-    def to_api(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {
+    def to_api(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
             "cardNumber": self.card_number,
             "expirationDate": self.expiration_date,
         }
         if self.card_code:
             result["cardCode"] = self.card_code
         return result
-
 
 @dataclass
 class BankAccount:
@@ -147,7 +139,7 @@ class BankAccount:
     name_on_account: str
     echeck_type: str = "WEB"  # WEB, CCD, PPD, TEL, ARC, BOC
 
-    def to_api(self) -> Dict[str, Any]:
+    def to_api(self) -> dict[str, Any]:
         return {
             "accountType": self.account_type,
             "routingNumber": self.routing_number,
@@ -156,24 +148,23 @@ class BankAccount:
             "echeckType": self.echeck_type,
         }
 
-
 @dataclass
 class BillingAddress:
     """Billing address for transactions."""
 
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    company: Optional[str] = None
-    address: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    zip_code: Optional[str] = None
-    country: Optional[str] = None
-    phone: Optional[str] = None
-    email: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    company: str | None = None
+    address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    country: str | None = None
+    phone: str | None = None
+    email: str | None = None
 
-    def to_api(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
+    def to_api(self) -> dict[str, Any]:
+        result: dict[str, Any] = {}
         if self.first_name:
             result["firstName"] = self.first_name
         if self.last_name:
@@ -194,7 +185,6 @@ class BillingAddress:
             result["phoneNumber"] = self.phone
         return result
 
-
 @dataclass
 class TransactionResult:
     """Result of a transaction."""
@@ -203,16 +193,16 @@ class TransactionResult:
     response_code: str
     message_code: str
     message: str
-    auth_code: Optional[str] = None
-    avs_result: Optional[str] = None
-    cvv_result: Optional[str] = None
-    account_number: Optional[str] = None  # Masked
-    account_type: Optional[str] = None
+    auth_code: str | None = None
+    avs_result: str | None = None
+    cvv_result: str | None = None
+    account_number: str | None = None  # Masked
+    account_type: str | None = None
     status: TransactionStatus = TransactionStatus.PENDING
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> TransactionResult:
+    def from_api(cls, data: dict[str, Any]) -> TransactionResult:
         """Parse API response into TransactionResult."""
         trans_response = data.get("transactionResponse", {})
         messages = data.get("messages", {})
@@ -248,7 +238,7 @@ class TransactionResult:
             errors=errors,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "transaction_id": self.transaction_id,
             "response_code": self.response_code,
@@ -263,20 +253,19 @@ class TransactionResult:
             "errors": self.errors,
         }
 
-
 @dataclass
 class CustomerProfile:
     """Customer profile for recurring billing."""
 
     profile_id: str
     merchant_customer_id: str
-    email: Optional[str] = None
-    description: Optional[str] = None
-    payment_profiles: List[Dict[str, Any]] = field(default_factory=list)
-    shipping_addresses: List[Dict[str, Any]] = field(default_factory=list)
+    email: str | None = None
+    description: str | None = None
+    payment_profiles: list[dict[str, Any]] = field(default_factory=list)
+    shipping_addresses: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
-    def from_api(cls, data: Dict[str, Any]) -> CustomerProfile:
+    def from_api(cls, data: dict[str, Any]) -> CustomerProfile:
         profile = data.get("profile", data)
         return cls(
             profile_id=profile.get("customerProfileId", ""),
@@ -287,7 +276,7 @@ class CustomerProfile:
             shipping_addresses=profile.get("shipToList", []),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "profile_id": self.profile_id,
             "merchant_customer_id": self.merchant_customer_id,
@@ -296,7 +285,6 @@ class CustomerProfile:
             "payment_profile_count": len(self.payment_profiles),
             "shipping_address_count": len(self.shipping_addresses),
         }
-
 
 @dataclass
 class Subscription:
@@ -308,12 +296,12 @@ class Subscription:
     amount: Decimal
     interval_length: int
     interval_unit: str  # days, months
-    start_date: Optional[datetime] = None
-    total_occurrences: Optional[int] = None
-    trial_occurrences: Optional[int] = None
-    trial_amount: Optional[Decimal] = None
+    start_date: datetime | None = None
+    total_occurrences: int | None = None
+    trial_occurrences: int | None = None
+    trial_amount: Decimal | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "subscription_id": self.subscription_id,
             "name": self.name,
@@ -324,7 +312,6 @@ class Subscription:
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "total_occurrences": self.total_occurrences,
         }
-
 
 class AuthorizeNetConnector:
     """
@@ -338,10 +325,10 @@ class AuthorizeNetConnector:
     - Webhook signature verification
     """
 
-    def __init__(self, credentials: Optional[AuthorizeNetCredentials] = None):
+    def __init__(self, credentials: AuthorizeNetCredentials | None = None):
         """Initialize connector with credentials."""
         self.credentials = credentials or AuthorizeNetCredentials.from_env()
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def api_url(self) -> str:
@@ -359,14 +346,14 @@ class AuthorizeNetConnector:
             await self._client.aclose()
             self._client = None
 
-    def _get_auth(self) -> Dict[str, str]:
+    def _get_auth(self) -> dict[str, str]:
         """Get authentication object for API requests."""
         return {
             "name": self.credentials.api_login_id,
             "transactionKey": self.credentials.transaction_key,
         }
 
-    async def _request(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Make API request."""
         if not self._client:
             raise RuntimeError("Connector not initialized. Use async with.")
@@ -396,10 +383,10 @@ class AuthorizeNetConnector:
         self,
         amount: Decimal,
         payment_method: CreditCard | BankAccount,
-        order_id: Optional[str] = None,
-        description: Optional[str] = None,
-        billing: Optional[BillingAddress] = None,
-        customer_ip: Optional[str] = None,
+        order_id: str | None = None,
+        description: str | None = None,
+        billing: BillingAddress | None = None,
+        customer_ip: str | None = None,
     ) -> TransactionResult:
         """
         Charge a payment method (auth + capture).
@@ -412,7 +399,7 @@ class AuthorizeNetConnector:
             billing: Optional billing address
             customer_ip: Customer IP for fraud detection
         """
-        transaction_request: Dict[str, Any] = {
+        transaction_request: dict[str, Any] = {
             "transactionType": TransactionType.AUTH_CAPTURE.value,
             "amount": str(amount),
         }
@@ -448,11 +435,11 @@ class AuthorizeNetConnector:
         self,
         amount: Decimal,
         payment_method: CreditCard | BankAccount,
-        order_id: Optional[str] = None,
-        billing: Optional[BillingAddress] = None,
+        order_id: str | None = None,
+        billing: BillingAddress | None = None,
     ) -> TransactionResult:
         """Authorize a payment (hold funds without capture)."""
-        transaction_request: Dict[str, Any] = {
+        transaction_request: dict[str, Any] = {
             "transactionType": TransactionType.AUTH_ONLY.value,
             "amount": str(amount),
         }
@@ -472,10 +459,10 @@ class AuthorizeNetConnector:
         return TransactionResult.from_api(result)
 
     async def capture(
-        self, transaction_id: str, amount: Optional[Decimal] = None
+        self, transaction_id: str, amount: Decimal | None = None
     ) -> TransactionResult:
         """Capture a previously authorized transaction."""
-        transaction_request: Dict[str, Any] = {
+        transaction_request: dict[str, Any] = {
             "transactionType": TransactionType.PRIOR_AUTH_CAPTURE.value,
             "refTransId": transaction_id,
         }
@@ -491,10 +478,10 @@ class AuthorizeNetConnector:
         transaction_id: str,
         amount: Decimal,
         card_last_four: str,
-        expiration_date: Optional[str] = None,
+        expiration_date: str | None = None,
     ) -> TransactionResult:
         """Refund a settled transaction."""
-        transaction_request: Dict[str, Any] = {
+        transaction_request: dict[str, Any] = {
             "transactionType": TransactionType.REFUND.value,
             "amount": str(amount),
             "refTransId": transaction_id,
@@ -521,7 +508,7 @@ class AuthorizeNetConnector:
         result = await self._request(payload)
         return TransactionResult.from_api(result)
 
-    async def get_transaction(self, transaction_id: str) -> Dict[str, Any]:
+    async def get_transaction(self, transaction_id: str) -> dict[str, Any]:
         """Get details of a specific transaction."""
         payload = {"getTransactionDetailsRequest": {"transId": transaction_id}}
         return await self._request(payload)
@@ -533,13 +520,13 @@ class AuthorizeNetConnector:
     async def create_customer_profile(
         self,
         merchant_customer_id: str,
-        email: Optional[str] = None,
-        description: Optional[str] = None,
-        payment_method: Optional[CreditCard | BankAccount] = None,
-        billing: Optional[BillingAddress] = None,
+        email: str | None = None,
+        description: str | None = None,
+        payment_method: CreditCard | BankAccount | None = None,
+        billing: BillingAddress | None = None,
     ) -> CustomerProfile:
         """Create a customer profile for storing payment methods."""
-        profile: Dict[str, Any] = {"merchantCustomerId": merchant_customer_id}
+        profile: dict[str, Any] = {"merchantCustomerId": merchant_customer_id}
 
         if email:
             profile["email"] = email
@@ -547,7 +534,7 @@ class AuthorizeNetConnector:
             profile["description"] = description
 
         if payment_method:
-            payment_profile: Dict[str, Any] = {}
+            payment_profile: dict[str, Any] = {}
             if isinstance(payment_method, CreditCard):
                 payment_profile["payment"] = {"creditCard": payment_method.to_api()}
             else:
@@ -601,10 +588,10 @@ class AuthorizeNetConnector:
         profile_id: str,
         payment_profile_id: str,
         amount: Decimal,
-        order_id: Optional[str] = None,
+        order_id: str | None = None,
     ) -> TransactionResult:
         """Charge a stored payment method."""
-        transaction_request: Dict[str, Any] = {
+        transaction_request: dict[str, Any] = {
             "transactionType": TransactionType.AUTH_CAPTURE.value,
             "amount": str(amount),
             "profile": {
@@ -635,10 +622,10 @@ class AuthorizeNetConnector:
         billing: BillingAddress,
         total_occurrences: int = 9999,
         trial_occurrences: int = 0,
-        trial_amount: Optional[Decimal] = None,
+        trial_amount: Decimal | None = None,
     ) -> Subscription:
         """Create a recurring subscription."""
-        subscription: Dict[str, Any] = {
+        subscription: dict[str, Any] = {
             "name": name,
             "paymentSchedule": {
                 "interval": {
@@ -684,7 +671,7 @@ class AuthorizeNetConnector:
         result = await self._request(payload)
         return result.get("messages", {}).get("resultCode") == "Ok"
 
-    async def get_subscription(self, subscription_id: str) -> Dict[str, Any]:
+    async def get_subscription(self, subscription_id: str) -> dict[str, Any]:
         """Get subscription details."""
         payload = {
             "ARBGetSubscriptionRequest": {
@@ -712,7 +699,7 @@ class AuthorizeNetConnector:
 
         return hmac.compare_digest(expected.upper(), signature.upper())
 
-    def parse_webhook(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_webhook(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Parse webhook payload into standardized format."""
         event_type = payload.get("eventType", "")
         webhook_id = payload.get("webhookId", str(uuid4()))
@@ -732,7 +719,7 @@ class AuthorizeNetConnector:
         self,
         first_settlement_date: datetime,
         last_settlement_date: datetime,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get list of settled batches."""
         payload = {
             "getSettledBatchListRequest": {
@@ -744,12 +731,11 @@ class AuthorizeNetConnector:
         result = await self._request(payload)
         return result.get("batchList", [])
 
-    async def get_transaction_list(self, batch_id: str) -> List[Dict[str, Any]]:
+    async def get_transaction_list(self, batch_id: str) -> list[dict[str, Any]]:
         """Get transactions in a settled batch."""
         payload = {"getTransactionListRequest": {"batchId": batch_id}}
         result = await self._request(payload)
         return result.get("transactions", [])
-
 
 # Convenience function for quick setup
 async def create_authorize_net_connector() -> AuthorizeNetConnector:
@@ -757,7 +743,6 @@ async def create_authorize_net_connector() -> AuthorizeNetConnector:
     connector = AuthorizeNetConnector()
     await connector.__aenter__()
     return connector
-
 
 __all__ = [
     "AuthorizeNetConnector",

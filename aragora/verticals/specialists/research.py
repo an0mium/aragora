@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.core import Message
 from aragora.verticals.base import VerticalSpecialistAgent
@@ -23,7 +23,6 @@ from aragora.verticals.config import (
 from aragora.verticals.registry import VerticalRegistry
 
 logger = logging.getLogger(__name__)
-
 
 # Research vertical configuration
 RESEARCH_CONFIG = VerticalConfig(
@@ -145,7 +144,6 @@ improve the quality and rigor of their work.""",
     tags=["research", "science", "methodology", "statistics"],
 )
 
-
 @VerticalRegistry.register(
     "research",
     config=RESEARCH_CONFIG,
@@ -209,8 +207,8 @@ class ResearchSpecialist(VerticalSpecialistAgent):
     async def _execute_tool(
         self,
         tool: ToolConfig,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute a research tool."""
         tool_name = tool.name
 
@@ -225,28 +223,28 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
-    async def _arxiv_search(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _arxiv_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search arXiv for preprints."""
         return {
             "papers": [],
             "message": "arXiv search not yet implemented - requires arXiv API",
         }
 
-    async def _pubmed_search(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _pubmed_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search PubMed for medical literature."""
         return {
             "articles": [],
             "message": "PubMed search not yet implemented - requires NCBI API",
         }
 
-    async def _semantic_scholar_search(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _semantic_scholar_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search Semantic Scholar."""
         return {
             "papers": [],
             "message": "Semantic Scholar search not yet implemented",
         }
 
-    async def _citation_check(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def _citation_check(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Check citations for validity and retractions."""
         return {
             "citations": [],
@@ -258,7 +256,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check content against research compliance frameworks."""
         violations = []
 
@@ -275,7 +273,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check IRB/Ethics compliance."""
         violations = []
         content_lower = content.lower()
@@ -344,7 +342,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check CONSORT compliance for clinical trials."""
         violations = []
         content_lower = content.lower()
@@ -399,7 +397,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         self,
         content: str,
         framework: ComplianceConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check PRISMA compliance for systematic reviews."""
         violations = []
         content_lower = content.lower()
@@ -456,7 +454,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         self,
         task: str,
         system_prompt: str,
-        context: Optional[List[Message]] = None,
+        context: Optional[list[Message]] = None,
         **kwargs: Any,
     ) -> Message:
         """Generate a research analysis response."""
@@ -470,7 +468,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
     async def analyze_methodology(
         self,
         paper_text: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze research methodology.
 
@@ -521,10 +519,10 @@ class ResearchSpecialist(VerticalSpecialistAgent):
 
     def _rate_methodology(
         self,
-        study_design: Optional[str],
-        stat_methods: List[str],
-        sampling: List[str],
-        bias_risks: List[str],
+        study_design: str | None,
+        stat_methods: list[str],
+        sampling: list[str],
+        bias_risks: list[str],
     ) -> str:
         """Rate overall methodology quality."""
         score = 0
@@ -557,7 +555,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
     async def analyze_citations(
         self,
         paper_text: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze citation patterns in a paper.
 
@@ -581,7 +579,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
 
         return {
             "citation_style_detected": (
-                max(citation_counts, key=citation_counts.get) if citation_counts else None
+                max(citation_counts, key=lambda k: citation_counts[k]) if citation_counts else None
             ),
             "estimated_citation_count": total_citations,
             "dois_found": len(dois),

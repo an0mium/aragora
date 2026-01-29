@@ -35,7 +35,7 @@ import binascii
 import logging
 import threading
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -48,9 +48,8 @@ from aragora.server.handlers.utils.decorators import require_permission
 logger = logging.getLogger(__name__)
 
 # Thread-safe service instance
-_invoice_processor: Optional[Any] = None
+_invoice_processor: Any | None = None
 _invoice_processor_lock = threading.Lock()
-
 
 def get_invoice_processor():
     """Get or create invoice processor (thread-safe singleton)."""
@@ -65,15 +64,13 @@ def get_invoice_processor():
             _invoice_processor = InvoiceProcessor()
         return _invoice_processor
 
-
 # =============================================================================
 # Invoice Upload and Extraction
 # =============================================================================
 
-
 @require_permission("finance:write")
 async def handle_upload_invoice(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -122,15 +119,13 @@ async def handle_upload_invoice(
         logger.exception("Error processing invoice")
         return error_response(f"Failed to process invoice: {e}", status=500)
 
-
 # =============================================================================
 # Invoice CRUD
 # =============================================================================
 
-
 @require_permission("finance:write")
 async def handle_create_invoice(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -199,10 +194,9 @@ async def handle_create_invoice(
         logger.exception("Error creating invoice")
         return error_response(f"Failed to create invoice: {e}", status=500)
 
-
 @require_permission("finance:read")
 async def handle_list_invoices(
-    query_params: Dict[str, Any],
+    query_params: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -273,7 +267,6 @@ async def handle_list_invoices(
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
 
-
 @require_permission("finance:read")
 async def handle_get_invoice(
     invoice_id: str,
@@ -297,16 +290,14 @@ async def handle_get_invoice(
         logger.exception("Error getting invoice")
         return error_response(f"Failed to get invoice: {e}", status=500)
 
-
 # =============================================================================
 # Approval Workflow
 # =============================================================================
 
-
 @require_permission("finance:approve")
 async def handle_approve_invoice(
     invoice_id: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -337,11 +328,10 @@ async def handle_approve_invoice(
         logger.exception("Error approving invoice")
         return error_response(f"Failed to approve invoice: {e}", status=500)
 
-
 @require_permission("finance:approve")
 async def handle_reject_invoice(
     invoice_id: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -372,7 +362,6 @@ async def handle_reject_invoice(
         logger.exception("Error rejecting invoice")
         return error_response(f"Failed to reject invoice: {e}", status=500)
 
-
 @require_permission("finance:read")
 async def handle_get_pending_approvals(
     user_id: str = "default",
@@ -398,11 +387,9 @@ async def handle_get_pending_approvals(
         logger.exception("Error getting pending approvals")
         return error_response(f"Failed to get pending approvals: {e}", status=500)
 
-
 # =============================================================================
 # PO Matching
 # =============================================================================
-
 
 @require_permission("finance:write")
 async def handle_match_to_po(
@@ -434,11 +421,9 @@ async def handle_match_to_po(
         logger.exception("Error matching invoice to PO")
         return error_response(f"Failed to match invoice: {e}", status=500)
 
-
 # =============================================================================
 # Anomaly Detection
 # =============================================================================
-
 
 @require_permission("finance:read")
 async def handle_get_anomalies(
@@ -470,16 +455,14 @@ async def handle_get_anomalies(
         logger.exception("Error detecting anomalies")
         return error_response(f"Failed to detect anomalies: {e}", status=500)
 
-
 # =============================================================================
 # Payment Scheduling
 # =============================================================================
 
-
 @require_permission("finance:approve")
 async def handle_schedule_payment(
     invoice_id: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -528,10 +511,9 @@ async def handle_schedule_payment(
         logger.exception("Error scheduling payment")
         return error_response(f"Failed to schedule payment: {e}", status=500)
 
-
 @require_permission("finance:read")
 async def handle_get_scheduled_payments(
-    query_params: Dict[str, Any],
+    query_params: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -580,15 +562,13 @@ async def handle_get_scheduled_payments(
         logger.exception("Error getting scheduled payments")
         return error_response(f"Failed to get scheduled payments: {e}", status=500)
 
-
 # =============================================================================
 # Purchase Orders
 # =============================================================================
 
-
 @require_permission("finance:write")
 async def handle_create_purchase_order(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -655,11 +635,9 @@ async def handle_create_purchase_order(
         logger.exception("Error creating purchase order")
         return error_response(f"Failed to create purchase order: {e}", status=500)
 
-
 # =============================================================================
 # Statistics
 # =============================================================================
-
 
 @require_permission("finance:read")
 async def handle_get_invoice_stats(
@@ -680,7 +658,6 @@ async def handle_get_invoice_stats(
     except Exception as e:
         logger.exception("Error getting invoice stats")
         return error_response(f"Failed to get invoice stats: {e}", status=500)
-
 
 @require_permission("finance:read")
 async def handle_get_overdue_invoices(
@@ -708,11 +685,9 @@ async def handle_get_overdue_invoices(
         logger.exception("Error getting overdue invoices")
         return error_response(f"Failed to get overdue invoices: {e}", status=500)
 
-
 # =============================================================================
 # Handler Class for Router Registration
 # =============================================================================
-
 
 class InvoiceHandler(BaseHandler):
     """Handler for invoice-related routes."""
@@ -761,7 +736,7 @@ class InvoiceHandler(BaseHandler):
 
         return True
 
-    def _extract_invoice_id(self, path: str) -> Optional[str]:
+    def _extract_invoice_id(self, path: str) -> str | None:
         """Extract invoice_id from path."""
         parts = path.split("/")
         # parts[0]="", [1]="api", [2]="v1", [3]="accounting", [4]="invoices", [5]=invoice_id
@@ -772,7 +747,7 @@ class InvoiceHandler(BaseHandler):
     async def handle_get(
         self,
         path: str,
-        query_params: Optional[Dict[str, Any]] = None,
+        query_params: Optional[dict[str, Any]] = None,
     ) -> HandlerResult:
         """Handle GET requests."""
         query_params = query_params or {}
@@ -805,7 +780,7 @@ class InvoiceHandler(BaseHandler):
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[dict[str, Any]] = None,
     ) -> HandlerResult:
         """Handle POST requests."""
         data = data or {}

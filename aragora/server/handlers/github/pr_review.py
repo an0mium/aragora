@@ -24,7 +24,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -40,7 +40,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Bug Detector Lazy Import
 # =============================================================================
@@ -48,7 +47,6 @@ logger = logging.getLogger(__name__)
 _bug_detector_imported = False
 _BugDetector = None
 _BugSeverity = None
-
 
 def _import_bug_detector():
     """Lazy import bug detector to avoid circular imports."""
@@ -66,11 +64,9 @@ def _import_bug_detector():
         logger.debug(f"BugDetector not available: {e}")
         return False
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 class ReviewVerdict(str, Enum):
     """PR review verdict."""
@@ -79,7 +75,6 @@ class ReviewVerdict(str, Enum):
     REQUEST_CHANGES = "REQUEST_CHANGES"
     COMMENT = "COMMENT"
 
-
 class ReviewStatus(str, Enum):
     """Status of automated review."""
 
@@ -87,7 +82,6 @@ class ReviewStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
-
 
 @dataclass
 class ReviewComment:
@@ -98,11 +92,11 @@ class ReviewComment:
     line: int
     body: str
     side: str = "RIGHT"  # LEFT or RIGHT
-    suggestion: Optional[str] = None
+    suggestion: str | None = None
     severity: str = "info"  # info, warning, error
     category: str = "general"  # quality, security, performance, etc.
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "file_path": self.file_path,
@@ -114,7 +108,6 @@ class ReviewComment:
             "category": self.category,
         }
 
-
 @dataclass
 class PRReviewResult:
     """Result of an automated PR review."""
@@ -123,15 +116,15 @@ class PRReviewResult:
     pr_number: int
     repository: str
     status: ReviewStatus
-    verdict: Optional[ReviewVerdict] = None
-    summary: Optional[str] = None
-    comments: List[ReviewComment] = field(default_factory=list)
+    verdict: ReviewVerdict | None = None
+    summary: str | None = None
+    comments: list[ReviewComment] = field(default_factory=list)
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
-    error: Optional[str] = None
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    completed_at: datetime | None = None
+    error: str | None = None
+    metrics: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "review_id": self.review_id,
             "pr_number": self.pr_number,
@@ -146,7 +139,6 @@ class PRReviewResult:
             "metrics": self.metrics,
         }
 
-
 @dataclass
 class PRDetails:
     """Pull request details."""
@@ -158,14 +150,14 @@ class PRDetails:
     author: str
     base_branch: str
     head_branch: str
-    diff: Optional[str] = None
-    changed_files: List[Dict[str, Any]] = field(default_factory=list)
-    commits: List[Dict[str, Any]] = field(default_factory=list)
-    labels: List[str] = field(default_factory=list)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    diff: str | None = None
+    changed_files: list[dict[str, Any]] = field(default_factory=list)
+    commits: list[dict[str, Any]] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "number": self.number,
             "title": self.title,
@@ -181,21 +173,18 @@ class PRDetails:
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
-
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
-_review_results: Dict[str, PRReviewResult] = {}  # review_id -> result
-_pr_reviews: Dict[str, List[str]] = {}  # "repo/pr_number" -> [review_ids]
+_review_results: dict[str, PRReviewResult] = {}  # review_id -> result
+_pr_reviews: dict[str, list[str]] = {}  # "repo/pr_number" -> [review_ids]
 _storage_lock = threading.Lock()
-_running_reviews: Dict[str, asyncio.Task] = {}
-
+_running_reviews: dict[str, asyncio.Task] = {}
 
 # =============================================================================
 # GitHub API Client (with ServiceRegistry integration)
 # =============================================================================
-
 
 class GitHubClient:
     """
@@ -205,7 +194,7 @@ class GitHubClient:
     falls back to direct API calls or demo data.
     """
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: str | None = None):
         self.token = token or os.environ.get("GITHUB_TOKEN")
         self.base_url = "https://api.github.com"
         self._connector: Optional["GitHubConnector"] = None
@@ -228,7 +217,7 @@ class GitHubClient:
         except Exception as e:
             logger.debug(f"GitHubConnector not available, using direct API: {e}")
 
-    async def get_pr(self, owner: str, repo: str, pr_number: int) -> Optional[PRDetails]:
+    async def get_pr(self, owner: str, repo: str, pr_number: int) -> PRDetails | None:
         """Get PR details from GitHub API."""
         import aiohttp
 
@@ -291,7 +280,7 @@ class GitHubClient:
 
     async def _get_pr_via_connector(
         self, owner: str, repo: str, pr_number: int
-    ) -> Optional[PRDetails]:
+    ) -> PRDetails | None:
         """Get PR details using GitHubConnector."""
         if not self._connector:
             return None
@@ -331,8 +320,8 @@ class GitHubClient:
         pr_number: int,
         event: ReviewVerdict,
         body: str,
-        comments: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        comments: Optional[list[dict[str, Any]]] = None,
+    ) -> dict[str, Any]:
         """Submit a review to GitHub."""
         import aiohttp
 
@@ -345,7 +334,7 @@ class GitHubClient:
                 "Accept": "application/vnd.github.v3+json",
             }
 
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "event": event.value,
                 "body": body,
             }
@@ -403,20 +392,18 @@ class GitHubClient:
             updated_at=datetime.now(timezone.utc),
         )
 
-
 # =============================================================================
 # Review Handlers
 # =============================================================================
-
 
 @require_permission("github:create")
 async def handle_trigger_pr_review(
     repository: str,
     pr_number: int,
     review_type: str = "comprehensive",
-    workspace_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    workspace_id: str | None = None,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """
     Trigger an automated PR review.
 
@@ -521,10 +508,9 @@ async def handle_trigger_pr_review(
             "error": str(e),
         }
 
-
 async def _run_bug_detector_analysis(
     pr_details: PRDetails,
-) -> tuple[List[ReviewComment], List[str]]:
+) -> tuple[list[ReviewComment], list[str]]:
     """
     Run bug detector analysis on changed files.
 
@@ -537,8 +523,8 @@ async def _run_bug_detector_analysis(
     import ast as ast_module
     import re
 
-    comments: List[ReviewComment] = []
-    critical_issues: List[str] = []
+    comments: list[ReviewComment] = []
+    critical_issues: list[str] = []
 
     if not _import_bug_detector():
         return comments, critical_issues
@@ -559,8 +545,8 @@ async def _run_bug_detector_analysis(
                 continue
 
             # Extract added lines from the patch with line mapping
-            added_lines: List[str] = []
-            line_mapping: Dict[int, int] = {}  # Maps pseudo-line to actual PR line
+            added_lines: list[str] = []
+            line_mapping: dict[int, int] = {}  # Maps pseudo-line to actual PR line
             current_line = 0
             for line in patch.split("\n"):
                 if line.startswith("@@"):
@@ -650,12 +636,11 @@ async def _run_bug_detector_analysis(
 
     return comments, critical_issues
 
-
 async def _perform_review(
     pr_details: PRDetails,
     review_type: str,
     use_debate: bool = True,
-) -> tuple[List[ReviewComment], ReviewVerdict, str]:
+) -> tuple[list[ReviewComment], ReviewVerdict, str]:
     """
     Perform the actual review analysis.
 
@@ -789,11 +774,10 @@ async def _perform_review(
 
     return comments, verdict, summary
 
-
 async def _perform_debate_review(
     pr_details: PRDetails,
     review_type: str,
-) -> Optional[tuple[List[ReviewComment], ReviewVerdict, str]]:
+) -> Optional[tuple[list[ReviewComment], ReviewVerdict, str]]:
     """
     Perform code review using multi-agent debate.
 
@@ -873,11 +857,10 @@ Format your response as:
         logger.warning(f"Debate review error: {e}")
         return None
 
-
 def _parse_debate_result(
     answer: str,
     pr_details: PRDetails,
-) -> tuple[List[ReviewComment], ReviewVerdict, str]:
+) -> tuple[list[ReviewComment], ReviewVerdict, str]:
     """Parse debate result into structured review."""
     import re
 
@@ -930,12 +913,11 @@ def _parse_debate_result(
 
     return comments, verdict, summary
 
-
 @require_permission("github:read")
 async def handle_get_pr_details(
     repository: str,
     pr_number: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get PR details.
 
@@ -965,11 +947,10 @@ async def handle_get_pr_details(
             "error": str(e),
         }
 
-
 @require_permission("github:read")
 async def handle_get_review_status(
     review_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get review status/result.
 
@@ -994,12 +975,11 @@ async def handle_get_review_status(
             "error": str(e),
         }
 
-
 @require_permission("github:read")
 async def handle_list_pr_reviews(
     repository: str,
     pr_number: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List reviews for a PR.
 
@@ -1027,15 +1007,14 @@ async def handle_list_pr_reviews(
             "error": str(e),
         }
 
-
 @require_permission("connectors:create")
 async def handle_submit_review(
     repository: str,
     pr_number: int,
     event: str,
     body: str,
-    comments: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    comments: Optional[list[dict[str, Any]]] = None,
+) -> dict[str, Any]:
     """
     Submit a review to GitHub.
 
@@ -1077,11 +1056,9 @@ async def handle_submit_review(
             "error": str(e),
         }
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class PRReviewHandler(BaseHandler):
     """
@@ -1098,7 +1075,7 @@ class PRReviewHandler(BaseHandler):
         "/api/v1/github/pr/",
     ]
 
-    def __init__(self, ctx: Dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)  # type: ignore[arg-type]
 
@@ -1112,13 +1089,13 @@ class PRReviewHandler(BaseHandler):
         return False
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route PR review endpoint requests."""
         return None
 
     @require_permission("github:pr:review")
-    async def handle_post_trigger_review(self, data: Dict[str, Any]) -> HandlerResult:
+    async def handle_post_trigger_review(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/pr/review"""
         repository = data.get("repository")
         pr_number = data.get("pr_number")
@@ -1140,7 +1117,7 @@ class PRReviewHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 400)
 
     @require_permission("github:pr:read")
-    async def handle_get_pr(self, params: Dict[str, Any], pr_number: int) -> HandlerResult:
+    async def handle_get_pr(self, params: dict[str, Any], pr_number: int) -> HandlerResult:
         """GET /api/v1/github/pr/{pr_number}"""
         repository = params.get("repository")
         if not repository:
@@ -1158,7 +1135,7 @@ class PRReviewHandler(BaseHandler):
 
     @require_permission("github:pr:read")
     async def handle_get_review_status(
-        self, params: Dict[str, Any], review_id: str
+        self, params: dict[str, Any], review_id: str
     ) -> HandlerResult:
         """GET /api/v1/github/pr/review/{review_id}"""
         result = await handle_get_review_status(review_id=review_id)
@@ -1169,7 +1146,7 @@ class PRReviewHandler(BaseHandler):
             return error_response(result.get("error", "Unknown error"), 404)
 
     @require_permission("github:pr:read")
-    async def handle_list_reviews(self, params: Dict[str, Any], pr_number: int) -> HandlerResult:
+    async def handle_list_reviews(self, params: dict[str, Any], pr_number: int) -> HandlerResult:
         """GET /api/v1/github/pr/{pr_number}/reviews"""
         repository = params.get("repository")
         if not repository:
@@ -1187,7 +1164,7 @@ class PRReviewHandler(BaseHandler):
 
     @require_permission("github:pr:write")
     async def handle_post_submit_review(
-        self, data: Dict[str, Any], pr_number: int
+        self, data: dict[str, Any], pr_number: int
     ) -> HandlerResult:
         """POST /api/v1/github/pr/{pr_number}/review"""
         repository = data.get("repository")

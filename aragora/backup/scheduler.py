@@ -41,16 +41,14 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Types and Enums
 # =============================================================================
-
 
 class ScheduleType(str, Enum):
     """Types of backup schedules."""
@@ -61,7 +59,6 @@ class ScheduleType(str, Enum):
     MONTHLY = "monthly"
     CUSTOM = "custom"
 
-
 class SchedulerStatus(str, Enum):
     """Status of the backup scheduler."""
 
@@ -70,21 +67,20 @@ class SchedulerStatus(str, Enum):
     PAUSED = "paused"
     ERROR = "error"
 
-
 @dataclass
 class BackupSchedule:
     """Configuration for backup schedule."""
 
     # Schedule times (None = disabled)
-    hourly_minute: Optional[int] = None  # Minute of hour (0-59)
-    daily: Optional[time] = None  # Time for daily backup
-    weekly_day: Optional[int] = None  # Day of week (0=Monday, 6=Sunday)
-    weekly_time: Optional[time] = None  # Time for weekly backup
-    monthly_day: Optional[int] = None  # Day of month (1-31)
-    monthly_time: Optional[time] = None  # Time for monthly backup
+    hourly_minute: int | None = None  # Minute of hour (0-59)
+    daily: time | None = None  # Time for daily backup
+    weekly_day: int | None = None  # Day of week (0=Monday, 6=Sunday)
+    weekly_time: time | None = None  # Time for weekly backup
+    monthly_day: int | None = None  # Day of month (1-31)
+    monthly_time: time | None = None  # Time for monthly backup
 
     # Custom cron-like interval (seconds)
-    custom_interval_seconds: Optional[int] = None
+    custom_interval_seconds: int | None = None
 
     # Retry configuration
     max_retries: int = 3
@@ -101,8 +97,8 @@ class BackupSchedule:
     def get_next_backup_time(
         self,
         schedule_type: ScheduleType,
-        now: Optional[datetime] = None,
-    ) -> Optional[datetime]:
+        now: datetime | None = None,
+    ) -> datetime | None:
         """Calculate next backup time for the given schedule type."""
         if now is None:
             now = datetime.now(timezone.utc)
@@ -166,7 +162,6 @@ class BackupSchedule:
 
         return None
 
-
 @dataclass
 class BackupJob:
     """Record of a scheduled or executed backup job."""
@@ -174,16 +169,16 @@ class BackupJob:
     id: str
     schedule_type: ScheduleType
     scheduled_at: datetime
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     status: str = "scheduled"
-    backup_id: Optional[str] = None
+    backup_id: str | None = None
     verified: bool = False
-    error: Optional[str] = None
+    error: str | None = None
     retries: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -199,7 +194,6 @@ class BackupJob:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class SchedulerStats:
     """Statistics for the backup scheduler."""
@@ -208,19 +202,17 @@ class SchedulerStats:
     total_backups: int = 0
     successful_backups: int = 0
     failed_backups: int = 0
-    last_backup_at: Optional[datetime] = None
-    last_backup_status: Optional[str] = None
-    next_daily: Optional[datetime] = None
-    next_weekly: Optional[datetime] = None
-    next_monthly: Optional[datetime] = None
+    last_backup_at: datetime | None = None
+    last_backup_status: str | None = None
+    next_daily: datetime | None = None
+    next_weekly: datetime | None = None
+    next_monthly: datetime | None = None
     dr_drills_completed: int = 0
-    last_dr_drill_at: Optional[datetime] = None
+    last_dr_drill_at: datetime | None = None
     uptime_seconds: float = 0.0
 
-
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 class BackupScheduler:
     """
@@ -233,9 +225,9 @@ class BackupScheduler:
     def __init__(
         self,
         backup_manager: Any,
-        schedule: Optional[BackupSchedule] = None,
-        event_callback: Optional[EventCallback] = None,
-        storage_path: Optional[Path] = None,
+        schedule: BackupSchedule | None = None,
+        event_callback: EventCallback | None = None,
+        storage_path: Path | None = None,
     ):
         """
         Initialize the backup scheduler.
@@ -254,9 +246,9 @@ class BackupScheduler:
         self._storage_path = storage_path
 
         self._status = SchedulerStatus.STOPPED
-        self._started_at: Optional[datetime] = None
-        self._tasks: List[asyncio.Task] = []
-        self._job_history: List[BackupJob] = []
+        self._started_at: datetime | None = None
+        self._tasks: list[asyncio.Task] = []
+        self._job_history: list[BackupJob] = []
         self._stats = SchedulerStats(status=SchedulerStatus.STOPPED)
         self._lock = asyncio.Lock()
 
@@ -274,7 +266,7 @@ class BackupScheduler:
         """Set the event callback for notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -653,14 +645,14 @@ class BackupScheduler:
                 logger.error(f"DR drill schedule error: {e}")
                 await asyncio.sleep(3600)
 
-    async def _execute_dr_drill(self) -> Dict[str, Any]:
+    async def _execute_dr_drill(self) -> dict[str, Any]:
         """Execute a DR drill for backup verification."""
         import time as time_module
 
         logger.info("Starting DR drill: backup restoration test")
         start_time = time_module.time()
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "drill_type": "backup_restoration",
             "started_at": datetime.now(timezone.utc).isoformat(),
             "steps": [],
@@ -772,32 +764,28 @@ class BackupScheduler:
             ).total_seconds()
         return self._stats
 
-    def get_job_history(self, limit: int = 100) -> List[BackupJob]:
+    def get_job_history(self, limit: int = 100) -> list[BackupJob]:
         """Get recent backup job history."""
         return self._job_history[-limit:]
-
 
 # =============================================================================
 # Global Instance
 # =============================================================================
 
-_backup_scheduler: Optional[BackupScheduler] = None
+_backup_scheduler: BackupScheduler | None = None
 
-
-def get_backup_scheduler() -> Optional[BackupScheduler]:
+def get_backup_scheduler() -> BackupScheduler | None:
     """Get the global backup scheduler instance."""
     return _backup_scheduler
 
-
-def set_backup_scheduler(scheduler: Optional[BackupScheduler]) -> None:
+def set_backup_scheduler(scheduler: BackupScheduler | None) -> None:
     """Set the global backup scheduler instance."""
     global _backup_scheduler
     _backup_scheduler = scheduler
 
-
 async def start_backup_scheduler(
     backup_manager: Any,
-    schedule: Optional[BackupSchedule] = None,
+    schedule: BackupSchedule | None = None,
 ) -> BackupScheduler:
     """
     Start the global backup scheduler.
@@ -822,7 +810,6 @@ async def start_backup_scheduler(
 
     return _backup_scheduler
 
-
 async def stop_backup_scheduler() -> None:
     """Stop the global backup scheduler."""
     global _backup_scheduler
@@ -830,7 +817,6 @@ async def stop_backup_scheduler() -> None:
     if _backup_scheduler is not None:
         await _backup_scheduler.stop()
         _backup_scheduler = None
-
 
 # Import uuid at module level for use in methods
 import uuid

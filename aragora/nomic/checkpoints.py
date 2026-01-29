@@ -6,6 +6,7 @@ Provides persistence for state machine state, enabling:
 - Manual pause/resume
 - Audit trail of cycle progress
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -13,13 +14,12 @@ import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 # Safe pattern for checkpoint identifiers (alphanumeric, hyphens, underscores)
 _SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
-
 
 def _sanitize_checkpoint_id(value: str, param_name: str) -> str:
     """Sanitize a checkpoint identifier to prevent path traversal.
@@ -42,12 +42,10 @@ def _sanitize_checkpoint_id(value: str, param_name: str) -> str:
         )
     return value
 
-
 # Checkpoint file naming
 CHECKPOINT_PREFIX = "checkpoint"
 CHECKPOINT_EXT = ".json"
 LATEST_CHECKPOINT_NAME = "latest.json"
-
 
 def get_checkpoint_path(checkpoint_dir: str, cycle_id: str, suffix: str = "") -> Path:
     """
@@ -74,9 +72,8 @@ def get_checkpoint_path(checkpoint_dir: str, cycle_id: str, suffix: str = "") ->
     filename += CHECKPOINT_EXT
     return Path(checkpoint_dir) / filename
 
-
 def save_checkpoint(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     checkpoint_dir: str,
     cycle_id: str,
     suffix: str = "",
@@ -128,8 +125,7 @@ def save_checkpoint(
             temp_path.unlink()
         raise
 
-
-def load_checkpoint(checkpoint_path: str) -> Optional[Dict[str, Any]]:
+def load_checkpoint(checkpoint_path: str) -> Optional[dict[str, Any]]:
     """
     Load a checkpoint from disk.
 
@@ -159,8 +155,7 @@ def load_checkpoint(checkpoint_path: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Failed to load checkpoint: {e}")
         return None
 
-
-def load_latest_checkpoint(checkpoint_dir: str) -> Optional[Dict[str, Any]]:
+def load_latest_checkpoint(checkpoint_dir: str) -> Optional[dict[str, Any]]:
     """
     Load the most recent checkpoint from a directory.
 
@@ -189,8 +184,7 @@ def load_latest_checkpoint(checkpoint_dir: str) -> Optional[Dict[str, Any]]:
     checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return load_checkpoint(str(checkpoints[0]))
 
-
-def list_checkpoints(checkpoint_dir: str) -> List[Dict[str, Any]]:
+def list_checkpoints(checkpoint_dir: str) -> list[dict[str, Any]]:
     """
     List all checkpoints in a directory.
 
@@ -233,7 +227,6 @@ def list_checkpoints(checkpoint_dir: str) -> List[Dict[str, Any]]:
     checkpoints.sort(key=lambda c: c.get("saved_at", ""), reverse=True)
     return checkpoints
 
-
 def delete_checkpoint(checkpoint_path: str) -> bool:
     """
     Delete a checkpoint file.
@@ -256,7 +249,6 @@ def delete_checkpoint(checkpoint_path: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to delete checkpoint: {e}")
         return False
-
 
 def cleanup_old_checkpoints(
     checkpoint_dir: str,
@@ -305,7 +297,6 @@ def cleanup_old_checkpoints(
 
     return deleted
 
-
 class CheckpointManager:
     """
     High-level checkpoint management for the nomic loop.
@@ -337,7 +328,7 @@ class CheckpointManager:
 
     def save(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         cycle_id: str,
         state_name: str = "",
     ) -> str:
@@ -363,19 +354,19 @@ class CheckpointManager:
 
         return path
 
-    def load_latest(self) -> Optional[Dict[str, Any]]:
+    def load_latest(self) -> Optional[dict[str, Any]]:
         """Load the most recent checkpoint."""
         return load_latest_checkpoint(self.checkpoint_dir)
 
-    def load(self, checkpoint_path: str) -> Optional[Dict[str, Any]]:
+    def load(self, checkpoint_path: str) -> Optional[dict[str, Any]]:
         """Load a specific checkpoint."""
         return load_checkpoint(checkpoint_path)
 
-    def list_all(self) -> List[Dict[str, Any]]:
+    def list_all(self) -> list[dict[str, Any]]:
         """List all available checkpoints."""
         return list_checkpoints(self.checkpoint_dir)
 
-    def get_recovery_options(self) -> List[Dict[str, Any]]:
+    def get_recovery_options(self) -> list[dict[str, Any]]:
         """
         Get available recovery options based on checkpoints.
 
@@ -428,7 +419,7 @@ class CheckpointManager:
 
         return options
 
-    def cleanup(self, keep_count: Optional[int] = None) -> int:
+    def cleanup(self, keep_count: int | None = None) -> int:
         """
         Manually clean up old checkpoints.
 

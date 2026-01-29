@@ -16,13 +16,12 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import urlencode
 
 import httpx
 
 logger = logging.getLogger(__name__)
-
 
 def _get_secret(name: str, default: str = "") -> str:
     """Get a secret from AWS Secrets Manager or environment."""
@@ -33,11 +32,9 @@ def _get_secret(name: str, default: str = "") -> str:
     except ImportError:
         return os.environ.get(name, default)
 
-
 def _is_production() -> bool:
     """Check if we're in production mode."""
     return os.environ.get("ARAGORA_ENV", "").lower() == "production"
-
 
 @dataclass
 class OAuthProviderConfig:
@@ -46,18 +43,17 @@ class OAuthProviderConfig:
     client_id: str
     client_secret: str
     redirect_uri: str
-    scopes: List[str] = field(default_factory=list)
+    scopes: list[str] = field(default_factory=list)
     authorization_endpoint: str = ""
     token_endpoint: str = ""
     userinfo_endpoint: str = ""
     revocation_endpoint: str = ""
 
     # Provider-specific settings
-    tenant: Optional[str] = None  # For Microsoft
-    team_id: Optional[str] = None  # For Apple
-    key_id: Optional[str] = None  # For Apple
-    private_key: Optional[str] = None  # For Apple
-
+    tenant: str | None = None  # For Microsoft
+    team_id: str | None = None  # For Apple
+    key_id: str | None = None  # For Apple
+    private_key: str | None = None  # For Apple
 
 @dataclass
 class OAuthTokens:
@@ -65,13 +61,13 @@ class OAuthTokens:
 
     access_token: str
     token_type: str = "Bearer"
-    expires_in: Optional[int] = None
-    refresh_token: Optional[str] = None
-    scope: Optional[str] = None
-    id_token: Optional[str] = None
+    expires_in: int | None = None
+    refresh_token: str | None = None
+    scope: str | None = None
+    id_token: str | None = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OAuthTokens":
+    def from_dict(cls, data: dict[str, Any]) -> "OAuthTokens":
         """Create from token endpoint response."""
         return cls(
             access_token=data["access_token"],
@@ -82,22 +78,20 @@ class OAuthTokens:
             id_token=data.get("id_token"),
         )
 
-
 @dataclass
 class OAuthUserInfo:
     """User information from OAuth provider."""
 
     provider: str
     provider_user_id: str
-    email: Optional[str] = None
+    email: str | None = None
     email_verified: bool = False
-    name: Optional[str] = None
-    given_name: Optional[str] = None
-    family_name: Optional[str] = None
-    picture: Optional[str] = None
-    locale: Optional[str] = None
-    raw_data: Dict[str, Any] = field(default_factory=dict)
-
+    name: str | None = None
+    given_name: str | None = None
+    family_name: str | None = None
+    picture: str | None = None
+    locale: str | None = None
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
 class OAuthProvider(ABC):
     """
@@ -112,7 +106,7 @@ class OAuthProvider(ABC):
 
     PROVIDER_NAME: str = "unknown"
 
-    def __init__(self, config: Optional[OAuthProviderConfig] = None):
+    def __init__(self, config: OAuthProviderConfig | None = None):
         """
         Initialize the provider.
 
@@ -121,7 +115,7 @@ class OAuthProvider(ABC):
                     configuration is loaded from environment.
         """
         self._config = config or self._load_config_from_env()
-        self._http_client: Optional[httpx.Client] = None
+        self._http_client: httpx.Client | None = None
 
     @abstractmethod
     def _load_config_from_env(self) -> OAuthProviderConfig:
@@ -164,8 +158,8 @@ class OAuthProvider(ABC):
     def get_authorization_url(
         self,
         state: str,
-        redirect_uri: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        redirect_uri: str | None = None,
+        scopes: Optional[list[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -186,7 +180,7 @@ class OAuthProvider(ABC):
     def exchange_code(
         self,
         code: str,
-        redirect_uri: Optional[str] = None,
+        redirect_uri: str | None = None,
     ) -> OAuthTokens:
         """
         Exchange authorization code for tokens.
@@ -216,7 +210,7 @@ class OAuthProvider(ABC):
     def exchange_and_get_user(
         self,
         code: str,
-        redirect_uri: Optional[str] = None,
+        redirect_uri: str | None = None,
     ) -> OAuthUserInfo:
         """
         Exchange code and get user info in one call.
@@ -278,7 +272,7 @@ class OAuthProvider(ABC):
     def _build_authorization_url(
         self,
         endpoint: str,
-        params: Dict[str, str],
+        params: dict[str, str],
     ) -> str:
         """Build authorization URL with query parameters."""
         return f"{endpoint}?{urlencode(params)}"
@@ -286,8 +280,8 @@ class OAuthProvider(ABC):
     def _request_tokens(
         self,
         endpoint: str,
-        data: Dict[str, str],
-        headers: Optional[Dict[str, str]] = None,
+        data: dict[str, str],
+        headers: Optional[dict[str, str]] = None,
     ) -> OAuthTokens:
         """Make token request to provider."""
         client = self._get_http_client()
@@ -304,8 +298,8 @@ class OAuthProvider(ABC):
         self,
         endpoint: str,
         access_token: str,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
         """Make user info request to provider."""
         client = self._get_http_client()
         request_headers = {"Authorization": f"Bearer {access_token}"}
@@ -316,7 +310,6 @@ class OAuthProvider(ABC):
         response.raise_for_status()
 
         return response.json()
-
 
 __all__ = [
     "OAuthProvider",

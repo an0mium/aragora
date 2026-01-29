@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.healthcare.ehr.base import (
     EHRAdapter,
@@ -29,18 +29,16 @@ CERNER_IDENTIFIER_SYSTEMS = {
     "npi": "http://hl7.org/fhir/sid/us-npi",
 }
 
-
 @dataclass
 class CernerPatientContext:
     """Cerner patient launch context."""
 
     patient_id: str
     fhir_id: str
-    federated_id: Optional[str] = None
-    mrn: Optional[str] = None
-    organization_id: Optional[str] = None
-    encounter_id: Optional[str] = None
-
+    federated_id: str | None = None
+    mrn: str | None = None
+    organization_id: str | None = None
+    encounter_id: str | None = None
 
 class CernerAdapter(EHRAdapter):
     """
@@ -53,7 +51,7 @@ class CernerAdapter(EHRAdapter):
     """
 
     vendor = EHRVendor.CERNER
-    capabilities: Set[EHRCapability] = {
+    capabilities: set[EHRCapability] = {
         EHRCapability.SMART_ON_FHIR,
         EHRCapability.FHIR_R4,
         EHRCapability.BACKEND_SERVICES,
@@ -85,7 +83,7 @@ class CernerAdapter(EHRAdapter):
 
         super().__init__(config)
 
-    async def get_patient(self, patient_id: str) -> Dict[str, Any]:
+    async def get_patient(self, patient_id: str) -> dict[str, Any]:
         """
         Get patient resource by ID.
 
@@ -101,12 +99,12 @@ class CernerAdapter(EHRAdapter):
 
     async def search_patients(
         self,
-        family: Optional[str] = None,
-        given: Optional[str] = None,
-        birthdate: Optional[str] = None,
-        identifier: Optional[str] = None,
+        family: str | None = None,
+        given: str | None = None,
+        birthdate: str | None = None,
+        identifier: str | None = None,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Search for patients in Cerner.
 
@@ -119,7 +117,7 @@ class CernerAdapter(EHRAdapter):
         Returns:
             List of matching Patient resources
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if family:
             params["family"] = family
         if given:
@@ -138,8 +136,8 @@ class CernerAdapter(EHRAdapter):
     async def get_patient_records(  # type: ignore[override]
         self,
         patient_id: str,
-        resource_types: Optional[List[str]] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        resource_types: Optional[list[str]] = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Get all clinical records for a patient.
 

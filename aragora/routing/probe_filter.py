@@ -11,16 +11,15 @@ Features:
 - Filter agents by vulnerability threshold
 - Identify dominant weaknesses for targeted improvement
 """
+from __future__ import annotations
 
 import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ProbeProfile:
@@ -39,12 +38,12 @@ class ProbeProfile:
     low_count: int = 0
 
     # Dominant weakness (most common vulnerability type)
-    dominant_weakness: Optional[str] = None
+    dominant_weakness: str | None = None
     weakness_counts: dict[str, int] = field(default_factory=dict)
 
     # Metadata
     total_probes: int = 0
-    last_probe_date: Optional[str] = None
+    last_probe_date: str | None = None
     days_since_probe: int = 999  # High default = stale
     report_count: int = 0
 
@@ -78,7 +77,6 @@ class ProbeProfile:
             "days_since_probe": self.days_since_probe,
             "report_count": self.report_count,
         }
-
 
 class ProbeFilter:
     """
@@ -191,7 +189,7 @@ class ProbeFilter:
         total_vulnerabilities = 0
         weakness_counts: dict[str, int] = {}
         all_recommendations: list[str] = []
-        latest_date: Optional[str] = None
+        latest_date: str | None = None
 
         for report in reports:
             probes_run = report.get("probes_run", 0)

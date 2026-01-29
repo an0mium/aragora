@@ -10,11 +10,12 @@ Usage:
     2. Add ValidationMiddleware to server middleware stack
     3. Validation errors are logged and optionally blocked
 """
+from __future__ import annotations
 
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Pattern, Tuple
+from typing import Any, Callable, Optional, Pattern
 
 from aragora.server.validation.schema import (
     BILLING_PORTAL_SCHEMA,
@@ -41,11 +42,9 @@ from aragora.server.validation.entities import (
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Validation Configuration
 # =============================================================================
-
 
 @dataclass
 class RouteValidation:
@@ -63,10 +62,10 @@ class RouteValidation:
 
     pattern: str | Pattern[str]
     method: str
-    body_schema: Optional[dict] = None
-    query_rules: Dict[str, Tuple[int, int]] = field(default_factory=dict)
-    required_params: List[str] = field(default_factory=list)
-    path_validators: Dict[str, Callable[[str], Tuple[bool, str]]] = field(default_factory=dict)
+    body_schema: dict | None = None
+    query_rules: dict[str, tuple[int, int]] = field(default_factory=dict)
+    required_params: list[str] = field(default_factory=list)
+    path_validators: dict[str, Callable[[str], tuple[bool, str]]] = field(default_factory=dict)
     max_body_size: int = 1_048_576  # 1MB default
 
     def __post_init__(self) -> None:
@@ -81,7 +80,6 @@ class RouteValidation:
         pattern: Pattern[str] = self.pattern  # type: ignore[assignment]
         return bool(pattern.match(path))
 
-
 # =============================================================================
 # Validation Registry
 # =============================================================================
@@ -91,7 +89,7 @@ LIMIT_OFFSET_RULES = {"limit": (1, 100), "offset": (0, 100000)}
 PAGINATION_RULES = {"page": (1, 10000), "per_page": (1, 100)}
 
 # Route validation registry - add schemas here as they're created
-VALIDATION_REGISTRY: List[RouteValidation] = [
+VALIDATION_REGISTRY: list[RouteValidation] = [
     # =========================================================================
     # Debates - core functionality
     # =========================================================================
@@ -249,11 +247,9 @@ VALIDATION_REGISTRY: List[RouteValidation] = [
     ),
 ]
 
-
 # =============================================================================
 # Validation Middleware
 # =============================================================================
-
 
 @dataclass
 class ValidationConfig:
@@ -271,19 +267,17 @@ class ValidationConfig:
     log_all: bool = False
     max_body_size: int = 10_485_760  # 10MB default
 
-
 @dataclass
 class ValidationResult:
     """Result of request validation."""
 
     valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def error_message(self) -> str:
         return "; ".join(self.errors) if self.errors else ""
-
 
 class ValidationMiddleware:
     """Middleware for validating API requests.
@@ -294,8 +288,8 @@ class ValidationMiddleware:
 
     def __init__(
         self,
-        config: Optional[ValidationConfig] = None,
-        registry: Optional[List[RouteValidation]] = None,
+        config: ValidationConfig | None = None,
+        registry: Optional[list[RouteValidation]] = None,
     ) -> None:
         self.config = config or ValidationConfig()
         self.registry = registry or VALIDATION_REGISTRY
@@ -309,9 +303,9 @@ class ValidationMiddleware:
         self,
         path: str,
         method: str,
-        query_params: Optional[Dict[str, Any]] = None,
-        body: Optional[bytes] = None,
-        body_parsed: Optional[dict] = None,
+        query_params: Optional[dict[str, Any]] = None,
+        body: bytes | None = None,
+        body_parsed: dict | None = None,
     ) -> ValidationResult:
         """Validate an incoming request.
 
@@ -398,14 +392,14 @@ class ValidationMiddleware:
 
         return result
 
-    def _find_rule(self, path: str, method: str) -> Optional[RouteValidation]:
+    def _find_rule(self, path: str, method: str) -> RouteValidation | None:
         """Find the first matching validation rule."""
         for rule in self.registry:
             if rule.matches(path, method):
                 return rule
         return None
 
-    def _extract_path_segment(self, path: str, name: str) -> Optional[str]:
+    def _extract_path_segment(self, path: str, name: str) -> str | None:
         """Extract a named segment from the path."""
         parts = path.strip("/").split("/")
 
@@ -423,7 +417,7 @@ class ValidationMiddleware:
 
         return None
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get validation metrics."""
         return {
             "total_validations": self._validation_count,
@@ -437,15 +431,13 @@ class ValidationMiddleware:
             "blocking_mode": self.config.blocking,
         }
 
-    def get_unvalidated_routes(self) -> List[str]:
+    def get_unvalidated_routes(self) -> list[str]:
         """Get list of routes that have no validation rules."""
         return sorted(self._unvalidated_routes)
-
 
 # =============================================================================
 # Utility Functions
 # =============================================================================
-
 
 def create_validation_middleware(
     blocking: bool = True,
@@ -467,13 +459,12 @@ def create_validation_middleware(
     )
     return ValidationMiddleware(config=config)
 
-
 def add_route_validation(
     pattern: str,
     method: str,
-    body_schema: Optional[dict] = None,
-    query_rules: Optional[Dict[str, Tuple[int, int]]] = None,
-    required_params: Optional[List[str]] = None,
+    body_schema: dict | None = None,
+    query_rules: Optional[dict[str, tuple[int, int]]] = None,
+    required_params: Optional[list[str]] = None,
 ) -> None:
     """Add a validation rule to the global registry.
 

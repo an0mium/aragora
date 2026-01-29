@@ -34,14 +34,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.novelty import NoveltyTracker, NoveltyResult
     from aragora.debate.selection_feedback import SelectionFeedbackLoop
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AgentNoveltyStats:
@@ -66,7 +65,6 @@ class AgentNoveltyStats:
         if self.total_rounds == 0:
             return 0.0
         return self.low_novelty_rounds / self.total_rounds
-
 
 @dataclass
 class NoveltySelectionBridgeConfig:
@@ -96,7 +94,6 @@ class NoveltySelectionBridgeConfig:
     # Decay factor for old novelty data (applied daily)
     decay_factor: float = 0.95
 
-
 @dataclass
 class NoveltySelectionBridge:
     """Bridges NoveltyTracker metrics into SelectionFeedbackLoop decisions.
@@ -113,14 +110,14 @@ class NoveltySelectionBridge:
     config: NoveltySelectionBridgeConfig = field(default_factory=NoveltySelectionBridgeConfig)
 
     # Internal state
-    _agent_stats: Dict[str, AgentNoveltyStats] = field(default_factory=dict, repr=False)
-    _novelty_adjustments: Dict[str, float] = field(default_factory=dict, repr=False)
+    _agent_stats: dict[str, AgentNoveltyStats] = field(default_factory=dict, repr=False)
+    _novelty_adjustments: dict[str, float] = field(default_factory=dict, repr=False)
 
     def record_round_novelty(
         self,
         novelty_result: "NoveltyResult",
-        debate_id: Optional[str] = None,
-    ) -> Dict[str, float]:
+        debate_id: str | None = None,
+    ) -> dict[str, float]:
         """Record novelty results from a debate round.
 
         Args:
@@ -130,7 +127,7 @@ class NoveltySelectionBridge:
         Returns:
             Dict of agent_name -> novelty adjustment for this round
         """
-        adjustments: Dict[str, float] = {}
+        adjustments: dict[str, float] = {}
 
         for agent_name, novelty_score in novelty_result.per_agent_novelty.items():
             stats = self._get_or_create_stats(agent_name)
@@ -156,7 +153,7 @@ class NoveltySelectionBridge:
 
         return adjustments
 
-    def record_from_tracker(self, debate_id: Optional[str] = None) -> Dict[str, float]:
+    def record_from_tracker(self, debate_id: str | None = None) -> dict[str, float]:
         """Record all rounds from the attached NoveltyTracker.
 
         Useful when processing a completed debate.
@@ -171,7 +168,7 @@ class NoveltySelectionBridge:
             logger.debug("No novelty tracker attached")
             return {}
 
-        all_adjustments: Dict[str, float] = {}
+        all_adjustments: dict[str, float] = {}
 
         for novelty_result in self.novelty_tracker.scores:
             round_adjustments = self.record_round_novelty(novelty_result, debate_id)
@@ -260,7 +257,7 @@ class NoveltySelectionBridge:
         """
         return self._novelty_adjustments.get(agent_name, 0.0)
 
-    def get_all_adjustments(self) -> Dict[str, float]:
+    def get_all_adjustments(self) -> dict[str, float]:
         """Get novelty adjustments for all tracked agents.
 
         Returns:
@@ -268,7 +265,7 @@ class NoveltySelectionBridge:
         """
         return dict(self._novelty_adjustments)
 
-    def get_low_novelty_agents(self, threshold: float = 0.3) -> List[str]:
+    def get_low_novelty_agents(self, threshold: float = 0.3) -> list[str]:
         """Get agents with consistently low novelty.
 
         Args:
@@ -284,7 +281,7 @@ class NoveltySelectionBridge:
             and stats.low_novelty_rate > threshold
         ]
 
-    def get_high_novelty_agents(self, threshold: float = 0.6) -> List[str]:
+    def get_high_novelty_agents(self, threshold: float = 0.6) -> list[str]:
         """Get agents with consistently high novelty.
 
         Args:
@@ -329,7 +326,7 @@ class NoveltySelectionBridge:
         logger.info(f"novelty_selection_synced agents_updated={updated}")
         return updated
 
-    def get_agent_stats(self, agent_name: str) -> Optional[AgentNoveltyStats]:
+    def get_agent_stats(self, agent_name: str) -> AgentNoveltyStats | None:
         """Get novelty statistics for an agent.
 
         Args:
@@ -340,7 +337,7 @@ class NoveltySelectionBridge:
         """
         return self._agent_stats.get(agent_name)
 
-    def get_all_stats(self) -> Dict[str, AgentNoveltyStats]:
+    def get_all_stats(self) -> dict[str, AgentNoveltyStats]:
         """Get novelty statistics for all agents.
 
         Returns:
@@ -365,7 +362,7 @@ class NoveltySelectionBridge:
 
         logger.debug(f"novelty_decay_applied agents={len(self._agent_stats)}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.
 
         Returns:
@@ -392,7 +389,6 @@ class NoveltySelectionBridge:
         self._novelty_adjustments.clear()
         logger.debug("NoveltySelectionBridge reset")
 
-
 def create_novelty_selection_bridge(
     novelty_tracker: Optional["NoveltyTracker"] = None,
     selection_feedback: Optional["SelectionFeedbackLoop"] = None,
@@ -414,7 +410,6 @@ def create_novelty_selection_bridge(
         selection_feedback=selection_feedback,
         config=config,
     )
-
 
 __all__ = [
     "NoveltySelectionBridge",

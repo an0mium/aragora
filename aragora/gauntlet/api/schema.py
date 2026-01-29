@@ -13,7 +13,7 @@ These schemas enable:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 # JSON Schema version
 SCHEMA_VERSION = "1.0.0"
@@ -23,7 +23,7 @@ JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 # Shared Schema Components
 # =============================================================================
 
-PROVENANCE_RECORD_SCHEMA: Dict[str, Any] = {
+PROVENANCE_RECORD_SCHEMA: dict[str, Any] = {
     "$id": "provenance-record",
     "type": "object",
     "title": "ProvenanceRecord",
@@ -57,7 +57,7 @@ PROVENANCE_RECORD_SCHEMA: Dict[str, Any] = {
     "additionalProperties": False,
 }
 
-CONSENSUS_PROOF_SCHEMA: Dict[str, Any] = {
+CONSENSUS_PROOF_SCHEMA: dict[str, Any] = {
     "$id": "consensus-proof",
     "type": "object",
     "title": "ConsensusProof",
@@ -98,7 +98,7 @@ CONSENSUS_PROOF_SCHEMA: Dict[str, Any] = {
     "additionalProperties": False,
 }
 
-RISK_SUMMARY_SCHEMA: Dict[str, Any] = {
+RISK_SUMMARY_SCHEMA: dict[str, Any] = {
     "$id": "risk-summary",
     "type": "object",
     "title": "RiskSummary",
@@ -134,7 +134,7 @@ RISK_SUMMARY_SCHEMA: Dict[str, Any] = {
     "additionalProperties": False,
 }
 
-VULNERABILITY_DETAIL_SCHEMA: Dict[str, Any] = {
+VULNERABILITY_DETAIL_SCHEMA: dict[str, Any] = {
     "$id": "vulnerability-detail",
     "type": "object",
     "title": "VulnerabilityDetail",
@@ -203,7 +203,7 @@ VULNERABILITY_DETAIL_SCHEMA: Dict[str, Any] = {
 # Decision Receipt Schema
 # =============================================================================
 
-DECISION_RECEIPT_SCHEMA: Dict[str, Any] = {
+DECISION_RECEIPT_SCHEMA: dict[str, Any] = {
     "$schema": JSON_SCHEMA_DRAFT,
     "$id": "https://aragora.ai/schemas/decision-receipt/v1",
     "type": "object",
@@ -344,7 +344,7 @@ DECISION_RECEIPT_SCHEMA: Dict[str, Any] = {
 # Risk Heatmap Schema
 # =============================================================================
 
-HEATMAP_CELL_SCHEMA: Dict[str, Any] = {
+HEATMAP_CELL_SCHEMA: dict[str, Any] = {
     "$id": "heatmap-cell",
     "type": "object",
     "title": "HeatmapCell",
@@ -380,7 +380,7 @@ HEATMAP_CELL_SCHEMA: Dict[str, Any] = {
     "additionalProperties": False,
 }
 
-RISK_HEATMAP_SCHEMA: Dict[str, Any] = {
+RISK_HEATMAP_SCHEMA: dict[str, Any] = {
     "$schema": JSON_SCHEMA_DRAFT,
     "$id": "https://aragora.ai/schemas/risk-heatmap/v1",
     "type": "object",
@@ -437,7 +437,7 @@ RISK_HEATMAP_SCHEMA: Dict[str, Any] = {
 # API Response Schemas (RFC 7807 Problem Details)
 # =============================================================================
 
-PROBLEM_DETAIL_SCHEMA: Dict[str, Any] = {
+PROBLEM_DETAIL_SCHEMA: dict[str, Any] = {
     "$schema": JSON_SCHEMA_DRAFT,
     "$id": "https://aragora.ai/schemas/problem-detail/v1",
     "type": "object",
@@ -490,8 +490,7 @@ PROBLEM_DETAIL_SCHEMA: Dict[str, Any] = {
 # Schema Utilities
 # =============================================================================
 
-
-def get_receipt_schema(include_defs: bool = True) -> Dict[str, Any]:
+def get_receipt_schema(include_defs: bool = True) -> dict[str, Any]:
     """
     Get the DecisionReceipt JSON Schema.
 
@@ -508,8 +507,7 @@ def get_receipt_schema(include_defs: bool = True) -> Dict[str, Any]:
         schema = {k: v for k, v in DECISION_RECEIPT_SCHEMA.items() if k != "$defs"}
         return schema
 
-
-def get_heatmap_schema(include_defs: bool = True) -> Dict[str, Any]:
+def get_heatmap_schema(include_defs: bool = True) -> dict[str, Any]:
     """
     Get the RiskHeatmap JSON Schema.
 
@@ -525,8 +523,7 @@ def get_heatmap_schema(include_defs: bool = True) -> Dict[str, Any]:
         schema = {k: v for k, v in RISK_HEATMAP_SCHEMA.items() if k != "$defs"}
         return schema
 
-
-def validate_receipt(data: Dict[str, Any]) -> tuple[bool, List[str]]:
+def validate_receipt(data: dict[str, Any]) -> tuple[bool, list[str]]:
     """
     Validate data against the DecisionReceipt schema.
 
@@ -539,7 +536,7 @@ def validate_receipt(data: Dict[str, Any]) -> tuple[bool, List[str]]:
     Note:
         Uses jsonschema library if available, otherwise performs basic validation.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     try:
         import jsonschema
@@ -569,8 +566,7 @@ def validate_receipt(data: Dict[str, Any]) -> tuple[bool, List[str]]:
 
         return len(errors) == 0, errors
 
-
-def validate_heatmap(data: Dict[str, Any]) -> tuple[bool, List[str]]:
+def validate_heatmap(data: dict[str, Any]) -> tuple[bool, list[str]]:
     """
     Validate data against the RiskHeatmap schema.
 
@@ -580,7 +576,7 @@ def validate_heatmap(data: Dict[str, Any]) -> tuple[bool, List[str]]:
     Returns:
         Tuple of (is_valid, list of error messages)
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     try:
         import jsonschema
@@ -603,8 +599,7 @@ def validate_heatmap(data: Dict[str, Any]) -> tuple[bool, List[str]]:
 
         return len(errors) == 0, errors
 
-
-def get_all_schemas() -> Dict[str, Dict[str, Any]]:
+def get_all_schemas() -> dict[str, dict[str, Any]]:
     """
     Get all available schemas.
 
@@ -622,8 +617,7 @@ def get_all_schemas() -> Dict[str, Dict[str, Any]]:
         "heatmap-cell": HEATMAP_CELL_SCHEMA,
     }
 
-
-def to_openapi_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
+def to_openapi_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """
     Convert JSON Schema to OpenAPI 3.0 compatible schema.
 
@@ -667,7 +661,6 @@ def to_openapi_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
             openapi[key] = value
 
     return openapi
-
 
 __all__ = [
     # Schemas

@@ -28,7 +28,7 @@ import sqlite3
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,6 @@ DISCORD_GUILD_DB_PATH = os.environ.get(
 # Encryption key for tokens (optional but recommended)
 ENCRYPTION_KEY = os.environ.get("ARAGORA_ENCRYPTION_KEY", "")
 
-
 @dataclass
 class DiscordGuild:
     """Represents an installed Discord guild (server)."""
@@ -51,14 +50,14 @@ class DiscordGuild:
     access_token: str  # Bot access token
     bot_user_id: str  # Bot user ID
     installed_at: float  # Unix timestamp
-    refresh_token: Optional[str] = None  # OAuth refresh token
-    installed_by: Optional[str] = None  # User ID who installed
-    scopes: List[str] = field(default_factory=list)
-    tenant_id: Optional[str] = None  # Link to Aragora tenant
+    refresh_token: str | None = None  # OAuth refresh token
+    installed_by: str | None = None  # User ID who installed
+    scopes: list[str] = field(default_factory=list)
+    tenant_id: str | None = None  # Link to Aragora tenant
     is_active: bool = True
-    expires_at: Optional[float] = None  # Token expiration timestamp
+    expires_at: float | None = None  # Token expiration timestamp
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (excludes sensitive tokens)."""
         return {
             "guild_id": self.guild_id,
@@ -109,7 +108,6 @@ class DiscordGuild:
         # Consider expired if within 5 minutes of expiration
         return time.time() > (self.expires_at - 300)
 
-
 class DiscordGuildStore:
     """
     Storage for Discord guild OAuth credentials.
@@ -143,7 +141,7 @@ class DiscordGuildStore:
         ON discord_guilds(expires_at);
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize the guild store.
 
         Args:
@@ -266,7 +264,7 @@ class DiscordGuildStore:
             logger.error(f"Failed to save guild: {e}")
             return False
 
-    def get(self, guild_id: str) -> Optional[DiscordGuild]:
+    def get(self, guild_id: str) -> DiscordGuild | None:
         """Get a guild by ID.
 
         Args:
@@ -296,7 +294,7 @@ class DiscordGuildStore:
             logger.error(f"Failed to get guild {guild_id}: {e}")
             return None
 
-    def get_by_tenant(self, tenant_id: str) -> List[DiscordGuild]:
+    def get_by_tenant(self, tenant_id: str) -> list[DiscordGuild]:
         """Get all guilds for an Aragora tenant.
 
         Args:
@@ -330,7 +328,7 @@ class DiscordGuildStore:
             logger.error(f"Failed to get guilds for tenant {tenant_id}: {e}")
             return []
 
-    def list_active(self, limit: int = 100, offset: int = 0) -> List[DiscordGuild]:
+    def list_active(self, limit: int = 100, offset: int = 0) -> list[DiscordGuild]:
         """List all active guilds.
 
         Args:
@@ -366,7 +364,7 @@ class DiscordGuildStore:
             logger.error(f"Failed to list guilds: {e}")
             return []
 
-    def list_expiring(self, within_seconds: int = 3600) -> List[DiscordGuild]:
+    def list_expiring(self, within_seconds: int = 3600) -> list[DiscordGuild]:
         """List guilds with tokens expiring soon.
 
         Args:
@@ -407,8 +405,8 @@ class DiscordGuildStore:
         self,
         guild_id: str,
         access_token: str,
-        refresh_token: Optional[str] = None,
-        expires_at: Optional[float] = None,
+        refresh_token: str | None = None,
+        expires_at: float | None = None,
     ) -> bool:
         """Update tokens for a guild (after refresh).
 
@@ -521,7 +519,7 @@ class DiscordGuildStore:
             logger.error(f"Failed to count guilds: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get guild statistics.
 
         Returns:
@@ -554,12 +552,10 @@ class DiscordGuildStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_guilds": 0, "active_guilds": 0}
 
-
 # Singleton instance
-_guild_store: Optional[DiscordGuildStore] = None
+_guild_store: DiscordGuildStore | None = None
 
-
-def get_discord_guild_store(db_path: Optional[str] = None) -> DiscordGuildStore:
+def get_discord_guild_store(db_path: str | None = None) -> DiscordGuildStore:
     """Get or create the guild store singleton.
 
     Args:

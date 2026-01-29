@@ -11,7 +11,7 @@ Requirements:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.vector_abstraction.base import (
     BaseVectorStore,
@@ -33,7 +33,6 @@ try:
 except ImportError:
     WEAVIATE_AVAILABLE = False
     logger.debug("weaviate-client not available - install with: pip install weaviate-client")
-
 
 class WeaviateVectorStore(BaseVectorStore):
     """
@@ -66,7 +65,7 @@ class WeaviateVectorStore(BaseVectorStore):
         config.backend = VectorBackend.WEAVIATE
         super().__init__(config)
 
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
         self._collections: dict[str, Any] = {}  # Cache for collection references
 
     # -------------------------------------------------------------------------
@@ -127,7 +126,7 @@ class WeaviateVectorStore(BaseVectorStore):
     async def create_collection(
         self,
         name: str,
-        schema: Optional[dict[str, Any]] = None,
+        schema: dict[str, Any] | None = None,
     ) -> None:
         """Create a new collection with schema."""
         if not self._client:
@@ -191,8 +190,8 @@ class WeaviateVectorStore(BaseVectorStore):
         id: str,
         embedding: list[float],
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> str:
         """Insert or update a vector."""
         collection = self._get_collection()
@@ -232,7 +231,7 @@ class WeaviateVectorStore(BaseVectorStore):
     async def upsert_batch(
         self,
         items: Sequence[dict[str, Any]],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[str]:
         """Batch upsert multiple vectors."""
         collection = self._get_collection()
@@ -258,7 +257,7 @@ class WeaviateVectorStore(BaseVectorStore):
     async def delete(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """Delete vectors by ID."""
         collection = self._get_collection()
@@ -276,7 +275,7 @@ class WeaviateVectorStore(BaseVectorStore):
     async def delete_by_filter(
         self,
         filters: dict[str, Any],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """Delete vectors matching filter criteria."""
         collection = self._get_collection()
@@ -303,8 +302,8 @@ class WeaviateVectorStore(BaseVectorStore):
         self,
         embedding: list[float],
         limit: int = 10,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
         min_score: float = 0.0,
     ) -> list[VectorSearchResult]:
         """Search for similar vectors."""
@@ -350,8 +349,8 @@ class WeaviateVectorStore(BaseVectorStore):
         embedding: list[float],
         limit: int = 10,
         alpha: float = 0.5,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """Hybrid search combining vector and BM25 keyword matching."""
         collection = self._get_collection()
@@ -394,8 +393,8 @@ class WeaviateVectorStore(BaseVectorStore):
     async def get_by_id(
         self,
         id: str,
-        namespace: Optional[str] = None,
-    ) -> Optional[VectorSearchResult]:
+        namespace: str | None = None,
+    ) -> VectorSearchResult | None:
         """Get a specific vector by ID."""
         collection = self._get_collection()
 
@@ -422,7 +421,7 @@ class WeaviateVectorStore(BaseVectorStore):
     async def get_by_ids(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """Get multiple vectors by ID."""
         results = []
@@ -434,8 +433,8 @@ class WeaviateVectorStore(BaseVectorStore):
 
     async def count(
         self,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> int:
         """Count vectors matching optional filters."""
         collection = self._get_collection()
@@ -492,9 +491,9 @@ class WeaviateVectorStore(BaseVectorStore):
 
     def _build_filter(
         self,
-        filters: Optional[dict[str, Any]],
-        namespace: Optional[str],
-    ) -> Optional[Any]:
+        filters: dict[str, Any] | None,
+        namespace: str | None,
+    ) -> Any | None:
         """Build Weaviate filter from dict."""
         conditions = []
 

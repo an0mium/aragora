@@ -6,15 +6,15 @@ Phase 1: Agents debate what to improve
 - Learning context injection
 - Post-debate analysis hooks
 """
+from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from . import DebateResult
-
 
 @dataclass
 class DebateConfig:
@@ -40,7 +40,6 @@ class DebateConfig:
         from aragora.nomic.debate_profile import NomicDebateProfile
 
         return NomicDebateProfile().to_debate_config()
-
 
 @dataclass
 class LearningContext:
@@ -88,32 +87,29 @@ class LearningContext:
                 parts.append(value)
         return "\n".join(parts)
 
-
 @dataclass
 class PostDebateHooks:
     """Hooks for post-debate processing."""
 
-    on_consensus_stored: Optional[Callable] = None
-    on_calibration_recorded: Optional[Callable] = None
-    on_insights_extracted: Optional[Callable] = None
-    on_memories_recorded: Optional[Callable] = None
-    on_persona_recorded: Optional[Callable] = None
-    on_patterns_extracted: Optional[Callable] = None
-    on_meta_analyzed: Optional[Callable] = None
-    on_elo_recorded: Optional[Callable] = None
-    on_positions_recorded: Optional[Callable] = None
-    on_relationships_updated: Optional[Callable] = None
-    on_risks_tracked: Optional[Callable] = None
-    on_claims_extracted: Optional[Callable] = None
-    on_belief_network_built: Optional[Callable] = None
-
+    on_consensus_stored: Callable | None = None
+    on_calibration_recorded: Callable | None = None
+    on_insights_extracted: Callable | None = None
+    on_memories_recorded: Callable | None = None
+    on_persona_recorded: Callable | None = None
+    on_patterns_extracted: Callable | None = None
+    on_meta_analyzed: Callable | None = None
+    on_elo_recorded: Callable | None = None
+    on_positions_recorded: Callable | None = None
+    on_relationships_updated: Callable | None = None
+    on_risks_tracked: Callable | None = None
+    on_claims_extracted: Callable | None = None
+    on_belief_network_built: Callable | None = None
 
 SAFETY_PREAMBLE = """SAFETY RULES:
 1. Propose ADDITIONS, not removals
 2. Build new capabilities, don't simplify existing ones
 3. Check codebase analysis - if a feature exists, don't propose it
 4. Learn from previous failures shown below"""
-
 
 class DebatePhase:
     """
@@ -126,20 +122,20 @@ class DebatePhase:
     def __init__(
         self,
         aragora_path: Path,
-        agents: Optional[List[Any]] = None,
+        agents: Optional[list[Any]] = None,
         arena_factory: Optional[Callable[..., Any]] = None,
         environment_factory: Optional[Callable[..., Any]] = None,
         protocol_factory: Optional[Callable[..., Any]] = None,
-        config: Optional[DebateConfig] = None,
-        nomic_integration: Optional[Any] = None,
+        config: DebateConfig | None = None,
+        nomic_integration: Any | None = None,
         cycle_count: int = 0,
-        initial_proposal: Optional[str] = None,
+        initial_proposal: str | None = None,
         log_fn: Optional[Callable[[str], None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
         record_replay_fn: Optional[Callable[..., None]] = None,
         # Legacy API compatibility
-        claude_agent: Optional[Any] = None,
-        codex_agent: Optional[Any] = None,
+        claude_agent: Any | None = None,
+        codex_agent: Any | None = None,
         consensus_threshold: float = 0.5,
     ):
         """
@@ -184,14 +180,14 @@ class DebatePhase:
         self.claude = claude_agent
         self.codex = codex_agent
         self.consensus_threshold = consensus_threshold
-        self._proposals: List[Dict[str, Any]] = []
-        self._votes: Dict[str, str] = {}
+        self._proposals: list[dict[str, Any]] = []
+        self._votes: dict[str, str] = {}
 
     # =========================================================================
     # Legacy API methods (for backward compatibility with tests)
     # =========================================================================
 
-    async def run(self, context: Optional[str] = None) -> Dict[str, Any]:
+    async def run(self, context: str | None = None) -> dict[str, Any]:
         """
         Legacy API: Run the debate phase.
 
@@ -228,7 +224,7 @@ class DebatePhase:
             **consensus_result,
         }
 
-    async def generate_proposals(self, context: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def generate_proposals(self, context: str | None = None) -> list[dict[str, Any]]:
         """
         Legacy API: Public method to generate proposals from agents.
 
@@ -240,7 +236,7 @@ class DebatePhase:
         """
         return await self._generate_proposals(context)
 
-    async def _generate_proposals(self, context: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def _generate_proposals(self, context: str | None = None) -> list[dict[str, Any]]:
         """
         Internal method for proposal generation.
 
@@ -267,7 +263,7 @@ class DebatePhase:
 
         return proposals
 
-    async def collect_votes(self, proposals: List[Dict[str, Any]]) -> Dict[str, str]:
+    async def collect_votes(self, proposals: list[dict[str, Any]]) -> dict[str, str]:
         """
         Legacy API: Public method to collect votes from agents.
 
@@ -279,7 +275,7 @@ class DebatePhase:
         """
         return await self._collect_votes(proposals)
 
-    async def _collect_votes(self, proposals: List[Dict[str, Any]]) -> Dict[str, str]:
+    async def _collect_votes(self, proposals: list[dict[str, Any]]) -> dict[str, str]:
         """
         Internal method to collect votes.
 
@@ -308,7 +304,7 @@ class DebatePhase:
                 self._log(f"Agent {agent} failed to vote: {e}")
         return votes
 
-    def count_votes(self, votes: Dict[str, str]) -> Dict[str, int]:
+    def count_votes(self, votes: dict[str, str]) -> dict[str, int]:
         """
         Legacy API: Count votes per proposal.
 
@@ -318,17 +314,17 @@ class DebatePhase:
         Returns:
             Dict mapping choice to vote count
         """
-        vote_counts: Dict[str, int] = {}
+        vote_counts: dict[str, int] = {}
         for vote in votes.values():
             vote_counts[vote] = vote_counts.get(vote, 0) + 1
         return vote_counts
 
     def check_consensus(
         self,
-        votes: Dict[str, str],
-        threshold: Optional[float] = None,
-        total_agents: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        votes: dict[str, str],
+        threshold: float | None = None,
+        total_agents: int | None = None,
+    ) -> dict[str, Any]:
         """
         Legacy API: Check if consensus was reached.
 
@@ -360,7 +356,7 @@ class DebatePhase:
             "threshold": threshold,
         }
 
-    async def _vote_on_proposals(self, proposals: List[Dict[str, Any]]) -> Dict[str, str]:
+    async def _vote_on_proposals(self, proposals: list[dict[str, Any]]) -> dict[str, str]:
         """
         Legacy API: Collect votes from agents on proposals.
 
@@ -391,9 +387,9 @@ class DebatePhase:
 
     def _determine_consensus(
         self,
-        proposals: List[Dict[str, Any]],
-        votes: Dict[str, str],
-    ) -> Dict[str, Any]:
+        proposals: list[dict[str, Any]],
+        votes: dict[str, str],
+    ) -> dict[str, Any]:
         """
         Legacy API: Determine if consensus was reached.
 
@@ -411,7 +407,7 @@ class DebatePhase:
             }
 
         # Count votes per proposal
-        vote_counts: Dict[str, int] = {}
+        vote_counts: dict[str, int] = {}
         for vote in votes.values():
             vote_counts[vote] = vote_counts.get(vote, 0) + 1
 
@@ -434,11 +430,11 @@ class DebatePhase:
             "threshold": self.consensus_threshold,
         }
 
-    def get_proposals(self) -> List[Dict[str, Any]]:
+    def get_proposals(self) -> list[dict[str, Any]]:
         """Legacy API: Get generated proposals."""
         return self._proposals
 
-    def get_votes(self) -> Dict[str, str]:
+    def get_votes(self) -> dict[str, str]:
         """Legacy API: Get collected votes."""
         return self._votes
 
@@ -450,9 +446,9 @@ class DebatePhase:
         self,
         codebase_context: str = "",
         recent_changes: str = "",
-        learning_context: Optional[LearningContext] = None,
-        hooks: Optional[PostDebateHooks] = None,
-        arena_kwargs: Optional[Dict[str, Any]] = None,
+        learning_context: LearningContext | None = None,
+        hooks: PostDebateHooks | None = None,
+        arena_kwargs: Optional[dict[str, Any]] = None,
     ) -> DebateResult:
         """
         Execute the debate phase.
@@ -624,7 +620,7 @@ DO NOT propose features that already exist below.
 ========================================================================"""
         return f"Current aragora features:\n{codebase_context}"
 
-    async def _probe_agents(self) -> Dict[str, float]:
+    async def _probe_agents(self) -> dict[str, float]:
         """Probe agents for reliability weights."""
         if not self.nomic_integration:
             return {}
@@ -711,6 +707,5 @@ DO NOT propose features that already exist below.
                 await result
         except Exception as e:
             self._log(f"  Hook error: {e}")
-
 
 __all__ = ["DebatePhase", "DebateConfig", "LearningContext", "PostDebateHooks"]

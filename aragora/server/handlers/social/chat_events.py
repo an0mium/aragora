@@ -18,12 +18,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
-def _dispatch_chat_event(event_type: str, data: Dict[str, Any]) -> None:
+def _dispatch_chat_event(event_type: str, data: dict[str, Any]) -> None:
     """
     Dispatch a chat event to the webhook system.
 
@@ -40,7 +39,6 @@ def _dispatch_chat_event(event_type: str, data: Dict[str, Any]) -> None:
         logger.debug("Event dispatcher not available")
     except Exception as e:
         logger.warning(f"Failed to dispatch chat event {event_type}: {e}")
-
 
 def emit_message_received(
     platform: str,
@@ -74,7 +72,6 @@ def emit_message_received(
         },
     )
 
-
 def emit_command_received(
     platform: str,
     chat_id: str,
@@ -107,14 +104,13 @@ def emit_command_received(
         },
     )
 
-
 def emit_debate_started(
     platform: str,
     chat_id: str,
     user_id: str,
     username: str,
     topic: str,
-    debate_id: Optional[str] = None,
+    debate_id: str | None = None,
 ) -> None:
     """
     Emit event when a debate is started via chat.
@@ -140,7 +136,6 @@ def emit_debate_started(
         },
     )
 
-
 def emit_debate_completed(
     platform: str,
     chat_id: str,
@@ -149,7 +144,7 @@ def emit_debate_completed(
     consensus_reached: bool,
     confidence: float,
     rounds_used: int,
-    final_answer: Optional[str] = None,
+    final_answer: str | None = None,
 ) -> None:
     """
     Emit event when a debate completes.
@@ -179,14 +174,13 @@ def emit_debate_completed(
         },
     )
 
-
 def emit_gauntlet_started(
     platform: str,
     chat_id: str,
     user_id: str,
     username: str,
     statement: str,
-    gauntlet_id: Optional[str] = None,
+    gauntlet_id: str | None = None,
 ) -> None:
     """
     Emit event when a gauntlet is started via chat.
@@ -211,7 +205,6 @@ def emit_gauntlet_started(
             "timestamp": time.time(),
         },
     )
-
 
 def emit_gauntlet_completed(
     platform: str,
@@ -251,7 +244,6 @@ def emit_gauntlet_completed(
         },
     )
 
-
 def emit_vote_received(
     platform: str,
     chat_id: str,
@@ -283,7 +275,6 @@ def emit_vote_received(
             "timestamp": time.time(),
         },
     )
-
 
 __all__ = [
     "emit_message_received",

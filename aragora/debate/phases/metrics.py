@@ -7,12 +7,12 @@ to improve modularity and testability.
 Classes:
 - MetricsHelper: Provides calibration weights, composite scores, domain extraction
 """
+from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 # Domain detection keywords for debate classification
 DOMAIN_KEYWORDS = {
@@ -25,7 +25,6 @@ DOMAIN_KEYWORDS = {
     "database": ["database", "sql", "query", "schema"],
     "frontend": ["ui", "frontend", "react", "css", "layout"],
 }
-
 
 class MetricsHelper:
     """
@@ -165,7 +164,7 @@ class MetricsHelper:
         """Clear the domain cache (call when starting new debates)."""
         self._domain_cache.clear()
 
-    def get_agent_rating(self, agent_name: str) -> Optional[Any]:
+    def get_agent_rating(self, agent_name: str) -> Any | None:
         """
         Get full agent rating from ELO system.
 
@@ -204,11 +203,10 @@ class MetricsHelper:
             logger.debug(f"Batch ratings lookup failed: {e}")
             return {}
 
-
 def build_relationship_updates(
     participants: list[str],
     vote_choices: dict[str, str],
-    winner: Optional[str] = None,
+    winner: str | None = None,
 ) -> list[dict[str, str | int]]:
     """
     Build batch of relationship updates from debate results.

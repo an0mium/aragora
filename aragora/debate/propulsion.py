@@ -40,12 +40,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
+from typing import Any, Callable, Coroutine, Optional, Union
 
 from aragora.debate.hooks import HookManager, HookType
 
 logger = logging.getLogger(__name__)
-
 
 class PropulsionPriority(Enum):
     """Priority levels for propulsion events."""
@@ -56,7 +55,6 @@ class PropulsionPriority(Enum):
     LOW = 3  # Process when no higher priority work
     BACKGROUND = 4  # Process during idle time
 
-
 @dataclass
 class PropulsionPayload:
     """
@@ -66,25 +64,25 @@ class PropulsionPayload:
     metadata for routing, prioritization, and tracking.
     """
 
-    data: Dict[str, Any]
+    data: dict[str, Any]
     priority: PropulsionPriority = PropulsionPriority.NORMAL
-    deadline: Optional[datetime] = None
-    source_molecule_id: Optional[str] = None
+    deadline: datetime | None = None
+    source_molecule_id: str | None = None
 
     # Tracking
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    source_stage: Optional[str] = None
-    target_stage: Optional[str] = None
+    source_stage: str | None = None
+    target_stage: str | None = None
 
     # Routing hints
-    routing_key: Optional[str] = None
-    agent_affinity: Optional[str] = None  # Prefer specific agent
+    routing_key: str | None = None
+    agent_affinity: str | None = None  # Prefer specific agent
 
     # Retry tracking
     attempt_count: int = 0
     max_attempts: int = 3
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
     def is_expired(self) -> bool:
         """Check if payload has passed its deadline."""
@@ -96,7 +94,7 @@ class PropulsionPayload:
         """Check if payload can be retried."""
         return self.attempt_count < self.max_attempts
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -114,7 +112,6 @@ class PropulsionPayload:
             "last_error": self.last_error,
         }
 
-
 @dataclass
 class PropulsionResult:
     """Result of a propulsion event."""
@@ -122,12 +119,12 @@ class PropulsionResult:
     payload_id: str
     success: bool
     handler_name: str
-    result: Optional[Any] = None
-    error_message: Optional[str] = None
+    result: Any | None = None
+    error_message: str | None = None
     duration_ms: float = 0.0
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "payload_id": self.payload_id,
             "success": self.success,
@@ -138,13 +135,11 @@ class PropulsionResult:
             "timestamp": self.timestamp.isoformat(),
         }
 
-
 # Type alias for propulsion handlers
 PropulsionHandler = Union[
     Callable[[PropulsionPayload], Any],
     Callable[[PropulsionPayload], Coroutine[Any, Any, Any]],
 ]
-
 
 @dataclass
 class RegisteredHandler:
@@ -154,7 +149,6 @@ class RegisteredHandler:
     handler: PropulsionHandler
     priority: PropulsionPriority
     filter_fn: Optional[Callable[[PropulsionPayload], bool]] = None
-
 
 class PropulsionEngine:
     """
@@ -175,7 +169,7 @@ class PropulsionEngine:
 
     def __init__(
         self,
-        hook_manager: Optional[HookManager] = None,
+        hook_manager: HookManager | None = None,
         max_concurrent: int = 10,
     ):
         """
@@ -185,11 +179,11 @@ class PropulsionEngine:
             hook_manager: Optional HookManager for lifecycle events
             max_concurrent: Maximum concurrent handler executions
         """
-        self._handlers: Dict[str, List[RegisteredHandler]] = defaultdict(list)
+        self._handlers: dict[str, list[RegisteredHandler]] = defaultdict(list)
         self._hook_manager = hook_manager or HookManager()
         self._semaphore = asyncio.Semaphore(max_concurrent)
-        self._pending_payloads: List[PropulsionPayload] = []
-        self._results: Dict[str, PropulsionResult] = {}
+        self._pending_payloads: list[PropulsionPayload] = []
+        self._results: dict[str, PropulsionResult] = {}
         self._lock = asyncio.Lock()
         self._running = False
         self._stats = {
@@ -204,7 +198,7 @@ class PropulsionEngine:
         event_type: str,
         handler: PropulsionHandler,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         priority: PropulsionPriority = PropulsionPriority.NORMAL,
         filter_fn: Optional[Callable[[PropulsionPayload], bool]] = None,
     ) -> Callable[[], None]:
@@ -264,7 +258,7 @@ class PropulsionEngine:
         self,
         event_type: str,
         payload: PropulsionPayload,
-    ) -> List[PropulsionResult]:
+    ) -> list[PropulsionResult]:
         """
         Push work to the next stage by firing an event.
 
@@ -307,7 +301,7 @@ class PropulsionEngine:
                 )
             ]
 
-        results: List[PropulsionResult] = []
+        results: list[PropulsionResult] = []
 
         for registered in handlers:
             # Apply filter if present
@@ -369,9 +363,9 @@ class PropulsionEngine:
 
     async def chain(
         self,
-        events: List[tuple[str, PropulsionPayload]],
+        events: list[tuple[str, PropulsionPayload]],
         stop_on_failure: bool = True,
-    ) -> List[List[PropulsionResult]]:
+    ) -> list[list[PropulsionResult]]:
         """
         Execute a chain of propulsion events in sequence.
 
@@ -385,7 +379,7 @@ class PropulsionEngine:
         Returns:
             List of result lists for each stage
         """
-        all_results: List[List[PropulsionResult]] = []
+        all_results: list[list[PropulsionResult]] = []
         previous_stage = None
 
         for event_type, payload in events:
@@ -413,9 +407,9 @@ class PropulsionEngine:
         self,
         event_type: str,
         payload: PropulsionPayload,
-        max_retries: Optional[int] = None,
+        max_retries: int | None = None,
         backoff_base: float = 1.0,
-    ) -> List[PropulsionResult]:
+    ) -> list[PropulsionResult]:
         """
         Propel with automatic retry on failure.
 
@@ -451,9 +445,9 @@ class PropulsionEngine:
 
     async def broadcast(
         self,
-        event_types: List[str],
+        event_types: list[str],
         payload: PropulsionPayload,
-    ) -> Dict[str, List[PropulsionResult]]:
+    ) -> dict[str, list[PropulsionResult]]:
         """
         Broadcast a payload to multiple event types simultaneously.
 
@@ -475,7 +469,7 @@ class PropulsionEngine:
             for event_type, result in zip(event_types, results)
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get propulsion statistics."""
         return {
             **self._stats,
@@ -485,7 +479,7 @@ class PropulsionEngine:
             "pending_payloads": len(self._pending_payloads),
         }
 
-    def get_result(self, payload_id: str, handler_name: str) -> Optional[PropulsionResult]:
+    def get_result(self, payload_id: str, handler_name: str) -> PropulsionResult | None:
         """Get a specific result by payload ID and handler name."""
         return self._results.get(f"{payload_id}:{handler_name}")
 
@@ -493,10 +487,8 @@ class PropulsionEngine:
         """Clear stored results."""
         self._results.clear()
 
-
 # Global propulsion engine singleton
-_default_engine: Optional[PropulsionEngine] = None
-
+_default_engine: PropulsionEngine | None = None
 
 def get_propulsion_engine() -> PropulsionEngine:
     """Get the default propulsion engine instance."""
@@ -505,15 +497,12 @@ def get_propulsion_engine() -> PropulsionEngine:
         _default_engine = PropulsionEngine()
     return _default_engine
 
-
 def reset_propulsion_engine() -> None:
     """Reset the default engine (for testing)."""
     global _default_engine
     _default_engine = None
 
-
 # Convenience decorators
-
 
 def propulsion_handler(
     event_type: str,

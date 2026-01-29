@@ -36,7 +36,7 @@ import os
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Generator, Optional, TypeVar
+from typing import Any, Callable, Generator, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ _cache_context: contextvars.ContextVar[Optional["RequestScopedCache"]] = context
 )
 
 T = TypeVar("T")
-
 
 @dataclass
 class CacheStats:
@@ -67,7 +66,7 @@ class CacheStats:
         total = self.hits + self.misses
         return self.hits / total if total > 0 else 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "hits": self.hits,
@@ -77,7 +76,6 @@ class CacheStats:
             "compute_time_ms": round(self.compute_time_ms, 2),
         }
 
-
 @dataclass
 class CacheEntry:
     """A single cache entry."""
@@ -85,7 +83,6 @@ class CacheEntry:
     value: Any
     created_at: float = field(default_factory=time.time)
     access_count: int = 0
-
 
 class RequestScopedCache:
     """
@@ -111,11 +108,11 @@ class RequestScopedCache:
         """
         self.max_size = max_size or CACHE_MAX_SIZE
         self.enabled = enabled if enabled is not None else CACHE_ENABLED
-        self._cache: Dict[str, CacheEntry] = {}
+        self._cache: dict[str, CacheEntry] = {}
         self._stats = CacheStats()
-        self._token: Optional[contextvars.Token] = None
+        self._token: contextvars.Token | None = None
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """
         Get a value from the cache.
 
@@ -321,16 +318,13 @@ class RequestScopedCache:
 
         self.clear()
 
-
 # =============================================================================
 # Global Access Functions
 # =============================================================================
 
-
-def get_current_cache() -> Optional[RequestScopedCache]:
+def get_current_cache() -> RequestScopedCache | None:
     """Get the current request-scoped cache, if any."""
     return _cache_context.get()
-
 
 def get_or_compute(key: str, compute_fn: Callable[[], T], skip_cache: bool = False) -> T:
     """
@@ -351,7 +345,6 @@ def get_or_compute(key: str, compute_fn: Callable[[], T], skip_cache: bool = Fal
         return cache.get_or_compute(key, compute_fn, skip_cache)
     return compute_fn()
 
-
 async def get_or_compute_async(
     key: str,
     compute_fn: Callable[[], Any],
@@ -366,7 +359,6 @@ async def get_or_compute_async(
     if cache is not None:
         return await cache.get_or_compute_async(key, compute_fn, skip_cache)
     return await compute_fn()
-
 
 @contextmanager
 def request_cache_context(
@@ -387,33 +379,27 @@ def request_cache_context(
     with cache:
         yield cache
 
-
 # =============================================================================
 # Cache Key Builders
 # =============================================================================
-
 
 def node_key(node_id: str) -> str:
     """Build cache key for a node lookup."""
     return f"node:{node_id}"
 
-
 def permission_key(item_id: str, grantee_id: str, permission: str) -> str:
     """Build cache key for a permission check."""
     return f"perm:{item_id}:{grantee_id}:{permission}"
-
 
 def relationship_key(from_node: str, to_node: str) -> str:
     """Build cache key for a relationship lookup."""
     return f"rel:{from_node}:{to_node}"
 
-
-def workspace_nodes_key(workspace_id: str, node_type: Optional[str] = None) -> str:
+def workspace_nodes_key(workspace_id: str, node_type: str | None = None) -> str:
     """Build cache key for workspace nodes query."""
     if node_type:
         return f"ws_nodes:{workspace_id}:{node_type}"
     return f"ws_nodes:{workspace_id}"
-
 
 __all__ = [
     # Core classes

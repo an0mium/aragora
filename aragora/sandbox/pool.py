@@ -31,10 +31,9 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class ContainerState(str, Enum):
     """State of a pooled container."""
@@ -45,7 +44,6 @@ class ContainerState(str, Enum):
     UNHEALTHY = "unhealthy"
     DESTROYING = "destroying"
 
-
 class PoolState(str, Enum):
     """State of the container pool."""
 
@@ -54,7 +52,6 @@ class PoolState(str, Enum):
     RUNNING = "running"
     STOPPING = "stopping"
     DRAINING = "draining"
-
 
 @dataclass
 class ContainerPoolConfig:
@@ -108,10 +105,10 @@ class ContainerPoolConfig:
     container_prefix: str = "aragora-sandbox"
     """Prefix for container names."""
 
-    labels: Dict[str, str] = field(default_factory=lambda: {"managed-by": "aragora"})
+    labels: dict[str, str] = field(default_factory=lambda: {"managed-by": "aragora"})
     """Labels to apply to containers."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "min_pool_size": self.min_pool_size,
@@ -130,7 +127,6 @@ class ContainerPoolConfig:
             "container_prefix": self.container_prefix,
         }
 
-
 @dataclass
 class PooledContainer:
     """A container managed by the pool."""
@@ -144,7 +140,7 @@ class PooledContainer:
     state: ContainerState = ContainerState.CREATING
     """Current state of the container."""
 
-    session_id: Optional[str] = None
+    session_id: str | None = None
     """Session currently using this container."""
 
     created_at: float = field(default_factory=time.time)
@@ -174,7 +170,7 @@ class PooledContainer:
         """Check if container can be acquired."""
         return self.state == ContainerState.READY and self.session_id is None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "container_id": self.container_id,
@@ -186,7 +182,6 @@ class PooledContainer:
             "execution_count": self.execution_count,
             "health_check_failures": self.health_check_failures,
         }
-
 
 @dataclass
 class PoolStats:
@@ -209,7 +204,7 @@ class PoolStats:
     pool_utilization: float = 0.0
     """Ratio of acquired to total containers."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "total_containers": self.total_containers,
@@ -226,24 +221,20 @@ class PoolStats:
             "pool_utilization": self.pool_utilization,
         }
 
-
 class ContainerPoolError(Exception):
     """Base exception for container pool errors."""
 
     pass
-
 
 class PoolExhaustedError(ContainerPoolError):
     """Raised when no containers are available."""
 
     pass
 
-
 class ContainerCreationError(ContainerPoolError):
     """Raised when container creation fails."""
 
     pass
-
 
 class ContainerPool:
     """
@@ -256,20 +247,20 @@ class ContainerPool:
     - Session binding for per-session isolation
     """
 
-    def __init__(self, config: Optional[ContainerPoolConfig] = None):
+    def __init__(self, config: ContainerPoolConfig | None = None):
         """Initialize the container pool."""
         self.config = config or ContainerPoolConfig()
         self._state = PoolState.STOPPED
-        self._containers: Dict[str, PooledContainer] = {}
-        self._session_containers: Dict[str, str] = {}  # session_id -> container_id
+        self._containers: dict[str, PooledContainer] = {}
+        self._session_containers: dict[str, str] = {}  # session_id -> container_id
         self._lock = asyncio.Lock()
         self._stats = PoolStats()
-        self._background_tasks: List[asyncio.Task] = []
+        self._background_tasks: list[asyncio.Task] = []
         self._creation_semaphore = asyncio.Semaphore(5)  # Limit concurrent creations
 
         # Timing tracking
-        self._acquire_times: List[float] = []
-        self._creation_times: List[float] = []
+        self._acquire_times: list[float] = []
+        self._creation_times: list[float] = []
 
     @property
     def state(self) -> PoolState:
@@ -388,7 +379,7 @@ class ContainerPool:
     async def acquire(
         self,
         session_id: str,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> PooledContainer:
         """
         Acquire a container for a session.
@@ -448,7 +439,7 @@ class ContainerPool:
             f"No container available for session {session_id} after {timeout:.1f}s timeout"
         )
 
-    async def _try_acquire(self, session_id: str) -> Optional[PooledContainer]:
+    async def _try_acquire(self, session_id: str) -> PooledContainer | None:
         """Try to acquire an available container."""
         async with self._lock:
             # Find first available container
@@ -582,7 +573,7 @@ class ContainerPool:
                     "Docker not found. Ensure Docker is installed and running."
                 )
 
-    def _build_create_command(self, container_name: str) -> List[str]:
+    def _build_create_command(self, container_name: str) -> list[str]:
         """Build docker create command."""
         cmd = [
             "docker",
@@ -729,7 +720,7 @@ class ContainerPool:
 
     async def _cleanup_expired_containers(self) -> None:
         """Cleanup expired or unhealthy containers."""
-        to_destroy: List[str] = []
+        to_destroy: list[str] = []
 
         async with self._lock:
             for container in self._containers.values():
@@ -823,7 +814,7 @@ class ContainerPool:
         Returns:
             Number of containers actually removed
         """
-        to_destroy: List[str] = []
+        to_destroy: list[str] = []
 
         async with self._lock:
             # Find idle containers to remove
@@ -895,20 +886,18 @@ class ContainerPool:
 
         return self._stats
 
-    def get_container(self, session_id: str) -> Optional[PooledContainer]:
+    def get_container(self, session_id: str) -> PooledContainer | None:
         """Get the container for a session."""
         container_id = self._session_containers.get(session_id)
         if container_id:
             return self._containers.get(container_id)
         return None
 
-
 # ==========================================================================
 # Global Pool Instance
 # ==========================================================================
 
-_pool_instance: Optional[ContainerPool] = None
-
+_pool_instance: ContainerPool | None = None
 
 def get_container_pool() -> ContainerPool:
     """Get or create the global container pool."""
@@ -923,12 +912,10 @@ def get_container_pool() -> ContainerPool:
         _pool_instance = ContainerPool(config)
     return _pool_instance
 
-
 def set_container_pool(pool: ContainerPool) -> None:
     """Set the global container pool instance."""
     global _pool_instance
     _pool_instance = pool
-
 
 __all__ = [
     "ContainerCreationError",

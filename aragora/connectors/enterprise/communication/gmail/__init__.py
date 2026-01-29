@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from aragora.connectors.enterprise.base import EnterpriseConnector
 
@@ -33,7 +33,6 @@ from .state import GmailStateMixin
 from .watch import GmailWatchMixin
 
 logger = logging.getLogger(__name__)
-
 
 class GmailConnector(  # type: ignore[misc]
     GmailClientMixin,
@@ -75,8 +74,8 @@ class GmailConnector(  # type: ignore[misc]
 
     def __init__(
         self,
-        labels: Optional[List[str]] = None,
-        exclude_labels: Optional[List[str]] = None,
+        labels: Optional[list[str]] = None,
+        exclude_labels: Optional[list[str]] = None,
         max_results: int = 100,
         include_spam_trash: bool = False,
         user_id: str = "me",
@@ -101,18 +100,17 @@ class GmailConnector(  # type: ignore[misc]
         self.user_id = user_id
 
         # OAuth tokens (protected by _token_lock for thread-safety)
-        self._access_token: Optional[str] = None
-        self._refresh_token: Optional[str] = None
+        self._access_token: str | None = None
+        self._refresh_token: str | None = None
         self._token_expiry = None
         self._token_lock: asyncio.Lock = asyncio.Lock()
 
         # Gmail-specific state
-        self._gmail_state: Optional[GmailSyncState] = None
+        self._gmail_state: GmailSyncState | None = None
 
         # Watch management for Pub/Sub notifications
-        self._watch_task: Optional[asyncio.Task] = None  # type: ignore[assignment]
+        self._watch_task: asyncio.Task | None = None  # type: ignore[assignment]
         self._watch_running: bool = False
-
 
 __all__ = [
     "GmailConnector",

@@ -13,12 +13,11 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
-
 
 def startup_health(handler) -> HandlerResult:
     """Startup health status - reports server startup information.
@@ -95,7 +94,6 @@ def startup_health(handler) -> HandlerResult:
             status=503,
         )
 
-
 def encryption_health(handler) -> HandlerResult:
     """Encryption health check - verifies encryption service status.
 
@@ -109,7 +107,7 @@ def encryption_health(handler) -> HandlerResult:
     start_time = time.time()
     issues: list[str] = []
     warnings: list[str] = []
-    health: Dict[str, Any] = {}
+    health: dict[str, Any] = {}
 
     # Check 1: Crypto library availability
     try:
@@ -220,7 +218,6 @@ def encryption_health(handler) -> HandlerResult:
         status=http_status,
     )
 
-
 def platform_health(handler) -> HandlerResult:
     """Platform resilience health check for chat integrations.
 
@@ -235,7 +232,7 @@ def platform_health(handler) -> HandlerResult:
         JSON response with comprehensive platform health metrics
     """
     start_time = time.time()
-    components: Dict[str, Dict[str, Any]] = {}
+    components: dict[str, dict[str, Any]] = {}
     all_healthy = True
     warnings: list[str] = []
 

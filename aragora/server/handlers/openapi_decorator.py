@@ -31,15 +31,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 # Type for decorated functions
 F = TypeVar("F", bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 
-
-def _extract_pydantic_schema(model: Type[Any]) -> Dict[str, Any]:
+def _extract_pydantic_schema(model: type[Any]) -> dict[str, Any]:
     """Extract JSON Schema from a Pydantic model.
 
     Supports both Pydantic v1 and v2.
@@ -64,7 +63,6 @@ def _extract_pydantic_schema(model: Type[Any]) -> Dict[str, Any]:
         logger.warning(f"Failed to extract schema from {model}: {e}")
         return {"type": "object"}
 
-
 def _is_pydantic_model(obj: Any) -> bool:
     """Check if an object is a Pydantic model class."""
     try:
@@ -75,10 +73,8 @@ def _is_pydantic_model(obj: Any) -> bool:
     except ImportError:
         return False
 
-
 # Global registry for decorated endpoints
-_endpoint_registry: List["OpenAPIEndpoint"] = []
-
+_endpoint_registry: list["OpenAPIEndpoint"] = []
 
 @dataclass
 class OpenAPIEndpoint:
@@ -87,18 +83,18 @@ class OpenAPIEndpoint:
     path: str
     method: str
     summary: str
-    tags: List[str]
+    tags: list[str]
     description: str = ""
-    parameters: List[Dict[str, Any]] = field(default_factory=list)
-    request_body: Optional[Dict[str, Any]] = None
-    responses: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    security: List[Dict[str, List[str]]] = field(default_factory=list)
-    operation_id: Optional[str] = None
+    parameters: list[dict[str, Any]] = field(default_factory=list)
+    request_body: Optional[dict[str, Any]] = None
+    responses: dict[str, dict[str, Any]] = field(default_factory=dict)
+    security: list[dict[str, list[str]]] = field(default_factory=list)
+    operation_id: str | None = None
     deprecated: bool = False
 
-    def to_openapi_spec(self) -> Dict[str, Any]:
+    def to_openapi_spec(self) -> dict[str, Any]:
         """Convert to OpenAPI specification format."""
-        spec: Dict[str, Any] = {
+        spec: dict[str, Any] = {
             "summary": self.summary,
             "tags": self.tags,
         }
@@ -138,21 +134,20 @@ class OpenAPIEndpoint:
 
         return spec
 
-
 def api_endpoint(
     path: str,
     method: str = "GET",
     summary: str = "",
-    tags: Optional[List[str]] = None,
+    tags: Optional[list[str]] = None,
     description: str = "",
-    parameters: Optional[List[Dict[str, Any]]] = None,
-    request_body: Optional[Dict[str, Any]] = None,
-    request_model: Optional[Type[Any]] = None,
-    responses: Optional[Dict[str, Dict[str, Any]]] = None,
-    response_model: Optional[Type[Any]] = None,
+    parameters: Optional[list[dict[str, Any]]] = None,
+    request_body: Optional[dict[str, Any]] = None,
+    request_model: Optional[type[Any]] = None,
+    responses: Optional[dict[str, dict[str, Any]]] = None,
+    response_model: Optional[type[Any]] = None,
     auth_required: bool = True,
     deprecated: bool = False,
-    operation_id: Optional[str] = None,
+    operation_id: str | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator to register an endpoint for OpenAPI documentation.
@@ -221,7 +216,7 @@ def api_endpoint(
         desc = description or (func.__doc__.strip() if func.__doc__ else "")
 
         # Build security requirement
-        security: List[Dict[str, List[str]]] = []
+        security: list[dict[str, list[str]]] = []
         if auth_required:
             security = [{"bearerAuth": []}]
 
@@ -284,8 +279,7 @@ def api_endpoint(
 
     return decorator
 
-
-def get_registered_endpoints() -> List[OpenAPIEndpoint]:
+def get_registered_endpoints() -> list[OpenAPIEndpoint]:
     """Get all registered endpoint metadata.
 
     Returns:
@@ -293,8 +287,7 @@ def get_registered_endpoints() -> List[OpenAPIEndpoint]:
     """
     return _endpoint_registry.copy()
 
-
-def get_registered_endpoints_dict() -> Dict[str, Dict[str, Any]]:
+def get_registered_endpoints_dict() -> dict[str, dict[str, Any]]:
     """Get registered endpoints as OpenAPI paths dictionary.
 
     This format can be merged directly with ALL_ENDPOINTS.
@@ -302,7 +295,7 @@ def get_registered_endpoints_dict() -> Dict[str, Dict[str, Any]]:
     Returns:
         Dictionary in OpenAPI paths format
     """
-    paths: Dict[str, Dict[str, Any]] = {}
+    paths: dict[str, dict[str, Any]] = {}
 
     for endpoint in _endpoint_registry:
         if endpoint.path not in paths:
@@ -312,11 +305,9 @@ def get_registered_endpoints_dict() -> Dict[str, Dict[str, Any]]:
 
     return paths
 
-
 def clear_registry() -> None:
     """Clear the endpoint registry. Useful for testing."""
     _endpoint_registry.clear()
-
 
 def register_endpoint(endpoint: OpenAPIEndpoint) -> None:
     """Manually register an endpoint.
@@ -326,9 +317,8 @@ def register_endpoint(endpoint: OpenAPIEndpoint) -> None:
     """
     _endpoint_registry.append(endpoint)
 
-
 # Helper functions for common parameter patterns
-def path_param(name: str, description: str = "", schema_type: str = "string") -> Dict[str, Any]:
+def path_param(name: str, description: str = "", schema_type: str = "string") -> dict[str, Any]:
     """Create a path parameter definition.
 
     Args:
@@ -347,15 +337,14 @@ def path_param(name: str, description: str = "", schema_type: str = "string") ->
         "schema": {"type": schema_type},
     }
 
-
 def query_param(
     name: str,
     description: str = "",
     schema_type: str = "string",
     required: bool = False,
     default: Any = None,
-    enum: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    enum: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """Create a query parameter definition.
 
     Args:
@@ -369,7 +358,7 @@ def query_param(
     Returns:
         Parameter definition dict
     """
-    param: Dict[str, Any] = {
+    param: dict[str, Any] = {
         "name": name,
         "in": "query",
         "description": description,
@@ -387,12 +376,11 @@ def query_param(
 
     return param
 
-
 def json_body(
     schema: Any,
     description: str = "",
     required: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a JSON request body definition.
 
     Args:
@@ -434,12 +422,11 @@ def json_body(
         },
     }
 
-
 def ok_response(
     description: str = "Success",
-    schema: Optional[Any] = None,
+    schema: Any | None = None,
     status_code: str = "200",
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """Create an OK response definition.
 
     Args:
@@ -480,8 +467,7 @@ def ok_response(
         }
     }
 
-
-def error_response(status_code: str, description: str) -> Dict[str, Dict[str, Any]]:
+def error_response(status_code: str, description: str) -> dict[str, dict[str, Any]]:
     """Create an error response definition.
 
     Args:
@@ -507,7 +493,6 @@ def error_response(status_code: str, description: str) -> Dict[str, Dict[str, An
             },
         }
     }
-
 
 __all__ = [
     "OpenAPIEndpoint",

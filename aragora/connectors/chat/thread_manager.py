@@ -15,11 +15,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .models import ChatMessage
-
 
 @dataclass
 class ThreadInfo:
@@ -43,8 +42,8 @@ class ThreadInfo:
     participant_count: int = 0
 
     # Content
-    title: Optional[str] = None  # Thread title or first message preview
-    root_message_id: Optional[str] = None  # ID of the parent message
+    title: str | None = None  # Thread title or first message preview
+    root_message_id: str | None = None  # ID of the parent message
 
     # Status
     is_archived: bool = False
@@ -71,7 +70,6 @@ class ThreadInfo:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ThreadStats:
     """Thread statistics for analytics and monitoring."""
@@ -82,8 +80,8 @@ class ThreadStats:
     last_activity: datetime
 
     # Response metrics
-    avg_response_time_seconds: Optional[float] = None
-    first_response_time_seconds: Optional[float] = None
+    avg_response_time_seconds: float | None = None
+    first_response_time_seconds: float | None = None
 
     # Participation breakdown
     participants: list[str] = field(default_factory=list)  # User IDs
@@ -106,19 +104,17 @@ class ThreadStats:
             "total_attachments": self.total_attachments,
         }
 
-
 @dataclass
 class ThreadParticipant:
     """Information about a thread participant."""
 
     user_id: str
-    username: Optional[str] = None
-    display_name: Optional[str] = None
+    username: str | None = None
+    display_name: str | None = None
     message_count: int = 0
-    first_message_at: Optional[datetime] = None
-    last_message_at: Optional[datetime] = None
+    first_message_at: datetime | None = None
+    last_message_at: datetime | None = None
     is_bot: bool = False
-
 
 class ThreadManager(ABC):
     """
@@ -160,8 +156,8 @@ class ThreadManager(ABC):
         thread_id: str,
         channel_id: str,
         limit: int = 50,
-        cursor: Optional[str] = None,
-    ) -> tuple[list["ChatMessage"], Optional[str]]:
+        cursor: str | None = None,
+    ) -> tuple[list["ChatMessage"], str | None]:
         """
         Get messages in a thread with pagination.
 
@@ -181,8 +177,8 @@ class ThreadManager(ABC):
         self,
         channel_id: str,
         limit: int = 20,
-        cursor: Optional[str] = None,
-    ) -> tuple[list[ThreadInfo], Optional[str]]:
+        cursor: str | None = None,
+    ) -> tuple[list[ThreadInfo], str | None]:
         """
         List threads in a channel.
 
@@ -336,7 +332,6 @@ class ThreadManager(ABC):
                 for m in messages[-max_messages:]
             ],
         }
-
 
 class ThreadNotFoundError(Exception):
     """Raised when a thread cannot be found."""

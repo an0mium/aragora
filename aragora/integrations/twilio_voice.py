@@ -33,7 +33,7 @@ import os
 from base64 import b64encode
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ except ImportError:
     Say = None
     Record = None
     HAS_TWILIO = False
-
 
 @dataclass
 class TwilioVoiceConfig:
@@ -100,7 +99,6 @@ class TwilioVoiceConfig:
         base = self.webhook_base_url.rstrip("/")
         return f"{base}{path}" if base else path
 
-
 @dataclass
 class CallSession:
     """Tracks an active voice call session."""
@@ -111,11 +109,10 @@ class CallSession:
     direction: str  # "inbound" or "outbound"
     status: str = "initiated"
     transcription: str = ""
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 class TwilioVoiceIntegration:
     """
@@ -127,10 +124,10 @@ class TwilioVoiceIntegration:
     - Recording/transcription management
     """
 
-    def __init__(self, config: Optional[TwilioVoiceConfig] = None):
+    def __init__(self, config: TwilioVoiceConfig | None = None):
         """Initialize Twilio Voice integration."""
         self.config = config or TwilioVoiceConfig()
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
         self._sessions: dict[str, CallSession] = {}
 
     @property
@@ -401,8 +398,8 @@ class TwilioVoiceIntegration:
         self,
         to: str,
         message: str,
-        status_callback: Optional[str] = None,
-    ) -> Optional[str]:
+        status_callback: str | None = None,
+    ) -> str | None:
         """
         Make outbound call with a message.
 
@@ -459,7 +456,7 @@ class TwilioVoiceIntegration:
         self,
         to: str,
         result: Any,  # DebateResult
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Call user with debate result summary.
 
@@ -522,7 +519,7 @@ class TwilioVoiceIntegration:
     # Session Management
     # =========================================================================
 
-    def get_session(self, call_sid: str) -> Optional[CallSession]:
+    def get_session(self, call_sid: str) -> CallSession | None:
         """Get call session by SID."""
         return self._sessions.get(call_sid)
 
@@ -541,18 +538,15 @@ class TwilioVoiceIntegration:
             session.debate_id = debate_id
             session.updated_at = datetime.now()
 
-
 # Singleton instance
-_voice_integration: Optional[TwilioVoiceIntegration] = None
+_voice_integration: TwilioVoiceIntegration | None = None
 
-
-def get_twilio_voice(config: Optional[TwilioVoiceConfig] = None) -> TwilioVoiceIntegration:
+def get_twilio_voice(config: TwilioVoiceConfig | None = None) -> TwilioVoiceIntegration:
     """Get or create the Twilio Voice integration singleton."""
     global _voice_integration
     if _voice_integration is None:
         _voice_integration = TwilioVoiceIntegration(config)
     return _voice_integration
-
 
 __all__ = [
     "TwilioVoiceConfig",

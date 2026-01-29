@@ -17,30 +17,29 @@ Usage:
     for state, handler in handlers.items():
         machine.register_handler(state, handler)
 """
+from __future__ import annotations
 
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
+from typing import Any, Callable, Coroutine, Optional
 
 from .events import Event
 from .states import NomicState, StateContext
 
 logger = logging.getLogger(__name__)
 
-
 # Type for state handlers (async functions returning state and data)
 StateHandler = Callable[
-    [StateContext, Event], "Coroutine[Any, Any, Tuple[NomicState, Dict[str, Any]]]"
+    [StateContext, Event], "Coroutine[Any, Any, tuple[NomicState, dict[str, Any]]]"
 ]
-
 
 async def context_handler(
     context: StateContext,
     event: Event,
     *,
     context_phase: Any,
-) -> Tuple[NomicState, Dict[str, Any]]:
+) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the CONTEXT state.
 
@@ -78,15 +77,14 @@ async def context_handler(
         logger.error(f"Context phase error: {e}")
         raise
 
-
 async def debate_handler(
     context: StateContext,
     event: Event,
     *,
     debate_phase: Any,
     learning_context_builder: Optional[Callable[[], Any]] = None,
-    post_debate_hooks: Optional[Any] = None,
-) -> Tuple[NomicState, Dict[str, Any]]:
+    post_debate_hooks: Any | None = None,
+) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the DEBATE state.
 
@@ -151,14 +149,13 @@ async def debate_handler(
         logger.error(f"Debate phase error: {e}")
         raise
 
-
 async def design_handler(
     context: StateContext,
     event: Event,
     *,
     design_phase: Any,
     belief_context_builder: Optional[Callable[[], Any]] = None,
-) -> Tuple[NomicState, Dict[str, Any]]:
+) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the DESIGN state.
 
@@ -217,13 +214,12 @@ async def design_handler(
         logger.error(f"Design phase error: {e}")
         raise
 
-
 async def implement_handler(
     context: StateContext,
     event: Event,
     *,
     implement_phase: Any,
-) -> Tuple[NomicState, Dict[str, Any]]:
+) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the IMPLEMENT state.
 
@@ -280,13 +276,12 @@ async def implement_handler(
         logger.error(f"Implement phase error: {e}")
         raise
 
-
 async def verify_handler(
     context: StateContext,
     event: Event,
     *,
     verify_phase: Any,
-) -> Tuple[NomicState, Dict[str, Any]]:
+) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the VERIFY state.
 
@@ -327,13 +322,12 @@ async def verify_handler(
         logger.error(f"Verify phase error: {e}")
         raise
 
-
 async def commit_handler(
     context: StateContext,
     event: Event,
     *,
     commit_phase: Any,
-) -> Tuple[NomicState, Dict[str, Any]]:
+) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the COMMIT state.
 
@@ -374,7 +368,6 @@ async def commit_handler(
         logger.error(f"Commit phase error: {e}")
         raise
 
-
 def create_context_handler(
     context_phase: Any,
 ) -> StateHandler:
@@ -388,16 +381,15 @@ def create_context_handler(
         Bound handler function
     """
 
-    async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
+    async def handler(context: StateContext, event: Event) -> tuple[NomicState, dict[str, Any]]:
         return await context_handler(context, event, context_phase=context_phase)
 
     return handler
 
-
 def create_debate_handler(
     debate_phase: Any,
     learning_context_builder: Optional[Callable[[], Any]] = None,
-    post_debate_hooks: Optional[Any] = None,
+    post_debate_hooks: Any | None = None,
 ) -> StateHandler:
     """
     Create a debate handler bound to a DebatePhase instance.
@@ -411,7 +403,7 @@ def create_debate_handler(
         Bound handler function
     """
 
-    async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
+    async def handler(context: StateContext, event: Event) -> tuple[NomicState, dict[str, Any]]:
         return await debate_handler(
             context,
             event,
@@ -421,7 +413,6 @@ def create_debate_handler(
         )
 
     return handler
-
 
 def create_design_handler(
     design_phase: Any,
@@ -438,7 +429,7 @@ def create_design_handler(
         Bound handler function
     """
 
-    async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
+    async def handler(context: StateContext, event: Event) -> tuple[NomicState, dict[str, Any]]:
         return await design_handler(
             context,
             event,
@@ -447,7 +438,6 @@ def create_design_handler(
         )
 
     return handler
-
 
 def create_implement_handler(
     implement_phase: Any,
@@ -462,11 +452,10 @@ def create_implement_handler(
         Bound handler function
     """
 
-    async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
+    async def handler(context: StateContext, event: Event) -> tuple[NomicState, dict[str, Any]]:
         return await implement_handler(context, event, implement_phase=implement_phase)
 
     return handler
-
 
 def create_verify_handler(
     verify_phase: Any,
@@ -481,11 +470,10 @@ def create_verify_handler(
         Bound handler function
     """
 
-    async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
+    async def handler(context: StateContext, event: Event) -> tuple[NomicState, dict[str, Any]]:
         return await verify_handler(context, event, verify_phase=verify_phase)
 
     return handler
-
 
 def create_commit_handler(
     commit_phase: Any,
@@ -500,29 +488,28 @@ def create_commit_handler(
         Bound handler function
     """
 
-    async def handler(context: StateContext, event: Event) -> Tuple[NomicState, Dict[str, Any]]:
+    async def handler(context: StateContext, event: Event) -> tuple[NomicState, dict[str, Any]]:
         return await commit_handler(context, event, commit_phase=commit_phase)
 
     return handler
 
-
 def create_handlers(
     aragora_path: Path,
-    agents: List[Any],
+    agents: list[Any],
     claude_agent: Any,
     codex_agent: Any,
     arena_factory: Callable,
     environment_factory: Callable,
     protocol_factory: Callable,
-    nomic_integration: Optional[Any] = None,
+    nomic_integration: Any | None = None,
     kilocode_available: bool = False,
-    kilocode_agent_factory: Optional[Callable] = None,
+    kilocode_agent_factory: Callable | None = None,
     cycle_count: int = 0,
     log_fn: Optional[Callable[[str], None]] = None,
-    stream_emit_fn: Optional[Callable] = None,
-    record_replay_fn: Optional[Callable] = None,
+    stream_emit_fn: Callable | None = None,
+    record_replay_fn: Callable | None = None,
     auto_commit: bool = False,
-) -> Dict[NomicState, StateHandler]:
+) -> dict[NomicState, StateHandler]:
     """
     Create all handlers for a nomic loop cycle.
 
@@ -699,7 +686,6 @@ def create_handlers(
         NomicState.VERIFY: create_verify_handler(verify_phase),
         NomicState.COMMIT: create_commit_handler(commit_phase),
     }
-
 
 __all__ = [
     # Individual handler factories

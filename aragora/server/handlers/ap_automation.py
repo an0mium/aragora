@@ -25,7 +25,7 @@ import logging
 import threading
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -38,9 +38,8 @@ from aragora.server.handlers.utils.decorators import require_permission
 logger = logging.getLogger(__name__)
 
 # Thread-safe service instance
-_ap_automation: Optional[Any] = None
+_ap_automation: Any | None = None
 _ap_automation_lock = threading.Lock()
-
 
 def get_ap_automation():
     """Get or create AP automation service (thread-safe singleton)."""
@@ -55,15 +54,13 @@ def get_ap_automation():
             _ap_automation = APAutomation()
         return _ap_automation
 
-
 # =============================================================================
 # Invoice Management
 # =============================================================================
 
-
 @require_permission("finance:write")
 async def handle_add_invoice(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -135,10 +132,9 @@ async def handle_add_invoice(
         logger.exception("Error adding invoice")
         return error_response(f"Failed to add invoice: {e}", status=500)
 
-
 @require_permission("ap:read")
 async def handle_list_invoices(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -197,10 +193,9 @@ async def handle_list_invoices(
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
 
-
 @require_permission("ap:read")
 async def handle_get_invoice(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     invoice_id: str,
     user_id: str = "default",
 ) -> HandlerResult:
@@ -222,10 +217,9 @@ async def handle_get_invoice(
         logger.exception(f"Error getting invoice {invoice_id}")
         return error_response(f"Failed to get invoice: {e}", status=500)
 
-
 @require_permission("finance:write")
 async def handle_record_payment(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     invoice_id: str,
     user_id: str = "default",
 ) -> HandlerResult:
@@ -274,15 +268,13 @@ async def handle_record_payment(
         logger.exception(f"Error recording payment for invoice {invoice_id}")
         return error_response(f"Failed to record payment: {e}", status=500)
 
-
 # =============================================================================
 # Payment Optimization
 # =============================================================================
 
-
 @require_permission("finance:approve")
 async def handle_optimize_payments(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -339,10 +331,9 @@ async def handle_optimize_payments(
         logger.exception("Error optimizing payments")
         return error_response(f"Failed to optimize payments: {e}", status=500)
 
-
 @require_permission("finance:approve")
 async def handle_batch_payments(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -392,15 +383,13 @@ async def handle_batch_payments(
         logger.exception("Error creating batch payment")
         return error_response(f"Failed to create batch: {e}", status=500)
 
-
 # =============================================================================
 # Forecasting and Analysis
 # =============================================================================
 
-
 @require_permission("ap:read")
 async def handle_get_forecast(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -432,10 +421,9 @@ async def handle_get_forecast(
         logger.exception("Error generating forecast")
         return error_response(f"Failed to generate forecast: {e}", status=500)
 
-
 @require_permission("ap:read")
 async def handle_get_discounts(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -459,16 +447,14 @@ async def handle_get_discounts(
         logger.exception("Error getting discount opportunities")
         return error_response(f"Failed to get discounts: {e}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-
 class APAutomationHandler(BaseHandler):
     """Handler class for AP automation endpoints."""
 
-    ROUTES: Dict[str, Any] = {
+    ROUTES: dict[str, Any] = {
         "POST /api/v1/accounting/ap/invoices": handle_add_invoice,
         "GET /api/v1/accounting/ap/invoices": handle_list_invoices,
         "POST /api/v1/accounting/ap/optimize": handle_optimize_payments,
@@ -477,7 +463,7 @@ class APAutomationHandler(BaseHandler):
         "GET /api/v1/accounting/ap/discounts": handle_get_discounts,
     }
 
-    DYNAMIC_ROUTES: Dict[str, Any] = {
+    DYNAMIC_ROUTES: dict[str, Any] = {
         "GET /api/v1/accounting/ap/invoices/{invoice_id}": handle_get_invoice,
         "POST /api/v1/accounting/ap/invoices/{invoice_id}/payment": handle_record_payment,
     }

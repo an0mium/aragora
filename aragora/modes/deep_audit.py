@@ -10,6 +10,7 @@ Deep Audit runs 6 chained research rounds with:
 Use for high-stakes decisions: strategy, contracts, code architecture,
 legal documentation where blind spots carry significant consequences.
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -27,7 +28,6 @@ from aragora.debate.roles import (
     RoleRotationConfig,
     RoleRotator,
 )
-
 
 @dataclass
 class DeepAuditConfig:
@@ -59,7 +59,6 @@ class DeepAuditConfig:
     # Risk threshold for flagging issues
     risk_threshold: float = 0.7
 
-
 @dataclass
 class AuditFinding:
     """A finding from the Deep Audit process."""
@@ -72,7 +71,6 @@ class AuditFinding:
     confidence: float = 0.0
     citations: list[str] = field(default_factory=list)
     severity: float = 0.0  # 0-1, higher = more critical
-
 
 @dataclass
 class DeepAuditVerdict:
@@ -116,7 +114,6 @@ class DeepAuditVerdict:
 
         return "\n".join(lines)
 
-
 class DeepAuditOrchestrator:
     """
     Orchestrates Deep Audit debates with intensive multi-round analysis.
@@ -132,7 +129,7 @@ class DeepAuditOrchestrator:
     def __init__(
         self,
         agents: list[Agent],
-        config: Optional[DeepAuditConfig] = None,
+        config: DeepAuditConfig | None = None,
         research_fn: Optional[Callable[[str], Awaitable[str]]] = None,
     ):
         self.agents = agents
@@ -327,12 +324,11 @@ Be rigorous but fair. Your goal is to ensure we haven't missed critical issues."
 
         return verdict
 
-
 async def run_deep_audit(
     task: str,
     agents: list[Agent],
     context: str = "",
-    config: Optional[DeepAuditConfig] = None,
+    config: DeepAuditConfig | None = None,
 ) -> DeepAuditVerdict:
     """
     Convenience function to run a Deep Audit.
@@ -348,7 +344,6 @@ async def run_deep_audit(
     """
     orchestrator = DeepAuditOrchestrator(agents, config)
     return await orchestrator.run(task, context)
-
 
 # Pre-configured Deep Audit protocols for common use cases
 

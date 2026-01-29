@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable, Coroutine, Optional
 
 from aragora.protocols.a2a.types import (
     AgentCard,
@@ -22,7 +22,6 @@ from aragora.protocols.a2a.types import (
 
 logger = logging.getLogger(__name__)
 
-
 class TaskHandler:
     """Handler for a specific task type."""
 
@@ -30,12 +29,11 @@ class TaskHandler:
         self,
         capability: AgentCapability,
         handler: Callable[[TaskRequest], Coroutine[Any, Any, TaskResult]],
-        stream_handler: Optional[Callable[[TaskRequest], AsyncIterator[Dict[str, Any]]]] = None,
+        stream_handler: Optional[Callable[[TaskRequest], AsyncIterator[dict[str, Any]]]] = None,
     ):
         self.capability = capability
         self.handler = handler
         self.stream_handler = stream_handler
-
 
 class A2AServer:
     """
@@ -67,11 +65,11 @@ class A2AServer:
         self._max_concurrent = max_concurrent_tasks
 
         # Registered agents and handlers
-        self._agents: Dict[str, AgentCard] = {}
-        self._handlers: Dict[AgentCapability, TaskHandler] = {}
+        self._agents: dict[str, AgentCard] = {}
+        self._handlers: dict[AgentCapability, TaskHandler] = {}
 
         # Active tasks
-        self._tasks: Dict[str, TaskResult] = {}
+        self._tasks: dict[str, TaskResult] = {}
         self._task_lock = asyncio.Lock()
 
         # Register built-in Aragora agents
@@ -118,7 +116,7 @@ class A2AServer:
         self,
         capability: AgentCapability,
         handler: Callable[[TaskRequest], Coroutine[Any, Any, TaskResult]],
-        stream_handler: Optional[Callable[[TaskRequest], AsyncIterator[Dict[str, Any]]]] = None,
+        stream_handler: Optional[Callable[[TaskRequest], AsyncIterator[dict[str, Any]]]] = None,
     ) -> None:
         """
         Register a task handler for a capability.
@@ -135,11 +133,11 @@ class A2AServer:
         )
         logger.info(f"Registered handler for capability: {capability.value}")
 
-    def list_agents(self) -> List[AgentCard]:
+    def list_agents(self) -> list[AgentCard]:
         """List all registered agents."""
         return list(self._agents.values())
 
-    def get_agent(self, name: str) -> Optional[AgentCard]:
+    def get_agent(self, name: str) -> AgentCard | None:
         """Get an agent by name."""
         return self._agents.get(name)
 
@@ -216,7 +214,7 @@ class A2AServer:
     async def stream_task(
         self,
         request: TaskRequest,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Handle a streaming task request.
 
@@ -277,7 +275,7 @@ class A2AServer:
                 "error": str(e),
             }
 
-    def get_task_status(self, task_id: str) -> Optional[TaskResult]:
+    def get_task_status(self, task_id: str) -> TaskResult | None:
         """Get the status of a task."""
         return self._tasks.get(task_id)
 
@@ -367,7 +365,7 @@ class A2AServer:
     async def _stream_debate(
         self,
         request: TaskRequest,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Stream debate events."""
         # This would integrate with the debate's WebSocket streaming
         # For now, run debate and yield result
@@ -454,7 +452,7 @@ class A2AServer:
 
     # HTTP API (for integration with web frameworks)
 
-    def get_openapi_spec(self) -> Dict[str, Any]:
+    def get_openapi_spec(self) -> dict[str, Any]:
         """Generate OpenAPI specification for the A2A server."""
         return {
             "openapi": "3.0.0",
@@ -516,7 +514,6 @@ class A2AServer:
                 },
             },
         }
-
 
 __all__ = [
     "A2AServer",

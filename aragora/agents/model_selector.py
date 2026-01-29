@@ -29,10 +29,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from aragora.agents.vertical_personas import Vertical
-
 
 class ModelCapability(Enum):
     """Model capabilities for scoring."""
@@ -49,7 +48,6 @@ class ModelCapability(Enum):
     INSTRUCTION_FOLLOWING = "instruction_following"
     FACTUAL_ACCURACY = "factual_accuracy"
 
-
 @dataclass
 class ModelProfile:
     """Profile of a model's capabilities and characteristics."""
@@ -59,7 +57,7 @@ class ModelProfile:
     provider: str
 
     # Capability scores (0.0-1.0)
-    capabilities: Dict[ModelCapability, float] = field(default_factory=dict)
+    capabilities: dict[ModelCapability, float] = field(default_factory=dict)
 
     # Technical specs
     max_context_tokens: int = 128000
@@ -83,7 +81,7 @@ class ModelProfile:
         """Get score for a specific capability."""
         return self.capabilities.get(capability, 0.5)
 
-    def get_total_score(self, weights: Dict[ModelCapability, float]) -> float:
+    def get_total_score(self, weights: dict[ModelCapability, float]) -> float:
         """Calculate weighted total score."""
         total = 0.0
         total_weight = 0.0
@@ -98,9 +96,8 @@ class ModelProfile:
             output_tokens / 1000
         ) * self.cost_output_per_1k
 
-
 # Model profiles for major providers
-MODEL_PROFILES: Dict[str, ModelProfile] = {
+MODEL_PROFILES: dict[str, ModelProfile] = {
     # Anthropic
     "claude": ModelProfile(
         model_id="claude-3-5-sonnet-20241022",
@@ -347,7 +344,7 @@ MODEL_PROFILES: Dict[str, ModelProfile] = {
 }
 
 # Vertical to capability mapping
-VERTICAL_CAPABILITIES: Dict[Vertical, Dict[ModelCapability, float]] = {
+VERTICAL_CAPABILITIES: dict[Vertical, dict[ModelCapability, float]] = {
     Vertical.SOFTWARE: {
         ModelCapability.CODING: 0.35,
         ModelCapability.REASONING: 0.25,
@@ -386,7 +383,6 @@ VERTICAL_CAPABILITIES: Dict[Vertical, Dict[ModelCapability, float]] = {
     },
 }
 
-
 @dataclass
 class ModelSelection:
     """Result of model selection."""
@@ -395,10 +391,9 @@ class ModelSelection:
     profile: ModelProfile
     score: float
     reasoning: str
-    alternatives: List[Tuple[str, float]]  # (model_id, score)
+    alternatives: list[tuple[str, float]]  # (model_id, score)
     estimated_cost: float
     estimated_latency_ms: float
-
 
 class SpecialistModelSelector:
     """
@@ -414,8 +409,8 @@ class SpecialistModelSelector:
 
     def __init__(
         self,
-        model_profiles: Optional[Dict[str, ModelProfile]] = None,
-        available_models: Optional[List[str]] = None,
+        model_profiles: Optional[dict[str, ModelProfile]] = None,
+        available_models: Optional[list[str]] = None,
     ):
         self._profiles = model_profiles or MODEL_PROFILES
         self._available_models = available_models or list(self._profiles.keys())
@@ -427,8 +422,8 @@ class SpecialistModelSelector:
         context_length: int = 0,
         cost_sensitive: bool = False,
         latency_sensitive: bool = False,
-        required_capabilities: Optional[List[ModelCapability]] = None,
-        excluded_models: Optional[List[str]] = None,
+        required_capabilities: Optional[list[ModelCapability]] = None,
+        excluded_models: Optional[list[str]] = None,
     ) -> ModelSelection:
         """
         Select the best model for a task.
@@ -469,7 +464,7 @@ class SpecialistModelSelector:
                 weights[cap] = weights.get(cap, 0.0) + 0.2
 
         # Score candidates
-        scored: List[Tuple[str, float, ModelProfile]] = []
+        scored: list[tuple[str, float, ModelProfile]] = []
         for model_id in candidates:
             profile = self._profiles.get(model_id)
             if not profile:
@@ -564,9 +559,9 @@ class SpecialistModelSelector:
 
     def compare_models(
         self,
-        model_ids: List[str],
+        model_ids: list[str],
         vertical: Vertical = Vertical.GENERAL,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """
         Compare multiple models for a vertical.
 
@@ -604,7 +599,7 @@ class SpecialistModelSelector:
         self,
         min_capability_score: float = 0.7,
         capability: ModelCapability = ModelCapability.REASONING,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Get the cheapest model that meets a capability threshold.
 
@@ -635,7 +630,7 @@ class SpecialistModelSelector:
         self,
         min_capability_score: float = 0.7,
         capability: ModelCapability = ModelCapability.REASONING,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Get the fastest model that meets a capability threshold.
 
@@ -660,7 +655,6 @@ class SpecialistModelSelector:
 
         candidates.sort(key=lambda x: x[1])
         return candidates[0][0]
-
 
 __all__ = [
     "ModelCapability",

@@ -8,16 +8,15 @@ Analyzes completed debates to extract:
 - Convergence dynamics
 - Decision-making patterns
 """
+from __future__ import annotations
 
 import hashlib
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from aragora.serialization import SerializableMixin
-
 
 class InsightType(Enum):
     """Types of insights that can be extracted."""
@@ -29,7 +28,6 @@ class InsightType(Enum):
     AGENT_PERFORMANCE = "agent_perf"  # Individual agent contributions
     FAILURE_MODE = "failure_mode"  # Why consensus wasn't reached
     DECISION_PROCESS = "decision"  # How the final decision was made
-
 
 @dataclass
 class Insight(SerializableMixin):
@@ -52,7 +50,6 @@ class Insight(SerializableMixin):
 
     # to_dict() inherited from SerializableMixin
 
-
 @dataclass
 class AgentPerformance:
     """Performance metrics for a single agent in a debate."""
@@ -66,7 +63,6 @@ class AgentPerformance:
     average_critique_severity: float = 0.0
     contribution_score: float = 0.5  # 0-1 overall contribution
 
-
 @dataclass
 class DebateInsights:
     """Collection of all insights from a single debate."""
@@ -77,12 +73,12 @@ class DebateInsights:
     duration_seconds: float
 
     # Extracted insights
-    consensus_insight: Optional[Insight] = None
+    consensus_insight: Insight | None = None
     dissent_insights: list[Insight] = field(default_factory=list)
     pattern_insights: list[Insight] = field(default_factory=list)
-    convergence_insight: Optional[Insight] = None
-    failure_mode_insight: Optional[Insight] = None
-    decision_insight: Optional[Insight] = None
+    convergence_insight: Insight | None = None
+    failure_mode_insight: Insight | None = None
+    decision_insight: Insight | None = None
 
     # Agent performance
     agent_performances: list[AgentPerformance] = field(default_factory=list)
@@ -105,7 +101,6 @@ class DebateInsights:
         if self.decision_insight:
             insights.append(self.decision_insight)
         return insights
-
 
 class InsightExtractor:
     """
@@ -173,7 +168,7 @@ class InsightExtractor:
 
         return insights
 
-    def _extract_consensus_insight(self, result, debate_id: str) -> Optional[Insight]:
+    def _extract_consensus_insight(self, result, debate_id: str) -> Insight | None:
         """Extract the consensus decision insight."""
         if not getattr(result, "consensus_reached", False):
             return None
@@ -282,7 +277,7 @@ class InsightExtractor:
 
         return insights
 
-    def _extract_convergence_insight(self, result, debate_id: str) -> Optional[Insight]:
+    def _extract_convergence_insight(self, result, debate_id: str) -> Insight | None:
         """Extract insight about how views converged or diverged."""
         messages = getattr(result, "messages", [])
         if len(messages) < 3:
@@ -326,7 +321,7 @@ class InsightExtractor:
             },
         )
 
-    def _extract_decision_insight(self, result, debate_id: str) -> Optional[Insight]:
+    def _extract_decision_insight(self, result, debate_id: str) -> Insight | None:
         """Extract insight about how the decision was made."""
         votes = getattr(result, "votes", [])
         consensus_mode = "unknown"
@@ -366,7 +361,7 @@ class InsightExtractor:
             },
         )
 
-    def _extract_failure_mode(self, result, debate_id: str) -> Optional[Insight]:
+    def _extract_failure_mode(self, result, debate_id: str) -> Insight | None:
         """Extract insight about why consensus wasn't reached."""
         votes = getattr(result, "votes", [])
         critiques = getattr(result, "critiques", [])
@@ -507,7 +502,7 @@ class InsightExtractor:
 
         return list(agents)
 
-    def _categorize_issue(self, issue: str) -> Optional[str]:
+    def _categorize_issue(self, issue: str) -> str | None:
         """Categorize an issue string."""
         issue_lower = issue.lower()
 

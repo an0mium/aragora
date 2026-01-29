@@ -10,6 +10,7 @@ Key features:
 - Memory limits (soft, via resource module on Unix)
 - Capability-based permission checking
 """
+from __future__ import annotations
 
 import asyncio
 import importlib
@@ -25,7 +26,7 @@ except ImportError:
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from aragora.plugins.manifest import (
     PluginCapability,
@@ -34,7 +35,6 @@ from aragora.plugins.manifest import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class PluginContext:
@@ -50,9 +50,9 @@ class PluginContext:
 
     # Environment
     working_dir: str = "."
-    debate_id: Optional[str] = None
-    claim_id: Optional[str] = None
-    timeout_seconds: Optional[float] = None
+    debate_id: str | None = None
+    claim_id: str | None = None
+    timeout_seconds: float | None = None
     cleanup_on_error: bool = False
     resource_limits: dict[str, Any] = field(default_factory=dict)
 
@@ -79,7 +79,6 @@ class PluginContext:
     def can(self, operation: str) -> bool:
         """Check if operation is allowed."""
         return operation in self.allowed_operations
-
 
 @dataclass
 class PluginResult:
@@ -111,7 +110,6 @@ class PluginResult:
             "plugin_version": self.plugin_version,
             "executed_at": self.executed_at,
         }
-
 
 class PluginRunner:
     """
@@ -191,7 +189,7 @@ class PluginRunner:
     ):
         self.manifest = manifest
         self.sandbox_level = sandbox_level
-        self._entry_func: Optional[Callable] = None
+        self._entry_func: Callable | None = None
 
     def _validate_requirements(self) -> tuple[bool, list[str]]:
         """Check if system can satisfy plugin requirements."""
@@ -287,7 +285,7 @@ class PluginRunner:
     async def run(
         self,
         context: PluginContext,
-        timeout_override: Optional[float] = None,
+        timeout_override: float | None = None,
     ) -> PluginResult:
         """
         Run the plugin with sandboxing.
@@ -375,7 +373,6 @@ class PluginRunner:
 
         return result
 
-
 class PluginRegistry:
     """
     Registry of available plugins.
@@ -383,7 +380,7 @@ class PluginRegistry:
     Manages discovery, loading, and caching of plugins.
     """
 
-    def __init__(self, plugin_dirs: Optional[list[Path]] = None):
+    def __init__(self, plugin_dirs: list[Path] | None = None):
         self.plugin_dirs = plugin_dirs or []
         self.manifests: dict[str, PluginManifest] = {}
         self.runners: dict[str, PluginRunner] = {}
@@ -413,7 +410,7 @@ class PluginRegistry:
                 except Exception as e:
                     logger.debug(f"Failed to load plugin manifest {manifest_path}: {e}")
 
-    def get(self, name: str) -> Optional[PluginManifest]:
+    def get(self, name: str) -> PluginManifest | None:
         """Get plugin manifest by name."""
         return self.manifests.get(name)
 
@@ -425,7 +422,7 @@ class PluginRegistry:
         """List plugins with a specific capability."""
         return [m for m in self.manifests.values() if m.has_capability(capability)]
 
-    def get_runner(self, name: str) -> Optional[PluginRunner]:
+    def get_runner(self, name: str) -> PluginRunner | None:
         """Get or create a runner for a plugin."""
         if name in self.runners:
             return self.runners[name]
@@ -442,7 +439,7 @@ class PluginRegistry:
         self,
         name: str,
         input_data: dict,
-        config: Optional[dict] = None,
+        config: dict | None = None,
         working_dir: str = ".",
     ) -> PluginResult:
         """
@@ -472,10 +469,8 @@ class PluginRegistry:
 
         return await runner.run(context)
 
-
 # Use ServiceRegistry for plugin registry management
 from aragora.services import ServiceRegistry
-
 
 def get_registry() -> PluginRegistry:
     """Get the global plugin registry via ServiceRegistry."""
@@ -484,18 +479,16 @@ def get_registry() -> PluginRegistry:
         registry.register_factory(PluginRegistry, PluginRegistry)
     return registry.resolve(PluginRegistry)
 
-
 def reset_registry() -> None:
     """Reset the plugin registry (for testing)."""
     registry = ServiceRegistry.get()
     if registry.has(PluginRegistry):
         registry.unregister(PluginRegistry)
 
-
 async def run_plugin(
     name: str,
     input_data: dict,
-    config: Optional[dict] = None,
+    config: dict | None = None,
     working_dir: str = ".",
 ) -> PluginResult:
     """Run a plugin by name using the global registry."""

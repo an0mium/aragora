@@ -24,20 +24,18 @@ import urllib.error
 import urllib.request
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
-
-def get_api_token() -> Optional[str]:
+def get_api_token() -> str | None:
     """Get API token from environment."""
     return os.environ.get("ARAGORA_API_TOKEN") or os.environ.get("ARAGORA_API_KEY")
-
 
 def api_request(
     method: str,
     path: str,
-    data: Optional[dict[str, Any]] = None,
+    data: dict[str, Any] | None = None,
     server_url: str = DEFAULT_API_URL,
 ) -> dict[str, Any]:
     """Make authenticated API request."""
@@ -62,11 +60,9 @@ def api_request(
     except urllib.error.URLError as e:
         raise RuntimeError(f"Connection error: {e.reason}")
 
-
 # =============================================================================
 # List Tenants
 # =============================================================================
-
 
 def cmd_list(args: argparse.Namespace) -> int:
     """List all tenants."""
@@ -114,7 +110,6 @@ def cmd_list(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 def cmd_list_local(args: argparse.Namespace) -> int:
     """List tenants from local configuration (offline mode)."""
     print("\n(Running in offline mode - showing local configuration)")
@@ -154,11 +149,9 @@ def cmd_list_local(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 # =============================================================================
 # Create Tenant
 # =============================================================================
-
 
 def cmd_create(args: argparse.Namespace) -> int:
     """Create a new tenant."""
@@ -198,7 +191,6 @@ def cmd_create(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 def cmd_create_local(args: argparse.Namespace) -> int:
     """Create tenant locally (offline mode)."""
     print("\n(Running in offline mode - creating local tenant)")
@@ -232,11 +224,9 @@ def cmd_create_local(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 # =============================================================================
 # Delete Tenant
 # =============================================================================
-
 
 def cmd_delete(args: argparse.Namespace) -> int:
     """Delete a tenant."""
@@ -259,7 +249,6 @@ def cmd_delete(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 def cmd_delete_local(args: argparse.Namespace) -> int:
     """Delete tenant locally (offline mode)."""
     try:
@@ -279,11 +268,9 @@ def cmd_delete_local(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 # =============================================================================
 # Quota Management
 # =============================================================================
-
 
 def cmd_quota_get(args: argparse.Namespace) -> int:
     """Get tenant quotas and usage."""
@@ -333,7 +320,6 @@ def cmd_quota_get(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 def cmd_quota_get_local(args: argparse.Namespace) -> int:
     """Get tenant quotas locally (offline mode)."""
     try:
@@ -367,7 +353,6 @@ def cmd_quota_get_local(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"\nError: {e}")
         return 1
-
 
 def cmd_quota_set(args: argparse.Namespace) -> int:
     """Set tenant quotas."""
@@ -412,11 +397,9 @@ def cmd_quota_set(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 # =============================================================================
 # Tenant Data Export
 # =============================================================================
-
 
 def cmd_export(args: argparse.Namespace) -> int:
     """Export tenant data."""
@@ -476,7 +459,6 @@ def cmd_export(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 def cmd_export_local(args: argparse.Namespace) -> int:
     """Export tenant data locally (offline mode)."""
     print("\n(Running in offline mode - exporting local data)")
@@ -512,11 +494,9 @@ def cmd_export_local(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 # =============================================================================
 # Tenant Status Management
 # =============================================================================
-
 
 def cmd_suspend(args: argparse.Namespace) -> int:
     """Suspend a tenant."""
@@ -539,7 +519,6 @@ def cmd_suspend(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 def cmd_activate(args: argparse.Namespace) -> int:
     """Activate a suspended tenant."""
     tenant_id = args.tenant
@@ -558,11 +537,9 @@ def cmd_activate(args: argparse.Namespace) -> int:
         print(f"\nError: {e}")
         return 1
 
-
 # =============================================================================
 # Parser Creation
 # =============================================================================
-
 
 def create_tenant_parser(subparsers: argparse._SubParsersAction) -> None:
     """Create tenant subcommand parser."""
@@ -672,7 +649,6 @@ Examples:
     # Default handler for 'aragora tenant' without subcommand
     tenant_parser.set_defaults(func=lambda args: cmd_list(args))
 
-
 def main(args: argparse.Namespace) -> int:
     """Main entry point for tenant CLI."""
     action = getattr(args, "tenant_action", None)
@@ -688,6 +664,5 @@ def main(args: argparse.Namespace) -> int:
     else:
         print(f"Unknown tenant action: {action}")
         return 1
-
 
 __all__ = ["create_tenant_parser", "main"]

@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.storage.postgres_store import PostgresStore
 
@@ -38,7 +38,6 @@ if TYPE_CHECKING:
     from aragora.workflow.types import WorkflowDefinition
 
 logger = logging.getLogger(__name__)
-
 
 class PostgresWorkflowStore(PostgresStore):
     """
@@ -210,12 +209,12 @@ class PostgresWorkflowStore(PostgresStore):
     async def list_workflows(
         self,
         tenant_id: str = "default",
-        category: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        search: Optional[str] = None,
+        category: str | None = None,
+        tags: Optional[list[str]] = None,
+        search: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List["WorkflowDefinition"], int]:
+    ) -> tuple[list["WorkflowDefinition"], int]:
         """
         List workflows with filtering.
 
@@ -226,7 +225,7 @@ class PostgresWorkflowStore(PostgresStore):
 
         # Build parameterized query
         conditions = ["tenant_id = $1"]
-        params: List[Any] = [tenant_id]
+        params: list[Any] = [tenant_id]
         param_num = 2
 
         if category:
@@ -333,7 +332,7 @@ class PostgresWorkflowStore(PostgresStore):
         workflow_id: str,
         tenant_id: str = "default",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get version history for a workflow."""
         rows = await self.fetch_all(
             """
@@ -459,10 +458,10 @@ class PostgresWorkflowStore(PostgresStore):
 
     async def list_templates(
         self,
-        category: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        category: str | None = None,
+        tags: Optional[list[str]] = None,
         limit: int = 50,
-    ) -> List["WorkflowDefinition"]:
+    ) -> list["WorkflowDefinition"]:
         """List workflow templates."""
         from aragora.workflow.types import WorkflowDefinition
 
@@ -518,7 +517,7 @@ class PostgresWorkflowStore(PostgresStore):
     # Executions
     # =========================================================================
 
-    async def save_execution(self, execution: Dict[str, Any]) -> None:
+    async def save_execution(self, execution: dict[str, Any]) -> None:
         """Save or update an execution record."""
         await self.execute(
             """
@@ -547,7 +546,7 @@ class PostgresWorkflowStore(PostgresStore):
             execution.get("duration_ms"),
         )
 
-    async def get_execution(self, execution_id: str) -> Optional[Dict[str, Any]]:
+    async def get_execution(self, execution_id: str) -> Optional[dict[str, Any]]:
         """Get an execution by ID."""
         row = await self.fetch_one(
             """
@@ -597,16 +596,16 @@ class PostgresWorkflowStore(PostgresStore):
 
     async def list_executions(
         self,
-        workflow_id: Optional[str] = None,
+        workflow_id: str | None = None,
         tenant_id: str = "default",
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """List executions with filtering."""
         # Build parameterized query
         conditions = ["tenant_id = $1"]
-        params: List[Any] = [tenant_id]
+        params: list[Any] = [tenant_id]
         param_num = 2
 
         if workflow_id:
@@ -681,7 +680,6 @@ class PostgresWorkflowStore(PostgresStore):
             )
 
         return executions, total
-
 
 __all__ = [
     "PostgresWorkflowStore",

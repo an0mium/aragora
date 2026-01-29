@@ -6,10 +6,11 @@ Provides utilities for:
 - Identifying crux claims (key disagreement points)
 - Suggesting evidence targets
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.core import Message
@@ -19,7 +20,6 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded belief classes
 _BeliefNetwork = None
 _BeliefPropagationAnalyzer = None
-
 
 def _load_belief_classes():
     """Lazy-load belief classes to avoid circular imports."""
@@ -39,7 +39,6 @@ def _load_belief_classes():
             logger.debug("Belief network module not available")
     return _BeliefNetwork, _BeliefPropagationAnalyzer
 
-
 @dataclass
 class BeliefAnalysisResult:
     """Result of belief network analysis."""
@@ -47,8 +46,7 @@ class BeliefAnalysisResult:
     cruxes: list[dict[str, Any]] = field(default_factory=list)
     evidence_suggestions: list[str] = field(default_factory=list)
     network_size: int = 0
-    analysis_error: Optional[str] = None
-
+    analysis_error: str | None = None
 
 class DebateBeliefAnalyzer:
     """Analyzes debate messages to identify crux claims and evidence needs.

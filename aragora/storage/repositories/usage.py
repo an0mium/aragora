@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class UsageRepository:
     """
     Repository for usage tracking operations.
@@ -81,7 +80,7 @@ class UsageRepository:
         org_id: str,
         event_type: str,
         count: int = 1,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """
         Record a usage event for analytics.
@@ -200,8 +199,8 @@ class UsageRepository:
     def get_events(
         self,
         org_id: str,
-        event_type: Optional[str] = None,
-        since: Optional[datetime] = None,
+        event_type: str | None = None,
+        since: datetime | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """
@@ -247,7 +246,7 @@ class UsageRepository:
     def get_totals_by_type(
         self,
         org_id: str,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
     ) -> dict[str, int]:
         """
         Get total counts grouped by event type.

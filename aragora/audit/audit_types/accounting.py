@@ -19,13 +19,11 @@ import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from enum import Enum
-from typing import Optional
 
 from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
 from ..document_auditor import AuditFinding, AuditType, FindingSeverity
 
 logger = logging.getLogger(__name__)
-
 
 class FinancialCategory(str, Enum):
     """Categories of financial findings."""
@@ -40,7 +38,6 @@ class FinancialCategory(str, Enum):
     TIMING = "timing"
     SEGREGATION = "segregation"
 
-
 @dataclass
 class FinancialPattern:
     """Pattern for detecting financial issues."""
@@ -53,17 +50,15 @@ class FinancialPattern:
     recommendation: str
     flags: int = re.IGNORECASE | re.MULTILINE
 
-
 @dataclass
 class AmountPattern:
     """Pattern for suspicious amount detection."""
 
     name: str
     check_type: str  # "round", "threshold", "sequence", "benford"
-    threshold: Optional[float] = None
+    threshold: float | None = None
     description: str = ""
     severity: FindingSeverity = FindingSeverity.MEDIUM
-
 
 @dataclass
 class ExtractedAmount:
@@ -75,18 +70,16 @@ class ExtractedAmount:
     context: str
     line_number: int
 
-
 @dataclass
 class JournalEntry:
     """Extracted journal entry for validation."""
 
-    date: Optional[str]
+    date: str | None
     description: str
     debits: list[tuple[str, Decimal]]  # (account, amount)
     credits: list[tuple[str, Decimal]]
     location: str
-    reference: Optional[str] = None
-
+    reference: str | None = None
 
 class AccountingAuditor(BaseAuditor):
     """
@@ -672,7 +665,7 @@ class AccountingAuditor(BaseAuditor):
         self,
         amounts: list[ExtractedAmount],
         chunk: ChunkData,
-    ) -> Optional[AuditFinding]:
+    ) -> AuditFinding | None:
         """
         Check if first digits follow Benford's Law.
 
@@ -842,7 +835,6 @@ class AccountingAuditor(BaseAuditor):
 
         return findings
 
-
 # Register with the audit registry on import
 def register_accounting_auditor() -> None:
     """Register the accounting auditor with the global registry."""
@@ -852,7 +844,6 @@ def register_accounting_auditor() -> None:
         audit_registry.register(AccountingAuditor())
     except ImportError:
         pass  # Registry not available
-
 
 __all__ = [
     "AccountingAuditor",

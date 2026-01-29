@@ -11,7 +11,7 @@ import os
 import threading
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -36,7 +36,6 @@ _BACKEND_ALIASES = {
 }
 _VALID_BACKENDS = {"auto", "sentence-transformer", "tfidf", "jaccard"}
 
-
 def _normalize_backend_name(value: str) -> str | None:
     """Normalize backend name from environment variable."""
     if not value:
@@ -45,7 +44,6 @@ def _normalize_backend_name(value: str) -> str | None:
     key = key.replace("_", "-")
     key = _BACKEND_ALIASES.get(key, key)
     return key if key in _VALID_BACKENDS else None
-
 
 class SimilarityBackend(ABC):
     """Abstract base class for similarity computation backends."""
@@ -184,7 +182,6 @@ class SimilarityBackend(ABC):
 
         return total / count if count > 0 else 0.0
 
-
 class JaccardBackend(SimilarityBackend):
     """
     Jaccard similarity using word overlap.
@@ -253,7 +250,6 @@ class JaccardBackend(SimilarityBackend):
         with cls._cache_lock:
             cls._similarity_cache.clear()
 
-
 class TFIDFBackend(SimilarityBackend):
     """
     TF-IDF similarity backend.
@@ -320,7 +316,6 @@ class TFIDFBackend(SimilarityBackend):
         with cls._cache_lock:
             cls._similarity_cache.clear()
 
-
 class SentenceTransformerBackend(SimilarityBackend):
     """
     Sentence transformer backend using neural embeddings.
@@ -343,10 +338,10 @@ class SentenceTransformerBackend(SimilarityBackend):
         - ~5-10ms per pair, deterministic, local (no API calls)
     """
 
-    _model_cache: Optional[Any] = None
-    _model_name_cache: Optional[str] = None
-    _nli_model_cache: Optional[Any] = None
-    _nli_model_name_cache: Optional[str] = None
+    _model_cache: Any | None = None
+    _model_name_cache: str | None = None
+    _nli_model_cache: Any | None = None
+    _nli_model_name_cache: str | None = None
     _similarity_cache: OrderedDict[tuple[str, str], float] = OrderedDict()
     _contradiction_cache: OrderedDict[tuple[str, str], bool] = OrderedDict()
     _cache_max_size: int = 256
@@ -359,8 +354,8 @@ class SentenceTransformerBackend(SimilarityBackend):
 
     model: Any
     cosine_similarity: Any
-    embedding_cache: Optional[EmbeddingCache]
-    nli_model: Optional[Any]
+    embedding_cache: EmbeddingCache | None
+    nli_model: Any | None
     use_nli: bool
 
     def __init__(
@@ -368,7 +363,7 @@ class SentenceTransformerBackend(SimilarityBackend):
         model_name: str = "all-MiniLM-L6-v2",
         use_embedding_cache: bool = True,
         persist_embeddings: bool = False,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         use_nli: bool = True,
         nli_model_name: str = "cross-encoder/nli-deberta-v3-small",
     ):
@@ -645,10 +640,9 @@ class SentenceTransformerBackend(SimilarityBackend):
 
         return similarities
 
-
 def get_similarity_backend(
     preferred: str = "auto",
-    debate_id: Optional[str] = None,
+    debate_id: str | None = None,
 ) -> SimilarityBackend:
     """
     Get a similarity backend by name.
@@ -695,7 +689,6 @@ def get_similarity_backend(
         logger.debug("scikit-learn not available for auto-select")
 
     return JaccardBackend()
-
 
 __all__ = [
     "SimilarityBackend",

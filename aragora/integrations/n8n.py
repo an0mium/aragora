@@ -12,6 +12,7 @@ Regular Nodes:
 - Aragora: CRUD operations on debates, agents, evidence
 - Aragora Gauntlet: Stress-testing operations
 """
+from __future__ import annotations
 
 import hashlib
 import hmac
@@ -20,7 +21,7 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aiohttp import ClientTimeout
 
@@ -28,11 +29,9 @@ from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # n8n Data Models
 # =============================================================================
-
 
 class N8nResourceType(str, Enum):
     """n8n resource types for Aragora node."""
@@ -44,7 +43,6 @@ class N8nResourceType(str, Enum):
     GAUNTLET = "gauntlet"
     KNOWLEDGE = "knowledge"
 
-
 class N8nOperation(str, Enum):
     """n8n operations for Aragora node."""
 
@@ -55,26 +53,25 @@ class N8nOperation(str, Enum):
     DELETE = "delete"
     EXECUTE = "execute"
 
-
 @dataclass
 class N8nWebhook:
     """Configuration for an n8n webhook subscription."""
 
     id: str
     webhook_path: str  # n8n uses path-based webhooks
-    events: List[str]
+    events: list[str]
     created_at: float = field(default_factory=time.time)
-    last_triggered_at: Optional[float] = None
+    last_triggered_at: float | None = None
     trigger_count: int = 0
 
     # n8n workflow metadata
-    workflow_id: Optional[str] = None
-    node_id: Optional[str] = None
+    workflow_id: str | None = None
+    node_id: str | None = None
 
     # Filtering
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
 
-    def matches_event(self, event_type: str, event_data: Dict[str, Any]) -> bool:
+    def matches_event(self, event_type: str, event_data: dict[str, Any]) -> bool:
         """Check if an event matches this webhook's filters."""
         if event_type not in self.events and "*" not in self.events:
             return False
@@ -85,7 +82,6 @@ class N8nWebhook:
 
         return True
 
-
 @dataclass
 class N8nCredential:
     """n8n credential configuration for Aragora."""
@@ -95,18 +91,16 @@ class N8nCredential:
     api_key: str
     api_url: str
     created_at: float = field(default_factory=time.time)
-    webhooks: Dict[str, N8nWebhook] = field(default_factory=dict)
+    webhooks: dict[str, N8nWebhook] = field(default_factory=dict)
     active: bool = True
 
     # Usage tracking
     operation_count: int = 0
-    last_operation_at: Optional[float] = None
-
+    last_operation_at: float | None = None
 
 # =============================================================================
 # n8n Node Definitions
 # =============================================================================
-
 
 # Node properties that define the Aragora node in n8n
 N8N_NODE_DEFINITION = {
@@ -210,11 +204,9 @@ N8N_TRIGGER_NODE_DEFINITION = {
     ],
 }
 
-
 # =============================================================================
 # n8n Integration
 # =============================================================================
-
 
 class N8nIntegration(BaseIntegration):
     """
@@ -250,8 +242,8 @@ class N8nIntegration(BaseIntegration):
         """
         super().__init__()
         self.api_base = api_base
-        self._credentials: Dict[str, N8nCredential] = {}
-        self._webhook_path_map: Dict[str, N8nWebhook] = {}  # path -> webhook
+        self._credentials: dict[str, N8nCredential] = {}
+        self._webhook_path_map: dict[str, N8nWebhook] = {}  # path -> webhook
 
     @property
     def is_configured(self) -> bool:
@@ -284,7 +276,7 @@ class N8nIntegration(BaseIntegration):
     def create_credential(
         self,
         workspace_id: str,
-        api_url: Optional[str] = None,
+        api_url: str | None = None,
     ) -> N8nCredential:
         """Create a new n8n credential for a workspace.
 
@@ -309,18 +301,18 @@ class N8nIntegration(BaseIntegration):
         logger.info(f"Created n8n credential {cred_id} for workspace {workspace_id}")
         return credential
 
-    def get_credential(self, cred_id: str) -> Optional[N8nCredential]:
+    def get_credential(self, cred_id: str) -> N8nCredential | None:
         """Get n8n credential by ID."""
         return self._credentials.get(cred_id)
 
-    def get_credential_by_key(self, api_key: str) -> Optional[N8nCredential]:
+    def get_credential_by_key(self, api_key: str) -> N8nCredential | None:
         """Get n8n credential by API key."""
         for cred in self._credentials.values():
             if cred.api_key == api_key:
                 return cred
         return None
 
-    def list_credentials(self, workspace_id: Optional[str] = None) -> List[N8nCredential]:
+    def list_credentials(self, workspace_id: str | None = None) -> list[N8nCredential]:
         """List all n8n credentials, optionally filtered by workspace."""
         credentials = list(self._credentials.values())
         if workspace_id:
@@ -348,11 +340,11 @@ class N8nIntegration(BaseIntegration):
     def register_webhook(
         self,
         cred_id: str,
-        events: List[str],
-        workflow_id: Optional[str] = None,
-        node_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> Optional[N8nWebhook]:
+        events: list[str],
+        workflow_id: str | None = None,
+        node_id: str | None = None,
+        workspace_id: str | None = None,
+    ) -> N8nWebhook | None:
         """Register a webhook for n8n trigger node.
 
         Args:
@@ -419,11 +411,11 @@ class N8nIntegration(BaseIntegration):
             return True
         return False
 
-    def get_webhook_by_path(self, path: str) -> Optional[N8nWebhook]:
+    def get_webhook_by_path(self, path: str) -> N8nWebhook | None:
         """Get webhook by its path."""
         return self._webhook_path_map.get(path)
 
-    def list_webhooks(self, cred_id: str) -> List[N8nWebhook]:
+    def list_webhooks(self, cred_id: str) -> list[N8nWebhook]:
         """List all webhooks for an n8n credential."""
         credential = self._credentials.get(cred_id)
         if not credential:
@@ -437,8 +429,8 @@ class N8nIntegration(BaseIntegration):
     async def dispatch_event(
         self,
         event_type: str,
-        event_data: Dict[str, Any],
-        n8n_instance_url: Optional[str] = None,
+        event_data: dict[str, Any],
+        n8n_instance_url: str | None = None,
     ) -> int:
         """Dispatch an event to all matching n8n webhooks.
 
@@ -484,7 +476,7 @@ class N8nIntegration(BaseIntegration):
         self,
         webhook: N8nWebhook,
         event_type: str,
-        event_data: Dict[str, Any],
+        event_data: dict[str, Any],
         base_url: str,
     ) -> bool:
         """Dispatch event to a single n8n webhook.
@@ -529,8 +521,8 @@ class N8nIntegration(BaseIntegration):
         self,
         webhook: N8nWebhook,
         event_type: str,
-        event_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        event_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Format event data for n8n webhook payload."""
         return {
             "event": event_type,
@@ -550,8 +542,8 @@ class N8nIntegration(BaseIntegration):
         cred_id: str,
         resource: N8nResourceType,
         operation: N8nOperation,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute an n8n node operation.
 
         Args:
@@ -579,8 +571,8 @@ class N8nIntegration(BaseIntegration):
         self,
         resource: N8nResourceType,
         operation: N8nOperation,
-        parameters: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, Any],
+    ) -> dict[str, Any]:
         """Internal operation execution.
 
         This would typically make API calls to execute the operation.
@@ -601,7 +593,7 @@ class N8nIntegration(BaseIntegration):
     def authenticate_request(
         self,
         api_key: str,
-    ) -> Optional[N8nCredential]:
+    ) -> N8nCredential | None:
         """Authenticate a request using API key.
 
         Args:
@@ -643,15 +635,15 @@ class N8nIntegration(BaseIntegration):
     # Node Definitions Export
     # =========================================================================
 
-    def get_node_definition(self) -> Dict[str, Any]:
+    def get_node_definition(self) -> dict[str, Any]:
         """Get the n8n node definition for Aragora."""
         return N8N_NODE_DEFINITION
 
-    def get_trigger_node_definition(self) -> Dict[str, Any]:
+    def get_trigger_node_definition(self) -> dict[str, Any]:
         """Get the n8n trigger node definition for Aragora."""
         return N8N_TRIGGER_NODE_DEFINITION
 
-    def get_credential_definition(self) -> Dict[str, Any]:
+    def get_credential_definition(self) -> dict[str, Any]:
         """Get the n8n credential definition for Aragora API."""
         return {
             "name": "aragoraApi",
@@ -676,13 +668,11 @@ class N8nIntegration(BaseIntegration):
             ],
         }
 
-
 # =============================================================================
 # Module-level singleton
 # =============================================================================
 
-_n8n_integration: Optional[N8nIntegration] = None
-
+_n8n_integration: N8nIntegration | None = None
 
 def get_n8n_integration() -> N8nIntegration:
     """Get or create the global n8n integration instance."""
@@ -690,7 +680,6 @@ def get_n8n_integration() -> N8nIntegration:
     if _n8n_integration is None:
         _n8n_integration = N8nIntegration()
     return _n8n_integration
-
 
 # =============================================================================
 # Exports

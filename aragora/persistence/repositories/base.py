@@ -13,13 +13,12 @@ import sqlite3
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Generator, Generic, List, Optional, TypeVar
+from typing import Any, Generator, Generic, TypeVar
 
 from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.schema import DatabaseManager
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # SQL Injection Protection
@@ -30,7 +29,6 @@ _SQL_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 # Maximum length for SQL identifiers (SQLite limit is 255, we use 128 for safety)
 _MAX_IDENTIFIER_LENGTH = 128
-
 
 def _validate_sql_identifier(name: str, context: str = "identifier") -> str:
     """
@@ -83,7 +81,6 @@ def _validate_sql_identifier(name: str, context: str = "identifier") -> str:
 
     return name
 
-
 def _validate_where_clause(where: str) -> str:
     """
     Validate a WHERE clause for basic safety.
@@ -126,16 +123,13 @@ def _validate_where_clause(where: str) -> str:
 
     return where
 
-
 # Type variable for entities
 T = TypeVar("T")
-
 
 class RepositoryError(Exception):
     """Base exception for repository errors."""
 
     pass
-
 
 class EntityNotFoundError(RepositoryError):
     """Raised when an entity is not found."""
@@ -144,7 +138,6 @@ class EntityNotFoundError(RepositoryError):
         self.entity_type = entity_type
         self.entity_id = entity_id
         super().__init__(f"{entity_type} not found: {entity_id}")
-
 
 class BaseRepository(ABC, Generic[T]):
     """
@@ -161,7 +154,7 @@ class BaseRepository(ABC, Generic[T]):
             def _to_entity(self, row: sqlite3.Row) -> Debate:
                 return Debate(id=row["id"], ...)
 
-            def _from_entity(self, entity: Debate) -> Dict[str, Any]:
+            def _from_entity(self, entity: Debate) -> dict[str, Any]:
                 return {"id": entity.id, ...}
     """
 
@@ -273,7 +266,7 @@ class BaseRepository(ABC, Generic[T]):
     def _execute_many(
         self,
         query: str,
-        params_list: List[tuple],
+        params_list: list[tuple],
     ) -> int:
         """
         Execute a query with multiple parameter sets.
@@ -293,7 +286,7 @@ class BaseRepository(ABC, Generic[T]):
         self,
         query: str,
         params: tuple = (),
-    ) -> Optional[sqlite3.Row]:
+    ) -> sqlite3.Row | None:
         """
         Fetch a single row.
 
@@ -312,7 +305,7 @@ class BaseRepository(ABC, Generic[T]):
         self,
         query: str,
         params: tuple = (),
-    ) -> List[sqlite3.Row]:
+    ) -> list[sqlite3.Row]:
         """
         Fetch all rows.
 
@@ -395,7 +388,7 @@ class BaseRepository(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def _from_entity(self, entity: T) -> Dict[str, Any]:
+    def _from_entity(self, entity: T) -> dict[str, Any]:
         """
         Convert an entity to database columns.
 
@@ -409,7 +402,7 @@ class BaseRepository(ABC, Generic[T]):
 
     # Common CRUD operations (can be overridden)
 
-    def get(self, entity_id: str) -> Optional[T]:
+    def get(self, entity_id: str) -> T | None:
         """
         Get an entity by ID.
 
@@ -489,7 +482,7 @@ class BaseRepository(ABC, Generic[T]):
             )
             return cursor.rowcount > 0
 
-    def list_all(self, limit: int = 100, offset: int = 0) -> List[T]:
+    def list_all(self, limit: int = 100, offset: int = 0) -> list[T]:
         """
         List all entities with pagination.
 

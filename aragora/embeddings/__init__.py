@@ -43,8 +43,9 @@ For vector stores, use:
         InMemoryVectorStore,
     )
 """
+from __future__ import annotations
 
-from typing import List, Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 # Re-export from canonical implementations
 from aragora.memory.embeddings import (
@@ -58,7 +59,6 @@ from aragora.memory.embeddings import (
 
 # Re-export core protocol for type checking
 from aragora.core_protocols import EmbeddingBackend
-
 
 def get_embedding_provider() -> EmbeddingProvider:
     """
@@ -96,26 +96,23 @@ def get_embedding_provider() -> EmbeddingProvider:
     # Fallback to hash-based
     return EmbeddingProvider()
 
-
 @runtime_checkable
 class EmbeddingProviderProtocol(Protocol):
     """Protocol for embedding providers (for type checking)."""
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """Generate embedding for a single text."""
         ...
 
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts."""
         ...
 
-
 # Simple convenience functions
 
-_default_provider: Optional[EmbeddingProvider] = None
+_default_provider: EmbeddingProvider | None = None
 
-
-async def embed_text(text: str) -> List[float]:
+async def embed_text(text: str) -> list[float]:
     """
     Embed a single text using the best available provider.
 
@@ -133,8 +130,7 @@ async def embed_text(text: str) -> List[float]:
         _default_provider = get_embedding_provider()
     return await _default_provider.embed(text)
 
-
-async def embed_batch(texts: List[str]) -> List[List[float]]:
+async def embed_batch(texts: list[str]) -> list[list[float]]:
     """
     Embed multiple texts using the best available provider.
 
@@ -151,12 +147,10 @@ async def embed_batch(texts: List[str]) -> List[List[float]]:
         _default_provider = get_embedding_provider()
     return await _default_provider.embed_batch(texts)
 
-
 def reset_default_provider() -> None:
     """Reset the default provider (useful for testing)."""
     global _default_provider
     _default_provider = None
-
 
 __all__ = [
     # Core providers

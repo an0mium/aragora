@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Optional
 import yaml
 
 # Try to use Pydantic v2, fall back to basic validation
@@ -46,14 +46,12 @@ except ImportError:
     PYDANTIC_AVAILABLE = False
     BaseModel = object  # type: ignore[misc,assignment]
 
-
 class ValidationSeverity(Enum):
     """Severity levels for validation messages."""
 
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
-
 
 @dataclass
 class ValidationMessage:
@@ -69,21 +67,20 @@ class ValidationMessage:
         location = f" at {self.path}" if self.path else ""
         return f"{prefix}{location}: {self.message}"
 
-
 @dataclass
 class ValidationResult:
     """Result of workflow validation."""
 
     valid: bool
-    messages: List[ValidationMessage] = field(default_factory=list)
+    messages: list[ValidationMessage] = field(default_factory=list)
 
     @property
-    def errors(self) -> List[ValidationMessage]:
+    def errors(self) -> list[ValidationMessage]:
         """Get only error messages."""
         return [m for m in self.messages if m.severity == ValidationSeverity.ERROR]
 
     @property
-    def warnings(self) -> List[ValidationMessage]:
+    def warnings(self) -> list[ValidationMessage]:
         """Get only warning messages."""
         return [m for m in self.messages if m.severity == ValidationSeverity.WARNING]
 
@@ -120,7 +117,6 @@ class ValidationResult:
                 code=code,
             )
         )
-
 
 # Valid step types
 VALID_STEP_TYPES = {
@@ -159,7 +155,6 @@ VALID_TASK_TYPES = {
     "aggregate",
 }
 
-
 class WorkflowValidator:
     """
     Validates workflow definitions.
@@ -183,7 +178,7 @@ class WorkflowValidator:
         self.max_steps = max_steps
         self.max_transitions = max_transitions
 
-    def validate(self, workflow: Dict[str, Any]) -> ValidationResult:
+    def validate(self, workflow: dict[str, Any]) -> ValidationResult:
         """
         Validate a workflow definition dictionary.
 
@@ -215,7 +210,7 @@ class WorkflowValidator:
 
         return result
 
-    def _validate_structure(self, workflow: Dict[str, Any], result: ValidationResult) -> None:
+    def _validate_structure(self, workflow: dict[str, Any], result: ValidationResult) -> None:
         """Validate top-level workflow structure."""
         # Required fields
         if not workflow.get("id"):
@@ -258,7 +253,7 @@ class WorkflowValidator:
                     "INVALID_ENTRY_STEP",
                 )
 
-    def _validate_steps(self, workflow: Dict[str, Any], result: ValidationResult) -> None:
+    def _validate_steps(self, workflow: dict[str, Any], result: ValidationResult) -> None:
         """Validate step definitions."""
         step_ids = set()
 
@@ -308,7 +303,7 @@ class WorkflowValidator:
 
     def _validate_step_config(
         self,
-        step: Dict[str, Any],
+        step: dict[str, Any],
         path: str,
         result: ValidationResult,
     ) -> None:
@@ -379,7 +374,7 @@ class WorkflowValidator:
                 "LONG_TIMEOUT",
             )
 
-    def _validate_transitions(self, workflow: Dict[str, Any], result: ValidationResult) -> None:
+    def _validate_transitions(self, workflow: dict[str, Any], result: ValidationResult) -> None:
         """Validate transition rules."""
         step_ids = {s.get("id") for s in workflow.get("steps", [])}
         transition_ids = set()
@@ -459,7 +454,7 @@ class WorkflowValidator:
                     "UNSAFE_CONDITION",
                 )
 
-    def _validate_graph(self, workflow: Dict[str, Any], result: ValidationResult) -> None:
+    def _validate_graph(self, workflow: dict[str, Any], result: ValidationResult) -> None:
         """Validate workflow graph properties."""
         steps = workflow.get("steps", [])
         transitions = workflow.get("transitions", [])
@@ -471,7 +466,7 @@ class WorkflowValidator:
         entry_step = workflow.get("entry_step") or steps[0].get("id")
 
         # Build adjacency list
-        graph: Dict[str, Set[str]] = {s.get("id"): set() for s in steps}
+        graph: dict[str, set[str]] = {s.get("id"): set() for s in steps}
 
         for step in steps:
             step_id = step.get("id")
@@ -511,7 +506,7 @@ class WorkflowValidator:
                     "CYCLE_DETECTED",
                 )
 
-    def _find_reachable(self, start: str, graph: Dict[str, Set[str]]) -> Set[str]:
+    def _find_reachable(self, start: str, graph: dict[str, set[str]]) -> set[str]:
         """Find all reachable nodes from start."""
         reachable = set()
         stack = [start]
@@ -525,13 +520,13 @@ class WorkflowValidator:
 
         return reachable
 
-    def _find_cycle(self, start: str, graph: Dict[str, Set[str]]) -> Optional[List[str]]:
+    def _find_cycle(self, start: str, graph: dict[str, set[str]]) -> Optional[list[str]]:
         """Find a cycle in the graph, if any."""
         visited: set[str] = set()
-        path: List[str] = []
+        path: list[str] = []
         path_set: set[str] = set()
 
-        def dfs(node: str) -> Optional[List[str]]:
+        def dfs(node: str) -> Optional[list[str]]:
             if node in path_set:
                 # Found cycle
                 idx = path.index(node)
@@ -555,7 +550,7 @@ class WorkflowValidator:
 
         return dfs(start)
 
-    def _validate_limits(self, limits: Dict[str, Any], result: ValidationResult) -> None:
+    def _validate_limits(self, limits: dict[str, Any], result: ValidationResult) -> None:
         """Validate resource limits."""
         path = "limits"
 
@@ -601,8 +596,7 @@ class WorkflowValidator:
                     "INVALID_TIMEOUT",
                 )
 
-
-def validate_workflow(workflow: Union[Dict[str, Any], str]) -> ValidationResult:
+def validate_workflow(workflow: dict[str, Any] | str) -> ValidationResult:
     """
     Validate a workflow definition.
 
@@ -613,7 +607,7 @@ def validate_workflow(workflow: Union[Dict[str, Any], str]) -> ValidationResult:
         ValidationResult with errors and warnings
     """
     # Parse if string
-    workflow_dict: Dict[str, Any]
+    workflow_dict: dict[str, Any]
     if isinstance(workflow, str):
         try:
             # Try YAML first (superset of JSON)
@@ -632,7 +626,6 @@ def validate_workflow(workflow: Union[Dict[str, Any], str]) -> ValidationResult:
 
     validator = WorkflowValidator()
     return validator.validate(workflow_dict)
-
 
 def validate_workflow_file(path: str) -> ValidationResult:
     """
@@ -657,7 +650,6 @@ def validate_workflow_file(path: str) -> ValidationResult:
         result.add_error(f"Error reading file: {e}", "", "READ_ERROR")
         return result
 
-
 # Pydantic schemas for stricter validation (if available)
 if PYDANTIC_AVAILABLE:
 
@@ -671,10 +663,10 @@ if PYDANTIC_AVAILABLE:
 
         model_config = ConfigDict(extra="allow")
 
-        position: Optional[Dict[str, float]] = None
-        size: Optional[Dict[str, float]] = None
-        category: Optional[str] = None
-        color: Optional[str] = None
+        position: Optional[dict[str, float]] = None
+        size: Optional[dict[str, float]] = None
+        category: str | None = None
+        color: str | None = None
 
     class StepSchema(BaseModel):
         """Schema for workflow step."""
@@ -682,13 +674,13 @@ if PYDANTIC_AVAILABLE:
         id: str = Field(..., min_length=1)
         name: str = Field(default="")
         step_type: str = Field(default="task")
-        config: Dict[str, Any] = Field(default_factory=dict)
+        config: dict[str, Any] = Field(default_factory=dict)
         execution_pattern: str = Field(default="sequential")
         timeout_seconds: float = Field(default=120.0, gt=0)
         retries: int = Field(default=0, ge=0)
         optional: bool = Field(default=False)
-        next_steps: List[str] = Field(default_factory=list)
-        visual: Optional[Dict[str, Any]] = None
+        next_steps: list[str] = Field(default_factory=list)
+        visual: Optional[dict[str, Any]] = None
         description: str = Field(default="")
 
         @field_validator("step_type")
@@ -724,15 +716,15 @@ if PYDANTIC_AVAILABLE:
         name: str = Field(..., min_length=1)
         description: str = Field(default="")
         version: str = Field(default="1.0.0")
-        steps: List[StepSchema] = Field(..., min_length=1)
-        transitions: List[TransitionSchema] = Field(default_factory=list)
-        entry_step: Optional[str] = None
-        inputs: Dict[str, str] = Field(default_factory=dict)
-        outputs: Dict[str, str] = Field(default_factory=dict)
-        metadata: Dict[str, Any] = Field(default_factory=dict)
-        limits: Optional[ResourceLimitsSchema] = None
+        steps: list[StepSchema] = Field(..., min_length=1)
+        transitions: list[TransitionSchema] = Field(default_factory=list)
+        entry_step: str | None = None
+        inputs: dict[str, str] = Field(default_factory=dict)
+        outputs: dict[str, str] = Field(default_factory=dict)
+        metadata: dict[str, Any] = Field(default_factory=dict)
+        limits: ResourceLimitsSchema | None = None
         category: str = Field(default="general")
-        tags: List[str] = Field(default_factory=list)
+        tags: list[str] = Field(default_factory=list)
 
         @model_validator(mode="after")
         def validate_references(self):
@@ -757,7 +749,6 @@ if PYDANTIC_AVAILABLE:
                         raise ValueError(f"Step '{step.id}' references unknown: {next_id}")
 
             return self
-
 
 __all__ = [
     "ValidationSeverity",

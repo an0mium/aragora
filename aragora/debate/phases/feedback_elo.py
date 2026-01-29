@@ -4,6 +4,7 @@ ELO feedback methods for FeedbackPhase.
 Extracted from feedback_phase.py for maintainability.
 Handles ELO match recording, voting accuracy, and learning bonuses.
 """
+from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Optional
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class EloFeedback:
     """Handles ELO-related feedback operations."""
 
@@ -22,7 +22,7 @@ class EloFeedback:
         self,
         elo_system: Optional["EloSystemProtocol"] = None,
         event_emitter: Optional["EventEmitterProtocol"] = None,
-        loop_id: Optional[str] = None,
+        loop_id: str | None = None,
     ):
         self.elo_system = elo_system
         self.event_emitter = event_emitter
@@ -201,6 +201,5 @@ class EloFeedback:
 
         except Exception as e:
             logger.debug(f"[learning] Learning bonus application failed: {e}")
-
 
 __all__ = ["EloFeedback"]

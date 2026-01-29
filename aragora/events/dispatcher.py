@@ -22,6 +22,7 @@ Usage:
 
     # Events are automatically delivered to registered webhooks
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -30,7 +31,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -42,7 +43,6 @@ if TYPE_CHECKING:
     from aragora.server.stream.events import StreamEvent
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Configuration
@@ -69,11 +69,9 @@ EVENT_RATE_LIMIT_ENABLED = (
 EVENT_RATE_LIMIT_PER_SECOND = float(os.environ.get("ARAGORA_EVENT_RATE_LIMIT_PER_SECOND", "100.0"))
 EVENT_RATE_LIMIT_BURST = int(os.environ.get("ARAGORA_EVENT_RATE_LIMIT_BURST", "200"))
 
-
 # =============================================================================
 # Event Rate Limiter
 # =============================================================================
-
 
 class EventRateLimiter:
     """
@@ -138,12 +136,10 @@ class EventRateLimiter:
         """Reset statistics."""
         self._bucket.reset_stats()
 
-
 # Global event rate limiter
 _event_rate_limiter: Optional["EventRateLimiter"] = None
 
-
-def get_event_rate_limiter() -> Optional[EventRateLimiter]:
+def get_event_rate_limiter() -> EventRateLimiter | None:
     """Get the global event rate limiter (if enabled)."""
     global _event_rate_limiter
 
@@ -155,11 +151,9 @@ def get_event_rate_limiter() -> Optional[EventRateLimiter]:
 
     return _event_rate_limiter
 
-
 # =============================================================================
 # Webhook Delivery
 # =============================================================================
-
 
 @dataclass
 class DeliveryResult:
@@ -167,16 +161,15 @@ class DeliveryResult:
 
     success: bool
     status_code: int
-    error: Optional[str] = None
+    error: str | None = None
     retry_count: int = 0
     duration_ms: float = 0.0
-
 
 def dispatch_webhook(
     webhook: "WebhookConfig",
     payload: dict,
     timeout: float = REQUEST_TIMEOUT,
-) -> Tuple[bool, int, Optional[str]]:
+) -> tuple[bool, int, str | None]:
     """
     Dispatch a single webhook synchronously.
 
@@ -254,7 +247,6 @@ def dispatch_webhook(
     except Exception as e:
         logger.error(f"Webhook delivery error for {webhook.url}: {e}")
         return False, 0, str(e)
-
 
 def dispatch_webhook_with_retry(
     webhook: "WebhookConfig",
@@ -339,7 +331,6 @@ def dispatch_webhook_with_retry(
             None,
         )
 
-
 def _dispatch_with_retry_impl(
     webhook: "WebhookConfig",
     payload: dict,
@@ -399,11 +390,9 @@ def _dispatch_with_retry_impl(
         duration_ms=(time.time() - start_time) * 1000,
     )
 
-
 # =============================================================================
 # Webhook Dispatcher
 # =============================================================================
-
 
 class WebhookDispatcher:
     """
@@ -418,7 +407,7 @@ class WebhookDispatcher:
             max_workers=max_workers,
             thread_name_prefix="webhook-",
         )
-        self._subscriptions: List[Callable] = []
+        self._subscriptions: list[Callable] = []
         self._shutdown = False
 
         # Stats
@@ -559,13 +548,11 @@ class WebhookDispatcher:
         self._executor.shutdown(wait=wait)
         logger.info("Webhook dispatcher shutdown")
 
-
 # =============================================================================
 # Global Dispatcher
 # =============================================================================
 
-_dispatcher: Optional[WebhookDispatcher] = None
-
+_dispatcher: WebhookDispatcher | None = None
 
 def get_dispatcher() -> WebhookDispatcher:
     """Get or create the global webhook dispatcher."""
@@ -573,7 +560,6 @@ def get_dispatcher() -> WebhookDispatcher:
     if _dispatcher is None:
         _dispatcher = WebhookDispatcher()
     return _dispatcher
-
 
 def dispatch_event(event_type: str, data: dict) -> None:
     """
@@ -588,7 +574,6 @@ def dispatch_event(event_type: str, data: dict) -> None:
     dispatcher = get_dispatcher()
     dispatcher.dispatch_event(event_type, data)
 
-
 def shutdown_dispatcher(wait: bool = True) -> None:
     """Shutdown the global dispatcher."""
     global _dispatcher
@@ -596,11 +581,9 @@ def shutdown_dispatcher(wait: bool = True) -> None:
         _dispatcher.shutdown(wait=wait)
         _dispatcher = None
 
-
 # =============================================================================
 # Receipt Delivery Helpers
 # =============================================================================
-
 
 def dispatch_receipt_ready(
     gauntlet_id: str,
@@ -631,7 +614,6 @@ def dispatch_receipt_ready(
         },
     )
 
-
 def dispatch_receipt_exported(
     gauntlet_id: str,
     receipt_id: str,
@@ -657,7 +639,6 @@ def dispatch_receipt_exported(
         },
     )
 
-
 def dispatch_explanation_ready(
     debate_id: str,
     confidence: float,
@@ -680,7 +661,6 @@ def dispatch_explanation_ready(
             "explanation_url": f"/api/v1/debates/{debate_id}/explanation",
         },
     )
-
 
 # =============================================================================
 # Exports

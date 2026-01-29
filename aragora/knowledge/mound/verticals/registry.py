@@ -8,12 +8,11 @@ knowledge modules within the Knowledge Mound.
 from __future__ import annotations
 
 import logging
-from typing import Any, Type
+from typing import Any
 
 from aragora.knowledge.mound.verticals.base import BaseVerticalKnowledge
 
 logger = logging.getLogger(__name__)
-
 
 class VerticalRegistry:
     """
@@ -35,14 +34,14 @@ class VerticalRegistry:
         verticals = VerticalRegistry.list_all()
     """
 
-    _registry: dict[str, Type[BaseVerticalKnowledge]] = {}
+    _registry: dict[str, type[BaseVerticalKnowledge]] = {}
     _instances: dict[str, BaseVerticalKnowledge] = {}
 
     @classmethod
     def register(
         cls,
-        vertical_class: Type[BaseVerticalKnowledge],
-    ) -> Type[BaseVerticalKnowledge]:
+        vertical_class: type[BaseVerticalKnowledge],
+    ) -> type[BaseVerticalKnowledge]:
         """
         Register a vertical knowledge module class.
 
@@ -184,7 +183,6 @@ class VerticalRegistry:
         cls._registry.clear()
         cls._instances.clear()
 
-
 def _register_default_verticals() -> None:
     """Register default vertical implementations."""
     try:
@@ -221,7 +219,6 @@ def _register_default_verticals() -> None:
         VerticalRegistry.register(ResearchKnowledge)
     except ImportError:
         logger.debug("Research vertical not available")
-
 
 # Register defaults on module load
 _register_default_verticals()

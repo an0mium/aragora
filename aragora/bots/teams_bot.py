@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.config import DEFAULT_ROUNDS
 
@@ -52,8 +52,7 @@ TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD", "")
 # error messages for production environments.
 API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
-
-def _check_botframework_available() -> tuple[bool, Optional[str]]:
+def _check_botframework_available() -> tuple[bool, str | None]:
     """Check if Bot Framework SDK is available."""
     try:
         from botbuilder.core import TurnContext  # noqa: F401
@@ -65,7 +64,6 @@ def _check_botframework_available() -> tuple[bool, Optional[str]]:
             "botbuilder-core is required. Install with: "
             "pip install botbuilder-core botbuilder-schema"
         )
-
 
 class AragoraTeamsBot:
     """Microsoft Teams bot for Aragora platform integration.
@@ -84,7 +82,7 @@ class AragoraTeamsBot:
     ):
         self.app_id = app_id
         self.app_password = app_password
-        self._adapter: Optional[Any] = None
+        self._adapter: Any | None = None
         self.config = BotConfig(
             platform=Platform.TEAMS,
             token=app_password,
@@ -226,8 +224,8 @@ class AragoraTeamsBot:
     async def _handle_vote(
         self,
         turn_context: Any,
-        data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Handle vote action from adaptive card."""
         action = data.get("action", "")
         parts = action.split("_")
@@ -319,7 +317,7 @@ class AragoraTeamsBot:
     async def _send_adaptive_card(
         self,
         turn_context: Any,
-        card: Dict[str, Any],
+        card: dict[str, Any],
     ) -> None:
         """Send an adaptive card to the conversation."""
         from botbuilder.schema import Attachment, Activity, ActivityTypes
@@ -340,7 +338,7 @@ class AragoraTeamsBot:
         self,
         result: CommandResult,
         command: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Convert CommandResult to Teams adaptive card using template functions."""
         if not result.success:
             return create_error_card(
@@ -417,10 +415,9 @@ class AragoraTeamsBot:
 
         return None
 
-
 def create_teams_bot(
-    app_id: Optional[str] = None,
-    app_password: Optional[str] = None,
+    app_id: str | None = None,
+    app_password: str | None = None,
 ) -> AragoraTeamsBot:
     """Create an Aragora Teams bot instance.
 
@@ -440,7 +437,6 @@ def create_teams_bot(
         )
 
     return AragoraTeamsBot(app_id, app_password)
-
 
 __all__ = [
     "AragoraTeamsBot",

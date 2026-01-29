@@ -38,10 +38,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class AlertSeverity(Enum):
     """Alert severity levels mapped to PagerDuty priorities."""
@@ -50,7 +49,6 @@ class AlertSeverity(Enum):
     MAJOR = "major"  # P2 - Urgent, within 1 hour
     MODERATE = "moderate"  # P3 - High priority, within 4 hours
     MINOR = "minor"  # P4 - Low priority, next business day
-
 
 class AlertChannel(Enum):
     """Available alert channels."""
@@ -61,27 +59,26 @@ class AlertChannel(Enum):
     EMAIL = "email"
     WEBHOOK = "webhook"
 
-
 @dataclass
 class SLOAlertConfig:
     """Configuration for SLO alerting."""
 
     # PagerDuty configuration
     pagerduty_enabled: bool = False
-    pagerduty_api_key: Optional[str] = None
-    pagerduty_service_id: Optional[str] = None
+    pagerduty_api_key: str | None = None
+    pagerduty_service_id: str | None = None
     pagerduty_email: str = "slo-alerts@aragora.dev"  # Email for PagerDuty requests
     pagerduty_min_severity: AlertSeverity = AlertSeverity.MAJOR
 
     # Slack configuration
     slack_enabled: bool = False
-    slack_webhook_url: Optional[str] = None
-    slack_channel: Optional[str] = None
+    slack_webhook_url: str | None = None
+    slack_channel: str | None = None
     slack_min_severity: AlertSeverity = AlertSeverity.MINOR
 
     # Teams configuration
     teams_enabled: bool = False
-    teams_webhook_url: Optional[str] = None
+    teams_webhook_url: str | None = None
     teams_min_severity: AlertSeverity = AlertSeverity.MINOR
 
     # General settings
@@ -89,7 +86,6 @@ class SLOAlertConfig:
     dedup_window_seconds: float = 300.0  # Window for incident deduplication
     auto_resolve_on_recovery: bool = True
     include_runbook_links: bool = True
-
 
 @dataclass
 class ActiveViolation:
@@ -101,10 +97,9 @@ class ActiveViolation:
     first_seen: float
     last_seen: float
     count: int = 1
-    incident_key: Optional[str] = None
-    pagerduty_incident_id: Optional[str] = None
-    notified_channels: Set[str] = field(default_factory=set)
-
+    incident_key: str | None = None
+    pagerduty_incident_id: str | None = None
+    notified_channels: set[str] = field(default_factory=set)
 
 class SLOAlertBridge:
     """
@@ -117,8 +112,8 @@ class SLOAlertBridge:
     def __init__(self, config: SLOAlertConfig):
         """Initialize the bridge with configuration."""
         self.config = config
-        self._active_violations: Dict[str, ActiveViolation] = {}
-        self._last_notification: Dict[str, float] = {}
+        self._active_violations: dict[str, ActiveViolation] = {}
+        self._last_notification: dict[str, float] = {}
         self._pagerduty_client = None
         self._notification_manager = None
         self._lock = asyncio.Lock()
@@ -171,8 +166,8 @@ class SLOAlertBridge:
     async def _send_pagerduty_alert(
         self,
         violation: ActiveViolation,
-        context: Dict[str, Any],
-    ) -> Optional[str]:
+        context: dict[str, Any],
+    ) -> str | None:
         """Create or update a PagerDuty incident."""
         if not self.config.pagerduty_enabled:
             return None
@@ -240,7 +235,7 @@ class SLOAlertBridge:
     async def _send_slack_alert(
         self,
         violation: ActiveViolation,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """Send alert to Slack."""
         if not self.config.slack_enabled or not self.config.slack_webhook_url:
@@ -337,7 +332,7 @@ class SLOAlertBridge:
         latency_ms: float,
         threshold_ms: float,
         severity: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Handle an SLO violation event.
@@ -401,7 +396,7 @@ class SLOAlertBridge:
         self,
         operation: str,
         percentile: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Handle an SLO recovery event.
@@ -460,7 +455,7 @@ class SLOAlertBridge:
             # Clean up
             del self._active_violations[incident_key]
 
-    def get_active_violations(self) -> List[Dict[str, Any]]:
+    def get_active_violations(self) -> list[dict[str, Any]]:
         """Get list of currently active violations."""
         return [
             {
@@ -487,22 +482,19 @@ class SLOAlertBridge:
             del self._active_violations[key]
         return len(stale_keys)
 
-
 # Global bridge instance
-_bridge: Optional[SLOAlertBridge] = None
+_bridge: SLOAlertBridge | None = None
 
-
-def get_slo_alert_bridge() -> Optional[SLOAlertBridge]:
+def get_slo_alert_bridge() -> SLOAlertBridge | None:
     """Get the global SLO alert bridge instance."""
     return _bridge
 
-
 def init_slo_alerting(
-    pagerduty_api_key: Optional[str] = None,
-    pagerduty_service_id: Optional[str] = None,
-    slack_webhook_url: Optional[str] = None,
-    slack_channel: Optional[str] = None,
-    teams_webhook_url: Optional[str] = None,
+    pagerduty_api_key: str | None = None,
+    pagerduty_service_id: str | None = None,
+    slack_webhook_url: str | None = None,
+    slack_channel: str | None = None,
+    teams_webhook_url: str | None = None,
     cooldown_seconds: float = 60.0,
     auto_resolve_on_recovery: bool = True,
 ) -> SLOAlertBridge:
@@ -547,7 +539,7 @@ def init_slo_alerting(
             register_recovery_callback,
         )
 
-        async def violation_callback(data: Dict[str, Any]) -> None:
+        async def violation_callback(data: dict[str, Any]) -> None:
             """Handle SLO violation events from the metrics system."""
             if _bridge:
                 await _bridge.on_slo_violation(
@@ -559,7 +551,7 @@ def init_slo_alerting(
                     context=data.get("context", {}),
                 )
 
-        async def recovery_callback(data: Dict[str, Any]) -> None:
+        async def recovery_callback(data: dict[str, Any]) -> None:
             """Handle SLO recovery events from the metrics system."""
             if _bridge:
                 await _bridge.on_slo_recovery(
@@ -583,7 +575,6 @@ def init_slo_alerting(
 
     return _bridge
 
-
 def shutdown_slo_alerting() -> None:
     """Shutdown the SLO alerting system and unregister callbacks."""
     global _bridge
@@ -601,7 +592,6 @@ def shutdown_slo_alerting() -> None:
         pass
 
     _bridge = None
-
 
 __all__ = [
     "AlertSeverity",

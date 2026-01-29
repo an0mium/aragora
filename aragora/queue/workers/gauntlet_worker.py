@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 # Job type constant
 JOB_TYPE_GAUNTLET = "gauntlet"
 
-
 class GauntletWorker:
     """
     Worker that processes gauntlet jobs from the durable queue.
@@ -48,7 +47,7 @@ class GauntletWorker:
 
     def __init__(
         self,
-        worker_id: Optional[str] = None,
+        worker_id: str | None = None,
         poll_interval: float = 2.0,
         max_concurrent: int = 3,
         broadcast_fn: Optional[Callable[..., Any]] = None,
@@ -348,16 +347,15 @@ class GauntletWorker:
             "total_findings": result.total_findings,
         }
 
-
 async def enqueue_gauntlet_job(
     gauntlet_id: str,
     input_content: str,
     input_type: str,
-    persona: Optional[str],
+    persona: str | None,
     agents: list[str],
     profile: str,
-    user_id: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    user_id: str | None = None,
+    workspace_id: str | None = None,
     priority: int = 0,
 ) -> QueuedJob:
     """
@@ -398,7 +396,6 @@ async def enqueue_gauntlet_job(
 
     logger.info(f"Enqueued gauntlet job: {gauntlet_id}")
     return job
-
 
 async def recover_interrupted_gauntlets() -> int:
     """

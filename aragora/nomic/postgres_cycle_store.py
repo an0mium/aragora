@@ -13,13 +13,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.nomic.cycle_record import NomicCycleRecord
 from aragora.storage.postgres_store import PostgresStore
 
 logger = logging.getLogger(__name__)
-
 
 class PostgresCycleLearningStore(PostgresStore):
     """PostgreSQL-backed storage for Nomic cycle records.
@@ -88,7 +87,7 @@ class PostgresCycleLearningStore(PostgresStore):
         """Save a cycle record (sync wrapper)."""
         asyncio.get_event_loop().run_until_complete(self.save_cycle_async(record))
 
-    def load_cycle(self, cycle_id: str) -> Optional[NomicCycleRecord]:
+    def load_cycle(self, cycle_id: str) -> NomicCycleRecord | None:
         """Load a specific cycle by ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(self.load_cycle_async(cycle_id))
 
@@ -162,7 +161,7 @@ class PostgresCycleLearningStore(PostgresStore):
 
         logger.debug(f"cycle_saved cycle_id={record.cycle_id} success={record.success}")
 
-    async def load_cycle_async(self, cycle_id: str) -> Optional[NomicCycleRecord]:
+    async def load_cycle_async(self, cycle_id: str) -> NomicCycleRecord | None:
         """Load a specific cycle by ID asynchronously."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -365,6 +364,5 @@ class PostgresCycleLearningStore(PostgresStore):
     def close(self) -> None:
         """No-op for pool-based store (pool managed externally)."""
         pass
-
 
 __all__ = ["PostgresCycleLearningStore"]

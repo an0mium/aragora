@@ -27,7 +27,7 @@ import functools
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional, TypeVar, ParamSpec
+from typing import Any, Callable, TypeVar, ParamSpec
 
 from aragora.auth.lockout import get_lockout_tracker
 from aragora.billing.jwt_auth import create_access_token, extract_user_from_request
@@ -82,12 +82,11 @@ except ImportError:
     def record_rbac_check(*args, **kwargs):
         pass
 
-
 def admin_secure_endpoint(
-    permission: Optional[str] = None,
+    permission: str | None = None,
     audit: bool = False,
-    audit_action: Optional[str] = None,
-    resource_id_param: Optional[str] = None,
+    audit_action: str | None = None,
+    resource_id_param: str | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Admin-specific secure endpoint decorator.
@@ -198,7 +197,6 @@ def admin_secure_endpoint(
 
     return decorator
 
-
 class AdminHandler(SecureHandler):
     """
     Handler for admin endpoints.
@@ -235,7 +233,7 @@ class AdminHandler(SecureHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _require_admin(self, handler) -> tuple[Optional[Any], Optional[HandlerResult]]:
+    def _require_admin(self, handler) -> tuple[Any | None, HandlerResult | None]:
         """
         Verify the request is from an admin user with MFA enabled.
 
@@ -276,8 +274,8 @@ class AdminHandler(SecureHandler):
         return auth_ctx, None
 
     def _check_rbac_permission(
-        self, auth_ctx: Any, permission_key: str, resource_id: Optional[str] = None
-    ) -> Optional[HandlerResult]:
+        self, auth_ctx: Any, permission_key: str, resource_id: str | None = None
+    ) -> HandlerResult | None:
         """
         Check granular RBAC permission.
 
@@ -340,7 +338,7 @@ class AdminHandler(SecureHandler):
 
     def handle(
         self, path: str, query_params: dict, handler, method: str = "GET"
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route admin requests to appropriate methods."""
         # Determine HTTP method from handler if not provided
         if hasattr(handler, "command"):
@@ -1341,6 +1339,5 @@ class AdminHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Failed to reset circuit breakers: {e}", exc_info=True)
             return error_response(f"Failed to reset circuit breakers: {e}", 500)
-
 
 __all__ = ["AdminHandler"]

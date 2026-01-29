@@ -22,7 +22,7 @@ Configuration:
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -32,7 +32,6 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
-
 
 class MapReducePattern(WorkflowPattern):
     """
@@ -58,13 +57,13 @@ class MapReducePattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         task: str = "",
         split_strategy: str = "chunks",  # chunks, lines, sections, files
         chunk_size: int = 4000,
-        map_agent: Optional[str] = None,
+        map_agent: str | None = None,
         map_prompt: str = "",
-        reduce_agent: Optional[str] = None,
+        reduce_agent: str | None = None,
         reduce_prompt: str = "",
         parallel_limit: int = 5,
         file_pattern: str = "**/*",
@@ -191,7 +190,6 @@ Instructions:
 
 Aggregated Analysis:"""
 
-
 # Register built-in handlers for map-reduce operations
 def _register_map_reduce_handlers():
     """Register map-reduce task handlers."""
@@ -282,7 +280,6 @@ def _register_map_reduce_handlers():
 
     except ImportError:
         pass
-
 
 # Import visual types needed
 from aragora.workflow.types import VisualNodeData

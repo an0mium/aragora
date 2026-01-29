@@ -23,7 +23,6 @@ Usage:
 """
 
 # Re-export everything from the canonical middleware implementation
-from typing import Union
 
 from aragora.server.middleware.rate_limit import (
     BURST_MULTIPLIER,
@@ -51,7 +50,7 @@ from aragora.server.middleware.rate_limit import (
 
 
 # Legacy API compatibility - these function names were in the old module
-def get_limiter() -> Union[RateLimiter, RedisRateLimiter]:
+def get_limiter() -> RateLimiter | RedisRateLimiter:
     """Get or create the global rate limiter.
 
     Deprecated: Use get_rate_limiter() instead.

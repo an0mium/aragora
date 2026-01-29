@@ -5,6 +5,7 @@ Handles debate lifecycle orchestration using DebateFactory for creation
 and debate_utils for state management. Extracted from unified_server.py
 for better modularity and testability.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -52,7 +53,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class DebateRequest:
     """Parsed debate request from HTTP body."""
@@ -65,7 +65,7 @@ class DebateRequest:
     auto_select: bool = False
     auto_select_config: dict = None
     use_trending: bool = False
-    trending_category: Optional[str] = None
+    trending_category: str | None = None
     metadata: dict = None  # Custom metadata (e.g., is_onboarding)
 
     def __post_init__(self):
@@ -114,16 +114,15 @@ class DebateRequest:
             trending_category=data.get("trending_category"),
         )
 
-
 @dataclass
 class DebateResponse:
     """Response from debate controller."""
 
     success: bool
-    debate_id: Optional[str] = None
-    status: Optional[str] = None
-    task: Optional[str] = None
-    error: Optional[str] = None
+    debate_id: str | None = None
+    status: str | None = None
+    task: str | None = None
+    error: str | None = None
     status_code: int = 200
 
     def to_dict(self) -> dict[str, Any]:
@@ -138,7 +137,6 @@ class DebateResponse:
         if self.error:
             result["error"] = str(self.error)
         return result
-
 
 class DebateController:
     """
@@ -171,9 +169,9 @@ class DebateController:
         self,
         factory: DebateFactory,
         emitter: "SyncEventEmitter",
-        elo_system: Optional[Any] = None,
+        elo_system: Any | None = None,
         auto_select_fn: Optional[Callable[..., str]] = None,
-        storage: Optional[Any] = None,
+        storage: Any | None = None,
     ):
         """Initialize the debate controller.
 
@@ -190,7 +188,7 @@ class DebateController:
         self.auto_select_fn = auto_select_fn
         self.storage = storage
 
-    def _preflight_agents(self, agents_str: Any) -> Optional[str]:
+    def _preflight_agents(self, agents_str: Any) -> str | None:
         """Validate agent availability before starting a debate.
 
         Returns:
@@ -636,7 +634,7 @@ Return JSON with these exact fields:
                 )
             )
 
-    def _fetch_trending_topic(self, category: Optional[str]) -> Optional[Any]:
+    def _fetch_trending_topic(self, category: str | None) -> Any | None:
         """Fetch a trending topic for the debate.
 
         Args:

@@ -25,7 +25,7 @@ __all__ = [
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -56,7 +56,6 @@ logger = logging.getLogger(__name__)
 # Rate limiter for selection endpoints (100 requests per minute)
 _selection_limiter = RateLimiter(requests_per_minute=100)
 
-
 def _create_agent_pool() -> dict[str, "AgentProfile"]:
     """Create a pool of agents with default expertise profiles."""
     pool = {}
@@ -68,7 +67,6 @@ def _create_agent_pool() -> dict[str, "AgentProfile"]:
         )
         pool[agent_name] = profile
     return pool
-
 
 class SelectionHandler(BaseHandler):
     """Handler for selection plugin endpoints."""
@@ -95,7 +93,7 @@ class SelectionHandler(BaseHandler):
         return any(path.startswith(prefix) for prefix in self.PREFIX_ROUTES)
 
     @require_permission("selection:read")
-    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -119,7 +117,7 @@ class SelectionHandler(BaseHandler):
         return None
 
     @require_permission("selection:create")
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/selection/score":
             return self._score_agents(handler)

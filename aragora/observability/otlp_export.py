@@ -45,10 +45,9 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class OTLPExporterType(str, Enum):
     """Supported OTLP exporter types."""
@@ -60,16 +59,14 @@ class OTLPExporterType(str, Enum):
     OTLP_HTTP = "otlp_http"
     DATADOG = "datadog"
 
-
 # Default endpoints for each exporter type
-DEFAULT_ENDPOINTS: Dict[OTLPExporterType, str] = {
+DEFAULT_ENDPOINTS: dict[OTLPExporterType, str] = {
     OTLPExporterType.JAEGER: "localhost",  # Jaeger uses host only
     OTLPExporterType.ZIPKIN: "http://localhost:9411/api/v2/spans",
     OTLPExporterType.OTLP_GRPC: "http://localhost:4317",
     OTLPExporterType.OTLP_HTTP: "http://localhost:4318/v1/traces",
     OTLPExporterType.DATADOG: "http://localhost:4317",  # Datadog Agent OTLP endpoint
 }
-
 
 @dataclass
 class OTLPConfig:
@@ -90,16 +87,16 @@ class OTLPConfig:
     """
 
     exporter_type: OTLPExporterType = OTLPExporterType.NONE
-    endpoint: Optional[str] = None
+    endpoint: str | None = None
     service_name: str = "aragora"
     service_version: str = "1.0.0"
     environment: str = "development"
     sample_rate: float = 1.0
-    headers: Dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
     batch_size: int = 512
     export_timeout_ms: int = 30000
     insecure: bool = False
-    datadog_api_key: Optional[str] = None
+    datadog_api_key: str | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration."""
@@ -142,7 +139,7 @@ class OTLPConfig:
             exporter_type = OTLPExporterType.NONE
 
         # Parse headers from JSON
-        headers: Dict[str, str] = {}
+        headers: dict[str, str] = {}
         headers_json = os.environ.get("ARAGORA_OTLP_HEADERS", "")
         if headers_json:
             try:
@@ -167,7 +164,7 @@ class OTLPConfig:
             datadog_api_key=os.environ.get("DATADOG_API_KEY"),
         )
 
-    def get_effective_endpoint(self) -> Optional[str]:
+    def get_effective_endpoint(self) -> str | None:
         """Get the effective endpoint, using defaults if not specified.
 
         Returns:
@@ -177,11 +174,9 @@ class OTLPConfig:
             return None
         return self.endpoint or DEFAULT_ENDPOINTS.get(self.exporter_type)
 
-
 # Global singleton for configured provider
-_tracer_provider: Optional[Any] = None
-_config: Optional[OTLPConfig] = None
-
+_tracer_provider: Any | None = None
+_config: OTLPConfig | None = None
 
 def get_otlp_config() -> OTLPConfig:
     """Get the current OTLP configuration.
@@ -194,7 +189,6 @@ def get_otlp_config() -> OTLPConfig:
         _config = OTLPConfig.from_env()
     return _config
 
-
 def set_otlp_config(config: OTLPConfig) -> None:
     """Set custom OTLP configuration (primarily for testing).
 
@@ -204,13 +198,11 @@ def set_otlp_config(config: OTLPConfig) -> None:
     global _config
     _config = config
 
-
 def reset_otlp_config() -> None:
     """Reset OTLP configuration to be re-read from environment."""
     global _config, _tracer_provider
     _config = None
     _tracer_provider = None
-
 
 def _get_jaeger_exporter(config: OTLPConfig) -> Any:
     """Create Jaeger exporter.
@@ -235,7 +227,6 @@ def _get_jaeger_exporter(config: OTLPConfig) -> Any:
         )
         return None
 
-
 def _get_zipkin_exporter(config: OTLPConfig) -> Any:
     """Create Zipkin exporter.
 
@@ -255,7 +246,6 @@ def _get_zipkin_exporter(config: OTLPConfig) -> Any:
             "Zipkin exporter not available. Install with: pip install opentelemetry-exporter-zipkin"
         )
         return None
-
 
 def _get_otlp_grpc_exporter(config: OTLPConfig) -> Any:
     """Create OTLP/gRPC exporter.
@@ -283,7 +273,6 @@ def _get_otlp_grpc_exporter(config: OTLPConfig) -> Any:
         )
         return None
 
-
 def _get_otlp_http_exporter(config: OTLPConfig) -> Any:
     """Create OTLP/HTTP exporter.
 
@@ -308,7 +297,6 @@ def _get_otlp_http_exporter(config: OTLPConfig) -> Any:
             "pip install opentelemetry-exporter-otlp-proto-http"
         )
         return None
-
 
 def _get_datadog_exporter(config: OTLPConfig) -> Any:
     """Create Datadog exporter via OTLP.
@@ -344,7 +332,6 @@ def _get_datadog_exporter(config: OTLPConfig) -> Any:
         )
         return None
 
-
 def _get_exporter(config: OTLPConfig) -> Any:
     """Get the appropriate exporter based on configuration.
 
@@ -370,8 +357,7 @@ def _get_exporter(config: OTLPConfig) -> Any:
         logger.warning(f"Unknown exporter type: {config.exporter_type}")
         return None
 
-
-def configure_otlp_exporter(config: Optional[OTLPConfig] = None) -> Any:
+def configure_otlp_exporter(config: OTLPConfig | None = None) -> Any:
     """Configure OpenTelemetry with OTLP exporter.
 
     This function sets up the OpenTelemetry tracing infrastructure with the
@@ -471,7 +457,6 @@ def configure_otlp_exporter(config: Optional[OTLPConfig] = None) -> Any:
         logger.error(f"Failed to configure OTLP exporter: {e}")
         return None
 
-
 def get_tracer_provider() -> Any:
     """Get the configured tracer provider.
 
@@ -479,7 +464,6 @@ def get_tracer_provider() -> Any:
         The TracerProvider if configured, None otherwise.
     """
     return _tracer_provider
-
 
 def shutdown_otlp() -> None:
     """Shutdown the OTLP tracer provider gracefully.
@@ -496,7 +480,6 @@ def shutdown_otlp() -> None:
             logger.error(f"Error shutting down OTLP tracer: {e}")
         finally:
             _tracer_provider = None
-
 
 __all__ = [
     "OTLPExporterType",

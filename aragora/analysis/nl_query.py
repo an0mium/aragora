@@ -26,13 +26,12 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator
 from uuid import uuid4
 
 from aragora.utils.cache_registry import register_lru_cache
 
 logger = logging.getLogger(__name__)
-
 
 class QueryMode(str, Enum):
     """Query processing modes."""
@@ -43,7 +42,6 @@ class QueryMode(str, Enum):
     SUMMARY = "summary"  # Summarize content
     EXTRACTIVE = "extractive"  # Extract specific information
 
-
 class AnswerConfidence(str, Enum):
     """Confidence level in the generated answer."""
 
@@ -51,7 +49,6 @@ class AnswerConfidence(str, Enum):
     MEDIUM = "medium"  # Moderate evidence, likely answer
     LOW = "low"  # Weak evidence, uncertain
     NONE = "none"  # No relevant information found
-
 
 @dataclass
 class QueryConfig:
@@ -79,7 +76,6 @@ class QueryConfig:
     enable_context: bool = True  # Use conversation history
     max_context_turns: int = 3  # Maximum turns to include
 
-
 @dataclass
 class Citation:
     """A citation to source material."""
@@ -88,7 +84,7 @@ class Citation:
     document_name: str
     chunk_id: str
     snippet: str  # Relevant excerpt
-    page: Optional[int] = None
+    page: int | None = None
     relevance_score: float = 0.0
     heading_context: str = ""
 
@@ -103,7 +99,6 @@ class Citation:
             "relevance_score": self.relevance_score,
             "heading_context": self.heading_context,
         }
-
 
 @dataclass
 class QueryResult:
@@ -142,7 +137,6 @@ class QueryResult:
         """Check if a meaningful answer was found."""
         return self.confidence != AnswerConfidence.NONE and bool(self.answer)
 
-
 @dataclass
 class StreamingChunk:
     """A chunk of streaming response."""
@@ -151,11 +145,9 @@ class StreamingChunk:
     is_final: bool = False
     citations: list[Citation] = field(default_factory=list)
 
-
 # =============================================================================
 # Cached Query Mode Detection
 # =============================================================================
-
 
 @register_lru_cache
 @lru_cache(maxsize=512)
@@ -191,7 +183,6 @@ def _detect_query_mode_cached(question_lower: str) -> str:
     # Default to factual
     return QueryMode.FACTUAL.value
 
-
 class DocumentQueryEngine:
     """
     Natural language query engine for document analysis.
@@ -202,8 +193,8 @@ class DocumentQueryEngine:
 
     def __init__(
         self,
-        config: Optional[QueryConfig] = None,
-        searcher: Optional[Any] = None,  # HybridSearcher
+        config: QueryConfig | None = None,
+        searcher: Any | None = None,  # HybridSearcher
     ):
         """
         Initialize the query engine.
@@ -219,7 +210,7 @@ class DocumentQueryEngine:
     @classmethod
     async def create(
         cls,
-        config: Optional[QueryConfig] = None,
+        config: QueryConfig | None = None,
     ) -> "DocumentQueryEngine":
         """
         Create a query engine with default components.
@@ -243,9 +234,9 @@ class DocumentQueryEngine:
     async def query(
         self,
         question: str,
-        workspace_id: Optional[str] = None,
-        document_ids: Optional[list[str]] = None,
-        conversation_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        document_ids: list[str] | None = None,
+        conversation_id: str | None = None,
     ) -> QueryResult:
         """
         Answer a natural language question about documents.
@@ -333,8 +324,8 @@ class DocumentQueryEngine:
     async def query_stream(
         self,
         question: str,
-        workspace_id: Optional[str] = None,
-        document_ids: Optional[list[str]] = None,
+        workspace_id: str | None = None,
+        document_ids: list[str] | None = None,
     ) -> AsyncIterator[StreamingChunk]:
         """
         Stream the answer to a question.
@@ -378,7 +369,7 @@ class DocumentQueryEngine:
     async def summarize_documents(
         self,
         document_ids: list[str],
-        focus: Optional[str] = None,
+        focus: str | None = None,
     ) -> QueryResult:
         """
         Summarize one or more documents.
@@ -402,7 +393,7 @@ class DocumentQueryEngine:
     async def compare_documents(
         self,
         document_ids: list[str],
-        aspects: Optional[list[str]] = None,
+        aspects: list[str] | None = None,
     ) -> QueryResult:
         """
         Compare multiple documents.
@@ -494,7 +485,7 @@ class DocumentQueryEngine:
     async def _search_chunks(
         self,
         query: str,
-        document_ids: Optional[list[str]] = None,
+        document_ids: list[str] | None = None,
     ) -> list[Any]:  # list[HybridResult]
         """Search for relevant chunks using hybrid search."""
         if self._searcher is None:
@@ -756,14 +747,12 @@ ANSWER:"""
         if conversation_id in self._conversation_history:
             del self._conversation_history[conversation_id]
 
-
 # Convenience functions
-
 
 async def query_documents(
     question: str,
-    document_ids: Optional[list[str]] = None,
-    config: Optional[QueryConfig] = None,
+    document_ids: list[str] | None = None,
+    config: QueryConfig | None = None,
 ) -> QueryResult:
     """
     Quick function to query documents.
@@ -779,10 +768,9 @@ async def query_documents(
     engine = await DocumentQueryEngine.create(config=config)
     return await engine.query(question=question, document_ids=document_ids)
 
-
 async def summarize_document(
     document_id: str,
-    focus: Optional[str] = None,
+    focus: str | None = None,
 ) -> QueryResult:
     """
     Quick function to summarize a document.
@@ -796,7 +784,6 @@ async def summarize_document(
     """
     engine = await DocumentQueryEngine.create()
     return await engine.summarize_documents(document_ids=[document_id], focus=focus)
-
 
 __all__ = [
     "DocumentQueryEngine",

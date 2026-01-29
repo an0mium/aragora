@@ -16,10 +16,9 @@ Usage:
     if latency_ms > config.km_query.p99_ms:
         logger.warning("KM query exceeded P99 SLO")
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
-
 
 @dataclass
 class LatencySLO:
@@ -38,7 +37,6 @@ class LatencySLO:
         threshold = getattr(self, f"{percentile}_ms", self.p99_ms)
         return latency_ms <= threshold
 
-
 @dataclass
 class ThroughputSLO:
     """Throughput SLO for a specific operation."""
@@ -46,7 +44,6 @@ class ThroughputSLO:
     min_rps: float  # Minimum requests per second
     target_rps: float  # Target requests per second
     max_rps: float  # Maximum sustainable RPS
-
 
 @dataclass
 class AvailabilitySLO:
@@ -56,11 +53,9 @@ class AvailabilitySLO:
     max_consecutive_failures: int  # Circuit breaker threshold
     recovery_timeout_seconds: float  # Time before retry after failure
 
-
 # ============================================================================
 # Knowledge Mound SLOs
 # ============================================================================
-
 
 @dataclass
 class KMQuerySLO(LatencySLO):
@@ -72,7 +67,6 @@ class KMQuerySLO(LatencySLO):
     timeout_ms: float = 5000.0
     max_results: int = 100  # Default result limit
 
-
 @dataclass
 class KMIngestionSLO(LatencySLO):
     """SLO for Knowledge Mound ingestion operations."""
@@ -82,7 +76,6 @@ class KMIngestionSLO(LatencySLO):
     p99_ms: float = 1000.0
     timeout_ms: float = 10000.0
     batch_size: int = 50  # Max nodes per batch
-
 
 @dataclass
 class KMCheckpointSLO(LatencySLO):
@@ -94,11 +87,9 @@ class KMCheckpointSLO(LatencySLO):
     timeout_ms: float = 30000.0
     max_size_mb: int = 100  # Max checkpoint size
 
-
 # ============================================================================
 # Consensus Ingestion SLOs
 # ============================================================================
-
 
 @dataclass
 class ConsensusIngestionSLO(LatencySLO):
@@ -111,11 +102,9 @@ class ConsensusIngestionSLO(LatencySLO):
     max_claims_per_consensus: int = 10
     max_dissents_per_consensus: int = 10
 
-
 # ============================================================================
 # Adapter Sync SLOs
 # ============================================================================
-
 
 @dataclass
 class AdapterSyncSLO(LatencySLO):
@@ -126,7 +115,6 @@ class AdapterSyncSLO(LatencySLO):
     p99_ms: float = 2000.0
     timeout_ms: float = 15000.0
 
-
 @dataclass
 class AdapterForwardSyncSLO(LatencySLO):
     """SLO for adapter forward sync (source → KM) operations."""
@@ -135,7 +123,6 @@ class AdapterForwardSyncSLO(LatencySLO):
     p90_ms: float = 300.0
     p99_ms: float = 800.0
     timeout_ms: float = 5000.0
-
 
 @dataclass
 class AdapterReverseSLO(LatencySLO):
@@ -146,7 +133,6 @@ class AdapterReverseSLO(LatencySLO):
     p99_ms: float = 500.0
     timeout_ms: float = 3000.0
 
-
 @dataclass
 class AdapterSemanticSearchSLO(LatencySLO):
     """SLO for adapter semantic search operations."""
@@ -155,7 +141,6 @@ class AdapterSemanticSearchSLO(LatencySLO):
     p90_ms: float = 300.0
     p99_ms: float = 1000.0
     timeout_ms: float = 5000.0
-
 
 @dataclass
 class AdapterValidationSLO(LatencySLO):
@@ -166,11 +151,9 @@ class AdapterValidationSLO(LatencySLO):
     p99_ms: float = 1500.0
     timeout_ms: float = 10000.0
 
-
 # ============================================================================
 # Cross-Subscriber SLOs
 # ============================================================================
-
 
 @dataclass
 class EventDispatchSLO(LatencySLO):
@@ -181,7 +164,6 @@ class EventDispatchSLO(LatencySLO):
     p99_ms: float = 200.0
     timeout_ms: float = 5000.0
 
-
 @dataclass
 class HandlerExecutionSLO(LatencySLO):
     """SLO for individual handler execution."""
@@ -191,11 +173,9 @@ class HandlerExecutionSLO(LatencySLO):
     p99_ms: float = 1000.0
     timeout_ms: float = 10000.0
 
-
 # ============================================================================
 # Memory Operations SLOs
 # ============================================================================
-
 
 @dataclass
 class MemoryStoreSLO(LatencySLO):
@@ -206,7 +186,6 @@ class MemoryStoreSLO(LatencySLO):
     p99_ms: float = 300.0
     timeout_ms: float = 2000.0
 
-
 @dataclass
 class MemoryRecallSLO(LatencySLO):
     """SLO for memory recall operations."""
@@ -216,11 +195,9 @@ class MemoryRecallSLO(LatencySLO):
     p99_ms: float = 400.0
     timeout_ms: float = 3000.0
 
-
 # ============================================================================
 # Debate Operations SLOs
 # ============================================================================
-
 
 @dataclass
 class DebateRoundSLO(LatencySLO):
@@ -231,7 +208,6 @@ class DebateRoundSLO(LatencySLO):
     p99_ms: float = 30000.0
     timeout_ms: float = 120000.0  # 2 minutes per round
 
-
 @dataclass
 class ConsensusDetectionSLO(LatencySLO):
     """SLO for consensus detection."""
@@ -241,11 +217,9 @@ class ConsensusDetectionSLO(LatencySLO):
     p99_ms: float = 1000.0
     timeout_ms: float = 5000.0
 
-
 # ============================================================================
 # RLM (Recursive Language Model) SLOs
 # ============================================================================
-
 
 @dataclass
 class RLMCompressionSLO(LatencySLO):
@@ -257,7 +231,6 @@ class RLMCompressionSLO(LatencySLO):
     timeout_ms: float = 10000.0
     max_input_tokens: int = 100000
 
-
 @dataclass
 class RLMStreamingSLO(LatencySLO):
     """SLO for RLM streaming operations (time-to-first-token)."""
@@ -266,7 +239,6 @@ class RLMStreamingSLO(LatencySLO):
     p90_ms: float = 300.0
     p99_ms: float = 800.0
     timeout_ms: float = 5000.0
-
 
 @dataclass
 class RLMQuerySLO(LatencySLO):
@@ -277,11 +249,9 @@ class RLMQuerySLO(LatencySLO):
     p99_ms: float = 1200.0
     timeout_ms: float = 10000.0
 
-
 # ============================================================================
 # Workflow Engine SLOs
 # ============================================================================
-
 
 @dataclass
 class WorkflowExecutionSLO(LatencySLO):
@@ -292,7 +262,6 @@ class WorkflowExecutionSLO(LatencySLO):
     p99_ms: float = 5000.0
     timeout_ms: float = 60000.0
 
-
 @dataclass
 class WorkflowCheckpointSLO(LatencySLO):
     """SLO for workflow checkpoint persistence."""
@@ -301,7 +270,6 @@ class WorkflowCheckpointSLO(LatencySLO):
     p90_ms: float = 150.0
     p99_ms: float = 500.0
     timeout_ms: float = 5000.0
-
 
 @dataclass
 class WorkflowRecoverySLO(LatencySLO):
@@ -312,11 +280,9 @@ class WorkflowRecoverySLO(LatencySLO):
     p99_ms: float = 1500.0
     timeout_ms: float = 10000.0
 
-
 # ============================================================================
 # Control Plane SLOs
 # ============================================================================
-
 
 @dataclass
 class ControlPlaneLeaderElectionSLO(LatencySLO):
@@ -327,7 +293,6 @@ class ControlPlaneLeaderElectionSLO(LatencySLO):
     p99_ms: float = 1000.0
     timeout_ms: float = 10000.0
 
-
 @dataclass
 class ControlPlaneConfigSyncSLO(LatencySLO):
     """SLO for configuration sync across instances."""
@@ -336,7 +301,6 @@ class ControlPlaneConfigSyncSLO(LatencySLO):
     p90_ms: float = 150.0
     p99_ms: float = 500.0
     timeout_ms: float = 5000.0
-
 
 @dataclass
 class ControlPlaneHealthCheckSLO(LatencySLO):
@@ -347,11 +311,9 @@ class ControlPlaneHealthCheckSLO(LatencySLO):
     p99_ms: float = 100.0
     timeout_ms: float = 1000.0
 
-
 # ============================================================================
 # WebSocket SLOs
 # ============================================================================
-
 
 @dataclass
 class WebSocketConnectionSLO(LatencySLO):
@@ -362,7 +324,6 @@ class WebSocketConnectionSLO(LatencySLO):
     p99_ms: float = 500.0
     timeout_ms: float = 5000.0
 
-
 @dataclass
 class WebSocketMessageSLO(LatencySLO):
     """SLO for WebSocket message delivery."""
@@ -371,7 +332,6 @@ class WebSocketMessageSLO(LatencySLO):
     p90_ms: float = 30.0
     p99_ms: float = 100.0
     timeout_ms: float = 1000.0
-
 
 @dataclass
 class WebSocketBroadcastSLO(LatencySLO):
@@ -382,11 +342,9 @@ class WebSocketBroadcastSLO(LatencySLO):
     p99_ms: float = 500.0
     timeout_ms: float = 5000.0
 
-
 # ============================================================================
 # Bot Platform SLOs
 # ============================================================================
-
 
 @dataclass
 class BotResponseSLO(LatencySLO):
@@ -397,7 +355,6 @@ class BotResponseSLO(LatencySLO):
     p99_ms: float = 3000.0
     timeout_ms: float = 30000.0
 
-
 @dataclass
 class BotWebhookSLO(LatencySLO):
     """SLO for bot webhook acknowledgment (return 200 within platform limits)."""
@@ -407,11 +364,9 @@ class BotWebhookSLO(LatencySLO):
     p99_ms: float = 2500.0  # Slack requires < 3s
     timeout_ms: float = 3000.0
 
-
 # ============================================================================
 # API Endpoint SLOs
 # ============================================================================
-
 
 @dataclass
 class APIEndpointSLO(LatencySLO):
@@ -422,11 +377,9 @@ class APIEndpointSLO(LatencySLO):
     p99_ms: float = 2000.0
     timeout_ms: float = 30000.0
 
-
 # ============================================================================
 # Aggregated SLO Config
 # ============================================================================
-
 
 @dataclass
 class SLOConfig:
@@ -503,10 +456,8 @@ class SLOConfig:
         )
     )
 
-
 # Singleton instance
-_slo_config: Optional[SLOConfig] = None
-
+_slo_config: SLOConfig | None = None
 
 def get_slo_config() -> SLOConfig:
     """Get the global SLO configuration.
@@ -519,12 +470,10 @@ def get_slo_config() -> SLOConfig:
         _slo_config = SLOConfig()
     return _slo_config
 
-
 def reset_slo_config() -> None:
     """Reset the SLO configuration (for testing)."""
     global _slo_config
     _slo_config = None
-
 
 def check_latency_slo(
     operation: str,
@@ -560,7 +509,6 @@ def check_latency_slo(
             False,
             f"{operation} latency {latency_ms:.1f}ms EXCEEDS {percentile} SLO ({threshold}ms)",
         )
-
 
 # ============================================================================
 # SLO Summary for Documentation

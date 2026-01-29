@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections import OrderedDict
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from .base import (
     _extract_client_ip,
@@ -22,13 +22,12 @@ from .limiter import RateLimitResult
 logger = logging.getLogger(__name__)
 
 # Tier-based rate limits (requests per minute, burst size)
-TIER_RATE_LIMITS: Dict[str, tuple[int, int]] = {
+TIER_RATE_LIMITS: dict[str, tuple[int, int]] = {
     "free": (10, 60),  # 10 req/min, 60 burst
     "starter": (50, 100),  # 50 req/min, 100 burst
     "professional": (200, 400),  # 200 req/min, 400 burst
     "enterprise": (1000, 2000),  # 1000 req/min, 2000 burst
 }
-
 
 class TierRateLimiter:
     """
@@ -40,7 +39,7 @@ class TierRateLimiter:
 
     def __init__(
         self,
-        tier_limits: Optional[Dict[str, tuple[int, int]]] = None,
+        tier_limits: Optional[dict[str, tuple[int, int]]] = None,
         max_entries: int = 10000,
     ):
         """
@@ -54,7 +53,7 @@ class TierRateLimiter:
         self.max_entries = max_entries
 
         # Separate buckets per tier for fair isolation
-        self._tier_buckets: Dict[str, OrderedDict[str, TokenBucket]] = {
+        self._tier_buckets: dict[str, OrderedDict[str, TokenBucket]] = {
             tier: OrderedDict() for tier in self.tier_limits
         }
         self._lock = threading.Lock()
@@ -109,7 +108,7 @@ class TierRateLimiter:
             key=f"tier:{tier}:{client_key}",
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get tier rate limiter statistics."""
         with self._lock:
             return {
@@ -125,10 +124,8 @@ class TierRateLimiter:
             for buckets in self._tier_buckets.values():
                 buckets.clear()
 
-
 # Global tier rate limiter instance
-_tier_limiter: Optional[TierRateLimiter] = None
-
+_tier_limiter: TierRateLimiter | None = None
 
 def get_tier_rate_limiter() -> TierRateLimiter:
     """Get the global tier rate limiter instance."""
@@ -136,7 +133,6 @@ def get_tier_rate_limiter() -> TierRateLimiter:
     if _tier_limiter is None:
         _tier_limiter = TierRateLimiter()
     return _tier_limiter
-
 
 def check_tier_rate_limit(
     handler: Any,
@@ -195,7 +191,6 @@ def check_tier_rate_limit(
             logger.debug(f"Could not extract user tier: {e}")
 
     return limiter.allow(client_key, tier)
-
 
 __all__ = [
     "TIER_RATE_LIMITS",

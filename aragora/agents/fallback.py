@@ -7,6 +7,7 @@ to OpenRouter when the primary provider is unavailable.
 Also provides AgentFallbackChain for multi-provider sequencing with
 CircuitBreaker integration.
 """
+from __future__ import annotations
 
 __all__ = [
     "QUOTA_ERROR_KEYWORDS",
@@ -70,7 +71,6 @@ QUOTA_ERROR_KEYWORDS = frozenset(
         "purchase credits",
     ]
 )
-
 
 class QuotaFallbackMixin:
     """Mixin providing shared quota detection and OpenRouter fallback logic.
@@ -231,9 +231,9 @@ class QuotaFallbackMixin:
     async def fallback_generate(
         self,
         prompt: str,
-        context: Optional[list] = None,
-        status_code: Optional[int] = None,
-    ) -> Optional[str]:
+        context: list | None = None,
+        status_code: int | None = None,
+    ) -> str | None:
         """Attempt to generate using OpenRouter fallback.
 
         Args:
@@ -283,8 +283,8 @@ class QuotaFallbackMixin:
     async def fallback_generate_stream(
         self,
         prompt: str,
-        context: Optional[list] = None,
-        status_code: Optional[int] = None,
+        context: list | None = None,
+        status_code: int | None = None,
     ):
         """Attempt to stream using OpenRouter fallback.
 
@@ -335,7 +335,6 @@ class QuotaFallbackMixin:
             record_fallback_success("openrouter", success=False, latency_seconds=latency)
             raise
 
-
 @dataclass
 class FallbackMetrics:
     """Metrics for tracking fallback chain behavior."""
@@ -383,17 +382,15 @@ class FallbackMetrics:
             return 0.0
         return total / attempts
 
-
 class AllProvidersExhaustedError(RuntimeError):
     """Raised when all providers in a fallback chain have failed."""
 
-    def __init__(self, providers: list[str], last_error: Optional[Exception] = None):
+    def __init__(self, providers: list[str], last_error: Exception | None = None):
         self.providers = providers
         self.last_error = last_error
         super().__init__(
             f"All providers exhausted: {', '.join(providers)}. Last error: {last_error}"
         )
-
 
 class FallbackTimeoutError(Exception):
     """Raised when fallback chain exceeds time limit."""
@@ -406,7 +403,6 @@ class FallbackTimeoutError(Exception):
             f"Fallback chain timeout after {elapsed:.1f}s (limit {limit}s). "
             f"Tried: {', '.join(tried)}"
         )
-
 
 class AgentFallbackChain:
     """Sequences agent providers with automatic fallback and CircuitBreaker integration.
@@ -445,8 +441,8 @@ class AgentFallbackChain:
         self,
         providers: list[Any],
         circuit_breaker: Optional["CircuitBreaker"] = None,
-        max_retries: Optional[int] = None,
-        max_fallback_time: Optional[float] = None,
+        max_retries: int | None = None,
+        max_fallback_time: float | None = None,
     ):
         """Initialize the fallback chain.
 
@@ -487,7 +483,7 @@ class AgentFallbackChain:
             logger.warning(f"Registering provider '{name}' not in chain: {self.providers}")
         self._provider_factories[name] = factory
 
-    def _get_agent(self, provider: Any) -> Optional[Any]:
+    def _get_agent(self, provider: Any) -> Any | None:
         """Get or create an agent for the given provider."""
         if not isinstance(provider, str):
             return provider
@@ -536,7 +532,7 @@ class AgentFallbackChain:
     async def generate(
         self,
         prompt: str,
-        context: Optional[list] = None,
+        context: list | None = None,
     ) -> str:
         """Generate a response using the fallback chain.
 
@@ -554,7 +550,7 @@ class AgentFallbackChain:
             AllProvidersExhaustedError: If all providers fail
             FallbackTimeoutError: If max_fallback_time is exceeded
         """
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         tried_providers: list[str] = []
         start_time = time.time()
         retry_count = 0
@@ -646,7 +642,7 @@ class AgentFallbackChain:
     async def generate_stream(
         self,
         prompt: str,
-        context: Optional[list] = None,
+        context: list | None = None,
     ):
         """Stream a response using the fallback chain.
 
@@ -664,7 +660,7 @@ class AgentFallbackChain:
             AllProvidersExhaustedError: If all providers fail
             FallbackTimeoutError: If max_fallback_time is exceeded
         """
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         tried_providers: list[str] = []
         start_time = time.time()
         retry_count = 0
@@ -782,7 +778,6 @@ class AgentFallbackChain:
             },
         }
 
-
 def get_local_fallback_providers() -> list[str]:
     """Get list of available local LLM providers for fallback.
 
@@ -800,7 +795,6 @@ def get_local_fallback_providers() -> list[str]:
     except Exception as e:
         logger.debug(f"Could not detect local LLMs: {e}")
         return []
-
 
 def build_fallback_chain_with_local(
     primary_providers: list[str],
@@ -867,7 +861,6 @@ def build_fallback_chain_with_local(
             unique_result.append(p)
     return unique_result
 
-
 def is_local_llm_available() -> bool:
     """Check if any local LLM server is available.
 
@@ -883,7 +876,6 @@ def is_local_llm_available() -> bool:
     except Exception as e:
         logger.warning(f"Failed to check local LLM availability: {e}")
         return False
-
 
 def get_default_fallback_enabled() -> bool:
     """Get the default value for enable_fallback from config.

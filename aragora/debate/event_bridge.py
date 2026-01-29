@@ -3,12 +3,12 @@ Event bridge for coordinating spectator and WebSocket event emission.
 
 Extracts event emission logic from Arena orchestrator for better modularity.
 """
+from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class EventEmitterBridge:
     """
@@ -49,9 +49,9 @@ class EventEmitterBridge:
 
     def __init__(
         self,
-        spectator: Optional[Any] = None,
-        event_emitter: Optional[Any] = None,
-        cartographer: Optional[Any] = None,
+        spectator: Any | None = None,
+        event_emitter: Any | None = None,
+        cartographer: Any | None = None,
         loop_id: str = "",
     ):
         """

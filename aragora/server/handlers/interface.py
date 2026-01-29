@@ -15,10 +15,8 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Awaitable,
-    Dict,
     Optional,
     Protocol,
-    Tuple,
     TypedDict,
     Union,
     runtime_checkable,
@@ -27,11 +25,9 @@ from typing import (
 if TYPE_CHECKING:
     from aragora.billing.auth.context import UserAuthContext
 
-
 # =============================================================================
 # Response Types
 # =============================================================================
-
 
 class HandlerResult(TypedDict, total=False):
     """Standard result type returned by handlers.
@@ -44,23 +40,20 @@ class HandlerResult(TypedDict, total=False):
     body: bytes
     content_type: str
     status: int
-    headers: Dict[str, str]
-
+    headers: dict[str, str]
 
 # Type alias for handlers that may be sync or async.
-# This allows both sync handlers returning Optional[HandlerResult] and
-# async handlers returning Awaitable[Optional[HandlerResult]] to satisfy
+# This allows both sync handlers returning HandlerResult | None and
+# async handlers returning Awaitable[HandlerResult | None] to satisfy
 # the same protocol, avoiding MyPy override errors.
 MaybeAsyncHandlerResult = Union[
-    Optional[HandlerResult],
-    Awaitable[Optional[HandlerResult]],
+    HandlerResult | None,
+    Awaitable[HandlerResult | None],
 ]
-
 
 # =============================================================================
 # Handler Protocol
 # =============================================================================
-
 
 @runtime_checkable
 class HandlerInterface(Protocol):
@@ -77,7 +70,7 @@ class HandlerInterface(Protocol):
     """
 
     def handle(
-        self, path: str, query_params: Dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> MaybeAsyncHandlerResult:
         """Handle a GET request.
 
@@ -93,7 +86,7 @@ class HandlerInterface(Protocol):
         ...
 
     def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> MaybeAsyncHandlerResult:
         """Handle a POST request.
 
@@ -109,23 +102,22 @@ class HandlerInterface(Protocol):
         ...
 
     def handle_delete(
-        self, path: str, query_params: Dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> MaybeAsyncHandlerResult:
         """Handle a DELETE request. May be sync or async."""
         ...
 
     def handle_patch(
-        self, path: str, query_params: Dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> MaybeAsyncHandlerResult:
         """Handle a PATCH request. May be sync or async."""
         ...
 
     def handle_put(
-        self, path: str, query_params: Dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> MaybeAsyncHandlerResult:
         """Handle a PUT request. May be sync or async."""
         ...
-
 
 @runtime_checkable
 class AuthenticatedHandlerInterface(Protocol):
@@ -147,7 +139,7 @@ class AuthenticatedHandlerInterface(Protocol):
 
     def require_auth_or_error(
         self, handler: Any
-    ) -> Tuple[Optional["UserAuthContext"], Optional[HandlerResult]]:
+    ) -> tuple[Optional["UserAuthContext"], HandlerResult | None]:
         """Require authentication and return user or error response.
 
         Args:
@@ -159,17 +151,16 @@ class AuthenticatedHandlerInterface(Protocol):
         """
         ...
 
-
 @runtime_checkable
 class PaginatedHandlerInterface(Protocol):
     """Protocol for handlers that support pagination."""
 
     def get_pagination(
         self,
-        query_params: Dict[str, Any],
-        default_limit: Optional[int] = None,
-        max_limit: Optional[int] = None,
-    ) -> Tuple[int, int]:
+        query_params: dict[str, Any],
+        default_limit: int | None = None,
+        max_limit: int | None = None,
+    ) -> tuple[int, int]:
         """Extract and validate pagination parameters.
 
         Args:
@@ -204,7 +195,6 @@ class PaginatedHandlerInterface(Protocol):
         """
         ...
 
-
 @runtime_checkable
 class CachedHandlerInterface(Protocol):
     """Protocol for handlers that support caching."""
@@ -227,11 +217,9 @@ class CachedHandlerInterface(Protocol):
         """
         ...
 
-
 # =============================================================================
 # Server Context Interface
 # =============================================================================
-
 
 class MinimalServerContext(TypedDict, total=False):
     """Minimal server context for handler initialization.
@@ -246,26 +234,23 @@ class MinimalServerContext(TypedDict, total=False):
     user_store: Any  # UserStore
     elo_system: Any  # EloSystem
 
-
 class StorageAccessInterface(Protocol):
     """Protocol for accessing storage resources.
 
     Handlers that need storage access should implement this.
     """
 
-    def get_storage(self) -> Optional[Any]:
+    def get_storage(self) -> Any | None:
         """Get debate storage instance."""
         ...
 
-    def get_elo_system(self) -> Optional[Any]:
+    def get_elo_system(self) -> Any | None:
         """Get ELO system instance."""
         ...
-
 
 # =============================================================================
 # Handler Registration Types
 # =============================================================================
-
 
 class RouteConfig(TypedDict, total=False):
     """Configuration for a registered route.
@@ -277,8 +262,7 @@ class RouteConfig(TypedDict, total=False):
     methods: list  # List of HTTP methods
     handler_class: type
     requires_auth: bool
-    rate_limit: Optional[int]
-
+    rate_limit: int | None
 
 class HandlerRegistration(TypedDict):
     """Handler registration entry.
@@ -290,11 +274,9 @@ class HandlerRegistration(TypedDict):
     routes: list  # List of RouteConfig
     lazy: bool  # If True, handler is instantiated on first use
 
-
 # =============================================================================
 # Factory Functions
 # =============================================================================
-
 
 def is_handler(obj: Any) -> bool:
     """Check if an object implements the HandlerInterface.
@@ -307,7 +289,6 @@ def is_handler(obj: Any) -> bool:
     """
     return isinstance(obj, HandlerInterface)
 
-
 def is_authenticated_handler(obj: Any) -> bool:
     """Check if an object implements AuthenticatedHandlerInterface.
 
@@ -318,7 +299,6 @@ def is_authenticated_handler(obj: Any) -> bool:
         True if obj implements AuthenticatedHandlerInterface
     """
     return isinstance(obj, AuthenticatedHandlerInterface)
-
 
 __all__ = [
     # Result types

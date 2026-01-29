@@ -29,7 +29,7 @@ import math
 import time
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
@@ -46,7 +46,6 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ConsensusDependencies:
@@ -67,7 +66,6 @@ class ConsensusDependencies:
     hooks: dict = field(default_factory=dict)
     user_votes: list = field(default_factory=list)
 
-
 @dataclass
 class ConsensusCallbacks:
     """Callback functions for consensus phase operations.
@@ -76,20 +74,19 @@ class ConsensusCallbacks:
     making the interface cleaner and more testable.
     """
 
-    vote_with_agent: Optional[Callable] = None
-    with_timeout: Optional[Callable] = None
-    select_judge: Optional[Callable] = None
-    build_judge_prompt: Optional[Callable] = None
-    generate_with_agent: Optional[Callable] = None
-    group_similar_votes: Optional[Callable] = None
-    get_calibration_weight: Optional[Callable] = None
-    notify_spectator: Optional[Callable] = None
-    drain_user_events: Optional[Callable] = None
-    extract_debate_domain: Optional[Callable] = None
-    get_belief_analyzer: Optional[Callable] = None
-    user_vote_multiplier: Optional[Callable] = None
-    verify_claims: Optional[Callable] = None  # Optional verification callback
-
+    vote_with_agent: Callable | None = None
+    with_timeout: Callable | None = None
+    select_judge: Callable | None = None
+    build_judge_prompt: Callable | None = None
+    generate_with_agent: Callable | None = None
+    group_similar_votes: Callable | None = None
+    get_calibration_weight: Callable | None = None
+    notify_spectator: Callable | None = None
+    drain_user_events: Callable | None = None
+    extract_debate_domain: Callable | None = None
+    get_belief_analyzer: Callable | None = None
+    user_vote_multiplier: Callable | None = None
+    verify_claims: Callable | None = None  # Optional verification callback
 
 class ConsensusPhase:
     """
@@ -126,27 +123,27 @@ class ConsensusPhase:
         protocol: Any = None,
         elo_system: Any = None,
         memory: Any = None,
-        agent_weights: Optional[dict[str, float]] = None,
+        agent_weights: dict[str, float] | None = None,
         flip_detector: Any = None,
         position_tracker: Any = None,
         calibration_tracker: Any = None,
         recorder: Any = None,
-        hooks: Optional[dict] = None,
-        user_votes: Optional[list] = None,
+        hooks: dict | None = None,
+        user_votes: list | None = None,
         # Legacy callbacks
-        vote_with_agent: Optional[Callable] = None,
-        with_timeout: Optional[Callable] = None,
-        select_judge: Optional[Callable] = None,
-        build_judge_prompt: Optional[Callable] = None,
-        generate_with_agent: Optional[Callable] = None,
-        group_similar_votes: Optional[Callable] = None,
-        get_calibration_weight: Optional[Callable] = None,
-        notify_spectator: Optional[Callable] = None,
-        drain_user_events: Optional[Callable] = None,
-        extract_debate_domain: Optional[Callable] = None,
-        get_belief_analyzer: Optional[Callable] = None,
-        user_vote_multiplier: Optional[Callable] = None,
-        verify_claims: Optional[Callable] = None,
+        vote_with_agent: Callable | None = None,
+        with_timeout: Callable | None = None,
+        select_judge: Callable | None = None,
+        build_judge_prompt: Callable | None = None,
+        generate_with_agent: Callable | None = None,
+        group_similar_votes: Callable | None = None,
+        get_calibration_weight: Callable | None = None,
+        notify_spectator: Callable | None = None,
+        drain_user_events: Callable | None = None,
+        extract_debate_domain: Callable | None = None,
+        get_belief_analyzer: Callable | None = None,
+        user_vote_multiplier: Callable | None = None,
+        verify_claims: Callable | None = None,
     ):
         """
         Initialize the consensus phase.
@@ -993,7 +990,7 @@ class ConsensusPhase:
                 result.consensus_strength = "byzantine"
 
                 # Store Byzantine-specific metadata in formal_verification field
-                # (reusing this Optional[dict[str, Any]] field for consensus metadata)
+                # (reusing this dict[str, Any] | None field for consensus metadata)
                 if result.formal_verification is None:
                     result.formal_verification = {}
                 result.formal_verification["byzantine_consensus"] = {
@@ -1044,7 +1041,7 @@ class ConsensusPhase:
     def _compute_vote_weights(
         self,
         ctx: "DebateContext",
-        votes: Optional[list["Vote"]] = None,
+        votes: list["Vote"] | None = None,
     ) -> dict[str, float]:
         """Pre-compute vote weights for all agents.
 

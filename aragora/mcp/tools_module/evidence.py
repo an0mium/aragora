@@ -9,16 +9,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 async def search_evidence_tool(
     query: str,
     sources: str = "all",
     limit: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Search for evidence across configured sources.
 
@@ -34,7 +33,7 @@ async def search_evidence_tool(
         return {"error": "query is required"}
 
     limit = min(max(limit, 1), 50)
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
 
     try:
         from aragora.evidence.collector import EvidenceCollector
@@ -73,13 +72,12 @@ async def search_evidence_tool(
         "count": len(results),
     }
 
-
 async def cite_evidence_tool(
     debate_id: str,
     evidence_id: str,
     message_index: int,
     citation_text: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Add a citation to evidence in a debate message.
 
@@ -131,10 +129,9 @@ async def cite_evidence_tool(
     except Exception as e:
         return {"error": f"Failed to add citation: {e}"}
 
-
 async def verify_citation_tool(
     url: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Verify that a citation URL is valid and accessible.
 
@@ -163,7 +160,6 @@ async def verify_citation_tool(
         return {"url": url, "valid": False, "error": "Timeout"}
     except Exception as e:
         return {"url": url, "valid": False, "error": str(e)}
-
 
 __all__ = [
     "search_evidence_tool",

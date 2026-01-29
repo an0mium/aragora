@@ -20,7 +20,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.storage.job_queue_store import (
     QueuedJob,
@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 JOB_TYPE_ROUTING = "routing"
 JOB_TYPE_ROUTING_DEBATE = "routing_debate"
 JOB_TYPE_ROUTING_EMAIL = "routing_email"
-
 
 class RoutingWorker:
     """
@@ -48,7 +47,7 @@ class RoutingWorker:
 
     def __init__(
         self,
-        worker_id: Optional[str] = None,
+        worker_id: str | None = None,
         poll_interval: float = 2.0,
         max_concurrent: int = 5,
         retry_delay_seconds: float = 30.0,
@@ -235,16 +234,15 @@ class RoutingWorker:
         )
         return bool(email_result)
 
-
 async def enqueue_routing_job(
     job_id: str,
     debate_id: str,
-    result: Dict[str, Any],
+    result: dict[str, Any],
     job_type: str = JOB_TYPE_ROUTING_DEBATE,
     include_voice: bool = False,
-    recipient_email: Optional[str] = None,
-    user_id: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    recipient_email: str | None = None,
+    user_id: str | None = None,
+    workspace_id: str | None = None,
     priority: int = 0,
 ) -> QueuedJob:
     """
@@ -288,7 +286,6 @@ async def enqueue_routing_job(
     logger.info(f"Enqueued routing job: {job_id} ({job_type})")
     return job
 
-
 async def recover_interrupted_routing() -> int:
     """
     Recover interrupted routing jobs after server restart.
@@ -322,7 +319,6 @@ async def recover_interrupted_routing() -> int:
         logger.info(f"Recovered {recovered} interrupted routing jobs")
 
     return recovered
-
 
 __all__ = [
     "RoutingWorker",

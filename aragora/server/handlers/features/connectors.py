@@ -25,9 +25,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Optional, TypedDict
 from uuid import uuid4
-
 
 class ConnectorTypeMeta(TypedDict, total=False):
     """Metadata for a connector type."""
@@ -42,7 +41,6 @@ from aragora.server.handlers.secure import SecureHandler, ForbiddenError, Unauth
 from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
-
 
 # Persistent storage
 try:
@@ -61,13 +59,12 @@ except ImportError:
     )
 
 # In-memory fallback storage (used when sync_store not available)
-_connectors: Dict[str, Dict[str, Any]] = {}
-_sync_jobs: Dict[str, Dict[str, Any]] = {}
-_sync_history: List[Dict[str, Any]] = []
+_connectors: dict[str, dict[str, Any]] = {}
+_sync_jobs: dict[str, dict[str, Any]] = {}
+_sync_history: list[dict[str, Any]] = []
 
 # Global store instance (lazily initialized)
 _store: Optional["SyncStore"] = None
-
 
 async def _get_store() -> Optional["SyncStore"]:
     """Get the sync store, initializing if needed."""
@@ -83,9 +80,8 @@ async def _get_store() -> Optional["SyncStore"]:
             )
     return _store
 
-
 # Connector type metadata
-CONNECTOR_TYPES: Dict[str, ConnectorTypeMeta] = {
+CONNECTOR_TYPES: dict[str, ConnectorTypeMeta] = {
     "github": {
         "name": "GitHub Enterprise",
         "description": "Sync repositories, issues, and pull requests from GitHub",
@@ -164,7 +160,6 @@ CONNECTOR_TYPES: Dict[str, ConnectorTypeMeta] = {
     },
 }
 
-
 class ConnectorsHandler(SecureHandler):
     """Handler for enterprise connector endpoints.
 
@@ -206,7 +201,7 @@ class ConnectorsHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/connectors/")
 
-    async def handle_request(self, request: Any) -> Dict[str, Any]:
+    async def handle_request(self, request: Any) -> dict[str, Any]:
         """Route request to appropriate handler."""
         method = request.method
         path = str(request.path)
@@ -281,7 +276,7 @@ class ConnectorsHandler(SecureHandler):
 
         return self._error_response(404, "Endpoint not found")
 
-    async def _list_connectors(self, request: Any) -> Dict[str, Any]:
+    async def _list_connectors(self, request: Any) -> dict[str, Any]:
         """
         List all configured connectors.
 
@@ -355,7 +350,7 @@ class ConnectorsHandler(SecureHandler):
             },
         )
 
-    async def _get_connector(self, request: Any, connector_id: str) -> Dict[str, Any]:
+    async def _get_connector(self, request: Any, connector_id: str) -> dict[str, Any]:
         """Get details for a specific connector."""
         store = await _get_store()
 
@@ -409,7 +404,7 @@ class ConnectorsHandler(SecureHandler):
 
         return self._json_response(200, connector)
 
-    async def _create_connector(self, request: Any) -> Dict[str, Any]:
+    async def _create_connector(self, request: Any) -> dict[str, Any]:
         """Configure a new connector."""
         try:
             body = await self._get_json_body(request)
@@ -462,7 +457,7 @@ class ConnectorsHandler(SecureHandler):
 
         return self._json_response(201, connector)
 
-    async def _update_connector(self, request: Any, connector_id: str) -> Dict[str, Any]:
+    async def _update_connector(self, request: Any, connector_id: str) -> dict[str, Any]:
         """Update connector configuration."""
         connector = _connectors.get(connector_id)
         if not connector:
@@ -491,7 +486,7 @@ class ConnectorsHandler(SecureHandler):
 
         return self._json_response(200, connector)
 
-    async def _delete_connector(self, request: Any, connector_id: str) -> Dict[str, Any]:
+    async def _delete_connector(self, request: Any, connector_id: str) -> dict[str, Any]:
         """Remove a connector (doesn't delete synced data)."""
         if connector_id not in _connectors:
             return self._error_response(404, f"Connector {connector_id} not found")
@@ -508,7 +503,7 @@ class ConnectorsHandler(SecureHandler):
 
         return self._json_response(200, {"message": "Connector removed successfully"})
 
-    async def _start_sync(self, request: Any, connector_id: str) -> Dict[str, Any]:
+    async def _start_sync(self, request: Any, connector_id: str) -> dict[str, Any]:
         """Start a sync operation for a connector."""
         connector = _connectors.get(connector_id)
         if not connector:
@@ -612,7 +607,7 @@ class ConnectorsHandler(SecureHandler):
 
             logger.error(f"Sync {sync_id} failed: {e}")
 
-    async def _cancel_sync(self, request: Any, sync_id: str) -> Dict[str, Any]:
+    async def _cancel_sync(self, request: Any, sync_id: str) -> dict[str, Any]:
         """Cancel a running sync operation."""
         sync_job = _sync_jobs.get(sync_id)
         if not sync_job:
@@ -632,7 +627,7 @@ class ConnectorsHandler(SecureHandler):
 
         return self._json_response(200, {"message": "Sync cancelled"})
 
-    async def _test_connection(self, request: Any) -> Dict[str, Any]:
+    async def _test_connection(self, request: Any) -> dict[str, Any]:
         """Test a connector configuration without saving."""
         try:
             body = await self._get_json_body(request)
@@ -659,7 +654,7 @@ class ConnectorsHandler(SecureHandler):
             },
         )
 
-    async def _get_sync_history(self, request: Any) -> Dict[str, Any]:
+    async def _get_sync_history(self, request: Any) -> dict[str, Any]:
         """Get sync history for all connectors."""
         connector_id = request.query.get("connector_id")
         limit = int(request.query.get("limit", 50))
@@ -701,7 +696,7 @@ class ConnectorsHandler(SecureHandler):
             },
         )
 
-    async def _get_stats(self, request: Any) -> Dict[str, Any]:
+    async def _get_stats(self, request: Any) -> dict[str, Any]:
         """Get aggregate statistics for all connectors."""
         store = await _get_store()
 
@@ -773,7 +768,7 @@ class ConnectorsHandler(SecureHandler):
             },
         )
 
-    async def _get_health(self, request: Any) -> Dict[str, Any]:
+    async def _get_health(self, request: Any) -> dict[str, Any]:
         """
         Get health scores for all connectors.
 
@@ -810,7 +805,7 @@ class ConnectorsHandler(SecureHandler):
         }
         """
         store = await _get_store()
-        connectors_health: List[Dict[str, Any]] = []
+        connectors_health: list[dict[str, Any]] = []
 
         if store:
             connector_configs = await store.list_connectors()
@@ -863,7 +858,7 @@ class ConnectorsHandler(SecureHandler):
                     issues.append("No syncs recorded")
 
                 # Get last sync time
-                last_sync: Optional[str] = None
+                last_sync: str | None = None
                 if history:
                     last_sync_dt = history[0].completed_at or history[0].started_at
                     last_sync = last_sync_dt.isoformat() if last_sync_dt else None
@@ -958,30 +953,30 @@ class ConnectorsHandler(SecureHandler):
             },
         )
 
-    async def _list_types(self, request: Any) -> Dict[str, Any]:
+    async def _list_types(self, request: Any) -> dict[str, Any]:
         """List all available connector types."""
-        types: List[Dict[str, Any]] = []
+        types: list[dict[str, Any]] = []
         for type_id, type_meta in CONNECTOR_TYPES.items():
-            type_entry: Dict[str, Any] = {"type": type_id, **type_meta}
+            type_entry: dict[str, Any] = {"type": type_id, **type_meta}
             types.append(type_entry)
 
         return self._json_response(200, {"types": types})
 
-    def _count_by_category(self, connectors: List[Dict[str, Any]]) -> Dict[str, int]:
+    def _count_by_category(self, connectors: list[dict[str, Any]]) -> dict[str, int]:
         """Count connectors by category."""
         empty_meta: ConnectorTypeMeta = {}
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for connector in connectors:
             category = CONNECTOR_TYPES.get(connector["type"], empty_meta).get("category", "other")
             counts[category] = counts.get(category, 0) + 1
         return counts
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
         body = await request.json()
         return body if isinstance(body, dict) else {}
 
-    def _json_response(self, status: int, data: Any) -> Dict[str, Any]:
+    def _json_response(self, status: int, data: Any) -> dict[str, Any]:
         """Create a JSON response."""
 
         return {
@@ -990,9 +985,8 @@ class ConnectorsHandler(SecureHandler):
             "body": data,
         }
 
-    def _error_response(self, status: int, message: str) -> Dict[str, Any]:
+    def _error_response(self, status: int, message: str) -> dict[str, Any]:
         """Create an error response."""
         return self._json_response(status, {"error": message})
-
 
 __all__ = ["ConnectorsHandler"]

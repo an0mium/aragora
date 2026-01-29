@@ -10,11 +10,10 @@ Inspired by Heavy3.ai's Deep Audit feature which assigns explicit cognitive role
 This module enables role rotation across rounds, ensuring each agent explores
 different cognitive perspectives throughout the debate.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
-
 
 class CognitiveRole(Enum):
     """
@@ -37,7 +36,6 @@ class CognitiveRole(Enum):
     ADVOCATE = "advocate"
     DEVIL_ADVOCATE = "devil_advocate"
     QUALITY_CHALLENGER = "quality_challenger"
-
 
 # Role prompts that modify agent behavior
 ROLE_PROMPTS = {
@@ -184,7 +182,6 @@ reach consensus without substantive backing.
 """,
 }
 
-
 @dataclass
 class RoleAssignment:
     """An assignment of a cognitive role to an agent for a specific round."""
@@ -197,7 +194,6 @@ class RoleAssignment:
     def __post_init__(self) -> None:
         if not self.role_prompt:
             self.role_prompt = ROLE_PROMPTS.get(self.role, "")
-
 
 @dataclass
 class RoleRotationConfig:
@@ -222,7 +218,6 @@ class RoleRotationConfig:
     # Force synthesizer role in final round
     synthesizer_final_round: bool = True
 
-
 class RoleRotator:
     """
     Manages cognitive role rotation across debate rounds.
@@ -231,7 +226,7 @@ class RoleRotator:
     each agent takes each round.
     """
 
-    def __init__(self, config: Optional[RoleRotationConfig] = None):
+    def __init__(self, config: RoleRotationConfig | None = None):
         self.config = config or RoleRotationConfig()
         self._rotation_state: dict[str, int] = {}  # agent -> role index
 
@@ -305,11 +300,10 @@ class RoleRotator:
 === END ROLE ASSIGNMENT ===
 """
 
-
 def create_role_rotation(
     agents: list,
     total_rounds: int,
-    config: Optional[RoleRotationConfig] = None,
+    config: RoleRotationConfig | None = None,
 ) -> list[dict[str, RoleAssignment]]:
     """
     Create a complete role rotation schedule for a debate.
@@ -331,7 +325,6 @@ def create_role_rotation(
         schedule.append(assignments)
 
     return schedule
-
 
 def inject_role_into_prompt(
     base_prompt: str,

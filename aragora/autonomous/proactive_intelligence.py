@@ -7,6 +7,7 @@ Provides:
 - Trend monitoring
 - Anomaly detection
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -17,13 +18,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine, Optional
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
-
 
 class AlertSeverity(Enum):
     """Severity levels for alerts."""
@@ -34,7 +34,6 @@ class AlertSeverity(Enum):
     HIGH = "high"
     CRITICAL = "critical"
 
-
 class TrendDirection(Enum):
     """Direction of a trend."""
 
@@ -43,22 +42,20 @@ class TrendDirection(Enum):
     STABLE = "stable"
     VOLATILE = "volatile"
 
-
 @dataclass
 class ScheduledTriggerConfig:
     """Configuration for a scheduled trigger."""
 
     id: str
     name: str
-    cron_expression: Optional[str] = None
-    interval_seconds: Optional[int] = None
+    cron_expression: str | None = None
+    interval_seconds: int | None = None
     enabled: bool = True
-    last_run: Optional[datetime] = None
-    next_run: Optional[datetime] = None
+    last_run: datetime | None = None
+    next_run: datetime | None = None
     run_count: int = 0
-    max_runs: Optional[int] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    max_runs: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Alert:
@@ -71,14 +68,13 @@ class Alert:
     source: str
     timestamp: datetime
     acknowledged: bool = False
-    acknowledged_by: Optional[str] = None
-    acknowledged_at: Optional[datetime] = None
+    acknowledged_by: str | None = None
+    acknowledged_at: datetime | None = None
     resolved: bool = False
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
     debate_triggered: bool = False
-    debate_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    debate_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class TrendData:
@@ -93,8 +89,7 @@ class TrendData:
     period_end: datetime
     data_points: int
     confidence: float
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Anomaly:
@@ -108,8 +103,7 @@ class Anomaly:
     timestamp: datetime
     severity: AlertSeverity
     description: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 class ScheduledTrigger:
     """
@@ -124,7 +118,7 @@ class ScheduledTrigger:
 
     def __init__(
         self,
-        storage_path: Optional[Path] = None,
+        storage_path: Path | None = None,
         debate_creator: Optional[Callable[..., Coroutine]] = None,
     ):
         """
@@ -136,19 +130,19 @@ class ScheduledTrigger:
         """
         self.storage_path = storage_path
         self.debate_creator = debate_creator
-        self._triggers: Dict[str, ScheduledTriggerConfig] = {}
+        self._triggers: dict[str, ScheduledTriggerConfig] = {}
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
     def add_trigger(
         self,
         trigger_id: str,
         name: str,
-        interval_seconds: Optional[int] = None,
-        cron_expression: Optional[str] = None,
+        interval_seconds: int | None = None,
+        cron_expression: str | None = None,
         enabled: bool = True,
-        max_runs: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        max_runs: int | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ScheduledTriggerConfig:
         """
         Add a scheduled trigger.
@@ -271,7 +265,7 @@ class ScheduledTrigger:
 
         self._save_state()
 
-    def list_triggers(self) -> List[ScheduledTriggerConfig]:
+    def list_triggers(self) -> list[ScheduledTriggerConfig]:
         """List all triggers."""
         return list(self._triggers.values())
 
@@ -298,7 +292,6 @@ class ScheduledTrigger:
         }
         self.storage_path.write_text(json.dumps(data, indent=2))
 
-
 class AlertAnalyzer:
     """
     Analyzes conditions and generates alerts that may trigger debates.
@@ -312,10 +305,10 @@ class AlertAnalyzer:
 
     def __init__(
         self,
-        storage_path: Optional[Path] = None,
+        storage_path: Path | None = None,
         alert_callback: Optional[Callable[[Alert], None]] = None,
         debate_creator: Optional[Callable[..., Coroutine]] = None,
-        auto_debate_severities: Optional[Set[AlertSeverity]] = None,
+        auto_debate_severities: Optional[set[AlertSeverity]] = None,
     ):
         """
         Initialize alert analyzer.
@@ -333,15 +326,15 @@ class AlertAnalyzer:
             AlertSeverity.HIGH,
             AlertSeverity.CRITICAL,
         }
-        self._alerts: Dict[str, Alert] = {}
-        self._thresholds: Dict[str, Dict[str, Any]] = {}
-        self._metric_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
+        self._alerts: dict[str, Alert] = {}
+        self._thresholds: dict[str, dict[str, Any]] = {}
+        self._metric_history: dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
 
     def set_threshold(
         self,
         metric_name: str,
-        warning_threshold: Optional[float] = None,
-        critical_threshold: Optional[float] = None,
+        warning_threshold: float | None = None,
+        critical_threshold: float | None = None,
         comparison: str = "gt",  # gt, lt, eq, ne
         enabled: bool = True,
     ) -> None:
@@ -367,8 +360,8 @@ class AlertAnalyzer:
         metric_name: str,
         value: float,
         source: str = "system",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Alert]:
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> Alert | None:
         """
         Check a metric against thresholds and generate alert if needed.
 
@@ -436,7 +429,7 @@ class AlertAnalyzer:
         title: str,
         description: str,
         source: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Alert:
         """Create and store an alert."""
         import hashlib
@@ -515,7 +508,7 @@ class AlertAnalyzer:
 
         return True
 
-    def get_active_alerts(self) -> List[Alert]:
+    def get_active_alerts(self) -> list[Alert]:
         """Get all unresolved alerts."""
         return [a for a in self._alerts.values() if not a.resolved]
 
@@ -546,7 +539,6 @@ class AlertAnalyzer:
         }
         self.storage_path.write_text(json.dumps(data, indent=2))
 
-
 class TrendMonitor:
     """
     Monitors metrics for trends over time.
@@ -575,13 +567,13 @@ class TrendMonitor:
         self.window_size = window_size
         self.min_data_points = min_data_points
         self.trend_threshold = trend_threshold
-        self._metrics: Dict[str, deque] = defaultdict(lambda: deque(maxlen=window_size))
+        self._metrics: dict[str, deque] = defaultdict(lambda: deque(maxlen=window_size))
 
     def record(
         self,
         metric_name: str,
         value: float,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """Record a metric value."""
         self._metrics[metric_name].append(
@@ -594,8 +586,8 @@ class TrendMonitor:
     def get_trend(
         self,
         metric_name: str,
-        period_seconds: Optional[int] = None,
-    ) -> Optional[TrendData]:
+        period_seconds: int | None = None,
+    ) -> TrendData | None:
         """
         Get trend for a metric.
 
@@ -662,7 +654,7 @@ class TrendMonitor:
             confidence=confidence,
         )
 
-    def get_all_trends(self) -> Dict[str, TrendData]:
+    def get_all_trends(self) -> dict[str, TrendData]:
         """Get trends for all monitored metrics."""
         trends = {}
         for metric_name in self._metrics.keys():
@@ -670,7 +662,6 @@ class TrendMonitor:
             if trend:
                 trends[metric_name] = trend
         return trends
-
 
 class AnomalyDetector:
     """
@@ -702,15 +693,15 @@ class AnomalyDetector:
         self.z_threshold = z_threshold
         self.min_data_points = min_data_points
         self.alert_callback = alert_callback
-        self._metrics: Dict[str, deque] = defaultdict(lambda: deque(maxlen=window_size))
-        self._anomalies: List[Anomaly] = []
+        self._metrics: dict[str, deque] = defaultdict(lambda: deque(maxlen=window_size))
+        self._anomalies: list[Anomaly] = []
 
     def record(
         self,
         metric_name: str,
         value: float,
-        timestamp: Optional[datetime] = None,
-    ) -> Optional[Anomaly]:
+        timestamp: datetime | None = None,
+    ) -> Anomaly | None:
         """
         Record a metric value and check for anomaly.
 
@@ -781,8 +772,8 @@ class AnomalyDetector:
     def get_recent_anomalies(
         self,
         hours: int = 24,
-        metric_name: Optional[str] = None,
-    ) -> List[Anomaly]:
+        metric_name: str | None = None,
+    ) -> list[Anomaly]:
         """Get anomalies from the last N hours."""
         cutoff = datetime.now() - timedelta(hours=hours)
         anomalies = [a for a in self._anomalies if a.timestamp >= cutoff]
@@ -795,7 +786,7 @@ class AnomalyDetector:
     def get_baseline_stats(
         self,
         metric_name: str,
-    ) -> Optional[Dict[str, float]]:
+    ) -> Optional[dict[str, float]]:
         """Get baseline statistics for a metric."""
         data = self._metrics.get(metric_name)
         if not data or len(data) < self.min_data_points:
@@ -811,7 +802,6 @@ class AnomalyDetector:
             "median": statistics.median(values),
             "count": len(values),
         }
-
 
 __all__ = [
     "AlertSeverity",

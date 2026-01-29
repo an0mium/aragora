@@ -35,7 +35,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.services.threat_intelligence import ThreatIntelligenceService
@@ -51,7 +51,6 @@ ENRICHMENT_ENABLED = os.getenv("ARAGORA_THREAT_INTEL_ENRICHMENT_ENABLED", "true"
 )
 MAX_INDICATORS = int(os.getenv("ARAGORA_THREAT_INTEL_MAX_INDICATORS", "10"))
 
-
 @dataclass
 class ThreatIndicator:
     """Represents a threat indicator from intelligence feeds."""
@@ -62,17 +61,17 @@ class ThreatIndicator:
     severity: str  # low, medium, high, critical
     confidence: float  # 0.0 to 1.0
     source: str  # virustotal, abuseipdb, nvd, osv, etc.
-    first_seen: Optional[datetime] = None
-    last_seen: Optional[datetime] = None
-    description: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+    description: str | None = None
+    tags: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Initialize default tags list if None."""
         if self.tags is None:
             self.tags = []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "indicator_type": self.indicator_type,
@@ -87,19 +86,18 @@ class ThreatIndicator:
             "tags": self.tags,
         }
 
-
 @dataclass
 class ThreatContext:
     """Aggregated threat context for debate enrichment."""
 
-    indicators: List[ThreatIndicator]
-    relevant_cves: List[Dict[str, Any]]
-    attack_patterns: List[str]
-    recommended_mitigations: List[str]
+    indicators: list[ThreatIndicator]
+    relevant_cves: list[dict[str, Any]]
+    attack_patterns: list[str]
+    recommended_mitigations: list[str]
     risk_summary: str
     enrichment_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "indicators": [ind.to_dict() for ind in self.indicators],
@@ -109,7 +107,6 @@ class ThreatContext:
             "risk_summary": self.risk_summary,
             "enrichment_timestamp": self.enrichment_timestamp.isoformat(),
         }
-
 
 class ThreatIntelEnrichment:
     """
@@ -226,7 +223,7 @@ class ThreatIntelEnrichment:
             self._cve_client = self._create_cve_client()
 
         # Simple cache: topic_hash -> (timestamp, ThreatContext)
-        self._cache: Dict[str, tuple[datetime, ThreatContext]] = {}
+        self._cache: dict[str, tuple[datetime, ThreatContext]] = {}
 
         if self._enabled:
             logger.info(
@@ -279,7 +276,7 @@ class ThreatIntelEnrichment:
         topic_lower = topic.lower()
         return any(kw in topic_lower for kw in self.SECURITY_KEYWORDS)
 
-    def _extract_entities(self, text: str) -> Dict[str, List[Any]]:
+    def _extract_entities(self, text: str) -> dict[str, list[Any]]:
         """
         Extract security-relevant entities from text.
 
@@ -289,7 +286,7 @@ class ThreatIntelEnrichment:
         Returns:
             Dict mapping entity type to list of values.
         """
-        entities: Dict[str, List[Any]] = {
+        entities: dict[str, list[Any]] = {
             "cves": [],
             "ips": [],
             "urls": [],
@@ -329,7 +326,7 @@ class ThreatIntelEnrichment:
         content = f"{topic}:{context}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def _get_cached(self, cache_key: str) -> Optional[ThreatContext]:
+    def _get_cached(self, cache_key: str) -> ThreatContext | None:
         """Get cached enrichment result if not expired."""
         from datetime import timedelta
 
@@ -356,7 +353,7 @@ class ThreatIntelEnrichment:
         self,
         topic: str,
         existing_context: str = "",
-    ) -> Optional[ThreatContext]:
+    ) -> ThreatContext | None:
         """
         Enrich debate context with threat intelligence.
 
@@ -384,8 +381,8 @@ class ThreatIntelEnrichment:
         combined_text = f"{topic} {existing_context}"
         entities = self._extract_entities(combined_text)
 
-        indicators: List[ThreatIndicator] = []
-        cves: List[Dict[str, Any]] = []
+        indicators: list[ThreatIndicator] = []
+        cves: list[dict[str, Any]] = []
 
         # Look up CVEs
         for cve_id in entities["cves"][:5]:  # Limit lookups
@@ -434,7 +431,7 @@ class ThreatIntelEnrichment:
         self._set_cached(cache_key, context)
         return context
 
-    async def _lookup_cve(self, cve_id: str) -> Optional[Dict[str, Any]]:
+    async def _lookup_cve(self, cve_id: str) -> Optional[dict[str, Any]]:
         """Look up CVE details."""
         if not self._cve_client:
             return None
@@ -459,7 +456,7 @@ class ThreatIntelEnrichment:
 
         return None
 
-    async def _lookup_ip(self, ip: str) -> Optional[ThreatIndicator]:
+    async def _lookup_ip(self, ip: str) -> ThreatIndicator | None:
         """Look up IP reputation."""
         if not self._threat_client:
             return None
@@ -482,7 +479,7 @@ class ThreatIntelEnrichment:
 
         return None
 
-    async def _lookup_url(self, url: str) -> Optional[ThreatIndicator]:
+    async def _lookup_url(self, url: str) -> ThreatIndicator | None:
         """Look up URL reputation."""
         if not self._threat_client:
             return None
@@ -506,7 +503,7 @@ class ThreatIntelEnrichment:
 
         return None
 
-    async def _lookup_hash(self, hash_value: str, hash_type: str) -> Optional[ThreatIndicator]:
+    async def _lookup_hash(self, hash_value: str, hash_type: str) -> ThreatIndicator | None:
         """Look up file hash for malware."""
         if not self._threat_client:
             return None
@@ -543,9 +540,9 @@ class ThreatIntelEnrichment:
 
     def _extract_attack_patterns(
         self,
-        indicators: List[ThreatIndicator],
-        cves: List[Dict[str, Any]],
-    ) -> List[str]:
+        indicators: list[ThreatIndicator],
+        cves: list[dict[str, Any]],
+    ) -> list[str]:
         """Extract attack patterns from indicators and CVEs."""
         patterns = set()
 
@@ -565,9 +562,9 @@ class ThreatIntelEnrichment:
 
     def _get_mitigations(
         self,
-        indicators: List[ThreatIndicator],
-        cves: List[Dict[str, Any]],
-    ) -> List[str]:
+        indicators: list[ThreatIndicator],
+        cves: list[dict[str, Any]],
+    ) -> list[str]:
         """Generate recommended mitigations based on threat data."""
         mitigations = []
 
@@ -613,8 +610,8 @@ class ThreatIntelEnrichment:
 
     def _summarize_risk(
         self,
-        indicators: List[ThreatIndicator],
-        cves: List[Dict[str, Any]],
+        indicators: list[ThreatIndicator],
+        cves: list[dict[str, Any]],
     ) -> str:
         """Generate a risk summary from threat data."""
         if not indicators and not cves:
@@ -652,7 +649,7 @@ class ThreatIntelEnrichment:
             return f"Overall risk: {risk_level}. Found {', '.join(parts)}."
         return f"Overall risk: {risk_level}."
 
-    def _build_generic_security_context(self, topic: str) -> Optional[ThreatContext]:
+    def _build_generic_security_context(self, topic: str) -> ThreatContext | None:
         """Build generic security context when no specific IOCs are found."""
         topic_lower = topic.lower()
 
@@ -787,13 +784,12 @@ class ThreatIntelEnrichment:
             except Exception:
                 pass
 
-
 # Convenience function for quick enrichment
 async def enrich_security_context(
     topic: str,
     existing_context: str = "",
     threat_intel_client: Optional["ThreatIntelligenceService"] = None,
-) -> Optional[str]:
+) -> str | None:
     """
     Quick convenience function for threat intel enrichment.
 
@@ -823,7 +819,6 @@ async def enrich_security_context(
         return None
     finally:
         await enrichment.close()
-
 
 __all__ = [
     "ThreatIndicator",

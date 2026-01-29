@@ -17,7 +17,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.rbac.decorators import require_permission
@@ -36,11 +36,9 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Async Workflow Execution Support
 # =============================================================================
-
 
 def _get_workflow_store():
     """Get the persistent workflow store for execution tracking."""
@@ -48,18 +46,16 @@ def _get_workflow_store():
 
     return get_workflow_store()
 
-
 def _get_workflow_engine():
     """Get the workflow engine instance."""
     from aragora.workflow.engine import get_workflow_engine
 
     return get_workflow_engine()
 
-
 async def _execute_workflow_async(
     workflow: Any,
     execution_id: str,
-    inputs: Optional[Dict[str, Any]] = None,
+    inputs: Optional[dict[str, Any]] = None,
     tenant_id: str = "default",
 ) -> None:
     """
@@ -118,10 +114,9 @@ async def _execute_workflow_async(
             )
             store.save_execution(execution)
 
-
 def _start_workflow_execution(
     workflow: Any,
-    inputs: Optional[Dict[str, Any]] = None,
+    inputs: Optional[dict[str, Any]] = None,
     tenant_id: str = "default",
 ) -> str:
     """
@@ -160,10 +155,8 @@ def _start_workflow_execution(
     logger.info(f"Started workflow execution {execution_id} for workflow {workflow.id}")
     return execution_id
 
-
 # Rate limiter (60 requests per minute)
 _template_limiter = RateLimiter(requests_per_minute=60)
-
 
 class WorkflowTemplatesHandler(BaseHandler):
     """Handler for workflow templates API endpoints."""
@@ -178,7 +171,7 @@ class WorkflowTemplatesHandler(BaseHandler):
         return path.startswith("/api/v1/workflow/templates")
 
     @require_permission("workflow:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route workflow template requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -423,7 +416,6 @@ class WorkflowTemplatesHandler(BaseHandler):
             status=202,
         )
 
-
 # Categories endpoint
 class WorkflowCategoriesHandler(BaseHandler):
     """Handler for workflow template categories."""
@@ -436,7 +428,7 @@ class WorkflowCategoriesHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Return available template categories."""
         from aragora.workflow.templates.package import TemplateCategory
         from aragora.workflow.templates import WORKFLOW_TEMPLATES
@@ -459,7 +451,6 @@ class WorkflowCategoriesHandler(BaseHandler):
 
         return json_response({"categories": categories})
 
-
 # Patterns endpoint
 class WorkflowPatternsHandler(BaseHandler):
     """Handler for workflow patterns listing."""
@@ -472,7 +463,7 @@ class WorkflowPatternsHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Return available workflow patterns."""
         from aragora.workflow.patterns import PATTERN_REGISTRY
         from aragora.workflow.patterns.base import PatternType
@@ -495,7 +486,6 @@ class WorkflowPatternsHandler(BaseHandler):
 
         return json_response({"patterns": patterns})
 
-
 class WorkflowPatternTemplatesHandler(BaseHandler):
     """Handler for pattern-based workflow template operations."""
 
@@ -512,7 +502,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
             "/api/v1/workflow/pattern-templates"
         )
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route pattern template requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -657,7 +647,6 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
             logger.error(f"Failed to instantiate pattern {pattern_id}: {e}")
             return error_response(f"Failed to instantiate pattern: {e}", 500)
 
-
 # =============================================================================
 # Template Recommendations for Onboarding
 # =============================================================================
@@ -773,7 +762,6 @@ USE_CASE_TEMPLATES = {
     ],
 }
 
-
 class TemplateRecommendationsHandler(BaseHandler):
     """Handler for template recommendations based on use case."""
 
@@ -784,7 +772,7 @@ class TemplateRecommendationsHandler(BaseHandler):
     def can_handle(self, path: str, method: str = "GET") -> bool:
         return path == "/api/v1/templates/recommended" and method == "GET"
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Return recommended templates based on use case."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -836,7 +824,6 @@ class TemplateRecommendationsHandler(BaseHandler):
             }
         )
 
-
 class SMEWorkflowsHandler(BaseHandler):
     """Handler for SME-specific workflow templates and automations.
 
@@ -855,7 +842,7 @@ class SMEWorkflowsHandler(BaseHandler):
     def can_handle(self, path: str, method: str = "GET") -> bool:
         return path.startswith("/api/v1/sme/workflows")
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route SME workflow requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)

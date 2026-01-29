@@ -31,7 +31,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .factory import get_factory_metrics
 
@@ -40,15 +40,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class MetricsSnapshot:
     """Point-in-time snapshot of RLM metrics."""
 
     timestamp: float
-    metrics: Dict[str, int]
+    metrics: dict[str, int]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "timestamp": self.timestamp,
@@ -60,7 +59,6 @@ class MetricsSnapshot:
         """Convert to JSON string."""
         return json.dumps(self.to_dict(), indent=2)
 
-
 class MetricsCollector:
     """Collects and tracks RLM metrics over time.
 
@@ -71,7 +69,7 @@ class MetricsCollector:
     """
 
     def __init__(self):
-        self._last_snapshot: Optional[MetricsSnapshot] = None
+        self._last_snapshot: MetricsSnapshot | None = None
         self._last_collect_time: float = 0
         self._callbacks: list[Callable[[MetricsSnapshot], None]] = []
 
@@ -92,7 +90,7 @@ class MetricsCollector:
         self._last_collect_time = now
         return snapshot
 
-    def get_delta(self) -> Optional[Dict[str, int]]:
+    def get_delta(self) -> Optional[dict[str, int]]:
         """Get delta since last collection."""
         if self._last_snapshot is None:
             return None
@@ -100,7 +98,7 @@ class MetricsCollector:
         current = get_factory_metrics()
         return {key: current[key] - self._last_snapshot.metrics.get(key, 0) for key in current}
 
-    def get_rates(self, window_seconds: float = 60.0) -> Dict[str, float]:
+    def get_rates(self, window_seconds: float = 60.0) -> dict[str, float]:
         """Calculate rates (per second) over the given window."""
         if self._last_snapshot is None or self._last_collect_time == 0:
             return {}
@@ -124,10 +122,8 @@ class MetricsCollector:
         if callback in self._callbacks:
             self._callbacks.remove(callback)
 
-
 # Global collector instance
-_collector: Optional[MetricsCollector] = None
-
+_collector: MetricsCollector | None = None
 
 def get_metrics_collector() -> MetricsCollector:
     """Get the global metrics collector."""
@@ -135,7 +131,6 @@ def get_metrics_collector() -> MetricsCollector:
     if _collector is None:
         _collector = MetricsCollector()
     return _collector
-
 
 def export_to_json() -> str:
     """Export current metrics as JSON.
@@ -160,11 +155,10 @@ def export_to_json() -> str:
     snapshot = collector.collect()
     return snapshot.to_json()
 
-
 def export_to_prometheus(
-    registry: Optional[Any] = None,
+    registry: Any | None = None,
     prefix: str = "aragora_rlm",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export metrics to Prometheus format.
 
     Args:
@@ -229,7 +223,6 @@ def export_to_prometheus(
     logger.info(f"[RLM Metrics] Prometheus metrics registered with prefix '{prefix}'")
     return metrics_map
 
-
 def export_to_statsd(
     host: str = "localhost",
     port: int = 8125,
@@ -268,10 +261,9 @@ def export_to_statsd(
         logger.error(f"[RLM Metrics] StatsD export failed: {e}")
         return False
 
-
 def export_to_opentelemetry(
     meter_name: str = "aragora.rlm",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export metrics to OpenTelemetry.
 
     Args:
@@ -322,7 +314,6 @@ def export_to_opentelemetry(
         logger.error(f"[RLM Metrics] OpenTelemetry export failed: {e}")
         return {}
 
-
 def create_periodic_exporter(
     export_fn: Callable[[], Any],
     interval_seconds: float = 60.0,
@@ -364,7 +355,6 @@ def create_periodic_exporter(
         thread.join(timeout=5.0)
 
     return stop
-
 
 __all__ = [
     "MetricsSnapshot",

@@ -14,7 +14,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Sequence
+from typing import Optional, Sequence
 
 from aragora.audit.base_auditor import (
     AuditContext,
@@ -29,7 +29,6 @@ from aragora.audit.document_auditor import (
 
 logger = logging.getLogger(__name__)
 
-
 class RegulatoryFramework(str, Enum):
     """Supported regulatory frameworks."""
 
@@ -42,7 +41,6 @@ class RegulatoryFramework(str, Enum):
     NIST = "nist"
     FEDRAMP = "fedramp"
 
-
 @dataclass
 class RegulatoryRequirement:
     """A regulatory requirement to check."""
@@ -51,11 +49,10 @@ class RegulatoryRequirement:
     control_id: str
     title: str
     description: str
-    patterns: List[re.Pattern[str]]
-    violation_indicators: List[str]
+    patterns: list[re.Pattern[str]]
+    violation_indicators: list[str]
     severity: FindingSeverity
     remediation: str
-
 
 # SOX Requirements (Sarbanes-Oxley)
 SOX_REQUIREMENTS = [
@@ -272,7 +269,6 @@ PCI_DSS_REQUIREMENTS = [
     ),
 ]
 
-
 class RegulatoryAuditor(BaseAuditor):
     """
     Audits documents for regulatory compliance across multiple frameworks.
@@ -317,7 +313,7 @@ class RegulatoryAuditor(BaseAuditor):
 
     def __init__(
         self,
-        frameworks: Optional[List[RegulatoryFramework]] = None,
+        frameworks: Optional[list[RegulatoryFramework]] = None,
     ):
         """
         Initialize regulatory auditor.
@@ -327,9 +323,9 @@ class RegulatoryAuditor(BaseAuditor):
         """
         self._frameworks = frameworks or list(RegulatoryFramework)
         self._requirements = self._load_requirements()
-        self._framework_findings: Dict[RegulatoryFramework, int] = {}
+        self._framework_findings: dict[RegulatoryFramework, int] = {}
 
-    def _load_requirements(self) -> List[RegulatoryRequirement]:
+    def _load_requirements(self) -> list[RegulatoryRequirement]:
         """Load applicable requirements based on selected frameworks."""
         requirements = []
 
@@ -346,7 +342,7 @@ class RegulatoryAuditor(BaseAuditor):
         self,
         chunk: ChunkData,
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Analyze a chunk for regulatory compliance issues."""
         findings = []
         content = chunk.content.lower()
@@ -403,7 +399,7 @@ class RegulatoryAuditor(BaseAuditor):
         self,
         chunk: ChunkData,
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Use LLM for deeper regulatory analysis."""
         findings = []
 
@@ -468,7 +464,7 @@ If no issues, respond with: []"""
         self,
         chunks: Sequence[ChunkData],
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Analyze regulatory compliance across all documents."""
         findings = []
 
@@ -493,13 +489,12 @@ If no issues, respond with: []"""
 
     async def post_audit_hook(
         self,
-        findings: List[AuditFinding],
+        findings: list[AuditFinding],
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Post-process findings and reset state."""
         self._framework_findings = {}
         return findings
-
 
 class GDPRDataMapper:
     """
@@ -534,14 +529,14 @@ class GDPRDataMapper:
         "sex_life_orientation",
     ]
 
-    def analyze_data_elements(self, text: str) -> Dict[str, List[tuple[int, int]]]:
+    def analyze_data_elements(self, text: str) -> dict[str, list[tuple[int, int]]]:
         """
         Analyze text for personal data elements.
 
         Returns:
             Dictionary mapping data category to list of (start, end) positions
         """
-        results: Dict[str, List[tuple[int, int]]] = {}
+        results: dict[str, list[tuple[int, int]]] = {}
 
         for category, pattern in self.PERSONAL_DATA_PATTERNS.items():
             matches = list(pattern.finditer(text))
@@ -553,7 +548,6 @@ class GDPRDataMapper:
     def is_special_category(self, data_type: str) -> bool:
         """Check if data type is a special category under GDPR Article 9."""
         return data_type in self.SPECIAL_CATEGORIES
-
 
 __all__ = [
     "RegulatoryAuditor",

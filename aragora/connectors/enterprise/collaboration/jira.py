@@ -20,7 +20,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -30,7 +30,6 @@ from aragora.connectors.enterprise.base import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class JiraProject:
@@ -42,7 +41,6 @@ class JiraProject:
     project_type: str  # software, business, service_desk
     lead: str = ""
     description: str = ""
-
 
 @dataclass
 class JiraIssue:
@@ -58,16 +56,15 @@ class JiraIssue:
     priority: str = ""
     assignee: str = ""
     reporter: str = ""
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
-    labels: List[str] = field(default_factory=list)
-    components: List[str] = field(default_factory=list)
-    fix_versions: List[str] = field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    resolved_at: datetime | None = None
+    labels: list[str] = field(default_factory=list)
+    components: list[str] = field(default_factory=list)
+    fix_versions: list[str] = field(default_factory=list)
     url: str = ""
-    parent_key: Optional[str] = None
-    story_points: Optional[float] = None
-
+    parent_key: str | None = None
+    story_points: float | None = None
 
 @dataclass
 class JiraComment:
@@ -76,9 +73,8 @@ class JiraComment:
     id: str
     body: str
     author: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 class JiraConnector(EnterpriseConnector):
     """
@@ -109,13 +105,13 @@ class JiraConnector(EnterpriseConnector):
     def __init__(
         self,
         base_url: str,
-        projects: Optional[List[str]] = None,
-        jql: Optional[str] = None,
+        projects: Optional[list[str]] = None,
+        jql: str | None = None,
         include_subtasks: bool = True,
         include_comments: bool = True,
         include_attachments: bool = False,
-        exclude_statuses: Optional[List[str]] = None,
-        exclude_types: Optional[List[str]] = None,
+        exclude_statuses: Optional[list[str]] = None,
+        exclude_types: Optional[list[str]] = None,
         **kwargs,
     ):
         """
@@ -153,7 +149,7 @@ class JiraConnector(EnterpriseConnector):
         self.is_cloud = "atlassian.net" in self.base_url
 
         # Cache
-        self._projects_cache: Dict[str, JiraProject] = {}
+        self._projects_cache: dict[str, JiraProject] = {}
 
     @property
     def source_type(self) -> SourceType:
@@ -163,7 +159,7 @@ class JiraConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"Jira ({self.base_url})"
 
-    async def _get_auth_header(self) -> Dict[str, str]:
+    async def _get_auth_header(self) -> dict[str, str]:
         """Get authentication header."""
         if self.is_cloud:
             email = await self.credentials.get_credential("JIRA_EMAIL")
@@ -188,10 +184,10 @@ class JiraConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
         api_version: str = "3",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make a request to Jira REST API."""
         import httpx
 
@@ -217,7 +213,7 @@ class JiraConnector(EnterpriseConnector):
             response.raise_for_status()
             return response.json() if response.content else {}
 
-    async def _get_projects(self) -> List[JiraProject]:
+    async def _get_projects(self) -> list[JiraProject]:
         """Get all accessible projects."""
         projects = []
         start = 0
@@ -262,7 +258,7 @@ class JiraConnector(EnterpriseConnector):
         jql: str,
         start_at: int = 0,
         max_results: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Search for issues using JQL."""
         params = {
             "jql": jql,
@@ -293,7 +289,7 @@ class JiraConnector(EnterpriseConnector):
     async def _get_issues(
         self,
         project_key: str,
-        modified_since: Optional[datetime] = None,
+        modified_since: datetime | None = None,
     ) -> AsyncIterator[JiraIssue]:
         """Get issues from a project."""
         # Build JQL
@@ -409,7 +405,7 @@ class JiraConnector(EnterpriseConnector):
                 break
             start_at += max_results
 
-    async def _get_issue_comments(self, issue_key: str) -> List[JiraComment]:
+    async def _get_issue_comments(self, issue_key: str) -> list[JiraComment]:
         """Get comments for an issue."""
         if not self.include_comments:
             return []
@@ -474,7 +470,7 @@ class JiraConnector(EnterpriseConnector):
 
         return comments
 
-    def _adf_to_text(self, adf: Dict[str, Any]) -> str:
+    def _adf_to_text(self, adf: dict[str, Any]) -> str:
         """Convert Atlassian Document Format to plain text."""
         if not adf:
             return ""
@@ -623,7 +619,7 @@ class JiraConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        project_key: Optional[str] = None,
+        project_key: str | None = None,
         **kwargs,
     ) -> list:
         """Search Jira issues via JQL text search."""
@@ -674,7 +670,7 @@ class JiraConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific Jira issue."""
         from aragora.connectors.base import Evidence
 
@@ -731,7 +727,7 @@ class JiraConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle Jira webhook notification."""
         event = payload.get("webhookEvent", "")
         issue = payload.get("issue", {})
@@ -751,11 +747,10 @@ class JiraConnector(EnterpriseConnector):
 
         return False
 
-    def get_webhook_secret(self) -> Optional[str]:
+    def get_webhook_secret(self) -> str | None:
         """Get webhook secret for signature verification."""
         import os
 
         return os.environ.get("JIRA_WEBHOOK_SECRET")
-
 
 __all__ = ["JiraConnector", "JiraProject", "JiraIssue", "JiraComment"]

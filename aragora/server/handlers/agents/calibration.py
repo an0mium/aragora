@@ -12,7 +12,6 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aragora.utils.optional_imports import try_import_class
 from aragora.server.versioning.compat import strip_version_prefix
@@ -46,7 +45,6 @@ CalibrationTracker, CALIBRATION_AVAILABLE = try_import_class(
     "aragora.agents.calibration", "CalibrationTracker"
 )
 
-
 class CalibrationHandler(SecureHandler):
     """Handler for calibration-related endpoints.
 
@@ -73,7 +71,7 @@ class CalibrationHandler(SecureHandler):
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route calibration requests with RBAC."""
         path = strip_version_prefix(path)
         # Rate limit check
@@ -126,7 +124,7 @@ class CalibrationHandler(SecureHandler):
 
     @handle_errors("calibration curve retrieval")
     def _get_calibration_curve(
-        self, agent: str, buckets: int, domain: Optional[str]
+        self, agent: str, buckets: int, domain: str | None
     ) -> HandlerResult:
         """Get calibration curve (expected vs actual accuracy per bucket)."""
         if not CALIBRATION_AVAILABLE or not CalibrationTracker:
@@ -155,7 +153,7 @@ class CalibrationHandler(SecureHandler):
         )
 
     @handle_errors("calibration summary retrieval")
-    def _get_calibration_summary(self, agent: str, domain: Optional[str]) -> HandlerResult:
+    def _get_calibration_summary(self, agent: str, domain: str | None) -> HandlerResult:
         """Get comprehensive calibration summary for an agent."""
         if not CALIBRATION_AVAILABLE or not CalibrationTracker:
             return error_response("Calibration tracker not available", 503)

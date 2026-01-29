@@ -15,7 +15,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.audit.base_auditor import (
     AuditContext,
@@ -30,7 +30,6 @@ from aragora.audit.document_auditor import (
 
 logger = logging.getLogger(__name__)
 
-
 class CitationStyle(str, Enum):
     """Supported citation styles."""
 
@@ -42,7 +41,6 @@ class CitationStyle(str, Enum):
     VANCOUVER = "vancouver"
     AMA = "ama"
 
-
 @dataclass
 class CitationPattern:
     """Pattern for detecting citations in a specific style."""
@@ -51,7 +49,6 @@ class CitationPattern:
     in_text_pattern: re.Pattern[str]
     reference_pattern: re.Pattern[str]
     description: str
-
 
 # Citation patterns by style
 CITATION_PATTERNS = [
@@ -93,20 +90,18 @@ CITATION_PATTERNS = [
     ),
 ]
 
-
 @dataclass
 class ExtractedCitation:
     """An extracted citation from the document."""
 
     text: str
-    style: Optional[CitationStyle]
+    style: CitationStyle | None
     author: str
-    year: Optional[str]
+    year: str | None
     position: int
     is_in_text: bool
     is_reference: bool
     confidence: float
-
 
 @dataclass
 class PlagiarismIndicator:
@@ -117,7 +112,6 @@ class PlagiarismIndicator:
     severity: FindingSeverity
     description: str
     recommendation: str
-
 
 # Plagiarism indicators
 PLAGIARISM_INDICATORS = [
@@ -157,7 +151,6 @@ PLAGIARISM_INDICATORS = [
         recommendation="Format 'et al.' citations properly",
     ),
 ]
-
 
 class AcademicAuditor(BaseAuditor):
     """
@@ -203,7 +196,7 @@ class AcademicAuditor(BaseAuditor):
 
     def __init__(
         self,
-        citation_style: Optional[CitationStyle] = None,
+        citation_style: CitationStyle | None = None,
         check_plagiarism: bool = True,
     ):
         """
@@ -215,15 +208,15 @@ class AcademicAuditor(BaseAuditor):
         """
         self._expected_style = citation_style
         self._check_plagiarism = check_plagiarism
-        self._detected_style: Optional[CitationStyle] = None
-        self._in_text_citations: List[ExtractedCitation] = []
-        self._references: List[ExtractedCitation] = []
+        self._detected_style: CitationStyle | None = None
+        self._in_text_citations: list[ExtractedCitation] = []
+        self._references: list[ExtractedCitation] = []
 
     async def analyze_chunk(
         self,
         chunk: ChunkData,
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Analyze a chunk for academic integrity issues."""
         findings = []
 
@@ -248,7 +241,7 @@ class AcademicAuditor(BaseAuditor):
 
         return findings
 
-    def _extract_citations(self, chunk: ChunkData) -> List[ExtractedCitation]:
+    def _extract_citations(self, chunk: ChunkData) -> list[ExtractedCitation]:
         """Extract all citations from a chunk."""
         citations = []
         content = chunk.content
@@ -295,17 +288,17 @@ class AcademicAuditor(BaseAuditor):
     def _check_citation_format(
         self,
         chunk: ChunkData,
-        citations: List[ExtractedCitation],
+        citations: list[ExtractedCitation],
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Check citation formatting consistency."""
-        findings: List[AuditFinding] = []
+        findings: list[AuditFinding] = []
 
         if not citations:
             return findings
 
         # Detect dominant style
-        style_counts: Dict[CitationStyle, int] = {}
+        style_counts: dict[CitationStyle, int] = {}
         for citation in citations:
             if citation.style:
                 style_counts[citation.style] = style_counts.get(citation.style, 0) + 1
@@ -351,7 +344,7 @@ class AcademicAuditor(BaseAuditor):
         self,
         chunk: ChunkData,
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Check for plagiarism indicators."""
         findings = []
 
@@ -385,7 +378,7 @@ class AcademicAuditor(BaseAuditor):
         self,
         chunk: ChunkData,
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Use LLM for deeper academic analysis."""
         findings = []
 
@@ -445,7 +438,7 @@ If no issues, respond with: []"""
         self,
         chunks: Sequence[ChunkData],
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Analyze citation coverage across the document."""
         findings = []
 
@@ -506,9 +499,9 @@ If no issues, respond with: []"""
 
     async def post_audit_hook(
         self,
-        findings: List[AuditFinding],
+        findings: list[AuditFinding],
         context: AuditContext,
-    ) -> List[AuditFinding]:
+    ) -> list[AuditFinding]:
         """Post-process findings and reset state."""
         # Reset state
         self._in_text_citations = []
@@ -517,7 +510,6 @@ If no issues, respond with: []"""
 
         return findings
 
-
 class CitationExtractor:
     """
     Standalone citation extractor for quick analysis.
@@ -525,10 +517,10 @@ class CitationExtractor:
     Can be used independently of the full audit system.
     """
 
-    def __init__(self, style: Optional[CitationStyle] = None):
+    def __init__(self, style: CitationStyle | None = None):
         self._style = style
 
-    def extract(self, text: str) -> List[Dict[str, Any]]:
+    def extract(self, text: str) -> list[dict[str, Any]]:
         """
         Extract all citations from text.
 
@@ -556,7 +548,7 @@ class CitationExtractor:
 
         return results
 
-    def get_bibliography(self, text: str) -> List[Dict[str, Any]]:
+    def get_bibliography(self, text: str) -> list[dict[str, Any]]:
         """
         Extract bibliography/references section.
 
@@ -588,7 +580,6 @@ class CitationExtractor:
                     )
 
         return results
-
 
 __all__ = [
     "AcademicAuditor",

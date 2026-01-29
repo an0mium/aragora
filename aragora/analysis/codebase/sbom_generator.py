@@ -20,13 +20,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .models import DependencyInfo
 from .scanner import DependencyScanner
 
 logger = logging.getLogger(__name__)
-
 
 class SBOMFormat(str, Enum):
     """Supported SBOM output formats."""
@@ -35,7 +34,6 @@ class SBOMFormat(str, Enum):
     CYCLONEDX_XML = "cyclonedx-xml"
     SPDX_JSON = "spdx-json"
     SPDX_TV = "spdx-tv"  # Tag-value format
-
 
 class ComponentType(str, Enum):
     """CycloneDX component types."""
@@ -48,7 +46,6 @@ class ComponentType(str, Enum):
     DEVICE = "device"
     FIRMWARE = "firmware"
     FILE = "file"
-
 
 class HashAlgorithm(str, Enum):
     """Hash algorithms for SBOM verification."""
@@ -64,7 +61,6 @@ class HashAlgorithm(str, Enum):
     BLAKE2b_384 = "BLAKE2b-384"
     BLAKE2b_512 = "BLAKE2b-512"
     BLAKE3 = "BLAKE3"
-
 
 # Map ecosystems to Package URLs (purl)
 ECOSYSTEM_TO_PURL_TYPE = {
@@ -91,7 +87,6 @@ ECOSYSTEM_DOWNLOAD_PATTERNS = {
     "go": "https://proxy.golang.org/{name}/@v/v{version}.zip",
 }
 
-
 @dataclass
 class SBOMComponent:
     """A component in the SBOM."""
@@ -102,17 +97,17 @@ class SBOMComponent:
     purl: str  # Package URL
     bom_ref: str  # Internal reference ID
     component_type: ComponentType = ComponentType.LIBRARY
-    group: Optional[str] = None  # Maven group, npm scope
-    description: Optional[str] = None
-    licenses: List[str] = field(default_factory=list)
-    hashes: Dict[HashAlgorithm, str] = field(default_factory=dict)
-    supplier: Optional[str] = None
-    author: Optional[str] = None
-    cpe: Optional[str] = None  # Common Platform Enumeration
-    external_references: List[Dict[str, str]] = field(default_factory=list)
-    dependencies: List[str] = field(default_factory=list)  # bom_ref of deps
-    vulnerabilities: List[str] = field(default_factory=list)  # CVE IDs
-    properties: Dict[str, str] = field(default_factory=dict)
+    group: str | None = None  # Maven group, npm scope
+    description: str | None = None
+    licenses: list[str] = field(default_factory=list)
+    hashes: dict[HashAlgorithm, str] = field(default_factory=dict)
+    supplier: str | None = None
+    author: str | None = None
+    cpe: str | None = None  # Common Platform Enumeration
+    external_references: list[dict[str, str]] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)  # bom_ref of deps
+    vulnerabilities: list[str] = field(default_factory=list)  # CVE IDs
+    properties: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dependency(cls, dep: DependencyInfo) -> "SBOMComponent":
@@ -163,7 +158,6 @@ class SBOMComponent:
 
         return f"pkg:{purl_type}/{name}@{version}"
 
-
 @dataclass
 class SBOMMetadata:
     """Metadata about the SBOM itself."""
@@ -174,14 +168,13 @@ class SBOMMetadata:
     tool_name: str = "Aragora Security Scanner"
     tool_version: str = "1.0.0"
     tool_vendor: str = "Aragora"
-    authors: List[str] = field(default_factory=list)
-    component_name: Optional[str] = None  # Root project name
-    component_version: Optional[str] = None
+    authors: list[str] = field(default_factory=list)
+    component_name: str | None = None  # Root project name
+    component_version: str | None = None
     component_type: ComponentType = ComponentType.APPLICATION
-    supplier: Optional[str] = None
-    manufacture: Optional[str] = None
-    properties: Dict[str, str] = field(default_factory=dict)
-
+    supplier: str | None = None
+    manufacture: str | None = None
+    properties: dict[str, str] = field(default_factory=dict)
 
 @dataclass
 class SBOMResult:
@@ -194,10 +187,10 @@ class SBOMResult:
     vulnerability_count: int
     license_count: int
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Optional[SBOMMetadata] = None
-    errors: List[str] = field(default_factory=list)
+    metadata: SBOMMetadata | None = None
+    errors: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "format": self.format.value,
@@ -209,7 +202,6 @@ class SBOMResult:
             "generated_at": self.generated_at.isoformat(),
             "errors": self.errors,
         }
-
 
 class SBOMGenerator:
     """
@@ -239,7 +231,7 @@ class SBOMGenerator:
 
     def __init__(
         self,
-        scanner: Optional[DependencyScanner] = None,
+        scanner: DependencyScanner | None = None,
         include_dev_dependencies: bool = True,
         include_vulnerabilities: bool = True,
     ):
@@ -259,10 +251,10 @@ class SBOMGenerator:
         self,
         repo_path: str,
         format: SBOMFormat = SBOMFormat.CYCLONEDX_JSON,
-        project_name: Optional[str] = None,
-        project_version: Optional[str] = None,
-        branch: Optional[str] = None,
-        commit_sha: Optional[str] = None,
+        project_name: str | None = None,
+        project_version: str | None = None,
+        branch: str | None = None,
+        commit_sha: str | None = None,
     ) -> SBOMResult:
         """
         Generate SBOM from a repository.
@@ -309,10 +301,10 @@ class SBOMGenerator:
 
     async def generate_from_dependencies(
         self,
-        dependencies: List[DependencyInfo],
+        dependencies: list[DependencyInfo],
         format: SBOMFormat = SBOMFormat.CYCLONEDX_JSON,
-        project_name: Optional[str] = None,
-        project_version: Optional[str] = None,
+        project_name: str | None = None,
+        project_version: str | None = None,
     ) -> SBOMResult:
         """
         Generate SBOM from a list of dependencies.
@@ -377,11 +369,11 @@ class SBOMGenerator:
 
     def _generate_cyclonedx_json(
         self,
-        components: List[SBOMComponent],
+        components: list[SBOMComponent],
         metadata: SBOMMetadata,
     ) -> str:
         """Generate CycloneDX 1.5 JSON format."""
-        bom: Dict[str, Any] = {
+        bom: dict[str, Any] = {
             "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
             "bomFormat": "CycloneDX",
             "specVersion": "1.5",
@@ -411,7 +403,7 @@ class SBOMGenerator:
 
         # Add components
         for comp in components:
-            component_json: Dict[str, Any] = {
+            component_json: dict[str, Any] = {
                 "type": comp.component_type.value,
                 "bom-ref": comp.bom_ref,
                 "name": comp.name,
@@ -491,7 +483,7 @@ class SBOMGenerator:
 
     def _generate_cyclonedx_xml(
         self,
-        components: List[SBOMComponent],
+        components: list[SBOMComponent],
         metadata: SBOMMetadata,
     ) -> str:
         """Generate CycloneDX 1.5 XML format."""
@@ -593,14 +585,14 @@ class SBOMGenerator:
 
     def _generate_spdx_json(
         self,
-        components: List[SBOMComponent],
+        components: list[SBOMComponent],
         metadata: SBOMMetadata,
     ) -> str:
         """Generate SPDX 2.3 JSON format."""
         # Create document ID
         doc_namespace = f"https://aragora.io/spdx/{uuid.uuid4()}"
 
-        spdx: Dict[str, Any] = {
+        spdx: dict[str, Any] = {
             "spdxVersion": "SPDX-2.3",
             "dataLicense": "CC0-1.0",
             "SPDXID": "SPDXRef-DOCUMENT",
@@ -643,7 +635,7 @@ class SBOMGenerator:
         for i, comp in enumerate(components):
             spdx_id = f"SPDXRef-Package-{i}"
 
-            pkg: Dict[str, Any] = {
+            pkg: dict[str, Any] = {
                 "SPDXID": spdx_id,
                 "name": comp.name,
                 "versionInfo": comp.version,
@@ -714,7 +706,7 @@ class SBOMGenerator:
 
     def _generate_spdx_tagvalue(
         self,
-        components: List[SBOMComponent],
+        components: list[SBOMComponent],
         metadata: SBOMMetadata,
     ) -> str:
         """Generate SPDX 2.3 Tag-Value format."""
@@ -852,7 +844,7 @@ class SBOMGenerator:
             )
         return "NOASSERTION"
 
-    def _hash_alg_to_spdx(self, alg: HashAlgorithm) -> Optional[str]:
+    def _hash_alg_to_spdx(self, alg: HashAlgorithm) -> str | None:
         """Convert HashAlgorithm to SPDX checksum algorithm."""
         mapping = {
             HashAlgorithm.MD5: "MD5",
@@ -869,12 +861,11 @@ class SBOMGenerator:
         }
         return mapping.get(alg)
 
-
 async def generate_sbom(
     repo_path: str,
     format: SBOMFormat = SBOMFormat.CYCLONEDX_JSON,
-    project_name: Optional[str] = None,
-    project_version: Optional[str] = None,
+    project_name: str | None = None,
+    project_version: str | None = None,
     include_dev: bool = True,
     include_vulns: bool = True,
 ) -> SBOMResult:
@@ -902,7 +893,6 @@ async def generate_sbom(
         project_name=project_name,
         project_version=project_version,
     )
-
 
 __all__ = [
     "SBOMGenerator",

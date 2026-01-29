@@ -18,6 +18,7 @@ Usage:
     # Or specify backend explicitly
     backend = get_tts_backend("elevenlabs")
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -31,25 +32,22 @@ import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.exceptions import ConfigurationError, ExternalServiceError
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
 
-
-def _parse_csv(value: Optional[str]) -> Optional[list[str]]:
+def _parse_csv(value: str | None) -> list[str] | None:
     if not value:
         return None
     return [item.strip() for item in value.split(",") if item.strip()]
 
-
-def _parse_json_env(name: str) -> Optional[Any]:
+def _parse_json_env(name: str) -> Any | None:
     raw = os.getenv(name)
     if not raw:
         return None
@@ -58,7 +56,6 @@ def _parse_json_env(name: str) -> Optional[Any]:
     except json.JSONDecodeError:
         logger.warning("Invalid JSON in %s", name)
         return None
-
 
 def _normalize_backend_name(name: str) -> str:
     aliases = {
@@ -74,39 +71,38 @@ def _normalize_backend_name(name: str) -> str:
     }
     return aliases.get(name, name)
 
-
 @dataclass
 class TTSConfig:
     """Configuration for TTS backends."""
 
     # Backend priority (first available is used)
-    backend_priority: List[str] = field(
+    backend_priority: list[str] = field(
         default_factory=lambda: ["elevenlabs", "polly", "xtts", "edge-tts", "pyttsx3"]
     )
 
     # ElevenLabs settings
-    elevenlabs_api_key: Optional[str] = None
+    elevenlabs_api_key: str | None = None
     elevenlabs_model: str = "eleven_multilingual_v2"
-    elevenlabs_voice_map: Dict[str, str] = field(default_factory=dict)
-    elevenlabs_default_voice_id: Optional[str] = None
+    elevenlabs_voice_map: dict[str, str] = field(default_factory=dict)
+    elevenlabs_default_voice_id: str | None = None
 
     # XTTS settings
-    xtts_model_path: Optional[str] = None
+    xtts_model_path: str | None = None
     xtts_device: str = "auto"  # auto, cuda, cpu
     xtts_language: str = "en"
-    xtts_speaker_wav: Optional[str] = None
-    xtts_speaker_wav_map: Dict[str, str] = field(default_factory=dict)
+    xtts_speaker_wav: str | None = None
+    xtts_speaker_wav_map: dict[str, str] = field(default_factory=dict)
 
     # Amazon Polly settings
-    polly_region: Optional[str] = None
+    polly_region: str | None = None
     polly_engine: str = "neural"  # neural or standard
     polly_text_type: str = "text"  # text or ssml
-    polly_voice_map: Dict[str, str] = field(default_factory=dict)
-    polly_default_voice_id: Optional[str] = None
-    polly_lexicons: Optional[List[str]] = None
+    polly_voice_map: dict[str, str] = field(default_factory=dict)
+    polly_default_voice_id: str | None = None
+    polly_lexicons: Optional[list[str]] = None
 
     # Cache settings
-    cache_dir: Optional[Path] = None
+    cache_dir: Path | None = None
     enable_cache: bool = True
 
     @classmethod
@@ -181,13 +177,12 @@ class TTSConfig:
             ),
         )
 
-
 # =============================================================================
 # Voice Mappings
 # =============================================================================
 
 # ElevenLabs voice IDs (these are examples - get actual IDs from your account)
-ELEVENLABS_VOICES: Dict[str, str] = {
+ELEVENLABS_VOICES: dict[str, str] = {
     # Character voices (diverse, expressive)
     "claude-visionary": "pNInz6obpgDQGcFmaJgB",  # Adam - deep, authoritative
     "codex-engineer": "VR6AewLTigWG4xSOukaG",  # Arnold - technical
@@ -199,7 +194,7 @@ ELEVENLABS_VOICES: Dict[str, str] = {
 }
 
 # XTTS speaker references (sample audio files for voice cloning)
-XTTS_SPEAKERS: Dict[str, str] = {
+XTTS_SPEAKERS: dict[str, str] = {
     "claude-visionary": "voices/claude.wav",
     "codex-engineer": "voices/codex.wav",
     "gemini-visionary": "voices/gemini.wav",
@@ -209,7 +204,7 @@ XTTS_SPEAKERS: Dict[str, str] = {
 }
 
 # Edge-TTS voices (Microsoft Azure neural voices)
-EDGE_TTS_VOICES: Dict[str, str] = {
+EDGE_TTS_VOICES: dict[str, str] = {
     "claude-visionary": "en-GB-SoniaNeural",
     "codex-engineer": "en-US-GuyNeural",
     "gemini-visionary": "en-AU-NatashaNeural",
@@ -219,7 +214,7 @@ EDGE_TTS_VOICES: Dict[str, str] = {
 }
 
 # Amazon Polly voices (AWS)
-POLLY_VOICES: Dict[str, str] = {
+POLLY_VOICES: dict[str, str] = {
     "claude-visionary": "Matthew",
     "codex-engineer": "Joanna",
     "gemini-visionary": "Salli",
@@ -228,11 +223,9 @@ POLLY_VOICES: Dict[str, str] = {
     "default": "Joanna",
 }
 
-
 # =============================================================================
 # Base Backend Interface
 # =============================================================================
-
 
 class TTSBackend(ABC):
     """Abstract base class for TTS backends."""
@@ -244,9 +237,9 @@ class TTSBackend(ABC):
         self,
         text: str,
         voice: str = "default",
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         **kwargs,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """
         Synthesize speech from text.
 
@@ -270,11 +263,9 @@ class TTSBackend(ABC):
         """Get the voice ID for a speaker name."""
         return speaker
 
-
 # =============================================================================
 # ElevenLabs Backend
 # =============================================================================
-
 
 class ElevenLabsBackend(TTSBackend):
     """
@@ -292,7 +283,7 @@ class ElevenLabsBackend(TTSBackend):
 
     name = "elevenlabs"
 
-    def __init__(self, config: Optional[TTSConfig] = None):
+    def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig.from_env()
         self._client = None
 
@@ -331,9 +322,9 @@ class ElevenLabsBackend(TTSBackend):
         self,
         text: str,
         voice: str = "default",
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         **kwargs,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Synthesize speech using ElevenLabs."""
         if not self.is_available():
             return None
@@ -373,11 +364,9 @@ class ElevenLabsBackend(TTSBackend):
 
         return None
 
-
 # =============================================================================
 # Coqui XTTS Backend
 # =============================================================================
-
 
 class XTTSBackend(TTSBackend):
     """
@@ -395,10 +384,10 @@ class XTTSBackend(TTSBackend):
 
     name = "xtts"
 
-    def __init__(self, config: Optional[TTSConfig] = None):
+    def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig.from_env()
         self._model = None
-        self._device: Optional[str] = None
+        self._device: str | None = None
 
     def is_available(self) -> bool:
         """Check if XTTS is available."""
@@ -447,7 +436,7 @@ class XTTSBackend(TTSBackend):
 
         return self._model
 
-    def get_voice_id(self, speaker: str) -> Optional[str]:
+    def get_voice_id(self, speaker: str) -> str | None:
         """Get speaker reference audio path."""
         if speaker:
             candidate = Path(speaker).expanduser()
@@ -472,10 +461,10 @@ class XTTSBackend(TTSBackend):
         self,
         text: str,
         voice: str = "default",
-        output_path: Optional[Path] = None,
-        language: Optional[str] = None,
+        output_path: Path | None = None,
+        language: str | None = None,
         **kwargs,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Synthesize speech using XTTS."""
         if not self.is_available():
             return None
@@ -521,11 +510,9 @@ class XTTSBackend(TTSBackend):
 
         return None
 
-
 # =============================================================================
 # Edge-TTS Backend
 # =============================================================================
-
 
 class EdgeTTSBackend(TTSBackend):
     """
@@ -537,7 +524,7 @@ class EdgeTTSBackend(TTSBackend):
 
     name = "edge-tts"
 
-    def __init__(self, config: Optional[TTSConfig] = None):
+    def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig.from_env()
 
     def is_available(self) -> bool:
@@ -553,7 +540,7 @@ class EdgeTTSBackend(TTSBackend):
         """Get Edge-TTS voice for speaker."""
         return EDGE_TTS_VOICES.get(speaker, EDGE_TTS_VOICES["default"])
 
-    def _get_command(self) -> Optional[List[str]]:
+    def _get_command(self) -> Optional[list[str]]:
         """Get edge-tts command."""
         cmd = shutil.which("edge-tts")
         if cmd:
@@ -566,10 +553,10 @@ class EdgeTTSBackend(TTSBackend):
         self,
         text: str,
         voice: str = "default",
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         timeout: float = 60.0,
         **kwargs,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Synthesize speech using Edge-TTS."""
         if not self.is_available():
             return None
@@ -621,11 +608,9 @@ class EdgeTTSBackend(TTSBackend):
 
         return None
 
-
 # =============================================================================
 # Amazon Polly Backend
 # =============================================================================
-
 
 class PollyBackend(TTSBackend):
     """
@@ -636,7 +621,7 @@ class PollyBackend(TTSBackend):
 
     name = "polly"
 
-    def __init__(self, config: Optional[TTSConfig] = None):
+    def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig.from_env()
         self._client = None
 
@@ -684,9 +669,9 @@ class PollyBackend(TTSBackend):
         self,
         text: str,
         voice: str = "default",
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         **kwargs,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Synthesize speech using Amazon Polly."""
         if not self.is_available():
             return None
@@ -704,7 +689,7 @@ class PollyBackend(TTSBackend):
                 output_path = Path(tempfile.gettempdir()) / f"polly_{voice}_{text_hash}.mp3"
 
             def _generate():
-                params: Dict[str, Any] = {
+                params: dict[str, Any] = {
                     "Text": text,
                     "VoiceId": voice_id,
                     "OutputFormat": "mp3",
@@ -734,11 +719,9 @@ class PollyBackend(TTSBackend):
 
         return None
 
-
 # =============================================================================
 # pyttsx3 Backend (Offline Fallback)
 # =============================================================================
-
 
 class Pyttsx3Backend(TTSBackend):
     """
@@ -750,7 +733,7 @@ class Pyttsx3Backend(TTSBackend):
 
     name = "pyttsx3"
 
-    def __init__(self, config: Optional[TTSConfig] = None):
+    def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig.from_env()
 
     def is_available(self) -> bool:
@@ -761,9 +744,9 @@ class Pyttsx3Backend(TTSBackend):
         self,
         text: str,
         voice: str = "default",
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         **kwargs,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Synthesize speech using pyttsx3."""
         if not self.is_available():
             return None
@@ -794,13 +777,12 @@ class Pyttsx3Backend(TTSBackend):
 
         return None
 
-
 # =============================================================================
 # Backend Factory
 # =============================================================================
 
 # Registry of available backends
-BACKEND_REGISTRY: Dict[str, type] = {
+BACKEND_REGISTRY: dict[str, type] = {
     "elevenlabs": ElevenLabsBackend,
     "polly": PollyBackend,
     "xtts": XTTSBackend,
@@ -808,10 +790,9 @@ BACKEND_REGISTRY: Dict[str, type] = {
     "pyttsx3": Pyttsx3Backend,
 }
 
-
 def get_tts_backend(
-    backend_name: Optional[str] = None,
-    config: Optional[TTSConfig] = None,
+    backend_name: str | None = None,
+    config: TTSConfig | None = None,
 ) -> TTSBackend:
     """
     Get a TTS backend instance.
@@ -861,7 +842,6 @@ def get_tts_backend(
         reason="No TTS backends available. Install at least one: elevenlabs, boto3, edge-tts, or pyttsx3",
     )
 
-
 class FallbackTTSBackend(TTSBackend):
     """
     TTS backend with automatic fallback chain.
@@ -871,9 +851,9 @@ class FallbackTTSBackend(TTSBackend):
 
     name = "fallback"
 
-    def __init__(self, config: Optional[TTSConfig] = None):
+    def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig.from_env()
-        self._backends: List[TTSBackend] = []
+        self._backends: list[TTSBackend] = []
         self._init_backends()
 
     def _init_backends(self):
@@ -900,9 +880,9 @@ class FallbackTTSBackend(TTSBackend):
         self,
         text: str,
         voice: str = "default",
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         **kwargs,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Synthesize with fallback through available backends."""
         for backend in self._backends:
             try:
@@ -925,11 +905,9 @@ class FallbackTTSBackend(TTSBackend):
         logger.error("All TTS backends failed")
         return None
 
-
-def get_fallback_backend(config: Optional[TTSConfig] = None) -> FallbackTTSBackend:
+def get_fallback_backend(config: TTSConfig | None = None) -> FallbackTTSBackend:
     """Get a TTS backend with fallback support."""
     return FallbackTTSBackend(config)
-
 
 __all__ = [
     # Config

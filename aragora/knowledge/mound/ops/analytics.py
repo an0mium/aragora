@@ -18,18 +18,16 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Coverage Analytics
 # =============================================================================
-
 
 @dataclass
 class DomainCoverage:
@@ -43,7 +41,7 @@ class DomainCoverage:
     average_confidence: float
     average_age_days: float
     stale_items: int  # Items older than threshold
-    topics: List[str]  # Main topics in this domain
+    topics: list[str]  # Main topics in this domain
 
     @property
     def coverage_score(self) -> float:
@@ -58,7 +56,7 @@ class DomainCoverage:
 
         return confidence_factor * 0.4 + freshness_factor * 0.3 + depth_factor * 0.3
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "domain": self.domain,
@@ -73,20 +71,19 @@ class DomainCoverage:
             "coverage_score": round(self.coverage_score, 3),
         }
 
-
 @dataclass
 class CoverageReport:
     """Full coverage analysis report."""
 
     workspace_id: str
     total_items: int
-    domains: List[DomainCoverage]
-    well_covered_domains: List[str]  # score > 0.7
-    sparse_domains: List[str]  # score < 0.3
+    domains: list[DomainCoverage]
+    well_covered_domains: list[str]  # score > 0.7
+    sparse_domains: list[str]  # score < 0.3
     overall_coverage_score: float
     analyzed_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "workspace_id": self.workspace_id,
@@ -98,11 +95,9 @@ class CoverageReport:
             "analyzed_at": self.analyzed_at.isoformat(),
         }
 
-
 # =============================================================================
 # Usage Analytics
 # =============================================================================
-
 
 class UsageEventType(str, Enum):
     """Types of usage events tracked."""
@@ -113,20 +108,18 @@ class UsageEventType(str, Enum):
     SHARE = "share"
     EXPORT = "export"
 
-
 @dataclass
 class UsageEvent:
     """A usage event record."""
 
     id: str
     event_type: UsageEventType
-    item_id: Optional[str] = None
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    query: Optional[str] = None
+    item_id: str | None = None
+    user_id: str | None = None
+    workspace_id: str | None = None
+    query: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ItemUsageStats:
@@ -137,7 +130,7 @@ class ItemUsageStats:
     query_hits: int = 0
     citation_count: int = 0
     share_count: int = 0
-    last_accessed: Optional[datetime] = None
+    last_accessed: datetime | None = None
 
     @property
     def engagement_score(self) -> float:
@@ -149,7 +142,7 @@ class ItemUsageStats:
             + self.share_count * 3.0
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "item_id": self.item_id,
@@ -161,7 +154,6 @@ class ItemUsageStats:
             "engagement_score": round(self.engagement_score, 2),
         }
 
-
 @dataclass
 class UsageReport:
     """Usage analytics report."""
@@ -171,13 +163,13 @@ class UsageReport:
     total_queries: int
     total_views: int
     unique_users: int
-    most_accessed_items: List[ItemUsageStats]
-    least_accessed_items: List[ItemUsageStats]
-    query_patterns: Dict[str, int]  # Common query terms
-    daily_activity: Dict[str, int]  # date -> count
+    most_accessed_items: list[ItemUsageStats]
+    least_accessed_items: list[ItemUsageStats]
+    query_patterns: dict[str, int]  # Common query terms
+    daily_activity: dict[str, int]  # date -> count
     generated_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "workspace_id": self.workspace_id,
@@ -192,11 +184,9 @@ class UsageReport:
             "generated_at": self.generated_at.isoformat(),
         }
 
-
 # =============================================================================
 # Quality Analytics
 # =============================================================================
-
 
 @dataclass
 class QualitySnapshot:
@@ -209,7 +199,7 @@ class QualitySnapshot:
     contradiction_count: int
     high_quality_count: int  # confidence > 0.8, recently updated
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "timestamp": self.timestamp.isoformat(),
@@ -220,17 +210,16 @@ class QualitySnapshot:
             "high_quality_count": self.high_quality_count,
         }
 
-
 @dataclass
 class QualityTrend:
     """Quality trend over time."""
 
     workspace_id: str
-    snapshots: List[QualitySnapshot]
+    snapshots: list[QualitySnapshot]
     trend_direction: str  # "improving", "stable", "declining"
     period_days: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "workspace_id": self.workspace_id,
@@ -239,11 +228,9 @@ class QualityTrend:
             "period_days": self.period_days,
         }
 
-
 # =============================================================================
 # Growth Analytics
 # =============================================================================
-
 
 @dataclass
 class GrowthMetrics:
@@ -259,7 +246,7 @@ class GrowthMetrics:
     churn_rate: float  # deleted / (start_count + added)
     velocity: float  # items per day
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "workspace_id": self.workspace_id,
@@ -273,32 +260,30 @@ class GrowthMetrics:
             "velocity": round(self.velocity, 2),
         }
 
-
 # =============================================================================
 # Analytics Manager
 # =============================================================================
-
 
 class KnowledgeAnalytics:
     """Manages analytics for Knowledge Mound."""
 
     def __init__(self):
         """Initialize analytics manager."""
-        self._usage_events: List[UsageEvent] = []
-        self._item_usage: Dict[str, ItemUsageStats] = defaultdict(
+        self._usage_events: list[UsageEvent] = []
+        self._item_usage: dict[str, ItemUsageStats] = defaultdict(
             lambda: ItemUsageStats(item_id="")
         )
-        self._quality_snapshots: Dict[str, List[QualitySnapshot]] = defaultdict(list)
+        self._quality_snapshots: dict[str, list[QualitySnapshot]] = defaultdict(list)
         self._lock = asyncio.Lock()
 
     async def record_usage(
         self,
         event_type: UsageEventType,
-        item_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        query: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        item_id: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
+        query: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> UsageEvent:
         """Record a usage event.
 
@@ -374,7 +359,7 @@ class KnowledgeAnalytics:
         items = result.items if hasattr(result, "items") else []
 
         # Group by domain (first topic)
-        domain_items: Dict[str, List[Any]] = defaultdict(list)
+        domain_items: dict[str, list[Any]] = defaultdict(list)
         for item in items:
             topics = getattr(item, "topics", []) or []
             domain = topics[0] if topics else "uncategorized"
@@ -391,7 +376,7 @@ class KnowledgeAnalytics:
             total_conf = 0.0
             total_age = 0.0
             stale = 0
-            topic_counts: Dict[str, int] = defaultdict(int)
+            topic_counts: dict[str, int] = defaultdict(int)
 
             for item in items_in_domain:
                 conf = getattr(item, "confidence", 0.5) or 0.5
@@ -493,7 +478,7 @@ class KnowledgeAnalytics:
         unique_users = len({e.user_id for e in events if e.user_id})
 
         # Query patterns
-        query_terms: Dict[str, int] = defaultdict(int)
+        query_terms: dict[str, int] = defaultdict(int)
         for event in events:
             if event.query:
                 for term in event.query.lower().split():
@@ -501,7 +486,7 @@ class KnowledgeAnalytics:
                         query_terms[term] += 1
 
         # Daily activity
-        daily: Dict[str, int] = defaultdict(int)
+        daily: dict[str, int] = defaultdict(int)
         for event in events:
             day = event.timestamp.strftime("%Y-%m-%d")
             daily[day] += 1
@@ -637,7 +622,7 @@ class KnowledgeAnalytics:
             period_days=days,
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get analytics statistics."""
         return {
             "total_usage_events": len(self._usage_events),
@@ -645,16 +630,14 @@ class KnowledgeAnalytics:
             "workspaces_with_snapshots": len(self._quality_snapshots),
         }
 
-
 # =============================================================================
 # Analytics Mixin
 # =============================================================================
 
-
 class AnalyticsMixin:
     """Mixin for analytics operations on KnowledgeMound."""
 
-    _analytics: Optional[KnowledgeAnalytics] = None
+    _analytics: KnowledgeAnalytics | None = None
 
     def _get_analytics(self) -> KnowledgeAnalytics:
         """Get or create analytics manager."""
@@ -665,10 +648,10 @@ class AnalyticsMixin:
     async def record_usage_event(
         self,
         event_type: UsageEventType,
-        item_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        query: Optional[str] = None,
+        item_id: str | None = None,
+        user_id: str | None = None,
+        workspace_id: str | None = None,
+        query: str | None = None,
     ) -> UsageEvent:
         """Record a usage event."""
         return await self._get_analytics().record_usage(
@@ -710,14 +693,12 @@ class AnalyticsMixin:
         """Get quality trend over time."""
         return await self._get_analytics().get_quality_trend(workspace_id, days)
 
-    def get_analytics_stats(self) -> Dict[str, Any]:
+    def get_analytics_stats(self) -> dict[str, Any]:
         """Get analytics statistics."""
         return self._get_analytics().get_stats()
 
-
 # Singleton instance
-_analytics: Optional[KnowledgeAnalytics] = None
-
+_analytics: KnowledgeAnalytics | None = None
 
 def get_knowledge_analytics() -> KnowledgeAnalytics:
     """Get the global knowledge analytics instance."""

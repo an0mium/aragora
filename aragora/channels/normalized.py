@@ -27,7 +27,6 @@ __all__ = [
     "MessageAttachment",
 ]
 
-
 class MessageFormat(Enum):
     """Message content format."""
 
@@ -35,7 +34,6 @@ class MessageFormat(Enum):
     MARKDOWN = "markdown"  # Markdown formatted
     HTML = "html"  # HTML formatted
     ADAPTIVE = "adaptive"  # Adaptive Card (Teams)
-
 
 @dataclass
 class MessageButton:
@@ -55,16 +53,15 @@ class MessageButton:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class MessageAttachment:
     """An attachment (file, image, audio) that can be included in a message."""
 
     type: str  # file, image, audio, video
-    data: Optional[bytes] = None  # Raw data
-    url: Optional[str] = None  # URL to resource
-    filename: Optional[str] = None
-    mimetype: Optional[str] = None
+    data: bytes | None = None  # Raw data
+    url: str | None = None  # URL to resource
+    filename: str | None = None
+    mimetype: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -76,7 +73,6 @@ class MessageAttachment:
             "mimetype": self.mimetype,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class NormalizedMessage:
@@ -101,11 +97,11 @@ class NormalizedMessage:
     content: str
     message_type: str = "notification"
     format: MessageFormat = MessageFormat.PLAIN
-    title: Optional[str] = None
+    title: str | None = None
     buttons: list[MessageButton] = field(default_factory=list)
     attachments: list[MessageAttachment | dict[str, Any]] = field(default_factory=list)
-    thread_id: Optional[str] = None
-    reply_to: Optional[str] = None
+    thread_id: str | None = None
+    reply_to: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def with_button(
@@ -131,9 +127,9 @@ class NormalizedMessage:
     def with_attachment(
         self,
         type: str,
-        data: Optional[bytes] = None,
-        url: Optional[str] = None,
-        filename: Optional[str] = None,
+        data: bytes | None = None,
+        url: str | None = None,
+        filename: str | None = None,
     ) -> "NormalizedMessage":
         """
         Add an attachment to the message (fluent interface).

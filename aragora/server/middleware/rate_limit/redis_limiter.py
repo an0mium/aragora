@@ -19,7 +19,7 @@ import os
 import threading
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .base import (
     DEFAULT_RATE_LIMIT,
@@ -64,7 +64,6 @@ METRICS_AGGREGATION_INTERVAL = int(os.environ.get("ARAGORA_RATE_LIMIT_METRICS_IN
 # Global Redis client (lazy-initialized)
 _redis_client: Optional["redis.Redis"] = None
 _redis_init_attempted: bool = False
-
 
 def get_redis_client() -> Optional["redis.Redis"]:
     """
@@ -124,7 +123,6 @@ def get_redis_client() -> Optional["redis.Redis"]:
         _redis_client = None
         return None
 
-
 def reset_redis_client() -> None:
     """Reset Redis client (for testing)."""
     global _redis_client, _redis_init_attempted
@@ -136,7 +134,6 @@ def reset_redis_client() -> None:
             logger.debug(f"Error closing Redis client during reset: {e}")
     _redis_client = None
     _redis_init_attempted = False
-
 
 class RateLimitCircuitBreaker:
     """
@@ -176,7 +173,7 @@ class RateLimitCircuitBreaker:
         self._state = self.CLOSED
         self._failure_count = 0
         self._success_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._half_open_calls = 0
         self._lock = threading.Lock()
 
@@ -236,7 +233,7 @@ class RateLimitCircuitBreaker:
                         f"Rate limit circuit breaker OPEN after {self._failure_count} failures"
                     )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get circuit breaker statistics."""
         with self._lock:
             return {
@@ -247,7 +244,6 @@ class RateLimitCircuitBreaker:
                 "recovery_timeout": self.recovery_timeout,
                 "last_failure_time": self._last_failure_time,
             }
-
 
 class RedisRateLimiter:
     """
@@ -266,7 +262,7 @@ class RedisRateLimiter:
         ttl_seconds: int = 120,
         enable_circuit_breaker: bool = ENABLE_CIRCUIT_BREAKER,
         enable_distributed_metrics: bool = ENABLE_DISTRIBUTED_METRICS,
-        instance_id: Optional[str] = None,
+        instance_id: str | None = None,
     ):
         """
         Initialize Redis rate limiter.
@@ -291,7 +287,7 @@ class RedisRateLimiter:
         )
 
         # Circuit breaker for fault tolerance
-        self._circuit_breaker: Optional[RateLimitCircuitBreaker] = None
+        self._circuit_breaker: RateLimitCircuitBreaker | None = None
         if enable_circuit_breaker:
             self._circuit_breaker = RateLimitCircuitBreaker(
                 failure_threshold=REDIS_FAILURE_THRESHOLD,
@@ -302,16 +298,16 @@ class RedisRateLimiter:
         self._fallback = RateLimiter(default_limit, ip_limit)
 
         # Per-endpoint configuration (stored in memory, not Redis)
-        self._endpoint_configs: Dict[str, RateLimitConfig] = {}
+        self._endpoint_configs: dict[str, RateLimitConfig] = {}
 
         # Cache of Redis buckets
-        self._buckets: Dict[str, RedisTokenBucket] = {}
+        self._buckets: dict[str, RedisTokenBucket] = {}
         self._lock = threading.Lock()
 
         # Local observability metrics
         self._requests_allowed: int = 0
         self._requests_rejected: int = 0
-        self._rejections_by_endpoint: Dict[str, int] = {}
+        self._rejections_by_endpoint: dict[str, int] = {}
         self._redis_failures: int = 0
         self._fallback_requests: int = 0
 
@@ -478,9 +474,9 @@ class RedisRateLimiter:
         except Exception as e:
             logger.debug(f"Failed to sync distributed metrics: {e}")
 
-    def get_distributed_metrics(self) -> Dict[str, Any]:
+    def get_distributed_metrics(self) -> dict[str, Any]:
         """Get aggregated metrics from all instances."""
-        aggregated: Dict[str, Any] = {
+        aggregated: dict[str, Any] = {
             "total_requests_allowed": 0,
             "total_requests_rejected": 0,
             "total_redis_failures": 0,
@@ -496,7 +492,7 @@ class RedisRateLimiter:
             for key in instance_keys:
                 instance_id = key.replace(self._metrics_key, "")
                 # Sync redis returns dict directly, async redis returns Awaitable
-                metrics: Dict[str, Any] = self.redis.hgetall(key)  # type: ignore[assignment]
+                metrics: dict[str, Any] = self.redis.hgetall(key)  # type: ignore[assignment]
 
                 if metrics:
                     allowed = int(metrics.get("requests_allowed", 0))
@@ -528,7 +524,7 @@ class RedisRateLimiter:
 
         return aggregated
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get rate limiter statistics including observability metrics."""
         with self._lock:
             total_requests = self._requests_allowed + self._requests_rejected
@@ -592,7 +588,6 @@ class RedisRateLimiter:
         with self._lock:
             self._buckets.clear()
         self._fallback.reset()
-
 
 __all__ = [
     "REDIS_AVAILABLE",

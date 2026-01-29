@@ -23,7 +23,7 @@ import logging
 import os
 import secrets
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
@@ -107,8 +107,7 @@ _slack_oauth_audit: Any = None
 # Legacy in-memory fallback for tests/compatibility
 _oauth_states_fallback: dict[str, dict[str, Any]] = {}
 
-
-def _cleanup_oauth_states_fallback(now: Optional[float] = None) -> None:
+def _cleanup_oauth_states_fallback(now: float | None = None) -> None:
     """Remove expired fallback OAuth states."""
     now = now or time.time()
     expired = [
@@ -118,7 +117,6 @@ def _cleanup_oauth_states_fallback(now: Optional[float] = None) -> None:
     ]
     for state in expired:
         _oauth_states_fallback.pop(state, None)
-
 
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
@@ -133,13 +131,11 @@ def _get_oauth_audit_logger() -> Any:
             _slack_oauth_audit = None
     return _slack_oauth_audit
 
-
 def _get_state_store():
     """Get the centralized OAuth state store."""
     from aragora.server.oauth_state_store import get_oauth_state_store
 
     return get_oauth_state_store()
-
 
 class SlackOAuthHandler(SecureHandler):
     """Handler for Slack OAuth installation flow.
@@ -183,10 +179,10 @@ class SlackOAuthHandler(SecureHandler):
         self,
         method: str,
         path: str,
-        body: Optional[Dict[str, Any]] = None,
-        query_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        handler: Optional[Any] = None,
+        body: Optional[dict[str, Any]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
+        handler: Any | None = None,
     ) -> HandlerResult:
         """Route OAuth requests to appropriate methods.
 
@@ -280,7 +276,7 @@ class SlackOAuthHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def _handle_install(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _handle_install(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Initiate Slack OAuth installation flow.
 
@@ -348,7 +344,7 @@ class SlackOAuthHandler(SecureHandler):
             },
         )
 
-    async def _handle_preview(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _handle_preview(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Display consent preview page before Slack OAuth.
 
@@ -595,7 +591,7 @@ class SlackOAuthHandler(SecureHandler):
 </body>
 </html>"""
 
-    async def _handle_callback(self, query_params: Dict[str, str]) -> HandlerResult:
+    async def _handle_callback(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Handle OAuth callback from Slack.
 
@@ -878,7 +874,7 @@ class SlackOAuthHandler(SecureHandler):
         )
 
     async def _handle_uninstall(
-        self, body: Dict[str, Any], headers: Dict[str, str]
+        self, body: dict[str, Any], headers: dict[str, str]
     ) -> HandlerResult:
         """
         Handle app uninstallation webhook from Slack.
@@ -1202,7 +1198,6 @@ class SlackOAuthHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Failed to refresh token: {e}")
             return error_response(f"Failed to refresh token: {e}", 500)
-
 
 # Handler factory function for registration
 def create_slack_oauth_handler(server_context: Any) -> SlackOAuthHandler:

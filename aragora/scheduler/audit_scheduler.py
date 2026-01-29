@@ -32,11 +32,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
-
 
 class TriggerType(str, Enum):
     """Types of schedule triggers."""
@@ -48,7 +47,6 @@ class TriggerType(str, Enum):
     MANUAL = "manual"  # Manual trigger
     INTERVAL = "interval"  # Fixed interval
 
-
 class ScheduleStatus(str, Enum):
     """Status of a scheduled job."""
 
@@ -57,7 +55,6 @@ class ScheduleStatus(str, Enum):
     DISABLED = "disabled"
     RUNNING = "running"
     ERROR = "error"
-
 
 @dataclass
 class ScheduleConfig:
@@ -68,18 +65,18 @@ class ScheduleConfig:
 
     # Trigger configuration
     trigger_type: TriggerType = TriggerType.CRON
-    cron: Optional[str] = None  # Cron expression (e.g., "0 2 * * *")
-    interval_minutes: Optional[int] = None  # For interval trigger
-    webhook_secret: Optional[str] = None  # For webhook verification
+    cron: str | None = None  # Cron expression (e.g., "0 2 * * *")
+    interval_minutes: int | None = None  # For interval trigger
+    webhook_secret: str | None = None  # For webhook verification
 
     # Audit configuration
-    preset: Optional[str] = None  # Preset name to use
+    preset: str | None = None  # Preset name to use
     audit_types: list[str] = field(default_factory=list)  # Or specific types
     custom_config: dict[str, Any] = field(default_factory=dict)
 
     # Scope
-    workspace_id: Optional[str] = None
-    document_scope: Optional[str] = None  # "workspace:id", "folder:path", "tag:name"
+    workspace_id: str | None = None
+    document_scope: str | None = None  # "workspace:id", "folder:path", "tag:name"
     document_ids: list[str] = field(default_factory=list)
 
     # Options
@@ -90,9 +87,8 @@ class ScheduleConfig:
     timeout_minutes: int = 60
 
     # Metadata
-    created_by: Optional[str] = None
+    created_by: str | None = None
     tags: list[str] = field(default_factory=list)
-
 
 @dataclass
 class ScheduledJob:
@@ -102,9 +98,9 @@ class ScheduledJob:
     schedule_id: str
     config: ScheduleConfig
     status: ScheduleStatus
-    next_run: Optional[datetime] = None
-    last_run: Optional[datetime] = None
-    last_result: Optional[dict] = None
+    next_run: datetime | None = None
+    last_run: datetime | None = None
+    last_result: dict | None = None
     run_count: int = 0
     error_count: int = 0
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -123,7 +119,6 @@ class ScheduledJob:
             "error_count": self.error_count,
         }
 
-
 @dataclass
 class JobRun:
     """Record of a single job execution."""
@@ -131,11 +126,11 @@ class JobRun:
     run_id: str
     job_id: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     status: str = "running"
-    session_id: Optional[str] = None
+    session_id: str | None = None
     findings_count: int = 0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     duration_ms: int = 0
 
     def to_dict(self) -> dict[str, Any]:
@@ -151,7 +146,6 @@ class JobRun:
             "error_message": self.error_message,
             "duration_ms": self.duration_ms,
         }
-
 
 class CronParser:
     """Simple cron expression parser."""
@@ -210,7 +204,7 @@ class CronParser:
         return [int(field)]
 
     @staticmethod
-    def next_run(expression: str, after: Optional[datetime] = None) -> datetime:
+    def next_run(expression: str, after: datetime | None = None) -> datetime:
         """Calculate the next run time for a cron expression."""
         if after is None:
             after = datetime.now(timezone.utc)
@@ -234,7 +228,6 @@ class CronParser:
 
         raise ValueError(f"Could not find next run time for: {expression}")
 
-
 class AuditScheduler:
     """
     Scheduler for automated audit jobs.
@@ -247,7 +240,7 @@ class AuditScheduler:
         self._jobs: dict[str, ScheduledJob] = {}
         self._runs: dict[str, JobRun] = {}
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._callbacks: dict[str, list[Callable]] = {
             "job_started": [],
             "job_completed": [],
@@ -315,14 +308,14 @@ class AuditScheduler:
                 return True
         return False
 
-    def get_job(self, job_id: str) -> Optional[ScheduledJob]:
+    def get_job(self, job_id: str) -> ScheduledJob | None:
         """Get a job by ID."""
         return self._jobs.get(job_id)
 
     def list_jobs(
         self,
-        status: Optional[ScheduleStatus] = None,
-        workspace_id: Optional[str] = None,
+        status: ScheduleStatus | None = None,
+        workspace_id: str | None = None,
     ) -> list[ScheduledJob]:
         """List all scheduled jobs, optionally filtered."""
         jobs = list(self._jobs.values())
@@ -341,7 +334,7 @@ class AuditScheduler:
         runs.sort(key=lambda r: r.started_at, reverse=True)
         return runs[:limit]
 
-    async def trigger_job(self, job_id: str) -> Optional[JobRun]:
+    async def trigger_job(self, job_id: str) -> JobRun | None:
         """Manually trigger a job execution."""
         if job_id not in self._jobs:
             return None
@@ -353,7 +346,7 @@ class AuditScheduler:
         self,
         webhook_id: str,
         payload: dict[str, Any],
-        signature: Optional[str] = None,
+        signature: str | None = None,
     ) -> list[JobRun]:
         """
         Handle an incoming webhook trigger.
@@ -534,8 +527,8 @@ class AuditScheduler:
     async def _execute_job(
         self,
         job: ScheduledJob,
-        context: Optional[dict[str, Any]] = None,
-    ) -> Optional[JobRun]:
+        context: dict[str, Any] | None = None,
+    ) -> JobRun | None:
         """Execute a scheduled job."""
         run_id = f"run_{uuid4().hex[:12]}"
         run = JobRun(
@@ -655,10 +648,8 @@ class AuditScheduler:
 
         return hmac.compare_digest(signature, expected)
 
-
 # Singleton scheduler instance
-_scheduler: Optional[AuditScheduler] = None
-
+_scheduler: AuditScheduler | None = None
 
 def get_scheduler() -> AuditScheduler:
     """Get the global scheduler instance."""
@@ -666,7 +657,6 @@ def get_scheduler() -> AuditScheduler:
     if _scheduler is None:
         _scheduler = AuditScheduler()
     return _scheduler
-
 
 __all__ = [
     "AuditScheduler",

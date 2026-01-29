@@ -24,10 +24,9 @@ Usage:
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Pattern, Tuple
+from typing import Any, Optional, Pattern
 
 logger = logging.getLogger(__name__)
-
 
 # Parameter type converters
 
@@ -35,7 +34,6 @@ logger = logging.getLogger(__name__)
 _MAX_INT_VALUE = 2**31 - 1  # 32-bit signed int max
 _MIN_INT_VALUE = -(2**31)  # 32-bit signed int min
 _MAX_FLOAT_VALUE = 1e308  # Avoid float overflow
-
 
 class ParameterConversionError(ValueError):
     """Raised when a route parameter cannot be converted to the expected type."""
@@ -50,7 +48,6 @@ class ParameterConversionError(ValueError):
             msg += f": {reason}"
         super().__init__(msg)
 
-
 def _convert_str(value: str) -> str:
     """Identity converter for string parameters.
 
@@ -61,7 +58,6 @@ def _convert_str(value: str) -> str:
         The input string value.
     """
     return value
-
 
 def _convert_int(value: str) -> int:
     """Convert string to integer with bounds checking.
@@ -88,7 +84,6 @@ def _convert_int(value: str) -> int:
     except ValueError as e:
         raise ParameterConversionError("unknown", value, "int", str(e))
 
-
 def _convert_float(value: str) -> float:
     """Convert string to float with bounds checking.
 
@@ -111,7 +106,6 @@ def _convert_float(value: str) -> float:
     except ValueError as e:
         raise ParameterConversionError("unknown", value, "float", str(e))
 
-
 # Parameter validation patterns
 PARAM_PATTERNS = {
     "id": re.compile(r"^[a-zA-Z0-9_-]{1,64}$"),
@@ -121,18 +115,17 @@ PARAM_PATTERNS = {
     "any": re.compile(r"^[^/]+$"),  # Any non-slash chars
 }
 
-
 @dataclass
 class ParamSpec:
     """Specification for a route parameter."""
 
     name: str
     param_type: type = str
-    pattern: Optional[str] = None  # Key in PARAM_PATTERNS or custom regex
+    pattern: str | None = None  # Key in PARAM_PATTERNS or custom regex
     required: bool = True
     default: Any = None
 
-    def validate(self, value: str) -> Tuple[bool, Optional[str]]:
+    def validate(self, value: str) -> tuple[bool, str | None]:
         """Validate a parameter value."""
         if not value:
             if self.required:
@@ -176,7 +169,6 @@ class ParamSpec:
             # Re-raise with proper parameter name
             raise ParameterConversionError(self.name, value, e.expected_type, e.reason)
 
-
 @dataclass
 class Route:
     """
@@ -192,12 +184,12 @@ class Route:
     pattern: str
     handler_name: str  # Handler class name for lookup
     method: str = "GET"
-    params: Dict[str, ParamSpec] = field(default_factory=dict)
+    params: dict[str, ParamSpec] = field(default_factory=dict)
     priority: int = 0  # Higher = matched first (for conflicts)
 
     # Compiled pattern (set during registration)
-    _regex: Optional[Pattern] = field(default=None, repr=False)
-    _param_names: List[str] = field(default_factory=list, repr=False)
+    _regex: Pattern | None = field(default=None, repr=False)
+    _param_names: list[str] = field(default_factory=list, repr=False)
 
     def __post_init__(self):
         """Compile the route pattern to regex."""
@@ -246,7 +238,7 @@ class Route:
         self._regex = re.compile(f"^{regex_pattern}$")
         self._param_names = param_names
 
-    def match(self, path: str) -> Optional[Dict[str, Any]]:
+    def match(self, path: str) -> Optional[dict[str, Any]]:
         """
         Match path against this route pattern.
 
@@ -274,7 +266,6 @@ class Route:
 
         return params
 
-
 @dataclass
 class RouteMatch:
     """Result of matching a request to a route."""
@@ -282,14 +273,13 @@ class RouteMatch:
     route: Route
     path: str
     method: str
-    params: Dict[str, Any]
+    params: dict[str, Any]
     handler_name: str
 
     @property
     def matched(self) -> bool:
         """Whether a route was matched."""
         return self.route is not None
-
 
 class RouteRegistry:
     """
@@ -301,13 +291,13 @@ class RouteRegistry:
 
     def __init__(self) -> None:
         # Exact path index: method -> path -> Route
-        self._exact: Dict[str, Dict[str, Route]] = {}
-        # Pattern routes: method -> List[Route] (sorted by priority)
-        self._patterns: Dict[str, List[Route]] = {}
+        self._exact: dict[str, dict[str, Route]] = {}
+        # Pattern routes: method -> list[Route] (sorted by priority)
+        self._patterns: dict[str, list[Route]] = {}
         # Handler instances: name -> handler
-        self._handlers: Dict[str, Any] = {}
+        self._handlers: dict[str, Any] = {}
         # All registered routes
-        self._routes: List[Route] = []
+        self._routes: list[Route] = []
 
     def register(self, *routes: Route) -> "RouteRegistry":
         """
@@ -341,11 +331,11 @@ class RouteRegistry:
         """Register a handler instance by name."""
         self._handlers[name] = handler
 
-    def get_handler(self, name: str) -> Optional[Any]:
+    def get_handler(self, name: str) -> Any | None:
         """Get a registered handler by name."""
         return self._handlers.get(name)
 
-    def match(self, path: str, method: str = "GET") -> Optional[RouteMatch]:
+    def match(self, path: str, method: str = "GET") -> RouteMatch | None:
         """
         Match a path and method to a registered route.
 
@@ -379,14 +369,14 @@ class RouteRegistry:
 
         return None
 
-    def get_routes(self, method: str | None = None) -> List[Route]:
+    def get_routes(self, method: str | None = None) -> list[Route]:
         """Get all registered routes, optionally filtered by method."""
         if method:
             method = method.upper()
             return [r for r in self._routes if r.method == method]
         return list(self._routes)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get registry statistics."""
         return {
             "total_routes": len(self._routes),
@@ -396,15 +386,13 @@ class RouteRegistry:
             "methods": list(set(r.method for r in self._routes)),
         }
 
-
 # Convenience function for creating routes with common patterns
-
 
 def api_route(
     pattern: str,
     handler: str,
     method: str = "GET",
-    **param_specs: Dict[str, Any],
+    **param_specs: dict[str, Any],
 ) -> Route:
     """
     Create an API route with common defaults.
@@ -440,12 +428,10 @@ def api_route(
 
     return Route(pattern=pattern, handler_name=handler, method=method, params=params)
 
-
 # Default routes for the aragora API
 # These can be used to initialize a registry with standard routes
 
-
-def create_default_routes() -> List[Route]:
+def create_default_routes() -> list[Route]:
     """Create the default routes for the aragora API."""
     return [
         # System routes
@@ -582,10 +568,8 @@ def create_default_routes() -> List[Route]:
         api_route("/api/v1/analytics/usage/active_users", "AnalyticsMetricsHandler"),
     ]
 
-
 # Global registry instance
-_registry: Optional[RouteRegistry] = None
-
+_registry: RouteRegistry | None = None
 
 def get_registry() -> RouteRegistry:
     """Get or create the global route registry."""
@@ -595,7 +579,6 @@ def get_registry() -> RouteRegistry:
         for route in create_default_routes():
             _registry.register(route)
     return _registry
-
 
 def set_registry(registry: RouteRegistry) -> None:
     """Set the global route registry (for testing)."""

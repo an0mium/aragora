@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -41,7 +41,6 @@ _laboratory_limiter = RateLimiter(requests_per_minute=20)
 _lab_imports, LABORATORY_AVAILABLE = try_import("aragora.agents.laboratory", "PersonaLaboratory")
 PersonaLaboratory = _lab_imports.get("PersonaLaboratory")
 
-
 class LaboratoryHandler(BaseHandler):
     """Handler for persona laboratory endpoints."""
 
@@ -55,7 +54,7 @@ class LaboratoryHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("laboratory:read")
-    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -72,7 +71,7 @@ class LaboratoryHandler(BaseHandler):
         return None
 
     @require_permission("laboratory:create")
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         # Rate limit check (shared with GET)
         client_ip = get_client_ip(handler)

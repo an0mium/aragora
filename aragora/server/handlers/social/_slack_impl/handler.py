@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from urllib.parse import parse_qs
 
 from . import config as _cfg
@@ -29,7 +29,6 @@ from .events import EventsMixin
 from .interactive import InteractiveMixin
 
 logger = logging.getLogger(__name__)
-
 
 class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
     """Handler for Slack integration endpoints.
@@ -53,8 +52,8 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
         return path in self.ROUTES
 
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Slack requests to appropriate methods."""
         logger.debug(f"Slack request: {path}")
 
@@ -118,7 +117,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
 
         return error_response("Not found", 404)
 
-    def _extract_team_id(self, body: str, path: str) -> Optional[str]:
+    def _extract_team_id(self, body: str, path: str) -> str | None:
         """Extract team_id from request body based on endpoint type.
 
         Args:
@@ -150,7 +149,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             logger.debug(f"Failed to extract team_id: {e}")
         return None
 
-    def handle_post(self, path: str, body: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests."""
         return self.handle(path, {}, handler)
 
@@ -193,12 +192,10 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             }
         )
 
-
 # Export handler factory (lazy instantiation - server_context required)
 _slack_handler: Optional["SlackHandler"] = None
 
-
-def get_slack_handler(server_context: Optional[Dict] = None) -> "SlackHandler":
+def get_slack_handler(server_context: dict | None = None) -> "SlackHandler":
     """Get or create the Slack handler instance.
 
     Args:

@@ -8,6 +8,7 @@ Provides:
 - Merkle tree verification for batch integrity
 - Export to JSON, Markdown, and HTML
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -16,7 +17,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
@@ -31,7 +31,6 @@ from aragora.reasoning.provenance import (
     SourceType,
     TransformationType,
 )
-
 
 class GenesisEventType(Enum):
     """Types of events in the genesis ledger."""
@@ -60,7 +59,6 @@ class GenesisEventType(Enum):
     POPULATION_EVOLVED = "population_evolved"
     GENERATION_ADVANCE = "generation_advance"
 
-
 @dataclass
 class GenesisEvent:
     """A single event in the genesis ledger."""
@@ -68,7 +66,7 @@ class GenesisEvent:
     event_id: str
     event_type: GenesisEventType
     timestamp: datetime
-    parent_event_id: Optional[str] = None
+    parent_event_id: str | None = None
     content_hash: str = ""
     data: dict = field(default_factory=dict)
 
@@ -111,7 +109,6 @@ class GenesisEvent:
             data=data.get("data", {}),
         )
 
-
 @dataclass
 class FractalTree:
     """Tree structure of debates and sub-debates."""
@@ -122,8 +119,8 @@ class FractalTree:
     def add_node(
         self,
         debate_id: str,
-        parent_id: Optional[str],
-        tension: Optional[str] = None,
+        parent_id: str | None,
+        tension: str | None = None,
         success: bool = False,
         depth: int = 0,
     ) -> None:
@@ -155,7 +152,6 @@ class FractalTree:
             }
 
         return build_subtree(self.root_id)
-
 
 class GenesisLedger:
     """
@@ -217,7 +213,7 @@ class GenesisLedger:
         debate_id: str,
         task: str,
         agents: list[str],
-        parent_debate_id: Optional[str] = None,
+        parent_debate_id: str | None = None,
     ) -> GenesisEvent:
         """Record the start of a debate."""
         event = GenesisEvent(
@@ -500,7 +496,7 @@ class GenesisLedger:
 
         return events
 
-    def _get_last_event_id(self, debate_id: Optional[str]) -> Optional[str]:
+    def _get_last_event_id(self, debate_id: str | None) -> str | None:
         """Get the last event ID for a debate."""
         if not debate_id:
             return None

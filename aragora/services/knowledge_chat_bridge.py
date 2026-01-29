@@ -18,10 +18,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class KnowledgeSearchScope(str, Enum):
     """Scope for knowledge search."""
@@ -31,7 +30,6 @@ class KnowledgeSearchScope(str, Enum):
     CHANNEL = "channel"  # Limit to channel-specific knowledge
     USER = "user"  # Limit to user's personal knowledge
 
-
 class RelevanceStrategy(str, Enum):
     """Strategy for computing relevance."""
 
@@ -39,7 +37,6 @@ class RelevanceStrategy(str, Enum):
     KEYWORD = "keyword"  # Keyword/BM25 matching
     HYBRID = "hybrid"  # Combined semantic + keyword
     RECENCY = "recency"  # Favor recent knowledge
-
 
 @dataclass
 class KnowledgeSearchResult:
@@ -52,10 +49,10 @@ class KnowledgeSearchResult:
     relevance_score: float
     source: str
     created_at: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    provenance: Optional[str] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    provenance: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "node_id": self.node_id,
@@ -74,7 +71,6 @@ class KnowledgeSearchResult:
         """Combined confidence and relevance score."""
         return (self.confidence * 0.4) + (self.relevance_score * 0.6)
 
-
 @dataclass
 class ChatKnowledgeContext:
     """Knowledge context for a chat conversation."""
@@ -82,12 +78,12 @@ class ChatKnowledgeContext:
     channel_id: str
     workspace_id: str
     query: str
-    results: List[KnowledgeSearchResult]
+    results: list[KnowledgeSearchResult]
     search_scope: KnowledgeSearchScope
     search_time_ms: float
-    suggestions: List[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "channel_id": self.channel_id,
@@ -99,7 +95,6 @@ class ChatKnowledgeContext:
             "search_time_ms": self.search_time_ms,
             "suggestions": self.suggestions,
         }
-
 
 class KnowledgeChatBridge:
     """
@@ -132,7 +127,7 @@ class KnowledgeChatBridge:
         self.enable_caching = enable_caching
         self.cache_ttl_seconds = cache_ttl_seconds
         self.max_results = max_results
-        self._cache: Dict[str, tuple] = {}  # query -> (results, timestamp)
+        self._cache: dict[str, tuple] = {}  # query -> (results, timestamp)
 
     def _get_mound(self):
         """Lazy-load Knowledge Mound."""
@@ -149,13 +144,13 @@ class KnowledgeChatBridge:
         self,
         query: str,
         workspace_id: str = "default",
-        channel_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        channel_id: str | None = None,
+        user_id: str | None = None,
         scope: KnowledgeSearchScope = KnowledgeSearchScope.WORKSPACE,
         strategy: RelevanceStrategy = RelevanceStrategy.HYBRID,
-        node_types: Optional[List[str]] = None,
+        node_types: Optional[list[str]] = None,
         min_confidence: float = 0.3,
-        max_results: Optional[int] = None,
+        max_results: int | None = None,
     ) -> ChatKnowledgeContext:
         """
         Search knowledge relevant to a chat query.
@@ -186,14 +181,14 @@ class KnowledgeChatBridge:
             if time.time() - cached_time < self.cache_ttl_seconds:
                 return cached_results
 
-        results: List[KnowledgeSearchResult] = []
-        suggestions: List[str] = []
+        results: list[KnowledgeSearchResult] = []
+        suggestions: list[str] = []
 
         mound = self._get_mound()
         if mound:
             try:
                 # Build search parameters
-                search_params: Dict[str, Any] = {
+                search_params: dict[str, Any] = {
                     "query": query,
                     "limit": max_results * 2,  # Over-fetch for filtering
                     "min_confidence": min_confidence,
@@ -262,11 +257,11 @@ class KnowledgeChatBridge:
 
     async def inject_knowledge_for_conversation(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         workspace_id: str = "default",
-        channel_id: Optional[str] = None,
+        channel_id: str | None = None,
         max_context_items: int = 5,
-    ) -> List[KnowledgeSearchResult]:
+    ) -> list[KnowledgeSearchResult]:
         """
         Get relevant knowledge to inject into a conversation.
 
@@ -307,14 +302,14 @@ class KnowledgeChatBridge:
 
     async def store_chat_as_knowledge(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         workspace_id: str = "default",
         channel_id: str = "",
         channel_name: str = "",
         platform: str = "unknown",
         node_type: str = "chat_context",
         min_messages: int = 3,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store important chat messages as knowledge.
 
@@ -384,7 +379,7 @@ class KnowledgeChatBridge:
         channel_id: str,
         workspace_id: str = "default",
         max_items: int = 10,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get a summary of knowledge related to a channel.
 
@@ -405,7 +400,7 @@ class KnowledgeChatBridge:
         )
 
         # Compute stats
-        node_types: Dict[str, int] = {}
+        node_types: dict[str, int] = {}
         avg_confidence = 0.0
 
         for result in context.results:
@@ -428,8 +423,8 @@ class KnowledgeChatBridge:
     def _generate_suggestions(
         self,
         query: str,
-        results: List[KnowledgeSearchResult],
-    ) -> List[str]:
+        results: list[KnowledgeSearchResult],
+    ) -> list[str]:
         """Generate follow-up query suggestions."""
         suggestions = []
 
@@ -445,7 +440,7 @@ class KnowledgeChatBridge:
 
         return suggestions[:3]
 
-    def clear_cache(self, workspace_id: Optional[str] = None):
+    def clear_cache(self, workspace_id: str | None = None):
         """Clear the search cache."""
         if workspace_id:
             keys_to_remove = [k for k in self._cache if k.startswith(f"{workspace_id}:")]
@@ -454,10 +449,8 @@ class KnowledgeChatBridge:
         else:
             self._cache.clear()
 
-
 # Global instance
-_bridge: Optional[KnowledgeChatBridge] = None
-
+_bridge: KnowledgeChatBridge | None = None
 
 def get_knowledge_chat_bridge() -> KnowledgeChatBridge:
     """Get or create the global Knowledge + Chat bridge instance."""
@@ -465,7 +458,6 @@ def get_knowledge_chat_bridge() -> KnowledgeChatBridge:
     if _bridge is None:
         _bridge = KnowledgeChatBridge()
     return _bridge
-
 
 __all__ = [
     "KnowledgeChatBridge",

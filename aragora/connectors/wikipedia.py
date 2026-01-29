@@ -8,11 +8,11 @@ Provides access to Wikipedia's knowledge base for:
 
 The Wikipedia API is free and requires no authentication.
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
 import logging
-from typing import Optional
 from urllib.parse import quote_plus
 
 from aragora.connectors.base import BaseConnector, Evidence
@@ -28,11 +28,9 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
-
 # Wikipedia API endpoints
 WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"
 WIKIPEDIA_REST_URL = "https://en.wikipedia.org/api/rest_v1"
-
 
 class WikipediaConnector(BaseConnector):
     """
@@ -54,7 +52,7 @@ class WikipediaConnector(BaseConnector):
 
     def __init__(
         self,
-        provenance: Optional[ProvenanceManager] = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.75,  # Wikipedia is generally reliable but crowd-sourced
         timeout: int = 30,
         rate_limit_delay: float = 0.5,  # Wikipedia is generous with rate limits
@@ -220,7 +218,7 @@ class WikipediaConnector(BaseConnector):
             logger.error(f"Wikipedia search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a specific article by title or evidence ID.
 
@@ -274,7 +272,7 @@ class WikipediaConnector(BaseConnector):
             logger.error(f"Wikipedia fetch failed for {title}: {e}")
             return None
 
-    async def _fetch_summary(self, title: str) -> Optional[str]:
+    async def _fetch_summary(self, title: str) -> str | None:
         """Fetch article summary using REST API."""
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -295,7 +293,7 @@ class WikipediaConnector(BaseConnector):
             logger.debug(f"Parse error in Wikipedia summary: {e}")
             return None
 
-    def _parse_summary_response(self, data: dict) -> Optional[Evidence]:
+    def _parse_summary_response(self, data: dict) -> Evidence | None:
         """Parse Wikipedia REST API summary response."""
         try:
             title = data.get("title", "Unknown")

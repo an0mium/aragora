@@ -10,7 +10,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.workflow.queue.executor import TaskExecutor, ExecutorPool
@@ -22,7 +22,6 @@ from aragora.workflow.queue.task import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TaskQueueConfig:
@@ -37,7 +36,6 @@ class TaskQueueConfig:
     enable_priority: bool = True
     drain_timeout_seconds: float = 60.0
 
-
 @dataclass
 class QueueStats:
     """Statistics about the task queue."""
@@ -50,7 +48,6 @@ class QueueStats:
     total_tasks: int = 0
     avg_wait_time_ms: float = 0
     avg_execution_time_ms: float = 0
-
 
 class TaskQueue:
     """
@@ -73,41 +70,41 @@ class TaskQueue:
         result = await queue.wait_for_task(task.id)
     """
 
-    def __init__(self, config: Optional[TaskQueueConfig] = None):
+    def __init__(self, config: TaskQueueConfig | None = None):
         self._config = config or TaskQueueConfig()
 
         # Task storage
-        self._tasks: Dict[str, WorkflowTask] = {}
-        self._workflows: Dict[str, Set[str]] = defaultdict(set)  # workflow_id -> task_ids
+        self._tasks: dict[str, WorkflowTask] = {}
+        self._workflows: dict[str, set[str]] = defaultdict(set)  # workflow_id -> task_ids
 
         # Priority queue (heapq would be better but keeping simple)
-        self._ready_queue: List[str] = []
+        self._ready_queue: list[str] = []
 
         # Dependency tracking
-        self._dependents: Dict[str, Set[str]] = defaultdict(
+        self._dependents: dict[str, set[str]] = defaultdict(
             set
         )  # task_id -> tasks that depend on it
-        self._pending_deps: Dict[str, Set[str]] = {}  # task_id -> unresolved dependencies
+        self._pending_deps: dict[str, set[str]] = {}  # task_id -> unresolved dependencies
 
         # Execution state
-        self._running: Set[str] = set()
+        self._running: set[str] = set()
         self._semaphore: asyncio.Semaphore = asyncio.Semaphore(self._config.max_concurrent)
 
         # Control
         self._started = False
         self._stopping = False
-        self._processor_task: Optional[asyncio.Task] = None
+        self._processor_task: asyncio.Task | None = None
 
         # Events
-        self._task_completed: Dict[str, asyncio.Event] = {}
-        self._workflow_completed: Dict[str, asyncio.Event] = {}
+        self._task_completed: dict[str, asyncio.Event] = {}
+        self._workflow_completed: dict[str, asyncio.Event] = {}
 
         # Callbacks
         self._on_task_complete: Optional[Callable[[WorkflowTask], None]] = None
         self._on_task_error: Optional[Callable[[WorkflowTask, Exception], None]] = None
 
         # Executor reference (set by scheduler)
-        self._executor: Optional[Union["TaskExecutor", "ExecutorPool"]] = None
+        self._executor: Optional["TaskExecutor" | "ExecutorPool"] = None
 
     async def start(self) -> None:
         """Start the queue processor."""
@@ -191,7 +188,7 @@ class TaskQueue:
         logger.debug(f"Enqueued task {task.id} for workflow {task.workflow_id}")
         return task.id
 
-    async def enqueue_many(self, tasks: List[WorkflowTask]) -> List[str]:
+    async def enqueue_many(self, tasks: list[WorkflowTask]) -> list[str]:
         """Enqueue multiple tasks."""
         return [await self.enqueue(task) for task in tasks]
 
@@ -327,8 +324,8 @@ class TaskQueue:
     async def wait_for_task(
         self,
         task_id: str,
-        timeout: Optional[float] = None,
-    ) -> Optional[TaskResult]:
+        timeout: float | None = None,
+    ) -> TaskResult | None:
         """
         Wait for a task to complete.
 
@@ -353,8 +350,8 @@ class TaskQueue:
     async def wait_for_workflow(
         self,
         workflow_id: str,
-        timeout: Optional[float] = None,
-    ) -> Dict[str, TaskResult]:
+        timeout: float | None = None,
+    ) -> dict[str, TaskResult]:
         """
         Wait for all tasks in a workflow to complete.
 
@@ -402,11 +399,11 @@ class TaskQueue:
                 cancelled += 1
         return cancelled
 
-    def get_task(self, task_id: str) -> Optional[WorkflowTask]:
+    def get_task(self, task_id: str) -> WorkflowTask | None:
         """Get a task by ID."""
         return self._tasks.get(task_id)
 
-    def get_workflow_tasks(self, workflow_id: str) -> List[WorkflowTask]:
+    def get_workflow_tasks(self, workflow_id: str) -> list[WorkflowTask]:
         """Get all tasks for a workflow."""
         task_ids = self._workflows.get(workflow_id, set())
         return [self._tasks[tid] for tid in task_ids if tid in self._tasks]
@@ -445,7 +442,7 @@ class TaskQueue:
             avg_execution_time_ms=avg_exec,
         )
 
-    def set_executor(self, executor: Union["TaskExecutor", "ExecutorPool"]) -> None:
+    def set_executor(self, executor: "TaskExecutor" | "ExecutorPool") -> None:
         """Set the task executor."""
         self._executor = executor
 

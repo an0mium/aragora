@@ -11,21 +11,19 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
-
 class EnterpriseConnectorMethods(Protocol):
     """Protocol defining expected methods from EnterpriseConnector base class."""
 
     def check_circuit_breaker(self) -> bool: ...
-    def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
+    def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
     def record_failure(self) -> None: ...
-
 
 # Gmail API scopes
 # Note: gmail.metadata doesn't support search queries ('q' parameter)
@@ -45,7 +43,6 @@ GMAIL_SCOPES_FULL = [
 # Default to read-only for backward compatibility
 GMAIL_SCOPES = GMAIL_SCOPES_READONLY
 
-
 def _get_client_credentials() -> tuple[str, str]:
     """Get OAuth client ID and secret from environment."""
     client_id = (
@@ -60,14 +57,13 @@ def _get_client_credentials() -> tuple[str, str]:
     )
     return client_id, client_secret
 
-
 class GmailClientMixin(EnterpriseConnectorMethods):
     """Mixin providing OAuth2 authentication and API request infrastructure."""
 
     # These attributes are expected to be set by the concrete class
-    _access_token: Optional[str]
-    _refresh_token: Optional[str]
-    _token_expiry: Optional[datetime]
+    _access_token: str | None
+    _refresh_token: str | None
+    _token_expiry: datetime | None
     _token_lock: asyncio.Lock
     user_id: str
 
@@ -80,17 +76,17 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         return "Gmail"
 
     @property
-    def access_token(self) -> Optional[str]:
+    def access_token(self) -> str | None:
         """Expose current access token (if available)."""
         return self._access_token
 
     @property
-    def refresh_token(self) -> Optional[str]:
+    def refresh_token(self) -> str | None:
         """Expose current refresh token (if available)."""
         return self._refresh_token
 
     @property
-    def token_expiry(self) -> Optional[datetime]:
+    def token_expiry(self) -> datetime | None:
         """Expose access token expiry (if available)."""
         return self._token_expiry
 
@@ -134,9 +130,9 @@ class GmailClientMixin(EnterpriseConnectorMethods):
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+        code: str | None = None,
+        redirect_uri: str | None = None,
+        refresh_token: str | None = None,
     ) -> bool:
         """
         Authenticate with Gmail API.
@@ -252,9 +248,9 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Make a request to Gmail API with circuit breaker protection."""
         import httpx
 
@@ -310,6 +306,6 @@ class GmailClientMixin(EnterpriseConnectorMethods):
 
         return httpx.AsyncClient(timeout=60)
 
-    async def get_user_info(self) -> Dict[str, Any]:
+    async def get_user_info(self) -> dict[str, Any]:
         """Get authenticated user's Gmail profile."""
         return await self._api_request("/profile")

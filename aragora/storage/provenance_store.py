@@ -4,12 +4,13 @@ Provenance Store - Persistent storage for evidence provenance chains.
 Stores provenance chains, records, and citations with SQLite backend.
 Follows the SQLiteStore pattern for schema management and migrations.
 """
+from __future__ import annotations
 
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from aragora.reasoning.provenance import (
     Citation,
@@ -23,7 +24,6 @@ from aragora.reasoning.provenance import (
 from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
-
 
 class ProvenanceStore(SQLiteStore):
     """
@@ -109,7 +109,7 @@ class ProvenanceStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Optional[Union[str, Path]] = None,
+        db_path: Optional[str | Path] = None,
         **kwargs: Any,
     ):
         """Initialize the provenance store.
@@ -161,7 +161,7 @@ class ProvenanceStore(SQLiteStore):
 
         logger.debug(f"Saved chain {chain.chain_id} for debate {debate_id}")
 
-    def load_chain(self, chain_id: str) -> Optional[ProvenanceChain]:
+    def load_chain(self, chain_id: str) -> ProvenanceChain | None:
         """Load a provenance chain by ID.
 
         Args:
@@ -180,7 +180,7 @@ class ProvenanceStore(SQLiteStore):
         data = json.loads(row[0])
         return ProvenanceChain.from_dict(data)
 
-    def get_chain_by_debate(self, debate_id: str) -> Optional[ProvenanceChain]:
+    def get_chain_by_debate(self, debate_id: str) -> ProvenanceChain | None:
         """Get provenance chain for a debate.
 
         Args:
@@ -279,7 +279,7 @@ class ProvenanceStore(SQLiteStore):
             ),
         )
 
-    def get_record(self, record_id: str) -> Optional[ProvenanceRecord]:
+    def get_record(self, record_id: str) -> ProvenanceRecord | None:
         """Get a provenance record by ID.
 
         Args:
@@ -361,8 +361,8 @@ class ProvenanceStore(SQLiteStore):
 
     def search_records(
         self,
-        source_type: Optional[SourceType] = None,
-        source_id: Optional[str] = None,
+        source_type: SourceType | None = None,
+        source_id: str | None = None,
         verified_only: bool = False,
         limit: int = 100,
     ) -> list[ProvenanceRecord]:
@@ -593,7 +593,7 @@ class ProvenanceStore(SQLiteStore):
             f"({len(manager.chain.records)} records, {len(manager.graph.citations)} citations)"
         )
 
-    def load_manager(self, debate_id: str) -> Optional[ProvenanceManager]:
+    def load_manager(self, debate_id: str) -> ProvenanceManager | None:
         """Load a ProvenanceManager for a debate.
 
         Args:
@@ -651,6 +651,5 @@ class ProvenanceStore(SQLiteStore):
             "record_count": self.count("provenance_records"),
             "citation_count": self.count("provenance_citations"),
         }
-
 
 __all__ = ["ProvenanceStore"]

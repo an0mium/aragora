@@ -23,7 +23,6 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
 from aragora.billing.models import OrganizationInvitation
 from aragora.server.validation.schema import ORG_INVITE_SCHEMA, validate_against_schema
@@ -67,7 +66,6 @@ ROLE_HIERARCHY = {
 # Settings validation limits
 MAX_SETTINGS_KEYS = 50  # Maximum number of settings keys
 MAX_SETTINGS_VALUE_SIZE = 10000  # 10KB per value
-
 
 class OrganizationsHandler(SecureHandler):
     """Handler for organization management endpoints.
@@ -119,7 +117,7 @@ class OrganizationsHandler(SecureHandler):
 
     def handle(
         self, path: str, query_params: dict, handler, method: str = "GET"
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route organization requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -390,7 +388,7 @@ class OrganizationsHandler(SecureHandler):
 
         return True, ""
 
-    def _get_auth_context(self, handler, user=None) -> Optional[AuthorizationContext]:
+    def _get_auth_context(self, handler, user=None) -> AuthorizationContext | None:
         """Build RBAC authorization context from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
@@ -409,7 +407,7 @@ class OrganizationsHandler(SecureHandler):
 
     def _check_rbac_permission(
         self, handler, permission_key: str, user=None
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """
         Check RBAC permission.
 
@@ -828,14 +826,14 @@ class OrganizationsHandler(SecureHandler):
     # Invitation Helper Methods (now using persistent storage via user_store)
     # =========================================================================
 
-    def _get_invitation_by_email(self, org_id: str, email: str) -> Optional[OrganizationInvitation]:
+    def _get_invitation_by_email(self, org_id: str, email: str) -> OrganizationInvitation | None:
         """Find a pending invitation by org and email."""
         user_store = self._get_user_store()
         if not user_store:
             return None
         return user_store.get_invitation_by_email(org_id, email)
 
-    def _get_invitation_by_token(self, token: str) -> Optional[OrganizationInvitation]:
+    def _get_invitation_by_token(self, token: str) -> OrganizationInvitation | None:
         """Find an invitation by token."""
         user_store = self._get_user_store()
         if not user_store:
@@ -1042,6 +1040,5 @@ class OrganizationsHandler(SecureHandler):
                 "role": invitation.role,
             }
         )
-
 
 __all__ = ["OrganizationsHandler"]

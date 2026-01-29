@@ -14,7 +14,7 @@ import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, Optional, TypeVar
+from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, TypeVar
 
 from aragora.exceptions import ConfigurationError
 from aragora.resilience_config import (
@@ -33,7 +33,6 @@ _circuit_breakers_lock = threading.Lock()
 # Metrics callback - set by prometheus module on import
 _metrics_callback: Callable[[str, int], None] | None = None
 
-
 def set_metrics_callback(callback: Callable[[str, int], None] | None) -> None:
     """Set the callback for circuit breaker state changes.
 
@@ -49,7 +48,6 @@ def set_metrics_callback(callback: Callable[[str, int], None] | None) -> None:
     if callback:
         logger.debug("Circuit breaker metrics callback registered")
 
-
 def _emit_metrics(circuit_name: str, state: int) -> None:
     """Emit metrics for circuit state change."""
     if _metrics_callback:
@@ -58,11 +56,9 @@ def _emit_metrics(circuit_name: str, state: int) -> None:
         except Exception as e:
             logger.debug(f"Error emitting circuit breaker metrics: {e}")
 
-
 # Configuration for circuit breaker pruning
 MAX_CIRCUIT_BREAKERS = 1000  # Maximum registry size before forced pruning
 STALE_THRESHOLD_SECONDS = 24 * 60 * 60  # 24 hours - prune if not accessed
-
 
 def _prune_stale_circuit_breakers() -> int:
     """Remove circuit breakers not accessed within STALE_THRESHOLD_SECONDS.
@@ -85,7 +81,6 @@ def _prune_stale_circuit_breakers() -> int:
     if stale_names:
         logger.info(f"Pruned {len(stale_names)} stale circuit breakers: {stale_names[:5]}...")
     return len(stale_names)
-
 
 def get_circuit_breaker(
     name: str,
@@ -168,7 +163,6 @@ def get_circuit_breaker(
         cb._last_accessed = time.time()  # Update access timestamp
         return cb
 
-
 def reset_all_circuit_breakers() -> None:
     """Reset all global circuit breakers (thread-safe). Useful for testing."""
     with _circuit_breakers_lock:
@@ -176,7 +170,6 @@ def reset_all_circuit_breakers() -> None:
             cb.reset()
         count = len(_circuit_breakers)
     logger.info(f"Reset {count} circuit breakers")
-
 
 def get_circuit_breakers() -> dict[str, "CircuitBreaker"]:
     """Get all registered circuit breakers (thread-safe).
@@ -186,7 +179,6 @@ def get_circuit_breakers() -> dict[str, "CircuitBreaker"]:
     """
     with _circuit_breakers_lock:
         return dict(_circuit_breakers)
-
 
 def get_circuit_breaker_status() -> dict[str, Any]:
     """Get status of all registered circuit breakers (thread-safe)."""
@@ -202,7 +194,6 @@ def get_circuit_breaker_status() -> dict[str, Any]:
                 for name, cb in _circuit_breakers.items()
             },
         }
-
 
 def get_circuit_breaker_metrics() -> dict[str, Any]:
     """Get comprehensive metrics for monitoring and observability.
@@ -299,7 +290,6 @@ def get_circuit_breaker_metrics() -> dict[str, Any]:
 
         return metrics
 
-
 def prune_circuit_breakers() -> int:
     """Manually prune stale circuit breakers from the registry.
 
@@ -310,7 +300,6 @@ def prune_circuit_breakers() -> int:
     """
     with _circuit_breakers_lock:
         return _prune_stale_circuit_breakers()
-
 
 def with_resilience(
     circuit_name: str | None = None,
@@ -396,7 +385,6 @@ def with_resilience(
 
     return decorator
 
-
 class CircuitOpenError(Exception):
     """Raised when attempting to use an open circuit."""
 
@@ -406,7 +394,6 @@ class CircuitOpenError(Exception):
         super().__init__(
             f"Circuit breaker '{circuit_name}' is open. Retry in {cooldown_remaining:.1f}s"
         )
-
 
 @dataclass
 class CircuitBreaker:
@@ -450,12 +437,12 @@ class CircuitBreaker:
     name: str = "default"  # Circuit breaker name for metrics
     failure_threshold: int = 3  # Consecutive failures before opening circuit
     cooldown_seconds: float = 60.0  # Seconds before attempting recovery
-    recovery_timeout: Optional[float] = None  # Backward-compatible alias for cooldown_seconds
+    recovery_timeout: float | None = None  # Backward-compatible alias for cooldown_seconds
     half_open_success_threshold: int = 2  # Successes needed to fully close
     half_open_max_calls: int = 3  # Max concurrent calls in half-open state
 
     # Store the config if created from one (for introspection/debugging)
-    _config: Optional[CircuitBreakerConfig] = field(default=None, repr=False)
+    _config: CircuitBreakerConfig | None = field(default=None, repr=False)
 
     # Internal state (initialized in __post_init__)
     _failures: dict[str, int] = field(default_factory=dict, repr=False)
@@ -507,7 +494,7 @@ class CircuitBreaker:
         )
 
     @property
-    def config(self) -> Optional[CircuitBreakerConfig]:
+    def config(self) -> CircuitBreakerConfig | None:
         """Get the configuration this circuit breaker was created from, if any."""
         return self._config
 
@@ -913,14 +900,12 @@ class CircuitBreaker:
             self.record_failure(entity)
             raise
 
-
 # =============================================================================
 # SQLite Persistence for Circuit Breaker State
 # =============================================================================
 
-_DB_PATH: Optional[str] = None
+_DB_PATH: str | None = None
 _CB_TIMEOUT_SECONDS = 30.0  # SQLite busy timeout for concurrent access
-
 
 def _get_cb_connection() -> "sqlite3.Connection":
     """Get circuit breaker database connection with proper config.
@@ -944,7 +929,6 @@ def _get_cb_connection() -> "sqlite3.Connection":
     # Enable WAL mode for better concurrent write performance
     conn.execute("PRAGMA journal_mode=WAL;")
     return conn
-
 
 def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") -> None:
     """Initialize SQLite database for circuit breaker persistence.
@@ -983,7 +967,6 @@ def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") 
 
     logger.info(f"Circuit breaker persistence initialized: {db_path}")
 
-
 def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
     """Persist a single circuit breaker to SQLite.
 
@@ -1020,7 +1003,6 @@ def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
     except (sqlite3.Error, OSError) as e:
         logger.warning(f"Failed to persist circuit breaker {name}: {type(e).__name__}: {e}")
 
-
 def persist_all_circuit_breakers() -> int:
     """Persist all registered circuit breakers to SQLite.
 
@@ -1038,7 +1020,6 @@ def persist_all_circuit_breakers() -> int:
 
     logger.debug(f"Persisted {count} circuit breakers")
     return count
-
 
 def load_circuit_breakers() -> int:
     """Load circuit breakers from SQLite into the global registry.
@@ -1081,7 +1062,6 @@ def load_circuit_breakers() -> int:
         logger.warning(f"Failed to load circuit breakers: {type(e).__name__}: {e}")
         return 0
 
-
 def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
     """Remove persisted circuit breakers older than max_age_hours.
 
@@ -1117,11 +1097,9 @@ def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
         logger.warning(f"Failed to cleanup stale circuit breakers: {type(e).__name__}: {e}")
         return 0
 
-
 # =============================================================================
 # Resilience Metrics API
 # =============================================================================
-
 
 def get_all_circuit_breakers_status() -> dict[str, Any]:
     """Get status of all registered circuit breakers.
@@ -1176,7 +1154,6 @@ def get_all_circuit_breakers_status() -> dict[str, Any]:
             "circuits": circuits,
         }
 
-
 def get_circuit_breaker_summary() -> dict[str, Any]:
     """Get a lightweight summary of circuit breaker health.
 
@@ -1206,7 +1183,6 @@ def get_circuit_breaker_summary() -> dict[str, Any]:
             "open": open_names,
             "half_open": half_open_names,
         }
-
 
 # =============================================================================
 # NEW MODULE COMPATIBILITY ALIASES

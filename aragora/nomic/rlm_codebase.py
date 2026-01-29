@@ -12,14 +12,12 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from aragora.connectors.repository_crawler import CrawlConfig, RepositoryCrawler
 from aragora.rlm import AbstractionLevel, RLMConfig, RLMContext, RLMMode, get_rlm
 from aragora.rlm.types import AbstractionNode
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CodebaseCorpus:
@@ -30,11 +28,10 @@ class CodebaseCorpus:
     file_count: int
     total_bytes: int
     estimated_tokens: int
-    file_type_counts: Dict[str, int]
-    top_dirs: Dict[str, int]
+    file_type_counts: dict[str, int]
+    top_dirs: dict[str, int]
     truncated: bool
-    warnings: List[str]
-
+    warnings: list[str]
 
 @dataclass
 class CodebaseRLMResult:
@@ -44,8 +41,7 @@ class CodebaseRLMResult:
     corpus: CodebaseCorpus
     used_true_rlm: bool
     used_fallback: bool
-    error: Optional[str] = None
-
+    error: str | None = None
 
 DEFAULT_QUERY = """You are analyzing a large multi-language codebase.
 Provide a comprehensive, concrete summary that can be used to ground a multi-agent debate.
@@ -59,7 +55,6 @@ Requirements:
 
 Return a structured response with headings and bullet points.
 """
-
 
 def _default_crawl_config(max_file_bytes: int, max_files: int) -> CrawlConfig:
     return CrawlConfig(
@@ -89,26 +84,23 @@ def _default_crawl_config(max_file_bytes: int, max_files: int) -> CrawlConfig:
         chunk_overlap_lines=40,
     )
 
-
-def _summarize_file_types(file_type_counts: Dict[str, int]) -> str:
+def _summarize_file_types(file_type_counts: dict[str, int]) -> str:
     ordered = sorted(file_type_counts.items(), key=lambda x: x[1], reverse=True)
     lines = [f"- {ft}: {count}" for ft, count in ordered[:15]]
     if len(ordered) > 15:
         lines.append(f"- ... ({len(ordered) - 15} more types)")
     return "\n".join(lines)
 
-
-def _summarize_top_dirs(top_dirs: Dict[str, int]) -> str:
+def _summarize_top_dirs(top_dirs: dict[str, int]) -> str:
     ordered = sorted(top_dirs.items(), key=lambda x: x[1], reverse=True)
     lines = [f"- {d or '.'}: {count}" for d, count in ordered[:15]]
     if len(ordered) > 15:
         lines.append(f"- ... ({len(ordered) - 15} more dirs)")
     return "\n".join(lines)
 
-
 def _build_summary_nodes(
     corpus: CodebaseCorpus, repo_path: Path
-) -> Tuple[AbstractionNode, AbstractionNode]:
+) -> tuple[AbstractionNode, AbstractionNode]:
     summary_text = (
         f"Repository: {repo_path}\n"
         f"Files indexed: {corpus.file_count}\n"
@@ -139,16 +131,13 @@ def _build_summary_nodes(
     )
     return summary_node, abstract_node
 
-
 def _estimate_tokens(total_bytes: int) -> int:
     # rough heuristic: ~4 bytes/token
     return max(1, total_bytes // 4)
 
-
 def _collect_top_dirs(relative_path: str) -> str:
     parts = Path(relative_path).parts
     return parts[0] if parts else ""
-
 
 async def build_codebase_corpus(
     repo_path: Path,
@@ -185,10 +174,10 @@ async def build_codebase_corpus(
     crawl = await crawler.crawl(str(repo_path), incremental=False)
 
     total_bytes = 0
-    file_type_counts: Dict[str, int] = {}
-    top_dirs: Dict[str, int] = {}
+    file_type_counts: dict[str, int] = {}
+    top_dirs: dict[str, int] = {}
     truncated = False
-    warnings: List[str] = []
+    warnings: list[str] = []
 
     with open(corpus_path, "w", encoding="utf-8", errors="ignore") as f:
         for file in crawl.files:
@@ -250,7 +239,6 @@ async def build_codebase_corpus(
 
     return corpus
 
-
 async def summarize_codebase_with_rlm(
     repo_path: Path,
     output_dir: Path,
@@ -258,7 +246,7 @@ async def summarize_codebase_with_rlm(
     require_true_rlm: bool = True,
     max_files: int = 25_000,
     max_file_bytes: int = 2_000_000,
-    max_content_bytes: Optional[int] = None,
+    max_content_bytes: int | None = None,
     force_rebuild: bool = False,
 ) -> CodebaseRLMResult:
     """Build corpus and run TRUE RLM summary query."""
@@ -320,7 +308,6 @@ async def summarize_codebase_with_rlm(
             used_fallback=True,
             error=str(e),
         )
-
 
 __all__ = [
     "CodebaseCorpus",

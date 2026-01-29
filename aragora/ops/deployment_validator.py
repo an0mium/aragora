@@ -36,7 +36,6 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +55,12 @@ WEAK_JWT_SECRETS = {
     "aragora",
 }
 
-
 class Severity(str, Enum):
     """Issue severity levels."""
 
     CRITICAL = "critical"  # Blocks deployment
     WARNING = "warning"  # Should be addressed
     INFO = "info"  # Informational
-
 
 class ComponentStatus(str, Enum):
     """Component health status."""
@@ -73,7 +70,6 @@ class ComponentStatus(str, Enum):
     UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
 
-
 @dataclass
 class ValidationIssue:
     """A validation issue found during deployment check."""
@@ -81,8 +77,7 @@ class ValidationIssue:
     component: str
     message: str
     severity: Severity
-    suggestion: Optional[str] = None
-
+    suggestion: str | None = None
 
 @dataclass
 class ComponentHealth:
@@ -90,10 +85,9 @@ class ComponentHealth:
 
     name: str
     status: ComponentStatus
-    latency_ms: Optional[float] = None
-    message: Optional[str] = None
+    latency_ms: float | None = None
+    message: str | None = None
     metadata: dict = field(default_factory=dict)
-
 
 @dataclass
 class ValidationResult:
@@ -133,7 +127,6 @@ class ValidationResult:
             "validated_at": self.validated_at,
             "validation_duration_ms": self.validation_duration_ms,
         }
-
 
 class DeploymentValidator:
     """Validates deployment readiness with runtime checks."""
@@ -1197,7 +1190,6 @@ class DeploymentValidator:
             )
         )
 
-
 async def validate_deployment() -> ValidationResult:
     """Run deployment validation.
 
@@ -1206,7 +1198,6 @@ async def validate_deployment() -> ValidationResult:
     """
     validator = DeploymentValidator()
     return await validator.validate()
-
 
 def quick_health_check() -> bool:
     """Quick synchronous health check for startup.
@@ -1229,7 +1220,6 @@ def quick_health_check() -> bool:
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return False
-
 
 __all__ = [
     "DeploymentValidator",

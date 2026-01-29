@@ -8,7 +8,7 @@ Response helpers and async message posting for Slack Web API and response URLs.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .config import (
     HandlerResult,
@@ -18,7 +18,6 @@ from .config import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class MessagingMixin:
     """Mixin providing Slack message posting and response formatting."""
@@ -38,7 +37,7 @@ class MessagingMixin:
 
     def _slack_blocks_response(
         self,
-        blocks: List[Dict[str, Any]],
+        blocks: list[dict[str, Any]],
         text: str,
         response_type: str = "ephemeral",
     ) -> HandlerResult:
@@ -51,7 +50,7 @@ class MessagingMixin:
             }
         )
 
-    async def _post_to_response_url(self, url: str, payload: Dict[str, Any]) -> None:
+    async def _post_to_response_url(self, url: str, payload: dict[str, Any]) -> None:
         """POST a message to Slack's response_url.
 
         Includes SSRF protection by validating the URL is a Slack endpoint.
@@ -85,9 +84,9 @@ class MessagingMixin:
         self,
         channel: str,
         text: str,
-        thread_ts: Optional[str] = None,
-        blocks: Optional[List[Dict[str, Any]]] = None,
-    ) -> Optional[str]:
+        thread_ts: str | None = None,
+        blocks: Optional[list[dict[str, Any]]] = None,
+    ) -> str | None:
         """Post a message to Slack using the Web API.
 
         Args:
@@ -106,7 +105,7 @@ class MessagingMixin:
             return None
 
         try:
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "channel": channel,
                 "text": text,
             }

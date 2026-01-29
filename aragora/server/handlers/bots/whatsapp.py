@@ -20,7 +20,7 @@ import hmac
 import hashlib
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
@@ -49,7 +49,6 @@ if not WHATSAPP_APP_SECRET:
 # WhatsApp Cloud API
 WHATSAPP_API_URL = "https://graph.facebook.com/v18.0"
 
-
 def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
     """Verify WhatsApp webhook signature.
 
@@ -68,7 +67,6 @@ def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
     computed_sig = hmac.new(WHATSAPP_APP_SECRET.encode(), body, hashlib.sha256).hexdigest()
 
     return hmac.compare_digest(expected_sig, computed_sig)
-
 
 class WhatsAppHandler(BotHandlerMixin, SecureHandler):
     """Handler for WhatsApp Cloud API webhook endpoints.
@@ -99,7 +97,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         return bool(WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID)
 
     def _build_status_response(
-        self, extra_status: Optional[Dict[str, Any]] = None
+        self, extra_status: Optional[dict[str, Any]] = None
     ) -> HandlerResult:
         """Build WhatsApp-specific status response."""
         status = {
@@ -116,8 +114,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=60)
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route WhatsApp GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/whatsapp/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -131,15 +129,15 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=120)
     def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests (webhook messages)."""
         if path == "/api/v1/bots/whatsapp/webhook":
             return self._handle_webhook(handler)
 
         return None
 
-    def _handle_verification(self, query_params: Dict[str, Any]) -> HandlerResult:
+    def _handle_verification(self, query_params: dict[str, Any]) -> HandlerResult:
         """Handle WhatsApp webhook verification challenge.
 
         WhatsApp sends a GET request with:
@@ -207,7 +205,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Return 200 to prevent retries
             return json_response({"status": "error", "message": str(e)[:100]})
 
-    def _process_messages(self, value: Dict[str, Any]) -> None:
+    def _process_messages(self, value: dict[str, Any]) -> None:
         """Process incoming WhatsApp messages."""
         metadata = value.get("metadata", {})
         metadata.get("phone_number_id")
@@ -269,7 +267,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Treat as debate topic
             self._start_debate(from_number, contact_name, text)
 
-    def _handle_interactive(self, from_number: str, interactive: Dict[str, Any]) -> None:
+    def _handle_interactive(self, from_number: str, interactive: dict[str, Any]) -> None:
         """Handle interactive message response (list reply, button reply)."""
         int_type = interactive.get("type")
 
@@ -283,7 +281,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             button_id = reply.get("id", "")
             logger.info(f"WhatsApp button reply from {from_number}: {button_id}")
 
-    def _handle_button_reply(self, from_number: str, button: Dict[str, Any]) -> None:
+    def _handle_button_reply(self, from_number: str, button: dict[str, Any]) -> None:
         """Handle quick reply button response."""
         payload = button.get("payload", "")
         text = button.get("text", "")

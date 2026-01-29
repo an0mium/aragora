@@ -27,13 +27,12 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.graph_store import KnowledgeGraphStore
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TaxonomyNode:
@@ -41,16 +40,15 @@ class TaxonomyNode:
 
     id: str
     name: str
-    parent_id: Optional[str]
+    parent_id: str | None
     full_path: str  # e.g., "legal/contracts/termination"
-    description: Optional[str]
+    description: str | None
     tenant_id: str
     created_at: datetime
-    children: List["TaxonomyNode"] = field(default_factory=list)
-
+    children: list["TaxonomyNode"] = field(default_factory=list)
 
 # Default industry taxonomies
-DEFAULT_TAXONOMY: Dict[str, Dict[str, Any]] = {
+DEFAULT_TAXONOMY: dict[str, dict[str, Any]] = {
     "legal": {
         "description": "Legal and compliance domain",
         "children": {
@@ -217,7 +215,7 @@ DEFAULT_TAXONOMY: Dict[str, Dict[str, Any]] = {
 }
 
 # Keywords for auto-classification
-DOMAIN_KEYWORDS: Dict[str, List[str]] = {
+DOMAIN_KEYWORDS: dict[str, list[str]] = {
     "legal/contracts": [
         "contract",
         "agreement",
@@ -352,7 +350,6 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
     ],
 }
 
-
 class DomainTaxonomy:
     """
     Hierarchical domain organization for knowledge classification.
@@ -365,7 +362,7 @@ class DomainTaxonomy:
         self,
         graph_store: "KnowledgeGraphStore",
         tenant_id: str = "default",
-        custom_taxonomy: Optional[Dict[str, Any]] = None,
+        custom_taxonomy: Optional[dict[str, Any]] = None,
     ):
         """
         Initialize the domain taxonomy.
@@ -377,7 +374,7 @@ class DomainTaxonomy:
         """
         self._store = graph_store
         self._tenant_id = tenant_id
-        self._cache: Dict[str, TaxonomyNode] = {}
+        self._cache: dict[str, TaxonomyNode] = {}
         self._initialized = False
 
         # Merge custom taxonomy with defaults
@@ -385,7 +382,7 @@ class DomainTaxonomy:
         if custom_taxonomy:
             self._merge_taxonomy(self._taxonomy, custom_taxonomy)
 
-    def _merge_taxonomy(self, base: Dict[str, Any], custom: Dict[str, Any]) -> None:
+    def _merge_taxonomy(self, base: dict[str, Any], custom: dict[str, Any]) -> None:
         """Recursively merge custom taxonomy into base."""
         for key, value in custom.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
@@ -409,8 +406,8 @@ class DomainTaxonomy:
 
     async def _create_taxonomy_recursive(
         self,
-        taxonomy: Dict[str, Any],
-        parent_id: Optional[str],
+        taxonomy: dict[str, Any],
+        parent_id: str | None,
         parent_path: str,
     ) -> None:
         """Recursively create taxonomy nodes."""
@@ -438,7 +435,7 @@ class DomainTaxonomy:
     async def _create_node(
         self,
         name: str,
-        parent_id: Optional[str],
+        parent_id: str | None,
         description: str,
         full_path: str,
     ) -> str:
@@ -450,7 +447,7 @@ class DomainTaxonomy:
     def _sync_create_node(
         self,
         name: str,
-        parent_id: Optional[str],
+        parent_id: str | None,
         description: str,
         full_path: str,
     ) -> str:
@@ -490,19 +487,19 @@ class DomainTaxonomy:
 
         return node_id
 
-    async def _get_by_path(self, path: str) -> Optional[TaxonomyNode]:
+    async def _get_by_path(self, path: str) -> TaxonomyNode | None:
         """Get a taxonomy node by its full path."""
         if path in self._cache:
             return self._cache[path]
 
         return await asyncio.to_thread(self._sync_get_by_path, path)
 
-    def _sync_get_by_path(self, path: str) -> Optional[TaxonomyNode]:
+    def _sync_get_by_path(self, path: str) -> TaxonomyNode | None:
         """Synchronous path lookup."""
         parts = path.split("/")
 
-        parent_id: Optional[str] = None
-        current_node: Optional[TaxonomyNode] = None
+        parent_id: str | None = None
+        current_node: TaxonomyNode | None = None
 
         for part in parts:
             row = self._store.fetch_one(
@@ -536,7 +533,7 @@ class DomainTaxonomy:
         nodes = await asyncio.to_thread(self._sync_load_all)
         self._cache = {node.full_path: node for node in nodes}
 
-    def _sync_load_all(self) -> List[TaxonomyNode]:
+    def _sync_load_all(self) -> list[TaxonomyNode]:
         """Synchronous load of all taxonomy nodes."""
         rows = self._store.fetch_all(
             """
@@ -548,7 +545,7 @@ class DomainTaxonomy:
         )
 
         # Build parent_id -> children mapping
-        nodes_by_id: Dict[str, TaxonomyNode] = {}
+        nodes_by_id: dict[str, TaxonomyNode] = {}
         for row in rows:
             node = TaxonomyNode(
                 id=row[0],
@@ -603,7 +600,7 @@ class DomainTaxonomy:
 
         return best_match
 
-    async def ensure_path(self, path_parts: List[str], description: str = "") -> str:
+    async def ensure_path(self, path_parts: list[str], description: str = "") -> str:
         """
         Ensure a domain path exists, creating nodes as needed.
 
@@ -624,7 +621,7 @@ class DomainTaxonomy:
             return full_path
 
         # Create path
-        parent_id: Optional[str] = None
+        parent_id: str | None = None
         current_path = ""
 
         for i, part in enumerate(path_parts):
@@ -643,7 +640,7 @@ class DomainTaxonomy:
 
         return full_path
 
-    async def get_path(self, domain: str) -> List[str]:
+    async def get_path(self, domain: str) -> list[str]:
         """
         Get full path from root to domain.
 
@@ -655,7 +652,7 @@ class DomainTaxonomy:
         """
         return domain.split("/")
 
-    async def get_children(self, domain: str = "") -> List[TaxonomyNode]:
+    async def get_children(self, domain: str = "") -> list[TaxonomyNode]:
         """
         Get child domains of a given domain.
 
@@ -670,7 +667,7 @@ class DomainTaxonomy:
 
         return await asyncio.to_thread(self._sync_get_children, domain)
 
-    def _sync_get_children(self, domain: str) -> List[TaxonomyNode]:
+    def _sync_get_children(self, domain: str) -> list[TaxonomyNode]:
         """Synchronous children lookup."""
         if domain:
             parent = self._cache.get(domain)
@@ -703,7 +700,7 @@ class DomainTaxonomy:
             for row in rows
         ]
 
-    async def get_all_domains(self) -> List[str]:
+    async def get_all_domains(self) -> list[str]:
         """Get all domain paths."""
         if not self._initialized:
             await self.initialize()
@@ -724,7 +721,6 @@ class DomainTaxonomy:
             ),
             "tenant_id": self._tenant_id,
         }
-
 
 __all__ = [
     "DomainTaxonomy",

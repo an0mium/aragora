@@ -48,7 +48,6 @@ from aragora.storage.backends import (
 
 logger = logging.getLogger(__name__)
 
-
 class AuditStore:
     """
     Database-backed storage for audit logging.
@@ -62,8 +61,8 @@ class AuditStore:
         self,
         db_path: Path | str = "audit.db",
         get_connection: Optional[Callable[[], sqlite3.Connection]] = None,
-        backend: Optional[str] = None,
-        database_url: Optional[str] = None,
+        backend: str | None = None,
+        database_url: str | None = None,
     ):
         """
         Initialize AuditStore.
@@ -81,7 +80,7 @@ class AuditStore:
         # Backend selection is now handled by get_audit_store() using resolve_database_config().
         # This __init__ just accepts explicit parameters from the factory function.
         self.backend_type = backend or "sqlite"
-        self._backend: Optional[DatabaseBackend] = None
+        self._backend: DatabaseBackend | None = None
 
         # Only create backend if not using external connection
         if get_connection is None:
@@ -169,14 +168,14 @@ class AuditStore:
         self,
         action: str,
         resource_type: str,
-        resource_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        old_value: Optional[dict] = None,
-        new_value: Optional[dict] = None,
-        metadata: Optional[dict] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        resource_id: str | None = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
+        old_value: dict | None = None,
+        new_value: dict | None = None,
+        metadata: dict | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> int:
         """
         Log an audit event.
@@ -238,12 +237,12 @@ class AuditStore:
 
     def get_log(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
@@ -328,10 +327,10 @@ class AuditStore:
 
     def get_log_count(
         self,
-        org_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        org_id: str | None = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
     ) -> int:
         """Get count of audit log entries matching filters."""
         conditions: list[str] = []
@@ -409,8 +408,8 @@ class AuditStore:
 
     def get_recent_activity(
         self,
-        user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
         hours: int = 24,
         limit: int = 50,
     ) -> list[dict]:
@@ -438,8 +437,8 @@ class AuditStore:
 
     def get_security_events(
         self,
-        user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         """
@@ -489,16 +488,14 @@ class AuditStore:
             self._local.connection.close()
             del self._local.connection
 
-
 # Module-level singleton
-_default_store: Optional[AuditStore] = None
+_default_store: AuditStore | None = None
 _store_lock = threading.Lock()
-
 
 def get_audit_store(
     db_path: str | None = None,
-    backend: Optional[str] = None,
-    database_url: Optional[str] = None,
+    backend: str | None = None,
+    database_url: str | None = None,
 ) -> AuditStore:
     """
     Get or create the default AuditStore instance.
@@ -575,7 +572,6 @@ def get_audit_store(
 
     return _default_store
 
-
 def reset_audit_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store
@@ -583,7 +579,6 @@ def reset_audit_store() -> None:
         if _default_store is not None:
             _default_store.close()
             _default_store = None
-
 
 # Backwards compatibility alias
 log_audit_event = AuditStore.log_event

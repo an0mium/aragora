@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any, Callable, Coroutine
 
 from .messages import ProtocolMessage, ProtocolMessageType
 
@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 # Type alias for async handlers
 AsyncHandler = Callable[[ProtocolMessage], Coroutine[Any, Any, None]]
-
 
 class ProtocolHandler(ABC):
     """
@@ -32,7 +31,7 @@ class ProtocolHandler(ABC):
 
     @property
     @abstractmethod
-    def message_types(self) -> List[ProtocolMessageType]:
+    def message_types(self) -> list[ProtocolMessageType]:
         """List of message types this handler processes."""
         pass
 
@@ -61,7 +60,6 @@ class ProtocolHandler(ABC):
             exc_info=True,
         )
 
-
 class ProtocolHandlerRegistry:
     """
     Registry for protocol message handlers.
@@ -76,9 +74,9 @@ class ProtocolHandlerRegistry:
 
     def __init__(self):
         """Initialize the handler registry."""
-        self._handlers: Dict[ProtocolMessageType, List[tuple[int, AsyncHandler]]] = {}
-        self._class_handlers: Dict[ProtocolMessageType, List[tuple[int, ProtocolHandler]]] = {}
-        self._global_handlers: List[tuple[int, AsyncHandler]] = []
+        self._handlers: dict[ProtocolMessageType, list[tuple[int, AsyncHandler]]] = {}
+        self._class_handlers: dict[ProtocolMessageType, list[tuple[int, ProtocolHandler]]] = {}
+        self._global_handlers: list[tuple[int, AsyncHandler]] = []
 
     def register(
         self,
@@ -264,7 +262,7 @@ class ProtocolHandlerRegistry:
             await handler.on_error(message, e)
             return False
 
-    def get_handlers(self, message_type: ProtocolMessageType) -> List[AsyncHandler]:
+    def get_handlers(self, message_type: ProtocolMessageType) -> list[AsyncHandler]:
         """Get all function handlers for a message type."""
         handlers = [h for _, h in self._handlers.get(message_type, [])]
         return handlers
@@ -276,10 +274,8 @@ class ProtocolHandlerRegistry:
         self._global_handlers.clear()
         logger.debug("Cleared all protocol handlers")
 
-
 # Default global registry
-_default_registry: Optional[ProtocolHandlerRegistry] = None
-
+_default_registry: ProtocolHandlerRegistry | None = None
 
 def get_handler_registry() -> ProtocolHandlerRegistry:
     """Get the default protocol handler registry."""
@@ -288,9 +284,7 @@ def get_handler_registry() -> ProtocolHandlerRegistry:
         _default_registry = ProtocolHandlerRegistry()
     return _default_registry
 
-
 # Decorator for registering handlers
-
 
 def handles(*message_types: ProtocolMessageType, priority: int = 100):
     """
@@ -314,15 +308,13 @@ def handles(*message_types: ProtocolMessageType, priority: int = 100):
 
     return decorator
 
-
 # Built-in handlers for common operations
-
 
 class LoggingHandler(ProtocolHandler):
     """Handler that logs all protocol messages."""
 
     @property
-    def message_types(self) -> List[ProtocolMessageType]:
+    def message_types(self) -> list[ProtocolMessageType]:
         return list(ProtocolMessageType)
 
     async def handle(self, message: ProtocolMessage) -> None:
@@ -333,16 +325,15 @@ class LoggingHandler(ProtocolHandler):
             f"round={message.round_number}"
         )
 
-
 class MetricsHandler(ProtocolHandler):
     """Handler that tracks protocol message metrics."""
 
     def __init__(self):
-        self._counts: Dict[ProtocolMessageType, int] = {}
-        self._debate_counts: Dict[str, int] = {}
+        self._counts: dict[ProtocolMessageType, int] = {}
+        self._debate_counts: dict[str, int] = {}
 
     @property
-    def message_types(self) -> List[ProtocolMessageType]:
+    def message_types(self) -> list[ProtocolMessageType]:
         return list(ProtocolMessageType)
 
     async def handle(self, message: ProtocolMessage) -> None:
@@ -352,7 +343,7 @@ class MetricsHandler(ProtocolHandler):
         # Increment debate count
         self._debate_counts[message.debate_id] = self._debate_counts.get(message.debate_id, 0) + 1
 
-    def get_counts(self) -> Dict[str, int]:
+    def get_counts(self) -> dict[str, int]:
         """Get message counts by type."""
         return {k.value: v for k, v in self._counts.items()}
 

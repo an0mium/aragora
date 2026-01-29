@@ -19,10 +19,9 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
-
 
 class BudgetPeriod(Enum):
     """Budget period types."""
@@ -33,7 +32,6 @@ class BudgetPeriod(Enum):
     QUARTERLY = "quarterly"
     ANNUAL = "annual"
     UNLIMITED = "unlimited"
-
 
 class BudgetStatus(Enum):
     """Budget status states."""
@@ -46,7 +44,6 @@ class BudgetStatus(Enum):
     PAUSED = "paused"  # Manually paused
     CLOSED = "closed"  # Budget period ended
 
-
 class BudgetAction(Enum):
     """Actions when budget thresholds are reached."""
 
@@ -56,7 +53,6 @@ class BudgetAction(Enum):
     HARD_LIMIT = "hard_limit"  # Block operations
     SUSPEND = "suspend"  # Suspend all operations
     ALLOW_WITH_CHARGES = "allow_with_charges"  # Allow but track as overage
-
 
 @dataclass
 class SpendResult:
@@ -68,7 +64,7 @@ class SpendResult:
     overage_amount_usd: float = 0.0
     overage_rate_multiplier: float = 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "allowed": self.allowed,
@@ -78,16 +74,14 @@ class SpendResult:
             "overage_rate_multiplier": self.overage_rate_multiplier,
         }
 
-
 @dataclass
 class BudgetThreshold:
     """Budget alert threshold configuration."""
 
     percentage: float  # 0.0 - 1.0
     action: BudgetAction
-    notify_channels: List[str] = field(default_factory=lambda: ["email"])
+    notify_channels: list[str] = field(default_factory=lambda: ["email"])
     cooldown_minutes: int = 60  # Minimum time between alerts
-
 
 # Default thresholds for new budgets
 DEFAULT_THRESHOLDS = [
@@ -96,7 +90,6 @@ DEFAULT_THRESHOLDS = [
     BudgetThreshold(0.90, BudgetAction.SOFT_LIMIT),
     BudgetThreshold(1.00, BudgetAction.HARD_LIMIT),
 ]
-
 
 @dataclass
 class Budget:
@@ -121,22 +114,22 @@ class Budget:
     auto_suspend: bool = True  # Auto-suspend on exceed
 
     # Thresholds (default: warn at 75%, critical at 90%, hard limit at 100%)
-    thresholds: List[BudgetThreshold] = field(default_factory=lambda: list(DEFAULT_THRESHOLDS))
+    thresholds: list[BudgetThreshold] = field(default_factory=lambda: list(DEFAULT_THRESHOLDS))
 
     # Overrides
-    override_user_ids: List[str] = field(default_factory=list)  # Users who can bypass
-    override_until: Optional[float] = None  # Temporary override expiry
+    override_user_ids: list[str] = field(default_factory=list)  # Users who can bypass
+    override_until: float | None = None  # Temporary override expiry
 
     # Overage settings
     allow_overage: bool = False  # Allow spending beyond budget with charges
     overage_rate_multiplier: float = 1.5  # Rate multiplier for overage (1.5x = 50% surcharge)
     overage_spent_usd: float = 0.0  # Amount spent in overage
-    max_overage_usd: Optional[float] = None  # Optional cap on overage amount
+    max_overage_usd: float | None = None  # Optional cap on overage amount
 
     # Metadata
     created_at: float = field(default_factory=lambda: time.time())
     updated_at: float = field(default_factory=lambda: time.time())
-    created_by: Optional[str] = None
+    created_by: str | None = None
 
     @property
     def usage_percentage(self) -> float:
@@ -167,7 +160,7 @@ class Budget:
 
         return action
 
-    def can_spend_extended(self, amount_usd: float, user_id: Optional[str] = None) -> SpendResult:
+    def can_spend_extended(self, amount_usd: float, user_id: str | None = None) -> SpendResult:
         """Check if spending is allowed with extended overage info.
 
         Returns:
@@ -230,7 +223,7 @@ class Budget:
         # Soft limit or warn - allow but flag
         return SpendResult(allowed=True, message="OK")
 
-    def can_spend(self, amount_usd: float, user_id: Optional[str] = None) -> tuple[bool, str]:
+    def can_spend(self, amount_usd: float, user_id: str | None = None) -> tuple[bool, str]:
         """Check if spending is allowed (legacy interface).
 
         Returns:
@@ -248,7 +241,7 @@ class Budget:
         self.overage_spent_usd += amount_usd
         self.updated_at = time.time()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "budget_id": self.budget_id,
@@ -288,7 +281,6 @@ class Budget:
             "updated_at": self.updated_at,
         }
 
-
 @dataclass
 class BudgetAlert:
     """Budget alert event."""
@@ -303,10 +295,10 @@ class BudgetAlert:
     message: str
     created_at: float = field(default_factory=lambda: time.time())
     acknowledged: bool = False
-    acknowledged_by: Optional[str] = None
-    acknowledged_at: Optional[float] = None
+    acknowledged_by: str | None = None
+    acknowledged_at: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "alert_id": self.alert_id,
             "budget_id": self.budget_id,
@@ -324,7 +316,6 @@ class BudgetAlert:
             "acknowledged_at": self.acknowledged_at,
         }
 
-
 @dataclass
 class BudgetTransaction:
     """A recorded spending transaction against a budget."""
@@ -333,11 +324,11 @@ class BudgetTransaction:
     budget_id: str
     amount_usd: float
     description: str = ""
-    debate_id: Optional[str] = None
-    user_id: Optional[str] = None
+    debate_id: str | None = None
+    user_id: str | None = None
     created_at: float = field(default_factory=lambda: time.time())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "transaction_id": self.transaction_id,
@@ -349,7 +340,6 @@ class BudgetTransaction:
             "created_at": self.created_at,
             "created_at_iso": datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat(),
         }
-
 
 class BudgetManager:
     """
@@ -425,8 +415,8 @@ class BudgetManager:
         self._local = threading.local()
         self._init_lock = threading.Lock()
         self._initialized = False
-        self._alert_callbacks: List[Callable[[BudgetAlert], None]] = []
-        self._alert_cooldowns: Dict[str, float] = {}  # budget_id -> last alert time
+        self._alert_callbacks: list[Callable[[BudgetAlert], None]] = []
+        self._alert_cooldowns: dict[str, float] = {}  # budget_id -> last alert time
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get thread-local database connection."""
@@ -467,8 +457,8 @@ class BudgetManager:
         period: BudgetPeriod = BudgetPeriod.MONTHLY,
         description: str = "",
         auto_suspend: bool = True,
-        thresholds: Optional[List[BudgetThreshold]] = None,
-        created_by: Optional[str] = None,
+        thresholds: Optional[list[BudgetThreshold]] = None,
+        created_by: str | None = None,
     ) -> Budget:
         """Create a new budget.
 
@@ -549,7 +539,7 @@ class BudgetManager:
         )
         return budget
 
-    def get_budget(self, budget_id: str) -> Optional[Budget]:
+    def get_budget(self, budget_id: str) -> Budget | None:
         """Get a budget by ID."""
         conn = self._get_connection()
         cursor = conn.execute("SELECT * FROM budgets WHERE budget_id = ?", (budget_id,))
@@ -559,7 +549,7 @@ class BudgetManager:
             return self._budget_from_row(row)
         return None
 
-    def get_budgets_for_org(self, org_id: str, active_only: bool = True) -> List[Budget]:
+    def get_budgets_for_org(self, org_id: str, active_only: bool = True) -> list[Budget]:
         """Get all budgets for an organization."""
         conn = self._get_connection()
 
@@ -579,12 +569,12 @@ class BudgetManager:
     def update_budget(
         self,
         budget_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        amount_usd: Optional[float] = None,
-        auto_suspend: Optional[bool] = None,
-        status: Optional[BudgetStatus] = None,
-    ) -> Optional[Budget]:
+        name: str | None = None,
+        description: str | None = None,
+        amount_usd: float | None = None,
+        auto_suspend: bool | None = None,
+        status: BudgetStatus | None = None,
+    ) -> Budget | None:
         """Update a budget."""
         budget = self.get_budget(budget_id)
         if not budget:
@@ -644,8 +634,8 @@ class BudgetManager:
         self,
         org_id: str,
         estimated_cost_usd: float,
-        user_id: Optional[str] = None,
-    ) -> tuple[bool, str, Optional[BudgetAction]]:
+        user_id: str | None = None,
+    ) -> tuple[bool, str, BudgetAction | None]:
         """Check if an operation is allowed within budget.
 
         Args:
@@ -691,8 +681,8 @@ class BudgetManager:
         org_id: str,
         amount_usd: float,
         description: str = "",
-        debate_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        debate_id: str | None = None,
+        user_id: str | None = None,
     ) -> bool:
         """Record spending against the organization's budget.
 
@@ -821,16 +811,16 @@ class BudgetManager:
 
     def get_alerts(
         self,
-        org_id: Optional[str] = None,
-        budget_id: Optional[str] = None,
+        org_id: str | None = None,
+        budget_id: str | None = None,
         unacknowledged_only: bool = False,
         limit: int = 50,
-    ) -> List[BudgetAlert]:
+    ) -> list[BudgetAlert]:
         """Get budget alerts."""
         conn = self._get_connection()
 
         query = "SELECT * FROM budget_alerts WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if org_id:
             query += " AND org_id = ?"
@@ -885,7 +875,7 @@ class BudgetManager:
         self,
         budget_id: str,
         user_id: str,
-        duration_hours: Optional[float] = None,
+        duration_hours: float | None = None,
     ) -> bool:
         """Add a budget override for a user.
 
@@ -1007,7 +997,7 @@ class BudgetManager:
 
         return start.timestamp(), end.timestamp()
 
-    def reset_period(self, budget_id: str) -> Optional[Budget]:
+    def reset_period(self, budget_id: str) -> Budget | None:
         """Reset a budget's spending for a new period."""
         budget = self.get_budget(budget_id)
         if not budget:
@@ -1035,7 +1025,7 @@ class BudgetManager:
         logger.info(f"Reset budget {budget_id} for new period")
         return budget
 
-    def get_summary(self, org_id: str) -> Dict[str, Any]:
+    def get_summary(self, org_id: str) -> dict[str, Any]:
         """Get budget summary for an organization."""
         budgets = self.get_budgets_for_org(org_id, active_only=False)
 
@@ -1064,10 +1054,10 @@ class BudgetManager:
         budget_id: str,
         limit: int = 50,
         offset: int = 0,
-        date_from: Optional[float] = None,
-        date_to: Optional[float] = None,
-        user_id: Optional[str] = None,
-    ) -> List[BudgetTransaction]:
+        date_from: float | None = None,
+        date_to: float | None = None,
+        user_id: str | None = None,
+    ) -> list[BudgetTransaction]:
         """Get transaction history for a budget.
 
         Args:
@@ -1084,7 +1074,7 @@ class BudgetManager:
         conn = self._get_connection()
 
         query = "SELECT * FROM budget_transactions WHERE budget_id = ?"
-        params: List[Any] = [budget_id]
+        params: list[Any] = [budget_id]
 
         if date_from:
             query += " AND created_at >= ?"
@@ -1120,15 +1110,15 @@ class BudgetManager:
     def count_transactions(
         self,
         budget_id: str,
-        date_from: Optional[float] = None,
-        date_to: Optional[float] = None,
-        user_id: Optional[str] = None,
+        date_from: float | None = None,
+        date_to: float | None = None,
+        user_id: str | None = None,
     ) -> int:
         """Count transactions matching filters."""
         conn = self._get_connection()
 
         query = "SELECT COUNT(*) FROM budget_transactions WHERE budget_id = ?"
-        params: List[Any] = [budget_id]
+        params: list[Any] = [budget_id]
 
         if date_from:
             query += " AND created_at >= ?"
@@ -1149,7 +1139,7 @@ class BudgetManager:
         budget_id: str,
         period: str = "day",
         limit: int = 30,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get spending trends aggregated by period.
 
         Args:
@@ -1210,7 +1200,7 @@ class BudgetManager:
         org_id: str,
         period: str = "day",
         limit: int = 30,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get spending trends for entire organization across all budgets.
 
         Args:
@@ -1265,10 +1255,8 @@ class BudgetManager:
         # Return chronological order (oldest first) for charting
         return list(reversed(trends))
 
-
 # Module-level singleton
-_budget_manager: Optional[BudgetManager] = None
-
+_budget_manager: BudgetManager | None = None
 
 def get_budget_manager(db_path: str = "data/budgets.db") -> BudgetManager:
     """Get or create the budget manager singleton."""

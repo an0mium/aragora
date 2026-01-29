@@ -25,10 +25,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class FileType(str, Enum):
     """Recognized file types for specialized parsing."""
@@ -60,9 +59,8 @@ class FileType(str, Enum):
     MAKEFILE = "makefile"
     OTHER = "other"
 
-
 # Extension to file type mapping
-EXTENSION_MAP: Dict[str, FileType] = {
+EXTENSION_MAP: dict[str, FileType] = {
     ".py": FileType.PYTHON,
     ".pyi": FileType.PYTHON,
     ".js": FileType.JAVASCRIPT,
@@ -104,14 +102,13 @@ EXTENSION_MAP: Dict[str, FileType] = {
     ".zsh": FileType.SHELL,
 }
 
-
 @dataclass
 class CrawlConfig:
     """Configuration for repository crawling."""
 
     # File inclusion/exclusion
-    include_patterns: List[str] = field(default_factory=lambda: ["*", "**/*"])
-    exclude_patterns: List[str] = field(
+    include_patterns: list[str] = field(default_factory=lambda: ["*", "**/*"])
+    exclude_patterns: list[str] = field(
         default_factory=lambda: [
             "**/node_modules/**",
             "**/.git/**",
@@ -128,8 +125,8 @@ class CrawlConfig:
     )
 
     # File type filtering
-    include_types: Optional[List[FileType]] = None
-    exclude_types: List[FileType] = field(default_factory=list)
+    include_types: Optional[list[FileType]] = None
+    exclude_types: list[FileType] = field(default_factory=list)
 
     # Size limits
     max_file_size_bytes: int = 1_000_000  # 1MB
@@ -143,7 +140,7 @@ class CrawlConfig:
     # Git options
     include_git_history: bool = False
     max_commits: int = 100
-    since_commit: Optional[str] = None
+    since_commit: str | None = None
 
     # Concurrency
     max_concurrent_files: int = 20
@@ -151,7 +148,6 @@ class CrawlConfig:
     # Chunking for large files
     chunk_size_lines: int = 500
     chunk_overlap_lines: int = 50
-
 
 @dataclass
 class FileSymbol:
@@ -161,10 +157,9 @@ class FileSymbol:
     kind: str  # function, class, method, variable, import, export
     line_start: int
     line_end: int
-    signature: Optional[str] = None
-    docstring: Optional[str] = None
-    parent: Optional[str] = None
-
+    signature: str | None = None
+    docstring: str | None = None
+    parent: str | None = None
 
 @dataclass
 class FileDependency:
@@ -174,7 +169,6 @@ class FileDependency:
     target: str
     kind: str  # import, require, include
     line: int
-
 
 @dataclass
 class CrawledFile:
@@ -187,13 +181,13 @@ class CrawledFile:
     content_hash: str
     size_bytes: int
     line_count: int
-    symbols: List[FileSymbol] = field(default_factory=list)
-    dependencies: List[FileDependency] = field(default_factory=list)
-    chunks: List[Dict[str, Any]] = field(default_factory=list)
-    last_modified: Optional[datetime] = None
-    git_blame: Optional[Dict[str, Any]] = None
+    symbols: list[FileSymbol] = field(default_factory=list)
+    dependencies: list[FileDependency] = field(default_factory=list)
+    chunks: list[dict[str, Any]] = field(default_factory=list)
+    last_modified: datetime | None = None
+    git_blame: Optional[dict[str, Any]] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
             "path": self.path,
@@ -227,28 +221,27 @@ class CrawledFile:
             "last_modified": self.last_modified.isoformat() if self.last_modified else None,
         }
 
-
 @dataclass
 class CrawlResult:
     """Result of a repository crawl."""
 
     repository_path: str
     repository_name: str
-    files: List[CrawledFile]
+    files: list[CrawledFile]
     total_files: int
     total_lines: int
     total_bytes: int
-    file_type_counts: Dict[str, int]
-    symbol_counts: Dict[str, int]
-    dependency_graph: Dict[str, List[str]]
+    file_type_counts: dict[str, int]
+    symbol_counts: dict[str, int]
+    dependency_graph: dict[str, list[str]]
     crawl_duration_ms: float
-    errors: List[str]
-    warnings: List[str]
-    git_info: Optional[Dict[str, Any]] = None
+    errors: list[str]
+    warnings: list[str]
+    git_info: Optional[dict[str, Any]] = None
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "repository_path": self.repository_path,
@@ -266,18 +259,17 @@ class CrawlResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
-
 @dataclass
 class CrawlState:
     """Persisted state for incremental crawling."""
 
     repository_path: str
     last_crawl: datetime
-    last_commit: Optional[str] = None
-    file_hashes: Dict[str, str] = field(default_factory=dict)
+    last_commit: str | None = None
+    file_hashes: dict[str, str] = field(default_factory=dict)
     total_crawls: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for persistence."""
         return {
             "repository_path": self.repository_path,
@@ -288,7 +280,7 @@ class CrawlState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CrawlState:
+    def from_dict(cls, data: dict[str, Any]) -> CrawlState:
         """Create from dictionary."""
         return cls(
             repository_path=data["repository_path"],
@@ -297,7 +289,6 @@ class CrawlState:
             file_hashes=data.get("file_hashes", {}),
             total_crawls=data.get("total_crawls", 0),
         )
-
 
 class RepositoryCrawler:
     """
@@ -309,8 +300,8 @@ class RepositoryCrawler:
 
     def __init__(
         self,
-        config: Optional[CrawlConfig] = None,
-        workspace_id: Optional[str] = None,
+        config: CrawlConfig | None = None,
+        workspace_id: str | None = None,
     ):
         """
         Initialize repository crawler.
@@ -321,7 +312,7 @@ class RepositoryCrawler:
         """
         self._config = config or CrawlConfig()
         self._workspace_id = workspace_id
-        self._state: Optional[CrawlState] = None
+        self._state: CrawlState | None = None
 
     async def crawl(
         self,
@@ -351,7 +342,7 @@ class RepositoryCrawler:
             repo_name = repo_path.name
 
         # Load previous state if incremental
-        changed_files: Optional[Set[str]] = None
+        changed_files: Optional[set[str]] = None
         if incremental and self._state:
             changed_files = await self._get_changed_files(repo_path)
             if not changed_files:
@@ -364,13 +355,13 @@ class RepositoryCrawler:
         files_to_process = await self._discover_files(repo_path, changed_files)
 
         # Process files concurrently
-        crawled_files: List[CrawledFile] = []
-        errors: List[str] = []
-        warnings: List[str] = []
+        crawled_files: list[CrawledFile] = []
+        errors: list[str] = []
+        warnings: list[str] = []
 
         semaphore = asyncio.Semaphore(self._config.max_concurrent_files)
 
-        async def process_file(file_path: Path) -> Optional[CrawledFile]:
+        async def process_file(file_path: Path) -> CrawledFile | None:
             async with semaphore:
                 try:
                     return await self._process_file(file_path, repo_path)
@@ -397,8 +388,8 @@ class RepositoryCrawler:
         total_lines = sum(f.line_count for f in crawled_files)
         total_bytes = sum(f.size_bytes for f in crawled_files)
 
-        file_type_counts: Dict[str, int] = {}
-        symbol_counts: Dict[str, int] = {}
+        file_type_counts: dict[str, int] = {}
+        symbol_counts: dict[str, int] = {}
 
         for cf in crawled_files:
             ft = cf.file_type.value
@@ -540,7 +531,7 @@ class RepositoryCrawler:
         parts = url.split("/")
         return parts[-1] if parts else "unknown"
 
-    async def _get_git_info(self, repo_path: Path) -> Optional[Dict[str, Any]]:
+    async def _get_git_info(self, repo_path: Path) -> Optional[dict[str, Any]]:
         """Get git repository information."""
         git_dir = repo_path / ".git"
         if not git_dir.exists():
@@ -577,8 +568,8 @@ class RepositoryCrawler:
     async def _run_git_command(
         self,
         repo_path: Path,
-        args: List[str],
-    ) -> Optional[str]:
+        args: list[str],
+    ) -> str | None:
         """Run a git command and return output."""
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -598,7 +589,7 @@ class RepositoryCrawler:
             logger.debug(f"Git command failed: {e}")
             return None
 
-    async def _get_changed_files(self, repo_path: Path) -> Optional[Set[str]]:
+    async def _get_changed_files(self, repo_path: Path) -> Optional[set[str]]:
         """Get files changed since last crawl."""
         if not self._state or not self._state.last_commit:
             return None
@@ -620,12 +611,12 @@ class RepositoryCrawler:
     async def _discover_files(
         self,
         repo_path: Path,
-        changed_files: Optional[Set[str]] = None,
-    ) -> List[Path]:
+        changed_files: Optional[set[str]] = None,
+    ) -> list[Path]:
         """Discover files to process."""
         import fnmatch
 
-        files: List[Path] = []
+        files: list[Path] = []
 
         for path in repo_path.rglob("*"):
             if not path.is_file():
@@ -716,12 +707,12 @@ class RepositoryCrawler:
         last_modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
 
         # Extract symbols
-        symbols: List[FileSymbol] = []
+        symbols: list[FileSymbol] = []
         if self._config.extract_symbols:
             symbols = self._extract_symbols(content, file_type)
 
         # Extract dependencies
-        dependencies: List[FileDependency] = []
+        dependencies: list[FileDependency] = []
         if self._config.extract_dependencies:
             dependencies = self._extract_dependencies(content, file_type, relative_path)
 
@@ -746,9 +737,9 @@ class RepositoryCrawler:
         self,
         content: str,
         file_type: FileType,
-    ) -> List[FileSymbol]:
+    ) -> list[FileSymbol]:
         """Extract symbols from source code."""
-        symbols: List[FileSymbol] = []
+        symbols: list[FileSymbol] = []
 
         if file_type == FileType.PYTHON:
             symbols = self._extract_python_symbols(content)
@@ -763,9 +754,9 @@ class RepositoryCrawler:
 
         return symbols
 
-    def _extract_python_symbols(self, content: str) -> List[FileSymbol]:
+    def _extract_python_symbols(self, content: str) -> list[FileSymbol]:
         """Extract symbols from Python code."""
-        symbols: List[FileSymbol] = []
+        symbols: list[FileSymbol] = []
 
         try:
             import ast
@@ -833,9 +824,9 @@ class RepositoryCrawler:
             logger.debug(f"Failed to extract function signature for {node.name}: {e}")
             return f"def {node.name}(...)"
 
-    def _extract_python_symbols_regex(self, content: str) -> List[FileSymbol]:
+    def _extract_python_symbols_regex(self, content: str) -> list[FileSymbol]:
         """Extract Python symbols using regex (fallback)."""
-        symbols: List[FileSymbol] = []
+        symbols: list[FileSymbol] = []
         lines = content.split("\n")
 
         # Function pattern
@@ -869,9 +860,9 @@ class RepositoryCrawler:
 
         return symbols
 
-    def _extract_js_symbols(self, content: str) -> List[FileSymbol]:
+    def _extract_js_symbols(self, content: str) -> list[FileSymbol]:
         """Extract symbols from JavaScript/TypeScript."""
-        symbols: List[FileSymbol] = []
+        symbols: list[FileSymbol] = []
         lines = content.split("\n")
 
         # Patterns for JS/TS
@@ -900,9 +891,9 @@ class RepositoryCrawler:
 
         return symbols
 
-    def _extract_go_symbols(self, content: str) -> List[FileSymbol]:
+    def _extract_go_symbols(self, content: str) -> list[FileSymbol]:
         """Extract symbols from Go code."""
-        symbols: List[FileSymbol] = []
+        symbols: list[FileSymbol] = []
         lines = content.split("\n")
 
         patterns = [
@@ -928,9 +919,9 @@ class RepositoryCrawler:
 
         return symbols
 
-    def _extract_java_symbols(self, content: str) -> List[FileSymbol]:
+    def _extract_java_symbols(self, content: str) -> list[FileSymbol]:
         """Extract symbols from Java code."""
-        symbols: List[FileSymbol] = []
+        symbols: list[FileSymbol] = []
         lines = content.split("\n")
 
         patterns = [
@@ -959,9 +950,9 @@ class RepositoryCrawler:
 
         return symbols
 
-    def _extract_rust_symbols(self, content: str) -> List[FileSymbol]:
+    def _extract_rust_symbols(self, content: str) -> list[FileSymbol]:
         """Extract symbols from Rust code."""
-        symbols: List[FileSymbol] = []
+        symbols: list[FileSymbol] = []
         lines = content.split("\n")
 
         patterns = [
@@ -993,9 +984,9 @@ class RepositoryCrawler:
         content: str,
         file_type: FileType,
         source_path: str,
-    ) -> List[FileDependency]:
+    ) -> list[FileDependency]:
         """Extract dependencies from source code."""
-        dependencies: List[FileDependency] = []
+        dependencies: list[FileDependency] = []
         lines = content.split("\n")
 
         if file_type == FileType.PYTHON:
@@ -1042,10 +1033,10 @@ class RepositoryCrawler:
     def _create_chunks(
         self,
         content: str,
-        lines: List[str],
-    ) -> List[Dict[str, Any]]:
+        lines: list[str],
+    ) -> list[dict[str, Any]]:
         """Split content into overlapping chunks."""
-        chunks: List[Dict[str, Any]] = []
+        chunks: list[dict[str, Any]] = []
 
         chunk_size = self._config.chunk_size_lines
         overlap = self._config.chunk_overlap_lines
@@ -1088,10 +1079,10 @@ class RepositoryCrawler:
 
     def _build_dependency_graph(
         self,
-        files: List[CrawledFile],
-    ) -> Dict[str, List[str]]:
+        files: list[CrawledFile],
+    ) -> dict[str, list[str]]:
         """Build a dependency graph from all files."""
-        graph: Dict[str, List[str]] = {}
+        graph: dict[str, list[str]] = {}
 
         for cf in files:
             if cf.dependencies:
@@ -1103,15 +1094,14 @@ class RepositoryCrawler:
         """Set crawl state for incremental crawling."""
         self._state = state
 
-    def get_state(self) -> Optional[CrawlState]:
+    def get_state(self) -> CrawlState | None:
         """Get current crawl state."""
         return self._state
 
-
 async def crawl_repository(
     source: str,
-    config: Optional[CrawlConfig] = None,
-    workspace_id: Optional[str] = None,
+    config: CrawlConfig | None = None,
+    workspace_id: str | None = None,
 ) -> CrawlResult:
     """
     Convenience function to crawl a repository.
@@ -1126,7 +1116,6 @@ async def crawl_repository(
     """
     crawler = RepositoryCrawler(config=config, workspace_id=workspace_id)
     return await crawler.crawl(source)
-
 
 __all__ = [
     "RepositoryCrawler",

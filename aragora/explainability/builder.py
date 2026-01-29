@@ -19,7 +19,7 @@ import hashlib
 import logging
 from collections import Counter
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .decision import (
     BeliefChange,
@@ -31,7 +31,6 @@ from .decision import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class ExplanationBuilder:
     """
@@ -48,11 +47,11 @@ class ExplanationBuilder:
     def __init__(
         self,
         *,
-        evidence_tracker: Optional[Any] = None,
-        belief_network: Optional[Any] = None,
-        calibration_tracker: Optional[Any] = None,
-        elo_system: Optional[Any] = None,
-        provenance_tracker: Optional[Any] = None,
+        evidence_tracker: Any | None = None,
+        belief_network: Any | None = None,
+        calibration_tracker: Any | None = None,
+        elo_system: Any | None = None,
+        provenance_tracker: Any | None = None,
     ):
         """
         Initialize the builder with optional tracking systems.
@@ -73,7 +72,7 @@ class ExplanationBuilder:
     async def build(
         self,
         result: Any,  # DebateResult
-        context: Optional[Any] = None,  # DebateContext
+        context: Any | None = None,  # DebateContext
         include_counterfactuals: bool = True,
     ) -> Decision:
         """
@@ -127,7 +126,7 @@ class ExplanationBuilder:
         ts = datetime.now(timezone.utc).isoformat()
         return hashlib.sha256(f"{task}:{ts}".encode()).hexdigest()[:16]
 
-    def _extract_task(self, result: Any, context: Optional[Any]) -> str:
+    def _extract_task(self, result: Any, context: Any | None) -> str:
         """Extract task/topic from result or context."""
         if hasattr(result, "task"):
             return str(result.task)
@@ -135,7 +134,7 @@ class ExplanationBuilder:
             return str(getattr(context.env, "task", ""))
         return ""
 
-    def _extract_domain(self, result: Any, context: Optional[Any]) -> str:
+    def _extract_domain(self, result: Any, context: Any | None) -> str:
         """Extract domain from result or context."""
         if hasattr(result, "domain"):
             return str(result.domain)
@@ -143,7 +142,7 @@ class ExplanationBuilder:
             return str(context.domain)
         return "general"
 
-    def _extract_agents(self, result: Any, context: Optional[Any]) -> List[str]:
+    def _extract_agents(self, result: Any, context: Any | None) -> list[str]:
         """Extract list of participating agents."""
         if hasattr(result, "participants"):
             return list(result.participants)
@@ -158,10 +157,10 @@ class ExplanationBuilder:
     # ==========================================================================
 
     async def _build_evidence_chain(
-        self, result: Any, context: Optional[Any]
-    ) -> List[EvidenceLink]:
+        self, result: Any, context: Any | None
+    ) -> list[EvidenceLink]:
         """Build evidence chain from proposals and critiques."""
-        evidence: List[EvidenceLink] = []
+        evidence: list[EvidenceLink] = []
 
         # Extract from proposals
         proposals = getattr(result, "proposals", {})
@@ -217,7 +216,7 @@ class ExplanationBuilder:
 
         return evidence
 
-    async def _get_evidence_scores(self, text: str) -> Dict[str, float]:
+    async def _get_evidence_scores(self, text: str) -> dict[str, float]:
         """Get quality scores for evidence text."""
         if not self.evidence_tracker:
             return {}
@@ -237,7 +236,7 @@ class ExplanationBuilder:
             logger.warning(f"Unexpected error during evidence scoring: {e}")
             return {}
 
-    def _extract_provenance_evidence(self) -> List[EvidenceLink]:
+    def _extract_provenance_evidence(self) -> list[EvidenceLink]:
         """Extract evidence from provenance tracker."""
         if not self.provenance_tracker:
             return []
@@ -266,9 +265,9 @@ class ExplanationBuilder:
     # Vote Pivots
     # ==========================================================================
 
-    def _build_vote_pivots(self, result: Any, context: Optional[Any]) -> List[VotePivot]:
+    def _build_vote_pivots(self, result: Any, context: Any | None) -> list[VotePivot]:
         """Build vote pivot analysis."""
-        pivots: List[VotePivot] = []
+        pivots: list[VotePivot] = []
 
         votes = getattr(result, "votes", [])
         if not votes:
@@ -277,7 +276,7 @@ class ExplanationBuilder:
         # Count votes by choice to find consensus (use defaultdict for float weights)
         choice_counts: dict[str, float] = {}
         total_weight = 0.0
-        vote_data: List[Tuple[Any, float]] = []
+        vote_data: list[tuple[Any, float]] = []
 
         for vote in votes:
             choice = getattr(vote, "choice", "")
@@ -357,7 +356,7 @@ class ExplanationBuilder:
 
         return base
 
-    def _get_calibration_adjustment(self, agent: str) -> Optional[float]:
+    def _get_calibration_adjustment(self, agent: str) -> float | None:
         """Get calibration adjustment for agent."""
         if not self.calibration_tracker:
             return None
@@ -371,7 +370,7 @@ class ExplanationBuilder:
             logger.warning(f"Unexpected error getting calibration adjustment for {agent}: {e}")
             return None
 
-    def _get_elo_rating(self, agent: str) -> Optional[float]:
+    def _get_elo_rating(self, agent: str) -> float | None:
         """Get ELO rating for agent."""
         if not self.elo_system:
             return None
@@ -396,9 +395,9 @@ class ExplanationBuilder:
     # Belief Changes
     # ==========================================================================
 
-    def _build_belief_changes(self, result: Any, context: Optional[Any]) -> List[BeliefChange]:
+    def _build_belief_changes(self, result: Any, context: Any | None) -> list[BeliefChange]:
         """Build belief change analysis."""
-        changes: List[BeliefChange] = []
+        changes: list[BeliefChange] = []
 
         # Try to get from belief network
         if self.belief_network:
@@ -452,11 +451,11 @@ class ExplanationBuilder:
     def _build_confidence_attribution(
         self,
         result: Any,
-        context: Optional[Any],
+        context: Any | None,
         decision: Decision,
-    ) -> List[ConfidenceAttribution]:
+    ) -> list[ConfidenceAttribution]:
         """Build confidence attribution analysis."""
-        attributions: List[ConfidenceAttribution] = []
+        attributions: list[ConfidenceAttribution] = []
 
         # Consensus strength factor
         if hasattr(result, "consensus_margin"):
@@ -533,9 +532,9 @@ class ExplanationBuilder:
     # Counterfactuals
     # ==========================================================================
 
-    def _build_counterfactuals(self, result: Any, decision: Decision) -> List[Counterfactual]:
+    def _build_counterfactuals(self, result: Any, decision: Decision) -> list[Counterfactual]:
         """Build counterfactual analysis."""
-        counterfactuals: List[Counterfactual] = []
+        counterfactuals: list[Counterfactual] = []
 
         # Vote removal counterfactuals
         if decision.vote_pivots:
@@ -684,6 +683,5 @@ class ExplanationBuilder:
             lines.append("")
 
         return "\n".join(lines)
-
 
 __all__ = ["ExplanationBuilder"]

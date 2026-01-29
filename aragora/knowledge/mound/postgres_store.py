@@ -13,7 +13,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, cast
+from typing import Any, AsyncIterator, Optional, cast
 
 from aragora.knowledge.mound.types import (
     AccessGrant,
@@ -263,7 +263,6 @@ CREATE INDEX IF NOT EXISTS idx_nodes_public ON knowledge_nodes(workspace_id) WHE
 CREATE INDEX IF NOT EXISTS idx_nodes_content_fts ON knowledge_nodes USING gin(to_tsvector('english', content));
 """
 
-
 class PostgresStore:
     """
     PostgreSQL backend for Knowledge Mound with connection pooling.
@@ -288,7 +287,7 @@ class PostgresStore:
         self._url = url
         self._pool_size = pool_size
         self._max_overflow = max_overflow
-        self._pool: Optional[Any] = None
+        self._pool: Any | None = None
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -342,7 +341,7 @@ class PostgresStore:
     # Node Operations
     # =========================================================================
 
-    async def save_node_async(self, node_data: Dict[str, Any]) -> str:
+    async def save_node_async(self, node_data: dict[str, Any]) -> str:
         """Save a knowledge node."""
         async with self.connection() as conn:
             await conn.execute(
@@ -415,7 +414,7 @@ class PostgresStore:
         node_id: str = node_data["id"]
         return node_id
 
-    async def get_node_async(self, node_id: str) -> Optional[KnowledgeItem]:
+    async def get_node_async(self, node_id: str) -> KnowledgeItem | None:
         """Get a knowledge node by ID."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -449,7 +448,7 @@ class PostgresStore:
                 importance=row["confidence"],
             )
 
-    async def update_node_async(self, node_id: str, updates: Dict[str, Any]) -> None:
+    async def update_node_async(self, node_id: str, updates: dict[str, Any]) -> None:
         """Update a knowledge node."""
         # Build dynamic update query
         set_clauses = []
@@ -483,7 +482,7 @@ class PostgresStore:
 
     async def find_by_content_hash_async(
         self, content_hash: str, workspace_id: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Find node by content hash."""
         async with self.connection() as conn:
             row = await conn.fetchrow(
@@ -522,8 +521,8 @@ class PostgresStore:
     async def get_relationships_async(
         self,
         node_id: str,
-        types: Optional[List[RelationshipType]] = None,
-    ) -> List[KnowledgeLink]:
+        types: Optional[list[RelationshipType]] = None,
+    ) -> list[KnowledgeLink]:
         """Get relationships for a node."""
         async with self.connection() as conn:
             if types:
@@ -566,10 +565,10 @@ class PostgresStore:
     async def query_async(
         self,
         query: str,
-        filters: Optional[QueryFilters],
+        filters: QueryFilters | None,
         limit: int,
         workspace_id: str,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query nodes with full-text search."""
         async with self.connection() as conn:
             # Use PostgreSQL full-text search
@@ -672,7 +671,7 @@ class PostgresStore:
     # Culture Patterns
     # =========================================================================
 
-    async def save_culture_pattern_async(self, pattern: Dict[str, Any]) -> str:
+    async def save_culture_pattern_async(self, pattern: dict[str, Any]) -> str:
         """Save a culture pattern."""
         async with self.connection() as conn:
             await conn.execute(
@@ -705,8 +704,8 @@ class PostgresStore:
         return pattern_id
 
     async def get_culture_patterns_async(
-        self, workspace_id: str, pattern_type: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, workspace_id: str, pattern_type: str | None = None
+    ) -> list[dict[str, Any]]:
         """Get culture patterns for a workspace."""
         async with self.connection() as conn:
             if pattern_type:
@@ -776,7 +775,7 @@ class PostgresStore:
             )
         return grant.id
 
-    async def get_access_grants_async(self, item_id: str) -> List[AccessGrant]:
+    async def get_access_grants_async(self, item_id: str) -> list[AccessGrant]:
         """Get all access grants for an item."""
         async with self.connection() as conn:
             rows = await conn.fetch(
@@ -798,8 +797,8 @@ class PostgresStore:
             ]
 
     async def get_grants_for_grantee_async(
-        self, grantee_id: str, grantee_type: Optional[AccessGrantType] = None
-    ) -> List[AccessGrant]:
+        self, grantee_id: str, grantee_type: AccessGrantType | None = None
+    ) -> list[AccessGrant]:
         """Get all grants for a specific grantee."""
         async with self.connection() as conn:
             if grantee_type:
@@ -851,9 +850,9 @@ class PostgresStore:
         workspace_id: str,
         actor_id: str,
         actor_workspace_id: str,
-        actor_org_id: Optional[str] = None,
+        actor_org_id: str | None = None,
         limit: int = 20,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query nodes with visibility filtering."""
         async with self.connection() as conn:
             # Build visibility filter SQL
@@ -913,7 +912,7 @@ class PostgresStore:
         self,
         node_id: str,
         visibility: VisibilityLevel,
-        set_by: Optional[str] = None,
+        set_by: str | None = None,
     ) -> None:
         """Update the visibility of a knowledge node."""
         async with self.connection() as conn:

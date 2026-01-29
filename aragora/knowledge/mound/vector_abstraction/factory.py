@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Type
 
 from aragora.knowledge.mound.vector_abstraction.base import (
     BaseVectorStore,
@@ -35,7 +34,6 @@ NAMESPACE_BACKEND_ROUTING: dict[str, VectorBackend] = {
     "evidence": VectorBackend.WEAVIATE,
 }
 
-
 class VectorStoreFactory:
     """
     Factory for creating vector store instances.
@@ -55,13 +53,13 @@ class VectorStoreFactory:
         store = VectorStoreFactory.from_env()
     """
 
-    _registry: dict[VectorBackend, Type[BaseVectorStore]] = {}
+    _registry: dict[VectorBackend, type[BaseVectorStore]] = {}
 
     @classmethod
     def register(
         cls,
         backend: VectorBackend,
-        store_class: Type[BaseVectorStore],
+        store_class: type[BaseVectorStore],
     ) -> None:
         """
         Register a vector store implementation.
@@ -154,7 +152,7 @@ class VectorStoreFactory:
         return backend in cls._registry
 
     @classmethod
-    def get_store_class(cls, backend: VectorBackend) -> Type[BaseVectorStore] | None:
+    def get_store_class(cls, backend: VectorBackend) -> type[BaseVectorStore] | None:
         """
         Get the store class for a backend.
 
@@ -238,7 +236,6 @@ class VectorStoreFactory:
         """
         return NAMESPACE_BACKEND_ROUTING.get(namespace)
 
-
 def _register_default_backends() -> None:
     """Register default vector store implementations."""
     # Import and register backends
@@ -274,7 +271,6 @@ def _register_default_backends() -> None:
         VectorStoreFactory.register(VectorBackend.CHROMA, ChromaVectorStore)
     except ImportError:
         logger.debug("Chroma backend not available (chromadb not installed)")
-
 
 # Register defaults on module load
 _register_default_backends()

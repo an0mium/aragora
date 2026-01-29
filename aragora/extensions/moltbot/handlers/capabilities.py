@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 # Global capability matcher instance
 _matcher: Optional["CapabilityMatcher"] = None
 
-
 def get_capability_matcher() -> "CapabilityMatcher":
     """Get or create the capability matcher instance."""
     global _matcher
@@ -41,7 +40,6 @@ def get_capability_matcher() -> "CapabilityMatcher":
 
         _matcher = CapabilityMatcher()
     return _matcher
-
 
 class MoltbotCapabilitiesHandler(BaseHandler):
     """HTTP handler for Moltbot device capabilities."""
@@ -58,7 +56,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/moltbot/capabilities":
             return await self._handle_list_capabilities(query_params, handler)
@@ -87,7 +85,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
 
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path.startswith("/api/v1/moltbot/devices/"):
             parts = path.split("/")
@@ -128,7 +126,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             "actuator": self._serialize_capability_group(getattr(device_caps, "actuator", None)),
         }
 
-    def _serialize_capability_group(self, group: Any) -> Optional[dict[str, Any]]:
+    def _serialize_capability_group(self, group: Any) -> dict[str, Any] | None:
         """Serialize a capability group (display, audio, etc.)."""
         if group is None:
             return None

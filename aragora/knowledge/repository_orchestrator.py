@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from aragora.connectors.repository_crawler import (
     CrawlConfig,
@@ -29,18 +29,16 @@ from aragora.connectors.repository_crawler import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class RepoConfig:
     """Configuration for a single repository to index."""
 
     path: str  # Local path or git URL
     workspace_id: str
-    name: Optional[str] = None  # Override auto-detected name
-    crawl_config: Optional[CrawlConfig] = None
+    name: str | None = None  # Override auto-detected name
+    crawl_config: CrawlConfig | None = None
     priority: int = 0  # Higher = process first
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class IndexResult:
@@ -53,14 +51,14 @@ class IndexResult:
     nodes_created: int
     relationships_created: int
     symbols_indexed: int
-    errors: List[str]
-    warnings: List[str]
+    errors: list[str]
+    warnings: list[str]
     duration_ms: float
-    git_info: Optional[Dict[str, Any]] = None
+    git_info: Optional[dict[str, Any]] = None
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "repository_name": self.repository_name,
@@ -78,12 +76,11 @@ class IndexResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
-
 @dataclass
 class BatchResult:
     """Result of indexing multiple repositories."""
 
-    repositories: List[IndexResult]
+    repositories: list[IndexResult]
     total_files: int
     total_nodes: int
     total_relationships: int
@@ -91,7 +88,7 @@ class BatchResult:
     successful: int
     failed: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "repositories": [r.to_dict() for r in self.repositories],
@@ -102,7 +99,6 @@ class BatchResult:
             "successful": self.successful,
             "failed": self.failed,
         }
-
 
 @dataclass
 class OrchestratorConfig:
@@ -122,7 +118,6 @@ class OrchestratorConfig:
     checkpoint_enabled: bool = True
     checkpoint_interval_files: int = 100
 
-
 @dataclass
 class IndexProgress:
     """Progress tracking for indexing operations."""
@@ -133,11 +128,10 @@ class IndexProgress:
     files_discovered: int = 0
     files_processed: int = 0
     nodes_created: int = 0
-    current_file: Optional[str] = None
-    started_at: Optional[datetime] = None
-    last_updated: Optional[datetime] = None
-    error: Optional[str] = None
-
+    current_file: str | None = None
+    started_at: datetime | None = None
+    last_updated: datetime | None = None
+    error: str | None = None
 
 class RepositoryOrchestrator:
     """
@@ -150,7 +144,7 @@ class RepositoryOrchestrator:
     def __init__(
         self,
         mound: Any,  # KnowledgeMound instance
-        config: Optional[OrchestratorConfig] = None,
+        config: OrchestratorConfig | None = None,
     ):
         """
         Initialize the Repository Orchestrator.
@@ -162,14 +156,14 @@ class RepositoryOrchestrator:
         self.mound = mound
         self.config = config or OrchestratorConfig()
         self._crawler = RepositoryCrawler()
-        self._progress: Dict[str, IndexProgress] = {}
-        self._active_tasks: Dict[str, asyncio.Task[IndexResult]] = {}
+        self._progress: dict[str, IndexProgress] = {}
+        self._active_tasks: dict[str, asyncio.Task[IndexResult]] = {}
 
     async def index_repository(
         self,
         repo_path: str,
         workspace_id: str,
-        crawl_config: Optional[CrawlConfig] = None,
+        crawl_config: CrawlConfig | None = None,
         incremental: bool = True,
     ) -> IndexResult:
         """
@@ -185,8 +179,8 @@ class RepositoryOrchestrator:
             IndexResult with statistics and any errors
         """
         start_time = datetime.now(timezone.utc)
-        errors: List[str] = []
-        warnings: List[str] = []
+        errors: list[str] = []
+        warnings: list[str] = []
 
         # Initialize progress tracking
         progress = IndexProgress(
@@ -326,7 +320,7 @@ class RepositoryOrchestrator:
         sorted_repos = sorted(repos, key=lambda r: r.priority, reverse=True)
 
         # Process in batches based on concurrency limit
-        results: List[IndexResult] = []
+        results: list[IndexResult] = []
         semaphore = asyncio.Semaphore(self.config.max_concurrent_repos)
 
         async def index_with_semaphore(repo: RepoConfig) -> IndexResult:
@@ -361,11 +355,11 @@ class RepositoryOrchestrator:
             failed=failed,
         )
 
-    def get_progress(self, repo_path: str) -> Optional[IndexProgress]:
+    def get_progress(self, repo_path: str) -> IndexProgress | None:
         """Get progress for an ongoing indexing operation."""
         return self._progress.get(repo_path)
 
-    def get_all_progress(self) -> Dict[str, IndexProgress]:
+    def get_all_progress(self) -> dict[str, IndexProgress]:
         """Get progress for all tracked indexing operations."""
         return dict(self._progress)
 
@@ -461,7 +455,7 @@ class RepositoryOrchestrator:
 
     async def _index_dependency_graph(
         self,
-        dependency_graph: Dict[str, List[str]],
+        dependency_graph: dict[str, list[str]],
         repository_name: str,
         workspace_id: str,
     ) -> int:
@@ -546,7 +540,7 @@ class RepositoryOrchestrator:
         self,
         repository_name: str,
         workspace_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get statistics for an indexed repository.
 

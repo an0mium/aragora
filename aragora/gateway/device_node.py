@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry
-
 
 @dataclass
 class DeviceNodeRuntimeConfig:
@@ -22,8 +21,7 @@ class DeviceNodeRuntimeConfig:
     device_type: str
     capabilities: list[str] = field(default_factory=list)
     allowed_channels: list[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 class DeviceNodeRuntime:
     """
@@ -36,11 +34,11 @@ class DeviceNodeRuntime:
     def __init__(self, registry: DeviceRegistry, config: DeviceNodeRuntimeConfig):
         self._registry = registry
         self._config = config
-        self._device_id: Optional[str] = None
-        self._paired_at: Optional[float] = None
+        self._device_id: str | None = None
+        self._paired_at: float | None = None
 
     @property
-    def device_id(self) -> Optional[str]:
+    def device_id(self) -> str | None:
         return self._device_id
 
     async def pair(self) -> str:

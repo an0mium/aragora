@@ -15,7 +15,7 @@ import hashlib
 import logging
 from datetime import timezone
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -46,7 +46,6 @@ DOCUMENT_EXTENSIONS = {
 # Max file size to process (50MB)
 MAX_FILE_SIZE = 50 * 1024 * 1024
 
-
 class S3Connector(EnterpriseConnector):
     """
     S3-compatible storage connector.
@@ -62,10 +61,10 @@ class S3Connector(EnterpriseConnector):
         self,
         bucket: str,
         prefix: str = "",
-        endpoint_url: Optional[str] = None,  # For MinIO, etc.
+        endpoint_url: str | None = None,  # For MinIO, etc.
         region: str = "us-east-1",
-        extensions: Optional[Set[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        extensions: Optional[set[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
         **kwargs,
     ):
         connector_id = f"s3_{bucket}_{prefix.replace('/', '_')}"
@@ -282,7 +281,7 @@ class S3Connector(EnterpriseConnector):
 
                     try:
                         # Get object content
-                        def get_object(k: str = key) -> Dict[str, Any]:
+                        def get_object(k: str = key) -> dict[str, Any]:
                             return client.get_object(Bucket=self.bucket, Key=k)
 
                         obj_response = await asyncio.get_event_loop().run_in_executor(
@@ -370,7 +369,7 @@ class S3Connector(EnterpriseConnector):
         logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
         return None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle S3 event notification."""
         records = payload.get("Records", [])
 

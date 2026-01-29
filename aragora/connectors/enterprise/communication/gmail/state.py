@@ -8,28 +8,27 @@ storage backends (memory, Redis, PostgreSQL).
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ..models import GmailSyncState
 
 logger = logging.getLogger(__name__)
-
 
 class GmailStateMixin:
     """Mixin providing state persistence and statistics operations."""
 
     # Expected attributes from concrete class
     user_id: str
-    _gmail_state: Optional[GmailSyncState]
+    _gmail_state: GmailSyncState | None
 
     async def load_gmail_state(
         self,
         tenant_id: str,
         user_id: str,
         backend: str = "memory",
-        redis_url: Optional[str] = None,
-        postgres_dsn: Optional[str] = None,
-    ) -> Optional[GmailSyncState]:
+        redis_url: str | None = None,
+        postgres_dsn: str | None = None,
+    ) -> GmailSyncState | None:
         """
         Load Gmail sync state from persistent storage.
 
@@ -95,8 +94,8 @@ class GmailStateMixin:
         tenant_id: str,
         user_id: str,
         backend: str = "memory",
-        redis_url: Optional[str] = None,
-        postgres_dsn: Optional[str] = None,
+        redis_url: str | None = None,
+        postgres_dsn: str | None = None,
     ) -> bool:
         """
         Save Gmail sync state to persistent storage.
@@ -162,7 +161,7 @@ class GmailStateMixin:
         logger.debug(f"[Gmail] State in memory for {state_key}")
         return True
 
-    def get_sync_stats(self) -> Dict[str, Any]:
+    def get_sync_stats(self) -> dict[str, Any]:
         """
         Get sync service statistics.
 

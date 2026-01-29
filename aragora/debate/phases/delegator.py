@@ -49,7 +49,6 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 R = TypeVar("R")
 
-
 @dataclass
 class DelegationConfig:
     """Configuration for delegation operations."""
@@ -75,7 +74,6 @@ class DelegationConfig:
     max_retries: int = 1
     """Maximum retry attempts."""
 
-
 @dataclass
 class DelegationResult(Generic[R]):
     """Result of a delegation operation."""
@@ -89,12 +87,11 @@ class DelegationResult(Generic[R]):
     consensus_reached: bool = False
     """Whether agents reached consensus."""
 
-    consensus_value: Optional[R] = None
+    consensus_value: R | None = None
     """Consensus result if reached."""
 
     duration_seconds: float = 0.0
     """Total delegation time."""
-
 
 @dataclass
 class AnalysisResult:
@@ -115,7 +112,6 @@ class AnalysisResult:
     raw_response: str = ""
     """Full response from the agent."""
 
-
 @dataclass
 class SynthesisResult:
     """Result of synthesizing multiple analyses."""
@@ -134,7 +130,6 @@ class SynthesisResult:
 
     confidence: float = 0.5
     """Confidence in the synthesis."""
-
 
 class DebateDelegator:
     """
@@ -166,7 +161,7 @@ class DebateDelegator:
     def __init__(
         self,
         agent_pool: list["Agent"],
-        config: Optional[DelegationConfig] = None,
+        config: DelegationConfig | None = None,
         generate_fn: Optional[Callable[["Agent", str], Awaitable[str]]] = None,
     ):
         """Initialize the delegator.
@@ -185,7 +180,7 @@ class DebateDelegator:
         task: str,
         context: str,
         num_analysts: int = 3,
-        analysis_prompt: Optional[str] = None,
+        analysis_prompt: str | None = None,
     ) -> DelegationResult[AnalysisResult]:
         """
         Delegate analysis to multiple sub-agents in parallel.
@@ -267,7 +262,7 @@ class DebateDelegator:
         self,
         task: str,
         context: str,
-        agents: Optional[list["Agent"]] = None,
+        agents: list["Agent"] | None = None,
         parse_fn: Optional[Callable[[str, str], R]] = None,
     ) -> DelegationResult[R]:
         """
@@ -506,7 +501,7 @@ CONFIDENCE: <0.0-1.0>"""
 
     def _check_analysis_consensus(
         self, analyses: list[AnalysisResult]
-    ) -> tuple[bool, Optional[AnalysisResult]]:
+    ) -> tuple[bool, AnalysisResult | None]:
         """Check if analyses have reached consensus."""
         if len(analyses) < 2:
             return False, None
@@ -519,7 +514,6 @@ CONFIDENCE: <0.0-1.0>"""
         # For now, just check if they exist - semantic similarity
         # would require additional infrastructure
         return True, high_confidence[0] if high_confidence else None
-
 
 __all__ = [
     "DebateDelegator",

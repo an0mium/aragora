@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,6 @@ except ImportError:
         "Handler base not available - SmartUploadHandler will have limited functionality"
     )
 
-
 class FileCategory(str, Enum):
     """Categories of files for processing."""
 
@@ -56,7 +55,6 @@ class FileCategory(str, Enum):
     ARCHIVE = "archive"
     UNKNOWN = "unknown"
 
-
 class ProcessingAction(str, Enum):
     """Processing actions based on file category."""
 
@@ -68,9 +66,8 @@ class ProcessingAction(str, Enum):
     EXPAND = "expand"  # Archive extraction
     SKIP = "skip"  # No processing
 
-
 # File type detection patterns
-FILE_PATTERNS: Dict[FileCategory, Dict[str, List[str]]] = {
+FILE_PATTERNS: dict[FileCategory, dict[str, list[str]]] = {
     FileCategory.CODE: {
         "extensions": [
             ".py",
@@ -153,7 +150,7 @@ FILE_PATTERNS: Dict[FileCategory, Dict[str, List[str]]] = {
 }
 
 # Map categories to default processing actions
-CATEGORY_ACTIONS: Dict[FileCategory, ProcessingAction] = {
+CATEGORY_ACTIONS: dict[FileCategory, ProcessingAction] = {
     FileCategory.CODE: ProcessingAction.INDEX,
     FileCategory.DOCUMENT: ProcessingAction.EXTRACT,
     FileCategory.AUDIO: ProcessingAction.TRANSCRIBE,
@@ -163,7 +160,6 @@ CATEGORY_ACTIONS: Dict[FileCategory, ProcessingAction] = {
     FileCategory.ARCHIVE: ProcessingAction.EXPAND,
     FileCategory.UNKNOWN: ProcessingAction.SKIP,
 }
-
 
 @dataclass
 class UploadResult:
@@ -176,16 +172,14 @@ class UploadResult:
     action: ProcessingAction
     status: str  # pending, processing, completed, failed
     created_at: float = field(default_factory=time.time)
-    completed_at: Optional[float] = None
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-
+    completed_at: float | None = None
+    result: Optional[dict[str, Any]] = None
+    error: str | None = None
 
 # In-memory storage for upload status (would use Redis/DB in production)
-_upload_results: Dict[str, UploadResult] = {}
+_upload_results: dict[str, UploadResult] = {}
 
-
-def detect_file_category(filename: str, mime_type: Optional[str] = None) -> FileCategory:
+def detect_file_category(filename: str, mime_type: str | None = None) -> FileCategory:
     """
     Detect file category from filename and optional MIME type.
 
@@ -220,19 +214,17 @@ def detect_file_category(filename: str, mime_type: Optional[str] = None) -> File
 
     return FileCategory.UNKNOWN
 
-
 def get_processing_action(category: FileCategory) -> ProcessingAction:
     """Get the default processing action for a category."""
     return CATEGORY_ACTIONS.get(category, ProcessingAction.SKIP)
-
 
 async def process_file(
     file_content: bytes,
     filename: str,
     category: FileCategory,
     action: ProcessingAction,
-    options: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    options: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """
     Process a file based on its category and action.
 
@@ -247,7 +239,7 @@ async def process_file(
         Processing result dict
     """
     options = options or {}
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "filename": filename,
         "category": category.value,
         "action": action.value,
@@ -283,12 +275,11 @@ async def process_file(
 
     return result
 
-
 async def _transcribe_audio_video(
     content: bytes,
     filename: str,
-    options: Dict[str, Any],
-) -> Dict[str, Any]:
+    options: dict[str, Any],
+) -> dict[str, Any]:
     """Transcribe audio/video using Whisper connector."""
     try:
         from aragora.connectors.whisper import WhisperConnector
@@ -331,12 +322,11 @@ async def _transcribe_audio_video(
         # Fallback to simple metadata
         return {"transcription": "[Whisper connector not available]", "segments": []}
 
-
 async def _extract_document_text(
     content: bytes,
     filename: str,
-    options: Dict[str, Any],
-) -> Dict[str, Any]:
+    options: dict[str, Any],
+) -> dict[str, Any]:
     """Extract text from documents."""
     ext = Path(filename).suffix.lower()
     text = ""
@@ -372,12 +362,11 @@ async def _extract_document_text(
 
     return {"text": text or "[Unsupported document format]"}
 
-
 async def _ocr_image(
     content: bytes,
     filename: str,
-    options: Dict[str, Any],
-) -> Dict[str, Any]:
+    options: dict[str, Any],
+) -> dict[str, Any]:
     """Extract text from images using OCR."""
     try:
         from aragora.connectors.enterprise.documents.ocr import OCRConnector
@@ -401,12 +390,11 @@ async def _ocr_image(
         except ImportError:
             return {"text": "[OCR requires tesseract or OCRConnector]"}
 
-
 async def _parse_data_file(
     content: bytes,
     filename: str,
-    options: Dict[str, Any],
-) -> Dict[str, Any]:
+    options: dict[str, Any],
+) -> dict[str, Any]:
     """Parse data files (JSON, CSV, YAML, etc.)."""
     import csv
     import json
@@ -454,12 +442,11 @@ async def _parse_data_file(
 
     return {"parsed": False, "type": ext, "text": text_content[:1000]}
 
-
 async def _index_code_file(
     content: bytes,
     filename: str,
-    options: Dict[str, Any],
-) -> Dict[str, Any]:
+    options: dict[str, Any],
+) -> dict[str, Any]:
     """Index a code file for search/analysis."""
     text_content = content.decode("utf-8", errors="replace")
     lines = text_content.split("\n")
@@ -478,7 +465,6 @@ async def _index_code_file(
         result["symbols"] = symbols
 
     return result
-
 
 def _detect_language(filename: str) -> str:
     """Detect programming language from filename."""
@@ -503,8 +489,7 @@ def _detect_language(filename: str) -> str:
     }
     return language_map.get(ext, "unknown")
 
-
-def _extract_symbols(content: str, filename: str) -> List[Dict[str, Any]]:
+def _extract_symbols(content: str, filename: str) -> list[dict[str, Any]]:
     """Extract function/class symbols from code."""
     import re
 
@@ -532,12 +517,11 @@ def _extract_symbols(content: str, filename: str) -> List[Dict[str, Any]]:
 
     return symbols[:50]  # Limit to first 50 symbols
 
-
 async def _expand_archive(
     content: bytes,
     filename: str,
-    options: Dict[str, Any],
-) -> Dict[str, Any]:
+    options: dict[str, Any],
+) -> dict[str, Any]:
     """List contents of an archive (don't extract for security)."""
     import zipfile
     import tarfile
@@ -579,13 +563,12 @@ async def _expand_archive(
         "files": files[:100],  # Limit listing
     }
 
-
 async def smart_upload(
     file_content: bytes,
     filename: str,
-    mime_type: Optional[str] = None,
-    override_action: Optional[ProcessingAction] = None,
-    options: Optional[Dict[str, Any]] = None,
+    mime_type: str | None = None,
+    override_action: ProcessingAction | None = None,
+    options: Optional[dict[str, Any]] = None,
 ) -> UploadResult:
     """
     Smart upload with auto-detection and processing.
@@ -640,11 +623,9 @@ async def smart_upload(
 
     return result
 
-
-def get_upload_status(upload_id: str) -> Optional[UploadResult]:
+def get_upload_status(upload_id: str) -> UploadResult | None:
     """Get the status of an upload by ID."""
     return _upload_results.get(upload_id)
-
 
 # HTTP Handler
 if HANDLER_BASE_AVAILABLE:
@@ -665,9 +646,9 @@ if HANDLER_BASE_AVAILABLE:
         def handle(
             self,
             path: str,
-            query_params: Dict[str, Any],
+            query_params: dict[str, Any],
             handler: Any,
-        ) -> Optional[HandlerResult]:
+        ) -> HandlerResult | None:
             """Route upload requests."""
             if path.startswith("/api/v1/upload/status/"):
                 upload_id = path.split("/")[-1]
@@ -682,9 +663,9 @@ if HANDLER_BASE_AVAILABLE:
         async def handle_post(
             self,
             path: str,
-            body: Dict[str, Any],
+            body: dict[str, Any],
             handler: Any,
-        ) -> Optional[HandlerResult]:
+        ) -> HandlerResult | None:
             """Handle POST uploads."""
 
             if path == "/api/v1/upload/smart":
@@ -698,7 +679,7 @@ if HANDLER_BASE_AVAILABLE:
         @require_permission("upload:create")
         async def _handle_smart_upload(
             self,
-            body: Dict[str, Any],
+            body: dict[str, Any],
             handler: Any,
         ) -> HandlerResult:
             """Handle single smart upload."""
@@ -737,7 +718,7 @@ if HANDLER_BASE_AVAILABLE:
         @require_permission("upload:create")
         async def _handle_batch_upload(
             self,
-            body: Dict[str, Any],
+            body: dict[str, Any],
             handler: Any,
         ) -> HandlerResult:
             """Handle batch upload."""

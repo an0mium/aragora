@@ -31,7 +31,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -47,7 +47,6 @@ from aragora.server.middleware.rate_limit import (
     RateLimitResult,
 )
 
-
 @dataclass
 class RedisConfig:
     """Configuration for Redis rate limiter."""
@@ -62,7 +61,6 @@ class RedisConfig:
     max_connections: int = 50
     retry_on_timeout: bool = True
 
-
 def get_redis_config() -> RedisConfig:
     """Get Redis configuration from environment variables."""
     return RedisConfig(
@@ -72,7 +70,6 @@ def get_redis_config() -> RedisConfig:
         ip_limit=int(os.getenv("ARAGORA_IP_RATE_LIMIT", str(IP_RATE_LIMIT))),
         burst_multiplier=float(os.getenv("ARAGORA_BURST_MULTIPLIER", str(BURST_MULTIPLIER))),
     )
-
 
 class RedisRateLimiter:
     """
@@ -90,8 +87,8 @@ class RedisRateLimiter:
 
     def __init__(
         self,
-        redis_url: Optional[str] = None,
-        config: Optional[RedisConfig] = None,
+        redis_url: str | None = None,
+        config: RedisConfig | None = None,
     ):
         """
         Initialize Redis rate limiter.
@@ -104,8 +101,8 @@ class RedisRateLimiter:
         if redis_url:
             self.config.url = redis_url
 
-        self._redis: Optional[Any] = None
-        self._endpoint_configs: Dict[str, RateLimitConfig] = {}
+        self._redis: Any | None = None
+        self._endpoint_configs: dict[str, RateLimitConfig] = {}
         self._available = True
 
     def _get_redis(self) -> Any:
@@ -149,7 +146,7 @@ class RedisRateLimiter:
         self,
         endpoint: str,
         requests_per_minute: int,
-        burst_size: Optional[int] = None,
+        burst_size: int | None = None,
         key_type: str = "ip",
     ) -> None:
         """
@@ -167,7 +164,7 @@ class RedisRateLimiter:
             key_type=key_type,
         )
 
-    def get_config(self, endpoint: Optional[str]) -> RateLimitConfig:
+    def get_config(self, endpoint: str | None) -> RateLimitConfig:
         """Get rate limit config for an endpoint."""
         if endpoint and endpoint in self._endpoint_configs:
             return self._endpoint_configs[endpoint]
@@ -183,8 +180,8 @@ class RedisRateLimiter:
     def allow(
         self,
         client_ip: str,
-        endpoint: Optional[str] = None,
-        token: Optional[str] = None,
+        endpoint: str | None = None,
+        token: str | None = None,
     ) -> RateLimitResult:
         """
         Check if a request should be allowed using sliding window algorithm.
@@ -281,8 +278,8 @@ class RedisRateLimiter:
     def get_remaining(
         self,
         client_ip: str,
-        endpoint: Optional[str] = None,
-        token: Optional[str] = None,
+        endpoint: str | None = None,
+        token: str | None = None,
     ) -> int:
         """
         Get remaining requests without consuming a token.
@@ -328,7 +325,7 @@ class RedisRateLimiter:
             logger.error(f"Redis get_remaining error: {e}")
             return 0
 
-    def reset(self, pattern: Optional[str] = None) -> int:
+    def reset(self, pattern: str | None = None) -> int:
         """
         Reset rate limiter state.
 
@@ -359,7 +356,7 @@ class RedisRateLimiter:
             logger.error(f"Redis reset error: {e}")
             return 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get rate limiter statistics."""
         redis_client = self._get_redis()
         if redis_client is None:
@@ -431,10 +428,8 @@ class RedisRateLimiter:
             finally:
                 self._redis = None
 
-
 # Factory function for creating rate limiter based on environment
-_rate_limiter_instance: Optional[Any] = None
-
+_rate_limiter_instance: Any | None = None
 
 def get_distributed_rate_limiter() -> Any:
     """
@@ -468,7 +463,6 @@ def get_distributed_rate_limiter() -> Any:
     logger.info("Using in-memory rate limiter")
     return _rate_limiter_instance
 
-
 def reset_distributed_rate_limiter() -> None:
     """Reset the distributed rate limiter instance (for testing)."""
     global _rate_limiter_instance
@@ -476,7 +470,6 @@ def reset_distributed_rate_limiter() -> None:
         if hasattr(_rate_limiter_instance, "close"):
             _rate_limiter_instance.close()
         _rate_limiter_instance = None
-
 
 __all__ = [
     "RedisConfig",

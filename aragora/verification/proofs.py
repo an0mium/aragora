@@ -19,6 +19,7 @@ Code execution is inherently risky. The SAFE_BUILTINS whitelist restricts
 what functions are available to executed code. Do not expose proof execution
 to untrusted users without additional sandboxing (subprocess, containers).
 """
+from __future__ import annotations
 
 __all__ = [
     "EXEC_TIMEOUT_SECONDS",
@@ -50,13 +51,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from aragora.exceptions import VerificationError
 
 # Timeout for code execution (seconds) - prevents infinite loops/CPU exhaustion
 EXEC_TIMEOUT_SECONDS = 5.0
-
 
 def _get_safe_subprocess_env() -> dict[str, str]:
     """Get a filtered environment for subprocess execution.
@@ -80,7 +80,6 @@ def _get_safe_subprocess_env() -> dict[str, str]:
         safe_env["LANG"] = "en_US.UTF-8"
 
     return safe_env
-
 
 # Patterns that could enable sandbox escape via Python introspection
 DANGEROUS_PATTERNS = [
@@ -118,7 +117,6 @@ DANGEROUS_PATTERNS = [
     "importlib",
 ]
 
-
 def _validate_code_safety(code: str) -> tuple[bool, str]:
     """
     Check code for dangerous patterns that could enable sandbox escape.
@@ -131,7 +129,6 @@ def _validate_code_safety(code: str) -> tuple[bool, str]:
         if pattern.lower() in code_lower:
             return False, f"Dangerous pattern detected: '{pattern}' is not allowed"
     return True, ""
-
 
 # Safe subset of builtins for proof execution (no imports, no file access)
 SAFE_BUILTINS = {
@@ -193,7 +190,6 @@ SAFE_BUILTINS = {
     "RuntimeError": RuntimeError,
     # Explicitly excluded: __import__, open, exec, eval, compile, globals, locals
 }
-
 
 def _exec_in_subprocess(code: str, timeout: float = EXEC_TIMEOUT_SECONDS) -> dict[str, Any]:
     """
@@ -345,7 +341,6 @@ except Exception as e:
     except subprocess.TimeoutExpired:
         raise TimeoutError(f"Code execution exceeded {timeout}s timeout")
 
-
 def _exec_with_timeout(code: str, namespace: dict, timeout: float = EXEC_TIMEOUT_SECONDS) -> None:
     """
     Execute code with timeout protection using subprocess isolation.
@@ -390,7 +385,6 @@ def _exec_with_timeout(code: str, namespace: dict, timeout: float = EXEC_TIMEOUT
     if result.get("stdout"):
         namespace["__stdout__"] = result["stdout"]
 
-
 class ProofType(Enum):
     """Type of verification proof."""
 
@@ -403,7 +397,6 @@ class ProofType(Enum):
     STATIC_ANALYSIS = "static_analysis"  # Code analysis
     MANUAL = "manual"  # Requires human verification
 
-
 class ProofStatus(Enum):
     """Status of a verification proof."""
 
@@ -414,7 +407,6 @@ class ProofStatus(Enum):
     ERROR = "error"  # Execution error
     SKIPPED = "skipped"  # Skipped (e.g., dependencies missing)
     TIMEOUT = "timeout"  # Execution timed out
-
 
 @dataclass
 class VerificationProof:
@@ -432,8 +424,8 @@ class VerificationProof:
 
     # Executable content
     code: str  # Python code to execute
-    expected_output: Optional[str] = None  # Expected output for comparison
-    assertion: Optional[str] = None  # Boolean expression to evaluate
+    expected_output: str | None = None  # Expected output for comparison
+    assertion: str | None = None  # Boolean expression to evaluate
 
     # Metadata
     dependencies: list[str] = field(default_factory=list)  # Required packages
@@ -443,7 +435,7 @@ class VerificationProof:
 
     # Status
     status: ProofStatus = ProofStatus.PENDING
-    last_run: Optional[datetime] = None
+    last_run: datetime | None = None
     run_count: int = 0
 
     # Results
@@ -519,7 +511,6 @@ class VerificationProof:
             proof.created_at = datetime.fromisoformat(data["created_at"])
         return proof
 
-
 @dataclass
 class VerificationResult:
     """Result of executing a verification proof."""
@@ -536,11 +527,11 @@ class VerificationResult:
     timestamp: datetime = field(default_factory=datetime.now)
 
     # For assertions
-    assertion_value: Optional[bool] = None
+    assertion_value: bool | None = None
     assertion_details: str = ""
 
     # For expected output comparison
-    output_matched: Optional[bool] = None
+    output_matched: bool | None = None
     output_diff: str = ""
 
     def to_dict(self) -> dict:
@@ -558,7 +549,6 @@ class VerificationResult:
             "output_matched": self.output_matched,
             "output_diff": self.output_diff,
         }
-
 
 class ProofExecutor:
     """
@@ -779,7 +769,6 @@ class ProofExecutor:
         """Execute a mathematical computation."""
         return await self._execute_assertion(proof, timeout)
 
-
 class ClaimVerifier:
     """
     Manages verification proofs for claims.
@@ -788,7 +777,7 @@ class ClaimVerifier:
     verification orchestration.
     """
 
-    def __init__(self, executor: Optional[ProofExecutor] = None):
+    def __init__(self, executor: ProofExecutor | None = None):
         self.executor = executor or ProofExecutor()
         self.proofs: dict[str, VerificationProof] = {}
         self.claim_proofs: dict[str, list[str]] = {}  # claim_id -> [proof_ids]
@@ -865,7 +854,6 @@ class ClaimVerifier:
             "verified": failed == 0 and passed > 0,
             "status": "verified" if failed == 0 and passed > 0 else "failed",
         }
-
 
 @dataclass
 class VerificationReport:
@@ -958,7 +946,6 @@ class VerificationReport:
 
         return "\n".join(lines)
 
-
 class ProofBuilder:
     """Helper class for building verification proofs."""
 
@@ -1042,9 +1029,7 @@ class ProofBuilder:
             **kwargs,
         )
 
-
 # Convenience functions
-
 
 def create_simple_assertion(
     claim_id: str,
@@ -1060,7 +1045,6 @@ def create_simple_assertion(
         code="",
         assertion=assertion,
     )
-
 
 def create_computation_proof(
     claim_id: str,
@@ -1078,11 +1062,10 @@ def create_computation_proof(
         assertion=expected_assertion,
     )
 
-
 async def verify_claim_set(
     claims: list[tuple[str, str]],  # (claim_id, claim_text)
     proofs: list[VerificationProof],
-    executor: Optional[ProofExecutor] = None,
+    executor: ProofExecutor | None = None,
 ) -> VerificationReport:
     """Verify a set of claims with their proofs."""
 

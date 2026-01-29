@@ -32,7 +32,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.documents.models import (
     ChunkType,
@@ -41,7 +41,6 @@ from aragora.documents.models import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 # Check for unstructured library
 try:
@@ -76,7 +75,6 @@ except ImportError:
     UNSTRUCTURED_AVAILABLE = False
     logger.info("unstructured not available - using fallback parsers")
 
-
 # Check for native fallback parsers
 try:
     from pypdf import PdfReader  # noqa: F401
@@ -91,7 +89,6 @@ try:
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
-
 
 # Supported formats and their configurations
 SUPPORTED_FORMATS: dict[str, dict[str, Any]] = {
@@ -145,7 +142,6 @@ SUPPORTED_FORMATS: dict[str, dict[str, Any]] = {
     ".rb": {"mime": "application/x-ruby", "parser": "text"},
 }
 
-
 @dataclass
 class ParsedElement:
     """A single parsed element from a document."""
@@ -154,7 +150,6 @@ class ParsedElement:
     text: str
     page_number: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class ParseResult:
@@ -169,7 +164,6 @@ class ParseResult:
     parser_used: str
     parse_duration_ms: int
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 class UnstructuredParser:
     """
@@ -204,7 +198,7 @@ class UnstructuredParser:
         self,
         content: bytes,
         filename: str,
-        content_type: Optional[str] = None,
+        content_type: str | None = None,
     ) -> ParseResult:
         """
         Parse a document and extract structured content.
@@ -486,7 +480,7 @@ class UnstructuredParser:
         filename: str,
         workspace_id: str = "",
         uploaded_by: str = "",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> IngestedDocument:
         """
         Parse content and return an IngestedDocument.
@@ -531,7 +525,6 @@ class UnstructuredParser:
 
         return doc
 
-
 # Convenience functions
 def parse_document(
     content: bytes,
@@ -551,7 +544,6 @@ def parse_document(
     """
     parser = UnstructuredParser(enable_ocr=enable_ocr)
     return parser.parse(content, filename)
-
 
 def get_supported_formats() -> dict[str, Any]:
     """Get information about supported document formats."""
@@ -574,7 +566,6 @@ def get_supported_formats() -> dict[str, Any]:
         "max_size_mb": 100,  # With streaming support
     }
 
-
 def _check_format_available(ext: str) -> bool:
     """Check if a format is available for parsing."""
     if UNSTRUCTURED_AVAILABLE:
@@ -589,7 +580,6 @@ def _check_format_available(ext: str) -> bool:
         return True
 
     return False
-
 
 __all__ = [
     "UnstructuredParser",

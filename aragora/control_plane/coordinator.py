@@ -17,8 +17,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
-    List,
     Optional,
 )
 
@@ -151,7 +149,6 @@ except ImportError:
 
 logger = get_logger(__name__)
 
-
 @dataclass
 class ControlPlaneConfig:
     """Configuration for the control plane."""
@@ -172,7 +169,7 @@ class ControlPlaneConfig:
 
     # Policy sync from compliance store
     enable_policy_sync: bool = True
-    policy_sync_workspace: Optional[str] = None
+    policy_sync_workspace: str | None = None
 
     # Redis HA configuration
     redis_ha_enabled: bool = False
@@ -260,7 +257,6 @@ class ControlPlaneConfig:
             == "true",
         )
 
-
 class ControlPlaneCoordinator:
     """
     Unified coordinator for the Aragora control plane.
@@ -297,15 +293,15 @@ class ControlPlaneCoordinator:
 
     def __init__(
         self,
-        config: Optional[ControlPlaneConfig] = None,
-        registry: Optional[AgentRegistry] = None,
-        scheduler: Optional[TaskScheduler] = None,
-        health_monitor: Optional[HealthMonitor] = None,
+        config: ControlPlaneConfig | None = None,
+        registry: AgentRegistry | None = None,
+        scheduler: TaskScheduler | None = None,
+        health_monitor: HealthMonitor | None = None,
         km_adapter: Optional["ControlPlaneAdapter"] = None,
-        knowledge_mound: Optional[Any] = None,
+        knowledge_mound: Any | None = None,
         arena_bridge: Optional["ArenaControlPlaneBridge"] = None,
-        stream_server: Optional[Any] = None,
-        shared_state: Optional[Any] = None,
+        stream_server: Any | None = None,
+        shared_state: Any | None = None,
         policy_manager: Optional["ControlPlanePolicyManager"] = None,
     ):
         """
@@ -418,12 +414,12 @@ class ControlPlaneCoordinator:
             )
 
         self._connected = False
-        self._result_waiters: Dict[str, asyncio.Event] = {}
+        self._result_waiters: dict[str, asyncio.Event] = {}
 
     @classmethod
     async def create(
         cls,
-        config: Optional[ControlPlaneConfig] = None,
+        config: ControlPlaneConfig | None = None,
     ) -> "ControlPlaneCoordinator":
         """
         Create and connect a coordinator.
@@ -777,10 +773,10 @@ class ControlPlaneCoordinator:
     async def register_agent(
         self,
         agent_id: str,
-        capabilities: List[str | AgentCapability],
+        capabilities: list[str | AgentCapability],
         model: str = "unknown",
         provider: str = "unknown",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         health_probe: Optional[Callable[[], bool]] = None,
     ) -> AgentInfo:
         """
@@ -852,7 +848,7 @@ class ControlPlaneCoordinator:
     async def heartbeat(
         self,
         agent_id: str,
-        status: Optional[AgentStatus] = None,
+        status: AgentStatus | None = None,
     ) -> bool:
         """
         Send agent heartbeat.
@@ -872,7 +868,7 @@ class ControlPlaneCoordinator:
 
         return result
 
-    async def get_agent(self, agent_id: str) -> Optional[AgentInfo]:
+    async def get_agent(self, agent_id: str) -> AgentInfo | None:
         """
         Get agent information.
 
@@ -886,9 +882,9 @@ class ControlPlaneCoordinator:
 
     async def list_agents(
         self,
-        capability: Optional[str | AgentCapability] = None,
+        capability: str | AgentCapability | None = None,
         only_available: bool = True,
-    ) -> List[AgentInfo]:
+    ) -> list[AgentInfo]:
         """
         List registered agents.
 
@@ -907,12 +903,12 @@ class ControlPlaneCoordinator:
 
     async def select_agent(
         self,
-        capabilities: List[str | AgentCapability],
+        capabilities: list[str | AgentCapability],
         strategy: str = "least_loaded",
-        exclude: Optional[List[str]] = None,
-        task_type: Optional[str] = None,
+        exclude: Optional[list[str]] = None,
+        task_type: str | None = None,
         use_km_recommendations: bool = True,
-    ) -> Optional[AgentInfo]:
+    ) -> AgentInfo | None:
         """
         Select an agent for a task.
 
@@ -949,10 +945,10 @@ class ControlPlaneCoordinator:
 
     async def _select_agent_with_km(
         self,
-        capabilities: List[str | AgentCapability],
+        capabilities: list[str | AgentCapability],
         task_type: str,
-        exclude: Optional[List[str]] = None,
-    ) -> Optional[AgentInfo]:
+        exclude: Optional[list[str]] = None,
+    ) -> AgentInfo | None:
         """
         Select an agent using KM-based historical recommendations.
 
@@ -1020,9 +1016,9 @@ class ControlPlaneCoordinator:
     async def get_agent_recommendations_from_km(
         self,
         task_type: str,
-        capabilities: List[str],
+        capabilities: list[str],
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get agent recommendations from Knowledge Mound.
 
@@ -1070,12 +1066,12 @@ class ControlPlaneCoordinator:
     async def submit_task(
         self,
         task_type: str,
-        payload: Dict[str, Any],
-        required_capabilities: Optional[List[str]] = None,
+        payload: dict[str, Any],
+        required_capabilities: Optional[list[str]] = None,
         priority: TaskPriority = TaskPriority.NORMAL,
-        timeout_seconds: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        workspace_id: Optional[str] = None,
+        timeout_seconds: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        workspace_id: str | None = None,
     ) -> str:
         """
         Submit a task for execution.
@@ -1146,11 +1142,11 @@ class ControlPlaneCoordinator:
     async def claim_task(
         self,
         agent_id: str,
-        capabilities: List[str],
+        capabilities: list[str],
         block_ms: int = 5000,
-        agent_region: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> Optional[Task]:
+        agent_region: str | None = None,
+        workspace_id: str | None = None,
+    ) -> Task | None:
         """
         Claim a task for an agent.
 
@@ -1198,10 +1194,10 @@ class ControlPlaneCoordinator:
     async def complete_task(
         self,
         task_id: str,
-        result: Optional[Dict[str, Any]] = None,
-        agent_id: Optional[str] = None,
-        latency_ms: Optional[float] = None,
-        sla_policy_id: Optional[str] = None,
+        result: Optional[dict[str, Any]] = None,
+        agent_id: str | None = None,
+        latency_ms: float | None = None,
+        sla_policy_id: str | None = None,
     ) -> bool:
         """
         Mark a task as completed.
@@ -1336,8 +1332,8 @@ class ControlPlaneCoordinator:
         self,
         task_id: str,
         error: str,
-        agent_id: Optional[str] = None,
-        latency_ms: Optional[float] = None,
+        agent_id: str | None = None,
+        latency_ms: float | None = None,
         requeue: bool = True,
     ) -> bool:
         """
@@ -1445,7 +1441,7 @@ class ControlPlaneCoordinator:
 
         return success
 
-    async def get_task(self, task_id: str) -> Optional[Task]:
+    async def get_task(self, task_id: str) -> Task | None:
         """
         Get task by ID.
 
@@ -1460,8 +1456,8 @@ class ControlPlaneCoordinator:
     async def wait_for_result(
         self,
         task_id: str,
-        timeout: Optional[float] = None,
-    ) -> Optional[Task]:
+        timeout: float | None = None,
+    ) -> Task | None:
         """
         Wait for a task to complete.
 
@@ -1499,7 +1495,7 @@ class ControlPlaneCoordinator:
     # Health Operations
     # =========================================================================
 
-    def get_agent_health(self, agent_id: str) -> Optional[HealthCheck]:
+    def get_agent_health(self, agent_id: str) -> HealthCheck | None:
         """
         Get health status for an agent.
 
@@ -1536,7 +1532,7 @@ class ControlPlaneCoordinator:
     # Statistics
     # =========================================================================
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """
         Get comprehensive control plane statistics.
 
@@ -1646,7 +1642,7 @@ class ControlPlaneCoordinator:
         self,
         capability: str,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get agent recommendations from Knowledge Mound.
 
@@ -1699,8 +1695,8 @@ class ControlPlaneCoordinator:
     async def execute_deliberation(
         self,
         task: "DeliberationTask",
-        agents: Optional[List[Any]] = None,
-        workspace_id: Optional[str] = None,
+        agents: Optional[list[Any]] = None,
+        workspace_id: str | None = None,
     ) -> Optional["DeliberationOutcome"]:
         """
         Execute a deliberation using the Arena Bridge.
@@ -1736,8 +1732,8 @@ class ControlPlaneCoordinator:
             # If no agents provided, select from registry
             if not agents:
                 # Get required_capabilities from task, defaulting to ["debate"]
-                raw_capabilities: List[str] = getattr(task, "required_capabilities", ["debate"])
-                capabilities: List[str | AgentCapability] = list(raw_capabilities)
+                raw_capabilities: list[str] = getattr(task, "required_capabilities", ["debate"])
+                capabilities: list[str | AgentCapability] = list(raw_capabilities)
                 selected_agents: list[Any] = []
                 for _ in range(task.sla.min_agents if hasattr(task, "sla") else 2):
                     agent_info = await self.select_agent(
@@ -1792,9 +1788,8 @@ class ControlPlaneCoordinator:
                 )
                 raise
 
-
 async def create_control_plane(
-    config: Optional[ControlPlaneConfig] = None,
+    config: ControlPlaneConfig | None = None,
 ) -> ControlPlaneCoordinator:
     """
     Convenience function to create a connected control plane.

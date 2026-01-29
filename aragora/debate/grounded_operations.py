@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class GroundedOperations:
     """Manages grounded verdicts, positions, and agent relationships.
 
@@ -63,7 +62,7 @@ class GroundedOperations:
         debate_id: str,
         round_num: int,
         confidence: float = 0.7,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> None:
         """Record a position to the grounded persona ledger.
 
@@ -97,7 +96,7 @@ class GroundedOperations:
         self,
         debate_id: str,
         participants: list[str],
-        winner: Optional[str],
+        winner: str | None,
         votes: list["Vote"],
     ) -> None:
         """Update agent relationships after debate completion.
@@ -185,6 +184,5 @@ class GroundedOperations:
             return
 
         await self.evidence_grounder.verify_claims_formally(result.grounded_verdict)
-
 
 __all__ = ["GroundedOperations"]

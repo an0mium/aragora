@@ -8,6 +8,7 @@ DeepSeek-Prover-V2 is specifically trained for mathematical reasoning
 and formal proof generation, making it superior to general-purpose LLMs
 for this task.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -15,19 +16,17 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TranslationResult:
     """Result of a natural language to Lean translation."""
 
     success: bool
-    lean_code: Optional[str] = None
+    lean_code: str | None = None
     error_message: str = ""
     model_used: str = ""
     translation_time_ms: float = 0.0
@@ -44,7 +43,6 @@ class TranslationResult:
             "timestamp": self.timestamp.isoformat(),
             "confidence": self.confidence,
         }
-
 
 class DeepSeekProverTranslator:
     """
@@ -80,7 +78,7 @@ import Mathlib.Algebra.Ring.Basic
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: float = 60.0,
         max_tokens: int = 4096,
     ):
@@ -95,7 +93,7 @@ import Mathlib.Algebra.Ring.Basic
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
         self.timeout = timeout
         self.max_tokens = max_tokens
-        self._model_available: Optional[bool] = None
+        self._model_available: bool | None = None
 
     @property
     def is_available(self) -> bool:
@@ -159,7 +157,7 @@ theorem descriptive_name : <formal_statement> := by
 If the claim is UNTRANSLATABLE to Lean 4, return exactly:
 -- UNTRANSLATABLE: <reason>"""
 
-    def _extract_lean_code(self, response: str) -> Optional[str]:
+    def _extract_lean_code(self, response: str) -> str | None:
         """Extract Lean code from LLM response."""
         # Try to extract from markdown code block
         lean_match = re.search(r"```(?:lean4?|lean)?\n?(.*?)```", response, re.DOTALL)
@@ -343,12 +341,11 @@ If the claim is UNTRANSLATABLE to Lean 4, return exactly:
         tasks = [translate_with_limit(claim) for claim in claims]
         return await asyncio.gather(*tasks)
 
-
 # Convenience function
 async def translate_to_lean(
     claim: str,
     context: str = "",
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> TranslationResult:
     """
     Convenience function to translate a claim to Lean 4.
@@ -363,7 +360,6 @@ async def translate_to_lean(
     """
     translator = DeepSeekProverTranslator(api_key=api_key)
     return await translator.translate(claim, context)
-
 
 __all__ = [
     "DeepSeekProverTranslator",

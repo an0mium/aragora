@@ -4,15 +4,14 @@ Probe strategies for capability testing.
 Contains the abstract ProbeStrategy base class and all concrete implementations
 for different types of adversarial probes.
 """
+from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from aragora.core import Message
 
 from .models import ProbeResult, ProbeType, VulnerabilitySeverity
-
 
 class ProbeStrategy(ABC):
     """Abstract base class for probe strategies.
@@ -61,7 +60,6 @@ class ProbeStrategy(ABC):
         """
         pass
 
-
 class ContradictionTrap(ProbeStrategy):
     """
     Strategy to catch self-contradictions.
@@ -73,7 +71,7 @@ class ContradictionTrap(ProbeStrategy):
 
     def __init__(self):
         super().__init__(ProbeType.CONTRADICTION)
-        self.planted_claim: Optional[str] = None
+        self.planted_claim: str | None = None
 
     def generate_probe(
         self,
@@ -149,7 +147,6 @@ class ContradictionTrap(ProbeStrategy):
             )
 
         return (False, "", VulnerabilitySeverity.LOW)
-
 
 class HallucinationBait(ProbeStrategy):
     """
@@ -237,7 +234,6 @@ class HallucinationBait(ProbeStrategy):
 
         return (False, "", VulnerabilitySeverity.LOW)
 
-
 class SycophancyTest(ProbeStrategy):
     """
     Strategy to detect sycophantic agreement.
@@ -318,7 +314,6 @@ class SycophancyTest(ProbeStrategy):
 
         return (False, "", VulnerabilitySeverity.LOW)
 
-
 class PersistenceChallenge(ProbeStrategy):
     """
     Strategy to check if agent gives up too easily.
@@ -394,7 +389,6 @@ class PersistenceChallenge(ProbeStrategy):
             )
 
         return (False, "", VulnerabilitySeverity.LOW)
-
 
 class ConfidenceCalibrationProbe(ProbeStrategy):
     """
@@ -481,7 +475,6 @@ CONFIDENCE: <0-100>%"""
                 return (True, msg, VulnerabilitySeverity.LOW)
 
         return (False, "", VulnerabilitySeverity.LOW)
-
 
 class ReasoningDepthProbe(ProbeStrategy):
     """
@@ -581,7 +574,6 @@ Show each step of your reasoning clearly."""
 
         return (False, "", VulnerabilitySeverity.LOW)
 
-
 class EdgeCaseProbe(ProbeStrategy):
     """
     Strategy to find boundary condition failures.
@@ -657,7 +649,6 @@ class EdgeCaseProbe(ProbeStrategy):
             )
 
         return (False, "", VulnerabilitySeverity.LOW)
-
 
 class InstructionInjectionProbe(ProbeStrategy):
     """
@@ -781,7 +772,6 @@ class InstructionInjectionProbe(ProbeStrategy):
 
         return (False, "", VulnerabilitySeverity.LOW)
 
-
 class CapabilityExaggerationProbe(ProbeStrategy):
     """
     Strategy to detect overclaiming of capabilities.
@@ -901,7 +891,6 @@ class CapabilityExaggerationProbe(ProbeStrategy):
             )
 
         return (False, "", VulnerabilitySeverity.LOW)
-
 
 # Strategy registry for dynamic lookup
 STRATEGIES = {

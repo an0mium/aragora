@@ -21,7 +21,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.rbac.models import AuthorizationContext
@@ -30,12 +30,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Exception types with proper typing for fallback
-_ForbiddenError: Type[Exception]
-_UnauthorizedError: Type[Exception]
+_ForbiddenError: type[Exception]
+_UnauthorizedError: type[Exception]
 
 # Pre-declare module-level names for type checking
-ForbiddenError: Type[Exception]  # noqa: N816
-UnauthorizedError: Type[Exception]  # noqa: N816
+ForbiddenError: type[Exception]  # noqa: N816
+UnauthorizedError: type[Exception]  # noqa: N816
 
 try:
     from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
@@ -54,18 +54,15 @@ except ImportError:
 # Track if auth module is available
 _AUTH_AVAILABLE = _AUTH_EXCEPTIONS_AVAILABLE
 
-
 def _get_error_response() -> Callable[[str, int], "HandlerResult"]:
     """Lazy import to avoid circular dependency with base module."""
     from aragora.server.handlers.base import error_response
 
     return error_response
 
-
 def error_response(message: str, status: int) -> "HandlerResult":
     """Wrapper for lazy-loaded error_response to avoid repeated imports."""
     return _get_error_response()(message, status)
-
 
 class SecureEndpointMixin:
     """
@@ -92,7 +89,7 @@ class SecureEndpointMixin:
     async def require_auth_or_error(
         self,
         request: Any,
-    ) -> Tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
         """
         Require authentication, returning context or error response.
 
@@ -120,8 +117,8 @@ class SecureEndpointMixin:
         self,
         request: Any,
         permission: str,
-        resource_id: Optional[str] = None,
-    ) -> Tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+        resource_id: str | None = None,
+    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
         """
         Require authentication and a specific permission.
 
@@ -154,8 +151,8 @@ class SecureEndpointMixin:
         self,
         request: Any,
         permissions: list[str],
-        resource_id: Optional[str] = None,
-    ) -> Tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+        resource_id: str | None = None,
+    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
         """
         Require authentication and ANY of the specified permissions.
 
@@ -202,8 +199,8 @@ class SecureEndpointMixin:
         self,
         request: Any,
         permissions: list[str],
-        resource_id: Optional[str] = None,
-    ) -> Tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+        resource_id: str | None = None,
+    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
         """
         Require authentication and ALL of the specified permissions.
 
@@ -243,7 +240,7 @@ class SecureEndpointMixin:
     async def require_admin_or_error(
         self,
         request: Any,
-    ) -> Tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
         """
         Require authentication and admin role.
 
@@ -255,7 +252,6 @@ class SecureEndpointMixin:
             or (None, HandlerResult) on failure
         """
         return await self.require_permission_or_error(request, "admin:*")
-
 
 class AuthenticatedHandlerMixin:
     """
@@ -276,14 +272,14 @@ class AuthenticatedHandlerMixin:
         return self._current_auth
 
     @property
-    def user_id(self) -> Optional[str]:
+    def user_id(self) -> str | None:
         """Get the current user's ID, or None if not authenticated."""
         if self._current_auth:
             return self._current_auth.user_id
         return None
 
     @property
-    def org_id(self) -> Optional[str]:
+    def org_id(self) -> str | None:
         """Get the current user's organization ID, or None."""
         if self._current_auth:
             return getattr(self._current_auth, "org_id", None)
@@ -296,7 +292,6 @@ class AuthenticatedHandlerMixin:
     def clear_auth_context(self) -> None:
         """Clear the authentication context."""
         self._current_auth = None
-
 
 # Convenience decorators for permission checking
 def require_permission(permission: str, handler_arg: int = 0):
@@ -357,7 +352,6 @@ def require_permission(permission: str, handler_arg: int = 0):
 
     return decorator
 
-
 def require_any_permission(*permissions: str):
     """
     Decorator that requires any of the specified permissions.
@@ -381,7 +375,6 @@ def require_any_permission(*permissions: str):
         return wrapper
 
     return decorator
-
 
 def require_all_permissions(*permissions: str):
     """

@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -36,7 +36,6 @@ logger = logging.getLogger(__name__)
 
 # Default database path for billing events
 DEFAULT_BILLING_DB_PATH = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic")) / "billing_events.db"
-
 
 class BillingEventType(Enum):
     """Types of billing events."""
@@ -51,7 +50,6 @@ class BillingEventType(Enum):
     EXPORT = "export"
     SSO_AUTH = "sso_auth"
 
-
 class BillingPeriod(Enum):
     """Billing period types."""
 
@@ -59,14 +57,13 @@ class BillingPeriod(Enum):
     DAILY = "daily"
     MONTHLY = "monthly"
 
-
 @dataclass
 class BillingEvent:
     """A billable event for a tenant."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
     tenant_id: str = ""
-    user_id: Optional[str] = None
+    user_id: str | None = None
     event_type: BillingEventType = BillingEventType.API_CALL
     resource: str = ""
 
@@ -82,13 +79,13 @@ class BillingEvent:
     currency: str = "USD"
 
     # Context
-    debate_id: Optional[str] = None
-    connector_id: Optional[str] = None
+    debate_id: str | None = None
+    connector_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Timestamps
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    billing_period: Optional[str] = None
+    billing_period: str | None = None
 
     def calculate_cost(self) -> Decimal:
         """Calculate total cost from unit cost and quantity."""
@@ -145,7 +142,6 @@ class BillingEvent:
                 event.timestamp = data["timestamp"]
         return event
 
-
 @dataclass
 class UsageSummary:
     """Summary of usage for billing."""
@@ -198,7 +194,6 @@ class UsageSummary:
             "cost_by_day": {k: str(v) for k, v in self.cost_by_day.items()},
         }
 
-
 @dataclass
 class MeteringConfig:
     """Configuration for usage metering."""
@@ -243,7 +238,6 @@ class MeteringConfig:
     detailed_logging: bool = True
     """Enable detailed event logging."""
 
-
 class UsageMeter:
     """
     Tenant-aware usage metering system.
@@ -253,12 +247,12 @@ class UsageMeter:
     for durable billing data.
     """
 
-    def __init__(self, config: Optional[MeteringConfig] = None):
+    def __init__(self, config: MeteringConfig | None = None):
         """Initialize usage meter."""
         self.config = config or MeteringConfig()
         self._events: list[BillingEvent] = []
         self._lock = asyncio.Lock()
-        self._flush_task: Optional[asyncio.Task] = None
+        self._flush_task: asyncio.Task | None = None
         self._running = False
         self._db_initialized = False
 
@@ -355,7 +349,7 @@ class UsageMeter:
         start_date: datetime,
         end_date: datetime,
         tenant_id: str,
-        event_type: Optional[BillingEventType] = None,
+        event_type: BillingEventType | None = None,
     ) -> list[BillingEvent]:
         """Query events from database."""
         if not self.config.persist_events:
@@ -473,7 +467,7 @@ class UsageMeter:
                     f"cost=${event.total_cost:.4f}"
                 )
 
-    def _get_tenant_id(self) -> Optional[str]:
+    def _get_tenant_id(self) -> str | None:
         """Get current tenant ID from context."""
         try:
             from aragora.tenancy.context import get_current_tenant_id
@@ -520,8 +514,8 @@ class UsageMeter:
     async def record_api_call(
         self,
         resource: str = "api",
-        user_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        user_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> BillingEvent:
         """Record an API call event."""
         event = BillingEvent(
@@ -542,8 +536,8 @@ class UsageMeter:
         tokens_in: int,
         tokens_out: int,
         rounds: int = 1,
-        user_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        user_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> BillingEvent:
         """Record a debate event."""
         # Calculate cost: base + token cost
@@ -572,8 +566,8 @@ class UsageMeter:
         tokens_out: int,
         provider: str = "",
         model: str = "",
-        debate_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        debate_id: str | None = None,
+        user_id: str | None = None,
     ) -> BillingEvent:
         """Record token usage."""
         total_tokens = tokens_in + tokens_out
@@ -598,7 +592,7 @@ class UsageMeter:
         self,
         bytes_used: int,
         storage_type: str = "general",
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> BillingEvent:
         """Record storage usage."""
         # Calculate monthly cost for storage
@@ -623,8 +617,8 @@ class UsageMeter:
         connector_id: str,
         connector_type: str,
         items_synced: int,
-        user_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        user_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> BillingEvent:
         """Record a connector sync event."""
         event = BillingEvent(
@@ -644,7 +638,7 @@ class UsageMeter:
         self,
         query_type: str = "search",
         tokens_used: int = 0,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> BillingEvent:
         """Record a knowledge query event."""
         event = BillingEvent(
@@ -663,8 +657,8 @@ class UsageMeter:
         self,
         start_date: datetime,
         end_date: datetime,
-        tenant_id: Optional[str] = None,
-        event_type: Optional[BillingEventType] = None,
+        tenant_id: str | None = None,
+        event_type: BillingEventType | None = None,
     ) -> list[BillingEvent]:
         """
         Get billing events for a period.
@@ -701,7 +695,7 @@ class UsageMeter:
         self,
         start_date: datetime,
         end_date: datetime,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> UsageSummary:
         """
         Get usage summary for billing.
@@ -768,7 +762,7 @@ class UsageMeter:
 
     async def estimate_monthly_cost(
         self,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Estimate monthly cost based on current usage.
@@ -808,10 +802,8 @@ class UsageMeter:
             },
         }
 
-
 # Module-level meter instance
-_meter: Optional[UsageMeter] = None
-
+_meter: UsageMeter | None = None
 
 def get_usage_meter() -> UsageMeter:
     """Get or create the global usage meter."""
@@ -819,7 +811,6 @@ def get_usage_meter() -> UsageMeter:
     if _meter is None:
         _meter = UsageMeter()
     return _meter
-
 
 async def record_usage(
     event_type: BillingEventType,

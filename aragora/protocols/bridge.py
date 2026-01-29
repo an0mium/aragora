@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, AsyncIterator, Optional, TYPE_CHECKING
 
 from aragora.protocols.a2a import (
     A2AClient,
@@ -29,13 +29,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class Protocol(str, Enum):
     """Supported protocols."""
 
     MCP = "mcp"
     A2A = "a2a"
-
 
 @dataclass
 class ExternalResource:
@@ -46,8 +44,7 @@ class ExternalResource:
     name: str
     description: str = ""
     mime_type: str = "application/json"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class BridgeConfig:
@@ -60,12 +57,11 @@ class BridgeConfig:
     # A2A settings
     enable_a2a: bool = True
     a2a_timeout: float = 300.0
-    a2a_registries: List[str] = field(default_factory=list)
+    a2a_registries: list[str] = field(default_factory=list)
 
     # General settings
     default_protocol: Protocol = Protocol.A2A
     cache_agent_cards: bool = True
-
 
 class ProtocolBridge:
     """
@@ -78,7 +74,7 @@ class ProtocolBridge:
     - Aragora agent wrapping for external exposure
     """
 
-    def __init__(self, config: Optional[BridgeConfig] = None):
+    def __init__(self, config: BridgeConfig | None = None):
         """
         Initialize the protocol bridge.
 
@@ -88,12 +84,12 @@ class ProtocolBridge:
         self.config = config or BridgeConfig()
 
         # Protocol clients
-        self._a2a_client: Optional[A2AClient] = None
-        self._a2a_server: Optional[A2AServer] = None
+        self._a2a_client: A2AClient | None = None
+        self._a2a_server: A2AServer | None = None
 
         # Cached resources and agents
-        self._external_agents: Dict[str, AgentCard] = {}
-        self._external_resources: Dict[str, ExternalResource] = {}
+        self._external_agents: dict[str, AgentCard] = {}
+        self._external_resources: dict[str, ExternalResource] = {}
 
     async def initialize(self) -> None:
         """Initialize protocol clients."""
@@ -116,10 +112,10 @@ class ProtocolBridge:
         self,
         target: str,
         task: str,
-        context: Optional[List[Dict[str, Any]]] = None,
-        protocol: Optional[Protocol] = None,
+        context: Optional[list[dict[str, Any]]] = None,
+        protocol: Protocol | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Invoke an external tool or agent.
 
@@ -163,9 +159,9 @@ class ProtocolBridge:
         self,
         target: str,
         task: str,
-        context: Optional[List[Dict[str, Any]]] = None,
+        context: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Invoke via MCP protocol."""
         # MCP invocation would go here
         # This requires the mcp package and a running MCP server
@@ -182,9 +178,9 @@ class ProtocolBridge:
         self,
         target: str,
         task: str,
-        context: Optional[List[Dict[str, Any]]] = None,
+        context: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Invoke via A2A protocol."""
         if not self._a2a_client:
             raise RuntimeError("A2A client not initialized")
@@ -220,9 +216,9 @@ class ProtocolBridge:
         self,
         target: str,
         task: str,
-        context: Optional[List[Dict[str, Any]]] = None,
-        protocol: Optional[Protocol] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        context: Optional[list[dict[str, Any]]] = None,
+        protocol: Protocol | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Invoke with streaming output.
 
@@ -264,7 +260,7 @@ class ProtocolBridge:
     def wrap_aragora_agent(
         self,
         agent: "BaseAgent",
-        capabilities: Optional[List[AgentCapability]] = None,
+        capabilities: Optional[list[AgentCapability]] = None,
     ) -> AgentCard:
         """
         Wrap an Aragora agent as an A2A agent card.
@@ -294,8 +290,8 @@ class ProtocolBridge:
 
     def list_external_agents(
         self,
-        capability: Optional[AgentCapability] = None,
-    ) -> List[AgentCard]:
+        capability: AgentCapability | None = None,
+    ) -> list[AgentCard]:
         """List available external agents."""
         agents = list(self._external_agents.values())
 
@@ -304,7 +300,7 @@ class ProtocolBridge:
 
         return agents
 
-    def get_a2a_server(self) -> Optional[A2AServer]:
+    def get_a2a_server(self) -> A2AServer | None:
         """Get the A2A server for handling incoming requests."""
         return self._a2a_server
 
@@ -333,18 +329,15 @@ class ProtocolBridge:
 
         return await self._a2a_server.handle_task(request)
 
-
 # Global bridge instance
-_bridge: Optional[ProtocolBridge] = None
+_bridge: ProtocolBridge | None = None
 
-
-def get_protocol_bridge(config: Optional[BridgeConfig] = None) -> ProtocolBridge:
+def get_protocol_bridge(config: BridgeConfig | None = None) -> ProtocolBridge:
     """Get or create the global protocol bridge."""
     global _bridge
     if _bridge is None:
         _bridge = ProtocolBridge(config)
     return _bridge
-
 
 __all__ = [
     "Protocol",

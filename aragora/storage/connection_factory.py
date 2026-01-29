@@ -40,7 +40,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class StorageBackendType(str, Enum):
     """Available storage backend types in preference order."""
 
@@ -48,24 +47,21 @@ class StorageBackendType(str, Enum):
     POSTGRES = "postgres"  # Self-hosted fallback
     SQLITE = "sqlite"  # Last resort
 
-
 @dataclass
 class DatabaseConfig:
     """Resolved database configuration."""
 
     backend_type: StorageBackendType
-    dsn: Optional[str]
+    dsn: str | None
     is_supabase: bool
-    pool: Optional[Any] = None  # asyncpg Pool when available
-
+    pool: Any | None = None  # asyncpg Pool when available
 
 # Global pool cache for connection reuse
 _supabase_pool: Optional["Pool"] = None
 _postgres_pool: Optional["Pool"] = None
 _pool_lock = threading.Lock()
 
-
-def _normalize_backend(value: Optional[str]) -> Optional[str]:
+def _normalize_backend(value: str | None) -> str | None:
     if not value:
         return None
     normalized = value.strip().lower()
@@ -73,12 +69,11 @@ def _normalize_backend(value: Optional[str]) -> Optional[str]:
         return None
     return normalized
 
-
 def _get_backend_override(
     store_name: str,
     extra_envs: Optional[Sequence[str]] = None,
     include_global: bool = True,
-) -> Optional[str]:
+) -> str | None:
     candidates: list[str] = []
     if extra_envs:
         candidates.extend(extra_envs)
@@ -92,8 +87,7 @@ def _get_backend_override(
             return normalized
     return None
 
-
-def _get_secret(name: str) -> Optional[str]:
+def _get_secret(name: str) -> str | None:
     """Get a secret from env or secrets manager.
 
     Args:
@@ -117,8 +111,7 @@ def _get_secret(name: str) -> Optional[str]:
     except Exception:  # noqa: BLE001 - Secret fetch fallback
         return None
 
-
-def get_supabase_postgres_dsn() -> Optional[str]:
+def get_supabase_postgres_dsn() -> str | None:
     """
     Get Supabase PostgreSQL connection string.
 
@@ -156,8 +149,7 @@ def get_supabase_postgres_dsn() -> Optional[str]:
         logger.warning(f"Failed to derive Supabase PostgreSQL DSN: {e}")
         return None
 
-
-def get_selfhosted_postgres_dsn() -> Optional[str]:
+def get_selfhosted_postgres_dsn() -> str | None:
     """
     Get self-hosted PostgreSQL connection string.
 
@@ -169,7 +161,6 @@ def get_selfhosted_postgres_dsn() -> Optional[str]:
         PostgreSQL DSN, or None if not configured
     """
     return _get_secret("ARAGORA_POSTGRES_DSN") or _get_secret("DATABASE_URL")
-
 
 def resolve_database_config(
     store_name: str = "default",
@@ -296,11 +287,10 @@ def resolve_database_config(
         f"ARAGORA_POSTGRES_DSN / DATABASE_URL."
     )
 
-
 async def get_database_pool(
     store_name: str = "default",
     allow_sqlite: bool = True,
-    dsn_override: Optional[str] = None,
+    dsn_override: str | None = None,
 ) -> tuple[Optional["Pool"], DatabaseConfig]:
     """
     Get an asyncpg connection pool based on preference order.
@@ -340,17 +330,15 @@ async def get_database_pool(
             config.pool = _postgres_pool
             return _postgres_pool, config
 
-
 def is_production_environment() -> bool:
     """Check if running in production environment."""
     env = os.environ.get("ARAGORA_ENV", "development").lower()
     return env in ("production", "prod", "live", "staging", "stage")
 
-
 def get_database_pool_sync(
     store_name: str = "default",
     allow_sqlite: bool = True,
-    dsn_override: Optional[str] = None,
+    dsn_override: str | None = None,
 ) -> tuple[Optional["Pool"], DatabaseConfig]:
     """
     Synchronous wrapper for get_database_pool.
@@ -381,7 +369,6 @@ def get_database_pool_sync(
 
     return run_async(get_database_pool(store_name, allow_sqlite, dsn_override))
 
-
 async def close_all_pools() -> None:
     """Close all cached connection pools."""
     global _supabase_pool, _postgres_pool
@@ -396,14 +383,12 @@ async def close_all_pools() -> None:
             _postgres_pool = None
             logger.info("Closed PostgreSQL connection pool")
 
-
 def reset_pools() -> None:
     """Reset pool cache (for testing)."""
     global _supabase_pool, _postgres_pool
     with _pool_lock:
         _supabase_pool = None
         _postgres_pool = None
-
 
 async def _safe_store_init(store: Any, store_name: str) -> None:
     """Safely initialize a store asynchronously, logging any errors."""
@@ -413,14 +398,13 @@ async def _safe_store_init(store: Any, store_name: str) -> None:
     except Exception as e:
         logger.error(f"[{store_name}] Async store initialization failed: {e}")
 
-
 def create_persistent_store(
     store_name: str,
     sqlite_class: type,
     postgres_class: type,
     db_filename: str,
-    memory_class: Optional[type] = None,
-    data_dir: Optional[str] = None,
+    memory_class: type | None = None,
+    data_dir: str | None = None,
 ) -> Any:
     """
     Create a persistent store instance with proper backend selection.
@@ -592,7 +576,6 @@ def create_persistent_store(
 
     logger.info(f"[{store_name}] Using SQLite: {db_path}")
     return sqlite_class(db_path)
-
 
 __all__ = [
     "StorageBackendType",

@@ -28,6 +28,7 @@ Usage:
     # Reprioritize based on conditions
     await queue.reprioritize()
 """
+from __future__ import annotations
 
 import asyncio
 import heapq
@@ -37,14 +38,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.nomic.beads import BeadStore
     from aragora.nomic.convoys import ConvoyManager
 
 logger = logging.getLogger(__name__)
-
 
 class WorkType(str, Enum):
     """Types of work in the queue."""
@@ -55,7 +55,6 @@ class WorkType(str, Enum):
     ESCALATION = "escalation"
     MAINTENANCE = "maintenance"
     CUSTOM = "custom"
-
 
 class WorkStatus(str, Enum):
     """Status of work items."""
@@ -68,7 +67,6 @@ class WorkStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
-
 @dataclass(order=True)
 class PrioritizedWork:
     """
@@ -77,9 +75,8 @@ class PrioritizedWork:
     Uses negative priority so higher priority = earlier in heap.
     """
 
-    sort_priority: Tuple[int, datetime, str] = field(compare=True)
+    sort_priority: tuple[int, datetime, str] = field(compare=True)
     work_item: "WorkItem" = field(compare=False)
-
 
 @dataclass
 class WorkItem:
@@ -98,20 +95,20 @@ class WorkItem:
     updated_at: datetime
     base_priority: int  # 0-100, higher is more important
     computed_priority: int = 0  # After dynamic adjustments
-    source_id: Optional[str] = None  # ID of source bead/convoy
-    assigned_to: Optional[str] = None
-    dependencies: List[str] = field(default_factory=list)  # Other work IDs
-    blockers: List[str] = field(default_factory=list)  # Blocking conditions
-    deadline: Optional[datetime] = None
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    source_id: str | None = None  # ID of source bead/convoy
+    assigned_to: str | None = None
+    dependencies: list[str] = field(default_factory=list)  # Other work IDs
+    blockers: list[str] = field(default_factory=list)  # Blocking conditions
+    deadline: datetime | None = None
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Initialize computed priority from base."""
         if self.computed_priority == 0:
             self.computed_priority = self.base_priority
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -133,7 +130,7 @@ class WorkItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkItem":
+    def from_dict(cls, data: dict[str, Any]) -> "WorkItem":
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -154,10 +151,9 @@ class WorkItem:
             metadata=data.get("metadata", {}),
         )
 
-    def is_ready(self, completed_ids: Set[str]) -> bool:
+    def is_ready(self, completed_ids: set[str]) -> bool:
         """Check if work is ready (all dependencies met)."""
         return all(dep in completed_ids for dep in self.dependencies) and not self.blockers
-
 
 @dataclass
 class PriorityConfig:
@@ -181,7 +177,6 @@ class PriorityConfig:
     blocker_penalty: int = -50
     dependency_ready_boost: int = 10
 
-
 class PriorityCalculator:
     """
     Calculates dynamic priority for work items.
@@ -194,7 +189,7 @@ class PriorityCalculator:
     - Tags and boosts
     """
 
-    def __init__(self, config: Optional[PriorityConfig] = None):
+    def __init__(self, config: PriorityConfig | None = None):
         """
         Initialize the calculator.
 
@@ -202,14 +197,14 @@ class PriorityCalculator:
             config: Priority calculation configuration
         """
         self.config = config or PriorityConfig()
-        self._tag_boosts: Dict[str, int] = {
+        self._tag_boosts: dict[str, int] = {
             "critical": 20,
             "urgent": 15,
             "high": 10,
             "normal": 0,
             "low": -10,
         }
-        self._custom_boosts: Dict[str, int] = {}
+        self._custom_boosts: dict[str, int] = {}
 
     def add_tag_boost(self, tag: str, boost: int) -> None:
         """Add a custom tag boost."""
@@ -222,7 +217,7 @@ class PriorityCalculator:
     def calculate(
         self,
         work: WorkItem,
-        completed_ids: Optional[Set[str]] = None,
+        completed_ids: Optional[set[str]] = None,
     ) -> int:
         """
         Calculate priority for a work item.
@@ -277,7 +272,6 @@ class PriorityCalculator:
         # Clamp to valid range
         return max(0, min(100, int(priority)))
 
-
 class GlobalWorkQueue:
     """
     Unified priority queue for all work items.
@@ -290,8 +284,8 @@ class GlobalWorkQueue:
         self,
         bead_store: Optional["BeadStore"] = None,
         convoy_manager: Optional["ConvoyManager"] = None,
-        storage_dir: Optional[Path] = None,
-        calculator: Optional[PriorityCalculator] = None,
+        storage_dir: Path | None = None,
+        calculator: PriorityCalculator | None = None,
     ):
         """
         Initialize the queue.
@@ -307,12 +301,12 @@ class GlobalWorkQueue:
         self.storage_dir = storage_dir or Path(".work_queue")
         self.calculator = calculator or PriorityCalculator()
 
-        self._heap: List[PrioritizedWork] = []
-        self._items: Dict[str, WorkItem] = {}
-        self._completed: Set[str] = set()
+        self._heap: list[PrioritizedWork] = []
+        self._items: dict[str, WorkItem] = {}
+        self._completed: set[str] = set()
         self._lock = asyncio.Lock()
         self._initialized = False
-        self._callbacks: List[Callable] = []
+        self._callbacks: list[Callable] = []
 
     def register_callback(self, callback: Callable) -> None:
         """Register a callback for queue events."""
@@ -384,7 +378,7 @@ class GlobalWorkQueue:
     async def push(
         self,
         work: WorkItem,
-        priority: Optional[int] = None,
+        priority: int | None = None,
     ) -> WorkItem:
         """
         Add a work item to the queue.
@@ -427,9 +421,9 @@ class GlobalWorkQueue:
 
     async def pop(
         self,
-        work_type: Optional[WorkType] = None,
-        tags: Optional[List[str]] = None,
-    ) -> Optional[WorkItem]:
+        work_type: WorkType | None = None,
+        tags: Optional[list[str]] = None,
+    ) -> WorkItem | None:
         """
         Get the highest priority ready work item.
 
@@ -476,7 +470,7 @@ class GlobalWorkQueue:
 
             return None
 
-    async def peek(self, count: int = 1) -> List[WorkItem]:
+    async def peek(self, count: int = 1) -> list[WorkItem]:
         """
         Peek at the top items without removing them.
 
@@ -503,8 +497,8 @@ class GlobalWorkQueue:
     async def complete(
         self,
         work_id: str,
-        result: Optional[Any] = None,
-    ) -> Optional[WorkItem]:
+        result: Any | None = None,
+    ) -> WorkItem | None:
         """
         Mark work as completed.
 
@@ -537,8 +531,8 @@ class GlobalWorkQueue:
     async def fail(
         self,
         work_id: str,
-        error: Optional[str] = None,
-    ) -> Optional[WorkItem]:
+        error: str | None = None,
+    ) -> WorkItem | None:
         """
         Mark work as failed.
 
@@ -564,7 +558,7 @@ class GlobalWorkQueue:
             logger.warning(f"Failed work {work_id}: {error}")
             return work
 
-    async def _check_unblocked(self) -> List[WorkItem]:
+    async def _check_unblocked(self) -> list[WorkItem]:
         """Check for work items that are now unblocked."""
         unblocked = []
 
@@ -590,7 +584,7 @@ class GlobalWorkQueue:
             count = 0
 
             # Rebuild heap with new priorities
-            new_heap: List[PrioritizedWork] = []
+            new_heap: list[PrioritizedWork] = []
 
             for work in self._items.values():
                 if work.status in (WorkStatus.PENDING, WorkStatus.READY, WorkStatus.BLOCKED):
@@ -716,16 +710,16 @@ class GlobalWorkQueue:
 
             return count
 
-    async def get(self, work_id: str) -> Optional[WorkItem]:
+    async def get(self, work_id: str) -> WorkItem | None:
         """Get a work item by ID."""
         return self._items.get(work_id)
 
     async def list_items(
         self,
-        status: Optional[WorkStatus] = None,
-        work_type: Optional[WorkType] = None,
+        status: WorkStatus | None = None,
+        work_type: WorkType | None = None,
         limit: int = 100,
-    ) -> List[WorkItem]:
+    ) -> list[WorkItem]:
         """
         List work items with optional filters.
 
@@ -750,12 +744,12 @@ class GlobalWorkQueue:
 
         return items[:limit]
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get queue statistics."""
         items = list(self._items.values())
 
-        by_status: Dict[str, int] = {}
-        by_type: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        by_type: dict[str, int] = {}
 
         for item in items:
             status_key = item.status.value
@@ -777,10 +771,8 @@ class GlobalWorkQueue:
             "heap_size": len(self._heap),
         }
 
-
 # Singleton instance
-_default_queue: Optional[GlobalWorkQueue] = None
-
+_default_queue: GlobalWorkQueue | None = None
 
 async def get_global_work_queue(
     bead_store: Optional["BeadStore"] = None,
@@ -795,7 +787,6 @@ async def get_global_work_queue(
         )
         await _default_queue.initialize()
     return _default_queue
-
 
 def reset_global_work_queue() -> None:
     """Reset the default queue (for testing)."""

@@ -8,14 +8,13 @@ Extracted from PromptBuilder for improved modularity and testability.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.evidence.collector import EvidenceSnippet
     from aragora.pulse.types import TrendingTopic
 
 logger = logging.getLogger(__name__)
-
 
 def format_patterns_for_prompt(patterns: list[dict]) -> str:
     """Format learned patterns as prompt context for agents.
@@ -53,7 +52,6 @@ def format_patterns_for_prompt(patterns: list[dict]) -> str:
     lines.append("\nLearn from these past issues to improve your analysis.")
     return "\n".join(lines)
 
-
 def format_successful_patterns(
     patterns: list[dict],
     limit: int = 3,
@@ -87,11 +85,10 @@ def format_successful_patterns(
 
     return "\n".join(lines)
 
-
 def format_evidence_for_prompt(
     snippets: list["EvidenceSnippet"],
     max_snippets: int = 5,
-    rlm_adapter: Optional[Any] = None,
+    rlm_adapter: Any | None = None,
     enable_rlm_hints: bool = True,
 ) -> str:
     """Format evidence snippets as citable references for agent prompts.
@@ -155,7 +152,6 @@ def format_evidence_for_prompt(
     lines.append("When stating facts, cite evidence as [EVID-N]. Uncited claims may be challenged.")
     return "\n".join(lines)
 
-
 def format_trending_for_prompt(
     topics: list["TrendingTopic"],
     task: str = "",
@@ -215,7 +211,6 @@ def format_trending_for_prompt(
     lines.append("Consider how current events may relate to the debate topic.")
     return "\n".join(lines)
 
-
 def format_elo_ranking_context(
     agent_name: str,
     all_agent_names: list[str],
@@ -259,7 +254,6 @@ def format_elo_ranking_context(
     lines.append("Higher-rated agents have demonstrated stronger performance in similar debates.")
 
     return "\n".join(lines)
-
 
 def format_calibration_context(
     brier_score: float,
@@ -307,7 +301,6 @@ def format_calibration_context(
     lines.append("\nAdjust your certainty levels in this debate accordingly.")
 
     return "\n".join(lines)
-
 
 def format_belief_context(
     converged_beliefs: list[dict],

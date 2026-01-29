@@ -12,12 +12,10 @@ import logging
 import os
 import sys
 import time
-from typing import Optional
 
 from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
-
 
 def _get_secret_value(name: str, default: str = "") -> str:
     """Get secret value from secrets manager or environment."""
@@ -27,7 +25,6 @@ def _get_secret_value(name: str, default: str = "") -> str:
         return get_secret(name, default) or default
     except ImportError:
         return os.environ.get(name, default)
-
 
 # Environment configuration
 ARAGORA_ENVIRONMENT = os.environ.get("ARAGORA_ENVIRONMENT", "development")
@@ -48,7 +45,6 @@ MIN_SECRET_LENGTH = 32
 MAX_ACCESS_TOKEN_HOURS = 168  # 7 days max
 MAX_REFRESH_TOKEN_DAYS = 90  # 90 days max
 
-
 def is_production() -> bool:
     """Check if running in production environment.
 
@@ -58,7 +54,6 @@ def is_production() -> bool:
     env = ARAGORA_ENVIRONMENT.lower()
     production_indicators = ["production", "prod", "live", "prd"]
     return any(indicator in env for indicator in production_indicators)
-
 
 def validate_security_config() -> None:
     """Validate security configuration at module load.
@@ -109,11 +104,9 @@ def validate_security_config() -> None:
                 f"Current length: {len(JWT_SECRET)}",
             )
 
-
 def validate_secret_strength(secret: str) -> bool:
     """Validate JWT secret meets minimum entropy requirements."""
     return len(secret) >= MIN_SECRET_LENGTH
-
 
 def get_secret() -> bytes:
     """
@@ -166,8 +159,7 @@ def get_secret() -> bytes:
 
     return JWT_SECRET.encode("utf-8")
 
-
-def get_previous_secret() -> Optional[bytes]:
+def get_previous_secret() -> bytes | None:
     """
     Get previous JWT secret for rotation support.
 
@@ -200,7 +192,6 @@ def get_previous_secret() -> Optional[bytes]:
                 return None
 
     return JWT_SECRET_PREVIOUS.encode("utf-8")
-
 
 # Backward compatibility alias
 _validate_secret_strength = validate_secret_strength

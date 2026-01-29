@@ -28,7 +28,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from aragora.config.settings import get_settings
 
@@ -38,18 +38,15 @@ _DEFAULT_DECISION_ROUNDS = _DEFAULT_SETTINGS.debate.default_rounds
 _DEFAULT_DECISION_CONSENSUS = _DEFAULT_SETTINGS.debate.default_consensus
 _DEFAULT_DECISION_MAX_AGENTS = _DEFAULT_SETTINGS.debate.max_agents_per_debate
 
-
-def _default_decision_agents() -> List[str]:
+def _default_decision_agents() -> list[str]:
     agents = _DEFAULT_SETTINGS.agent.default_agent_list
     return agents if agents else ["anthropic-api", "openai-api"]
-
 
 # Lazy import for tracing to avoid circular imports
 _tracing_imported = False
 _trace_decision = None
 _trace_decision_engine = None
 _trace_response_delivery = None
-
 
 def _import_tracing():
     """Lazy import tracing utilities."""
@@ -70,11 +67,9 @@ def _import_tracing():
         pass
     _tracing_imported = True
 
-
 # Lazy import for caching
 _cache_imported = False
 _decision_cache = None
-
 
 def _import_cache():
     """Lazy import cache utilities."""
@@ -89,7 +84,6 @@ def _import_cache():
         pass
     _cache_imported = True
 
-
 # Lazy import for metrics
 _metrics_imported = False
 _record_decision_request = None
@@ -97,7 +91,6 @@ _record_decision_result = None
 _record_decision_error = None
 _record_decision_cache_hit = None
 _record_decision_dedup_hit = None
-
 
 def _import_metrics():
     """Lazy import metrics utilities."""
@@ -123,12 +116,10 @@ def _import_metrics():
         pass
     _metrics_imported = True
 
-
 # Lazy import for audit logging
 _audit_imported = False
 _audit_log_decision_started = None
 _audit_log_decision_completed = None
-
 
 def _import_audit():
     """Lazy import audit utilities."""
@@ -210,9 +201,7 @@ def _import_audit():
         pass
     _audit_imported = True
 
-
 logger = logging.getLogger(__name__)
-
 
 class DecisionType(str, Enum):
     """Types of decision-making processes available."""
@@ -222,7 +211,6 @@ class DecisionType(str, Enum):
     GAUNTLET = "gauntlet"  # Adversarial validation pipeline
     QUICK = "quick"  # Fast single-agent response
     AUTO = "auto"  # Auto-detect based on content
-
 
 class InputSource(str, Enum):
     """Source channel for the decision request."""
@@ -274,7 +262,6 @@ class InputSource(str, Enum):
     SCHEDULED = "scheduled"  # Scheduled task
     INTERNAL = "internal"  # System-generated
 
-
 class Priority(str, Enum):
     """Request priority levels."""
 
@@ -283,7 +270,6 @@ class Priority(str, Enum):
     NORMAL = "normal"  # Standard processing
     LOW = "low"  # Background processing
     BATCH = "batch"  # Batch with similar requests
-
 
 class ResponseFormat(str, Enum):
     """Format for the response delivery."""
@@ -294,7 +280,6 @@ class ResponseFormat(str, Enum):
     VOICE = "voice"  # Audio/TTS response
     VOICE_WITH_TEXT = "voice_with_text"  # Both audio and text
 
-
 @dataclass
 class ResponseChannel:
     """
@@ -304,11 +289,11 @@ class ResponseChannel:
     """
 
     platform: str  # slack, discord, http, websocket, email, webhook, voice
-    channel_id: Optional[str] = None  # Slack channel, Discord channel, etc.
-    user_id: Optional[str] = None  # Direct message to user
-    thread_id: Optional[str] = None  # Reply in thread
-    webhook_url: Optional[str] = None  # Webhook callback URL
-    email_address: Optional[str] = None  # Email recipient
+    channel_id: str | None = None  # Slack channel, Discord channel, etc.
+    user_id: str | None = None  # Direct message to user
+    thread_id: str | None = None  # Reply in thread
+    webhook_url: str | None = None  # Webhook callback URL
+    email_address: str | None = None  # Email recipient
     response_format: str = "full"  # full, summary, notification, voice
     include_reasoning: bool = True  # Include chain-of-thought
 
@@ -317,7 +302,7 @@ class ResponseChannel:
     voice_id: str = "narrator"  # TTS voice/speaker identifier
     voice_only: bool = False  # If True, only send audio (no text)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "platform": self.platform,
@@ -334,7 +319,7 @@ class ResponseChannel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ResponseChannel":
+    def from_dict(cls, data: dict[str, Any]) -> "ResponseChannel":
         """Create from dictionary."""
         return cls(
             platform=data.get("platform", "http"),
@@ -350,7 +335,6 @@ class ResponseChannel:
             voice_only=data.get("voice_only", False),
         )
 
-
 @dataclass
 class RequestContext:
     """
@@ -361,28 +345,28 @@ class RequestContext:
 
     # Correlation
     correlation_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    parent_request_id: Optional[str] = None  # If spawned from another request
-    session_id: Optional[str] = None  # User session
+    parent_request_id: str | None = None  # If spawned from another request
+    session_id: str | None = None  # User session
 
     # User info
-    user_id: Optional[str] = None
-    user_name: Optional[str] = None
-    user_email: Optional[str] = None
-    user_roles: List[str] = field(default_factory=list)
+    user_id: str | None = None
+    user_name: str | None = None
+    user_email: str | None = None
+    user_roles: list[str] = field(default_factory=list)
 
     # Tenant/workspace
-    tenant_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    tenant_id: str | None = None
+    workspace_id: str | None = None
 
     # Timing
     created_at: datetime = field(default_factory=datetime.utcnow)
-    deadline: Optional[datetime] = None  # Hard deadline for response
+    deadline: datetime | None = None  # Hard deadline for response
 
     # Additional context
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "correlation_id": self.correlation_id,
@@ -401,7 +385,7 @@ class RequestContext:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RequestContext":
+    def from_dict(cls, data: dict[str, Any]) -> "RequestContext":
         """Create from dictionary."""
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -427,7 +411,6 @@ class RequestContext:
             metadata=data.get("metadata", {}),
         )
 
-
 @dataclass
 class DecisionConfig:
     """
@@ -439,7 +422,7 @@ class DecisionConfig:
     # Common settings
     timeout_seconds: int = 300
     max_agents: int = _DEFAULT_DECISION_MAX_AGENTS
-    agents: List[str] = field(default_factory=_default_decision_agents)
+    agents: list[str] = field(default_factory=_default_decision_agents)
 
     # Debate-specific (mapped to DebateProtocol)
     rounds: int = _DEFAULT_DECISION_ROUNDS
@@ -448,8 +431,8 @@ class DecisionConfig:
     early_stopping: bool = True
 
     # Workflow-specific (mapped to WorkflowConfig)
-    workflow_id: Optional[str] = None
-    workflow_inputs: Dict[str, Any] = field(default_factory=dict)
+    workflow_id: str | None = None
+    workflow_inputs: dict[str, Any] = field(default_factory=dict)
     stop_on_failure: bool = True
     enable_checkpointing: bool = True
 
@@ -457,14 +440,14 @@ class DecisionConfig:
     enable_adversarial: bool = False
     enable_formal_verification: bool = False
     robustness_threshold: float = 0.6
-    attack_categories: List[str] = field(default_factory=list)
+    attack_categories: list[str] = field(default_factory=list)
 
     # Knowledge integration
     use_knowledge_mound: bool = True
     include_evidence: bool = True
-    evidence_sources: List[str] = field(default_factory=list)
+    evidence_sources: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "timeout_seconds": self.timeout_seconds,
@@ -488,7 +471,7 @@ class DecisionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DecisionConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "DecisionConfig":
         """Create from dictionary."""
         return cls(
             timeout_seconds=data.get("timeout_seconds", 300),
@@ -511,7 +494,6 @@ class DecisionConfig:
             evidence_sources=data.get("evidence_sources", []),
         )
 
-
 @dataclass
 class DecisionRequest:
     """
@@ -528,7 +510,7 @@ class DecisionRequest:
 
     # Source and routing
     source: InputSource = InputSource.HTTP_API
-    response_channels: List[ResponseChannel] = field(default_factory=list)
+    response_channels: list[ResponseChannel] = field(default_factory=list)
 
     # Request context
     context: RequestContext = field(default_factory=RequestContext)
@@ -540,8 +522,8 @@ class DecisionRequest:
     priority: Priority = Priority.NORMAL
 
     # Additional input data
-    attachments: List[Dict[str, Any]] = field(default_factory=list)
-    evidence: List[Dict[str, Any]] = field(default_factory=list)
+    attachments: list[dict[str, Any]] = field(default_factory=list)
+    evidence: list[dict[str, Any]] = field(default_factory=list)
 
     # Request ID
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -581,7 +563,7 @@ class DecisionRequest:
         # Default to debate for complex questions
         return DecisionType.DEBATE
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "request_id": self.request_id,
@@ -597,7 +579,7 @@ class DecisionRequest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DecisionRequest":
+    def from_dict(cls, data: dict[str, Any]) -> "DecisionRequest":
         """Create from dictionary."""
         return cls(
             request_id=data.get("request_id", str(uuid.uuid4())),
@@ -620,8 +602,8 @@ class DecisionRequest:
         message: str,
         platform: str,
         channel_id: str,
-        user_id: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        user_id: str | None = None,
+        thread_id: str | None = None,
         **kwargs,
     ) -> "DecisionRequest":
         """Create from a chat platform message."""
@@ -649,8 +631,8 @@ class DecisionRequest:
     @classmethod
     def from_http(
         cls,
-        body: Dict[str, Any],
-        headers: Optional[Dict[str, str]] = None,
+        body: dict[str, Any],
+        headers: Optional[dict[str, str]] = None,
     ) -> "DecisionRequest":
         """Create from HTTP API request body."""
         # Extract correlation ID from headers if present
@@ -686,7 +668,7 @@ class DecisionRequest:
         transcription: str,
         platform: str,
         channel_id: str,
-        audio_duration: Optional[float] = None,
+        audio_duration: float | None = None,
         voice_response: bool = True,
         voice_id: str = "narrator",
         **kwargs,
@@ -729,9 +711,9 @@ class DecisionRequest:
         content: str,
         source_platform: str,
         document_id: str,
-        document_title: Optional[str] = None,
-        document_url: Optional[str] = None,
-        user_id: Optional[str] = None,
+        document_title: str | None = None,
+        document_url: str | None = None,
+        user_id: str | None = None,
         **kwargs,
     ) -> "DecisionRequest":
         """Create from a document source (Google Drive, SharePoint, etc.)."""
@@ -772,7 +754,6 @@ class DecisionRequest:
             context=context,
         )
 
-
 @dataclass
 class DecisionResult:
     """
@@ -788,24 +769,24 @@ class DecisionResult:
     consensus_reached: bool
 
     # Detailed results
-    reasoning: Optional[str] = None
-    evidence_used: List[Dict[str, Any]] = field(default_factory=list)
-    agent_contributions: List[Dict[str, Any]] = field(default_factory=list)
+    reasoning: str | None = None
+    evidence_used: list[dict[str, Any]] = field(default_factory=list)
+    agent_contributions: list[dict[str, Any]] = field(default_factory=list)
 
     # Metadata
     duration_seconds: float = 0.0
     completed_at: datetime = field(default_factory=datetime.utcnow)
 
     # Engine-specific results
-    debate_result: Optional[Any] = None  # DebateResult
-    workflow_result: Optional[Any] = None  # WorkflowResult
-    gauntlet_result: Optional[Any] = None  # GauntletResult
+    debate_result: Any | None = None  # DebateResult
+    workflow_result: Any | None = None  # WorkflowResult
+    gauntlet_result: Any | None = None  # GauntletResult
 
     # Status
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "request_id": self.request_id,
@@ -822,7 +803,6 @@ class DecisionResult:
             "error": self.error,
         }
 
-
 class DecisionRouter:
     """
     Routes decision requests to the appropriate engine.
@@ -833,14 +813,14 @@ class DecisionRouter:
 
     def __init__(
         self,
-        debate_engine: Optional[Any] = None,
-        workflow_engine: Optional[Any] = None,
-        gauntlet_engine: Optional[Any] = None,
+        debate_engine: Any | None = None,
+        workflow_engine: Any | None = None,
+        gauntlet_engine: Any | None = None,
         enable_voice_responses: bool = True,
         enable_caching: bool = True,
         enable_deduplication: bool = True,
         cache_ttl_seconds: float = 3600.0,
-        rbac_enforcer: Optional[Any] = None,
+        rbac_enforcer: Any | None = None,
     ):
         """
         Initialize the router.
@@ -858,9 +838,9 @@ class DecisionRouter:
         self._debate_engine = debate_engine
         self._workflow_engine = workflow_engine
         self._gauntlet_engine = gauntlet_engine
-        self._response_handlers: Dict[str, Callable] = {}
+        self._response_handlers: dict[str, Callable] = {}
         self._enable_voice_responses = enable_voice_responses
-        self._tts_bridge: Optional[Any] = None
+        self._tts_bridge: Any | None = None
         self._rbac_enforcer = rbac_enforcer
 
         # Cache configuration
@@ -1447,7 +1427,7 @@ class DecisionRouter:
     async def _gather_knowledge_context(
         self,
         query: str,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
         max_items: int = 5,
     ) -> tuple[str, list[str]]:
         """
@@ -1516,7 +1496,7 @@ class DecisionRouter:
             logger.warning(f"Failed to gather knowledge context: {e}")
             return "", []
 
-    def _get_tts_bridge(self) -> Optional[Any]:
+    def _get_tts_bridge(self) -> Any | None:
         """Lazy-load TTS bridge for voice responses."""
         if self._tts_bridge is not None:
             return self._tts_bridge
@@ -1541,8 +1521,8 @@ class DecisionRouter:
         self,
         text: str,
         voice_id: str = "narrator",
-        context: Optional[str] = None,
-    ) -> Optional[bytes]:
+        context: str | None = None,
+    ) -> bytes | None:
         """
         Synthesize text to audio for voice response.
 
@@ -1606,7 +1586,7 @@ class DecisionRouter:
         self,
         result: DecisionResult,
         channel: ResponseChannel,
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """Deliver voice response for a channel."""
         # Format text for voice (more concise than full text)
         if channel.response_format == "notification":
@@ -1638,10 +1618,8 @@ class DecisionRouter:
 
         return audio_bytes
 
-
 # Singleton router instance
-_router: Optional[DecisionRouter] = None
-
+_router: DecisionRouter | None = None
 
 def get_decision_router() -> DecisionRouter:
     """Get or create the global decision router."""
@@ -1649,7 +1627,6 @@ def get_decision_router() -> DecisionRouter:
     if _router is None:
         _router = DecisionRouter()
     return _router
-
 
 def reset_decision_router() -> None:
     """Reset the global decision router (for testing)."""

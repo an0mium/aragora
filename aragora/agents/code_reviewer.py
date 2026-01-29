@@ -16,13 +16,12 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from aragora.agents.base import BaseDebateAgent
 from aragora.core_types import Critique, Message
 
 logger = logging.getLogger(__name__)
-
 
 class ReviewCategory(str, Enum):
     """Categories of code review findings."""
@@ -36,7 +35,6 @@ class ReviewCategory(str, Enum):
     DOCUMENTATION = "documentation"
     ARCHITECTURE = "architecture"
 
-
 class FindingSeverity(str, Enum):
     """Severity levels for findings."""
 
@@ -46,24 +44,22 @@ class FindingSeverity(str, Enum):
     LOW = "low"  # Nice to have
     INFO = "info"  # Informational
 
-
 @dataclass
 class CodeLocation:
     """Location of code in a file."""
 
     file_path: str
     start_line: int
-    end_line: Optional[int] = None
+    end_line: int | None = None
     code_snippet: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "filePath": self.file_path,
             "startLine": self.start_line,
             "endLine": self.end_line,
             "codeSnippet": self.code_snippet,
         }
-
 
 @dataclass
 class ReviewFinding:
@@ -74,15 +70,15 @@ class ReviewFinding:
     severity: FindingSeverity
     title: str
     description: str
-    location: Optional[CodeLocation] = None
+    location: CodeLocation | None = None
     suggestion: str = ""
     suggested_code: str = ""
     reviewer: str = ""
     confidence: float = 0.8
-    references: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "category": self.category.value,
@@ -98,21 +94,20 @@ class ReviewFinding:
             "tags": self.tags,
         }
 
-
 @dataclass
 class ReviewResult:
     """Aggregated code review result."""
 
-    pr_url: Optional[str] = None
+    pr_url: str | None = None
     files_reviewed: int = 0
     lines_reviewed: int = 0
-    findings: List[ReviewFinding] = field(default_factory=list)
+    findings: list[ReviewFinding] = field(default_factory=list)
     summary: str = ""
     approval_status: str = "pending"  # approved, changes_requested, pending
-    by_category: Dict[str, int] = field(default_factory=dict)
-    by_severity: Dict[str, int] = field(default_factory=dict)
-    reviewers_participated: List[str] = field(default_factory=list)
-    consensus_notes: List[str] = field(default_factory=list)
+    by_category: dict[str, int] = field(default_factory=dict)
+    by_severity: dict[str, int] = field(default_factory=dict)
+    reviewers_participated: list[str] = field(default_factory=list)
+    consensus_notes: list[str] = field(default_factory=list)
 
     @property
     def critical_count(self) -> int:
@@ -126,7 +121,7 @@ class ReviewResult:
     def should_block_merge(self) -> bool:
         return self.critical_count > 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "prUrl": self.pr_url,
             "filesReviewed": self.files_reviewed,
@@ -142,7 +137,6 @@ class ReviewResult:
             "reviewersParticipated": self.reviewers_participated,
             "consensusNotes": self.consensus_notes,
         }
-
 
 # Security vulnerability patterns
 SECURITY_PATTERNS = [
@@ -198,7 +192,6 @@ MAINTAINABILITY_PATTERNS = [
     (r"global\s+\w+", "Global variable usage", FindingSeverity.LOW),
     (r"print\s*\(", "Print statement (use logging instead)", FindingSeverity.LOW),
 ]
-
 
 class SecurityReviewer(BaseDebateAgent):
     """Agent specialized in security review."""
@@ -260,7 +253,7 @@ CWE: [CWE-XXX if applicable]"""
             reasoning="Pattern-based reviewer",
         )
 
-    async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
+    async def review(self, code: str, language: str = "python") -> list[ReviewFinding]:
         """
         Review code for security vulnerabilities.
 
@@ -295,7 +288,6 @@ CWE: [CWE-XXX if applicable]"""
                     )
 
         return findings
-
 
 class PerformanceReviewer(BaseDebateAgent):
     """Agent specialized in performance review."""
@@ -357,7 +349,7 @@ SUGGESTION: [how to optimize]"""
             reasoning="Pattern-based reviewer",
         )
 
-    async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
+    async def review(self, code: str, language: str = "python") -> list[ReviewFinding]:
         """
         Review code for performance issues.
 
@@ -392,7 +384,6 @@ SUGGESTION: [how to optimize]"""
                     )
 
         return findings
-
 
 class MaintainabilityReviewer(BaseDebateAgent):
     """Agent specialized in code quality and maintainability review."""
@@ -454,7 +445,7 @@ SUGGESTION: [how to improve]"""
             reasoning="Pattern-based reviewer",
         )
 
-    async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
+    async def review(self, code: str, language: str = "python") -> list[ReviewFinding]:
         """
         Review code for maintainability issues.
 
@@ -489,7 +480,6 @@ SUGGESTION: [how to improve]"""
                     )
 
         return findings
-
 
 class TestCoverageReviewer(BaseDebateAgent):
     """Agent specialized in test coverage review."""
@@ -552,7 +542,6 @@ PRIORITY: [1-5]"""
             reasoning="Pattern-based reviewer",
         )
 
-
 class CodeReviewOrchestrator:
     """
     Orchestrates multi-agent code review.
@@ -563,7 +552,7 @@ class CodeReviewOrchestrator:
 
     def __init__(
         self,
-        arena: Optional[Any] = None,
+        arena: Any | None = None,
         enable_security: bool = True,
         enable_performance: bool = True,
         enable_maintainability: bool = True,
@@ -580,7 +569,7 @@ class CodeReviewOrchestrator:
             enable_test_coverage: Run test coverage review
         """
         self.arena = arena
-        self.reviewers: List[Tuple[str, bool]] = []
+        self.reviewers: list[tuple[str, bool]] = []
 
         if enable_security:
             self.reviewers.append(("security", True))
@@ -598,7 +587,7 @@ class CodeReviewOrchestrator:
         self,
         code: str,
         file_path: str = "unknown",
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> ReviewResult:
         """
         Review a single code file.
@@ -663,7 +652,7 @@ class CodeReviewOrchestrator:
         self,
         diff: str,
         base_branch: str = "main",
-        pr_url: Optional[str] = None,
+        pr_url: str | None = None,
     ) -> ReviewResult:
         """
         Review a code diff (e.g., from a PR).
@@ -710,7 +699,7 @@ class CodeReviewOrchestrator:
     async def review_pr(
         self,
         pr_url: str,
-        review_types: Optional[List[str]] = None,
+        review_types: Optional[list[str]] = None,
         post_comments: bool = False,
     ) -> ReviewResult:
         """
@@ -811,10 +800,10 @@ class CodeReviewOrchestrator:
         self,
         code: str,
         file_path: str,
-        patterns: List[Tuple[str, str, FindingSeverity]],
+        patterns: list[tuple[str, str, FindingSeverity]],
         category: ReviewCategory,
         reviewer: str,
-    ) -> List[ReviewFinding]:
+    ) -> list[ReviewFinding]:
         """Run pattern-based review."""
         findings = []
         lines = code.split("\n")
@@ -841,7 +830,7 @@ class CodeReviewOrchestrator:
 
         return findings
 
-    def _parse_diff(self, diff: str) -> List[Tuple[str, List[str], List[str]]]:
+    def _parse_diff(self, diff: str) -> list[tuple[str, list[str], list[str]]]:
         """
         Parse git diff to extract file changes.
 
@@ -871,9 +860,9 @@ class CodeReviewOrchestrator:
 
         return files
 
-    def _count_by_field(self, findings: List[ReviewFinding], field: str) -> Dict[str, int]:
+    def _count_by_field(self, findings: list[ReviewFinding], field: str) -> dict[str, int]:
         """Count findings by a field."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for finding in findings:
             value = getattr(finding, field)
             if hasattr(value, "value"):
@@ -906,9 +895,9 @@ class CodeReviewOrchestrator:
 
     async def debate_findings(
         self,
-        findings: List[ReviewFinding],
+        findings: list[ReviewFinding],
         topic: str = "conflicting recommendations",
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Use multi-agent debate to resolve conflicting findings.
 
@@ -933,7 +922,7 @@ class CodeReviewOrchestrator:
         self,
         result: ReviewResult,
         max_comments: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Generate GitHub PR review comments from findings.
 

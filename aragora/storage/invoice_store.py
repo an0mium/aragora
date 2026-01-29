@@ -39,7 +39,6 @@ logger = logging.getLogger(__name__)
 _invoice_store: Optional["InvoiceStoreBackend"] = None
 _store_lock = threading.RLock()
 
-
 class DecimalEncoder(json.JSONEncoder):
     """JSON encoder that handles Decimal types."""
 
@@ -47,7 +46,6 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return str(obj)
         return super().default(obj)
-
 
 def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
     """JSON decoder hook that converts decimal strings back to Decimal."""
@@ -65,12 +63,11 @@ def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
                 pass
     return dct
 
-
 class InvoiceStoreBackend(ABC):
     """Abstract base class for invoice storage backends."""
 
     @abstractmethod
-    async def get(self, invoice_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, invoice_id: str) -> dict[str, Any] | None:
         """Get invoice by ID."""
         pass
 
@@ -119,8 +116,8 @@ class InvoiceStoreBackend(ABC):
     @abstractmethod
     async def list_scheduled_payments(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> list[dict[str, Any]]:
         """List invoices with scheduled payments."""
         pass
@@ -145,8 +142,8 @@ class InvoiceStoreBackend(ABC):
         self,
         invoice_id: str,
         status: str,
-        approved_by: Optional[str] = None,
-        rejection_reason: Optional[str] = None,
+        approved_by: str | None = None,
+        rejection_reason: str | None = None,
     ) -> bool:
         """Update invoice status."""
         pass
@@ -166,8 +163,8 @@ class InvoiceStoreBackend(ABC):
         invoice_id: str,
         amount: Decimal,
         payment_date: datetime,
-        payment_method: Optional[str] = None,
-        reference: Optional[str] = None,
+        payment_method: str | None = None,
+        reference: str | None = None,
     ) -> bool:
         """Record a payment against an invoice."""
         pass
@@ -177,7 +174,6 @@ class InvoiceStoreBackend(ABC):
         """Close any resources."""
         pass
 
-
 class InMemoryInvoiceStore(InvoiceStoreBackend):
     """In-memory invoice store for testing."""
 
@@ -185,7 +181,7 @@ class InMemoryInvoiceStore(InvoiceStoreBackend):
         self._data: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
 
-    async def get(self, invoice_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, invoice_id: str) -> dict[str, Any] | None:
         with self._lock:
             return self._data.get(invoice_id)
 
@@ -244,8 +240,8 @@ class InMemoryInvoiceStore(InvoiceStoreBackend):
 
     async def list_scheduled_payments(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> list[dict[str, Any]]:
         with self._lock:
             results = []
@@ -288,8 +284,8 @@ class InMemoryInvoiceStore(InvoiceStoreBackend):
         self,
         invoice_id: str,
         status: str,
-        approved_by: Optional[str] = None,
-        rejection_reason: Optional[str] = None,
+        approved_by: str | None = None,
+        rejection_reason: str | None = None,
     ) -> bool:
         with self._lock:
             if invoice_id not in self._data:
@@ -319,8 +315,8 @@ class InMemoryInvoiceStore(InvoiceStoreBackend):
         invoice_id: str,
         amount: Decimal,
         payment_date: datetime,
-        payment_method: Optional[str] = None,
-        reference: Optional[str] = None,
+        payment_method: str | None = None,
+        reference: str | None = None,
     ) -> bool:
         with self._lock:
             if invoice_id not in self._data:
@@ -356,11 +352,10 @@ class InMemoryInvoiceStore(InvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
-
 class SQLiteInvoiceStore(InvoiceStoreBackend):
     """SQLite-backed invoice store."""
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         if db_path is None:
             data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
             db_path = Path(data_dir) / "invoices.db"
@@ -410,7 +405,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
             finally:
                 conn.close()
 
-    async def get(self, invoice_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, invoice_id: str) -> dict[str, Any] | None:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -573,8 +568,8 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
 
     async def list_scheduled_payments(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> list[dict[str, Any]]:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -648,8 +643,8 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
         self,
         invoice_id: str,
         status: str,
-        approved_by: Optional[str] = None,
-        rejection_reason: Optional[str] = None,
+        approved_by: str | None = None,
+        rejection_reason: str | None = None,
     ) -> bool:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -736,8 +731,8 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
         invoice_id: str,
         amount: Decimal,
         payment_date: datetime,
-        payment_method: Optional[str] = None,
-        reference: Optional[str] = None,
+        payment_method: str | None = None,
+        reference: str | None = None,
     ) -> bool:
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -799,7 +794,6 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
-
 class PostgresInvoiceStore(InvoiceStoreBackend):
     """PostgreSQL-backed invoice store for production."""
 
@@ -843,7 +837,7 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
         self._initialized = True
 
-    async def get(self, invoice_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, invoice_id: str) -> dict[str, Any] | None:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT data_json FROM invoices WHERE id = $1",
@@ -865,7 +859,7 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
         elif isinstance(total_amount, str):
             total_amount = float(Decimal(total_amount))
 
-        def parse_date(val: Any) -> Optional[datetime]:
+        def parse_date(val: Any) -> datetime | None:
             if val is None:
                 return None
             if isinstance(val, datetime):
@@ -1002,8 +996,8 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
 
     async def list_scheduled_payments(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
             where_parts = [
@@ -1075,8 +1069,8 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
         self,
         invoice_id: str,
         status: str,
-        approved_by: Optional[str] = None,
-        rejection_reason: Optional[str] = None,
+        approved_by: str | None = None,
+        rejection_reason: str | None = None,
     ) -> bool:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1143,8 +1137,8 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
         invoice_id: str,
         amount: Decimal,
         payment_date: datetime,
-        payment_method: Optional[str] = None,
-        reference: Optional[str] = None,
+        payment_method: str | None = None,
+        reference: str | None = None,
     ) -> bool:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1196,7 +1190,6 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
-
 def get_invoice_store() -> InvoiceStoreBackend:
     """
     Get the global invoice store instance.
@@ -1231,20 +1224,17 @@ def get_invoice_store() -> InvoiceStoreBackend:
 
         return _invoice_store
 
-
 def set_invoice_store(store: InvoiceStoreBackend) -> None:
     """Set a custom invoice store instance."""
     global _invoice_store
     with _store_lock:
         _invoice_store = store
 
-
 def reset_invoice_store() -> None:
     """Reset the global invoice store (for testing)."""
     global _invoice_store
     with _store_lock:
         _invoice_store = None
-
 
 __all__ = [
     "InvoiceStoreBackend",

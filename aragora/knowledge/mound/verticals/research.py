@@ -16,7 +16,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.verticals.base import (
     BaseVerticalKnowledge,
@@ -28,7 +28,6 @@ from aragora.knowledge.mound.verticals.base import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ResearchPattern:
     """Pattern for detecting research elements."""
@@ -39,7 +38,6 @@ class ResearchPattern:
     confidence_weight: float  # How much to trust this type
     description: str
 
-
 @dataclass
 class StatisticalPattern:
     """Pattern for detecting statistical claims."""
@@ -48,7 +46,6 @@ class StatisticalPattern:
     pattern: str
     category: str  # p-value, confidence_interval, effect_size, etc.
     description: str
-
 
 class ResearchKnowledge(BaseVerticalKnowledge):
     """
@@ -246,7 +243,7 @@ class ResearchKnowledge(BaseVerticalKnowledge):
     async def extract_facts(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list[VerticalFact]:
         """Extract research facts from academic content."""
         facts = []
@@ -332,7 +329,7 @@ class ResearchKnowledge(BaseVerticalKnowledge):
     async def validate_fact(
         self,
         fact: VerticalFact,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> tuple[bool, float]:
         """
         Validate a research fact.

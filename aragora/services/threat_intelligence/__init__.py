@@ -11,7 +11,7 @@ Features:
 - Async API clients with rate limiting
 - Tiered caching (1h for IPs, 24h for URLs) with Redis backend option
 - Confidence scoring and threat classification
-- Batch scanning capabilities with Dict[str, ThreatResult] return
+- Batch scanning capabilities with dict[str, ThreatResult] return
 - Aggregate scoring from multiple sources with weighted confidence
 - Event emission for high-risk findings
 - Integration with email prioritization

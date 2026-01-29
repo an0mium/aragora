@@ -9,12 +9,12 @@ Makes agents actively try to break each other's arguments through:
 
 This is a key differentiator vs AutoGen/CrewAI which focus on cooperation.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional
-
+from typing import Any, Callable
 
 class AttackType(Enum):
     """Types of adversarial attacks."""
@@ -30,7 +30,6 @@ class AttackType(Enum):
     RACE_CONDITION = "race_condition"  # Concurrency issues
     DEPENDENCY_FAILURE = "dependency_failure"  # What if X fails?
 
-
 @dataclass
 class Attack:
     """An adversarial attack on a proposal."""
@@ -44,14 +43,13 @@ class Attack:
     severity: float  # 0-1, how severe if exploited
     exploitability: float  # 0-1, how easy to exploit
     evidence: str = ""  # Proof of concept
-    mitigation: Optional[str] = None  # How to fix
+    mitigation: str | None = None  # How to fix
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     @property
     def risk_score(self) -> float:
         """Calculate overall risk score."""
         return self.severity * self.exploitability
-
 
 @dataclass
 class Defense:
@@ -65,7 +63,6 @@ class Defense:
     success: bool  # Did the defense hold?
     residual_risk: float = 0.0  # Remaining risk after defense
 
-
 @dataclass
 class RedTeamRound:
     """A round of red-team testing."""
@@ -75,7 +72,6 @@ class RedTeamRound:
     attacks: list[Attack] = field(default_factory=list)
     defenses: list[Defense] = field(default_factory=list)
     escalations: list[str] = field(default_factory=list)  # Unresolved issues
-
 
 @dataclass
 class RedTeamResult:
@@ -102,7 +98,6 @@ class RedTeamResult:
     def vulnerability_ratio(self) -> float:
         """Ratio of successful attacks."""
         return self.successful_attacks / self.total_attacks if self.total_attacks > 0 else 0.0
-
 
 class RedTeamProtocol:
     """
@@ -225,7 +220,6 @@ This demonstrates intellectual honesty and helps find real disagreements vs misu
 This helps ensure the debate addresses real disagreements.
 """
 
-
 class RedTeamMode:
     """
     Runs adversarial red-team debates.
@@ -239,7 +233,7 @@ class RedTeamMode:
 
     def __init__(
         self,
-        protocol: Optional[RedTeamProtocol] = None,
+        protocol: RedTeamProtocol | None = None,
     ):
         self.protocol = protocol or RedTeamProtocol()
         self._attack_counter = 0
@@ -252,7 +246,7 @@ class RedTeamMode:
         red_team_agents: list[Any],
         run_agent_fn: Callable,
         max_rounds: int = 4,
-        proposer_agent: Optional[Any] = None,
+        proposer_agent: Any | None = None,
     ) -> RedTeamResult:
         """
         Run a complete red-team session.
@@ -544,7 +538,6 @@ class RedTeamMode:
 
         return "\n".join(lines)
 
-
 # Convenience functions for common red-team scenarios
 async def redteam_code_review(
     code: str,
@@ -573,7 +566,6 @@ async def redteam_code_review(
         red_team_agents=agents,
         run_agent_fn=run_agent_fn,
     )
-
 
 async def redteam_policy(
     policy: str,

@@ -10,14 +10,14 @@ Example usage via API:
         "config": {"max_line_length": 120}
     }
 """
+from __future__ import annotations
 
 import asyncio
 import json
 import shutil
-from typing import Any, Optional
+from typing import Any
 
 from aragora.plugins.runner import PluginContext
-
 
 async def run(context: PluginContext) -> dict[str, Any]:
     """
@@ -96,8 +96,7 @@ async def run(context: PluginContext) -> dict[str, Any]:
         "raw_output": output_text[:5000] if len(output_text) > 5000 else output_text,
     }
 
-
-def _detect_linter(preferred: str) -> Optional[str]:
+def _detect_linter(preferred: str) -> str | None:
     """Detect which linter is available."""
     if preferred == "ruff" and shutil.which("ruff"):
         return "ruff"
@@ -112,7 +111,6 @@ def _detect_linter(preferred: str) -> Optional[str]:
             return "flake8"
 
     return None
-
 
 def _build_ruff_command(
     files: list[str],
@@ -138,7 +136,6 @@ def _build_ruff_command(
     cmd.extend(files)
     return cmd
 
-
 def _build_flake8_command(
     files: list[str],
     exclude: list[str],
@@ -162,7 +159,6 @@ def _build_flake8_command(
 
     cmd.extend(files)
     return cmd
-
 
 def _parse_output(output: str, tool: str) -> list[dict[str, Any]]:
     """Parse linter output into structured issues."""
@@ -207,7 +203,6 @@ def _parse_output(output: str, tool: str) -> list[dict[str, Any]]:
 
     return issues
 
-
 def _code_to_severity(code: str) -> str:
     """Map lint code to severity level."""
     if code.startswith("E"):  # Error
@@ -221,7 +216,6 @@ def _code_to_severity(code: str) -> str:
     if code.startswith("I"):  # Import order
         return "info"
     return "warning"
-
 
 def _build_summary(issues: list[dict[str, Any]]) -> dict[str, int]:
     """Build summary of issues by severity."""

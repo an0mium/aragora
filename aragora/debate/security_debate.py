@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.agents.base import Agent
@@ -18,10 +18,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 async def run_security_debate(
     event: "SecurityEvent",
-    agents: Optional[list["Agent"]] = None,
+    agents: list["Agent"] | None = None,
     confidence_threshold: float = 0.7,
     timeout_seconds: int = 300,
     org_id: str = "default",
@@ -131,7 +130,6 @@ async def run_security_debate(
     )
 
     return result
-
 
 async def get_security_debate_agents() -> list["Agent"]:
     """Get agents suitable for security debates.

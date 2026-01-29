@@ -15,7 +15,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.vector_abstraction.base import (
     BaseVectorStore,
@@ -36,7 +36,6 @@ except ImportError:
     NUMPY_AVAILABLE = False
     logger.debug("numpy not available - using pure Python for vector operations")
 
-
 @dataclass
 class StoredVector:
     """A vector stored in memory."""
@@ -47,7 +46,6 @@ class StoredVector:
     metadata: dict[str, Any] = field(default_factory=dict)
     namespace: str = ""
     created_at: datetime = field(default_factory=datetime.now)
-
 
 class InMemoryVectorStore(BaseVectorStore):
     """
@@ -93,7 +91,7 @@ class InMemoryVectorStore(BaseVectorStore):
     async def create_collection(
         self,
         name: str,
-        schema: Optional[dict[str, Any]] = None,
+        schema: dict[str, Any] | None = None,
     ) -> None:
         """Create a new collection."""
         if name not in self._collections:
@@ -123,8 +121,8 @@ class InMemoryVectorStore(BaseVectorStore):
         id: str,
         embedding: list[float],
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> str:
         """Insert or update a vector."""
         collection = self._get_collection()
@@ -148,7 +146,7 @@ class InMemoryVectorStore(BaseVectorStore):
     async def upsert_batch(
         self,
         items: Sequence[dict[str, Any]],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[str]:
         """Batch upsert multiple vectors."""
         ids = []
@@ -166,7 +164,7 @@ class InMemoryVectorStore(BaseVectorStore):
     async def delete(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """Delete vectors by ID."""
         collection = self._get_collection()
@@ -185,7 +183,7 @@ class InMemoryVectorStore(BaseVectorStore):
     async def delete_by_filter(
         self,
         filters: dict[str, Any],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """Delete vectors matching filter criteria."""
         collection = self._get_collection()
@@ -211,8 +209,8 @@ class InMemoryVectorStore(BaseVectorStore):
         self,
         embedding: list[float],
         limit: int = 10,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
         min_score: float = 0.0,
     ) -> list[VectorSearchResult]:
         """Search for similar vectors."""
@@ -249,8 +247,8 @@ class InMemoryVectorStore(BaseVectorStore):
         embedding: list[float],
         limit: int = 10,
         alpha: float = 0.5,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """
         Hybrid search combining vector and BM25 keyword matching.
@@ -315,8 +313,8 @@ class InMemoryVectorStore(BaseVectorStore):
     async def get_by_id(
         self,
         id: str,
-        namespace: Optional[str] = None,
-    ) -> Optional[VectorSearchResult]:
+        namespace: str | None = None,
+    ) -> VectorSearchResult | None:
         """Get a specific vector by ID."""
         collection = self._get_collection()
         ns = namespace or ""
@@ -335,7 +333,7 @@ class InMemoryVectorStore(BaseVectorStore):
     async def get_by_ids(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """Get multiple vectors by ID."""
         results = []
@@ -347,8 +345,8 @@ class InMemoryVectorStore(BaseVectorStore):
 
     async def count(
         self,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> int:
         """Count vectors matching optional filters."""
         collection = self._get_collection()
@@ -517,7 +515,7 @@ class InMemoryVectorStore(BaseVectorStore):
 
     def get_all_vectors(
         self,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[StoredVector]:
         """Get all vectors in a namespace (for testing)."""
         collection = self._get_collection()

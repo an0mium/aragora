@@ -4,16 +4,16 @@ Server startup background task initialization.
 This module handles circuit breaker persistence, background tasks,
 state cleanup, stuck debate watchdog, and pulse scheduler initialization.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
-def init_circuit_breaker_persistence(nomic_dir: Optional[Path]) -> int:
+def init_circuit_breaker_persistence(nomic_dir: Path | None) -> int:
     """Initialize circuit breaker persistence.
 
     Args:
@@ -41,8 +41,7 @@ def init_circuit_breaker_persistence(nomic_dir: Optional[Path]) -> int:
         logger.debug(f"Circuit breaker persistence not available: {e}")
         return 0
 
-
-def init_background_tasks(nomic_dir: Optional[Path]) -> bool:
+def init_background_tasks(nomic_dir: Path | None) -> bool:
     """Initialize background task manager.
 
     Args:
@@ -79,8 +78,7 @@ def init_background_tasks(nomic_dir: Optional[Path]) -> bool:
         logger.warning("Failed to start background tasks: %s", e)
         return False
 
-
-async def init_pulse_scheduler(stream_emitter: Optional[Any] = None) -> bool:
+async def init_pulse_scheduler(stream_emitter: Any | None = None) -> bool:
     """Initialize auto-start pulse scheduler if configured.
 
     Args:
@@ -153,7 +151,6 @@ async def init_pulse_scheduler(stream_emitter: Optional[Any] = None) -> bool:
         logger.warning(f"Failed to auto-start pulse scheduler: {e}")
     return False
 
-
 def init_state_cleanup_task() -> bool:
     """Start periodic state cleanup task.
 
@@ -174,8 +171,7 @@ def init_state_cleanup_task() -> bool:
         logger.debug(f"State cleanup task not started: {e}")
         return False
 
-
-async def init_stuck_debate_watchdog() -> Optional[asyncio.Task]:
+async def init_stuck_debate_watchdog() -> asyncio.Task | None:
     """Start stuck debate watchdog.
 
     Returns:

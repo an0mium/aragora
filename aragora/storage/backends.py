@@ -28,7 +28,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
 from queue import Empty, Full, Queue
-from typing import Any, ContextManager, Generator, Optional, Union, cast
+from typing import Any, ContextManager, Generator, cast
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ except ImportError:
     RealDictCursor = None
     POSTGRESQL_AVAILABLE = False
 
-
 class DatabaseBackend(ABC):
     """
     Abstract base class for database backends.
@@ -64,7 +63,7 @@ class DatabaseBackend(ABC):
         ...
 
     @abstractmethod
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         """Execute query and fetch single row."""
         pass
 
@@ -116,7 +115,6 @@ class DatabaseBackend(ABC):
         """
         return sql
 
-
 class SQLiteBackend(DatabaseBackend):
     """
     SQLite database backend.
@@ -130,7 +128,7 @@ class SQLiteBackend(DatabaseBackend):
 
     def __init__(
         self,
-        db_path: Union[str, Path],
+        db_path: str | Path,
         timeout: float = 30.0,
         pool_size: int = SQLITE_POOL_SIZE,
     ):
@@ -237,11 +235,11 @@ class SQLiteBackend(DatabaseBackend):
         finally:
             self._return_connection(conn)
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         """Execute query and fetch single row."""
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
-            return cast(Optional[tuple], cursor.fetchone())
+            return cast(tuple | None, cursor.fetchone())
 
     def fetch_all(self, sql: str, params: tuple = ()) -> list[tuple]:
         """Execute query and fetch all rows."""
@@ -301,7 +299,6 @@ class SQLiteBackend(DatabaseBackend):
     def __repr__(self) -> str:
         return f"SQLiteBackend({self.db_path!r})"
 
-
 class PostgreSQLBackend(DatabaseBackend):
     """
     PostgreSQL database backend.
@@ -359,13 +356,13 @@ class PostgreSQLBackend(DatabaseBackend):
         finally:
             self._pool.putconn(conn)
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         """Execute query and fetch single row."""
         sql = self.convert_placeholder(sql)
         with self.connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(sql, params)
-                return cast(Optional[tuple], cursor.fetchone())
+                return cast(tuple | None, cursor.fetchone())
 
     def fetch_all(self, sql: str, params: tuple = ()) -> list[tuple]:
         """Execute query and fetch all rows."""
@@ -447,16 +444,14 @@ class PostgreSQLBackend(DatabaseBackend):
         safe_url = f"***@{url_parts[-1]}" if len(url_parts) > 1 else "***"
         return f"PostgreSQLBackend({safe_url})"
 
-
 # Global backend instance (protected by _backend_lock)
-_backend: Optional[DatabaseBackend] = None
+_backend: DatabaseBackend | None = None
 _backend_initialized: bool = False
 _backend_lock = threading.Lock()  # Protects initialization
 
-
 def get_database_backend(
     force_sqlite: bool = False,
-    db_path: Optional[str] = None,
+    db_path: str | None = None,
 ) -> DatabaseBackend:
     """
     Get the configured database backend.
@@ -531,7 +526,6 @@ def get_database_backend(
         _backend_initialized = True
         return _backend
 
-
 def reset_database_backend() -> None:
     """Reset the database backend (for testing)."""
     global _backend, _backend_initialized
@@ -542,7 +536,6 @@ def reset_database_backend() -> None:
             _backend = None
 
         _backend_initialized = False
-
 
 __all__ = [
     "DatabaseBackend",

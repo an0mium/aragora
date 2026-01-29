@@ -29,12 +29,11 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aragora.agents.base import BaseDebateAgent
 
 logger = logging.getLogger(__name__)
-
 
 class EmailAgentPersona:
     """Base persona configuration for email agents."""
@@ -44,7 +43,7 @@ class EmailAgentPersona:
         name: str,
         role: str,
         focus: str,
-        priority_bias: Optional[str] = None,
+        priority_bias: str | None = None,
     ):
         self.name = name
         self.role = role
@@ -80,7 +79,6 @@ Consider how your specialized perspective complements other agents' analyses."""
 
         return prompt
 
-
 class SenderReputationAgent(BaseDebateAgent):
     """
     Analyzes sender importance and relationship history.
@@ -113,7 +111,7 @@ class SenderReputationAgent(BaseDebateAgent):
         )
         self.persona = persona
 
-    def analyze_sender(self, sender_info: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_sender(self, sender_info: dict[str, Any]) -> dict[str, Any]:
         """
         Pre-analysis of sender information.
 
@@ -178,7 +176,6 @@ class SenderReputationAgent(BaseDebateAgent):
         else:
             return 5  # Defer
 
-
 class ContentUrgencyAgent(BaseDebateAgent):
     """
     Detects time-sensitive content and deadlines.
@@ -211,7 +208,7 @@ class ContentUrgencyAgent(BaseDebateAgent):
         )
         self.persona = persona
 
-    def analyze_urgency(self, email_content: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_urgency(self, email_content: dict[str, Any]) -> dict[str, Any]:
         """
         Pre-analysis of email content for urgency signals.
 
@@ -303,7 +300,6 @@ class ContentUrgencyAgent(BaseDebateAgent):
         else:
             return 5  # Defer
 
-
 class ContextRelevanceAgent(BaseDebateAgent):
     """
     Cross-references email with user's context and activities.
@@ -339,9 +335,9 @@ class ContextRelevanceAgent(BaseDebateAgent):
 
     async def analyze_context(
         self,
-        email_content: Dict[str, Any],
+        email_content: dict[str, Any],
         sender_email: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze email in context of user's activities.
 
@@ -406,7 +402,6 @@ class ContextRelevanceAgent(BaseDebateAgent):
         else:
             return 5  # Defer
 
-
 class BillingCriticalityAgent(BaseDebateAgent):
     """
     Identifies financial and contract-related emails.
@@ -439,7 +434,7 @@ class BillingCriticalityAgent(BaseDebateAgent):
         )
         self.persona = persona
 
-    def analyze_financial(self, email_content: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_financial(self, email_content: dict[str, Any]) -> dict[str, Any]:
         """
         Analyze email for financial/contract signals.
 
@@ -502,7 +497,6 @@ class BillingCriticalityAgent(BaseDebateAgent):
         else:
             return 4  # Low
 
-
 class TimelineAgent(BaseDebateAgent):
     """
     Considers user's schedule and response patterns.
@@ -533,7 +527,6 @@ class TimelineAgent(BaseDebateAgent):
             **kwargs,
         )
         self.persona = persona
-
 
 class CategorizationAgent(BaseDebateAgent):
     """
@@ -592,7 +585,7 @@ Your task is to identify the MOST appropriate category based on content, sender,
         )
         self.persona = persona
 
-    def analyze_category(self, email_content: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_category(self, email_content: dict[str, Any]) -> dict[str, Any]:
         """
         Pre-analysis of email for category signals.
 
@@ -662,7 +655,7 @@ Your task is to identify the MOST appropriate category based on content, sender,
             scores["newsletters"] += 0.2
 
         # Find best category
-        best_category = max(scores, key=scores.get)  # type: ignore[arg-type]  # dict.get is valid key func
+        best_category = max(scores, key=lambda k: scores[k])
         best_score = scores[best_category]
 
         if best_score < 0.2:
@@ -675,13 +668,12 @@ Your task is to identify the MOST appropriate category based on content, sender,
             "all_scores": scores,
         }
 
-
 def get_email_agent_team(
     knowledge_mound=None,
     include_billing: bool = True,
     include_timeline: bool = False,
     include_categorization: bool = False,
-) -> List[BaseDebateAgent]:
+) -> list[BaseDebateAgent]:
     """
     Get the standard email prioritization agent team.
 
@@ -711,8 +703,7 @@ def get_email_agent_team(
 
     return agents
 
-
-def get_categorization_agent_team() -> List[BaseDebateAgent]:
+def get_categorization_agent_team() -> list[BaseDebateAgent]:
     """
     Get the agent team for email categorization debates.
 
@@ -724,7 +715,6 @@ def get_categorization_agent_team() -> List[BaseDebateAgent]:
         ContentUrgencyAgent(),  # type: ignore[abstract]
         BillingCriticalityAgent(),  # type: ignore[abstract]
     ]
-
 
 # Agent configuration for AGENTS.md registration
 AGENT_CONFIGS = {

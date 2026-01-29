@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -57,47 +57,39 @@ except ImportError:
     def record_rbac_check(*args, **kwargs):
         pass
 
-
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Persistent Storage (SQLite-backed)
 # =============================================================================
 
-
 def _get_store() -> PersistentWorkflowStore:
     """Get the persistent workflow store."""
     return get_workflow_store()  # type: ignore[return-value]
 
-
 _engine = WorkflowEngine()
-
 
 # In-memory template store for built-in and YAML templates
 class _TemplateStore:
     """In-memory storage for workflow templates."""
 
     def __init__(self) -> None:
-        self.templates: Dict[str, WorkflowDefinition] = {}
-
+        self.templates: dict[str, WorkflowDefinition] = {}
 
 _store = _TemplateStore()
-
 
 # =============================================================================
 # CRUD Operations
 # =============================================================================
 
-
 async def list_workflows(
     tenant_id: str = "default",
-    category: Optional[str] = None,
-    tags: Optional[List[str]] = None,
-    search: Optional[str] = None,
+    category: str | None = None,
+    tags: Optional[list[str]] = None,
+    search: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     List workflows with optional filtering.
 
@@ -126,19 +118,17 @@ async def list_workflows(
         "offset": offset,
     }
 
-
-async def get_workflow(workflow_id: str, tenant_id: str = "default") -> Optional[Dict[str, Any]]:
+async def get_workflow(workflow_id: str, tenant_id: str = "default") -> Optional[dict[str, Any]]:
     """Get a workflow by ID."""
     store = _get_store()
     workflow = store.get_workflow(workflow_id, tenant_id)
     return workflow.to_dict() if workflow else None
 
-
 async def create_workflow(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     tenant_id: str = "default",
     created_by: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a new workflow.
 
@@ -184,12 +174,11 @@ async def create_workflow(
     )
     return workflow.to_dict()
 
-
 async def update_workflow(
     workflow_id: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     tenant_id: str = "default",
-) -> Optional[Dict[str, Any]]:
+) -> Optional[dict[str, Any]]:
     """
     Update an existing workflow.
 
@@ -243,7 +232,6 @@ async def update_workflow(
     )
     return workflow.to_dict()
 
-
 async def delete_workflow(workflow_id: str, tenant_id: str = "default") -> bool:
     """
     Delete a workflow.
@@ -270,27 +258,24 @@ async def delete_workflow(workflow_id: str, tenant_id: str = "default") -> bool:
 
     return deleted
 
-
 # =============================================================================
 # Version Management
 # =============================================================================
-
 
 async def get_workflow_versions(
     workflow_id: str,
     tenant_id: str = "default",
     limit: int = 20,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get version history for a workflow."""
     store = _get_store()
     return store.get_versions(workflow_id, tenant_id, limit)
-
 
 async def restore_workflow_version(
     workflow_id: str,
     version: str,
     tenant_id: str = "default",
-) -> Optional[Dict[str, Any]]:
+) -> Optional[dict[str, Any]]:
     """Restore a workflow to a specific version."""
     store = _get_store()
     old_workflow = store.get_version(workflow_id, version)
@@ -302,17 +287,15 @@ async def restore_workflow_version(
 
     return None
 
-
 # =============================================================================
 # Execution
 # =============================================================================
 
-
 async def execute_workflow(
     workflow_id: str,
-    inputs: Optional[Dict[str, Any]] = None,
+    inputs: Optional[dict[str, Any]] = None,
     tenant_id: str = "default",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Execute a workflow.
 
@@ -403,18 +386,16 @@ async def execute_workflow(
         store.save_execution(execution)
         raise
 
-
-async def get_execution(execution_id: str) -> Optional[Dict[str, Any]]:
+async def get_execution(execution_id: str) -> Optional[dict[str, Any]]:
     """Get execution status and result."""
     store = _get_store()
     return store.get_execution(execution_id)
 
-
 async def list_executions(
-    workflow_id: Optional[str] = None,
+    workflow_id: str | None = None,
     tenant_id: str = "default",
     limit: int = 20,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List workflow executions."""
     store = _get_store()
     executions, _ = store.list_executions(
@@ -423,7 +404,6 @@ async def list_executions(
         limit=limit,
     )
     return executions
-
 
 async def terminate_execution(execution_id: str) -> bool:
     """Request termination of a running execution."""
@@ -442,36 +422,32 @@ async def terminate_execution(execution_id: str) -> bool:
 
     return True
 
-
 # =============================================================================
 # Templates
 # =============================================================================
 
-
 async def list_templates(
-    category: Optional[str] = None,
-    tags: Optional[List[str]] = None,
-) -> List[Dict[str, Any]]:
+    category: str | None = None,
+    tags: Optional[list[str]] = None,
+) -> list[dict[str, Any]]:
     """List available workflow templates."""
     store = _get_store()
     templates = store.list_templates(category=category, tags=tags)
     return [t.to_dict() for t in templates]
 
-
-async def get_template(template_id: str) -> Optional[Dict[str, Any]]:
+async def get_template(template_id: str) -> Optional[dict[str, Any]]:
     """Get a workflow template by ID."""
     store = _get_store()
     template = store.get_template(template_id)
     return template.to_dict() if template else None
-
 
 async def create_workflow_from_template(
     template_id: str,
     name: str,
     tenant_id: str = "default",
     created_by: str = "",
-    customizations: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    customizations: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """Create a new workflow from a template."""
     store = _get_store()
     template = store.get_template(template_id)
@@ -492,36 +468,32 @@ async def create_workflow_from_template(
 
     return await create_workflow(workflow.to_dict(), tenant_id, created_by)
 
-
 def register_template(workflow: WorkflowDefinition) -> None:
     """Register a workflow as a template."""
     workflow.is_template = True
     store = _get_store()
     store.save_template(workflow)
 
-
 # =============================================================================
 # Human Approvals
 # =============================================================================
 
-
 async def list_pending_approvals(
-    workflow_id: Optional[str] = None,
+    workflow_id: str | None = None,
     tenant_id: str = "default",
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List pending human approvals."""
     from aragora.workflow.nodes.human_checkpoint import get_pending_approvals
 
     approvals = get_pending_approvals(workflow_id)
     return [a.to_dict() for a in approvals]
 
-
 async def resolve_approval(
     request_id: str,
     status: str,
     responder_id: str,
     notes: str = "",
-    checklist_updates: Optional[Dict[str, bool]] = None,
+    checklist_updates: Optional[dict[str, bool]] = None,
 ) -> bool:
     """Resolve a human approval request."""
     from aragora.workflow.nodes.human_checkpoint import (
@@ -536,19 +508,16 @@ async def resolve_approval(
 
     return _resolve(request_id, approval_status, responder_id, notes, checklist_updates)
 
-
-async def get_approval(request_id: str) -> Optional[Dict[str, Any]]:
+async def get_approval(request_id: str) -> Optional[dict[str, Any]]:
     """Get an approval request by ID."""
     from aragora.workflow.nodes.human_checkpoint import get_approval_request
 
     approval = get_approval_request(request_id)
     return approval.to_dict() if approval else None
 
-
 # =============================================================================
 # Built-in Templates
 # =============================================================================
-
 
 def _create_contract_review_template() -> WorkflowDefinition:
     """Create contract review workflow template."""
@@ -692,7 +661,6 @@ def _create_contract_review_template() -> WorkflowDefinition:
         ],
     )
 
-
 def _create_code_review_template() -> WorkflowDefinition:
     """Create code review workflow template."""
     from aragora.workflow.types import Position, VisualNodeData, NodeCategory
@@ -758,11 +726,9 @@ def _create_code_review_template() -> WorkflowDefinition:
         ],
     )
 
-
 # Register built-in templates (Python-defined)
 register_template(_create_contract_review_template())
 register_template(_create_code_review_template())
-
 
 # Load YAML templates from disk
 def _load_yaml_templates() -> None:
@@ -788,21 +754,18 @@ def _load_yaml_templates() -> None:
     except (ValueError, KeyError, TypeError) as e:
         logger.warning(f"Failed to parse YAML templates: {e}")
 
-
 # Load templates on module import
 _load_yaml_templates()
-
 
 # =============================================================================
 # HTTP Route Handlers (for integration with unified_server)
 # =============================================================================
 
-
 class WorkflowHandlers:
     """HTTP handlers for workflow API."""
 
     @staticmethod
-    async def handle_list_workflows(params: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_list_workflows(params: dict[str, Any]) -> dict[str, Any]:
         """GET /api/workflows"""
         return await list_workflows(
             tenant_id=params.get("tenant_id", "default"),
@@ -815,15 +778,15 @@ class WorkflowHandlers:
 
     @staticmethod
     async def handle_get_workflow(
-        workflow_id: str, params: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        workflow_id: str, params: dict[str, Any]
+    ) -> Optional[dict[str, Any]]:
         """GET /api/workflows/:id"""
         return await get_workflow(workflow_id, params.get("tenant_id", "default"))
 
     @staticmethod
     async def handle_create_workflow(
-        data: Dict[str, Any], params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        data: dict[str, Any], params: dict[str, Any]
+    ) -> dict[str, Any]:
         """POST /api/workflows"""
         return await create_workflow(
             data,
@@ -833,20 +796,20 @@ class WorkflowHandlers:
 
     @staticmethod
     async def handle_update_workflow(
-        workflow_id: str, data: Dict[str, Any], params: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        workflow_id: str, data: dict[str, Any], params: dict[str, Any]
+    ) -> Optional[dict[str, Any]]:
         """PUT /api/workflows/:id"""
         return await update_workflow(workflow_id, data, params.get("tenant_id", "default"))
 
     @staticmethod
-    async def handle_delete_workflow(workflow_id: str, params: Dict[str, Any]) -> bool:
+    async def handle_delete_workflow(workflow_id: str, params: dict[str, Any]) -> bool:
         """DELETE /api/workflows/:id"""
         return await delete_workflow(workflow_id, params.get("tenant_id", "default"))
 
     @staticmethod
     async def handle_execute_workflow(
-        workflow_id: str, data: Dict[str, Any], params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        workflow_id: str, data: dict[str, Any], params: dict[str, Any]
+    ) -> dict[str, Any]:
         """POST /api/workflows/:id/execute"""
         return await execute_workflow(
             workflow_id,
@@ -855,7 +818,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
-    async def handle_list_templates(params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def handle_list_templates(params: dict[str, Any]) -> list[dict[str, Any]]:
         """GET /api/workflow-templates"""
         return await list_templates(
             category=params.get("category"),
@@ -863,7 +826,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
-    async def handle_list_approvals(params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def handle_list_approvals(params: dict[str, Any]) -> list[dict[str, Any]]:
         """GET /api/workflow-approvals"""
         return await list_pending_approvals(
             workflow_id=params.get("workflow_id"),
@@ -872,7 +835,7 @@ class WorkflowHandlers:
 
     @staticmethod
     async def handle_resolve_approval(
-        request_id: str, data: Dict[str, Any], params: Dict[str, Any]
+        request_id: str, data: dict[str, Any], params: dict[str, Any]
     ) -> bool:
         """POST /api/workflow-approvals/:id/resolve"""
         return await resolve_approval(
@@ -882,7 +845,6 @@ class WorkflowHandlers:
             notes=data.get("notes", ""),
             checklist_updates=data.get("checklist"),
         )
-
 
 # =============================================================================
 # BaseHandler Integration for Unified Server
@@ -897,7 +859,6 @@ from aragora.server.handlers.base import (
     get_int_param,
     get_string_param,
 )
-
 
 class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     """
@@ -981,8 +942,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         )
 
     def _check_permission(
-        self, handler: Any, permission_key: str, resource_id: Optional[str] = None
-    ) -> Optional[HandlerResult]:
+        self, handler: Any, permission_key: str, resource_id: str | None = None
+    ) -> HandlerResult | None:
         """Check if the request has the required permission.
 
         Returns None if allowed, or an error response if denied.
@@ -1031,7 +992,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):
             return None
@@ -1098,7 +1059,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if not self.can_handle(path):
             return None
@@ -1171,7 +1132,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle PATCH requests."""
         if not self.can_handle(path):
             return None
@@ -1202,13 +1163,13 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle PUT requests (same as PATCH for workflows)."""
         return self.handle_patch(path, query_params, handler)
 
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         if not self.can_handle(path):
             return None
@@ -1254,7 +1215,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     # Path Helpers
     # =========================================================================
 
-    def _extract_id(self, path: str, suffix: str = "") -> Optional[str]:
+    def _extract_id(self, path: str, suffix: str = "") -> str | None:
         """Extract workflow ID from path."""
         if suffix and path.endswith(suffix):
             path = path[: -len(suffix)]

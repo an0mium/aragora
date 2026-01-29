@@ -14,11 +14,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 import uuid
 
 logger = logging.getLogger(__name__)
-
 
 class SignalType(str, Enum):
     """Types of stigmergic signals."""
@@ -32,7 +31,6 @@ class SignalType(str, Enum):
     DEPENDENCY = "dependency"  # "This relates to X"
     CONTROVERSY = "controversy"  # "Agents disagreed here"
     CONSENSUS = "consensus"  # "Agents agreed here"
-
 
 @dataclass
 class StigmergicSignal:
@@ -136,7 +134,6 @@ class StigmergicSignal:
             ),
         )
 
-
 @dataclass
 class PheromoneTrail:
     """
@@ -159,7 +156,6 @@ class PheromoneTrail:
         """Trail strength based on usage and intensity."""
         return self.total_intensity * (1.0 + 0.1 * self.agent_count)
 
-
 class StigmergyManager:
     """
     Manages stigmergic signals and pheromone trails.
@@ -168,7 +164,7 @@ class StigmergyManager:
     similar to how ants and termites coordinate through pheromones.
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """Initialize stigmergy manager."""
         self._signals: dict[str, StigmergicSignal] = {}
         self._trails: dict[str, PheromoneTrail] = {}
@@ -228,7 +224,7 @@ class StigmergyManager:
         signal_type: SignalType,
         target_id: str,
         workspace_id: str,
-    ) -> Optional[StigmergicSignal]:
+    ) -> StigmergicSignal | None:
         """Find an existing signal for the same target."""
         for signal in self._signals.values():
             if (
@@ -243,7 +239,7 @@ class StigmergyManager:
     async def get_signals_for_target(
         self,
         target_id: str,
-        signal_types: Optional[list[SignalType]] = None,
+        signal_types: list[SignalType] | None = None,
         min_intensity: float = 0.1,
     ) -> list[StigmergicSignal]:
         """Get active signals for a target."""
@@ -287,7 +283,7 @@ class StigmergyManager:
     async def follow_trail(
         self,
         start_id: str,
-        signal_types: Optional[list[SignalType]] = None,
+        signal_types: list[SignalType] | None = None,
         max_depth: int = 10,
     ) -> list[StigmergicSignal]:
         """
@@ -332,7 +328,7 @@ class StigmergyManager:
 
         return len(expired_ids)
 
-    async def get_signal(self, signal_id: str) -> Optional[StigmergicSignal]:
+    async def get_signal(self, signal_id: str) -> StigmergicSignal | None:
         """Get a signal by ID."""
         return self._signals.get(signal_id)
 

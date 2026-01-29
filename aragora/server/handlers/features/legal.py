@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ..base import (
     BaseHandler,
@@ -37,13 +37,11 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Connector Instance Management
 # =============================================================================
 
-_connector_instances: Dict[str, Any] = {}  # tenant_id -> DocuSignConnector
-
+_connector_instances: dict[str, Any] = {}  # tenant_id -> DocuSignConnector
 
 async def get_docusign_connector(tenant_id: str):
     """Get or create DocuSign connector for tenant."""
@@ -60,11 +58,9 @@ async def get_docusign_connector(tenant_id: str):
             return None
     return _connector_instances.get(tenant_id)
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class LegalHandler(BaseHandler):
     """Handler for legal e-signature API endpoints."""
@@ -81,7 +77,7 @@ class LegalHandler(BaseHandler):
         "/api/v1/legal/templates",
     ]
 
-    def __init__(self, server_context: Optional[Dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
@@ -573,7 +569,7 @@ class LegalHandler(BaseHandler):
     # Utilities
     # =========================================================================
 
-    def _get_query_params(self, request: Any) -> Dict[str, str]:
+    def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""
         if hasattr(request, "query"):
             return dict(request.query)
@@ -583,7 +579,7 @@ class LegalHandler(BaseHandler):
             return {k: v[0] for k, v in parse_qs(request.query_string).items()}
         return {}
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
@@ -595,7 +591,7 @@ class LegalHandler(BaseHandler):
         self,
         event_type: str,
         tenant_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> None:
         """Emit a connector event for downstream processing.
 
@@ -627,15 +623,12 @@ class LegalHandler(BaseHandler):
         except Exception as e:
             logger.debug(f"[Legal] Event emission skipped: {e}")
 
-
 # =============================================================================
 # Factory
 # =============================================================================
 
-
-def create_legal_handler(server_context: Optional[Dict[str, Any]] = None) -> LegalHandler:
+def create_legal_handler(server_context: Optional[dict[str, Any]] = None) -> LegalHandler:
     """Create a legal handler instance."""
     return LegalHandler(server_context)
-
 
 __all__ = ["LegalHandler", "create_legal_handler"]

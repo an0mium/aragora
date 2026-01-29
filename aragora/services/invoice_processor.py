@@ -36,14 +36,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 if TYPE_CHECKING:
     from aragora.connectors.accounting.qbo import QuickBooksConnector
 
 logger = logging.getLogger(__name__)
-
 
 class InvoiceStatus(str, Enum):
     """Invoice processing status."""
@@ -59,7 +58,6 @@ class InvoiceStatus(str, Enum):
     REJECTED = "rejected"  # Rejected
     DUPLICATE = "duplicate"  # Duplicate invoice
 
-
 class AnomalyType(str, Enum):
     """Types of invoice anomalies."""
 
@@ -73,7 +71,6 @@ class AnomalyType(str, Enum):
     ROUND_AMOUNT = "round_amount"  # Suspiciously round number
     HIGH_VALUE = "high_value"  # Exceeds approval threshold
 
-
 class ApprovalLevel(str, Enum):
     """Approval levels based on amount."""
 
@@ -81,7 +78,6 @@ class ApprovalLevel(str, Enum):
     MANAGER = "manager"  # Manager approval
     DIRECTOR = "director"  # Director approval
     EXECUTIVE = "executive"  # Executive/CFO approval
-
 
 @dataclass
 class InvoiceLineItem:
@@ -91,11 +87,11 @@ class InvoiceLineItem:
     quantity: float = 1.0
     unit_price: Decimal = Decimal("0.00")
     amount: Decimal = Decimal("0.00")
-    product_code: Optional[str] = None
-    unit: Optional[str] = None
+    product_code: str | None = None
+    unit: str | None = None
     tax_rate: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "description": self.description,
             "quantity": self.quantity,
@@ -106,40 +102,39 @@ class InvoiceLineItem:
             "taxRate": self.tax_rate,
         }
 
-
 @dataclass
 class InvoiceData:
     """Extracted invoice data."""
 
     id: str
     vendor_name: str
-    vendor_id: Optional[str] = None
+    vendor_id: str | None = None
     invoice_number: str = ""
     invoice_date: datetime = field(default_factory=datetime.now)
-    due_date: Optional[datetime] = None
+    due_date: datetime | None = None
     subtotal: Decimal = Decimal("0.00")
     tax_amount: Decimal = Decimal("0.00")
     total_amount: Decimal = Decimal("0.00")
     currency: str = "USD"
-    payment_terms: Optional[str] = None
-    line_items: List[InvoiceLineItem] = field(default_factory=list)
+    payment_terms: str | None = None
+    line_items: list[InvoiceLineItem] = field(default_factory=list)
     status: InvoiceStatus = InvoiceStatus.RECEIVED
-    po_number: Optional[str] = None
-    matched_po_id: Optional[str] = None
+    po_number: str | None = None
+    matched_po_id: str | None = None
     approval_level: ApprovalLevel = ApprovalLevel.AUTO
-    approver_id: Optional[str] = None
-    approved_at: Optional[datetime] = None
-    scheduled_pay_date: Optional[datetime] = None
-    paid_at: Optional[datetime] = None
-    qbo_id: Optional[str] = None
-    document_bytes: Optional[bytes] = None
+    approver_id: str | None = None
+    approved_at: datetime | None = None
+    scheduled_pay_date: datetime | None = None
+    paid_at: datetime | None = None
+    qbo_id: str | None = None
+    document_bytes: bytes | None = None
     extracted_text: str = ""
     confidence_score: float = 0.0
-    anomalies: List[str] = field(default_factory=list)
+    anomalies: list[str] = field(default_factory=list)
     notes: str = ""
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def hash_key(self) -> str:
@@ -152,7 +147,7 @@ class InvoiceData:
         return hashlib.md5("|".join(key_parts).encode(), usedforsecurity=False).hexdigest()
 
     @property
-    def days_until_due(self) -> Optional[int]:
+    def days_until_due(self) -> int | None:
         """Days until payment is due."""
         if self.due_date:
             return (self.due_date - datetime.now()).days
@@ -165,7 +160,7 @@ class InvoiceData:
             return datetime.now() > self.due_date
         return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "vendorName": self.vendor_name,
@@ -196,7 +191,6 @@ class InvoiceData:
             "updatedAt": self.updated_at.isoformat(),
         }
 
-
 @dataclass
 class PurchaseOrder:
     """Purchase order for matching."""
@@ -207,12 +201,12 @@ class PurchaseOrder:
     vendor_name: str
     total_amount: Decimal
     order_date: datetime
-    expected_delivery: Optional[datetime] = None
-    line_items: List[Dict[str, Any]] = field(default_factory=list)
+    expected_delivery: datetime | None = None
+    line_items: list[dict[str, Any]] = field(default_factory=list)
     status: str = "open"
     received_amount: Decimal = Decimal("0.00")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "poNumber": self.po_number,
@@ -228,22 +222,21 @@ class PurchaseOrder:
             "receivedAmount": float(self.received_amount),
         }
 
-
 @dataclass
 class POMatch:
     """Result of PO matching."""
 
     invoice_id: str
-    po_id: Optional[str] = None
-    po_number: Optional[str] = None
+    po_id: str | None = None
+    po_number: str | None = None
     match_type: str = "none"  # exact, partial, none
     match_score: float = 0.0
     amount_variance: Decimal = Decimal("0.00")
     variance_percent: float = 0.0
-    line_item_matches: List[Dict[str, Any]] = field(default_factory=list)
-    issues: List[str] = field(default_factory=list)
+    line_item_matches: list[dict[str, Any]] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "invoiceId": self.invoice_id,
             "poId": self.po_id,
@@ -256,7 +249,6 @@ class POMatch:
             "issues": self.issues,
         }
 
-
 @dataclass
 class Anomaly:
     """An anomaly detected in an invoice."""
@@ -264,11 +256,11 @@ class Anomaly:
     type: AnomalyType
     severity: str  # low, medium, high
     description: str
-    expected_value: Optional[str] = None
-    actual_value: Optional[str] = None
+    expected_value: str | None = None
+    actual_value: str | None = None
     recommendation: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.type.value,
             "severity": self.severity,
@@ -277,7 +269,6 @@ class Anomaly:
             "actualValue": self.actual_value,
             "recommendation": self.recommendation,
         }
-
 
 @dataclass
 class PaymentSchedule:
@@ -293,7 +284,7 @@ class PaymentSchedule:
     early_pay_discount: float = 0.0
     discount_amount: Decimal = Decimal("0.00")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "invoiceId": self.invoice_id,
             "payDate": self.pay_date.isoformat(),
@@ -306,7 +297,6 @@ class PaymentSchedule:
             "discountAmount": float(self.discount_amount),
         }
 
-
 # Approval thresholds (configurable)
 APPROVAL_THRESHOLDS = {
     ApprovalLevel.AUTO: Decimal("500"),  # Auto-approve under $500
@@ -314,7 +304,6 @@ APPROVAL_THRESHOLDS = {
     ApprovalLevel.DIRECTOR: Decimal("25000"),  # Director up to $25,000
     ApprovalLevel.EXECUTIVE: Decimal("999999999"),  # Executive for higher
 }
-
 
 class InvoiceProcessor:
     """
@@ -327,7 +316,7 @@ class InvoiceProcessor:
 
     def __init__(
         self,
-        qbo_connector: Optional[QuickBooksConnector] = None,
+        qbo_connector: QuickBooksConnector | None = None,
         auto_approve_threshold: Decimal = Decimal("500"),
         enable_ocr: bool = True,
         enable_llm_extraction: bool = True,
@@ -350,19 +339,19 @@ class InvoiceProcessor:
         self._enable_circuit_breakers = enable_circuit_breakers
 
         # In-memory storage (would be persisted in production)
-        self._invoices: Dict[str, InvoiceData] = {}
-        self._purchase_orders: Dict[str, PurchaseOrder] = {}
-        self._by_vendor: Dict[str, Set[str]] = {}
-        self._by_status: Dict[InvoiceStatus, Set[str]] = {}
-        self._hash_index: Dict[str, str] = {}
-        self._payment_schedule: Dict[str, PaymentSchedule] = {}
+        self._invoices: dict[str, InvoiceData] = {}
+        self._purchase_orders: dict[str, PurchaseOrder] = {}
+        self._by_vendor: dict[str, set[str]] = {}
+        self._by_status: dict[InvoiceStatus, set[str]] = {}
+        self._hash_index: dict[str, str] = {}
+        self._payment_schedule: dict[str, PaymentSchedule] = {}
 
         # Vendor history for anomaly detection
-        self._vendor_history: Dict[str, List[float]] = {}
-        self._known_vendors: Set[str] = set()
+        self._vendor_history: dict[str, list[float]] = {}
+        self._known_vendors: set[str] = set()
 
         # Circuit breakers for external service resilience
-        self._circuit_breakers: Dict[str, Any] = {}
+        self._circuit_breakers: dict[str, Any] = {}
         if enable_circuit_breakers:
             from aragora.resilience import get_circuit_breaker
 
@@ -392,7 +381,7 @@ class InvoiceProcessor:
         if service in self._circuit_breakers:
             self._circuit_breakers[service].record_failure()
 
-    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
         """Get status of all circuit breakers."""
         return {
             "enabled": self._enable_circuit_breakers,
@@ -409,7 +398,7 @@ class InvoiceProcessor:
         cost_usd: float = 0.0,
         provider: str = "",
         model: str = "",
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Emit usage event for cost tracking."""
         try:
@@ -436,7 +425,7 @@ class InvoiceProcessor:
     async def extract_invoice_data(
         self,
         document_bytes: bytes,
-        vendor_hint: Optional[str] = None,
+        vendor_hint: str | None = None,
     ) -> InvoiceData:
         """
         Extract data from an invoice document (PDF or image).
@@ -495,7 +484,7 @@ class InvoiceProcessor:
         )
         return invoice
 
-    async def _extract_document_data(self, document_bytes: bytes) -> Dict[str, Any]:
+    async def _extract_document_data(self, document_bytes: bytes) -> dict[str, Any]:
         """
         Extract data from invoice document using OCR.
 
@@ -571,8 +560,8 @@ class InvoiceProcessor:
         return result
 
     def _parse_invoice_text(
-        self, text: str, tables: List[List[List[str]]] = None
-    ) -> Dict[str, Any]:
+        self, text: str, tables: list[list[list[str]]] = None
+    ) -> dict[str, Any]:
         """Parse extracted text to find invoice fields."""
         import re
 
@@ -685,8 +674,8 @@ class InvoiceProcessor:
         return result
 
     def _extract_line_items_from_tables(
-        self, tables: List[List[List[str]]]
-    ) -> List[Dict[str, Any]]:
+        self, tables: list[list[list[str]]]
+    ) -> list[dict[str, Any]]:
         """Extract line items from table data."""
         import re
 
@@ -750,7 +739,7 @@ class InvoiceProcessor:
 
         return items
 
-    def _extract_line_items_from_text(self, lines: List[str]) -> List[Dict[str, Any]]:
+    def _extract_line_items_from_text(self, lines: list[str]) -> list[dict[str, Any]]:
         """Extract line items from text lines."""
         import re
 
@@ -858,7 +847,7 @@ class InvoiceProcessor:
 
         return match
 
-    async def detect_anomalies(self, invoice: InvoiceData) -> List[Anomaly]:
+    async def detect_anomalies(self, invoice: InvoiceData) -> list[Anomaly]:
         """
         Detect anomalies in an invoice.
 
@@ -868,7 +857,7 @@ class InvoiceProcessor:
         Returns:
             List of detected anomalies
         """
-        anomalies: List[Anomaly] = []
+        anomalies: list[Anomaly] = []
         vendor_key = invoice.vendor_name.lower()
 
         # 1. New vendor check
@@ -968,7 +957,7 @@ class InvoiceProcessor:
     async def schedule_payment(
         self,
         invoice: InvoiceData,
-        pay_date: Optional[datetime] = None,
+        pay_date: datetime | None = None,
         payment_method: str = "ach",
     ) -> PaymentSchedule:
         """
@@ -1029,7 +1018,7 @@ class InvoiceProcessor:
         self,
         invoice_id: str,
         approver_id: str,
-    ) -> Optional[InvoiceData]:
+    ) -> InvoiceData | None:
         """
         Approve an invoice for payment.
 
@@ -1062,7 +1051,7 @@ class InvoiceProcessor:
         self,
         invoice_id: str,
         reason: str = "",
-    ) -> Optional[InvoiceData]:
+    ) -> InvoiceData | None:
         """Reject an invoice."""
         invoice = self._invoices.get(invoice_id)
         if not invoice:
@@ -1078,10 +1067,10 @@ class InvoiceProcessor:
         vendor_name: str,
         total_amount: float,
         invoice_number: str = "",
-        invoice_date: Optional[datetime] = None,
-        due_date: Optional[datetime] = None,
-        line_items: Optional[List[Dict[str, Any]]] = None,
-        po_number: Optional[str] = None,
+        invoice_date: datetime | None = None,
+        due_date: datetime | None = None,
+        line_items: Optional[list[dict[str, Any]]] = None,
+        po_number: str | None = None,
     ) -> InvoiceData:
         """
         Create an invoice manually (without document extraction).
@@ -1159,9 +1148,9 @@ class InvoiceProcessor:
         po_number: str,
         vendor_name: str,
         total_amount: float,
-        order_date: Optional[datetime] = None,
-        expected_delivery: Optional[datetime] = None,
-        line_items: Optional[List[Dict[str, Any]]] = None,
+        order_date: datetime | None = None,
+        expected_delivery: datetime | None = None,
+        line_items: Optional[list[dict[str, Any]]] = None,
     ) -> PurchaseOrder:
         """Add a purchase order for matching."""
         po_id = f"po_{uuid4().hex[:12]}"
@@ -1180,19 +1169,19 @@ class InvoiceProcessor:
         self._purchase_orders[po_id] = po
         return po
 
-    async def get_invoice(self, invoice_id: str) -> Optional[InvoiceData]:
+    async def get_invoice(self, invoice_id: str) -> InvoiceData | None:
         """Get invoice by ID."""
         return self._invoices.get(invoice_id)
 
     async def list_invoices(
         self,
-        status: Optional[InvoiceStatus] = None,
-        vendor: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        status: InvoiceStatus | None = None,
+        vendor: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Tuple[List[InvoiceData], int]:
+    ) -> tuple[list[InvoiceData], int]:
         """
         List invoices with filters.
 
@@ -1230,7 +1219,7 @@ class InvoiceProcessor:
 
         return invoices, total
 
-    async def get_pending_approvals(self) -> List[InvoiceData]:
+    async def get_pending_approvals(self) -> list[InvoiceData]:
         """Get invoices pending approval."""
         return [
             i
@@ -1241,9 +1230,9 @@ class InvoiceProcessor:
 
     async def get_scheduled_payments(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> List[PaymentSchedule]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[PaymentSchedule]:
         """Get scheduled payments."""
         payments = list(self._payment_schedule.values())
 
@@ -1255,11 +1244,11 @@ class InvoiceProcessor:
         payments.sort(key=lambda x: x.pay_date)
         return payments
 
-    async def get_overdue_invoices(self) -> List[InvoiceData]:
+    async def get_overdue_invoices(self) -> list[InvoiceData]:
         """Get overdue invoices."""
         return [i for i in self._invoices.values() if i.is_overdue]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get invoice processing statistics."""
         invoices = list(self._invoices.values())
 

@@ -35,12 +35,11 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .base import Skill, SkillCapability
 
 logger = logging.getLogger(__name__)
-
 
 class SkillTier(str, Enum):
     """Skill tiers for access control and pricing."""
@@ -49,7 +48,6 @@ class SkillTier(str, Enum):
     STANDARD = "standard"  # Requires standard subscription
     PREMIUM = "premium"  # Requires premium subscription
     ENTERPRISE = "enterprise"  # Enterprise-only
-
 
 class SkillCategory(str, Enum):
     """Skill categories for organization."""
@@ -64,7 +62,6 @@ class SkillCategory(str, Enum):
     DEBATE = "debate"
     CUSTOM = "custom"
 
-
 @dataclass
 class SkillRating:
     """A user rating for a skill."""
@@ -72,11 +69,11 @@ class SkillRating:
     skill_id: str
     user_id: str
     rating: int  # 1-5 stars
-    review: Optional[str] = None
+    review: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     helpful_votes: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "skill_id": self.skill_id,
@@ -87,7 +84,6 @@ class SkillRating:
             "helpful_votes": self.helpful_votes,
         }
 
-
 @dataclass
 class SkillVersion:
     """A specific version of a skill."""
@@ -97,9 +93,9 @@ class SkillVersion:
     published_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     downloads: int = 0
     is_stable: bool = True
-    min_aragora_version: Optional[str] = None
+    min_aragora_version: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "version": self.version,
@@ -110,7 +106,6 @@ class SkillVersion:
             "min_aragora_version": self.min_aragora_version,
         }
 
-
 @dataclass
 class SkillDependency:
     """A dependency on another skill."""
@@ -119,14 +114,13 @@ class SkillDependency:
     version_constraint: str = "*"  # Semver constraint
     optional: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "skill_id": self.skill_id,
             "version_constraint": self.version_constraint,
             "optional": self.optional,
         }
-
 
 @dataclass
 class SkillListing:
@@ -145,18 +139,18 @@ class SkillListing:
     # Classification
     category: SkillCategory = SkillCategory.CUSTOM
     tier: SkillTier = SkillTier.FREE
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     # Versioning
     current_version: str = "1.0.0"
-    versions: List[SkillVersion] = field(default_factory=list)
+    versions: list[SkillVersion] = field(default_factory=list)
 
     # Dependencies
-    dependencies: List[SkillDependency] = field(default_factory=list)
+    dependencies: list[SkillDependency] = field(default_factory=list)
 
     # Capabilities (from manifest)
-    capabilities: List[SkillCapability] = field(default_factory=list)
-    required_permissions: List[str] = field(default_factory=list)
+    capabilities: list[SkillCapability] = field(default_factory=list)
+    required_permissions: list[str] = field(default_factory=list)
 
     # Metrics
     install_count: int = 0
@@ -172,16 +166,16 @@ class SkillListing:
     # Timestamps
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    published_at: Optional[datetime] = None
+    published_at: datetime | None = None
 
     # Additional metadata
-    homepage_url: Optional[str] = None
-    repository_url: Optional[str] = None
-    documentation_url: Optional[str] = None
-    icon_url: Optional[str] = None
-    screenshots: List[str] = field(default_factory=list)
+    homepage_url: str | None = None
+    repository_url: str | None = None
+    documentation_url: str | None = None
+    icon_url: str | None = None
+    screenshots: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "skill_id": self.skill_id,
@@ -214,7 +208,6 @@ class SkillListing:
             "screenshots": self.screenshots,
         }
 
-
 @dataclass
 class InstallResult:
     """Result of a skill installation."""
@@ -222,11 +215,11 @@ class InstallResult:
     success: bool
     skill_id: str
     version: str
-    error: Optional[str] = None
+    error: str | None = None
     installed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    dependencies_installed: List[str] = field(default_factory=list)
+    dependencies_installed: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "success": self.success,
@@ -237,7 +230,6 @@ class InstallResult:
             "dependencies_installed": self.dependencies_installed,
         }
 
-
 class SkillMarketplace:
     """
     Marketplace for skill discovery, installation, and rating.
@@ -246,7 +238,7 @@ class SkillMarketplace:
     and installation records.
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize the marketplace.
 
@@ -257,7 +249,7 @@ class SkillMarketplace:
             "ARAGORA_MARKETPLACE_DB",
             ":memory:",
         )
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self._lock = threading.Lock()
         self._initialized = False
 
@@ -509,14 +501,14 @@ class SkillMarketplace:
     async def search(
         self,
         query: str = "",
-        category: Optional[SkillCategory] = None,
-        tier: Optional[SkillTier] = None,
-        tags: Optional[List[str]] = None,
-        author_id: Optional[str] = None,
+        category: SkillCategory | None = None,
+        tier: SkillTier | None = None,
+        tags: Optional[list[str]] = None,
+        author_id: str | None = None,
         sort_by: str = "rating",  # rating, downloads, recent
         limit: int = 20,
         offset: int = 0,
-    ) -> List[SkillListing]:
+    ) -> list[SkillListing]:
         """
         Search for skills in the marketplace.
 
@@ -538,7 +530,7 @@ class SkillMarketplace:
 
         # Build query
         sql = "SELECT * FROM skills WHERE is_published = 1"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if query:
             sql += " AND (name LIKE ? OR description LIKE ? OR tags LIKE ?)"
@@ -578,7 +570,7 @@ class SkillMarketplace:
 
         return [self._row_to_listing(row) for row in rows]
 
-    async def get_skill(self, skill_id: str) -> Optional[SkillListing]:
+    async def get_skill(self, skill_id: str) -> SkillListing | None:
         """
         Get a skill listing by ID.
 
@@ -599,7 +591,7 @@ class SkillMarketplace:
 
         return self._row_to_listing(row)
 
-    async def get_versions(self, skill_id: str) -> List[SkillVersion]:
+    async def get_versions(self, skill_id: str) -> list[SkillVersion]:
         """
         Get all versions of a skill.
 
@@ -692,7 +684,7 @@ class SkillMarketplace:
         skill_id: str,
         user_id: str,
         rating: int,
-        review: Optional[str] = None,
+        review: str | None = None,
     ) -> SkillRating:
         """
         Rate a skill.
@@ -775,7 +767,7 @@ class SkillMarketplace:
         skill_id: str,
         limit: int = 20,
         offset: int = 0,
-    ) -> List[SkillRating]:
+    ) -> list[SkillRating]:
         """
         Get ratings for a skill.
 
@@ -822,7 +814,7 @@ class SkillMarketplace:
         skill_id: str,
         tenant_id: str,
         user_id: str,
-        version: Optional[str] = None,
+        version: str | None = None,
     ) -> InstallResult:
         """
         Install a skill for a tenant.
@@ -983,7 +975,7 @@ class SkillMarketplace:
     async def get_installed_skills(
         self,
         tenant_id: str,
-    ) -> List[SkillListing]:
+    ) -> list[SkillListing]:
         """
         Get all skills installed for a tenant.
 
@@ -1026,7 +1018,7 @@ class SkillMarketplace:
     # Statistics
     # ==========================================================================
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get marketplace statistics."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -1054,14 +1046,12 @@ class SkillMarketplace:
             "categories": categories,
         }
 
-
 # ==========================================================================
 # Global Instance
 # ==========================================================================
 
-_marketplace: Optional[SkillMarketplace] = None
+_marketplace: SkillMarketplace | None = None
 _marketplace_lock = threading.Lock()
-
 
 def get_marketplace() -> SkillMarketplace:
     """Get the global skill marketplace instance."""

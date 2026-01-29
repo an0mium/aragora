@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
         CostTracker,
     )
 
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -44,22 +44,20 @@ from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 # Import mixin for reverse flow functionality
 
-
 @dataclass
 class AlertSearchResult:
     """Wrapper for alert search results with adapter metadata."""
 
-    alert: Dict[str, Any]
+    alert: dict[str, Any]
     relevance_score: float = 0.0
-
 
 @dataclass
 class CostAnomaly:
     """A detected cost anomaly."""
 
     id: str
-    workspace_id: Optional[str]
-    agent_id: Optional[str]
+    workspace_id: str | None
+    agent_id: str | None
     anomaly_type: str  # "spike", "unusual_model", "high_latency", etc.
     severity: float  # 0-1
     description: str
@@ -67,13 +65,13 @@ class CostAnomaly:
     actual_value: float
     variance_ratio: float  # actual/expected
     detected_at: datetime
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self) -> None:
         if self.metadata is None:
             self.metadata = {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "workspace_id": self.workspace_id,
@@ -87,7 +85,6 @@ class CostAnomaly:
             "detected_at": self.detected_at.isoformat() if self.detected_at else None,
             "metadata": self.metadata,
         }
-
 
 class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
     """
@@ -131,7 +128,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         self,
         cost_tracker: Optional["CostTracker"] = None,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
     ):
         """
@@ -148,14 +145,14 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
-        self._alerts: Dict[str, Dict[str, Any]] = {}
-        self._anomalies: Dict[str, Dict[str, Any]] = {}
-        self._cost_snapshots: Dict[str, Dict[str, Any]] = {}
+        self._alerts: dict[str, dict[str, Any]] = {}
+        self._anomalies: dict[str, dict[str, Any]] = {}
+        self._cost_snapshots: dict[str, dict[str, Any]] = {}
 
         # Indices for fast lookup
-        self._workspace_alerts: Dict[str, List[str]] = {}  # workspace -> [alert_ids]
-        self._workspace_anomalies: Dict[str, List[str]] = {}  # workspace -> [anomaly_ids]
-        self._agent_costs: Dict[str, List[str]] = {}  # agent -> [snapshot_ids]
+        self._workspace_alerts: dict[str, list[str]] = {}  # workspace -> [alert_ids]
+        self._workspace_anomalies: dict[str, list[str]] = {}  # workspace -> [anomaly_ids]
+        self._agent_costs: dict[str, list[str]] = {}  # agent -> [snapshot_ids]
 
         # Initialize resilience patterns (circuit breaker, bulkhead, retry)
         if enable_resilience:
@@ -165,7 +162,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         """Set the event callback for WebSocket notifications."""
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
             try:
@@ -174,7 +171,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
     # ReverseFlowMixin required methods
-    def _get_record_for_validation(self, source_id: str) -> Optional[Any]:
+    def _get_record_for_validation(self, source_id: str) -> Any | None:
         """Get a record for validation (required by ReverseFlowMixin)."""
         # Check alerts first, then anomalies
         if source_id in self._alerts:
@@ -187,8 +184,8 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         self,
         record: Any,
         km_confidence: float,
-        cross_refs: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        cross_refs: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Apply KM validation to a cost record (required by ReverseFlowMixin)."""
         record["km_validated"] = True
@@ -215,7 +212,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
 
         return True
 
-    def _extract_source_id(self, item: Dict[str, Any]) -> Optional[str]:
+    def _extract_source_id(self, item: dict[str, Any]) -> str | None:
         """Extract source ID from KM item (override for ReverseFlowMixin)."""
         return item.get("source_id") or item.get("id")
 
@@ -236,7 +233,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
     def store_alert(
         self,
         alert: "BudgetAlert",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a budget alert in the Knowledge Mound.
 
@@ -290,7 +287,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
     def store_anomaly(
         self,
         anomaly: CostAnomaly,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store a cost anomaly in the Knowledge Mound.
 
@@ -329,7 +326,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
     def store_cost_snapshot(
         self,
         workspace_id: str,
-        agent_id: Optional[str],
+        agent_id: str | None,
         total_cost_usd: float,
         tokens_in: int,
         tokens_out: int,
@@ -377,7 +374,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         logger.debug(f"Stored cost snapshot: {snapshot_id}")
         return snapshot_id
 
-    def get_alert(self, alert_id: str) -> Optional[Dict[str, Any]]:
+    def get_alert(self, alert_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific alert by ID.
 
@@ -391,7 +388,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
             alert_id = f"{self.ID_PREFIX}alert_{alert_id}"
         return self._alerts.get(alert_id)
 
-    def get_anomaly(self, anomaly_id: str) -> Optional[Dict[str, Any]]:
+    def get_anomaly(self, anomaly_id: str) -> Optional[dict[str, Any]]:
         """
         Get a specific anomaly by ID.
 
@@ -410,7 +407,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         workspace_id: str,
         min_level: str = "warning",
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get alerts for a workspace.
 
@@ -444,7 +441,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         workspace_id: str,
         min_severity: float = 0.0,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get anomalies for a workspace.
 
@@ -476,9 +473,9 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
     def get_cost_patterns(
         self,
         workspace_id: str,
-        agent_id: Optional[str] = None,
+        agent_id: str | None = None,
         limit: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get historical cost patterns for anomaly detection.
 
@@ -548,7 +545,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         self,
         agent_id: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get cost history for an agent.
 
@@ -577,7 +574,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
         current_cost: float,
         current_tokens: int,
         current_calls: int,
-    ) -> List[CostAnomaly]:
+    ) -> list[CostAnomaly]:
         """
         Detect cost anomalies compared to historical patterns.
 
@@ -639,7 +636,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
 
         return anomalies
 
-    def to_knowledge_item(self, alert: Dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, alert: dict[str, Any]) -> "KnowledgeItem":
         """
         Convert an alert dict to a KnowledgeItem.
 
@@ -692,9 +689,9 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
             importance=alert.get("percentage", 0) / 100,  # Normalize to 0-1
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored cost data."""
-        level_counts: Dict[str, int] = {}
+        level_counts: dict[str, int] = {}
         for alert in self._alerts.values():
             lvl = alert.get("level", "unknown")
             level_counts[lvl] = level_counts.get(lvl, 0) + 1
@@ -707,7 +704,6 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
             "agents_tracked": len(self._agent_costs),
             "alert_levels": level_counts,
         }
-
 
 __all__ = [
     "CostAdapter",

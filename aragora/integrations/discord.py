@@ -3,17 +3,17 @@ Discord integration for aragora debates.
 Posts debate summaries and consensus alerts using Discord webhooks.
 Uses Discord's rich embed format for message formatting.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DiscordConfig:
@@ -32,7 +32,6 @@ class DiscordConfig:
     retry_count: int = 3
     retry_delay: float = 1.0
 
-
 @dataclass
 class DiscordEmbed:
     """Discord embed structure."""
@@ -42,10 +41,10 @@ class DiscordEmbed:
     color: int = 0x5865F2  # Discord blurple
     url: str = ""
     timestamp: str = ""
-    footer: Optional[dict[str, str]] = None
-    author: Optional[dict[str, str]] = None
+    footer: dict[str, str] | None = None
+    author: dict[str, str] | None = None
     fields: list[dict[str, Any]] = field(default_factory=list)
-    thumbnail: Optional[dict[str, str]] = None
+    thumbnail: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert embed to Discord API format."""
@@ -70,7 +69,6 @@ class DiscordEmbed:
             result["thumbnail"] = self.thumbnail
         return result
 
-
 class DiscordIntegration:
     """Discord webhook integration for debate notifications."""
 
@@ -87,7 +85,7 @@ class DiscordIntegration:
     def __init__(self, config: DiscordConfig):
         self.config = config
         self._request_times: list[float] = []
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -307,8 +305,8 @@ class DiscordIntegration:
         self,
         error_type: str,
         message: str,
-        debate_id: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        debate_id: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> bool:
         """Send error notification."""
         embed = DiscordEmbed(
@@ -365,7 +363,6 @@ class DiscordIntegration:
 
         return await self._send_webhook([embed])
 
-
 class DiscordWebhookManager:
     """Manager for multiple Discord webhook targets."""
 
@@ -406,10 +403,8 @@ class DiscordWebhookManager:
         for integration in self._integrations.values():
             await integration.close()
 
-
 # Global manager instance
 discord_manager = DiscordWebhookManager()
-
 
 def create_discord_integration(webhook_url: str, **kwargs: Any) -> DiscordIntegration:
     """Factory function to create a Discord integration."""

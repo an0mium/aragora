@@ -4,9 +4,9 @@ Code Review Workflow Templates.
 Templates for security audits, architecture reviews, and code quality analysis.
 """
 
-from typing import Dict, Any
+from typing import Any
 
-SECURITY_AUDIT_TEMPLATE: Dict[str, Any] = {
+SECURITY_AUDIT_TEMPLATE: dict[str, Any] = {
     "name": "Security Code Audit",
     "description": "Comprehensive security audit with OWASP Top 10 coverage",
     "category": "code",
@@ -172,7 +172,7 @@ SECURITY_AUDIT_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-ARCHITECTURE_REVIEW_TEMPLATE: Dict[str, Any] = {
+ARCHITECTURE_REVIEW_TEMPLATE: dict[str, Any] = {
     "name": "Architecture Review",
     "description": "System architecture review with scalability and resilience analysis",
     "category": "code",
@@ -305,7 +305,7 @@ ARCHITECTURE_REVIEW_TEMPLATE: Dict[str, Any] = {
     ],
 }
 
-CODE_QUALITY_TEMPLATE: Dict[str, Any] = {
+CODE_QUALITY_TEMPLATE: dict[str, Any] = {
     "name": "Code Quality Review",
     "description": "Comprehensive code quality analysis with automated and manual review",
     "category": "code",

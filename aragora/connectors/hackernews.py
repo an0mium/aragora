@@ -8,11 +8,11 @@ Provides access to HackerNews via the Algolia Search API:
 
 The Algolia HN API is free and requires no authentication.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
@@ -27,7 +27,6 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
-
 # Algolia HN Search API endpoints
 HN_SEARCH_URL = "https://hn.algolia.com/api/v1/search"
 HN_SEARCH_BY_DATE_URL = "https://hn.algolia.com/api/v1/search_by_date"
@@ -35,7 +34,6 @@ HN_ITEM_URL = "https://hn.algolia.com/api/v1/items"
 
 # HackerNews item URL template
 HN_STORY_URL = "https://news.ycombinator.com/item?id={}"
-
 
 class HackerNewsConnector(BaseConnector):
     """
@@ -56,7 +54,7 @@ class HackerNewsConnector(BaseConnector):
 
     def __init__(
         self,
-        provenance: Optional[ProvenanceManager] = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.7,
         timeout: int = 30,
         rate_limit_delay: float = 0.5,  # Algolia allows higher rates
@@ -135,7 +133,7 @@ class HackerNewsConnector(BaseConnector):
         self,
         query: str,
         limit: int = 10,
-        tags: Optional[str] = None,
+        tags: str | None = None,
         sort_by: str = "relevance",
         **kwargs,
     ) -> list[Evidence]:
@@ -196,7 +194,7 @@ class HackerNewsConnector(BaseConnector):
             logger.debug(f"HackerNews search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a specific HackerNews item by ID.
 
@@ -255,7 +253,7 @@ class HackerNewsConnector(BaseConnector):
 
         return results
 
-    def _parse_hit(self, hit: dict) -> Optional[Evidence]:
+    def _parse_hit(self, hit: dict) -> Evidence | None:
         """Parse a single Algolia hit into Evidence."""
         object_id = hit.get("objectID")
         if not object_id:
@@ -324,7 +322,7 @@ class HackerNewsConnector(BaseConnector):
             },
         )
 
-    def _parse_item(self, data: dict) -> Optional[Evidence]:
+    def _parse_item(self, data: dict) -> Evidence | None:
         """Parse a full item response into Evidence."""
         item_id = data.get("id")
         if not item_id:
@@ -431,6 +429,5 @@ class HackerNewsConnector(BaseConnector):
             List of Evidence objects
         """
         return await self.search(query, limit=limit, tags="ask_hn")
-
 
 __all__ = ["HackerNewsConnector"]

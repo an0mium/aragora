@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -30,7 +30,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class SyncProtocol(Protocol):
     """Protocol defining expected interface for Sync mixin."""
 
@@ -45,7 +44,6 @@ class SyncProtocol(Protocol):
 
     def _ensure_initialized(self) -> None: ...
     async def store(self, request: "IngestionRequest") -> Any: ...
-
 
 class SyncOperationsMixin:
     """Mixin providing sync operations for KnowledgeMound."""
@@ -83,7 +81,7 @@ class SyncOperationsMixin:
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             # Retrieve all entries from continuum (using high limit for full sync)
@@ -174,7 +172,7 @@ class SyncOperationsMixin:
         nodes_updated = 0
         nodes_skipped = 0
         relationships_created = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             # Get recent consensus records from the store
@@ -295,7 +293,7 @@ class SyncOperationsMixin:
         nodes_updated = 0
         nodes_skipped = 0
         relationships_created = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             # FactStore has query_facts method
@@ -387,7 +385,7 @@ class SyncOperationsMixin:
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             # EvidenceStore has search method
@@ -469,7 +467,7 @@ class SyncOperationsMixin:
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             # CritiqueStore has search_patterns method
@@ -523,7 +521,7 @@ class SyncOperationsMixin:
             errors=errors,
         )
 
-    async def sync_all(self: SyncProtocol) -> Dict[str, "SyncResult"]:
+    async def sync_all(self: SyncProtocol) -> dict[str, "SyncResult"]:
         """
         Sync from all connected memory systems.
 
@@ -532,7 +530,7 @@ class SyncOperationsMixin:
         """
 
         self._ensure_initialized()
-        results: Dict[str, SyncResult] = {}
+        results: dict[str, SyncResult] = {}
 
         if self._continuum:
             results["continuum"] = await self.sync_from_continuum(self._continuum)  # type: ignore[arg-type,attr-defined]
@@ -565,8 +563,8 @@ class SyncOperationsMixin:
 
     async def sync_continuum_incremental(
         self: SyncProtocol,
-        workspace_id: Optional[str] = None,
-        since: Optional[str] = None,
+        workspace_id: str | None = None,
+        since: str | None = None,
         limit: int = 1000,
     ) -> "SyncResult":
         """
@@ -608,7 +606,7 @@ class SyncOperationsMixin:
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             # Parse since timestamp if provided
@@ -681,8 +679,8 @@ class SyncOperationsMixin:
 
     async def sync_consensus_incremental(
         self: SyncProtocol,
-        workspace_id: Optional[str] = None,
-        since: Optional[str] = None,
+        workspace_id: str | None = None,
+        since: str | None = None,
         limit: int = 1000,
     ) -> "SyncResult":
         """
@@ -724,7 +722,7 @@ class SyncOperationsMixin:
         nodes_updated = 0
         nodes_skipped = 0
         relationships_created = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             # Build query with since filter
@@ -734,7 +732,7 @@ class SyncOperationsMixin:
                        timestamp, supersedes, metadata
                 FROM consensus_records
             """
-            params: List[Any] = []
+            params: list[Any] = []
 
             if since:
                 query += " WHERE timestamp >= ?"
@@ -813,8 +811,8 @@ class SyncOperationsMixin:
 
     async def sync_facts_incremental(
         self: SyncProtocol,
-        workspace_id: Optional[str] = None,
-        since: Optional[str] = None,
+        workspace_id: str | None = None,
+        since: str | None = None,
         limit: int = 1000,
     ) -> "SyncResult":
         """
@@ -855,7 +853,7 @@ class SyncOperationsMixin:
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             if hasattr(self._facts, "query_facts"):
@@ -920,7 +918,7 @@ class SyncOperationsMixin:
         facts: Optional["FactStore"] = None,
         evidence: Optional["EvidenceStore"] = None,
         critique: Optional["CritiqueStore"] = None,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """
         Connect memory stores for use with incremental sync methods.
 
@@ -963,7 +961,7 @@ class SyncOperationsMixin:
 
         return status
 
-    def get_connected_stores(self: SyncProtocol) -> List[str]:
+    def get_connected_stores(self: SyncProtocol) -> list[str]:
         """Get list of connected memory store names."""
         connected = []
         if self._continuum:

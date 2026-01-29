@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by ForkOperationsMixin.
 
@@ -36,22 +35,21 @@ class _DebatesHandlerProtocol(Protocol):
     expect to be mixed into a class providing these methods/attributes.
     """
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def read_json_body(
-        self, handler: Any, max_size: Optional[int] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, handler: Any, max_size: int | None = None
+    ) -> Optional[dict[str, Any]]:
         """Read and parse JSON body from request handler."""
         ...
 
-    def get_storage(self) -> Optional[Any]:
+    def get_storage(self) -> Any | None:
         """Get debate storage instance."""
         ...
 
-    def get_nomic_dir(self) -> Optional[Path]:
+    def get_nomic_dir(self) -> Path | None:
         """Get nomic directory path."""
         ...
-
 
 class ForkOperationsMixin:
     """Mixin providing fork and follow-up operations for DebatesHandler."""
@@ -577,11 +575,10 @@ class ForkOperationsMixin:
             logger.error("Failed to list forks for %s: %s", debate_id, e)
             return error_response(safe_error_message(e, "list forks"), 500)
 
-
 def _build_fork_tree(
     root_id: str,
-    forks: list[Dict[str, Any]],
-) -> Dict[str, Any]:
+    forks: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Build a hierarchical tree structure from flat fork list.
 
     Args:
@@ -595,11 +592,11 @@ def _build_fork_tree(
     fork_lookup = {f.get("branch_id"): f for f in forks}
 
     # Build tree recursively
-    def build_node(node_id: str, is_root: bool = False) -> Dict[str, Any]:
-        children: list[Dict[str, Any]] = []
+    def build_node(node_id: str, is_root: bool = False) -> dict[str, Any]:
+        children: list[dict[str, Any]] = []
         if is_root:
             # Root node is the original debate
-            node: Dict[str, Any] = {
+            node: dict[str, Any] = {
                 "id": node_id,
                 "type": "root",
                 "branch_point": 0,
@@ -633,7 +630,7 @@ def _build_fork_tree(
     tree = build_node(root_id, is_root=True)
 
     # Calculate tree stats
-    def count_nodes(node: Dict[str, Any]) -> tuple[int, int]:
+    def count_nodes(node: dict[str, Any]) -> tuple[int, int]:
         """Count total nodes and max depth."""
         if not node.get("children"):
             return 1, 1
@@ -650,6 +647,5 @@ def _build_fork_tree(
     tree["max_depth"] = max_depth
 
     return tree
-
 
 __all__ = ["ForkOperationsMixin"]

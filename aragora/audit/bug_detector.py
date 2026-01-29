@@ -21,10 +21,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Pattern
+from typing import Any, Optional, Pattern
 
 logger = logging.getLogger(__name__)
-
 
 class BugSeverity(str, Enum):
     """Severity level of potential bugs."""
@@ -34,7 +33,6 @@ class BugSeverity(str, Enum):
     MEDIUM = "medium"  # Moderate risk
     LOW = "low"  # Minor issue
     INFO = "info"  # Code smell, potential improvement
-
 
 class BugCategory(str, Enum):
     """Category of potential bug."""
@@ -53,7 +51,6 @@ class BugCategory(str, Enum):
     API_MISUSE = "api_misuse"
     CODE_SMELL = "code_smell"
 
-
 @dataclass
 class BugPattern:
     """A pattern for detecting potential bugs."""
@@ -65,9 +62,8 @@ class BugPattern:
     description: str
     explanation: str
     fix_suggestion: str
-    languages: Optional[List[str]] = None
-    false_positive_hints: List[str] = field(default_factory=list)
-
+    languages: Optional[list[str]] = None
+    false_positive_hints: list[str] = field(default_factory=list)
 
 @dataclass
 class PotentialBug:
@@ -84,24 +80,24 @@ class PotentialBug:
     file_path: str
     line_number: int
     column: int = 0
-    end_line: Optional[int] = None
+    end_line: int | None = None
     code_snippet: str = ""
 
     # Context
-    function_name: Optional[str] = None
-    class_name: Optional[str] = None
+    function_name: str | None = None
+    class_name: str | None = None
 
     # Analysis
-    pattern_name: Optional[str] = None
+    pattern_name: str | None = None
     explanation: str = ""
     fix_suggestion: str = ""
-    related_lines: List[int] = field(default_factory=list)
+    related_lines: list[int] = field(default_factory=list)
 
     # Validation
     is_false_positive: bool = False
-    false_positive_reason: Optional[str] = None
+    false_positive_reason: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -124,7 +120,6 @@ class PotentialBug:
             "is_false_positive": self.is_false_positive,
         }
 
-
 @dataclass
 class BugReport:
     """Complete bug detection report."""
@@ -132,11 +127,11 @@ class BugReport:
     scan_id: str
     repository: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     files_scanned: int = 0
     lines_scanned: int = 0
-    bugs: List[PotentialBug] = field(default_factory=list)
-    error: Optional[str] = None
+    bugs: list[PotentialBug] = field(default_factory=list)
+    error: str | None = None
 
     # Summary
     critical_count: int = 0
@@ -156,14 +151,14 @@ class BugReport:
         return len(self.bugs)
 
     @property
-    def bugs_by_category(self) -> Dict[str, int]:
-        counts: Dict[str, int] = {}
+    def bugs_by_category(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
         for bug in self.bugs:
             cat = bug.category.value
             counts[cat] = counts.get(cat, 0) + 1
         return counts
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "scan_id": self.scan_id,
@@ -183,7 +178,6 @@ class BugReport:
             "bugs": [b.to_dict() for b in self.bugs],
             "error": self.error,
         }
-
 
 class BugDetector:
     """
@@ -752,7 +746,7 @@ class BugDetector:
         include_low_severity: bool = True,
         include_info: bool = False,
         include_smells: bool = True,
-        custom_patterns: Optional[List[BugPattern]] = None,
+        custom_patterns: Optional[list[BugPattern]] = None,
     ):
         """
         Initialize the bug detector.
@@ -767,7 +761,7 @@ class BugDetector:
         self.include_info = include_info
 
         # Combine patterns
-        self.patterns: List[BugPattern] = []
+        self.patterns: list[BugPattern] = []
         self.patterns.extend(self.NULL_PATTERNS)
         self.patterns.extend(self.RESOURCE_PATTERNS)
         self.patterns.extend(self.RACE_PATTERNS)
@@ -787,7 +781,7 @@ class BugDetector:
 
         self._finding_counter = 0
 
-    def detect_in_file(self, file_path: str) -> List[PotentialBug]:
+    def detect_in_file(self, file_path: str) -> list[PotentialBug]:
         """
         Detect potential bugs in a single file.
 
@@ -797,7 +791,7 @@ class BugDetector:
         Returns:
             List of potential bugs
         """
-        bugs: List[PotentialBug] = []
+        bugs: list[PotentialBug] = []
 
         try:
             with open(file_path, "r", encoding="utf-8", errors="replace") as f:
@@ -864,8 +858,8 @@ class BugDetector:
     def detect_in_directory(
         self,
         directory: str,
-        exclude_patterns: Optional[List[str]] = None,
-        extensions: Optional[List[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
+        extensions: Optional[list[str]] = None,
     ) -> BugReport:
         """
         Detect potential bugs in a directory.
@@ -909,7 +903,7 @@ class BugDetector:
 
         # Collect files
         root = Path(directory)
-        files_to_scan: List[Path] = []
+        files_to_scan: list[Path] = []
 
         for ext in extensions:
             for file_path in root.rglob(f"*{ext}"):
@@ -949,7 +943,7 @@ class BugDetector:
 
         return report
 
-    def _extension_to_language(self, ext: str) -> Optional[str]:
+    def _extension_to_language(self, ext: str) -> str | None:
         """Map file extension to language name."""
         mapping = {
             ".py": "python",
@@ -965,11 +959,10 @@ class BugDetector:
         }
         return mapping.get(ext)
 
-
 def quick_bug_scan(
     path: str,
     include_smells: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Quick bug scan of a file or directory.
 

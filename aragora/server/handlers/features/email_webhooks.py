@@ -24,7 +24,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from ..base import (
@@ -37,18 +37,15 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 class WebhookProvider(Enum):
     """Supported webhook providers."""
 
     GMAIL = "gmail"
     OUTLOOK = "outlook"
-
 
 class WebhookStatus(Enum):
     """Webhook subscription status."""
@@ -58,7 +55,6 @@ class WebhookStatus(Enum):
     EXPIRED = "expired"
     ERROR = "error"
 
-
 class NotificationType(Enum):
     """Types of email notifications."""
 
@@ -67,7 +63,6 @@ class NotificationType(Enum):
     MESSAGE_DELETED = "message_deleted"
     LABEL_CHANGED = "label_changed"
     SYNC_REQUESTED = "sync_requested"
-
 
 @dataclass
 class WebhookSubscription:
@@ -79,15 +74,15 @@ class WebhookSubscription:
     provider: WebhookProvider
     status: WebhookStatus
     created_at: datetime
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     notification_url: str = ""
     client_state: str = ""
-    last_notification: Optional[datetime] = None
+    last_notification: datetime | None = None
     notification_count: int = 0
     error_count: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -105,7 +100,6 @@ class WebhookSubscription:
             "error_count": self.error_count,
         }
 
-
 @dataclass
 class WebhookNotification:
     """Parsed webhook notification."""
@@ -116,10 +110,10 @@ class WebhookNotification:
     resource_id: str
     tenant_id: str
     timestamp: datetime
-    raw_data: Dict[str, Any]
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    raw_data: dict[str, Any]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "provider": self.provider.value,
@@ -131,27 +125,24 @@ class WebhookNotification:
             "metadata": self.metadata,
         }
 
-
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
-_subscriptions: Dict[str, WebhookSubscription] = {}  # subscription_id -> subscription
-_tenant_subscriptions: Dict[str, List[str]] = {}  # tenant_id -> [subscription_ids]
-_notification_history: Dict[str, List[WebhookNotification]] = {}  # tenant_id -> notifications
-_pending_validations: Dict[str, str] = {}  # state -> subscription_id
+_subscriptions: dict[str, WebhookSubscription] = {}  # subscription_id -> subscription
+_tenant_subscriptions: dict[str, list[str]] = {}  # tenant_id -> [subscription_ids]
+_notification_history: dict[str, list[WebhookNotification]] = {}  # tenant_id -> notifications
+_pending_validations: dict[str, str] = {}  # state -> subscription_id
 _webhooks_lock = asyncio.Lock()  # Thread-safe access to webhook state
-
 
 # =============================================================================
 # Webhook Processing
 # =============================================================================
 
-
 async def process_gmail_notification(
-    notification_data: Dict[str, Any],
+    notification_data: dict[str, Any],
     tenant_id: str,
-) -> Optional[WebhookNotification]:
+) -> WebhookNotification | None:
     """Process Gmail Pub/Sub notification.
 
     Gmail notifications come as base64-encoded messages with structure:
@@ -221,12 +212,11 @@ async def process_gmail_notification(
         logger.exception(f"Error processing Gmail notification: {e}")
         return None
 
-
 async def process_outlook_notification(
-    notification_data: Dict[str, Any],
+    notification_data: dict[str, Any],
     tenant_id: str,
-    client_state: Optional[str] = None,
-) -> List[WebhookNotification]:
+    client_state: str | None = None,
+) -> list[WebhookNotification]:
     """Process Outlook Graph change notification.
 
     Outlook notifications have structure:
@@ -302,7 +292,6 @@ async def process_outlook_notification(
         logger.exception(f"Error processing Outlook notification: {e}")
         return []
 
-
 async def _queue_notification(notification: WebhookNotification) -> None:
     """Queue notification for async processing."""
     tenant_id = notification.tenant_id
@@ -334,7 +323,6 @@ async def _queue_notification(notification: WebhookNotification) -> None:
     except Exception as e:
         logger.warning(f"Failed to trigger sync: {e}")
 
-
 async def _trigger_gmail_sync(notification: WebhookNotification) -> None:
     """Trigger Gmail sync for new notification."""
     try:
@@ -347,7 +335,6 @@ async def _trigger_gmail_sync(notification: WebhookNotification) -> None:
     except ImportError:
         pass
 
-
 async def _trigger_outlook_sync(notification: WebhookNotification) -> None:
     """Trigger Outlook sync for new notification."""
     try:
@@ -359,17 +346,14 @@ async def _trigger_outlook_sync(notification: WebhookNotification) -> None:
     except ImportError:
         pass
 
-
-def _find_account_by_email(email: str, tenant_id: str) -> Optional[str]:
+def _find_account_by_email(email: str, tenant_id: str) -> str | None:
     """Find account ID by email address."""
     # In production, look up in database
     return None
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class EmailWebhooksHandler(BaseHandler):
     """Handler for email webhook endpoints."""
@@ -384,7 +368,7 @@ class EmailWebhooksHandler(BaseHandler):
         "/api/v1/webhooks/history",
     ]
 
-    def __init__(self, server_context: Optional[Dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
@@ -633,7 +617,7 @@ class EmailWebhooksHandler(BaseHandler):
             logger.exception(f"Error creating subscription: {e}")
             return error_response(f"Failed to create subscription: {str(e)}", 500)
 
-    async def _create_gmail_subscription(self, subscription: WebhookSubscription) -> Dict[str, Any]:
+    async def _create_gmail_subscription(self, subscription: WebhookSubscription) -> dict[str, Any]:
         """Create Gmail Pub/Sub watch."""
         try:
             from aragora.connectors.email import GmailSyncService  # noqa: F401
@@ -649,7 +633,7 @@ class EmailWebhooksHandler(BaseHandler):
 
     async def _create_outlook_subscription(
         self, subscription: WebhookSubscription
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create Outlook Graph subscription."""
         try:
             from aragora.connectors.email import OutlookSyncService  # noqa: F401
@@ -744,7 +728,7 @@ class EmailWebhooksHandler(BaseHandler):
     # Utility Methods
     # =========================================================================
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
@@ -752,7 +736,7 @@ class EmailWebhooksHandler(BaseHandler):
             return request.json
         return {}
 
-    def _get_query_params(self, request: Any) -> Dict[str, str]:
+    def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""
         if hasattr(request, "query"):
             return dict(request.query)
@@ -760,13 +744,11 @@ class EmailWebhooksHandler(BaseHandler):
             return dict(request.args)
         return {}
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-_handler_instance: Optional[EmailWebhooksHandler] = None
-
+_handler_instance: EmailWebhooksHandler | None = None
 
 def get_email_webhooks_handler() -> EmailWebhooksHandler:
     """Get or create handler instance."""
@@ -775,12 +757,10 @@ def get_email_webhooks_handler() -> EmailWebhooksHandler:
         _handler_instance = EmailWebhooksHandler()
     return _handler_instance
 
-
 async def handle_email_webhooks(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for email webhook requests."""
     handler = get_email_webhooks_handler()
     return await handler.handle(request, path, method)
-
 
 __all__ = [
     "EmailWebhooksHandler",

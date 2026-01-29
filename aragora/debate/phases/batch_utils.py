@@ -62,7 +62,6 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 R = TypeVar("R")
 
-
 @dataclass
 class DebateBatchConfig:
     """Configuration for debate-specific batch operations."""
@@ -73,7 +72,7 @@ class DebateBatchConfig:
     timeout_per_item: float = 45.0
     """Timeout per agent operation in seconds."""
 
-    min_required: Optional[int] = None
+    min_required: int | None = None
     """Minimum results before allowing early stop. None = no early stop."""
 
     stagger_delay: float = 0.0
@@ -85,7 +84,7 @@ class DebateBatchConfig:
     hooks: dict[str, Callable] = field(default_factory=dict)
     """Event hooks for notifications."""
 
-    notify_spectator: Optional[Callable] = None
+    notify_spectator: Callable | None = None
     """Spectator notification callback."""
 
     fail_fast: bool = False
@@ -93,7 +92,6 @@ class DebateBatchConfig:
 
     record_to_breaker: bool = True
     """Record success/failure to circuit breaker."""
-
 
 @dataclass
 class DebateBatchResult(Generic[R]):
@@ -124,11 +122,10 @@ class DebateBatchResult(Generic[R]):
             return 0.0
         return len(self.successful_agents) / self.total_agents
 
-
 async def batch_with_agents(
     agents: list["Agent"],
     process_fn: Callable[["Agent"], Awaitable[R]],
-    config: Optional[DebateBatchConfig] = None,
+    config: DebateBatchConfig | None = None,
     operation_name: str = "operation",
 ) -> DebateBatchResult[R]:
     """
@@ -267,12 +264,11 @@ async def batch_with_agents(
         failed_agents=failed_agents,
     )
 
-
 async def batch_generate_critiques(
     critics: list["Agent"],
     proposals: dict[str, str],
     generate_fn: Callable[["Agent", str, str], Awaitable["Critique"]],
-    config: Optional[DebateBatchConfig] = None,
+    config: DebateBatchConfig | None = None,
 ) -> list["Critique"]:
     """
     Generate critiques from multiple critics in parallel.
@@ -341,14 +337,13 @@ async def batch_generate_critiques(
     logger.info(f"batch_critique_results count={len(results)} tasks={len(critique_tasks)}")
     return results
 
-
 async def batch_collect_votes(
     agents: list["Agent"],
     proposals: dict[str, str],
     vote_fn: Callable[["Agent", dict[str, str]], Awaitable["Vote"]],
-    config: Optional[DebateBatchConfig] = None,
+    config: DebateBatchConfig | None = None,
     majority_threshold: float = 0.5,
-) -> tuple[list["Vote"], bool, Optional[str]]:
+) -> tuple[list["Vote"], bool, str | None]:
     """
     Collect votes from agents with RLM-style early termination.
 
@@ -376,7 +371,7 @@ async def batch_collect_votes(
     collected_votes: list["Vote"] = []
     total_agents = len(agents)
     early_stopped = False
-    winning_choice: Optional[str] = None
+    winning_choice: str | None = None
 
     def check_majority(votes: list) -> bool:
         """Check if clear majority reached for early termination."""
@@ -455,7 +450,6 @@ async def batch_collect_votes(
         )
 
     return votes, early_stopped, winning_choice
-
 
 __all__ = [
     "DebateBatchConfig",

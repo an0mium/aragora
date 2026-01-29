@@ -38,7 +38,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Optional
 
 from .types import RLMMode, RLMConfig
 
@@ -48,7 +48,6 @@ if TYPE_CHECKING:
     from .types import RLMConfig, RLMResult
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class RLMFactoryMetrics:
@@ -78,7 +77,7 @@ class RLMFactoryMetrics:
     singleton_hits: int = 0
     singleton_misses: int = 0
 
-    def to_dict(self) -> Dict[str, int]:
+    def to_dict(self) -> dict[str, int]:
         """Convert metrics to dictionary for logging/export."""
         return {
             "get_rlm_calls": self.get_rlm_calls,
@@ -108,18 +107,16 @@ class RLMFactoryMetrics:
         self.singleton_hits = 0
         self.singleton_misses = 0
 
-
 # Global metrics instance
 _metrics = RLMFactoryMetrics()
 
 # Singleton instance for reuse
 _rlm_instance: Optional["AragoraRLM"] = None
 
-
 def get_rlm(
     config: Optional["RLMConfig"] = None,
     force_new: bool = False,
-    mode: Optional[RLMMode] = None,
+    mode: RLMMode | None = None,
     require_true_rlm: bool = False,
 ) -> "AragoraRLM":
     """
@@ -276,7 +273,6 @@ def get_rlm(
 
     return rlm
 
-
 def get_compressor(config: Optional["RLMConfig"] = None) -> "HierarchicalCompressor":
     """
     Get HierarchicalCompressor directly (for specific compression-only use cases).
@@ -300,13 +296,12 @@ def get_compressor(config: Optional["RLMConfig"] = None) -> "HierarchicalCompres
     logger.debug("[RLM Factory] Creating direct HierarchicalCompressor (compression-only)")
     return HierarchicalCompressor(config=config)
 
-
 async def compress_and_query(
     query: str,
     content: str,
     source_type: str = "general",
     config: Optional["RLMConfig"] = None,
-    mode: Optional[RLMMode] = None,
+    mode: RLMMode | None = None,
     require_true_rlm: bool = False,
 ) -> "RLMResult":
     """
@@ -366,7 +361,6 @@ async def compress_and_query(
         logger.exception(f"RLM compress_and_query failed with unexpected error: {e}")
         raise
 
-
 def reset_singleton() -> None:
     """
     Reset the singleton RLM instance.
@@ -377,8 +371,7 @@ def reset_singleton() -> None:
     _rlm_instance = None
     logger.debug("[RLM Factory] Singleton instance reset")
 
-
-def get_factory_metrics() -> Dict[str, int]:
+def get_factory_metrics() -> dict[str, int]:
     """
     Get current factory metrics.
 
@@ -403,7 +396,6 @@ def get_factory_metrics() -> Dict[str, int]:
     """
     return _metrics.to_dict()
 
-
 def reset_metrics() -> None:
     """
     Reset all factory metrics to zero.
@@ -412,7 +404,6 @@ def reset_metrics() -> None:
     """
     _metrics.reset()
     logger.debug("[RLM Factory] Metrics reset")
-
 
 def log_metrics_summary() -> None:
     """
@@ -435,7 +426,6 @@ def log_metrics_summary() -> None:
         f"  Singleton: hits={metrics['singleton_hits']}, "
         f"misses={metrics['singleton_misses']}"
     )
-
 
 def require_true_rlm_decorator():
     """
@@ -474,7 +464,6 @@ def require_true_rlm_decorator():
 
     return decorator
 
-
 def is_true_rlm_available() -> bool:
     """
     Check if TRUE RLM (official library) is available.
@@ -491,7 +480,6 @@ def is_true_rlm_available() -> bool:
     from .bridge import HAS_OFFICIAL_RLM
 
     return HAS_OFFICIAL_RLM
-
 
 def get_rlm_mode_info() -> dict:
     """
@@ -534,7 +522,6 @@ def get_rlm_mode_info() -> dict:
             else None
         ),
     }
-
 
 __all__ = [
     "get_rlm",

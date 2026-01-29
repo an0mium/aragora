@@ -20,20 +20,19 @@ Usage:
         # Only debate owner can delete
         ...
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Set, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Access Control Types
 # =============================================================================
-
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""
@@ -45,7 +44,6 @@ class Action(str, Enum):
     ADMIN = "admin"
     EXECUTE = "execute"
     EXPORT = "export"
-
 
 class ResourceType(str, Enum):
     """Types of resources in the system."""
@@ -61,7 +59,6 @@ class ResourceType(str, Enum):
     INSIGHT = "insight"
     TOURNAMENT = "tournament"
 
-
 class AccessLevel(str, Enum):
     """Access levels for resources."""
 
@@ -71,11 +68,9 @@ class AccessLevel(str, Enum):
     ADMIN = "admin"
     OWNER = "owner"
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 @dataclass
 class Subject:
@@ -84,10 +79,10 @@ class Subject:
     user_id: str
     role: str = "user"  # user, admin, service, superadmin
     plan: str = "free"  # free, pro, team, enterprise
-    workspace_id: Optional[str] = None
-    workspace_role: Optional[str] = None  # owner, admin, member, viewer
-    scopes: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    workspace_id: str | None = None
+    workspace_role: str | None = None  # owner, admin, member, viewer
+    scopes: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_admin(self) -> bool:
@@ -97,30 +92,27 @@ class Subject:
     def is_workspace_admin(self) -> bool:
         return self.workspace_role in ("owner", "admin")
 
-
 @dataclass
 class Resource:
     """Resource being accessed."""
 
     resource_type: ResourceType
     resource_id: str
-    owner_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    owner_id: str | None = None
+    workspace_id: str | None = None
     sensitivity: str = "internal"  # public, internal, confidential, restricted
-    shared_with: Set[str] = field(default_factory=set)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    shared_with: set[str] = field(default_factory=set)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Environment:
     """Environment context for access decision."""
 
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    request_path: Optional[str] = None
-    request_method: Optional[str] = None
-    timestamp: Optional[float] = None
-
+    ip_address: str | None = None
+    user_agent: str | None = None
+    request_path: str | None = None
+    request_method: str | None = None
+    timestamp: float | None = None
 
 @dataclass
 class AccessRequest:
@@ -131,21 +123,18 @@ class AccessRequest:
     action: Action
     environment: Environment = field(default_factory=Environment)
 
-
 @dataclass
 class AccessDecision:
     """Result of access evaluation."""
 
     allowed: bool
     reason: str
-    policy_name: Optional[str] = None
-    attributes_evaluated: Dict[str, Any] = field(default_factory=dict)
-
+    policy_name: str | None = None
+    attributes_evaluated: dict[str, Any] = field(default_factory=dict)
 
 # =============================================================================
 # Policy Definitions
 # =============================================================================
-
 
 @dataclass
 class ResourcePolicy:
@@ -166,7 +155,7 @@ class ResourcePolicy:
 
     resource_type: ResourceType
     allow_public_read: bool = False
-    owner_actions: Set[Action] = field(
+    owner_actions: set[Action] = field(
         default_factory=lambda: {
             Action.READ,
             Action.WRITE,
@@ -176,7 +165,7 @@ class ResourcePolicy:
             Action.EXPORT,
         }
     )
-    workspace_admin_actions: Set[Action] = field(
+    workspace_admin_actions: set[Action] = field(
         default_factory=lambda: {
             Action.READ,
             Action.WRITE,
@@ -184,11 +173,11 @@ class ResourcePolicy:
             Action.ADMIN,
         }
     )
-    workspace_member_actions: Set[Action] = field(
+    workspace_member_actions: set[Action] = field(
         default_factory=lambda: {Action.READ, Action.WRITE}
     )
-    shared_user_actions: Set[Action] = field(default_factory=lambda: {Action.READ})
-    admin_actions: Set[Action] = field(
+    shared_user_actions: set[Action] = field(default_factory=lambda: {Action.READ})
+    admin_actions: set[Action] = field(
         default_factory=lambda: {
             Action.READ,
             Action.WRITE,
@@ -198,7 +187,7 @@ class ResourcePolicy:
         }
     )
     require_same_workspace: bool = True
-    sensitivity_restrictions: Dict[str, List[str]] = field(
+    sensitivity_restrictions: dict[str, list[str]] = field(
         default_factory=lambda: {
             "public": ["free", "pro", "team", "enterprise"],
             "internal": ["free", "pro", "team", "enterprise"],
@@ -207,13 +196,11 @@ class ResourcePolicy:
         }
     )
 
-
 # =============================================================================
 # Default Policies
 # =============================================================================
 
-
-DEFAULT_POLICIES: Dict[ResourceType, ResourcePolicy] = {
+DEFAULT_POLICIES: dict[ResourceType, ResourcePolicy] = {
     ResourceType.DEBATE: ResourcePolicy(
         resource_type=ResourceType.DEBATE,
         allow_public_read=False,
@@ -305,17 +292,15 @@ DEFAULT_POLICIES: Dict[ResourceType, ResourcePolicy] = {
     ),
 }
 
-
 # =============================================================================
 # Policy Registry
 # =============================================================================
-
 
 class PolicyRegistry:
     """Registry for resource access policies."""
 
     _instance: Optional["PolicyRegistry"] = None
-    _policies: Dict[ResourceType, ResourcePolicy]
+    _policies: dict[ResourceType, ResourcePolicy]
 
     def __new__(cls) -> "PolicyRegistry":
         if cls._instance is None:
@@ -328,7 +313,7 @@ class PolicyRegistry:
         self._policies[policy.resource_type] = policy
         logger.debug(f"Registered policy for {policy.resource_type.value}")
 
-    def get(self, resource_type: ResourceType) -> Optional[ResourcePolicy]:
+    def get(self, resource_type: ResourceType) -> ResourcePolicy | None:
         """Get policy for a resource type."""
         return self._policies.get(resource_type)
 
@@ -338,7 +323,7 @@ class PolicyRegistry:
             self._policies[resource_type] = ResourcePolicy(resource_type=resource_type)
         return self._policies[resource_type]
 
-    def list_all(self) -> Dict[ResourceType, ResourcePolicy]:
+    def list_all(self) -> dict[ResourceType, ResourcePolicy]:
         """List all registered policies."""
         return dict(self._policies)
 
@@ -348,16 +333,13 @@ class PolicyRegistry:
         if cls._instance:
             cls._instance._policies = dict(DEFAULT_POLICIES)
 
-
 def get_policy_registry() -> PolicyRegistry:
     """Get the global policy registry."""
     return PolicyRegistry()
 
-
 # =============================================================================
 # Access Evaluator
 # =============================================================================
-
 
 class AccessEvaluator:
     """
@@ -373,7 +355,7 @@ class AccessEvaluator:
     7. Deny by default
     """
 
-    def __init__(self, registry: Optional[PolicyRegistry] = None):
+    def __init__(self, registry: PolicyRegistry | None = None):
         self.registry = registry or get_policy_registry()
 
     def evaluate(self, request: AccessRequest) -> AccessDecision:
@@ -497,14 +479,11 @@ class AccessEvaluator:
             attributes_evaluated=attributes,
         )
 
-
 # =============================================================================
 # Convenience Functions
 # =============================================================================
 
-
-_evaluator: Optional[AccessEvaluator] = None
-
+_evaluator: AccessEvaluator | None = None
 
 def get_evaluator() -> AccessEvaluator:
     """Get the global access evaluator."""
@@ -513,19 +492,18 @@ def get_evaluator() -> AccessEvaluator:
         _evaluator = AccessEvaluator()
     return _evaluator
 
-
 def check_resource_access(
     user_id: str,
     user_role: str,
     user_plan: str,
-    resource_type: Union[ResourceType, str],
+    resource_type: ResourceType | str,
     resource_id: str,
-    action: Union[Action, str],
-    resource_owner_id: Optional[str] = None,
-    resource_workspace_id: Optional[str] = None,
-    user_workspace_id: Optional[str] = None,
-    user_workspace_role: Optional[str] = None,
-    shared_with: Optional[Set[str]] = None,
+    action: Action | str,
+    resource_owner_id: str | None = None,
+    resource_workspace_id: str | None = None,
+    user_workspace_id: str | None = None,
+    user_workspace_role: str | None = None,
+    shared_with: Optional[set[str]] = None,
     sensitivity: str = "internal",
 ) -> AccessDecision:
     """
@@ -575,18 +553,15 @@ def check_resource_access(
 
     return get_evaluator().evaluate(request)
 
-
-def is_resource_owner(user_id: str, resource_owner_id: Optional[str]) -> bool:
+def is_resource_owner(user_id: str, resource_owner_id: str | None) -> bool:
     """Check if user is the owner of a resource."""
     return resource_owner_id is not None and user_id == resource_owner_id
-
 
 # =============================================================================
 # Decorators
 # =============================================================================
 
 F = TypeVar("F", bound=Callable[..., Any])
-
 
 def require_resource_owner(resource_type: str) -> Callable[[F], F]:
     """
@@ -628,10 +603,9 @@ def require_resource_owner(resource_type: str) -> Callable[[F], F]:
 
     return decorator
 
-
 def require_access(
-    resource_type: Union[ResourceType, str],
-    action: Union[Action, str],
+    resource_type: ResourceType | str,
+    action: Action | str,
 ) -> Callable[[F], F]:
     """
     Decorator to require specific access level for an endpoint.
@@ -674,7 +648,6 @@ def require_access(
         return wrapper  # type: ignore[return-value]
 
     return decorator
-
 
 # =============================================================================
 # Exports

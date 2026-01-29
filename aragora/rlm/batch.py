@@ -59,7 +59,6 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")  # Input type
 R = TypeVar("R")  # Result type
 
-
 class BatchItemStatus(Enum):
     """Status of an individual batch item."""
 
@@ -70,7 +69,6 @@ class BatchItemStatus(Enum):
     CANCELLED = "cancelled"
     TIMEOUT = "timeout"
 
-
 @dataclass
 class BatchConfig:
     """Configuration for batch processing."""
@@ -78,7 +76,7 @@ class BatchConfig:
     max_concurrent: int = 5
     """Maximum number of concurrent LLM calls."""
 
-    timeout_per_item: Optional[float] = 60.0
+    timeout_per_item: float | None = 60.0
     """Timeout in seconds per item. None for no timeout."""
 
     retry_on_error: bool = False
@@ -96,7 +94,6 @@ class BatchConfig:
     preserve_order: bool = True
     """Return results in original input order."""
 
-
 @dataclass
 class BatchItemResult(Generic[T, R]):
     """Result for a single batch item."""
@@ -107,10 +104,10 @@ class BatchItemResult(Generic[T, R]):
     item: T
     """The input item."""
 
-    result: Optional[R] = None
+    result: R | None = None
     """The result if successful."""
 
-    error: Optional[Exception] = None
+    error: Exception | None = None
     """The error if failed."""
 
     status: BatchItemStatus = BatchItemStatus.PENDING
@@ -121,7 +118,6 @@ class BatchItemResult(Generic[T, R]):
 
     attempts: int = 0
     """Number of processing attempts."""
-
 
 @dataclass
 class BatchResult(Generic[T, R]):
@@ -136,7 +132,7 @@ class BatchResult(Generic[T, R]):
     early_stopped: bool = False
     """Whether early stopping was triggered."""
 
-    early_stop_at_index: Optional[int] = None
+    early_stop_at_index: int | None = None
     """Index where early stopping was triggered."""
 
     @property
@@ -168,13 +164,12 @@ class BatchResult(Generic[T, R]):
         """Get all errors with their indices."""
         return [(item.index, item.error) for item in self.items if item.error is not None]
 
-
 async def llm_batch(
     items: list[T],
     process_fn: Callable[[T], Awaitable[R]],
     max_concurrent: int = 5,
     early_stop: Optional[Callable[[list[R]], bool]] = None,
-    config: Optional[BatchConfig] = None,
+    config: BatchConfig | None = None,
 ) -> list[R]:
     """
     Execute LLM calls in parallel with optional early stopping.
@@ -224,12 +219,11 @@ async def llm_batch(
 
     return batch_result.results
 
-
 async def llm_batch_detailed(
     items: list[T],
     process_fn: Callable[[T], Awaitable[R]],
     early_stop: Optional[Callable[[list[R]], bool]] = None,
-    config: Optional[BatchConfig] = None,
+    config: BatchConfig | None = None,
 ) -> BatchResult[T, R]:
     """
     Execute LLM calls in parallel with detailed result tracking.
@@ -264,7 +258,7 @@ async def llm_batch_detailed(
     # Track completed results for early stopping
     completed_results: list[R] = []
     early_stop_triggered = asyncio.Event()
-    early_stop_index: Optional[int] = None
+    early_stop_index: int | None = None
 
     async def process_item(index: int, item: T) -> None:
         """Process a single item with retries and timeout."""
@@ -362,12 +356,11 @@ async def llm_batch_detailed(
 
     return batch_result
 
-
 async def llm_batch_with_progress(
     items: list[T],
     process_fn: Callable[[T], Awaitable[R]],
     on_progress: Callable[[int, int, BatchItemResult[T, R]], None],
-    config: Optional[BatchConfig] = None,
+    config: BatchConfig | None = None,
 ) -> BatchResult[T, R]:
     """
     Execute batch with progress callback for each completed item.
@@ -405,9 +398,7 @@ async def llm_batch_with_progress(
 
     return batch_result
 
-
 # Convenience functions for common patterns
-
 
 async def batch_map(
     items: list[T],
@@ -420,7 +411,6 @@ async def batch_map(
     Simple wrapper around llm_batch for map-style operations.
     """
     return await llm_batch(items, fn, max_concurrent=concurrency)
-
 
 async def batch_filter(
     items: list[T],
@@ -443,12 +433,11 @@ async def batch_filter(
 
     return [item for item, passed in results if passed]
 
-
 async def batch_first(
     items: list[T],
     predicate: Callable[[T], Awaitable[bool]],
     concurrency: int = 3,
-) -> Optional[T]:
+) -> T | None:
     """
     Find first item matching predicate in parallel.
 
@@ -456,7 +445,7 @@ async def batch_first(
     """
     found: list[T] = []
 
-    async def check_and_collect(item: T) -> Optional[T]:
+    async def check_and_collect(item: T) -> T | None:
         if await predicate(item):
             found.append(item)
             return item
@@ -471,11 +460,10 @@ async def batch_first(
 
     return found[0] if found else None
 
-
 async def batch_race(
     callables: list[Callable[[], Awaitable[R]]],
     winner_predicate: Optional[Callable[[R], bool]] = None,
-) -> Optional[R]:
+) -> R | None:
     """
     Race multiple async operations, return first valid result.
 
@@ -491,7 +479,7 @@ async def batch_race(
     """
     winners: list[R] = []
 
-    async def run_and_check(fn: Callable[[], Awaitable[R]]) -> Optional[R]:
+    async def run_and_check(fn: Callable[[], Awaitable[R]]) -> R | None:
         result = await fn()
         if winner_predicate is None or winner_predicate(result):
             winners.append(result)
@@ -506,7 +494,6 @@ async def batch_race(
     )
 
     return winners[0] if winners else None
-
 
 __all__ = [
     # Core types

@@ -28,12 +28,11 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .config import ExcludedFile, ExclusionReason, FileInfo
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class FilterDecision:
@@ -43,7 +42,6 @@ class FilterDecision:
     include: bool
     reason: str
     confidence: float = 1.0
-
 
 class AgentFileFilter:
     """
@@ -151,7 +149,7 @@ class AgentFileFilter:
         else:
             raise ValueError(f"Unsupported model: {self.model}. Use gemini-*, claude-*, or gpt-*")
 
-    def _get_file_preview(self, file_info: FileInfo) -> Optional[str]:
+    def _get_file_preview(self, file_info: FileInfo) -> str | None:
         """Get a preview of text file content."""
         if not self.include_previews:
             return None
@@ -394,7 +392,6 @@ Provide a decision for every file listed above."""
                 )
 
         return included, excluded
-
 
 def get_agent_filter(
     model: str = "gemini-2.0-flash",

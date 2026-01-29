@@ -26,7 +26,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
+from typing import Any, Callable, Coroutine, Union
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,6 @@ DEFAULT_STARTUP_SLO_SECONDS = 30.0
 # Prometheus metrics (lazy initialized)
 _STARTUP_DURATION: Any = None
 _STARTUP_COMPONENTS: Any = None
-
 
 def _init_startup_metrics() -> bool:
     """Initialize Prometheus metrics for startup tracking."""
@@ -61,7 +60,6 @@ def _init_startup_metrics() -> bool:
     except ImportError:
         return False
 
-
 @dataclass
 class StartupCheckpoint:
     """A checkpoint in the startup sequence."""
@@ -69,8 +67,7 @@ class StartupCheckpoint:
     name: str
     timestamp: datetime = field(default_factory=datetime.now)
     elapsed_seconds: float = 0.0
-    components: List[str] = field(default_factory=list)
-
+    components: list[str] = field(default_factory=list)
 
 @dataclass
 class StartupReport:
@@ -81,11 +78,11 @@ class StartupReport:
     slo_seconds: float
     slo_met: bool
     components_initialized: int
-    components_failed: List[str]
-    checkpoints: List[StartupCheckpoint]
-    error: Optional[str] = None
+    components_failed: list[str]
+    checkpoints: list[StartupCheckpoint]
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "success": self.success,
@@ -106,9 +103,7 @@ class StartupReport:
             "error": self.error,
         }
 
-
 CleanupFunc = Union[Callable[[], None], Callable[[], Coroutine[Any, Any, None]]]
-
 
 class StartupTransaction:
     """
@@ -137,11 +132,11 @@ class StartupTransaction:
     ):
         self.slo_seconds = slo_seconds
         self.name = name
-        self._start_time: Optional[float] = None
-        self._cleanups: List[tuple[str, CleanupFunc]] = []
-        self._checkpoints: List[StartupCheckpoint] = []
-        self._components_initialized: List[str] = []
-        self._components_failed: List[str] = []
+        self._start_time: float | None = None
+        self._cleanups: list[tuple[str, CleanupFunc]] = []
+        self._checkpoints: list[StartupCheckpoint] = []
+        self._components_initialized: list[str] = []
+        self._components_failed: list[str] = []
         self._completed = False
 
     @property
@@ -177,7 +172,7 @@ class StartupTransaction:
         self,
         component: str,
         init_func: Callable[[], Coroutine[Any, Any, Any]],
-        cleanup_func: Optional[CleanupFunc] = None,
+        cleanup_func: CleanupFunc | None = None,
     ) -> Any:
         """Run an initialization step with automatic cleanup registration.
 
@@ -240,7 +235,7 @@ class StartupTransaction:
 
         logger.info("Startup rollback complete")
 
-    def get_report(self, error: Optional[str] = None) -> StartupReport:
+    def get_report(self, error: str | None = None) -> StartupReport:
         """Generate a startup report.
 
         Args:
@@ -305,15 +300,12 @@ class StartupTransaction:
 
         return False
 
-
 # Global startup report for introspection
-_last_startup_report: Optional[StartupReport] = None
+_last_startup_report: StartupReport | None = None
 
-
-def get_last_startup_report() -> Optional[StartupReport]:
+def get_last_startup_report() -> StartupReport | None:
     """Get the last startup report."""
     return _last_startup_report
-
 
 def set_last_startup_report(report: StartupReport) -> None:
     """Set the last startup report."""

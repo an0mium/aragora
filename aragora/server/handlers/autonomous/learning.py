@@ -1,7 +1,7 @@
 """Continuous learning HTTP handlers."""
+from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from aiohttp import web
 
@@ -16,8 +16,7 @@ from aragora.rbac.checker import get_permission_checker
 logger = logging.getLogger(__name__)
 
 # Global continuous learner instance
-_continuous_learner: Optional[ContinuousLearner] = None
-
+_continuous_learner: ContinuousLearner | None = None
 
 def get_continuous_learner() -> ContinuousLearner:
     """Get or create the global continuous learner instance."""
@@ -26,12 +25,10 @@ def get_continuous_learner() -> ContinuousLearner:
         _continuous_learner = ContinuousLearner()
     return _continuous_learner
 
-
 def set_continuous_learner(learner: ContinuousLearner) -> None:
     """Set the global continuous learner instance."""
     global _continuous_learner
     _continuous_learner = learner
-
 
 class LearningHandler:
     """HTTP handlers for continuous learning operations."""

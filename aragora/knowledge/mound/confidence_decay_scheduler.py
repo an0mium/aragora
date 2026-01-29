@@ -31,7 +31,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
@@ -52,7 +52,6 @@ _DECAY_ITEMS_PROCESSED: Any = None
 _DECAY_ITEMS_DECAYED: Any = None
 _DECAY_DURATION_SECONDS: Any = None
 _DECAY_AVG_CHANGE: Any = None
-
 
 def _init_decay_metrics() -> bool:
     """Initialize Prometheus metrics for confidence decay. Returns True if successful."""
@@ -96,7 +95,6 @@ def _init_decay_metrics() -> bool:
         logger.debug("prometheus_client not installed - decay metrics disabled")
         return False
 
-
 def record_decay_metrics(report: "DecayScheduleReport") -> None:
     """Record Prometheus metrics for a decay operation."""
     if not _init_decay_metrics():
@@ -108,7 +106,6 @@ def record_decay_metrics(report: "DecayScheduleReport") -> None:
     _DECAY_ITEMS_DECAYED.labels(workspace=workspace).inc(report.items_decayed)
     _DECAY_DURATION_SECONDS.labels(workspace=workspace).observe(report.duration_ms / 1000)
     _DECAY_AVG_CHANGE.labels(workspace=workspace).set(report.average_change)
-
 
 @dataclass
 class DecayScheduleReport:
@@ -122,7 +119,7 @@ class DecayScheduleReport:
     duration_ms: float
     scheduled_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "workspace_id": self.workspace_id,
@@ -133,7 +130,6 @@ class DecayScheduleReport:
             "duration_ms": self.duration_ms,
             "scheduled_at": self.scheduled_at.isoformat(),
         }
-
 
 class ConfidenceDecayScheduler:
     """
@@ -154,7 +150,7 @@ class ConfidenceDecayScheduler:
         self,
         knowledge_mound: Optional["KnowledgeMound"] = None,
         decay_interval_hours: int = 24,
-        workspaces: Optional[List[str]] = None,
+        workspaces: Optional[list[str]] = None,
         max_items_per_workspace: int = 10000,
         on_decay_complete: Optional[Callable[[DecayScheduleReport], None]] = None,
     ):
@@ -176,7 +172,7 @@ class ConfidenceDecayScheduler:
 
         self._running = False
         self._task: Optional[asyncio.Task[None]] = None
-        self._last_run: Dict[str, datetime] = {}
+        self._last_run: dict[str, datetime] = {}
         self._total_decay_cycles = 0
         self._total_items_processed = 0
 
@@ -243,7 +239,7 @@ class ConfidenceDecayScheduler:
     async def apply_decay_to_workspaces(
         self,
         force: bool = False,
-    ) -> List[DecayScheduleReport]:
+    ) -> list[DecayScheduleReport]:
         """
         Apply confidence decay to all configured workspaces.
 
@@ -256,7 +252,7 @@ class ConfidenceDecayScheduler:
         if not self._knowledge_mound:
             return []
 
-        reports: List[DecayScheduleReport] = []
+        reports: list[DecayScheduleReport] = []
 
         # Get workspaces to process
         workspaces = self._workspaces
@@ -295,7 +291,7 @@ class ConfidenceDecayScheduler:
         self,
         workspace_id: str,
         force: bool = False,
-    ) -> Optional[DecayScheduleReport]:
+    ) -> DecayScheduleReport | None:
         """
         Apply confidence decay to a single workspace.
 
@@ -374,8 +370,8 @@ class ConfidenceDecayScheduler:
 
     async def trigger_decay_now(
         self,
-        workspace_id: Optional[str] = None,
-    ) -> List[DecayScheduleReport]:
+        workspace_id: str | None = None,
+    ) -> list[DecayScheduleReport]:
         """
         Trigger immediate decay application.
 
@@ -391,7 +387,7 @@ class ConfidenceDecayScheduler:
         else:
             return await self.apply_decay_to_workspaces(force=True)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get scheduler statistics.
 
@@ -408,26 +404,22 @@ class ConfidenceDecayScheduler:
             "last_run": {k: v.isoformat() for k, v in self._last_run.items()},
         }
 
-
 # Global scheduler instance (can be started by server startup)
-_scheduler: Optional[ConfidenceDecayScheduler] = None
+_scheduler: ConfidenceDecayScheduler | None = None
 
-
-def get_decay_scheduler() -> Optional[ConfidenceDecayScheduler]:
+def get_decay_scheduler() -> ConfidenceDecayScheduler | None:
     """Get the global confidence decay scheduler instance."""
     return _scheduler
-
 
 def set_decay_scheduler(scheduler: ConfidenceDecayScheduler) -> None:
     """Set the global confidence decay scheduler instance."""
     global _scheduler
     _scheduler = scheduler
 
-
 async def start_decay_scheduler(
     knowledge_mound: "KnowledgeMound",
     decay_interval_hours: int = 24,
-    workspaces: Optional[List[str]] = None,
+    workspaces: Optional[list[str]] = None,
 ) -> ConfidenceDecayScheduler:
     """
     Create and start a global confidence decay scheduler.
@@ -454,7 +446,6 @@ async def start_decay_scheduler(
 
     await _scheduler.start()
     return _scheduler
-
 
 async def stop_decay_scheduler() -> None:
     """Stop the global confidence decay scheduler."""

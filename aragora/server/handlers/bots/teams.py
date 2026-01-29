@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -37,8 +37,7 @@ TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD")
 if not TEAMS_APP_PASSWORD:
     logger.warning("TEAMS_APP_PASSWORD not configured - Teams bot authentication disabled")
 
-
-def _check_botframework_available() -> tuple[bool, Optional[str]]:
+def _check_botframework_available() -> tuple[bool, str | None]:
     """Check if Bot Framework SDK is available."""
     try:
         from botbuilder.core import TurnContext  # noqa: F401 - availability check
@@ -46,7 +45,6 @@ def _check_botframework_available() -> tuple[bool, Optional[str]]:
         return True, None
     except ImportError:
         return False, "botbuilder-core not installed"
-
 
 class TeamsHandler(BotHandlerMixin, SecureHandler):
     """Handler for Microsoft Teams Bot endpoints.
@@ -70,7 +68,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
 
     def __init__(self, ctx: dict = None):  # type: ignore[assignment]
         super().__init__(ctx or {})  # type: ignore[arg-type]
-        self._bot: Optional[Any] = None
+        self._bot: Any | None = None
         self._bot_initialized = False
 
     def _is_bot_enabled(self) -> bool:
@@ -78,7 +76,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
         return bool(TEAMS_APP_ID and TEAMS_APP_PASSWORD)
 
     def _build_status_response(
-        self, extra_status: Optional[Dict[str, Any]] = None
+        self, extra_status: Optional[dict[str, Any]] = None
     ) -> HandlerResult:
         """Build Teams-specific status response."""
         available, error = _check_botframework_available()
@@ -95,7 +93,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
             status.update(extra_status)
         return json_response(status)
 
-    async def _ensure_bot(self) -> Optional[Any]:
+    async def _ensure_bot(self) -> Any | None:
         """Lazily initialize the Teams bot."""
         if self._bot_initialized:
             return self._bot
@@ -135,8 +133,8 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=30, limiter_name="teams_status")
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Teams requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/teams/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -146,8 +144,8 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=60, limiter_name="teams_messages")
     async def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/bots/teams/messages":
             return await self._handle_messages(handler)
@@ -216,6 +214,5 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
 
         except Exception as e:
             return self._handle_webhook_exception(e, "Teams message", return_200_on_error=False)
-
 
 __all__ = ["TeamsHandler"]

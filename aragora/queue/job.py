@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.config import DEFAULT_AGENT_LIST, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.queue.base import Job
 from aragora.serialization import SerializableMixin
-
 
 @dataclass
 class DebateJobPayload(SerializableMixin):
@@ -24,34 +23,33 @@ class DebateJobPayload(SerializableMixin):
     """
 
     question: str
-    agents: List[str] = field(default_factory=lambda: list(DEFAULT_AGENT_LIST))
+    agents: list[str] = field(default_factory=lambda: list(DEFAULT_AGENT_LIST))
     rounds: int = DEFAULT_ROUNDS
     consensus: str = DEFAULT_CONSENSUS
     protocol: str = "standard"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Optional configuration
-    timeout_seconds: Optional[int] = None
-    webhook_url: Optional[str] = None
-    user_id: Optional[str] = None
-    organization_id: Optional[str] = None
+    timeout_seconds: int | None = None
+    webhook_url: str | None = None
+    user_id: str | None = None
+    organization_id: str | None = None
 
     # to_dict() and from_dict() inherited from SerializableMixin
 
-
 def create_debate_job(
     question: str,
-    agents: Optional[List[str]] = None,
+    agents: Optional[list[str]] = None,
     rounds: int = DEFAULT_ROUNDS,
     consensus: str = DEFAULT_CONSENSUS,
     protocol: str = "standard",
     priority: int = 0,
     max_attempts: int = 3,
-    timeout_seconds: Optional[int] = None,
-    webhook_url: Optional[str] = None,
-    user_id: Optional[str] = None,
-    organization_id: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    timeout_seconds: int | None = None,
+    webhook_url: str | None = None,
+    user_id: str | None = None,
+    organization_id: str | None = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> Job:
     """
     Create a new debate job.
@@ -97,7 +95,6 @@ def create_debate_job(
         },
     )
 
-
 def get_debate_payload(job: Job) -> DebateJobPayload:
     """
     Extract the debate payload from a job.
@@ -110,7 +107,6 @@ def get_debate_payload(job: Job) -> DebateJobPayload:
     """
     return DebateJobPayload.from_dict(job.payload)
 
-
 @dataclass
 class DebateResult:
     """
@@ -121,15 +117,15 @@ class DebateResult:
 
     debate_id: str
     consensus_reached: bool
-    final_answer: Optional[str]
+    final_answer: str | None
     confidence: float
     rounds_used: int
-    participants: List[str]
+    participants: list[str]
     duration_seconds: float
-    token_usage: Dict[str, int] = field(default_factory=dict)
-    error: Optional[str] = None
+    token_usage: dict[str, int] = field(default_factory=dict)
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "debate_id": self.debate_id,
@@ -144,7 +140,7 @@ class DebateResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DebateResult":
+    def from_dict(cls, data: dict[str, Any]) -> "DebateResult":
         """Create from dictionary."""
         return cls(
             debate_id=data["debate_id"],

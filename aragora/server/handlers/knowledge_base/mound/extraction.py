@@ -12,7 +12,7 @@ Phase A2 - Knowledge Extraction & Integration
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -29,14 +29,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ExtractionHandlerProtocol(Protocol):
     """Protocol for handlers that use ExtractionOperationsMixin."""
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
-
 
 class ExtractionOperationsMixin:
     """Mixin providing knowledge extraction API endpoints."""
@@ -50,9 +48,9 @@ class ExtractionOperationsMixin:
     async def extract_from_debate(
         self,
         debate_id: str,
-        messages: List[Dict[str, Any]],
-        consensus_text: Optional[str] = None,
-        topic: Optional[str] = None,
+        messages: list[dict[str, Any]],
+        consensus_text: str | None = None,
+        topic: str | None = None,
     ) -> HandlerResult:
         """
         Extract knowledge from a debate.
@@ -105,7 +103,7 @@ class ExtractionOperationsMixin:
     async def promote_extracted_knowledge(
         self,
         workspace_id: str,
-        claim_ids: Optional[List[str]] = None,
+        claim_ids: Optional[list[str]] = None,
         min_confidence: float = 0.6,
     ) -> HandlerResult:
         """

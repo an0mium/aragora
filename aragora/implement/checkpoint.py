@@ -4,13 +4,13 @@ Checkpoint module for crash recovery.
 Provides atomic save/load operations for implementation progress,
 enabling resumption after crashes or interruptions.
 """
+from __future__ import annotations
 
 import json
 import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,9 @@ from .types import ImplementProgress
 
 PROGRESS_FILENAME = "implement_progress.json"
 
-
 def get_progress_path(repo_path: Path) -> Path:
     """Get the path to the progress file."""
     return repo_path / ".nomic" / PROGRESS_FILENAME
-
 
 def save_progress(progress: ImplementProgress, repo_path: Path) -> None:
     """
@@ -58,8 +56,7 @@ def save_progress(progress: ImplementProgress, repo_path: Path) -> None:
             os.unlink(temp_path)
         raise
 
-
-def load_progress(repo_path: Path) -> Optional[ImplementProgress]:
+def load_progress(repo_path: Path) -> ImplementProgress | None:
     """
     Load progress from disk if it exists.
 
@@ -79,7 +76,6 @@ def load_progress(repo_path: Path) -> Optional[ImplementProgress]:
         logger.warning(f"Corrupted progress file, starting fresh: {e}")
         return None
 
-
 def clear_progress(repo_path: Path) -> None:
     """
     Clear progress file after successful completion.
@@ -87,7 +83,6 @@ def clear_progress(repo_path: Path) -> None:
     progress_path = get_progress_path(repo_path)
     if progress_path.exists():
         progress_path.unlink()
-
 
 def update_current_task(repo_path: Path, task_id: str) -> None:
     """

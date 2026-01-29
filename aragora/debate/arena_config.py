@@ -8,7 +8,7 @@ Provides type-safe configuration for Arena initialization.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.debate.protocol import CircuitBreaker
 from aragora.spectate.stream import SpectatorStream
@@ -33,7 +33,6 @@ from aragora.type_protocols import (
     PulseManagerProtocol,
     RelationshipTrackerProtocol,
 )
-
 
 @dataclass
 class ArenaConfig:
@@ -112,54 +111,54 @@ class ArenaConfig:
     strict_loop_scoping: bool = False
 
     # Core subsystems (typically injected)
-    memory: Optional[Any] = None  # CritiqueStore
-    event_hooks: Optional[Dict[str, Any]] = None
-    hook_manager: Optional[Any] = None  # HookManager for extended lifecycle hooks
+    memory: Any | None = None  # CritiqueStore
+    event_hooks: Optional[dict[str, Any]] = None
+    hook_manager: Any | None = None  # HookManager for extended lifecycle hooks
     # YAML-based declarative hooks
     yaml_hooks_dir: str = "hooks"  # Directory to search for YAML hook definitions
     enable_yaml_hooks: bool = True  # Auto-discover and load YAML hooks on startup
     yaml_hooks_recursive: bool = True  # Search subdirectories for YAML hooks
-    event_emitter: Optional[EventEmitterProtocol] = None
-    spectator: Optional[SpectatorStream] = None
-    debate_embeddings: Optional[DebateEmbeddingsProtocol] = None
-    insight_store: Optional[InsightStoreProtocol] = None
-    recorder: Optional[Any] = None  # ReplayRecorder
-    circuit_breaker: Optional[CircuitBreaker] = None
-    evidence_collector: Optional[EvidenceCollectorProtocol] = None
+    event_emitter: EventEmitterProtocol | None = None
+    spectator: SpectatorStream | None = None
+    debate_embeddings: DebateEmbeddingsProtocol | None = None
+    insight_store: InsightStoreProtocol | None = None
+    recorder: Any | None = None  # ReplayRecorder
+    circuit_breaker: CircuitBreaker | None = None
+    evidence_collector: EvidenceCollectorProtocol | None = None
 
     # Skills system integration
-    skill_registry: Optional[Any] = None  # SkillRegistry for extensible capabilities
+    skill_registry: Any | None = None  # SkillRegistry for extensible capabilities
     enable_skills: bool = False  # Enable skills during evidence collection
 
     # Propulsion engine for push-based work assignment (Gastown pattern)
-    propulsion_engine: Optional[Any] = None  # PropulsionEngine for reactive debate flow
+    propulsion_engine: Any | None = None  # PropulsionEngine for reactive debate flow
     enable_propulsion: bool = False  # Enable propulsion events at stage transitions
 
     # Agent configuration
-    agent_weights: Optional[Dict[str, float]] = None
+    agent_weights: Optional[dict[str, float]] = None
 
     # Vertical personas (industry-specific configuration)
-    vertical: Optional[str] = None  # Industry vertical: "software", "legal", "healthcare", etc.
-    vertical_persona_manager: Optional[Any] = None  # VerticalPersonaManager instance
+    vertical: str | None = None  # Industry vertical: "software", "legal", "healthcare", etc.
+    vertical_persona_manager: Any | None = None  # VerticalPersonaManager instance
     auto_detect_vertical: bool = True  # Auto-detect vertical from task description
 
     # Tracking subsystems
-    position_tracker: Optional[PositionTrackerProtocol] = None
-    position_ledger: Optional[PositionLedgerProtocol] = None
+    position_tracker: PositionTrackerProtocol | None = None
+    position_ledger: PositionLedgerProtocol | None = None
     enable_position_ledger: bool = False  # Auto-create PositionLedger if not provided
-    elo_system: Optional[EloSystemProtocol] = None
-    persona_manager: Optional[PersonaManagerProtocol] = None
-    dissent_retriever: Optional[DissentRetrieverProtocol] = None
-    consensus_memory: Optional[ConsensusMemoryProtocol] = None
-    flip_detector: Optional[FlipDetectorProtocol] = None
-    calibration_tracker: Optional[CalibrationTrackerProtocol] = None
-    continuum_memory: Optional[ContinuumMemoryProtocol] = None
-    relationship_tracker: Optional[RelationshipTrackerProtocol] = None
-    moment_detector: Optional[MomentDetectorProtocol] = None
-    tier_analytics_tracker: Optional[Any] = None  # TierAnalyticsTracker for memory ROI
+    elo_system: EloSystemProtocol | None = None
+    persona_manager: PersonaManagerProtocol | None = None
+    dissent_retriever: DissentRetrieverProtocol | None = None
+    consensus_memory: ConsensusMemoryProtocol | None = None
+    flip_detector: FlipDetectorProtocol | None = None
+    calibration_tracker: CalibrationTrackerProtocol | None = None
+    continuum_memory: ContinuumMemoryProtocol | None = None
+    relationship_tracker: RelationshipTrackerProtocol | None = None
+    moment_detector: MomentDetectorProtocol | None = None
+    tier_analytics_tracker: Any | None = None  # TierAnalyticsTracker for memory ROI
 
     # Knowledge Mound integration
-    knowledge_mound: Optional[Any] = None  # KnowledgeMound for unified knowledge queries/ingestion
+    knowledge_mound: Any | None = None  # KnowledgeMound for unified knowledge queries/ingestion
     enable_knowledge_retrieval: bool = True  # Query mound before debates for relevant knowledge
     enable_knowledge_ingestion: bool = True  # Store consensus outcomes in mound after debates
     enable_knowledge_extraction: bool = (
@@ -171,74 +170,74 @@ class ArenaConfig:
     enable_auto_revalidation: bool = False  # Auto-trigger revalidation for stale knowledge
     revalidation_staleness_threshold: float = 0.7  # Staleness score threshold (0.0-1.0)
     revalidation_check_interval_seconds: int = 3600  # Interval between staleness checks (1 hour)
-    revalidation_scheduler: Optional[Any] = None  # Pre-configured RevalidationScheduler
+    revalidation_scheduler: Any | None = None  # Pre-configured RevalidationScheduler
 
     # Belief Network guidance (cross-debate crux injection)
     enable_belief_guidance: bool = True  # Inject historical cruxes from similar debates as context
 
     # Cross-debate institutional memory
-    cross_debate_memory: Optional[Any] = None  # CrossDebateMemory for institutional knowledge
+    cross_debate_memory: Any | None = None  # CrossDebateMemory for institutional knowledge
     enable_cross_debate_memory: bool = True  # Inject institutional knowledge from past debates
 
     # Post-debate workflow automation
-    post_debate_workflow: Optional[Any] = (
+    post_debate_workflow: Any | None = (
         None  # Workflow DAG to trigger after high-confidence debates
     )
     enable_post_debate_workflow: bool = False  # Auto-trigger workflow after debates
     post_debate_workflow_threshold: float = 0.7  # Min confidence to trigger workflow
 
     # Genesis evolution
-    population_manager: Optional[PopulationManagerProtocol] = None
+    population_manager: PopulationManagerProtocol | None = None
     auto_evolve: bool = False  # Trigger evolution after high-quality debates
     breeding_threshold: float = 0.8  # Min confidence to trigger evolution
 
     # Fork/continuation support
-    initial_messages: Optional[List[Any]] = None
-    trending_topic: Optional[Any] = None  # TrendingTopic
-    pulse_manager: Optional[PulseManagerProtocol] = None
+    initial_messages: Optional[list[Any]] = None
+    trending_topic: Any | None = None  # TrendingTopic
+    pulse_manager: PulseManagerProtocol | None = None
     auto_fetch_trending: bool = False  # Auto-fetch trending topics if none provided
 
     # Human-in-the-loop breakpoints
-    breakpoint_manager: Optional[Any] = None  # BreakpointManager
+    breakpoint_manager: Any | None = None  # BreakpointManager
 
     # Debate checkpointing for resume support
-    checkpoint_manager: Optional[Any] = None  # CheckpointManager for pause/resume
+    checkpoint_manager: Any | None = None  # CheckpointManager for pause/resume
     enable_checkpointing: bool = (
         True  # Auto-create CheckpointManager if True (enables debate resume)
     )
 
     # Performance telemetry
-    performance_monitor: Optional[Any] = None  # AgentPerformanceMonitor
+    performance_monitor: Any | None = None  # AgentPerformanceMonitor
     enable_performance_monitor: bool = True  # Auto-create PerformanceMonitor for timing metrics
     enable_telemetry: bool = False  # Enable Prometheus/Blackbox telemetry emission
 
     # Agent selection (performance-based team formation)
-    agent_selector: Optional[Any] = None  # AgentSelector for performance-based selection
+    agent_selector: Any | None = None  # AgentSelector for performance-based selection
     use_performance_selection: bool = (
         True  # Enable ELO/calibration-based agent selection (default: on)
     )
 
     # Airlock resilience layer
     use_airlock: bool = False  # Wrap agents with AirlockProxy for timeout/fallback
-    airlock_config: Optional[Any] = None  # AirlockConfig for customization
+    airlock_config: Any | None = None  # AirlockConfig for customization
 
     # Prompt evolution for self-improvement
-    prompt_evolver: Optional[PromptEvolverProtocol] = None
+    prompt_evolver: PromptEvolverProtocol | None = None
     enable_prompt_evolution: bool = False  # Auto-create PromptEvolver if True
 
     # Billing/usage tracking (multi-tenancy)
     org_id: str = ""  # Organization ID for multi-tenancy
     user_id: str = ""  # User ID for usage attribution
-    usage_tracker: Optional[Any] = None  # UsageTracker for token usage
+    usage_tracker: Any | None = None  # UsageTracker for token usage
 
     # Broadcast auto-trigger for high-quality debates
-    broadcast_pipeline: Optional[BroadcastPipelineProtocol] = None
+    broadcast_pipeline: BroadcastPipelineProtocol | None = None
     auto_broadcast: bool = False  # Auto-trigger broadcast after high-quality debates
     broadcast_min_confidence: float = 0.8  # Minimum confidence to trigger broadcast
-    broadcast_platforms: Optional[List[str]] = None  # Platforms to publish to (default: ["rss"])
+    broadcast_platforms: Optional[list[str]] = None  # Platforms to publish to (default: ["rss"])
 
     # Training data export (Tinker integration)
-    training_exporter: Optional[Any] = None  # TrainingDataExporter for auto-export
+    training_exporter: Any | None = None  # TrainingDataExporter for auto-export
     auto_export_training: bool = False  # Auto-export training data after debates
     training_export_min_confidence: float = 0.75  # Min confidence to export as SFT
     training_export_path: str = ""  # Output path for training data (default: data/training/)
@@ -247,23 +246,23 @@ class ArenaConfig:
     enable_receipt_generation: bool = False  # Auto-generate decision receipts after debates
     receipt_min_confidence: float = 0.6  # Min confidence to generate receipt (0.0-1.0)
     receipt_auto_sign: bool = False  # Auto-sign receipts with HMAC-SHA256
-    receipt_store: Optional[Any] = None  # Pre-configured receipt store for persistence
+    receipt_store: Any | None = None  # Pre-configured receipt store for persistence
 
     # Evidence Provenance Tracking (cryptographic audit trail)
     enable_provenance: bool = False  # Enable evidence provenance tracking during debates
-    provenance_manager: Optional[Any] = None  # Pre-configured ProvenanceManager instance
-    provenance_store: Optional[Any] = None  # Pre-configured ProvenanceStore for persistence
+    provenance_manager: Any | None = None  # Pre-configured ProvenanceManager instance
+    provenance_store: Any | None = None  # Pre-configured ProvenanceStore for persistence
     provenance_auto_persist: bool = True  # Auto-persist provenance chain after debate completion
 
     # Bead Tracking (git-backed audit trail for debate decisions)
     enable_bead_tracking: bool = False  # Create Bead for each debate decision
-    bead_store: Optional[Any] = None  # Pre-configured BeadStore for persistence
+    bead_store: Any | None = None  # Pre-configured BeadStore for persistence
     bead_min_confidence: float = 0.5  # Min confidence to create a bead (0.0-1.0)
     bead_auto_commit: bool = False  # Auto-commit beads to git after creation
 
     # ML Integration (local ML models for routing, quality, consensus)
     enable_ml_delegation: bool = False  # Use ML-based agent selection (MLDelegationStrategy)
-    ml_delegation_strategy: Optional[Any] = None  # Custom MLDelegationStrategy instance
+    ml_delegation_strategy: Any | None = None  # Custom MLDelegationStrategy instance
     ml_delegation_weight: float = 0.3  # Weight for ML scoring vs ELO (0.0-1.0)
     enable_quality_gates: bool = False  # Filter low-quality responses via QualityGate
     quality_gate_threshold: float = 0.6  # Minimum quality score (0.0-1.0)
@@ -277,7 +276,7 @@ class ArenaConfig:
 
     # RLM Cognitive Load Limiter (for long debates)
     use_rlm_limiter: bool = True  # Use RLM-enhanced cognitive limiter for context compression (auto-triggers after rlm_compression_round_threshold)
-    rlm_limiter: Optional[Any] = None  # Pre-configured RLMCognitiveLoadLimiter
+    rlm_limiter: Any | None = None  # Pre-configured RLMCognitiveLoadLimiter
     rlm_compression_threshold: int = 3000  # Chars above which to trigger RLM compression
     rlm_max_recent_messages: int = 5  # Keep N most recent messages at full detail
     rlm_summary_level: str = (
@@ -287,7 +286,7 @@ class ArenaConfig:
 
     # Memory Coordination (cross-system atomic writes)
     enable_coordinated_writes: bool = True  # Use MemoryCoordinator for atomic multi-system writes
-    memory_coordinator: Optional[Any] = None  # Pre-configured MemoryCoordinator
+    memory_coordinator: Any | None = None  # Pre-configured MemoryCoordinator
     coordinator_parallel_writes: bool = (
         False  # Execute memory writes in parallel (False = safer sequential)
     )
@@ -296,28 +295,28 @@ class ArenaConfig:
 
     # Performance → Selection Feedback Loop
     enable_performance_feedback: bool = True  # Adjust selection weights based on debate performance
-    selection_feedback_loop: Optional[Any] = None  # Pre-configured SelectionFeedbackLoop
+    selection_feedback_loop: Any | None = None  # Pre-configured SelectionFeedbackLoop
     feedback_loop_weight: float = 0.15  # Weight for feedback adjustments (0.0-1.0)
     feedback_loop_decay: float = 0.9  # Decay factor for old feedback
     feedback_loop_min_debates: int = 3  # Min debates before applying feedback
 
     # Hook System Activation (cross-subsystem event wiring)
     enable_hook_handlers: bool = True  # Register default hook handlers via HookHandlerRegistry
-    hook_handler_registry: Optional[Any] = None  # Pre-configured HookHandlerRegistry
+    hook_handler_registry: Any | None = None  # Pre-configured HookHandlerRegistry
 
     # Performance → ELO Integration (cross-pollination)
     enable_performance_elo: bool = True  # Use performance metrics to modulate ELO K-factors
-    performance_elo_integrator: Optional[Any] = None  # Pre-configured PerformanceEloIntegrator
+    performance_elo_integrator: Any | None = None  # Pre-configured PerformanceEloIntegrator
 
     # Outcome → Memory Integration (cross-pollination)
     enable_outcome_memory: bool = True  # Promote memories used in successful debates
-    outcome_memory_bridge: Optional[Any] = None  # Pre-configured OutcomeMemoryBridge
+    outcome_memory_bridge: Any | None = None  # Pre-configured OutcomeMemoryBridge
     outcome_memory_success_threshold: float = 0.7  # Min confidence for promotion
     outcome_memory_usage_threshold: int = 3  # Successful uses before promotion
 
     # Trickster Auto-Calibration (cross-pollination)
     enable_trickster_calibration: bool = True  # Auto-calibrate Trickster based on outcomes
-    trickster_calibrator: Optional[Any] = None  # Pre-configured TricksterCalibrator
+    trickster_calibrator: Any | None = None  # Pre-configured TricksterCalibrator
     trickster_calibration_min_samples: int = 20  # Min outcomes before calibrating
     trickster_calibration_interval: int = 50  # Debates between calibrations
 
@@ -334,7 +333,7 @@ class ArenaConfig:
     # Performance → Agent Router Bridge
     # Routes agents based on performance metrics (latency, quality, consistency)
     enable_performance_router: bool = True  # Use performance metrics to inform routing
-    performance_router_bridge: Optional[Any] = None  # Pre-configured PerformanceRouterBridge
+    performance_router_bridge: Any | None = None  # Pre-configured PerformanceRouterBridge
     performance_router_latency_weight: float = 0.3  # Weight for latency in routing score
     performance_router_quality_weight: float = 0.4  # Weight for quality in routing score
     performance_router_consistency_weight: float = 0.3  # Weight for consistency
@@ -342,7 +341,7 @@ class ArenaConfig:
     # Outcome → Complexity Governor Bridge
     # Adjusts complexity budgets based on outcome patterns
     enable_outcome_complexity: bool = True  # Use outcomes to inform complexity governance
-    outcome_complexity_bridge: Optional[Any] = None  # Pre-configured OutcomeComplexityBridge
+    outcome_complexity_bridge: Any | None = None  # Pre-configured OutcomeComplexityBridge
     outcome_complexity_high_success_boost: float = 0.1  # Boost for high-success agents
     outcome_complexity_low_success_penalty: float = 0.15  # Penalty for low-success agents
     outcome_complexity_min_outcomes: int = 5  # Min outcomes before applying adjustments
@@ -350,14 +349,14 @@ class ArenaConfig:
     # Analytics → Team Selection Bridge
     # Uses analytics patterns to improve team composition
     enable_analytics_selection: bool = True  # Use analytics to inform team selection
-    analytics_selection_bridge: Optional[Any] = None  # Pre-configured AnalyticsSelectionBridge
+    analytics_selection_bridge: Any | None = None  # Pre-configured AnalyticsSelectionBridge
     analytics_selection_diversity_weight: float = 0.2  # Weight for cognitive diversity
     analytics_selection_synergy_weight: float = 0.3  # Weight for historical synergy
 
     # Novelty → Selection Feedback Bridge
     # Penalizes low-novelty agents in selection, rewards diverse thinkers
     enable_novelty_selection: bool = True  # Use novelty metrics for selection feedback
-    novelty_selection_bridge: Optional[Any] = None  # Pre-configured NoveltySelectionBridge
+    novelty_selection_bridge: Any | None = None  # Pre-configured NoveltySelectionBridge
     novelty_selection_low_penalty: float = 0.15  # Penalty for consistently low novelty
     novelty_selection_high_bonus: float = 0.1  # Bonus for consistently high novelty
     novelty_selection_min_proposals: int = 10  # Min proposals before applying adjustments
@@ -366,7 +365,7 @@ class ArenaConfig:
     # Relationship → Bias Mitigation Bridge
     # Detects echo chambers and adjusts voting weights
     enable_relationship_bias: bool = True  # Use relationships to detect/mitigate bias
-    relationship_bias_bridge: Optional[Any] = None  # Pre-configured RelationshipBiasBridge
+    relationship_bias_bridge: Any | None = None  # Pre-configured RelationshipBiasBridge
     relationship_bias_alliance_threshold: float = (
         0.7  # Alliance score threshold for echo chamber risk
     )
@@ -377,7 +376,7 @@ class ArenaConfig:
     # RLM → Selection Feedback Bridge
     # Optimizes selection for agents efficient with compressed context
     enable_rlm_selection: bool = True  # Use RLM metrics for selection feedback
-    rlm_selection_bridge: Optional[Any] = None  # Pre-configured RLMSelectionBridge
+    rlm_selection_bridge: Any | None = None  # Pre-configured RLMSelectionBridge
     rlm_selection_min_operations: int = 5  # Min RLM operations before applying boost
     rlm_selection_compression_weight: float = 0.15  # Weight for compression efficiency
     rlm_selection_query_weight: float = 0.15  # Weight for query efficiency
@@ -386,7 +385,7 @@ class ArenaConfig:
     # Calibration → Cost Optimizer Bridge
     # Selects cost-efficient agents based on calibration quality
     enable_calibration_cost: bool = True  # Use calibration to optimize costs
-    calibration_cost_bridge: Optional[Any] = None  # Pre-configured CalibrationCostBridge
+    calibration_cost_bridge: Any | None = None  # Pre-configured CalibrationCostBridge
     calibration_cost_min_predictions: int = 20  # Min predictions before scoring
     calibration_cost_ece_threshold: float = 0.1  # ECE threshold for "well-calibrated"
     calibration_cost_overconfident_multiplier: float = 1.3  # Cost multiplier for overconfident
@@ -403,7 +402,7 @@ class ArenaConfig:
     # ContinuumMemory ↔ KM bidirectional sync
     # KM validation improves memory tier placement and importance scores
     enable_km_continuum_sync: bool = True  # Enable KM → ContinuumMemory reverse flow
-    km_continuum_adapter: Optional[Any] = None  # Pre-configured ContinuumAdapter
+    km_continuum_adapter: Any | None = None  # Pre-configured ContinuumAdapter
     km_continuum_min_confidence: float = 0.7  # Min KM confidence for tier changes
     km_continuum_promotion_threshold: float = 0.8  # Cross-debate utility for promotion
     km_continuum_demotion_threshold: float = 0.3  # KM confidence for demotion
@@ -412,7 +411,7 @@ class ArenaConfig:
     # ELO/Ranking ↔ KM bidirectional sync
     # KM patterns influence agent ELO adjustments
     enable_km_elo_sync: bool = True  # Enable KM → ELO reverse flow
-    km_elo_bridge: Optional[Any] = None  # Pre-configured KMEloBridge
+    km_elo_bridge: Any | None = None  # Pre-configured KMEloBridge
     km_elo_min_pattern_confidence: float = 0.7  # Min confidence for ELO adjustments
     km_elo_max_adjustment: float = 50.0  # Max ELO change per sync
     km_elo_sync_interval_hours: int = 24  # Interval between KM → ELO syncs
@@ -420,7 +419,7 @@ class ArenaConfig:
     # OutcomeTracker ↔ KM bidirectional sync
     # Debate outcomes validate/invalidate KM entries
     enable_km_outcome_validation: bool = True  # Enable Outcome → KM validation
-    km_outcome_bridge: Optional[Any] = None  # Pre-configured KMOutcomeBridge
+    km_outcome_bridge: Any | None = None  # Pre-configured KMOutcomeBridge
     km_outcome_success_boost: float = 0.1  # Confidence boost for successful outcomes
     km_outcome_failure_penalty: float = 0.05  # Confidence penalty for failed outcomes
     km_outcome_propagation_depth: int = 2  # How deep to propagate validation in graph
@@ -428,28 +427,28 @@ class ArenaConfig:
     # BeliefNetwork ↔ KM bidirectional sync
     # KM patterns improve belief detection thresholds
     enable_km_belief_sync: bool = True  # Enable KM → BeliefNetwork reverse flow
-    km_belief_adapter: Optional[Any] = None  # Pre-configured BeliefAdapter
+    km_belief_adapter: Any | None = None  # Pre-configured BeliefAdapter
     km_belief_threshold_min_samples: int = 50  # Min samples before threshold updates
     km_belief_crux_sensitivity_range: tuple = (0.2, 0.8)  # Bounds for crux sensitivity
 
     # InsightStore/FlipDetector ↔ KM bidirectional sync
     # KM patterns improve flip detection baselines
     enable_km_flip_sync: bool = True  # Enable KM → FlipDetector reverse flow
-    km_insights_adapter: Optional[Any] = None  # Pre-configured InsightsAdapter
+    km_insights_adapter: Any | None = None  # Pre-configured InsightsAdapter
     km_flip_min_outcomes: int = 20  # Min outcomes before baseline updates
     km_flip_sensitivity_range: tuple = (0.3, 0.9)  # Bounds for flip sensitivity
 
     # CritiqueStore ↔ KM bidirectional sync
     # KM validation boosts successful critique patterns
     enable_km_critique_sync: bool = True  # Enable KM → CritiqueStore reverse flow
-    km_critique_adapter: Optional[Any] = None  # Pre-configured CritiqueAdapter
+    km_critique_adapter: Any | None = None  # Pre-configured CritiqueAdapter
     km_critique_success_boost: float = 0.15  # Pattern score boost for success
     km_critique_min_validations: int = 5  # Min validations before boosting
 
     # Pulse/Trending ↔ KM bidirectional sync
     # KM coverage influences topic scheduling
     enable_km_pulse_sync: bool = True  # Enable KM → Pulse reverse flow
-    km_pulse_adapter: Optional[Any] = None  # Pre-configured PulseAdapter
+    km_pulse_adapter: Any | None = None  # Pre-configured PulseAdapter
     km_pulse_coverage_weight: float = 0.2  # Weight for KM coverage in scheduling
     km_pulse_recommend_limit: int = 10  # Max topic recommendations per sync
 
@@ -458,14 +457,14 @@ class ArenaConfig:
     km_sync_interval_seconds: int = 300  # Interval between bidirectional syncs (5 min)
     km_min_confidence_for_reverse: float = 0.7  # Min confidence for any reverse flow
     km_parallel_sync: bool = True  # Run adapter syncs in parallel (faster, more resource intensive)
-    km_bidirectional_coordinator: Optional[Any] = None  # Pre-configured BidirectionalCoordinator
+    km_bidirectional_coordinator: Any | None = None  # Pre-configured BidirectionalCoordinator
 
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:
             self.broadcast_platforms = ["rss"]
 
-    def to_arena_kwargs(self) -> Dict[str, Any]:
+    def to_arena_kwargs(self) -> dict[str, Any]:
         """Convert config to kwargs dict for Arena.__init__.
 
         Returns:
@@ -597,6 +596,5 @@ class ArenaConfig:
             #     calibration_cost_min_predictions, calibration_cost_ece_threshold,
             #     calibration_cost_overconfident_multiplier, calibration_cost_weight
         }
-
 
 __all__ = ["ArenaConfig"]

@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.core import Vote
@@ -42,17 +42,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class EchoChamberRisk:
     """Assessment of echo chamber risk for a team."""
 
-    team: List[str]
+    team: list[str]
     overall_risk: float  # 0-1, higher = more echo chamber risk
-    high_alliance_pairs: List[Tuple[str, str]]  # Pairs with alliance_score > threshold
-    agreement_stats: Dict[str, float]  # Pair -> agreement_rate
+    high_alliance_pairs: list[tuple[str, str]]  # Pairs with alliance_score > threshold
+    agreement_stats: dict[str, float]  # Pair -> agreement_rate
     recommendation: str  # "safe", "caution", "high_risk"
-
 
 @dataclass
 class RelationshipBiasBridgeConfig:
@@ -80,7 +78,6 @@ class RelationshipBiasBridgeConfig:
     # Diversity bonus for teams with varied relationships
     diversity_bonus: float = 0.1
 
-
 @dataclass
 class RelationshipBiasBridge:
     """Bridges RelationshipTracker into BiasMitigation decisions.
@@ -96,11 +93,11 @@ class RelationshipBiasBridge:
     config: RelationshipBiasBridgeConfig = field(default_factory=RelationshipBiasBridgeConfig)
 
     # Cache for relationship metrics
-    _metrics_cache: Dict[Tuple[str, str], "RelationshipMetrics"] = field(
+    _metrics_cache: dict[tuple[str, str], "RelationshipMetrics"] = field(
         default_factory=dict, repr=False
     )
 
-    def compute_team_echo_risk(self, team: List[str]) -> EchoChamberRisk:
+    def compute_team_echo_risk(self, team: list[str]) -> EchoChamberRisk:
         """Assess echo chamber risk for a team.
 
         Args:
@@ -118,8 +115,8 @@ class RelationshipBiasBridge:
                 recommendation="safe",
             )
 
-        high_alliance_pairs: List[Tuple[str, str]] = []
-        agreement_stats: Dict[str, float] = {}
+        high_alliance_pairs: list[tuple[str, str]] = []
+        agreement_stats: dict[str, float] = {}
         total_risk = 0.0
         pair_count = 0
 
@@ -187,9 +184,9 @@ class RelationshipBiasBridge:
 
     def compute_vote_weight_adjustments(
         self,
-        votes: List["Vote"],
-        proposals: Dict[str, str],
-    ) -> Dict[str, float]:
+        votes: list["Vote"],
+        proposals: dict[str, str],
+    ) -> dict[str, float]:
         """Compute vote weight adjustments based on relationships.
 
         Reduces weight of votes from agents with high alliance scores
@@ -205,7 +202,7 @@ class RelationshipBiasBridge:
         if not self.config.apply_vote_adjustments:
             return {v.agent: 1.0 for v in votes}
 
-        adjustments: Dict[str, float] = {}
+        adjustments: dict[str, float] = {}
 
         for vote in votes:
             voter = vote.agent
@@ -242,10 +239,10 @@ class RelationshipBiasBridge:
 
     def get_diverse_team_candidates(
         self,
-        available_agents: List[str],
+        available_agents: list[str],
         team_size: int,
-        required_agents: Optional[List[str]] = None,
-    ) -> List[List[str]]:
+        required_agents: Optional[list[str]] = None,
+    ) -> list[list[str]]:
         """Suggest diverse team compositions.
 
         Prefers teams with lower echo chamber risk.
@@ -272,7 +269,7 @@ class RelationshipBiasBridge:
             return [list(required) + remaining]
 
         # Generate all combinations
-        candidates: List[Tuple[float, List[str]]] = []
+        candidates: list[tuple[float, list[str]]] = []
 
         for combo in combinations(remaining, slots_to_fill):
             team = list(required) + list(combo)
@@ -286,8 +283,8 @@ class RelationshipBiasBridge:
 
     def get_echo_chamber_pairs(
         self,
-        agents: Optional[List[str]] = None,
-    ) -> List[Tuple[str, str, float]]:
+        agents: Optional[list[str]] = None,
+    ) -> list[tuple[str, str, float]]:
         """Get all agent pairs that form potential echo chambers.
 
         Args:
@@ -296,7 +293,7 @@ class RelationshipBiasBridge:
         Returns:
             List of (agent_a, agent_b, combined_risk) tuples
         """
-        echo_pairs: List[Tuple[str, str, float]] = []
+        echo_pairs: list[tuple[str, str, float]] = []
 
         if agents:
             # Check specific pairs
@@ -350,7 +347,7 @@ class RelationshipBiasBridge:
 
         return metrics
 
-    def compute_diversity_score(self, team: List[str]) -> float:
+    def compute_diversity_score(self, team: list[str]) -> float:
         """Compute a diversity score for a team.
 
         Higher score = more diverse relationships.
@@ -387,7 +384,7 @@ class RelationshipBiasBridge:
 
         return total_diversity / pair_count if pair_count > 0 else 0.5
 
-    def refresh_cache(self, agents: List[str]) -> int:
+    def refresh_cache(self, agents: list[str]) -> int:
         """Refresh relationship cache for a set of agents.
 
         Args:
@@ -409,7 +406,7 @@ class RelationshipBiasBridge:
         """Clear the relationship metrics cache."""
         self._metrics_cache.clear()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.
 
         Returns:
@@ -424,7 +421,6 @@ class RelationshipBiasBridge:
             "echo_threshold_alliance": self.config.echo_chamber_alliance_threshold,
             "echo_threshold_agreement": self.config.echo_chamber_agreement_threshold,
         }
-
 
 def create_relationship_bias_bridge(
     relationship_tracker: Optional["RelationshipTracker"] = None,
@@ -444,7 +440,6 @@ def create_relationship_bias_bridge(
         relationship_tracker=relationship_tracker,
         config=config,
     )
-
 
 __all__ = [
     "RelationshipBiasBridge",

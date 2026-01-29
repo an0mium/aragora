@@ -20,9 +20,7 @@ from typing import (
     Any,
     AsyncIterator,
     Callable,
-    Dict,
     Generic,
-    List,
     Optional,
     Protocol,
     TypeVar,
@@ -37,11 +35,9 @@ T = TypeVar("T")
 AgentT = TypeVar("AgentT", bound="AgentProtocol")
 MemoryT = TypeVar("MemoryT", bound="MemoryProtocol")
 
-
 # =============================================================================
 # Agent Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class AgentProtocol(Protocol):
@@ -54,7 +50,7 @@ class AgentProtocol(Protocol):
         class MyAgent:
             name = "my-agent"
 
-            async def respond(self, prompt: str, context: Optional[str] = None) -> str:
+            async def respond(self, prompt: str, context: str | None = None) -> str:
                 return "Response"
 
         agent: AgentProtocol = MyAgent()  # Type checks correctly
@@ -62,40 +58,36 @@ class AgentProtocol(Protocol):
 
     name: str
 
-    async def respond(self, prompt: str, context: Optional[str] = None) -> str:
+    async def respond(self, prompt: str, context: str | None = None) -> str:
         """Generate a response to the given prompt."""
         ...
-
 
 @runtime_checkable
 class StreamingAgentProtocol(AgentProtocol, Protocol):
     """Protocol for agents that support streaming responses."""
 
-    async def stream(self, prompt: str, context: Optional[str] = None) -> AsyncIterator[str]:
+    async def stream(self, prompt: str, context: str | None = None) -> AsyncIterator[str]:
         """Stream response tokens."""
         ...
-
 
 @runtime_checkable
 class ToolUsingAgentProtocol(AgentProtocol, Protocol):
     """Protocol for agents that can use tools."""
 
-    available_tools: List[str]
+    available_tools: list[str]
 
     async def respond_with_tools(
         self,
         prompt: str,
-        tools: List[Dict[str, Any]],
-        context: Optional[str] = None,
+        tools: list[dict[str, Any]],
+        context: str | None = None,
     ) -> str:
         """Generate response with tool use."""
         ...
 
-
 # =============================================================================
 # Memory Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class MemoryProtocol(Protocol):
@@ -108,10 +100,9 @@ class MemoryProtocol(Protocol):
         """Store content and return an identifier."""
         ...
 
-    def query(self, **kwargs: Any) -> List[Any]:
+    def query(self, **kwargs: Any) -> list[Any]:
         """Query stored content."""
         ...
-
 
 @runtime_checkable
 class TieredMemoryProtocol(MemoryProtocol, Protocol):
@@ -129,11 +120,11 @@ class TieredMemoryProtocol(MemoryProtocol, Protocol):
 
     def query(
         self,
-        tier: Optional[Any] = None,
+        tier: Any | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
         **kwargs: Any,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Query content from specified tier."""
         ...
 
@@ -153,7 +144,6 @@ class TieredMemoryProtocol(MemoryProtocol, Protocol):
         """Enforce tier size limits by evicting excess entries."""
         ...
 
-
 @runtime_checkable
 class CritiqueStoreProtocol(Protocol):
     """Protocol for critique/pattern storage."""
@@ -164,27 +154,25 @@ class CritiqueStoreProtocol(Protocol):
 
     def retrieve_patterns(
         self,
-        issue_type: Optional[str] = None,
+        issue_type: str | None = None,
         limit: int = 10,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Retrieve stored patterns."""
         ...
 
-    def get_reputation(self, agent: str) -> Dict[str, Any]:
+    def get_reputation(self, agent: str) -> dict[str, Any]:
         """Get reputation data for an agent."""
         ...
-
 
 # =============================================================================
 # Event Protocols
 # =============================================================================
 
-
 @runtime_checkable
 class EventEmitterProtocol(Protocol):
     """Protocol for event emission systems."""
 
-    def emit(self, event: Any, data: Optional[Dict[str, Any]] = None) -> None:
+    def emit(self, event: Any, data: Optional[dict[str, Any]] = None) -> None:
         """Emit an event. Can be called with event object or (event_type, data)."""
         ...
 
@@ -192,20 +180,17 @@ class EventEmitterProtocol(Protocol):
         """Register an event listener."""
         ...
 
-
 @runtime_checkable
 class AsyncEventEmitterProtocol(Protocol):
     """Protocol for async event emission."""
 
-    async def emit_async(self, event_type: str, data: Dict[str, Any]) -> None:
+    async def emit_async(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event asynchronously."""
         ...
-
 
 # =============================================================================
 # Handler Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class HandlerProtocol(Protocol):
@@ -218,29 +203,26 @@ class HandlerProtocol(Protocol):
     def handle(
         self,
         path: str,
-        query: Dict[str, Any],
+        query: dict[str, Any],
         request_handler: Any,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Handle the request and return result."""
         ...
-
 
 @runtime_checkable
 class BaseHandlerProtocol(HandlerProtocol, Protocol):
     """Extended handler protocol with common patterns."""
 
-    ROUTES: List[str]
-    ctx: Dict[str, Any]
+    ROUTES: list[str]
+    ctx: dict[str, Any]
 
-    def read_json_body(self, handler: Any) -> Optional[Dict[str, Any]]:
+    def read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:
         """Read and parse JSON body from request."""
         ...
-
 
 # =============================================================================
 # Debate Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class DebateResultProtocol(Protocol):
@@ -248,9 +230,8 @@ class DebateResultProtocol(Protocol):
 
     rounds: int
     consensus_reached: bool
-    final_answer: Optional[str]
-    messages: List[Any]
-
+    final_answer: str | None
+    messages: list[Any]
 
 @runtime_checkable
 class ConsensusDetectorProtocol(Protocol):
@@ -258,21 +239,19 @@ class ConsensusDetectorProtocol(Protocol):
 
     def check_consensus(
         self,
-        votes: List[Any],
+        votes: list[Any],
         threshold: float = 0.5,
     ) -> bool:
         """Check if consensus has been reached."""
         ...
 
-    def get_winner(self, votes: List[Any]) -> Optional[str]:
+    def get_winner(self, votes: list[Any]) -> str | None:
         """Get the winning choice if any."""
         ...
-
 
 # =============================================================================
 # Ranking Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class RankingSystemProtocol(Protocol):
@@ -286,21 +265,19 @@ class RankingSystemProtocol(Protocol):
         self,
         agent_a: str,
         agent_b: str,
-        scores: Dict[str, float],
+        scores: dict[str, float],
         context: str,
     ) -> None:
         """Record a match result."""
         ...
 
-    def get_leaderboard(self, limit: int = 10) -> List[Any]:
+    def get_leaderboard(self, limit: int = 10) -> list[Any]:
         """Get top agents by rating."""
         ...
-
 
 # =============================================================================
 # Tracker Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class EloSystemProtocol(Protocol):
@@ -317,28 +294,27 @@ class EloSystemProtocol(Protocol):
     def record_match(
         self,
         debate_id: str,
-        participants: List[str],
-        scores: Dict[str, float],
+        participants: list[str],
+        scores: dict[str, float],
         domain: str = "",
-        winner: Optional[str] = None,
-        loser: Optional[str] = None,
+        winner: str | None = None,
+        loser: str | None = None,
         margin: float = 1.0,
     ) -> None:
         """Record a match result. Can use debate_id/participants/scores or winner/loser."""
         ...
 
-    def get_leaderboard(self, limit: int = 10, domain: str = "") -> List[Any]:
+    def get_leaderboard(self, limit: int = 10, domain: str = "") -> list[Any]:
         """Get top agents by ELO rating."""
         ...
 
-    def get_match_history(self, agent: str, limit: int = 20) -> List[Any]:
+    def get_match_history(self, agent: str, limit: int = 20) -> list[Any]:
         """Get recent match history for an agent."""
         ...
 
-    def get_ratings_batch(self, agents: List[str]) -> Dict[str, Any]:
+    def get_ratings_batch(self, agents: list[str]) -> dict[str, Any]:
         """Get ratings for multiple agents in a single call."""
         ...
-
 
 @runtime_checkable
 class CalibrationTrackerProtocol(Protocol):
@@ -348,7 +324,7 @@ class CalibrationTrackerProtocol(Protocol):
     by comparing predicted confidence to actual outcomes.
     """
 
-    def get_calibration(self, agent: str) -> Optional[Dict[str, Any]]:
+    def get_calibration(self, agent: str) -> Optional[dict[str, Any]]:
         """Get calibration data for an agent."""
         ...
 
@@ -358,8 +334,8 @@ class CalibrationTrackerProtocol(Protocol):
         confidence: float,
         correct: bool,
         domain: str = "",
-        debate_id: Optional[str] = None,
-        prediction_type: Optional[str] = None,
+        debate_id: str | None = None,
+        prediction_type: str | None = None,
     ) -> None:
         """Record a prediction with its outcome."""
         ...
@@ -367,7 +343,6 @@ class CalibrationTrackerProtocol(Protocol):
     def get_calibration_score(self, agent: str) -> float:
         """Get overall calibration score (0-1, lower is better calibrated)."""
         ...
-
 
 @runtime_checkable
 class PositionLedgerProtocol(Protocol):
@@ -385,7 +360,7 @@ class PositionLedgerProtocol(Protocol):
         confidence: float,
         debate_id: str,
         round_num: int,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> None:
         """Record an agent's position on a claim."""
         ...
@@ -394,8 +369,8 @@ class PositionLedgerProtocol(Protocol):
         self,
         agent_name: str,
         limit: int = 10,
-        claim_filter: Optional[str] = None,
-    ) -> List[Any]:
+        claim_filter: str | None = None,
+    ) -> list[Any]:
         """Get recent positions for an agent."""
         ...
 
@@ -403,8 +378,8 @@ class PositionLedgerProtocol(Protocol):
         self,
         agent_name: str,
         limit: int = 100,
-        outcome_filter: Optional[str] = None,
-    ) -> List[Any]:
+        outcome_filter: str | None = None,
+    ) -> list[Any]:
         """Get positions for an agent with optional outcome filter."""
         ...
 
@@ -414,14 +389,13 @@ class PositionLedgerProtocol(Protocol):
 
     def resolve_position(
         self,
-        position_id: Optional[str] = None,
-        outcome: Optional[str] = None,
-        resolution_source: Optional[str] = None,
+        position_id: str | None = None,
+        outcome: str | None = None,
+        resolution_source: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Record a position resolution outcome."""
         ...
-
 
 @runtime_checkable
 class RelationshipTrackerProtocol(Protocol):
@@ -431,7 +405,7 @@ class RelationshipTrackerProtocol(Protocol):
     enabling alliance detection and relationship analysis.
     """
 
-    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[Dict[str, Any]]:
+    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[dict[str, Any]]:
         """Get relationship data between two agents."""
         ...
 
@@ -445,26 +419,25 @@ class RelationshipTrackerProtocol(Protocol):
         """Update relationship based on debate outcome."""
         ...
 
-    def get_allies(self, agent: str, threshold: float = 0.6) -> List[str]:
+    def get_allies(self, agent: str, threshold: float = 0.6) -> list[str]:
         """Get agents that frequently agree with the given agent."""
         ...
 
-    def get_adversaries(self, agent: str, threshold: float = 0.6) -> List[str]:
+    def get_adversaries(self, agent: str, threshold: float = 0.6) -> list[str]:
         """Get agents that frequently disagree with the given agent."""
         ...
 
     def update_from_debate(
         self,
         debate_id: str = "",
-        participants: Optional[List[str]] = None,
-        winner: Optional[str] = None,
-        votes: Optional[Dict[str, Any]] = None,
-        critiques: Optional[List[Any]] = None,
+        participants: Optional[list[str]] = None,
+        winner: str | None = None,
+        votes: Optional[dict[str, Any]] = None,
+        critiques: Optional[list[Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Update relationships based on debate voting patterns."""
         ...
-
 
 @runtime_checkable
 class MomentDetectorProtocol(Protocol):
@@ -477,13 +450,13 @@ class MomentDetectorProtocol(Protocol):
     def detect_moment(
         self,
         content: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         threshold: float = 0.7,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Detect if content represents a significant moment."""
         ...
 
-    def get_moment_types(self) -> List[str]:
+    def get_moment_types(self) -> list[str]:
         """Get list of moment types this detector can identify."""
         ...
 
@@ -493,7 +466,7 @@ class MomentDetectorProtocol(Protocol):
         loser: str = "",
         debate_id: str = "",
         **kwargs: Any,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Detect if outcome represents an upset victory."""
         ...
 
@@ -505,18 +478,17 @@ class MomentDetectorProtocol(Protocol):
         domain: str = "",
         debate_id: str = "",
         **kwargs: Any,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Detect if a prediction was vindicated."""
         ...
 
     def record_moment(
         self,
-        moment: Optional[Dict[str, Any]] = None,
+        moment: Optional[dict[str, Any]] = None,
         **kwargs: Any,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Record a significant moment. Returns moment ID."""
         ...
-
 
 @runtime_checkable
 class PersonaManagerProtocol(Protocol):
@@ -526,11 +498,11 @@ class PersonaManagerProtocol(Protocol):
     communication style, expertise areas, and traits.
     """
 
-    def get_persona(self, agent_name: str) -> Optional[Dict[str, Any]]:
+    def get_persona(self, agent_name: str) -> Optional[dict[str, Any]]:
         """Get persona configuration for an agent."""
         ...
 
-    def update_persona(self, agent_name: str, updates: Dict[str, Any]) -> None:
+    def update_persona(self, agent_name: str, updates: dict[str, Any]) -> None:
         """Update persona attributes for an agent."""
         ...
 
@@ -544,11 +516,10 @@ class PersonaManagerProtocol(Protocol):
         domain: str,
         success: bool,
         action: str = "critique",
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> None:
         """Record a performance event to update expertise."""
         ...
-
 
 @runtime_checkable
 class DissentRetrieverProtocol(Protocol):
@@ -562,7 +533,7 @@ class DissentRetrieverProtocol(Protocol):
         topic: str,
         limit: int = 5,
         min_relevance: float = 0.5,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Retrieve relevant dissenting positions."""
         ...
 
@@ -576,11 +547,9 @@ class DissentRetrieverProtocol(Protocol):
         """Store a dissenting position for future retrieval."""
         ...
 
-
 # =============================================================================
 # Infrastructure Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class RedisClientProtocol(Protocol):
@@ -602,7 +571,7 @@ class RedisClientProtocol(Protocol):
         """Ping the server to check connectivity."""
         ...
 
-    def info(self, section: Optional[str] = None) -> Dict[str, Any]:
+    def info(self, section: str | None = None) -> dict[str, Any]:
         """Get server information."""
         ...
 
@@ -619,11 +588,11 @@ class RedisClientProtocol(Protocol):
         self,
         key: str,
         value: Any,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Set key to value with optional expiration."""
         ...
 
@@ -660,7 +629,7 @@ class RedisClientProtocol(Protocol):
         """Set field in hash."""
         ...
 
-    def hgetall(self, name: str) -> Dict[str, Any]:
+    def hgetall(self, name: str) -> dict[str, Any]:
         """Get all fields from hash."""
         ...
 
@@ -669,7 +638,7 @@ class RedisClientProtocol(Protocol):
         ...
 
     # Sorted set operations
-    def zadd(self, name: str, mapping: Dict[str, float]) -> int:
+    def zadd(self, name: str, mapping: dict[str, float]) -> int:
         """Add members to sorted set."""
         ...
 
@@ -687,7 +656,7 @@ class RedisClientProtocol(Protocol):
         min: Any,
         max: Any,
         withscores: bool = False,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Get members by score range."""
         ...
 
@@ -700,25 +669,23 @@ class RedisClientProtocol(Protocol):
         """Get pipeline for batch operations."""
         ...
 
-
 # =============================================================================
 # Storage Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class DebateStorageProtocol(Protocol):
     """Protocol for debate storage backends."""
 
-    def save_debate(self, debate_id: str, data: Dict[str, Any]) -> None:
+    def save_debate(self, debate_id: str, data: dict[str, Any]) -> None:
         """Save debate data."""
         ...
 
-    def load_debate(self, debate_id: str) -> Optional[Dict[str, Any]]:
+    def load_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
         """Load debate data."""
         ...
 
-    def list_debates(self, limit: int = 100, org_id: Optional[str] = None) -> List[Any]:
+    def list_debates(self, limit: int = 100, org_id: str | None = None) -> list[Any]:
         """List available debates. Returns list of debate metadata objects."""
         ...
 
@@ -726,47 +693,46 @@ class DebateStorageProtocol(Protocol):
         """Delete a debate."""
         ...
 
-    def get_debate(self, debate_id: str) -> Optional[Dict[str, Any]]:
+    def get_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
         """Get debate by ID."""
         ...
 
-    def get_debate_by_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+    def get_debate_by_slug(self, slug: str) -> Optional[dict[str, Any]]:
         """Get debate by slug."""
         ...
 
-    def get_by_id(self, debate_id: str) -> Optional[Dict[str, Any]]:
+    def get_by_id(self, debate_id: str) -> Optional[dict[str, Any]]:
         """Get debate by ID (alias)."""
         ...
 
-    def get_by_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+    def get_by_slug(self, slug: str) -> Optional[dict[str, Any]]:
         """Get debate by slug (alias)."""
         ...
 
-    def list_recent(self, limit: int = 20, org_id: Optional[str] = None) -> List[Any]:
+    def list_recent(self, limit: int = 20, org_id: str | None = None) -> list[Any]:
         """List recent debates."""
         ...
 
     def search(
         self,
-        query: Optional[str] = None,
-        agent: Optional[str] = None,
-        min_confidence: Optional[float] = None,
+        query: str | None = None,
+        agent: str | None = None,
+        min_confidence: float | None = None,
         limit: int = 20,
-        org_id: Optional[str] = None,
-    ) -> List[Any]:
+        org_id: str | None = None,
+    ) -> list[Any]:
         """Search debates."""
         ...
-
 
 @runtime_checkable
 class UserStoreProtocol(Protocol):
     """Protocol for user storage backends."""
 
-    def get_user_by_id(self, user_id: str) -> Optional[Any]:
+    def get_user_by_id(self, user_id: str) -> Any | None:
         """Get user by ID."""
         ...
 
-    def get_user_by_email(self, email: str) -> Optional[Any]:
+    def get_user_by_email(self, email: str) -> Any | None:
         """Get user by email."""
         ...
 
@@ -784,11 +750,9 @@ class UserStoreProtocol(Protocol):
         """Update user attributes."""
         ...
 
-
 # =============================================================================
 # Verification Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class VerificationBackendProtocol(Protocol):
@@ -799,7 +763,7 @@ class VerificationBackendProtocol(Protocol):
         """Check if backend is available."""
         ...
 
-    def can_verify(self, claim: str, claim_type: Optional[str] = None) -> bool:
+    def can_verify(self, claim: str, claim_type: str | None = None) -> bool:
         """Check if backend can verify this claim type."""
         ...
 
@@ -811,11 +775,9 @@ class VerificationBackendProtocol(Protocol):
         """Attempt to prove the formal statement."""
         ...
 
-
 # =============================================================================
 # Feedback Phase Protocols
 # =============================================================================
-
 
 @runtime_checkable
 class DebateEmbeddingsProtocol(Protocol):
@@ -825,7 +787,7 @@ class DebateEmbeddingsProtocol(Protocol):
     and retrieval-augmented debate preparation.
     """
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> list[float]:
         """Generate embedding vector for text."""
         ...
 
@@ -833,7 +795,7 @@ class DebateEmbeddingsProtocol(Protocol):
         self,
         debate_id: str,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Index a debate for future retrieval."""
         ...
@@ -843,10 +805,9 @@ class DebateEmbeddingsProtocol(Protocol):
         query: str,
         limit: int = 10,
         threshold: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Find debates similar to query."""
         ...
-
 
 @runtime_checkable
 class FlipDetectorProtocol(Protocol):
@@ -862,7 +823,7 @@ class FlipDetectorProtocol(Protocol):
         old_position: str,
         new_position: str,
         threshold: float = 0.3,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Detect if positions represent a significant flip."""
         ...
 
@@ -870,7 +831,7 @@ class FlipDetectorProtocol(Protocol):
         self,
         agent: str,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get recent position flips for an agent."""
         ...
 
@@ -882,10 +843,9 @@ class FlipDetectorProtocol(Protocol):
         self,
         agent: str,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Detect all position flips for an agent in a debate."""
         ...
-
 
 @runtime_checkable
 class ConsensusMemoryProtocol(Protocol):
@@ -900,9 +860,9 @@ class ConsensusMemoryProtocol(Protocol):
         topic: str,
         position: str,
         confidence: float,
-        supporting_agents: List[str],
+        supporting_agents: list[str],
         debate_id: str,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> str:
         """Store a consensus outcome. Returns outcome ID."""
         ...
@@ -910,8 +870,8 @@ class ConsensusMemoryProtocol(Protocol):
     def get_consensus(
         self,
         topic: str,
-        domain: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        domain: str | None = None,
+    ) -> Optional[dict[str, Any]]:
         """Get current consensus on a topic."""
         ...
 
@@ -919,7 +879,7 @@ class ConsensusMemoryProtocol(Protocol):
         self,
         query: str,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Find similar previously debated topics."""
         ...
 
@@ -929,15 +889,15 @@ class ConsensusMemoryProtocol(Protocol):
         conclusion: str = "",
         strength: str = "",
         confidence: float = 0.0,
-        participating_agents: Optional[List[str]] = None,
-        agreeing_agents: Optional[List[str]] = None,
-        dissenting_agents: Optional[List[str]] = None,
-        key_claims: Optional[List[str]] = None,
+        participating_agents: Optional[list[str]] = None,
+        agreeing_agents: Optional[list[str]] = None,
+        dissenting_agents: Optional[list[str]] = None,
+        key_claims: Optional[list[str]] = None,
         domain: str = "",
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         debate_duration: float = 0.0,
         rounds: int = 0,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
         """Store a consensus outcome. Returns consensus record."""
@@ -946,7 +906,7 @@ class ConsensusMemoryProtocol(Protocol):
     def update_cruxes(
         self,
         consensus_id: Any,
-        cruxes: List[Dict[str, Any]],
+        cruxes: list[dict[str, Any]],
         **kwargs: Any,
     ) -> None:
         """Update crux information for a consensus record."""
@@ -955,7 +915,7 @@ class ConsensusMemoryProtocol(Protocol):
     def store_vote(
         self,
         debate_id: str = "",
-        vote_data: Optional[Dict[str, Any]] = None,
+        vote_data: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Store vote data for a debate."""
@@ -974,7 +934,6 @@ class ConsensusMemoryProtocol(Protocol):
         """Store a dissenting opinion."""
         ...
 
-
 @runtime_checkable
 class PopulationManagerProtocol(Protocol):
     """Protocol for Genesis agent population management.
@@ -983,7 +942,7 @@ class PopulationManagerProtocol(Protocol):
     optimization of debate strategies.
     """
 
-    def get_population(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_population(self, limit: int = 100) -> list[dict[str, Any]]:
         """Get current population of genomes."""
         ...
 
@@ -991,9 +950,9 @@ class PopulationManagerProtocol(Protocol):
         self,
         genome_id: str,
         fitness_delta: float = 0.0,
-        context: Optional[str] = None,
-        consensus_win: Optional[bool] = None,
-        prediction_correct: Optional[bool] = None,
+        context: str | None = None,
+        consensus_win: bool | None = None,
+        prediction_correct: bool | None = None,
         **kwargs: Any,
     ) -> None:
         """Update fitness score for a genome."""
@@ -1012,13 +971,13 @@ class PopulationManagerProtocol(Protocol):
         self,
         count: int = 2,
         threshold: float = 0.8,
-    ) -> List[str]:
+    ) -> list[str]:
         """Select top genomes for breeding."""
         ...
 
     def get_or_create_population(
         self,
-        agent_names: List[str],
+        agent_names: list[str],
         **kwargs: Any,
     ) -> Any:
         """Get or create a population for a group of agents."""
@@ -1032,7 +991,6 @@ class PopulationManagerProtocol(Protocol):
         """Evolve a population to the next generation."""
         ...
 
-
 @runtime_checkable
 class PulseManagerProtocol(Protocol):
     """Protocol for Pulse trending topic management.
@@ -1043,9 +1001,9 @@ class PulseManagerProtocol(Protocol):
 
     def get_trending(
         self,
-        sources: Optional[List[str]] = None,
+        sources: Optional[list[str]] = None,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get trending topics from specified sources."""
         ...
 
@@ -1067,10 +1025,9 @@ class PulseManagerProtocol(Protocol):
     def get_topic_analytics(
         self,
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get analytics on debated trending topics."""
         ...
-
 
 @runtime_checkable
 class PromptEvolverProtocol(Protocol):
@@ -1090,12 +1047,12 @@ class PromptEvolverProtocol(Protocol):
         prompt_variant: str,
         success: bool,
         score: float,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> None:
         """Record outcome for prompt variant."""
         ...
 
-    def evolve(self, agent: str) -> Optional[str]:
+    def evolve(self, agent: str) -> str | None:
         """Generate new prompt variant based on learnings."""
         ...
 
@@ -1103,21 +1060,21 @@ class PromptEvolverProtocol(Protocol):
         self,
         agent: str,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get prompt evolution history for an agent."""
         ...
 
     def extract_winning_patterns(
         self,
-        debate_results: List[Any],
+        debate_results: list[Any],
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Extract winning patterns from debate results."""
         ...
 
     def store_patterns(
         self,
-        patterns: List[Dict[str, Any]],
+        patterns: list[dict[str, Any]],
         **kwargs: Any,
     ) -> None:
         """Store extracted patterns."""
@@ -1126,13 +1083,12 @@ class PromptEvolverProtocol(Protocol):
     def update_performance(
         self,
         agent_name: str = "",
-        version: Optional[Any] = None,
-        debate_result: Optional[Any] = None,
+        version: Any | None = None,
+        debate_result: Any | None = None,
         **kwargs: Any,
     ) -> None:
         """Update performance metrics for prompt evolution."""
         ...
-
 
 @runtime_checkable
 class InsightStoreProtocol(Protocol):
@@ -1148,7 +1104,7 @@ class InsightStoreProtocol(Protocol):
         content: str,
         source_debate_id: str,
         confidence: float,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Store an insight. Returns insight ID."""
         ...
@@ -1157,23 +1113,23 @@ class InsightStoreProtocol(Protocol):
         self,
         insight_id: str,
         target_debate_id: str,
-        success: Optional[bool] = None,
+        success: bool | None = None,
     ) -> None:
         """Mark an insight as applied to a debate."""
         ...
 
     def get_recent_insights(
         self,
-        insight_type: Optional[str] = None,
+        insight_type: str | None = None,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get recent insights."""
         ...
 
     def get_effectiveness(
         self,
-        insight_type: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        insight_type: str | None = None,
+    ) -> dict[str, Any]:
         """Get effectiveness metrics for insights."""
         ...
 
@@ -1186,7 +1142,6 @@ class InsightStoreProtocol(Protocol):
     ) -> None:
         """Record usage of an insight in a debate."""
         ...
-
 
 @runtime_checkable
 class BroadcastPipelineProtocol(Protocol):
@@ -1207,8 +1162,8 @@ class BroadcastPipelineProtocol(Protocol):
     def queue_broadcast(
         self,
         debate_id: str,
-        platforms: Optional[List[str]] = None,
-        options: Optional[Dict[str, Any]] = None,
+        platforms: Optional[list[str]] = None,
+        options: Optional[dict[str, Any]] = None,
     ) -> str:
         """Queue a debate for broadcast. Returns job ID."""
         ...
@@ -1216,11 +1171,11 @@ class BroadcastPipelineProtocol(Protocol):
     def get_broadcast_status(
         self,
         job_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get status of a broadcast job."""
         ...
 
-    def get_supported_platforms(self) -> List[str]:
+    def get_supported_platforms(self) -> list[str]:
         """Get list of supported broadcast platforms."""
         ...
 
@@ -1231,7 +1186,6 @@ class BroadcastPipelineProtocol(Protocol):
     ) -> Any:
         """Run the broadcast pipeline for a debate."""
         ...
-
 
 @runtime_checkable
 class ContinuumMemoryProtocol(Protocol):
@@ -1246,7 +1200,7 @@ class ContinuumMemoryProtocol(Protocol):
         key: str,
         value: Any,
         tier: str = "medium",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Store a value in the specified memory tier."""
         ...
@@ -1254,8 +1208,8 @@ class ContinuumMemoryProtocol(Protocol):
     def retrieve(
         self,
         key: str,
-        tier: Optional[str] = None,
-    ) -> Optional[Any]:
+        tier: str | None = None,
+    ) -> Any | None:
         """Retrieve a value, searching tiers if not specified."""
         ...
 
@@ -1263,8 +1217,8 @@ class ContinuumMemoryProtocol(Protocol):
         self,
         query: str,
         limit: int = 10,
-        tier: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        tier: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Search for relevant memories."""
         ...
 
@@ -1275,7 +1229,6 @@ class ContinuumMemoryProtocol(Protocol):
     ) -> str:
         """Get formatted context for a task from historical memories."""
         ...
-
 
 @runtime_checkable
 class PositionTrackerProtocol(Protocol):
@@ -1290,7 +1243,7 @@ class PositionTrackerProtocol(Protocol):
         agent_name: str,
         position: str,
         confidence: float = 1.0,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Record an agent's position."""
         ...
@@ -1298,7 +1251,7 @@ class PositionTrackerProtocol(Protocol):
     def get_position(
         self,
         agent_name: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Get an agent's current position."""
         ...
 
@@ -1306,7 +1259,7 @@ class PositionTrackerProtocol(Protocol):
         self,
         agent_name: str,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get history of an agent's positions."""
         ...
 
@@ -1317,7 +1270,6 @@ class PositionTrackerProtocol(Protocol):
     ) -> bool:
         """Check if agent's position has changed significantly."""
         ...
-
 
 @runtime_checkable
 class EvidenceCollectorProtocol(Protocol):
@@ -1330,34 +1282,33 @@ class EvidenceCollectorProtocol(Protocol):
     def collect(
         self,
         query: str,
-        sources: Optional[List[str]] = None,
+        sources: Optional[list[str]] = None,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Collect evidence for a query."""
         ...
 
     def verify(
         self,
         claim: str,
-        evidence: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        evidence: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Verify a claim against collected evidence."""
         ...
 
-    def get_sources(self) -> List[str]:
+    def get_sources(self) -> list[str]:
         """Get list of available evidence sources."""
         ...
-
 
 # =============================================================================
 # Callback Types
 # =============================================================================
 
 # Event callback type
-EventCallback = Callable[[str, Dict[str, Any]], None]
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 # Async event callback type
-AsyncEventCallback = Callable[[str, Dict[str, Any]], Any]
+AsyncEventCallback = Callable[[str, dict[str, Any]], Any]
 
 # Response filter type
 ResponseFilter = Callable[[str], str]
@@ -1365,11 +1316,9 @@ ResponseFilter = Callable[[str], str]
 # Vote callback type
 VoteCallback = Callable[[Any], None]
 
-
 # =============================================================================
 # Result Types
 # =============================================================================
-
 
 @dataclass
 class Result(Generic[T]):
@@ -1384,8 +1333,8 @@ class Result(Generic[T]):
     """
 
     success: bool
-    value: Optional[T] = None
-    error: Optional[str] = None
+    value: T | None = None
+    error: str | None = None
 
     @classmethod
     def ok(cls, value: T) -> "Result[T]":
@@ -1396,7 +1345,6 @@ class Result(Generic[T]):
     def fail(cls, error: str) -> "Result[T]":
         """Create failed result."""
         return cls(success=False, error=error)
-
 
 __all__ = [
     # Type variables

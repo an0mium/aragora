@@ -29,7 +29,7 @@ __all__ = [
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 _yaml: Any = None
 try:
@@ -44,7 +44,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ConfigValidationError(Exception):
     """Raised when agent configuration validation fails."""
 
@@ -52,7 +51,6 @@ class ConfigValidationError(Exception):
         self.config_path = config_path
         self.errors = errors
         super().__init__(f"Invalid config '{config_path}': {'; '.join(errors)}")
-
 
 @dataclass
 class AgentConfig:
@@ -67,7 +65,7 @@ class AgentConfig:
     model_type: str  # Maps to AgentRegistry type: "anthropic-api", "openai-api", etc.
 
     # Model configuration
-    model: Optional[str] = None  # Specific model override (e.g., "claude-3-5-sonnet")
+    model: str | None = None  # Specific model override (e.g., "claude-3-5-sonnet")
     temperature: float = 0.7
     max_tokens: int = 4096
 
@@ -96,7 +94,7 @@ class AgentConfig:
     tags: list[str] = field(default_factory=list)
 
     # Source tracking
-    config_path: Optional[str] = None
+    config_path: str | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
@@ -165,7 +163,7 @@ class AgentConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], config_path: Optional[str] = None) -> "AgentConfig":
+    def from_dict(cls, data: dict[str, Any], config_path: str | None = None) -> "AgentConfig":
         """Create configuration from dictionary."""
         return cls(
             name=data.get("name", ""),
@@ -188,7 +186,6 @@ class AgentConfig:
             config_path=config_path,
         )
 
-
 class AgentConfigLoader:
     """
     Loads and manages YAML agent configurations.
@@ -200,7 +197,7 @@ class AgentConfigLoader:
     - Hot-reload for development
     """
 
-    def __init__(self, registry: Optional[Any] = None):
+    def __init__(self, registry: Any | None = None):
         """
         Initialize the config loader.
 
@@ -211,7 +208,7 @@ class AgentConfigLoader:
         self._registry = registry
         self._config_paths: dict[str, Path] = {}
 
-    def load_yaml(self, path: Union[str, Path]) -> AgentConfig:
+    def load_yaml(self, path: str | Path) -> AgentConfig:
         """
         Load a single YAML configuration file.
 
@@ -250,7 +247,7 @@ class AgentConfigLoader:
         logger.info(f"Loaded agent config: {config.name} ({config.model_type})")
         return config
 
-    def load_directory(self, directory: Union[str, Path]) -> dict[str, AgentConfig]:
+    def load_directory(self, directory: str | Path) -> dict[str, AgentConfig]:
         """
         Load all YAML configurations from a directory.
 
@@ -286,7 +283,7 @@ class AgentConfigLoader:
         logger.info(f"Loaded {len(configs)} agent configs from {directory}")
         return configs
 
-    def reload_config(self, name: str) -> Optional[AgentConfig]:
+    def reload_config(self, name: str) -> AgentConfig | None:
         """
         Reload a specific configuration from disk.
 
@@ -324,7 +321,7 @@ class AgentConfigLoader:
                 reloaded[name] = config
         return reloaded
 
-    def get_config(self, name: str) -> Optional[AgentConfig]:
+    def get_config(self, name: str) -> AgentConfig | None:
         """Get a loaded configuration by name."""
         return self._configs.get(name)
 
@@ -332,7 +329,7 @@ class AgentConfigLoader:
         """List all loaded configuration names."""
         return list(self._configs.keys())
 
-    def create_agent(self, config: Union[str, AgentConfig]) -> "Agent":
+    def create_agent(self, config: str | AgentConfig) -> "Agent":
         """
         Create an agent from a configuration.
 
@@ -381,7 +378,7 @@ class AgentConfigLoader:
         return agent
 
     def create_agents(
-        self, configs: Optional[list[Union[str, AgentConfig]]] = None
+        self, configs: list[str | AgentConfig | None] = None
     ) -> list["Agent"]:
         """
         Create multiple agents from configurations.
@@ -454,9 +451,8 @@ class AgentConfigLoader:
         """
         return [c for c in self._configs.values() if c.priority == priority]
 
-
 def load_agent_configs(
-    config_dir: Optional[Union[str, Path]] = None,
+    config_dir: Optional[str | Path] = None,
 ) -> dict[str, AgentConfig]:
     """
     Convenience function to load agent configurations.

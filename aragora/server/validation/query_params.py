@@ -5,10 +5,11 @@ Provides safe parsing of URL query parameters with bounds checking,
 type conversion, and proper error handling. Works with both
 urllib.parse_qs (list values) and aiohttp MultiDict (single values).
 """
+from __future__ import annotations
 
 import logging
 import re
-from typing import AbstractSet, Any, Dict, Optional, Tuple
+from typing import AbstractSet, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -72,14 +73,12 @@ ALLOWED_FILTER_OPERATORS = frozenset(
     }
 )
 
-
 # =============================================================================
 # Query Parameter Parsing (parse_qs format with list values)
 # =============================================================================
 
-
 def parse_int_param(
-    query: Dict[str, list],
+    query: dict[str, list],
     key: str,
     default: int,
     min_val: int = 1,
@@ -112,9 +111,8 @@ def parse_int_param(
     except (ValueError, IndexError, TypeError):
         return default
 
-
 def parse_float_param(
-    query: Dict[str, list],
+    query: dict[str, list],
     key: str,
     default: float,
     min_val: float = 0.0,
@@ -142,9 +140,8 @@ def parse_float_param(
     except (ValueError, IndexError, TypeError):
         return default
 
-
 def parse_bool_param(
-    query: Dict[str, list],
+    query: dict[str, list],
     key: str,
     default: bool = False,
 ) -> bool:
@@ -173,13 +170,12 @@ def parse_bool_param(
     except (AttributeError, IndexError, TypeError):
         return default
 
-
 def parse_string_param(
-    query: Dict[str, list],
+    query: dict[str, list],
     key: str,
     default: str = "",
     max_length: int = 500,
-    allowed_values: Optional[set] = None,
+    allowed_values: set | None = None,
 ) -> str:
     """Safely parse a string query parameter with validation.
 
@@ -206,11 +202,9 @@ def parse_string_param(
     except (IndexError, TypeError):
         return default
 
-
 # =============================================================================
 # Simple Query Value Parsing (for aiohttp-style query dicts)
 # =============================================================================
-
 
 def safe_query_int(
     query: Any,
@@ -244,7 +238,6 @@ def safe_query_int(
     except (ValueError, IndexError, TypeError):
         return default
 
-
 def safe_query_float(
     query: Any,
     key: str,
@@ -277,11 +270,9 @@ def safe_query_float(
     except (ValueError, IndexError, TypeError):
         return default
 
-
 # =============================================================================
 # Sort Parameter Validation
 # =============================================================================
-
 
 def validate_sort_param(
     query: Any,
@@ -330,7 +321,6 @@ def validate_sort_param(
     except (IndexError, TypeError, AttributeError):
         return default
 
-
 def validate_sort_direction(
     query: Any,
     key: str = "order",
@@ -361,15 +351,14 @@ def validate_sort_direction(
     except (IndexError, TypeError, AttributeError):
         return default
 
-
 def validate_sort_params(
     query: Any,
     sort_key: str = "sort",
     order_key: str = "order",
     default_column: str = "created_at",
     default_order: str = "desc",
-    allowed_columns: Optional[set] = None,
-) -> Tuple[str, str]:
+    allowed_columns: set | None = None,
+) -> tuple[str, str]:
     """Validate both sort column and direction.
 
     Convenience function that validates both sort parameters together.
@@ -393,11 +382,9 @@ def validate_sort_params(
     direction = validate_sort_direction(query, order_key, default_order)
     return column, direction
 
-
 # =============================================================================
 # Safe String Parameter with Length Validation
 # =============================================================================
-
 
 def safe_query_string(
     query: Any,
@@ -405,7 +392,7 @@ def safe_query_string(
     default: str = "",
     max_length: int = DEFAULT_QUERY_STRING_MAX_LENGTH,
     strip: bool = True,
-    allowed_pattern: Optional[re.Pattern] = None,
+    allowed_pattern: re.Pattern | None = None,
 ) -> str:
     """Safely parse a string query parameter with length and pattern validation.
 
@@ -448,8 +435,7 @@ def safe_query_string(
     except (IndexError, TypeError, AttributeError):
         return default
 
-
-def validate_filter_operator(operator: str) -> Tuple[bool, Optional[str]]:
+def validate_filter_operator(operator: str) -> tuple[bool, str | None]:
     """Validate a filter operator.
 
     Args:
@@ -468,12 +454,11 @@ def validate_filter_operator(operator: str) -> Tuple[bool, Optional[str]]:
         return False, f"Invalid filter operator '{operator}'. Allowed: {allowed_str}"
     return True, None
 
-
 def validate_search_query(
     query_text: str,
     max_length: int = 200,
     block_sql_keywords: bool = True,
-) -> Tuple[bool, str, Optional[str]]:
+) -> tuple[bool, str, str | None]:
     """Validate and sanitize a search query string.
 
     Checks for SQL injection patterns and length limits.

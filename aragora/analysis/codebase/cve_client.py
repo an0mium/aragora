@@ -20,7 +20,7 @@ import hashlib
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .models import (
     VulnerabilityFinding,
@@ -30,7 +30,6 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class CVEClient:
     """
@@ -76,8 +75,8 @@ class CVEClient:
 
     def __init__(
         self,
-        nvd_api_key: Optional[str] = None,
-        github_token: Optional[str] = None,
+        nvd_api_key: str | None = None,
+        github_token: str | None = None,
         cache_ttl_seconds: int = 3600,
         enable_circuit_breaker: bool = True,
     ):
@@ -95,12 +94,12 @@ class CVEClient:
         self.cache_ttl = cache_ttl_seconds
 
         # Simple in-memory cache
-        self._cache: Dict[str, tuple[datetime, Any]] = {}
+        self._cache: dict[str, tuple[datetime, Any]] = {}
 
         # Circuit breaker state
         self._enable_circuit_breaker = enable_circuit_breaker
-        self._circuit_breaker_failures: Dict[str, int] = {}
-        self._circuit_breaker_open_until: Dict[str, datetime] = {}
+        self._circuit_breaker_failures: dict[str, int] = {}
+        self._circuit_breaker_open_until: dict[str, datetime] = {}
         self._failure_threshold = 5
         self._cooldown_seconds = 60.0
 
@@ -108,7 +107,7 @@ class CVEClient:
         """Generate cache key from arguments."""
         return hashlib.md5(str(args).encode(), usedforsecurity=False).hexdigest()
 
-    def _get_cached(self, key: str) -> Optional[Any]:
+    def _get_cached(self, key: str) -> Any | None:
         """Get value from cache if not expired."""
         if key in self._cache:
             cached_at, value = self._cache[key]
@@ -151,7 +150,7 @@ class CVEClient:
             )
             logger.warning(f"[CVEClient] Circuit breaker opened for {source}")
 
-    async def get_cve(self, cve_id: str) -> Optional[VulnerabilityFinding]:
+    async def get_cve(self, cve_id: str) -> VulnerabilityFinding | None:
         """
         Get vulnerability details by CVE ID.
 
@@ -185,8 +184,8 @@ class CVEClient:
         self,
         package_name: str,
         ecosystem: str,
-        version: Optional[str] = None,
-    ) -> List[VulnerabilityFinding]:
+        version: str | None = None,
+    ) -> list[VulnerabilityFinding]:
         """
         Query vulnerabilities for a package.
 
@@ -227,9 +226,9 @@ class CVEClient:
 
     async def batch_query_packages(
         self,
-        packages: List[tuple[str, str, str]],  # (name, ecosystem, version)
+        packages: list[tuple[str, str, str]],  # (name, ecosystem, version)
         concurrency: int = 10,
-    ) -> Dict[str, List[VulnerabilityFinding]]:
+    ) -> dict[str, list[VulnerabilityFinding]]:
         """
         Query vulnerabilities for multiple packages concurrently.
 
@@ -240,7 +239,7 @@ class CVEClient:
         Returns:
             Dict mapping "package_name@version" to findings
         """
-        results: Dict[str, List[VulnerabilityFinding]] = {}
+        results: dict[str, list[VulnerabilityFinding]] = {}
         semaphore = asyncio.Semaphore(concurrency)
 
         async def query_one(name: str, ecosystem: str, version: str):
@@ -256,7 +255,7 @@ class CVEClient:
 
         return results
 
-    async def _query_nvd_cve(self, cve_id: str) -> Optional[VulnerabilityFinding]:
+    async def _query_nvd_cve(self, cve_id: str) -> VulnerabilityFinding | None:
         """Query NVD API for CVE details."""
         if not self._check_circuit_breaker("nvd"):
             return None
@@ -298,7 +297,7 @@ class CVEClient:
             logger.error(f"[CVEClient] NVD query failed: {e}")
             return None
 
-    def _parse_nvd_cve(self, cve_data: Dict[str, Any]) -> VulnerabilityFinding:
+    def _parse_nvd_cve(self, cve_data: dict[str, Any]) -> VulnerabilityFinding:
         """Parse NVD CVE response into VulnerabilityFinding."""
         cve_id = cve_data.get("id", "")
 
@@ -372,7 +371,7 @@ class CVEClient:
             cwe_ids=cwe_ids,
         )
 
-    async def _query_osv_cve(self, cve_id: str) -> Optional[VulnerabilityFinding]:
+    async def _query_osv_cve(self, cve_id: str) -> VulnerabilityFinding | None:
         """Query OSV API for CVE details."""
         if not self._check_circuit_breaker("osv"):
             return None
@@ -406,8 +405,8 @@ class CVEClient:
         self,
         package_name: str,
         ecosystem: str,
-        version: Optional[str] = None,
-    ) -> List[VulnerabilityFinding]:
+        version: str | None = None,
+    ) -> list[VulnerabilityFinding]:
         """Query OSV API for package vulnerabilities."""
         if not self._check_circuit_breaker("osv"):
             return []
@@ -417,7 +416,7 @@ class CVEClient:
         osv_ecosystem = self.ECOSYSTEM_MAP.get(ecosystem, {}).get("osv", ecosystem)
 
         try:
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "package": {
                     "name": package_name,
                     "ecosystem": osv_ecosystem,
@@ -453,7 +452,7 @@ class CVEClient:
             logger.error(f"[CVEClient] OSV package query failed: {e}")
             return []
 
-    def _parse_osv_vuln(self, data: Dict[str, Any]) -> VulnerabilityFinding:
+    def _parse_osv_vuln(self, data: dict[str, Any]) -> VulnerabilityFinding:
         """Parse OSV vulnerability response."""
         vuln_id = data.get("id", "")
 
@@ -543,7 +542,7 @@ class CVEClient:
         self,
         package_name: str,
         ecosystem: str,
-    ) -> List[VulnerabilityFinding]:
+    ) -> list[VulnerabilityFinding]:
         """Query GitHub Security Advisory Database."""
         if not self.github_token:
             return []
@@ -636,8 +635,8 @@ class CVEClient:
 
     def _parse_github_advisory(
         self,
-        advisory: Dict[str, Any],
-        vuln_data: Dict[str, Any],
+        advisory: dict[str, Any],
+        vuln_data: dict[str, Any],
     ) -> VulnerabilityFinding:
         """Parse GitHub advisory response."""
         ghsa_id = advisory.get("ghsaId", "")
@@ -717,6 +716,5 @@ class CVEClient:
             fix_available=len(patched_versions) > 0,
             recommended_version=patched_versions[0] if patched_versions else None,
         )
-
 
 __all__ = ["CVEClient"]

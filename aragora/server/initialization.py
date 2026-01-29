@@ -4,12 +4,13 @@ Server initialization - subsystem setup and configuration.
 This module centralizes all the initialization logic for optional subsystems
 like InsightStore, EloSystem, PersonaManager, etc.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import (
     DB_INSIGHTS_PATH,
@@ -195,13 +196,11 @@ MemoryTier = _imp.get("MemoryTier")
 _imp, INSIGHT_EXTRACTOR_AVAILABLE = try_import("aragora.insights.extractor", "InsightExtractor")
 InsightExtractor = _imp.get("InsightExtractor")
 
-
 # =============================================================================
 # Subsystem Initialization Functions
 # =============================================================================
 
-
-def init_persistence(enable: bool = True) -> Optional[Any]:
+def init_persistence(enable: bool = True) -> Any | None:
     """Initialize Supabase persistence if available and enabled."""
     if not enable or not PERSISTENCE_AVAILABLE or not SupabaseClient:
         return None
@@ -213,8 +212,7 @@ def init_persistence(enable: bool = True) -> Optional[Any]:
 
     return None
 
-
-def init_insight_store(nomic_dir: Path) -> Optional[Any]:
+def init_insight_store(nomic_dir: Path) -> Any | None:
     """Initialize InsightStore for debate insights with KM adapter."""
     # Check if we should use PostgreSQL backend
     try:
@@ -223,17 +221,29 @@ def init_insight_store(nomic_dir: Path) -> Optional[Any]:
         backend = get_storage_backend()
         if backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
             # Use PostgresInsightStore for distributed deployments
-            import asyncio
-
             from aragora.insights.postgres_store import PostgresInsightStore
-            from aragora.storage.postgres_store import get_postgres_pool
 
             try:
+                # Try shared pool first (initialized during startup)
+                from aragora.storage.pool_manager import get_shared_pool, is_pool_initialized
+
+                if is_pool_initialized():
+                    pool = get_shared_pool()
+                    if pool:
+                        store = PostgresInsightStore(pool)
+                        logger.info("[init] PostgresInsightStore initialized via shared pool")
+                        return store
+
+                # Fall back to creating a standalone pool
+                import asyncio
+
+                from aragora.storage.postgres_store import get_postgres_pool
+
                 loop = asyncio.get_event_loop()
                 pool = loop.run_until_complete(get_postgres_pool())
                 store = PostgresInsightStore(pool)
                 loop.run_until_complete(store.initialize())
-                logger.info("[init] PostgresInsightStore initialized for API access")
+                logger.info("[init] PostgresInsightStore initialized (standalone pool)")
                 return store
             except Exception as e:
                 logger.warning(f"[init] PostgresInsightStore failed, falling back: {e}")
@@ -268,8 +278,7 @@ def init_insight_store(nomic_dir: Path) -> Optional[Any]:
         logger.warning(f"[init] InsightStore initialization failed: {e}")
         return None
 
-
-def init_elo_system(nomic_dir: Path) -> Optional[Any]:
+def init_elo_system(nomic_dir: Path) -> Any | None:
     """Initialize EloSystem for agent rankings with KM adapter."""
     if not RANKING_AVAILABLE or not EloSystem:
         return None
@@ -298,8 +307,7 @@ def init_elo_system(nomic_dir: Path) -> Optional[Any]:
         logger.warning(f"[init] EloSystem initialization failed: {e}")
         return None
 
-
-def init_flip_detector(nomic_dir: Path) -> Optional[Any]:
+def init_flip_detector(nomic_dir: Path) -> Any | None:
     """Initialize FlipDetector for position reversal detection with KM adapter."""
     if not FLIP_DETECTOR_AVAILABLE or not FlipDetector:
         return None
@@ -328,8 +336,7 @@ def init_flip_detector(nomic_dir: Path) -> Optional[Any]:
         logger.warning(f"[init] FlipDetector initialization failed: {e}")
         return None
 
-
-def init_persona_manager(nomic_dir: Path) -> Optional[Any]:
+def init_persona_manager(nomic_dir: Path) -> Any | None:
     """Initialize PersonaManager for agent specialization."""
     if not PERSONAS_AVAILABLE or not PersonaManager:
         return None
@@ -339,8 +346,7 @@ def init_persona_manager(nomic_dir: Path) -> Optional[Any]:
     logger.info("[init] PersonaManager loaded for agent specialization")
     return manager
 
-
-def init_position_ledger(nomic_dir: Path) -> Optional[Any]:
+def init_position_ledger(nomic_dir: Path) -> Any | None:
     """Initialize PositionLedger for truth-grounded personas."""
     if not POSITION_LEDGER_AVAILABLE or not PositionLedger:
         return None
@@ -354,8 +360,7 @@ def init_position_ledger(nomic_dir: Path) -> Optional[Any]:
         logger.warning(f"[init] PositionLedger initialization failed: {e}")
         return None
 
-
-def init_debate_embeddings(nomic_dir: Path) -> Optional[Any]:
+def init_debate_embeddings(nomic_dir: Path) -> Any | None:
     """Initialize DebateEmbeddingsDatabase for historical memory."""
     if not EMBEDDINGS_AVAILABLE or not DebateEmbeddingsDatabase:
         return None
@@ -369,8 +374,7 @@ def init_debate_embeddings(nomic_dir: Path) -> Optional[Any]:
         logger.warning(f"[init] DebateEmbeddings initialization failed: {e}")
         return None
 
-
-def init_consensus_memory() -> tuple[Optional[Any], Optional[Any]]:
+def init_consensus_memory() -> tuple[Any | None, Any | None]:
     """Initialize ConsensusMemory and DissentRetriever with KM adapter."""
     if not CONSENSUS_MEMORY_AVAILABLE or not ConsensusMemory or not DissentRetriever:
         return None, None
@@ -397,11 +401,10 @@ def init_consensus_memory() -> tuple[Optional[Any], Optional[Any]]:
         logger.warning(f"[init] DissentRetriever initialization failed: {e}")
         return None, None
 
-
 def init_moment_detector(
-    elo_system: Optional[Any] = None,
-    position_ledger: Optional[Any] = None,
-) -> Optional[Any]:
+    elo_system: Any | None = None,
+    position_ledger: Any | None = None,
+) -> Any | None:
     """Initialize MomentDetector for significant agent moments."""
     if not MOMENT_DETECTOR_AVAILABLE or not MomentDetector:
         return None
@@ -417,8 +420,7 @@ def init_moment_detector(
         logger.warning(f"[init] MomentDetector initialization failed: {e}")
         return None
 
-
-def init_position_tracker(nomic_dir: Path) -> Optional[Any]:
+def init_position_tracker(nomic_dir: Path) -> Any | None:
     """Initialize PositionTracker for agent positions."""
     if not POSITION_TRACKER_AVAILABLE or not PositionTracker:
         return None
@@ -432,8 +434,7 @@ def init_position_tracker(nomic_dir: Path) -> Optional[Any]:
         logger.warning(f"[init] PositionTracker initialization failed: {e}")
         return None
 
-
-def init_continuum_memory(nomic_dir: Path) -> Optional[Any]:
+def init_continuum_memory(nomic_dir: Path) -> Any | None:
     """Initialize ContinuumMemory for multi-tier memory with KM adapter."""
     if not CONTINUUM_AVAILABLE or not ContinuumMemory:
         return None
@@ -459,8 +460,7 @@ def init_continuum_memory(nomic_dir: Path) -> Optional[Any]:
         logger.warning(f"[init] ContinuumMemory initialization failed: {e}")
         return None
 
-
-def init_verification_manager() -> Optional[Any]:
+def init_verification_manager() -> Any | None:
     """Initialize FormalVerificationManager for theorem proving."""
     if not VERIFICATION_AVAILABLE or not FormalVerificationManager:
         return None
@@ -473,11 +473,9 @@ def init_verification_manager() -> Optional[Any]:
         logger.warning(f"[init] FormalVerificationManager initialization failed: {e}")
         return None
 
-
 # =============================================================================
 # Batch Initialization
 # =============================================================================
-
 
 class SubsystemRegistry:
     """
@@ -503,7 +501,7 @@ class SubsystemRegistry:
 
     def initialize_all(
         self,
-        nomic_dir: Optional[Path] = None,
+        nomic_dir: Path | None = None,
         enable_persistence: bool = True,
     ) -> "SubsystemRegistry":
         """
@@ -546,7 +544,7 @@ class SubsystemRegistry:
 
     async def initialize_all_async(
         self,
-        nomic_dir: Optional[Path] = None,
+        nomic_dir: Path | None = None,
         enable_persistence: bool = True,
     ) -> "SubsystemRegistry":
         """
@@ -654,10 +652,8 @@ class SubsystemRegistry:
         if unavailable:
             logger.debug(f"[init] Unavailable: {', '.join(unavailable)}")
 
-
 # Global registry instance
-_registry: Optional[SubsystemRegistry] = None
-
+_registry: SubsystemRegistry | None = None
 
 def get_registry() -> SubsystemRegistry:
     """Get or create the global subsystem registry."""
@@ -666,9 +662,8 @@ def get_registry() -> SubsystemRegistry:
         _registry = SubsystemRegistry()
     return _registry
 
-
 def initialize_subsystems(
-    nomic_dir: Optional[Path] = None,
+    nomic_dir: Path | None = None,
     enable_persistence: bool = True,
 ) -> SubsystemRegistry:
     """
@@ -681,9 +676,8 @@ def initialize_subsystems(
     registry.log_availability()
     return registry
 
-
 async def initialize_subsystems_async(
-    nomic_dir: Optional[Path] = None,
+    nomic_dir: Path | None = None,
     enable_persistence: bool = True,
 ) -> SubsystemRegistry:
     """
@@ -697,15 +691,13 @@ async def initialize_subsystems_async(
     registry.log_availability()
     return registry
 
-
 # =============================================================================
 # Cache Pre-Warming
 # =============================================================================
 
-
 async def prewarm_caches(
-    registry: Optional[SubsystemRegistry] = None,
-    nomic_dir: Optional[Path] = None,
+    registry: SubsystemRegistry | None = None,
+    nomic_dir: Path | None = None,
 ) -> dict:
     """
     Pre-warm caches with commonly accessed data.
@@ -812,11 +804,9 @@ async def prewarm_caches(
 
     return result
 
-
 # =============================================================================
 # Handler Context Builder
 # =============================================================================
-
 
 def init_handler_stores(nomic_dir: Path) -> dict:
     """Initialize document, audio, video stores and connectors for handlers.
@@ -944,11 +934,9 @@ def init_handler_stores(nomic_dir: Path) -> dict:
 
     return stores
 
-
 # =============================================================================
 # PostgreSQL Store Initialization (Production)
 # =============================================================================
-
 
 async def init_postgres_stores() -> dict[str, bool]:
     """
@@ -1060,7 +1048,6 @@ async def init_postgres_stores() -> dict[str, bool]:
 
     return results
 
-
 def init_postgres_stores_sync() -> dict[str, bool]:
     """
     Synchronous wrapper for init_postgres_stores().
@@ -1088,7 +1075,6 @@ def init_postgres_stores_sync() -> dict[str, bool]:
         # No running loop - safe to use asyncio.run()
         return asyncio.run(init_postgres_stores())
 
-
 async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
     """Upgrade handler stores from SQLite to PostgreSQL using the shared pool.
 
@@ -1103,14 +1089,42 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
     Returns:
         Dictionary mapping store name → backend type ("postgres" or "skipped")
     """
-    from aragora.storage.pool_manager import get_shared_pool, is_pool_initialized
+    import asyncio
+
+    from aragora.storage.pool_manager import get_shared_pool, get_pool_info, is_pool_initialized
 
     if not is_pool_initialized():
-        logger.debug("[upgrade] Shared pool not available, skipping store upgrade")
+        logger.warning("[upgrade] Shared pool not available, skipping store upgrade")
         return {}
 
     pool = get_shared_pool()
     if not pool:
+        logger.warning("[upgrade] get_shared_pool() returned None")
+        return {}
+
+    # Log pool diagnostics before upgrade
+    pool_info = get_pool_info()
+    logger.warning(
+        f"[upgrade] Pool state before upgrade: size={pool_info.get('pool_size')}, "
+        f"free={pool_info.get('free_connections')}, "
+        f"loop_id={pool_info.get('event_loop_id')}"
+    )
+    try:
+        current_loop = asyncio.get_running_loop()
+        logger.warning(
+            f"[upgrade] Current loop: {id(current_loop)}, "
+            f"running={current_loop.is_running()}, closed={current_loop.is_closed()}"
+        )
+    except RuntimeError:
+        logger.warning("[upgrade] No running event loop!")
+
+    # Verify pool health with a simple query before upgrading stores
+    try:
+        async with pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        logger.warning("[upgrade] Pool health check passed")
+    except Exception as e:
+        logger.warning(f"[upgrade] Pool health check FAILED: {e}")
         return {}
 
     results: dict[str, str] = {}
@@ -1123,14 +1137,14 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
         if hasattr(store, "initialize"):
             await store.initialize()
         results["user_store"] = "postgres"
-        logger.info("[upgrade] UserStore upgraded to PostgreSQL")
+        logger.warning("[upgrade] UserStore upgraded to PostgreSQL")
 
         # Wire to handler
         from aragora.server.handler_registry import UnifiedHandler
 
         UnifiedHandler.user_store = store
     except Exception as e:
-        logger.warning(f"[upgrade] UserStore upgrade failed: {e}")
+        logger.warning(f"[upgrade] UserStore upgrade failed: {type(e).__name__}: {e}")
         results["user_store"] = "skipped"
 
     # Upgrade additional stores (job queue, governance, etc.)
@@ -1148,14 +1162,14 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
             if hasattr(store, "initialize"):
                 await store.initialize()
             results[name] = "postgres"
-            logger.info(f"[upgrade] {name} upgraded to PostgreSQL")
+            logger.warning(f"[upgrade] {name} upgraded to PostgreSQL")
         except ImportError:
             results[name] = "skipped"
         except Exception as e:
-            logger.warning(f"[upgrade] {name} upgrade failed: {e}")
+            logger.warning(f"[upgrade] {name} upgrade failed: {type(e).__name__}: {e}")
             results[name] = "skipped"
 
     upgraded = sum(1 for v in results.values() if v == "postgres")
     if upgraded:
-        logger.info(f"[upgrade] {upgraded} store(s) upgraded to PostgreSQL")
+        logger.warning(f"[upgrade] {upgraded} store(s) upgraded to PostgreSQL")
     return results

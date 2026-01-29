@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, AsyncIterator, List, Optional
+from typing import Any, AsyncIterator
 
 import httpx
 
@@ -27,7 +27,6 @@ from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, Sy
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
-
 
 class IssuePriority(int, Enum):
     """Issue priority levels."""
@@ -38,7 +37,6 @@ class IssuePriority(int, Enum):
     MEDIUM = 3
     LOW = 4
 
-
 class IssueStateType(str, Enum):
     """Issue state type categories."""
 
@@ -48,14 +46,12 @@ class IssueStateType(str, Enum):
     COMPLETED = "completed"
     CANCELED = "canceled"
 
-
 @dataclass
 class LinearCredentials:
     """Linear API credentials."""
 
     api_key: str
     base_url: str = "https://api.linear.app/graphql"
-
 
 @dataclass
 class LinearTeam:
@@ -83,7 +79,6 @@ class LinearTeam:
             private=data.get("private", False),
             timezone=data.get("timezone"),
         )
-
 
 @dataclass
 class LinearUser:
@@ -114,7 +109,6 @@ class LinearUser:
             created_at=_parse_datetime(data.get("createdAt")),
         )
 
-
 @dataclass
 class IssueState:
     """Issue workflow state."""
@@ -138,7 +132,6 @@ class IssueState:
             description=data.get("description"),
         )
 
-
 @dataclass
 class Label:
     """Issue label."""
@@ -160,7 +153,6 @@ class Label:
             description=data.get("description"),
             parent_id=parent.get("id") if parent else None,
         )
-
 
 @dataclass
 class Project:
@@ -203,7 +195,6 @@ class Project:
             updated_at=_parse_datetime(data.get("updatedAt")),
         )
 
-
 @dataclass
 class Cycle:
     """Linear cycle (sprint)."""
@@ -236,7 +227,6 @@ class Cycle:
             team_id=team.get("id") if team else None,
         )
 
-
 @dataclass
 class Comment:
     """Issue comment."""
@@ -260,7 +250,6 @@ class Comment:
             created_at=_parse_datetime(data.get("createdAt")),
             updated_at=_parse_datetime(data.get("updatedAt")),
         )
-
 
 @dataclass
 class LinearIssue:
@@ -337,14 +326,12 @@ class LinearIssue:
             archived_at=_parse_datetime(data.get("archivedAt")),
         )
 
-
 class LinearError(Exception):
     """Linear API error."""
 
     def __init__(self, message: str, errors: list | None = None):
         super().__init__(message)
         self.errors = errors or []
-
 
 class LinearConnector(EnterpriseConnector):
     """
@@ -1043,7 +1030,7 @@ class LinearConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         **kwargs,
-    ) -> List[Evidence]:
+    ) -> list[Evidence]:
         """Search Linear for issues matching query.
 
         Args:
@@ -1054,7 +1041,7 @@ class LinearConnector(EnterpriseConnector):
         Returns:
             List of Evidence objects
         """
-        results: List[Evidence] = []
+        results: list[Evidence] = []
 
         try:
             team_id = kwargs.get("team_id")  # noqa: F841
@@ -1083,7 +1070,7 @@ class LinearConnector(EnterpriseConnector):
 
         return results[:limit]
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """Fetch a specific piece of evidence by ID.
 
         Args:
@@ -1190,7 +1177,7 @@ class LinearConnector(EnterpriseConnector):
 
     async def _paginate_issues(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 100,
     ) -> AsyncIterator[LinearIssue]:
         """Paginate through issues.
@@ -1238,7 +1225,7 @@ class LinearConnector(EnterpriseConnector):
 
     async def incremental_sync(
         self,
-        state: Optional[SyncState] = None,
+        state: SyncState | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Perform incremental sync of Linear data.
 
@@ -1262,7 +1249,7 @@ class LinearConnector(EnterpriseConnector):
         """Perform full sync of Linear data."""
         start_time = datetime.now(timezone.utc)
         items_synced = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         try:
             sync_state = SyncState(connector_id=self.name)
@@ -1300,7 +1287,6 @@ class LinearConnector(EnterpriseConnector):
     async def __aexit__(self, *args: Any) -> None:
         await self.close()
 
-
 def _parse_datetime(value: str | None) -> datetime | None:
     """Parse ISO datetime string."""
     if not value:
@@ -1309,7 +1295,6 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         return None
-
 
 def get_mock_issue() -> LinearIssue:
     """Get a mock issue for testing."""
@@ -1324,7 +1309,6 @@ def get_mock_issue() -> LinearIssue:
         team_key="ENG",
         created_at=datetime.now(),
     )
-
 
 def get_mock_team() -> LinearTeam:
     """Get a mock team for testing."""

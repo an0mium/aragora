@@ -33,7 +33,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Optional
 
 from .base import (
     Skill,
@@ -46,7 +46,6 @@ from .base import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class SkillExecutionMetrics:
     """Metrics for skill executions."""
@@ -56,10 +55,10 @@ class SkillExecutionMetrics:
     failed_invocations: int = 0
     total_execution_time_ms: float = 0
     average_execution_time_ms: float = 0
-    last_invocation: Optional[datetime] = None
-    last_error: Optional[str] = None
+    last_invocation: datetime | None = None
+    last_error: str | None = None
 
-    def record_execution(self, success: bool, duration_ms: float, error: Optional[str] = None):
+    def record_execution(self, success: bool, duration_ms: float, error: str | None = None):
         """Record an execution."""
         self.total_invocations += 1
         self.total_execution_time_ms += duration_ms
@@ -79,14 +78,12 @@ class SkillExecutionMetrics:
             return 0.0
         return (self.successful_invocations / self.total_invocations) * 100
 
-
 @dataclass
 class RateLimitState:
     """Rate limiting state for a skill."""
 
     window_start: float = 0.0
     request_count: int = 0
-
 
 class SkillRegistry:
     """
@@ -102,7 +99,7 @@ class SkillRegistry:
 
     def __init__(
         self,
-        rbac_checker: Optional[Any] = None,
+        rbac_checker: Any | None = None,
         enable_metrics: bool = True,
         enable_rate_limiting: bool = True,
     ):
@@ -114,13 +111,13 @@ class SkillRegistry:
             enable_metrics: Whether to collect execution metrics
             enable_rate_limiting: Whether to enforce rate limits
         """
-        self._skills: Dict[str, Skill] = {}
-        self._metrics: Dict[str, SkillExecutionMetrics] = defaultdict(SkillExecutionMetrics)
-        self._rate_limits: Dict[str, RateLimitState] = defaultdict(RateLimitState)
+        self._skills: dict[str, Skill] = {}
+        self._metrics: dict[str, SkillExecutionMetrics] = defaultdict(SkillExecutionMetrics)
+        self._rate_limits: dict[str, RateLimitState] = defaultdict(RateLimitState)
         self._rbac_checker = rbac_checker
         self._enable_metrics = enable_metrics
         self._enable_rate_limiting = enable_rate_limiting
-        self._hooks: Dict[str, List[Callable]] = {
+        self._hooks: dict[str, list[Callable]] = {
             "pre_invoke": [],
             "post_invoke": [],
             "on_error": [],
@@ -165,16 +162,16 @@ class SkillRegistry:
             return True
         return False
 
-    def get(self, name: str) -> Optional[Skill]:
+    def get(self, name: str) -> Skill | None:
         """Get a skill by name."""
         return self._skills.get(name)
 
     def list_skills(
         self,
-        capability: Optional[SkillCapability] = None,
-        tag: Optional[str] = None,
+        capability: SkillCapability | None = None,
+        tag: str | None = None,
         debate_compatible_only: bool = False,
-    ) -> List[SkillManifest]:
+    ) -> list[SkillManifest]:
         """
         List registered skills with optional filtering.
 
@@ -213,7 +210,7 @@ class SkillRegistry:
     async def invoke(
         self,
         skill_name: str,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         """
@@ -329,7 +326,7 @@ class SkillRegistry:
         self,
         skill: Skill,
         context: SkillContext,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Check permissions for skill execution."""
         manifest = skill.manifest
 
@@ -427,9 +424,9 @@ class SkillRegistry:
 
     def get_function_schemas(
         self,
-        skills: Optional[List[str]] = None,
+        skills: Optional[list[str]] = None,
         debate_compatible_only: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get function schemas for LLM tool calling.
 
@@ -453,7 +450,7 @@ class SkillRegistry:
 
         return schemas
 
-    def get_metrics(self, skill_name: Optional[str] = None) -> Dict[str, Any]:
+    def get_metrics(self, skill_name: str | None = None) -> dict[str, Any]:
         """
         Get execution metrics.
 
@@ -515,7 +512,7 @@ class SkillRegistry:
 
         return unregister
 
-    def get_capabilities(self) -> Set[SkillCapability]:
+    def get_capabilities(self) -> set[SkillCapability]:
         """Get all capabilities across registered skills."""
         capabilities = set()
         for skill in self._skills.values():
@@ -527,10 +524,8 @@ class SkillRegistry:
         """Get number of registered skills."""
         return len(self._skills)
 
-
 # Global registry singleton
-_default_registry: Optional[SkillRegistry] = None
-
+_default_registry: SkillRegistry | None = None
 
 def get_skill_registry() -> SkillRegistry:
     """Get the default skill registry instance."""
@@ -538,7 +533,6 @@ def get_skill_registry() -> SkillRegistry:
     if _default_registry is None:
         _default_registry = SkillRegistry()
     return _default_registry
-
 
 def reset_skill_registry() -> None:
     """Reset the default registry (for testing)."""

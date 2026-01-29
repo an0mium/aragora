@@ -7,6 +7,7 @@ Provides:
 - Rollback safety mechanisms
 - Human-in-the-loop approval flows
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -19,10 +20,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class ApprovalStatus(Enum):
     """Status of an approval request."""
@@ -33,7 +33,6 @@ class ApprovalStatus(Enum):
     TIMEOUT = "timeout"
     AUTO_APPROVED = "auto_approved"
 
-
 @dataclass
 class ApprovalRequest:
     """A request for human approval."""
@@ -41,17 +40,16 @@ class ApprovalRequest:
     id: str
     title: str
     description: str
-    changes: List[Dict[str, Any]]
+    changes: list[dict[str, Any]]
     risk_level: str  # low, medium, high, critical
     requested_at: datetime
     requested_by: str
     timeout_seconds: int = 3600
     status: ApprovalStatus = ApprovalStatus.PENDING
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
-    rejection_reason: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    rejection_reason: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class RollbackPoint:
@@ -60,11 +58,10 @@ class RollbackPoint:
     id: str
     created_at: datetime
     description: str
-    git_commit: Optional[str] = None
-    file_backups: Dict[str, str] = field(default_factory=dict)
-    database_snapshot: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    git_commit: str | None = None
+    file_backups: dict[str, str] = field(default_factory=dict)
+    database_snapshot: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class VerificationResult:
@@ -74,13 +71,12 @@ class VerificationResult:
     tests_run: int = 0
     tests_passed: int = 0
     tests_failed: int = 0
-    syntax_errors: List[str] = field(default_factory=list)
-    security_issues: List[str] = field(default_factory=list)
-    lint_warnings: List[str] = field(default_factory=list)
-    coverage_percent: Optional[float] = None
-    performance_regressions: List[str] = field(default_factory=list)
-    details: Dict[str, Any] = field(default_factory=dict)
-
+    syntax_errors: list[str] = field(default_factory=list)
+    security_issues: list[str] = field(default_factory=list)
+    lint_warnings: list[str] = field(default_factory=list)
+    coverage_percent: float | None = None
+    performance_regressions: list[str] = field(default_factory=list)
+    details: dict[str, Any] = field(default_factory=dict)
 
 class ApprovalFlow:
     """
@@ -95,7 +91,7 @@ class ApprovalFlow:
 
     def __init__(
         self,
-        storage_dir: Optional[Path] = None,
+        storage_dir: Path | None = None,
         auto_approve_low_risk: bool = True,
         default_timeout_seconds: int = 3600,
         notification_callback: Optional[Callable[[ApprovalRequest], None]] = None,
@@ -114,17 +110,17 @@ class ApprovalFlow:
         self.auto_approve_low_risk = auto_approve_low_risk
         self.default_timeout_seconds = default_timeout_seconds
         self.notification_callback = notification_callback
-        self._pending_requests: Dict[str, ApprovalRequest] = {}
+        self._pending_requests: dict[str, ApprovalRequest] = {}
 
     async def request_approval(
         self,
         title: str,
         description: str,
-        changes: List[Dict[str, Any]],
+        changes: list[dict[str, Any]],
         risk_level: str = "medium",
         requested_by: str = "system",
-        timeout_seconds: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        timeout_seconds: int | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ApprovalRequest:
         """
         Request approval for an operation.
@@ -283,7 +279,7 @@ class ApprovalFlow:
 
         return request
 
-    def list_pending(self) -> List[ApprovalRequest]:
+    def list_pending(self) -> list[ApprovalRequest]:
         """List all pending approval requests."""
         pending = []
         for path in self.storage_dir.glob("*.json"):
@@ -312,7 +308,7 @@ class ApprovalFlow:
         }
         path.write_text(json.dumps(data, indent=2))
 
-    def _load_request(self, request_id: str) -> Optional[ApprovalRequest]:
+    def _load_request(self, request_id: str) -> ApprovalRequest | None:
         """Load request from storage."""
         path = self.storage_dir / f"{request_id}.json"
         if not path.exists():
@@ -341,7 +337,6 @@ class ApprovalFlow:
             logger.error(f"Failed to load approval request {request_id}: {e}")
             return None
 
-
 class RollbackManager:
     """
     Manages rollback points for safe self-improvement.
@@ -355,9 +350,9 @@ class RollbackManager:
 
     def __init__(
         self,
-        backup_dir: Optional[Path] = None,
+        backup_dir: Path | None = None,
         max_rollback_points: int = 10,
-        repo_path: Optional[Path] = None,
+        repo_path: Path | None = None,
     ):
         """
         Initialize rollback manager.
@@ -371,14 +366,14 @@ class RollbackManager:
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self.max_rollback_points = max_rollback_points
         self.repo_path = repo_path or Path.cwd()
-        self._rollback_points: List[RollbackPoint] = []
+        self._rollback_points: list[RollbackPoint] = []
         self._load_rollback_points()
 
     def create_rollback_point(
         self,
         description: str,
-        files_to_backup: Optional[List[Path]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        files_to_backup: Optional[list[Path]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> RollbackPoint:
         """
         Create a new rollback point.
@@ -494,14 +489,14 @@ class RollbackManager:
 
         return success
 
-    def get_rollback_point(self, point_id: str) -> Optional[RollbackPoint]:
+    def get_rollback_point(self, point_id: str) -> RollbackPoint | None:
         """Get a specific rollback point."""
         for point in self._rollback_points:
             if point.id == point_id:
                 return point
         return None
 
-    def list_rollback_points(self) -> List[RollbackPoint]:
+    def list_rollback_points(self) -> list[RollbackPoint]:
         """List all rollback points (newest first)."""
         return sorted(
             self._rollback_points,
@@ -569,7 +564,6 @@ class RollbackManager:
             oldest = min(self._rollback_points, key=lambda p: p.created_at)
             self.delete_rollback_point(oldest.id)
 
-
 class CodeVerifier:
     """
     Verifies code changes before they are applied.
@@ -584,7 +578,7 @@ class CodeVerifier:
 
     def __init__(
         self,
-        repo_path: Optional[Path] = None,
+        repo_path: Path | None = None,
         run_tests: bool = True,
         run_lint: bool = True,
         run_security: bool = True,
@@ -614,7 +608,7 @@ class CodeVerifier:
 
     async def verify(
         self,
-        files: Optional[List[Path]] = None,
+        files: Optional[list[Path]] = None,
         quick_mode: bool = False,
     ) -> VerificationResult:
         """
@@ -667,7 +661,7 @@ class CodeVerifier:
 
         return result
 
-    async def _check_syntax(self, files: Optional[List[Path]] = None) -> List[str]:
+    async def _check_syntax(self, files: Optional[list[Path]] = None) -> list[str]:
         """Check Python syntax for files."""
         import ast
 
@@ -687,7 +681,7 @@ class CodeVerifier:
 
         return errors
 
-    async def _run_lint(self, files: Optional[List[Path]] = None) -> List[str]:
+    async def _run_lint(self, files: Optional[list[Path]] = None) -> list[str]:
         """Run linter on files."""
         warnings = []
 
@@ -713,8 +707,8 @@ class CodeVerifier:
 
     async def _run_tests(
         self,
-        files: Optional[List[Path]] = None,
-    ) -> Dict[str, Any]:
+        files: Optional[list[Path]] = None,
+    ) -> dict[str, Any]:
         """Run tests for files."""
         try:
             # Build command list safely without shell injection
@@ -773,8 +767,8 @@ class CodeVerifier:
 
     async def _run_security_scan(
         self,
-        files: Optional[List[Path]] = None,
-    ) -> List[str]:
+        files: Optional[list[Path]] = None,
+    ) -> list[str]:
         """Run security scan on files."""
         issues = []
 
@@ -802,7 +796,6 @@ class CodeVerifier:
 
         return issues
 
-
 class SelfImprovementManager:
     """
     Orchestrates the self-improvement cycle with safety controls.
@@ -816,11 +809,11 @@ class SelfImprovementManager:
 
     def __init__(
         self,
-        rollback_manager: Optional[RollbackManager] = None,
-        code_verifier: Optional[CodeVerifier] = None,
-        approval_flow: Optional[ApprovalFlow] = None,
+        rollback_manager: RollbackManager | None = None,
+        code_verifier: CodeVerifier | None = None,
+        approval_flow: ApprovalFlow | None = None,
         auto_rollback_on_failure: bool = True,
-        require_approval_for_risk_levels: Optional[Set[str]] = None,
+        require_approval_for_risk_levels: Optional[set[str]] = None,
     ):
         """
         Initialize self-improvement manager.
@@ -840,15 +833,15 @@ class SelfImprovementManager:
             "high",
             "critical",
         }
-        self._current_rollback_point: Optional[str] = None
+        self._current_rollback_point: str | None = None
 
     async def start_improvement_cycle(
         self,
         description: str,
-        files_to_modify: List[Path],
+        files_to_modify: list[Path],
         risk_level: str = "medium",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[bool, Optional[str]]:
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> tuple[bool, str | None]:
         """
         Start a self-improvement cycle.
 
@@ -896,9 +889,9 @@ class SelfImprovementManager:
 
     async def verify_and_complete(
         self,
-        modified_files: List[Path],
+        modified_files: list[Path],
         quick_verify: bool = False,
-    ) -> Tuple[bool, VerificationResult]:
+    ) -> tuple[bool, VerificationResult]:
         """
         Verify changes and complete the improvement cycle.
 
@@ -952,7 +945,6 @@ class SelfImprovementManager:
         self._current_rollback_point = None
 
         return success
-
 
 __all__ = [
     "ApprovalStatus",

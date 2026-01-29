@@ -16,13 +16,12 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from aragora.agents.base import BaseDebateAgent
 from aragora.core_types import AgentRole
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CodebaseIndex:
@@ -31,11 +30,11 @@ class CodebaseIndex:
     root_path: str
     total_files: int = 0
     total_lines: int = 0
-    languages: Dict[str, int] = field(default_factory=dict)  # lang -> file count
-    symbols: Dict[str, List[str]] = field(default_factory=dict)  # symbol type -> names
-    file_summaries: Dict[str, str] = field(default_factory=dict)  # path -> summary
+    languages: dict[str, int] = field(default_factory=dict)  # lang -> file count
+    symbols: dict[str, list[str]] = field(default_factory=dict)  # symbol type -> names
+    file_summaries: dict[str, str] = field(default_factory=dict)  # path -> summary
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "root_path": self.root_path,
@@ -46,7 +45,6 @@ class CodebaseIndex:
             "indexed_files": len(self.file_summaries),
         }
 
-
 @dataclass
 class CodeUnderstanding:
     """Result of code understanding query."""
@@ -54,13 +52,13 @@ class CodeUnderstanding:
     question: str
     answer: str
     confidence: float
-    relevant_files: List[str]
-    code_citations: List[Dict[str, Any]]  # {file, line, snippet, relevance}
-    related_symbols: List[str]
-    reasoning_trace: List[str] = field(default_factory=list)
-    agent_perspectives: Dict[str, str] = field(default_factory=dict)
+    relevant_files: list[str]
+    code_citations: list[dict[str, Any]]  # {file, line, snippet, relevance}
+    related_symbols: list[str]
+    reasoning_trace: list[str] = field(default_factory=list)
+    agent_perspectives: dict[str, str] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "question": self.question,
@@ -73,33 +71,32 @@ class CodeUnderstanding:
             "agent_perspectives": self.agent_perspectives,
         }
 
-
 @dataclass
 class CodeAuditResult:
     """Result of comprehensive code audit."""
 
     scan_id: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     root_path: str = ""
 
     # Scan results
-    security_findings: List[Dict[str, Any]] = field(default_factory=list)
-    bug_findings: List[Dict[str, Any]] = field(default_factory=list)
-    quality_issues: List[Dict[str, Any]] = field(default_factory=list)
-    dead_code: List[Dict[str, Any]] = field(default_factory=list)
+    security_findings: list[dict[str, Any]] = field(default_factory=list)
+    bug_findings: list[dict[str, Any]] = field(default_factory=list)
+    quality_issues: list[dict[str, Any]] = field(default_factory=list)
+    dead_code: list[dict[str, Any]] = field(default_factory=list)
 
     # Analysis
     risk_score: float = 0.0
-    prioritized_remediations: List[Dict[str, Any]] = field(default_factory=list)
+    prioritized_remediations: list[dict[str, Any]] = field(default_factory=list)
     agent_summary: str = ""
 
     # Stats
     files_analyzed: int = 0
     lines_analyzed: int = 0
-    error: Optional[str] = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "scan_id": self.scan_id,
@@ -122,7 +119,6 @@ class CodeAuditResult:
             "lines_analyzed": self.lines_analyzed,
             "error": self.error,
         }
-
 
 class CodeAnalystAgent(BaseDebateAgent):
     """Agent specialized in code structure and architecture analysis."""
@@ -159,7 +155,6 @@ class CodeAnalystAgent(BaseDebateAgent):
             reasoning="Code structure analysis",
         )
 
-
 class SecurityReviewerAgent(BaseDebateAgent):
     """Agent specialized in security vulnerability analysis."""
 
@@ -194,7 +189,6 @@ class SecurityReviewerAgent(BaseDebateAgent):
             severity=0.0,
             reasoning="Security vulnerability analysis",
         )
-
 
 class BugHunterAgent(BaseDebateAgent):
     """Agent specialized in bug pattern detection."""
@@ -231,7 +225,6 @@ class BugHunterAgent(BaseDebateAgent):
             reasoning="Bug pattern analysis",
         )
 
-
 class CodebaseUnderstandingAgent:
     """
     Multi-agent system for comprehensive codebase understanding.
@@ -256,7 +249,7 @@ class CodebaseUnderstandingAgent:
     def __init__(
         self,
         root_path: str,
-        exclude_patterns: Optional[List[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
         enable_debate: bool = True,
     ):
         """
@@ -281,13 +274,13 @@ class CodebaseUnderstandingAgent:
         self.enable_debate = enable_debate
 
         # Lazy-loaded components
-        self._code_intel: Optional[Any] = None
-        self._call_graph_builder: Optional[Any] = None
-        self._security_scanner: Optional[Any] = None
-        self._bug_detector: Optional[Any] = None
-        self._index: Optional[CodebaseIndex] = None
-        self._context_builder: Optional[Any] = None
-        self._rlm_context_cache: Optional[str] = None
+        self._code_intel: Any | None = None
+        self._call_graph_builder: Any | None = None
+        self._security_scanner: Any | None = None
+        self._bug_detector: Any | None = None
+        self._index: CodebaseIndex | None = None
+        self._context_builder: Any | None = None
+        self._rlm_context_cache: str | None = None
         self._use_rlm_context = os.environ.get("ARAGORA_CODEBASE_CONTEXT_RLM", "1") == "1"
 
         # Specialist agents for debate
@@ -297,7 +290,7 @@ class CodebaseUnderstandingAgent:
             BugHunterAgent(),
         ]
 
-    def _get_context_builder(self) -> Optional[Any]:
+    def _get_context_builder(self) -> Any | None:
         """Lazy-load a shared RLM codebase context builder."""
         if self._context_builder is not None:
             return self._context_builder
@@ -310,7 +303,7 @@ class CodebaseUnderstandingAgent:
             self._context_builder = None
         return self._context_builder
 
-    async def _get_rlm_context(self) -> Optional[str]:
+    async def _get_rlm_context(self) -> str | None:
         """Build or return cached RLM codebase context."""
         if not self._use_rlm_context:
             return None
@@ -642,10 +635,10 @@ class CodebaseUnderstandingAgent:
         question: str,
         index: CodebaseIndex,
         max_files: int,
-    ) -> Tuple[List[str], List[Dict[str, Any]]]:
+    ) -> tuple[list[str], list[dict[str, Any]]]:
         """Find code relevant to the question."""
-        relevant_files: List[str] = []
-        citations: List[Dict[str, Any]] = []
+        relevant_files: list[str] = []
+        citations: list[dict[str, Any]] = []
 
         # Extract keywords from question
         keywords = self._extract_keywords(question)
@@ -712,8 +705,8 @@ class CodebaseUnderstandingAgent:
         self,
         question: str,
         index: CodebaseIndex,
-        relevant_files: List[str],
-        citations: List[Dict[str, Any]],
+        relevant_files: list[str],
+        citations: list[dict[str, Any]],
     ) -> str:
         """Build context string for answering questions."""
         parts = []
@@ -749,11 +742,11 @@ class CodebaseUnderstandingAgent:
         self,
         question: str,
         context: str,
-    ) -> Tuple[str, Dict[str, str], List[str]]:
+    ) -> tuple[str, dict[str, str], list[str]]:
         """Use multi-agent debate to answer question."""
         # Simplified debate - in production would use full Arena
-        perspectives: Dict[str, str] = {}
-        reasoning: List[str] = []
+        perspectives: dict[str, str] = {}
+        reasoning: list[str] = []
 
         # Each agent provides perspective
         for agent in self._agents:
@@ -838,7 +831,7 @@ This addresses: {question}"""
 
         return min(100.0, score)
 
-    def _prioritize_remediations(self, result: CodeAuditResult) -> List[Dict[str, Any]]:
+    def _prioritize_remediations(self, result: CodeAuditResult) -> list[dict[str, Any]]:
         """Prioritize remediation actions."""
         remediations = []
 
@@ -921,7 +914,7 @@ This addresses: {question}"""
 - Bug findings: {len(result.bug_findings)}
 - Risk score: {result.risk_score:.1f}/100"""
 
-    def _extract_keywords(self, question: str) -> List[str]:
+    def _extract_keywords(self, question: str) -> list[str]:
         """Extract relevant keywords from question."""
         # Simple keyword extraction
         stopwords = {
@@ -962,7 +955,7 @@ This addresses: {question}"""
 
         return keywords[:10]
 
-    def _calculate_confidence(self, citations: List[Dict[str, Any]], file_count: int) -> float:
+    def _calculate_confidence(self, citations: list[dict[str, Any]], file_count: int) -> float:
         """Calculate confidence based on evidence quality."""
         if not citations and file_count == 0:
             return 0.3
@@ -995,8 +988,7 @@ This addresses: {question}"""
         }
         return mapping.get(ext, "unknown")
 
-
-async def quick_codebase_audit(path: str) -> Dict[str, Any]:
+async def quick_codebase_audit(path: str) -> dict[str, Any]:
     """
     Quick codebase audit for a directory.
 
@@ -1010,8 +1002,7 @@ async def quick_codebase_audit(path: str) -> Dict[str, Any]:
     result = await agent.audit(include_dead_code=False, include_quality=True)
     return result.to_dict()
 
-
-async def understand_codebase(path: str, question: str) -> Dict[str, Any]:
+async def understand_codebase(path: str, question: str) -> dict[str, Any]:
     """
     Answer a question about a codebase.
 

@@ -6,10 +6,10 @@ Provides commands for:
 - Scheduling training jobs
 - Managing trained models
 """
+from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -17,7 +17,6 @@ app = typer.Typer(
     name="training",
     help="Tinker training operations for fine-tuning models on Aragora debate data",
 )
-
 
 @app.command("export-sft")
 def export_sft(
@@ -45,7 +44,6 @@ def export_sft(
     typer.echo(f"Exported {metadata.total_records} SFT records to {output}")
     typer.echo(f"Filters: confidence >= {min_confidence}, success_rate >= {min_success_rate}")
 
-
 @app.command("export-dpo")
 def export_dpo(
     output: str = typer.Option(
@@ -69,7 +67,6 @@ def export_dpo(
     typer.echo(f"Exported {metadata.total_records} DPO records to {output}")
     typer.echo(f"Filters: elo_diff >= {min_elo_difference}, debates >= {min_debates}")
 
-
 @app.command("export-gauntlet")
 def export_gauntlet(
     output: str = typer.Option(
@@ -89,7 +86,6 @@ def export_gauntlet(
     )
 
     typer.echo(f"Exported {metadata.total_records} Gauntlet records to {output}")
-
 
 @app.command("export-all")
 def export_all(
@@ -128,7 +124,6 @@ def export_all(
     typer.echo(f"  - DPO: {dpo_metadata.total_records} records")
     typer.echo(f"  - Gauntlet: {gauntlet_metadata.total_records} records")
 
-
 @app.command("test-connection")
 def test_connection():
     """Test connection to Tinker API."""
@@ -154,11 +149,10 @@ def test_connection():
 
     asyncio.run(_test())
 
-
 @app.command("train-sft")
 def train_sft(
     model: str = typer.Option("llama-3.3-70b", "--model", help="Base model to fine-tune"),
-    adapter_name: Optional[str] = typer.Option(None, "--adapter-name", help="Name for the adapter"),
+    adapter_name: str | None = typer.Option(None, "--adapter-name", help="Name for the adapter"),
     min_confidence: float = typer.Option(0.7, "--min-confidence", help="Minimum debate confidence"),
     limit: int = typer.Option(1000, "--limit", help="Maximum training examples"),
     wait: bool = typer.Option(True, "--wait/--no-wait", help="Wait for completion"),
@@ -199,11 +193,10 @@ def train_sft(
 
     asyncio.run(_train())
 
-
 @app.command("train-dpo")
 def train_dpo(
     model: str = typer.Option("llama-3.3-70b", "--model", help="Base model to fine-tune"),
-    adapter_name: Optional[str] = typer.Option(None, "--adapter-name", help="Name for the adapter"),
+    adapter_name: str | None = typer.Option(None, "--adapter-name", help="Name for the adapter"),
     min_elo_diff: float = typer.Option(50.0, "--min-elo-diff", help="Minimum ELO difference"),
     limit: int = typer.Option(500, "--limit", help="Maximum training examples"),
     beta: float = typer.Option(0.1, "--beta", help="DPO temperature parameter"),
@@ -243,11 +236,10 @@ def train_dpo(
 
     asyncio.run(_train())
 
-
 @app.command("train-combined")
 def train_combined(
     model: str = typer.Option("llama-3.3-70b", "--model", help="Base model to fine-tune"),
-    adapter_name: Optional[str] = typer.Option(None, "--adapter-name", help="Name for the adapter"),
+    adapter_name: str | None = typer.Option(None, "--adapter-name", help="Name for the adapter"),
     sft_limit: int = typer.Option(1000, "--sft-limit", help="SFT training examples"),
     dpo_limit: int = typer.Option(500, "--dpo-limit", help="DPO training examples"),
     wait: bool = typer.Option(True, "--wait/--no-wait", help="Wait for completion"),
@@ -286,7 +278,6 @@ def train_combined(
 
     asyncio.run(_train())
 
-
 @app.command("list-models")
 def list_models():
     """List available fine-tuned models."""
@@ -313,11 +304,10 @@ def list_models():
 
     asyncio.run(_list())
 
-
 @app.command("sample")
 def sample(
     prompt: str = typer.Argument(..., help="Prompt to generate from"),
-    model_id: Optional[str] = typer.Option(None, "--model-id", help="Fine-tuned model ID"),
+    model_id: str | None = typer.Option(None, "--model-id", help="Fine-tuned model ID"),
     max_tokens: int = typer.Option(1024, "--max-tokens", help="Maximum tokens to generate"),
     temperature: float = typer.Option(0.7, "--temperature", help="Sampling temperature"),
 ):
@@ -339,7 +329,6 @@ def sample(
             await client.close()
 
     asyncio.run(_sample())
-
 
 @app.command("stats")
 def show_stats():
@@ -374,7 +363,6 @@ def show_stats():
         typer.echo("\nPatterns by Type:")
         for ptype, count in sorted(patterns_by_type.items(), key=lambda x: -x[1]):
             typer.echo(f"  {ptype}: {count}")
-
 
 if __name__ == "__main__":
     app()

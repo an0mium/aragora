@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,6 @@ GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID", "")
 CHAT_API_BASE = "https://chat.googleapis.com/v1"
 CHAT_SCOPES = ["https://www.googleapis.com/auth/chat.bot"]
 
-
 class GoogleChatConnector(ChatPlatformConnector):
     """
     Google Chat connector using Google Chat API.
@@ -73,9 +72,9 @@ class GoogleChatConnector(ChatPlatformConnector):
 
     def __init__(
         self,
-        credentials_path: Optional[str] = None,
-        credentials_json: Optional[str] = None,
-        project_id: Optional[str] = None,
+        credentials_path: str | None = None,
+        credentials_json: str | None = None,
+        project_id: str | None = None,
         **config: Any,
     ):
         """
@@ -158,8 +157,8 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
-        thread_id: Optional[str] = None,
+        blocks: list[dict] | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send message to Google Chat space."""
@@ -229,7 +228,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: list[dict] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Update a Google Chat message."""
@@ -322,7 +321,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: list[dict] | None = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -344,7 +343,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: Optional[list[dict]] = None,
+        blocks: list[dict] | None = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -373,8 +372,8 @@ class GoogleChatConnector(ChatPlatformConnector):
         content: bytes,
         filename: str,
         content_type: str = "application/octet-stream",
-        title: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        title: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """Upload file to Google Chat (via Drive)."""
@@ -404,10 +403,10 @@ class GoogleChatConnector(ChatPlatformConnector):
 
     def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        actions: Optional[list[MessageButton]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str] | None] = None,
+        actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict]:
         """Format content as Google Chat Card v2 sections."""
@@ -473,9 +472,9 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
+        value: str | None = None,
         style: str = "default",
-        url: Optional[str] = None,
+        url: str | None = None,
     ) -> dict:
         """Format a Google Chat button."""
         if url:
@@ -663,8 +662,8 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         limit: int = 100,
-        oldest: Optional[str] = None,
-        latest: Optional[str] = None,
+        oldest: str | None = None,
+        latest: str | None = None,
         **kwargs: Any,
     ) -> list[ChatMessage]:
         """
@@ -699,7 +698,7 @@ class GoogleChatConnector(ChatPlatformConnector):
     async def collect_evidence(
         self,
         channel_id: str,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 100,
         include_threads: bool = True,
         min_relevance: float = 0.0,

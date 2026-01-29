@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     error_response,
@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter for Slack workspace APIs (30 requests per minute)
 _slack_limiter = RateLimiter(requests_per_minute=30)
-
 
 class SlackWorkspaceHandler(SecureHandler):
     """Handler for Slack workspace management endpoints.
@@ -69,7 +68,7 @@ class SlackWorkspaceHandler(SecureHandler):
                 return True
         return False
 
-    def _match_route(self, path: str) -> tuple[Optional[str], Optional[str]]:
+    def _match_route(self, path: str) -> tuple[str | None, str | None]:
         """Match a path against parameterized routes.
 
         Returns:
@@ -87,7 +86,7 @@ class SlackWorkspaceHandler(SecureHandler):
         query_params: dict,
         handler,
         method: str = "GET",
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route Slack workspace requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -431,7 +430,7 @@ class SlackWorkspaceHandler(SecureHandler):
         _types = get_string_param(handler, "types", "public_channel")  # noqa: F841
 
         # Try to fetch channels from Slack API
-        channels: List[Dict[str, Any]] = []
+        channels: list[dict[str, Any]] = []
 
         try:
             from aragora.connectors.chat.slack import SlackConnector
@@ -641,6 +640,5 @@ class SlackWorkspaceHandler(SecureHandler):
                 "subscription_id": subscription_id,
             }
         )
-
 
 __all__ = ["SlackWorkspaceHandler"]

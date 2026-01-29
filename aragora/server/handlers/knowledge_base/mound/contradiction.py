@@ -13,7 +13,7 @@ Phase A2 - Knowledge Quality Assurance
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -30,14 +30,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class ContradictionHandlerProtocol(Protocol):
     """Protocol for handlers that use ContradictionOperationsMixin."""
 
-    ctx: Dict[str, Any]
+    ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
-
 
 class ContradictionOperationsMixin:
     """Mixin providing contradiction detection API endpoints."""
@@ -51,7 +49,7 @@ class ContradictionOperationsMixin:
     async def detect_contradictions(
         self,
         workspace_id: str,
-        item_ids: Optional[list[str]] = None,
+        item_ids: list[str] | None = None,
     ) -> HandlerResult:
         """
         Trigger contradiction detection scan.
@@ -91,8 +89,8 @@ class ContradictionOperationsMixin:
     @rate_limit(requests_per_minute=30)
     async def list_contradictions(
         self,
-        workspace_id: Optional[str] = None,
-        min_severity: Optional[str] = None,
+        workspace_id: str | None = None,
+        min_severity: str | None = None,
     ) -> HandlerResult:
         """
         List unresolved contradictions.
@@ -134,7 +132,7 @@ class ContradictionOperationsMixin:
         self,
         contradiction_id: str,
         strategy: str,
-        resolved_by: Optional[str] = None,
+        resolved_by: str | None = None,
         notes: str = "",
     ) -> HandlerResult:
         """

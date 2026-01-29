@@ -5,6 +5,7 @@ Provides in-memory caching for introspection data to minimize
 performance impact during debates. Data is loaded once at Arena
 initialization and reused throughout the debate.
 """
+from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
@@ -15,7 +16,6 @@ if TYPE_CHECKING:
     from aragora.agents.personas import PersonaManager
     from aragora.core import Agent
     from aragora.memory.store import CritiqueStore
-
 
 class IntrospectionCache:
     """
@@ -34,7 +34,7 @@ class IntrospectionCache:
 
     def __init__(self):
         self._cache: dict[str, IntrospectionSnapshot] = {}
-        self._loaded_at: Optional[datetime] = None
+        self._loaded_at: datetime | None = None
 
     def warm(
         self,
@@ -67,7 +67,7 @@ class IntrospectionCache:
             )
             self._cache[agent_name] = snapshot
 
-    def get(self, agent_name: str) -> Optional[IntrospectionSnapshot]:
+    def get(self, agent_name: str) -> IntrospectionSnapshot | None:
         """
         Get cached introspection data for an agent.
 

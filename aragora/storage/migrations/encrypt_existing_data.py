@@ -35,7 +35,7 @@ import asyncio
 import logging
 import sys
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,6 @@ except ImportError:
     def record_migration_error(*args, **kwargs):
         pass
 
-
 @dataclass
 class MigrationResult:
     """Result of a migration operation."""
@@ -69,7 +68,7 @@ class MigrationResult:
     migrated: int
     already_encrypted: int
     failed: int
-    errors: List[str]
+    errors: list[str]
     dry_run: bool
 
     @property
@@ -86,8 +85,7 @@ class MigrationResult:
             f"  Failed: {self.failed}"
         )
 
-
-def _needs_migration(config: Dict[str, Any], sensitive_keywords: List[str]) -> bool:
+def _needs_migration(config: dict[str, Any], sensitive_keywords: list[str]) -> bool:
     """
     Check if a config has any plaintext sensitive fields.
 
@@ -109,7 +107,6 @@ def _needs_migration(config: Dict[str, Any], sensitive_keywords: List[str]) -> b
             return True
 
     return False
-
 
 async def migrate_sync_store(
     dry_run: bool = True,
@@ -182,7 +179,6 @@ async def migrate_sync_store(
 
     return result
 
-
 async def migrate_integration_store(
     dry_run: bool = True,
     batch_size: int = 100,
@@ -252,7 +248,6 @@ async def migrate_integration_store(
         logger.error(f"Failed to initialize IntegrationStore: {e}")
 
     return result
-
 
 async def migrate_gmail_tokens(
     dry_run: bool = True,
@@ -333,8 +328,7 @@ async def migrate_gmail_tokens(
 
     return result
 
-
-async def migrate_all(dry_run: bool = True) -> List[MigrationResult]:
+async def migrate_all(dry_run: bool = True) -> list[MigrationResult]:
     """
     Run all migration functions.
 
@@ -377,7 +371,6 @@ async def migrate_all(dry_run: bool = True) -> List[MigrationResult]:
         logger.info(f"Migration complete: {total_migrated} records migrated, {total_failed} failed")
 
     return results
-
 
 def main():
     """CLI entry point for migration."""
@@ -456,7 +449,6 @@ def main():
             sys.exit(1)
 
     asyncio.run(run())
-
 
 if __name__ == "__main__":
     main()

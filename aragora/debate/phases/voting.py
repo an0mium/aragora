@@ -8,6 +8,7 @@ Provides utilities for:
 - Vote result analysis
 - Consensus strength calculation
 """
+from __future__ import annotations
 
 __all__ = [
     "WeightSource",
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class WeightSource(Protocol):
     """Protocol for weight providers."""
 
@@ -36,12 +36,11 @@ class WeightSource(Protocol):
         """Return weight for agent (typically 0.5-1.5 range)."""
         ...
 
-
 @dataclass
 class WeightedVoteResult:
     """Result of weighted vote counting."""
 
-    winner: Optional[str] = None
+    winner: str | None = None
     vote_counts: dict[str, float] = field(default_factory=dict)
     total_weighted_votes: float = 0.0
     confidence: float = 0.0
@@ -49,7 +48,6 @@ class WeightedVoteResult:
     consensus_strength: str = "none"  # "unanimous", "strong", "medium", "weak", "none"
     consensus_variance: float = 0.0
     choice_mapping: dict[str, str] = field(default_factory=dict)  # variant -> canonical
-
 
 class VoteWeightCalculator:
     """Calculates vote weights from multiple sources.
@@ -66,7 +64,7 @@ class VoteWeightCalculator:
     def __init__(
         self,
         reputation_source: Optional[Callable[[str], float]] = None,
-        reliability_weights: Optional[dict[str, float]] = None,
+        reliability_weights: dict[str, float] | None = None,
         consistency_source: Optional[Callable[[str], float]] = None,
         calibration_source: Optional[Callable[[str], float]] = None,
     ):
@@ -136,7 +134,6 @@ class VoteWeightCalculator:
     def clear_cache(self) -> None:
         """Clear the weight cache."""
         self._cache.clear()
-
 
 class VotingPhase:
     """Handles vote collection and aggregation logic.
@@ -299,7 +296,7 @@ class VotingPhase:
         votes: list["Vote"],
         require_majority: bool = False,
         min_margin: float = 0.0,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Determine the winning choice from votes.
 
         Args:
@@ -338,8 +335,8 @@ class VotingPhase:
     def count_weighted_votes(
         self,
         votes: list["Vote"],
-        weight_calculator: Optional[VoteWeightCalculator] = None,
-        user_votes: Optional[list[dict[str, Any]]] = None,
+        weight_calculator: VoteWeightCalculator | None = None,
+        user_votes: list[dict[str, Any] | None] = None,
         user_vote_weight: float = 0.5,
         user_vote_multiplier: Optional[Callable[[int, Any], float]] = None,
     ) -> WeightedVoteResult:

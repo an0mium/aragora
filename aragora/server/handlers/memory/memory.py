@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
 
 from aragora.rbac.decorators import require_permission
 
@@ -65,7 +64,6 @@ except ImportError:
     CRITIQUE_STORE_AVAILABLE = False
     CritiqueStore = None  # type: ignore[misc,assignment]
 
-
 class MemoryHandler(SecureHandler):
     """Handler for memory-related endpoints.
 
@@ -101,7 +99,7 @@ class MemoryHandler(SecureHandler):
         return self.ctx.get("user_store")
 
     @require_permission("memory:read")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route memory requests to appropriate handler methods."""
         client_ip = get_client_ip(handler)
 
@@ -158,7 +156,7 @@ class MemoryHandler(SecureHandler):
         return None
 
     @require_permission("memory:write")
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST memory requests to state-mutating methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
@@ -429,7 +427,7 @@ class MemoryHandler(SecureHandler):
 
         return json_response(response_data)
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE memory requests to appropriate methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request
 

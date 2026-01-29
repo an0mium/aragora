@@ -29,7 +29,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ..base import (
     HandlerResult,
@@ -46,14 +46,12 @@ DEVOPS_WEBHOOK_PERMISSION = "devops:webhook"
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Connector Instance Management
 # =============================================================================
 
-_connector_instances: Dict[str, Any] = {}  # tenant_id -> PagerDutyConnector
-_active_contexts: Dict[str, Any] = {}  # tenant_id -> context manager
-
+_connector_instances: dict[str, Any] = {}  # tenant_id -> PagerDutyConnector
+_active_contexts: dict[str, Any] = {}  # tenant_id -> context manager
 
 async def get_pagerduty_connector(tenant_id: str):
     """Get or create PagerDuty connector for tenant."""
@@ -93,11 +91,9 @@ async def get_pagerduty_connector(tenant_id: str):
 
     return _connector_instances.get(tenant_id)
 
-
 # =============================================================================
 # Handler Class
 # =============================================================================
-
 
 class DevOpsHandler(SecureHandler):
     """Handler for DevOps incident management API endpoints."""
@@ -118,7 +114,7 @@ class DevOpsHandler(SecureHandler):
         "/api/v1/devops/status",
     ]
 
-    def __init__(self, server_context: Optional[Dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
@@ -847,7 +843,7 @@ class DevOpsHandler(SecureHandler):
     # Utilities
     # =========================================================================
 
-    def _get_query_params(self, request: Any) -> Dict[str, str]:
+    def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""
         if hasattr(request, "query"):
             return dict(request.query)
@@ -857,7 +853,7 @@ class DevOpsHandler(SecureHandler):
             return {k: v[0] for k, v in parse_qs(request.query_string).items()}
         return {}
 
-    async def _get_json_body(self, request: Any) -> Dict[str, Any]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
@@ -875,7 +871,7 @@ class DevOpsHandler(SecureHandler):
             return await request.read()
         return b""
 
-    def _get_header(self, request: Any, name: str) -> Optional[str]:
+    def _get_header(self, request: Any, name: str) -> str | None:
         """Get request header."""
         if hasattr(request, "headers"):
             return request.headers.get(name)
@@ -885,7 +881,7 @@ class DevOpsHandler(SecureHandler):
         self,
         event_type: str,
         tenant_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> None:
         """Emit a connector event for downstream processing.
 
@@ -917,17 +913,14 @@ class DevOpsHandler(SecureHandler):
         except Exception as e:
             logger.debug(f"[DevOps] Event emission skipped: {e}")
 
-
 # =============================================================================
 # Factory
 # =============================================================================
 
-
 def create_devops_handler(
-    server_context: Optional[Dict[str, Any]] = None,
+    server_context: Optional[dict[str, Any]] = None,
 ) -> DevOpsHandler:
     """Create a devops handler instance."""
     return DevOpsHandler(server_context)
-
 
 __all__ = ["DevOpsHandler", "create_devops_handler"]

@@ -4,10 +4,11 @@ Evidence refresh module for debate rounds.
 Handles refreshing evidence based on claims made during debate rounds.
 This module is extracted from debate_rounds.py for better modularity.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Callable, List, Optional
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from aragora.core import Critique
@@ -17,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 # Timeout for async callbacks (evidence refresh can be slow)
 DEFAULT_CALLBACK_TIMEOUT = 30.0
-
 
 async def _with_callback_timeout(
     coro,
@@ -34,7 +34,6 @@ async def _with_callback_timeout(
     except asyncio.TimeoutError:
         logger.warning(f"Callback timed out after {timeout}s, using default: {default}")
         return default
-
 
 class EvidenceRefresher:
     """
@@ -55,9 +54,9 @@ class EvidenceRefresher:
 
     def __init__(
         self,
-        refresh_callback: Optional[Callable] = None,
-        hooks: Optional[dict] = None,
-        notify_spectator: Optional[Callable] = None,
+        refresh_callback: Callable | None = None,
+        hooks: dict | None = None,
+        notify_spectator: Callable | None = None,
         timeout: float = DEFAULT_CALLBACK_TIMEOUT,
         skill_registry=None,
         enable_skills: bool = False,
@@ -85,7 +84,7 @@ class EvidenceRefresher:
         self,
         ctx: "DebateContext",
         round_num: int,
-        partial_critiques: List["Critique"],
+        partial_critiques: list["Critique"],
     ) -> int:
         """
         Refresh evidence based on claims made in the current round.

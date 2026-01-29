@@ -27,10 +27,11 @@ Arena._run_inner() method, handling post-debate updates:
 22. Selection feedback loop (performance → selection)
 23. Knowledge extraction (claims, relationships from debates)
 """
+from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.debate.phases.consensus_storage import ConsensusStorage
 from aragora.debate.phases.feedback_elo import EloFeedback
@@ -63,7 +64,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class FeedbackPhase:
     """
     Executes post-debate feedback loops.
@@ -88,57 +88,57 @@ class FeedbackPhase:
 
     def __init__(
         self,
-        elo_system: Optional[EloSystemProtocol] = None,
-        persona_manager: Optional[PersonaManagerProtocol] = None,
-        position_ledger: Optional[PositionLedgerProtocol] = None,
-        relationship_tracker: Optional[RelationshipTrackerProtocol] = None,
-        moment_detector: Optional[MomentDetectorProtocol] = None,
-        debate_embeddings: Optional[DebateEmbeddingsProtocol] = None,
-        flip_detector: Optional[FlipDetectorProtocol] = None,
-        continuum_memory: Optional[TieredMemoryProtocol] = None,
-        event_emitter: Optional[EventEmitterProtocol] = None,
-        loop_id: Optional[str] = None,
+        elo_system: EloSystemProtocol | None = None,
+        persona_manager: PersonaManagerProtocol | None = None,
+        position_ledger: PositionLedgerProtocol | None = None,
+        relationship_tracker: RelationshipTrackerProtocol | None = None,
+        moment_detector: MomentDetectorProtocol | None = None,
+        debate_embeddings: DebateEmbeddingsProtocol | None = None,
+        flip_detector: FlipDetectorProtocol | None = None,
+        continuum_memory: TieredMemoryProtocol | None = None,
+        event_emitter: EventEmitterProtocol | None = None,
+        loop_id: str | None = None,
         # Callbacks for orchestrator methods
         emit_moment_event: Optional[Callable[[Any], None]] = None,
         store_debate_outcome_as_memory: Optional[Callable[[Any], None]] = None,
         update_continuum_memory_outcomes: Optional[Callable[[Any], None]] = None,
-        index_debate_async: Optional[Callable[[Dict[str, Any]], Any]] = None,
+        index_debate_async: Optional[Callable[[dict[str, Any]], Any]] = None,
         # ConsensusMemory for storing historical outcomes
-        consensus_memory: Optional[ConsensusMemoryProtocol] = None,
+        consensus_memory: ConsensusMemoryProtocol | None = None,
         # CalibrationTracker for prediction accuracy
-        calibration_tracker: Optional[CalibrationTrackerProtocol] = None,
+        calibration_tracker: CalibrationTrackerProtocol | None = None,
         # Genesis evolution
-        population_manager: Optional[PopulationManagerProtocol] = None,
+        population_manager: PopulationManagerProtocol | None = None,
         auto_evolve: bool = True,
         breeding_threshold: float = 0.8,
         # Pulse manager for trending topic analytics
-        pulse_manager: Optional[PulseManagerProtocol] = None,
+        pulse_manager: PulseManagerProtocol | None = None,
         # Prompt evolution for learning from debates
-        prompt_evolver: Optional[PromptEvolverProtocol] = None,
+        prompt_evolver: PromptEvolverProtocol | None = None,
         # Insight store for tracking applied insights
-        insight_store: Optional[InsightStoreProtocol] = None,
+        insight_store: InsightStoreProtocol | None = None,
         # Training data export for Tinker integration
-        training_exporter: Optional[Callable[[List[Dict[str, Any]], str], Any]] = None,
+        training_exporter: Optional[Callable[[list[dict[str, Any]], str], Any]] = None,
         # Broadcast auto-trigger for high-quality debates
-        broadcast_pipeline: Optional[BroadcastPipelineProtocol] = None,
+        broadcast_pipeline: BroadcastPipelineProtocol | None = None,
         auto_broadcast: bool = False,
         broadcast_min_confidence: float = 0.8,
         # Knowledge Mound integration
-        knowledge_mound: Optional[Any] = None,  # KnowledgeMound for unified knowledge ingestion
+        knowledge_mound: Any | None = None,  # KnowledgeMound for unified knowledge ingestion
         enable_knowledge_ingestion: bool = True,  # Store debate outcomes in mound
         ingest_debate_outcome: Optional[Callable[[Any], Any]] = None,  # Callback to ingest outcome
-        knowledge_bridge_hub: Optional[Any] = None,  # KnowledgeBridgeHub for bridge access
+        knowledge_bridge_hub: Any | None = None,  # KnowledgeBridgeHub for bridge access
         # Memory Coordination (cross-system atomic writes)
-        memory_coordinator: Optional[Any] = None,  # MemoryCoordinator for atomic writes
+        memory_coordinator: Any | None = None,  # MemoryCoordinator for atomic writes
         enable_coordinated_writes: bool = True,  # Use coordinator instead of individual writes
-        coordinator_options: Optional[Any] = None,  # CoordinatorOptions for behavior
+        coordinator_options: Any | None = None,  # CoordinatorOptions for behavior
         # Selection Feedback Loop
-        selection_feedback_loop: Optional[
+        selection_feedback_loop: 
             Any
-        ] = None,  # SelectionFeedbackLoop for performance feedback
+         | None = None,  # SelectionFeedbackLoop for performance feedback
         enable_performance_feedback: bool = True,  # Update selection weights based on performance
         # Post-debate workflow automation
-        post_debate_workflow: Optional[Any] = None,  # Workflow DAG to trigger after debates
+        post_debate_workflow: Any | None = None,  # Workflow DAG to trigger after debates
         enable_post_debate_workflow: bool = False,  # Auto-trigger workflow after debates
         post_debate_workflow_threshold: float = 0.7,  # Min confidence to trigger workflow
         # Knowledge extraction from debates (auto-extract claims/relationships)
@@ -148,7 +148,7 @@ class FeedbackPhase:
         # Auto-receipt generation for SME starter pack
         enable_auto_receipt: bool = False,  # Generate DecisionReceipt after debate
         auto_post_receipt: bool = False,  # Post receipt summary to originating channel
-        cost_tracker: Optional[Any] = None,  # CostTracker for populating cost data in receipt
+        cost_tracker: Any | None = None,  # CostTracker for populating cost data in receipt
         receipt_base_url: str = "/api/v2/receipts",  # Base URL for receipt links
     ):
         """
@@ -459,7 +459,7 @@ class FeedbackPhase:
         except Exception as e:
             logger.warning("[workflow] Post-debate workflow failed: %s", e)
 
-    async def _generate_and_post_receipt(self, ctx: "DebateContext") -> Optional[Any]:
+    async def _generate_and_post_receipt(self, ctx: "DebateContext") -> Any | None:
         """Generate decision receipt and optionally post to originating channel.
 
         When enabled via enable_auto_receipt, this method:
@@ -640,7 +640,7 @@ class FeedbackPhase:
             logger.debug("[feedback] Selection feedback update failed: %s", e)
 
     def _emit_selection_feedback_event(
-        self, ctx: "DebateContext", adjustments: Dict[str, float]
+        self, ctx: "DebateContext", adjustments: dict[str, float]
     ) -> None:
         """Emit SELECTION_FEEDBACK event for real-time monitoring."""
         if not self.event_emitter:
@@ -1130,7 +1130,7 @@ class FeedbackPhase:
 
     def _detect_emerging_traits(
         self, agent_name: str, ctx: "DebateContext"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Detect emerging traits. Delegates to PersonaFeedback."""
         return self._persona_feedback.detect_emerging_traits(agent_name, ctx)
 

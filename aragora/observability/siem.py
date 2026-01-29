@@ -55,15 +55,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from queue import Empty, Queue
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Configuration
 # =============================================================================
-
 
 class SIEMBackend(Enum):
     """Supported SIEM backends."""
@@ -74,7 +72,6 @@ class SIEMBackend(Enum):
     SENTINEL = "sentinel"
     DATADOG = "datadog"
     SYSLOG = "syslog"
-
 
 @dataclass
 class SIEMConfig:
@@ -108,11 +105,9 @@ class SIEMConfig:
             enabled=os.environ.get("SIEM_ENABLED", "true").lower() == "true",
         )
 
-
 # =============================================================================
 # Security Event Types
 # =============================================================================
-
 
 class SecurityEventType(Enum):
     """Types of security events."""
@@ -164,25 +159,24 @@ class SecurityEventType(Enum):
     ADMIN_USER_SUSPENDED = "admin.user.suspended"
     ADMIN_CONFIG_CHANGE = "admin.config.change"
 
-
 @dataclass
 class SecurityEvent:
     """A security event to be sent to SIEM."""
 
     event_type: SecurityEventType
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    user_id: Optional[str] = None
-    organization_id: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    resource_type: Optional[str] = None
-    resource_id: Optional[str] = None
-    action: Optional[str] = None
+    user_id: str | None = None
+    organization_id: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    resource_type: str | None = None
+    resource_id: str | None = None
+    action: str | None = None
     outcome: str = "success"
     severity: str = "info"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "event_type": self.event_type.value,
@@ -205,16 +199,14 @@ class SecurityEvent:
         """Serialize to JSON."""
         return json.dumps(self.to_dict())
 
-
 # =============================================================================
 # SIEM Client
 # =============================================================================
 
-
 class SIEMClient:
     """Client for sending events to SIEM backend."""
 
-    def __init__(self, config: Optional[SIEMConfig] = None):
+    def __init__(self, config: SIEMConfig | None = None):
         """Initialize SIEM client.
 
         Args:
@@ -223,7 +215,7 @@ class SIEMClient:
         self.config = config or SIEMConfig.from_env()
         self._queue: Queue[SecurityEvent] = Queue()
         self._shutdown = threading.Event()
-        self._worker: Optional[threading.Thread] = None
+        self._worker: threading.Thread | None = None
         self._lock = threading.Lock()
 
         if self.config.enabled and self.config.backend != SIEMBackend.NONE:
@@ -237,7 +229,7 @@ class SIEMClient:
 
     def _worker_loop(self) -> None:
         """Background worker that batches and sends events."""
-        batch: List[SecurityEvent] = []
+        batch: list[SecurityEvent] = []
         last_flush = time.time()
 
         while not self._shutdown.is_set():
@@ -263,7 +255,7 @@ class SIEMClient:
         if batch:
             self._send_batch(batch)
 
-    def _send_batch(self, events: List[SecurityEvent]) -> None:
+    def _send_batch(self, events: list[SecurityEvent]) -> None:
         """Send a batch of events to the configured backend."""
         if not events:
             return
@@ -286,7 +278,7 @@ class SIEMClient:
         except Exception as e:
             logger.error(f"Failed to send SIEM batch: {e}")
 
-    def _send_to_splunk(self, events: List[SecurityEvent]) -> None:
+    def _send_to_splunk(self, events: list[SecurityEvent]) -> None:
         """Send events to Splunk HTTP Event Collector."""
         import urllib.request
 
@@ -309,7 +301,7 @@ class SIEMClient:
             )
             urllib.request.urlopen(req, timeout=10)
 
-    def _send_to_cloudwatch(self, events: List[SecurityEvent]) -> None:
+    def _send_to_cloudwatch(self, events: list[SecurityEvent]) -> None:
         """Send events to AWS CloudWatch Logs."""
         try:
             import boto3
@@ -331,7 +323,7 @@ class SIEMClient:
         except ImportError:
             logger.warning("boto3 not installed, cannot send to CloudWatch")
 
-    def _send_to_datadog(self, events: List[SecurityEvent]) -> None:
+    def _send_to_datadog(self, events: list[SecurityEvent]) -> None:
         """Send events to Datadog Logs."""
         import urllib.request
 
@@ -354,7 +346,7 @@ class SIEMClient:
             )
             urllib.request.urlopen(req, timeout=10)
 
-    def _send_to_syslog(self, events: List[SecurityEvent]) -> None:
+    def _send_to_syslog(self, events: list[SecurityEvent]) -> None:
         """Send events to syslog."""
         import syslog
 
@@ -380,14 +372,12 @@ class SIEMClient:
         if self._worker:
             self._worker.join(timeout=timeout)
 
-
 # =============================================================================
 # Global Client & Helper Functions
 # =============================================================================
 
-_client: Optional[SIEMClient] = None
+_client: SIEMClient | None = None
 _client_lock = threading.Lock()
-
 
 def get_siem_client() -> SIEMClient:
     """Get or create the global SIEM client."""
@@ -397,18 +387,17 @@ def get_siem_client() -> SIEMClient:
             _client = SIEMClient()
         return _client
 
-
 def emit_security_event(
     event_type: SecurityEventType,
-    user_id: Optional[str] = None,
-    organization_id: Optional[str] = None,
-    ip_address: Optional[str] = None,
-    resource_type: Optional[str] = None,
-    resource_id: Optional[str] = None,
-    action: Optional[str] = None,
+    user_id: str | None = None,
+    organization_id: str | None = None,
+    ip_address: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    action: str | None = None,
     outcome: str = "success",
     severity: str = "info",
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     """Emit a security event to SIEM.
 
@@ -438,13 +427,12 @@ def emit_security_event(
     )
     get_siem_client().emit(event)
 
-
 def emit_auth_event(
     user_id: str,
     action: str,
-    ip_address: Optional[str] = None,
+    ip_address: str | None = None,
     outcome: str = "success",
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     """Emit an authentication event.
 
@@ -476,15 +464,14 @@ def emit_auth_event(
         metadata=metadata,
     )
 
-
 def emit_data_access_event(
     user_id: str,
     resource_type: str,
     resource_id: str,
     action: str,
     granted: bool = True,
-    organization_id: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    organization_id: str | None = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     """Emit a data access event (for compliance/audit).
 
@@ -517,11 +504,10 @@ def emit_data_access_event(
         metadata=metadata,
     )
 
-
 def emit_privacy_event(
     user_id: str,
     action: str,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     """Emit a privacy-related event (GDPR/CCPA).
 
@@ -546,7 +532,6 @@ def emit_privacy_event(
         metadata=metadata,
     )
 
-
 def shutdown_siem() -> None:
     """Shutdown the SIEM client gracefully."""
     global _client
@@ -554,7 +539,6 @@ def shutdown_siem() -> None:
         if _client:
             _client.shutdown()
             _client = None
-
 
 __all__ = [
     # Configuration

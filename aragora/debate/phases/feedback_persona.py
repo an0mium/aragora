@@ -4,16 +4,16 @@ Persona feedback methods for FeedbackPhase.
 Extracted from feedback_phase.py for maintainability.
 Handles persona performance updates and trait emergence detection.
 """
+from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
     from aragora.type_protocols import EventEmitterProtocol, PersonaManagerProtocol
 
 logger = logging.getLogger(__name__)
-
 
 class PersonaFeedback:
     """Handles persona-related feedback operations."""
@@ -22,7 +22,7 @@ class PersonaFeedback:
         self,
         persona_manager: Optional["PersonaManagerProtocol"] = None,
         event_emitter: Optional["EventEmitterProtocol"] = None,
-        loop_id: Optional[str] = None,
+        loop_id: str | None = None,
     ):
         self.persona_manager = persona_manager
         self.event_emitter = event_emitter
@@ -105,12 +105,12 @@ class PersonaFeedback:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Trait emergence check error: {e}")
 
-    def detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> List[Dict[str, Any]]:
+    def detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> list[dict[str, Any]]:
         """Detect traits based on agent performance patterns.
 
         Returns list of trait dicts with name, description, confidence.
         """
-        traits: List[Dict[str, Any]] = []
+        traits: list[dict[str, Any]] = []
 
         try:
             # Get performance stats if available
@@ -158,6 +158,5 @@ class PersonaFeedback:
             logger.debug(f"Trait detection error for {agent_name}: {e}")
 
         return traits
-
 
 __all__ = ["PersonaFeedback"]

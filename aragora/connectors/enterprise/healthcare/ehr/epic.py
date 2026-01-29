@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.healthcare.ehr.base import (
     EHRAdapter,
@@ -22,7 +22,6 @@ from aragora.connectors.enterprise.healthcare.ehr.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 # Epic-specific FHIR resource types and extensions
 EPIC_RESOURCE_EXTENSIONS = {
@@ -39,7 +38,6 @@ EPIC_RESOURCE_EXTENSIONS = {
     ],
 }
 
-
 # Epic-specific operation URLs
 EPIC_OPERATIONS = {
     "patient-match": "/$match",
@@ -48,17 +46,15 @@ EPIC_OPERATIONS = {
     "care-everywhere": "/CareEverywhere/$query",
 }
 
-
 @dataclass
 class EpicPatientContext:
     """Epic patient launch context."""
 
     patient_id: str
     fhir_id: str
-    mychart_status: Optional[str] = None
-    mrn: Optional[str] = None
-    encounter_id: Optional[str] = None
-
+    mychart_status: str | None = None
+    mrn: str | None = None
+    encounter_id: str | None = None
 
 class EpicAdapter(EHRAdapter):
     """
@@ -75,7 +71,7 @@ class EpicAdapter(EHRAdapter):
     """
 
     vendor = EHRVendor.EPIC
-    capabilities: Set[EHRCapability] = {
+    capabilities: set[EHRCapability] = {
         EHRCapability.SMART_ON_FHIR,
         EHRCapability.FHIR_R4,
         EHRCapability.BACKEND_SERVICES,
@@ -109,9 +105,9 @@ class EpicAdapter(EHRAdapter):
             config.scopes = self.EPIC_SCOPES
 
         super().__init__(config)
-        self._patient_context: Optional[EpicPatientContext] = None
+        self._patient_context: EpicPatientContext | None = None
 
-    async def get_patient(self, patient_id: str) -> Dict[str, Any]:
+    async def get_patient(self, patient_id: str) -> dict[str, Any]:
         """
         Get patient resource by ID.
 
@@ -136,14 +132,14 @@ class EpicAdapter(EHRAdapter):
 
     async def search_patients(
         self,
-        family: Optional[str] = None,
-        given: Optional[str] = None,
-        birthdate: Optional[str] = None,
-        identifier: Optional[str] = None,
-        mrn: Optional[str] = None,
-        ssn_last4: Optional[str] = None,
+        family: str | None = None,
+        given: str | None = None,
+        birthdate: str | None = None,
+        identifier: str | None = None,
+        mrn: str | None = None,
+        ssn_last4: str | None = None,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Search for patients in Epic.
 
@@ -189,13 +185,13 @@ class EpicAdapter(EHRAdapter):
         family: str,
         given: str,
         birthdate: str,
-        gender: Optional[str] = None,
-        phone: Optional[str] = None,
-        address_line: Optional[str] = None,
-        address_city: Optional[str] = None,
-        address_state: Optional[str] = None,
-        address_postalcode: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        gender: str | None = None,
+        phone: str | None = None,
+        address_line: str | None = None,
+        address_city: str | None = None,
+        address_state: str | None = None,
+        address_postalcode: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Use Epic's $match operation for probabilistic patient matching.
 
@@ -285,10 +281,10 @@ class EpicAdapter(EHRAdapter):
     async def get_patient_records(  # type: ignore[override]
         self,
         patient_id: str,
-        resource_types: Optional[List[str]] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        resource_types: Optional[list[str]] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Get all clinical records for a patient using $everything operation.
 
@@ -341,11 +337,11 @@ class EpicAdapter(EHRAdapter):
     async def get_documents(
         self,
         patient_id: str,
-        category: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
+        category: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
         include_content: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get documents for a patient using Epic's $docref operation.
 
@@ -359,7 +355,7 @@ class EpicAdapter(EHRAdapter):
         Returns:
             List of DocumentReference resources
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "patient": patient_id,
         }
 
@@ -384,7 +380,7 @@ class EpicAdapter(EHRAdapter):
         logger.debug(f"Retrieved {len(documents)} documents for patient {patient_id}")
         return documents
 
-    async def _fetch_document_content(self, doc: Dict[str, Any]) -> None:
+    async def _fetch_document_content(self, doc: dict[str, Any]) -> None:
         """Fetch and attach document content."""
         for content in doc.get("content", []):
             attachment = content.get("attachment", {})
@@ -410,10 +406,10 @@ class EpicAdapter(EHRAdapter):
     async def get_appointments(
         self,
         patient_id: str,
-        status: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        status: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get appointments for a patient.
 
@@ -426,7 +422,7 @@ class EpicAdapter(EHRAdapter):
         Returns:
             List of Appointment resources
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "patient": patient_id,
         }
 
@@ -459,7 +455,7 @@ class EpicAdapter(EHRAdapter):
         self,
         patient_id: str,
         include_documents: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Query Care Everywhere network for external records.
 
@@ -492,7 +488,7 @@ class EpicAdapter(EHRAdapter):
             logger.warning(f"Care Everywhere query failed: {e}")
             return {"error": str(e), "available": False}
 
-    async def get_mychart_status(self, patient_id: str) -> Dict[str, Any]:
+    async def get_mychart_status(self, patient_id: str) -> dict[str, Any]:
         """
         Get MyChart activation status for a patient.
 
@@ -524,9 +520,9 @@ class EpicAdapter(EHRAdapter):
 
     def _extract_extension(
         self,
-        resource: Dict[str, Any],
+        resource: dict[str, Any],
         extension_url: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Extract value from a FHIR extension."""
         for ext in resource.get("extension", []):
             if ext.get("url") == extension_url:
@@ -538,10 +534,10 @@ class EpicAdapter(EHRAdapter):
 
     async def bulk_export(
         self,
-        resource_types: Optional[List[str]] = None,
-        since: Optional[str] = None,
+        resource_types: Optional[list[str]] = None,
+        since: str | None = None,
         output_format: str = "application/fhir+ndjson",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Initiate FHIR Bulk Data Export.
 
@@ -587,7 +583,7 @@ class EpicAdapter(EHRAdapter):
         else:
             raise RuntimeError(f"Bulk export failed: {response.status_code}")
 
-    async def check_bulk_export_status(self, poll_url: str) -> Dict[str, Any]:
+    async def check_bulk_export_status(self, poll_url: str) -> dict[str, Any]:
         """
         Check status of a bulk export job.
 

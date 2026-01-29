@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -35,16 +35,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class CultureSearchResult:
     """Wrapper for culture search results with adapter metadata."""
 
-    pattern: Dict[str, Any]
+    pattern: dict[str, Any]
     relevance_score: float = 0.0
     workspace_id: str = ""
     observation_count: int = 0
-
 
 @dataclass
 class StoredCulturePattern:
@@ -54,14 +52,13 @@ class StoredCulturePattern:
     workspace_id: str
     pattern_type: str
     pattern_key: str
-    pattern_value: Dict[str, Any]
+    pattern_value: dict[str, Any]
     observation_count: int
     confidence: float
     first_observed: str
     last_observed: str
-    contributing_debates: List[str]
-    metadata: Dict[str, Any]
-
+    contributing_debates: list[str]
+    metadata: dict[str, Any]
 
 class CultureAdapter:
     """
@@ -92,7 +89,7 @@ class CultureAdapter:
     MIN_OBSERVATIONS_FOR_STORAGE = 3  # Minimum observations to persist
     MIN_CONFIDENCE_FOR_PROMOTION = 0.8  # Confidence needed for org promotion
 
-    def __init__(self, mound: Optional[Any] = None):
+    def __init__(self, mound: Any | None = None):
         """Initialize the culture adapter.
 
         Args:
@@ -100,9 +97,9 @@ class CultureAdapter:
                    will attempt to get singleton on first use.
         """
         self._mound = mound
-        self._pattern_cache: Dict[str, Dict[str, StoredCulturePattern]] = {}
+        self._pattern_cache: dict[str, dict[str, StoredCulturePattern]] = {}
 
-    def _get_mound(self) -> Optional[Any]:
+    def _get_mound(self) -> Any | None:
         """Get the Knowledge Mound instance."""
         if self._mound is not None:
             return self._mound
@@ -119,8 +116,8 @@ class CultureAdapter:
     def store_pattern(
         self,
         pattern: "CulturePattern",
-        workspace_id: Optional[str] = None,
-    ) -> Optional[str]:
+        workspace_id: str | None = None,
+    ) -> str | None:
         """Store a culture pattern in the Knowledge Mound.
 
         Args:
@@ -233,10 +230,10 @@ class CultureAdapter:
     def load_patterns(
         self,
         workspace_id: str,
-        pattern_types: Optional[List["CulturePatternType"]] = None,
+        pattern_types: Optional[list["CulturePatternType"]] = None,
         min_confidence: float = 0.5,
         limit: int = 50,
-    ) -> List[StoredCulturePattern]:
+    ) -> list[StoredCulturePattern]:
         """Load culture patterns from the Knowledge Mound.
 
         Args:
@@ -317,7 +314,7 @@ class CultureAdapter:
         self,
         workspace_id: str,
         pattern_type: "CulturePatternType",
-    ) -> Optional[StoredCulturePattern]:
+    ) -> StoredCulturePattern | None:
         """Get the dominant pattern for a specific type.
 
         Args:
@@ -343,8 +340,8 @@ class CultureAdapter:
     def get_protocol_hints(
         self,
         workspace_id: str,
-        domain: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        domain: str | None = None,
+    ) -> dict[str, Any]:
         """Get protocol configuration hints from culture patterns.
 
         Args:
@@ -354,7 +351,7 @@ class CultureAdapter:
         Returns:
             Dict of protocol hints derived from patterns
         """
-        hints: Dict[str, Any] = {}
+        hints: dict[str, Any] = {}
 
         patterns = self.load_patterns(
             workspace_id=workspace_id,
@@ -403,7 +400,7 @@ class CultureAdapter:
         pattern: StoredCulturePattern,
         org_id: str,
         promoted_by: str = "system",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Promote a workspace pattern to organization level.
 
         Args:
@@ -470,7 +467,7 @@ class CultureAdapter:
 
     def sync_to_mound(
         self,
-        patterns: List["CulturePattern"],
+        patterns: list["CulturePattern"],
         workspace_id: str,
     ) -> int:
         """Sync multiple patterns to the Knowledge Mound.
@@ -511,7 +508,7 @@ class CultureAdapter:
         patterns = self.load_patterns(workspace_id, limit=100)
 
         # Group by pattern type
-        patterns_by_type: Dict[CulturePatternType, List] = {}
+        patterns_by_type: dict[CulturePatternType, list] = {}
         for pattern in patterns:
             try:
                 pt = CulturePatternType(pattern.pattern_type)

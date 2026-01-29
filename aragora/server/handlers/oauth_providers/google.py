@@ -10,7 +10,7 @@ Handles:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.oauth_providers.base import (
     OAuthProvider,
@@ -28,7 +28,6 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 GOOGLE_REVOCATION_URL = "https://oauth2.googleapis.com/revoke"
-
 
 class GoogleOAuthProvider(OAuthProvider):
     """
@@ -63,8 +62,8 @@ class GoogleOAuthProvider(OAuthProvider):
     def get_authorization_url(
         self,
         state: str,
-        redirect_uri: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        redirect_uri: str | None = None,
+        scopes: Optional[list[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -104,7 +103,7 @@ class GoogleOAuthProvider(OAuthProvider):
     def exchange_code(
         self,
         code: str,
-        redirect_uri: Optional[str] = None,
+        redirect_uri: str | None = None,
     ) -> OAuthTokens:
         """
         Exchange authorization code for tokens.
@@ -192,7 +191,7 @@ class GoogleOAuthProvider(OAuthProvider):
             logger.warning(f"[{self.PROVIDER_NAME}] Token revocation failed: {e}")
             return False
 
-    def get_id_token_info(self, id_token: str) -> Dict[str, Any]:
+    def get_id_token_info(self, id_token: str) -> dict[str, Any]:
         """
         Parse and return claims from an ID token.
 
@@ -221,6 +220,5 @@ class GoogleOAuthProvider(OAuthProvider):
 
         payload = base64.urlsafe_b64decode(payload_b64)
         return json.loads(payload)
-
 
 __all__ = ["GoogleOAuthProvider"]

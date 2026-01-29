@@ -44,10 +44,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum, IntEnum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
-
 
 class WatchdogTier(str, Enum):
     """The three tiers of the watchdog system."""
@@ -56,7 +55,6 @@ class WatchdogTier(str, Enum):
     BOOT_AGENT = "boot_agent"  # Tier 2: Response quality, latency
     DEACON = "deacon"  # Tier 3: SLA, cross-agent coordination
 
-
 class IssueSeverity(IntEnum):
     """Severity levels for watchdog issues."""
 
@@ -64,7 +62,6 @@ class IssueSeverity(IntEnum):
     WARNING = 1  # Potential issue, monitor closely
     ERROR = 2  # Active issue, needs attention
     CRITICAL = 3  # Severe issue, immediate action required
-
 
 class IssueCategory(str, Enum):
     """Categories of issues detected by the watchdog."""
@@ -87,28 +84,27 @@ class IssueCategory(str, Enum):
     POLICY_VIOLATION = "policy_violation"
     CONSENSUS_BLOCKED = "consensus_blocked"
 
-
 @dataclass
 class WatchdogIssue:
     """An issue detected by the watchdog."""
 
     severity: IssueSeverity
     category: IssueCategory
-    agent: Optional[str]
+    agent: str | None
     message: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
     # Tracking
     id: str = field(default_factory=lambda: f"issue-{int(time.time() * 1000) % 1000000}")
     detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    detected_by: Optional[WatchdogTier] = None
+    detected_by: WatchdogTier | None = None
 
     # Resolution tracking
     resolved: bool = False
-    resolved_at: Optional[datetime] = None
-    resolution_notes: Optional[str] = None
+    resolved_at: datetime | None = None
+    resolution_notes: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "severity": self.severity.name,
@@ -123,7 +119,6 @@ class WatchdogIssue:
             "resolution_notes": self.resolution_notes,
         }
 
-
 @dataclass
 class EscalationResult:
     """Result of an escalation attempt."""
@@ -131,10 +126,9 @@ class EscalationResult:
     issue_id: str
     escalated_to: WatchdogTier
     accepted: bool
-    action_taken: Optional[str] = None
-    error_message: Optional[str] = None
+    action_taken: str | None = None
+    error_message: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-
 
 @dataclass
 class WatchdogConfig:
@@ -162,7 +156,7 @@ class WatchdogConfig:
     sla_response_time_ms: float = 10000.0
     sla_availability_pct: float = 99.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "tier": self.tier.value,
             "check_interval_seconds": self.check_interval_seconds,
@@ -177,20 +171,19 @@ class WatchdogConfig:
             "escalation_threshold": self.escalation_threshold,
         }
 
-
 @dataclass
 class AgentHealth:
     """Health state tracked for an agent."""
 
     agent_name: str
-    last_heartbeat: Optional[datetime] = None
+    last_heartbeat: datetime | None = None
     consecutive_failures: int = 0
     total_requests: int = 0
     failed_requests: int = 0
     total_latency_ms: float = 0.0
     memory_usage_mb: float = 0.0
     circuit_breaker_state: str = "closed"
-    active_issues: List[WatchdogIssue] = field(default_factory=list)
+    active_issues: list[WatchdogIssue] = field(default_factory=list)
 
     @property
     def error_rate(self) -> float:
@@ -216,7 +209,6 @@ class AgentHealth:
     def record_heartbeat(self) -> None:
         self.last_heartbeat = datetime.now(timezone.utc)
 
-
 class ThreeTierWatchdog:
     """
     Three-tier watchdog for multi-level agent monitoring.
@@ -239,17 +231,17 @@ class ThreeTierWatchdog:
 
     def __init__(self):
         """Initialize the three-tier watchdog."""
-        self._configs: Dict[WatchdogTier, WatchdogConfig] = {
+        self._configs: dict[WatchdogTier, WatchdogConfig] = {
             WatchdogTier.MECHANICAL: WatchdogConfig(tier=WatchdogTier.MECHANICAL),
             WatchdogTier.BOOT_AGENT: WatchdogConfig(tier=WatchdogTier.BOOT_AGENT),
             WatchdogTier.DEACON: WatchdogConfig(tier=WatchdogTier.DEACON),
         }
-        self._agent_health: Dict[str, AgentHealth] = {}
-        self._active_issues: Dict[str, WatchdogIssue] = {}
-        self._escalation_counts: Dict[WatchdogTier, int] = defaultdict(int)
-        self._handlers: Dict[WatchdogTier, List[Callable]] = defaultdict(list)
+        self._agent_health: dict[str, AgentHealth] = {}
+        self._active_issues: dict[str, WatchdogIssue] = {}
+        self._escalation_counts: dict[WatchdogTier, int] = defaultdict(int)
+        self._handlers: dict[WatchdogTier, list[Callable]] = defaultdict(list)
         self._running = False
-        self._tasks: List[asyncio.Task] = []
+        self._tasks: list[asyncio.Task] = []
         self._lock = asyncio.Lock()
 
         # Statistics
@@ -375,7 +367,7 @@ class ThreeTierWatchdog:
         self,
         tier: WatchdogTier,
         config: WatchdogConfig,
-    ) -> List[WatchdogIssue]:
+    ) -> list[WatchdogIssue]:
         """
         Run checks for a specific tier.
 
@@ -386,7 +378,7 @@ class ThreeTierWatchdog:
         Returns:
             List of detected issues
         """
-        issues: List[WatchdogIssue] = []
+        issues: list[WatchdogIssue] = []
 
         if tier == WatchdogTier.MECHANICAL:
             issues.extend(await self._check_mechanical(config))
@@ -405,9 +397,9 @@ class ThreeTierWatchdog:
     async def _check_mechanical(
         self,
         config: WatchdogConfig,
-    ) -> List[WatchdogIssue]:
+    ) -> list[WatchdogIssue]:
         """Tier 1: Mechanical checks."""
-        issues: List[WatchdogIssue] = []
+        issues: list[WatchdogIssue] = []
         now = datetime.now(timezone.utc)
 
         for agent_name, health in self._agent_health.items():
@@ -463,9 +455,9 @@ class ThreeTierWatchdog:
     async def _check_boot_agent(
         self,
         config: WatchdogConfig,
-    ) -> List[WatchdogIssue]:
+    ) -> list[WatchdogIssue]:
         """Tier 2: Boot agent quality checks."""
-        issues: List[WatchdogIssue] = []
+        issues: list[WatchdogIssue] = []
 
         for agent_name, health in self._agent_health.items():
             # Check latency
@@ -519,9 +511,9 @@ class ThreeTierWatchdog:
     async def _check_deacon(
         self,
         config: WatchdogConfig,
-    ) -> List[WatchdogIssue]:
+    ) -> list[WatchdogIssue]:
         """Tier 3: Deacon SLA and coordination checks."""
-        issues: List[WatchdogIssue] = []
+        issues: list[WatchdogIssue] = []
 
         # Check overall SLA compliance
         total_requests = sum(h.total_requests for h in self._agent_health.values())
@@ -653,7 +645,7 @@ class ThreeTierWatchdog:
     def resolve_issue(
         self,
         issue_id: str,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> bool:
         """
         Mark an issue as resolved.
@@ -712,19 +704,19 @@ class ThreeTierWatchdog:
             self.register_agent(agent_name)
         self._agent_health[agent_name].circuit_breaker_state = state
 
-    def get_agent_health(self, agent_name: str) -> Optional[AgentHealth]:
+    def get_agent_health(self, agent_name: str) -> AgentHealth | None:
         """Get health state for an agent."""
         return self._agent_health.get(agent_name)
 
-    def get_all_health(self) -> Dict[str, AgentHealth]:
+    def get_all_health(self) -> dict[str, AgentHealth]:
         """Get health state for all agents."""
         return dict(self._agent_health)
 
     def get_active_issues(
         self,
-        severity: Optional[IssueSeverity] = None,
-        agent: Optional[str] = None,
-    ) -> List[WatchdogIssue]:
+        severity: IssueSeverity | None = None,
+        agent: str | None = None,
+    ) -> list[WatchdogIssue]:
         """
         Get active (unresolved) issues.
 
@@ -745,7 +737,7 @@ class ThreeTierWatchdog:
 
         return issues
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get watchdog statistics."""
         return {
             **self._stats,
@@ -754,10 +746,8 @@ class ThreeTierWatchdog:
             "is_running": self._running,
         }
 
-
 # Global watchdog singleton
-_default_watchdog: Optional[ThreeTierWatchdog] = None
-
+_default_watchdog: ThreeTierWatchdog | None = None
 
 def get_watchdog() -> ThreeTierWatchdog:
     """Get the default watchdog instance."""
@@ -765,7 +755,6 @@ def get_watchdog() -> ThreeTierWatchdog:
     if _default_watchdog is None:
         _default_watchdog = ThreeTierWatchdog()
     return _default_watchdog
-
 
 def reset_watchdog() -> None:
     """Reset the default watchdog (for testing)."""

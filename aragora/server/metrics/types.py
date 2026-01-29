@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Optional
-
 
 @dataclass
 class Counter:
@@ -46,7 +44,6 @@ class Counter:
         with self._lock:
             return [(dict(k), v) for k, v in self._values.items()]
 
-
 @dataclass
 class LabeledCounter:
     """A counter with specific label values."""
@@ -59,7 +56,6 @@ class LabeledCounter:
             self.counter._values[self.label_values] = (
                 self.counter._values.get(self.label_values, 0) + value
             )
-
 
 @dataclass
 class Gauge:
@@ -101,7 +97,6 @@ class Gauge:
         with self._lock:
             return [(dict(k), v) for k, v in self._values.items()]
 
-
 @dataclass
 class LabeledGauge:
     """A gauge with specific label values."""
@@ -121,7 +116,6 @@ class LabeledGauge:
 
     def dec(self, value: float = 1.0) -> None:
         self.inc(-value)
-
 
 @dataclass
 class Histogram:
@@ -176,7 +170,6 @@ class Histogram:
                 )
             return results
 
-
 @dataclass
 class LabeledHistogram:
     """A histogram with specific label values."""
@@ -199,8 +192,7 @@ class LabeledHistogram:
             self.histogram._sums[key] += value
             self.histogram._totals[key] += 1
 
-
-def get_percentile(histogram: Histogram, percentile: float, **labels) -> Optional[float]:
+def get_percentile(histogram: Histogram, percentile: float, **labels) -> float | None:
     """Estimate a percentile from histogram buckets.
 
     Uses linear interpolation between bucket boundaries.
@@ -241,8 +233,7 @@ def get_percentile(histogram: Histogram, percentile: float, **labels) -> Optiona
         # Above all buckets, return highest bucket boundary
         return histogram.buckets[-1]
 
-
-def get_percentiles(histogram: Histogram, **labels) -> dict[str, Optional[float]]:
+def get_percentiles(histogram: Histogram, **labels) -> dict[str, float | None]:
     """Get common percentiles (p50, p90, p95, p99) from a histogram.
 
     Args:
@@ -258,7 +249,6 @@ def get_percentiles(histogram: Histogram, **labels) -> dict[str, Optional[float]
         "p95": get_percentile(histogram, 95, **labels),
         "p99": get_percentile(histogram, 99, **labels),
     }
-
 
 __all__ = [
     "Counter",

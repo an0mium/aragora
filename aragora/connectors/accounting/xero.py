@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import date as Date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -28,13 +28,11 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
-
 class InvoiceType(str, Enum):
     """Invoice type."""
 
     ACCPAY = "ACCPAY"  # Bill (accounts payable)
     ACCREC = "ACCREC"  # Invoice (accounts receivable)
-
 
 class InvoiceStatus(str, Enum):
     """Invoice status."""
@@ -46,14 +44,12 @@ class InvoiceStatus(str, Enum):
     VOIDED = "VOIDED"
     DELETED = "DELETED"
 
-
 class ContactStatus(str, Enum):
     """Contact status."""
 
     ACTIVE = "ACTIVE"
     ARCHIVED = "ARCHIVED"
     GDPRREQUEST = "GDPRREQUEST"
-
 
 class AccountType(str, Enum):
     """Account type."""
@@ -80,7 +76,6 @@ class AccountType(str, Enum):
     SUPERANNUATIONLIABILITY = "SUPERANNUATIONLIABILITY"
     WAGESEXPENSE = "WAGESEXPENSE"
 
-
 class BankTransactionType(str, Enum):
     """Bank transaction type."""
 
@@ -91,13 +86,11 @@ class BankTransactionType(str, Enum):
     SPEND_OVERPAYMENT = "SPEND-OVERPAYMENT"
     SPEND_PREPAYMENT = "SPEND-PREPAYMENT"
 
-
 class PaymentStatus(str, Enum):
     """Payment status."""
 
     AUTHORISED = "AUTHORISED"
     DELETED = "DELETED"
-
 
 @dataclass
 class XeroCredentials:
@@ -109,7 +102,6 @@ class XeroCredentials:
     refresh_token: str | None = None
     tenant_id: str | None = None
     base_url: str = "https://api.xero.com/api.xro/2.0"
-
 
 @dataclass
 class Address:
@@ -153,7 +145,6 @@ class Address:
             result["Country"] = self.country
         return result
 
-
 @dataclass
 class Phone:
     """Xero phone number."""
@@ -172,7 +163,6 @@ class Phone:
             phone_area_code=data.get("PhoneAreaCode"),
             phone_country_code=data.get("PhoneCountryCode"),
         )
-
 
 @dataclass
 class XeroContact:
@@ -219,7 +209,6 @@ class XeroContact:
             updated_date=_parse_xero_datetime(data.get("UpdatedDateUTC")),
         )
 
-
 @dataclass
 class LineItem:
     """Invoice line item."""
@@ -265,7 +254,6 @@ class LineItem:
         if self.tracking:
             result["Tracking"] = self.tracking
         return result
-
 
 @dataclass
 class Invoice:
@@ -315,7 +303,6 @@ class Invoice:
             updated_date=_parse_xero_datetime(data.get("UpdatedDateUTC")),
         )
 
-
 @dataclass
 class Account:
     """Xero account (chart of accounts)."""
@@ -350,7 +337,6 @@ class Account:
             currency_code=data.get("CurrencyCode"),
             updated_date=_parse_xero_datetime(data.get("UpdatedDateUTC")),
         )
-
 
 @dataclass
 class BankTransaction:
@@ -397,7 +383,6 @@ class BankTransaction:
             updated_date=_parse_xero_datetime(data.get("UpdatedDateUTC")),
         )
 
-
 @dataclass
 class Payment:
     """Xero payment."""
@@ -432,7 +417,6 @@ class Payment:
             updated_date=_parse_xero_datetime(data.get("UpdatedDateUTC")),
         )
 
-
 @dataclass
 class JournalLine:
     """Journal entry line."""
@@ -455,7 +439,6 @@ class JournalLine:
         if self.tax_type:
             result["TaxType"] = self.tax_type
         return result
-
 
 @dataclass
 class ManualJournal:
@@ -495,7 +478,6 @@ class ManualJournal:
             updated_date=_parse_xero_datetime(data.get("UpdatedDateUTC")),
         )
 
-
 class XeroError(Exception):
     """Xero API error."""
 
@@ -503,7 +485,6 @@ class XeroError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.details = details or {}
-
 
 class XeroConnector:
     """
@@ -521,7 +502,7 @@ class XeroConnector:
     def __init__(
         self,
         credentials: XeroCredentials,
-        circuit_breaker: Optional[CircuitBreaker] = None,
+        circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
     ):
         """
@@ -984,7 +965,6 @@ class XeroConnector:
     async def __aexit__(self, *args: Any) -> None:
         await self.close()
 
-
 def _parse_xero_datetime(value: str | None) -> datetime | None:
     """Parse Xero datetime format: /Date(1234567890000)/"""
     if not value:
@@ -1005,7 +985,6 @@ def _parse_xero_datetime(value: str | None) -> datetime | None:
     except (ValueError, AttributeError):
         return None
 
-
 def _parse_xero_date(value: str | None) -> Date | None:
     """Parse Xero date format."""
     if not value:
@@ -1015,7 +994,6 @@ def _parse_xero_date(value: str | None) -> Date | None:
         return dt.date() if dt else None
     except (ValueError, AttributeError):
         return None
-
 
 def get_mock_invoice() -> Invoice:
     """Get a mock invoice for testing."""
@@ -1029,7 +1007,6 @@ def get_mock_invoice() -> Invoice:
         total=Decimal("1000.00"),
         amount_due=Decimal("1000.00"),
     )
-
 
 def get_mock_contact() -> XeroContact:
     """Get a mock contact for testing."""

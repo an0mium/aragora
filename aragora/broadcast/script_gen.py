@@ -3,12 +3,11 @@ Script generation for Aragora Broadcast.
 
 Parses DebateTrace to extract speaker turns and generates podcast script.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 from aragora.debate.traces import DebateTrace, EventType
-
 
 @dataclass
 class ScriptSegment:
@@ -16,8 +15,7 @@ class ScriptSegment:
 
     speaker: str  # Agent name or "narrator"
     text: str
-    voice_id: Optional[str] = None
-
+    voice_id: str | None = None
 
 def _summarize_code(text: str) -> str:
     """Summarize code blocks in text."""
@@ -26,7 +24,6 @@ def _summarize_code(text: str) -> str:
         return f"Reading code block of {len(lines)} lines..."
     return text
 
-
 def _extract_content_text(content: dict | str) -> str:
     """Extract text content from event content (dict or string)."""
     if isinstance(content, dict):
@@ -34,8 +31,7 @@ def _extract_content_text(content: dict | str) -> str:
         return content.get("text") or content.get("content") or str(content)
     return str(content)
 
-
-def _extract_speaker_turns(trace: DebateTrace) -> List[ScriptSegment]:
+def _extract_speaker_turns(trace: DebateTrace) -> list[ScriptSegment]:
     """Extract speaker turns from debate trace."""
     segments = []
 
@@ -71,8 +67,7 @@ def _extract_speaker_turns(trace: DebateTrace) -> List[ScriptSegment]:
 
     return segments
 
-
-def generate_script(trace: DebateTrace) -> List[ScriptSegment]:
+def generate_script(trace: DebateTrace) -> list[ScriptSegment]:
     """
     Generate podcast script from debate trace.
 

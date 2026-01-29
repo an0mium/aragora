@@ -27,7 +27,7 @@ import logging
 import threading
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -40,9 +40,8 @@ from aragora.server.handlers.utils.decorators import require_permission
 logger = logging.getLogger(__name__)
 
 # Thread-safe service instance
-_ar_automation: Optional[Any] = None
+_ar_automation: Any | None = None
 _ar_automation_lock = threading.Lock()
-
 
 def get_ar_automation():
     """Get or create AR automation service (thread-safe singleton)."""
@@ -57,15 +56,13 @@ def get_ar_automation():
             _ar_automation = ARAutomation()
         return _ar_automation
 
-
 # =============================================================================
 # Invoice Management
 # =============================================================================
 
-
 @require_permission("finance:write")
 async def handle_create_invoice(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -122,10 +119,9 @@ async def handle_create_invoice(
         logger.exception("Error creating invoice")
         return error_response(f"Failed to create invoice: {e}", status=500)
 
-
 @require_permission("ar:read")
 async def handle_list_invoices(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -181,10 +177,9 @@ async def handle_list_invoices(
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
 
-
 @require_permission("ar:read")
 async def handle_get_invoice(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     invoice_id: str,
     user_id: str = "default",
 ) -> HandlerResult:
@@ -206,10 +201,9 @@ async def handle_get_invoice(
         logger.exception(f"Error getting invoice {invoice_id}")
         return error_response(f"Failed to get invoice: {e}", status=500)
 
-
 @require_permission("finance:write")
 async def handle_send_invoice(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     invoice_id: str,
     user_id: str = "default",
 ) -> HandlerResult:
@@ -241,10 +235,9 @@ async def handle_send_invoice(
         logger.exception(f"Error sending invoice {invoice_id}")
         return error_response(f"Failed to send invoice: {e}", status=500)
 
-
 @require_permission("ar:read")
 async def handle_send_reminder(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     invoice_id: str,
     user_id: str = "default",
 ) -> HandlerResult:
@@ -286,10 +279,9 @@ async def handle_send_reminder(
         logger.exception(f"Error sending reminder for invoice {invoice_id}")
         return error_response(f"Failed to send reminder: {e}", status=500)
 
-
 @require_permission("finance:write")
 async def handle_record_payment(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     invoice_id: str,
     user_id: str = "default",
 ) -> HandlerResult:
@@ -338,15 +330,13 @@ async def handle_record_payment(
         logger.exception(f"Error recording payment for invoice {invoice_id}")
         return error_response(f"Failed to record payment: {e}", status=500)
 
-
 # =============================================================================
 # AR Reporting
 # =============================================================================
 
-
 @require_permission("ar:read")
 async def handle_get_aging_report(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -370,10 +360,9 @@ async def handle_get_aging_report(
         logger.exception("Error generating aging report")
         return error_response(f"Failed to generate aging report: {e}", status=500)
 
-
 @require_permission("ar:read")
 async def handle_get_collections(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -397,15 +386,13 @@ async def handle_get_collections(
         logger.exception("Error getting collection suggestions")
         return error_response(f"Failed to get suggestions: {e}", status=500)
 
-
 # =============================================================================
 # Customer Management
 # =============================================================================
 
-
 @require_permission("finance:write")
 async def handle_add_customer(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -450,10 +437,9 @@ async def handle_add_customer(
         logger.exception("Error adding customer")
         return error_response(f"Failed to add customer: {e}", status=500)
 
-
 @require_permission("ar:read")
 async def handle_get_customer_balance(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     customer_id: str,
     user_id: str = "default",
 ) -> HandlerResult:
@@ -478,16 +464,14 @@ async def handle_get_customer_balance(
         logger.exception(f"Error getting balance for customer {customer_id}")
         return error_response(f"Failed to get balance: {e}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-
 class ARAutomationHandler(BaseHandler):
     """Handler class for AR automation endpoints."""
 
-    ROUTES: Dict[str, Any] = {
+    ROUTES: dict[str, Any] = {
         "POST /api/v1/accounting/ar/invoices": handle_create_invoice,
         "GET /api/v1/accounting/ar/invoices": handle_list_invoices,
         "GET /api/v1/accounting/ar/aging": handle_get_aging_report,
@@ -495,7 +479,7 @@ class ARAutomationHandler(BaseHandler):
         "POST /api/v1/accounting/ar/customers": handle_add_customer,
     }
 
-    DYNAMIC_ROUTES: Dict[str, Any] = {
+    DYNAMIC_ROUTES: dict[str, Any] = {
         "GET /api/v1/accounting/ar/invoices/{invoice_id}": handle_get_invoice,
         "POST /api/v1/accounting/ar/invoices/{invoice_id}/send": handle_send_invoice,
         "POST /api/v1/accounting/ar/invoices/{invoice_id}/reminder": handle_send_reminder,

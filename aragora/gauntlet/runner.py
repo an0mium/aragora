@@ -7,6 +7,7 @@ Chains together:
 3. Scenario matrix testing
 4. Risk aggregation
 """
+from __future__ import annotations
 
 __all__ = [
     "GauntletRunner",
@@ -44,7 +45,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
 class GauntletRunner:
     """
     Main orchestrator for Gauntlet adversarial validation.
@@ -55,9 +55,9 @@ class GauntletRunner:
 
     def __init__(
         self,
-        config: Optional[GauntletConfig] = None,
+        config: GauntletConfig | None = None,
         agent_factory: Optional[Callable[[str], Any]] = None,
-        run_agent_fn: Optional[Callable] = None,
+        run_agent_fn: Callable | None = None,
         enable_sandbox: bool = False,
         sandbox_config: Optional["SandboxConfig"] = None,
     ):
@@ -530,7 +530,7 @@ class GauntletRunner:
         self,
         attack,
         result: GauntletResult,
-        sandbox_result: Optional[dict[str, Any]] = None,
+        sandbox_result: dict[str, Any] | None = None,
     ) -> None:
         """Convert red team attack to vulnerability.
 
@@ -607,7 +607,7 @@ class GauntletRunner:
         )
         result.add_vulnerability(vuln)
 
-    async def _execute_attack_evidence(self, evidence: str) -> Optional[dict[str, Any]]:
+    async def _execute_attack_evidence(self, evidence: str) -> dict[str, Any] | None:
         """Execute code embedded in attack evidence.
 
         Detects and executes code blocks from attack evidence to validate
@@ -630,7 +630,7 @@ class GauntletRunner:
         logger.debug(f"[gauntlet] Executing {language} code from attack evidence")
         return await self.execute_code_sandboxed(code, language, timeout=30.0)
 
-    def _extract_code_from_evidence(self, evidence: str) -> tuple[Optional[str], str]:
+    def _extract_code_from_evidence(self, evidence: str) -> tuple[str | None, str]:
         """Extract executable code from attack evidence.
 
         Looks for code blocks or common code patterns.
@@ -753,10 +753,9 @@ class GauntletRunner:
             return await agent.run(prompt)
         return f"[No response - agent {agent} not callable]"
 
-
 async def run_gauntlet(
     input_content: str,
-    config: Optional[GauntletConfig] = None,
+    config: GauntletConfig | None = None,
     context: str = "",
 ) -> GauntletResult:
     """

@@ -9,11 +9,11 @@ Provides access to Twitter/X via the API v2:
 Requires TWITTER_BEARER_TOKEN environment variable for API access.
 The free tier allows read-only access with limited rate limits.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
 import os
-from typing import Optional
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
@@ -28,7 +28,6 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
-
 # Twitter API v2 endpoints
 TWITTER_SEARCH_URL = "https://api.twitter.com/2/tweets/search/recent"
 TWITTER_TWEET_URL = "https://api.twitter.com/2/tweets"
@@ -36,7 +35,6 @@ TWITTER_USER_TWEETS_URL = "https://api.twitter.com/2/users/{user_id}/tweets"
 
 # Tweet URL template
 TWEET_URL_TEMPLATE = "https://twitter.com/i/status/{tweet_id}"
-
 
 class TwitterConnector(BaseConnector):
     """
@@ -60,8 +58,8 @@ class TwitterConnector(BaseConnector):
 
     def __init__(
         self,
-        bearer_token: Optional[str] = None,
-        provenance: Optional[ProvenanceManager] = None,
+        bearer_token: str | None = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.5,  # Lower than Reddit due to less fact-checking
         timeout: int = 30,
         rate_limit_delay: float = 1.0,  # Twitter has strict rate limits
@@ -230,7 +228,7 @@ class TwitterConnector(BaseConnector):
             logger.debug(f"Twitter search failed: {e}")
             return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a specific tweet by ID.
 
@@ -307,8 +305,8 @@ class TwitterConnector(BaseConnector):
         self,
         tweet: dict,
         includes: dict,
-        users: Optional[dict] = None,
-    ) -> Optional[Evidence]:
+        users: dict | None = None,
+    ) -> Evidence | None:
         """Parse a single tweet into Evidence."""
         tweet_id = tweet.get("id")
         if not tweet_id:
@@ -517,6 +515,5 @@ class TwitterConnector(BaseConnector):
             search_query = f"{query} {search_query}"
 
         return await self.search(search_query, limit=limit)
-
 
 __all__ = ["TwitterConnector"]

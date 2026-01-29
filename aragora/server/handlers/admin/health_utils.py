@@ -12,12 +12,11 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
-def check_filesystem_health(test_dir: Optional[Path] = None) -> Dict[str, Any]:
+def check_filesystem_health(test_dir: Path | None = None) -> dict[str, Any]:
     """Check filesystem write access to data directory.
 
     Args:
@@ -49,8 +48,7 @@ def check_filesystem_health(test_dir: Optional[Path] = None) -> Dict[str, Any]:
     except OSError as e:
         return {"healthy": False, "error": f"Filesystem error: {e}"}
 
-
-def check_redis_health(redis_url: Optional[str] = None) -> Dict[str, Any]:
+def check_redis_health(redis_url: str | None = None) -> dict[str, Any]:
     """Check Redis connectivity if configured.
 
     Args:
@@ -87,8 +85,7 @@ def check_redis_health(redis_url: Optional[str] = None) -> Dict[str, Any]:
             "error": f"{type(e).__name__}: {str(e)[:80]}",
         }
 
-
-def check_ai_providers_health() -> Dict[str, Any]:
+def check_ai_providers_health() -> dict[str, Any]:
     """Check AI provider API key availability.
 
     Returns:
@@ -119,8 +116,7 @@ def check_ai_providers_health() -> Dict[str, Any]:
         "providers": available,
     }
 
-
-def check_security_services(is_production: Optional[bool] = None) -> Dict[str, Any]:
+def check_security_services(is_production: bool | None = None) -> dict[str, Any]:
     """Check security services health.
 
     Verifies:
@@ -140,7 +136,7 @@ def check_security_services(is_production: Optional[bool] = None) -> Dict[str, A
     if is_production is None:
         is_production = os.environ.get("ARAGORA_ENV") == "production"
 
-    result: Dict[str, Any] = {"healthy": True}
+    result: dict[str, Any] = {"healthy": True}
 
     # Check encryption service
     try:
@@ -195,8 +191,7 @@ def check_security_services(is_production: Optional[bool] = None) -> Dict[str, A
 
     return result
 
-
-def check_database_health(database_url: Optional[str] = None) -> Dict[str, Any]:
+def check_database_health(database_url: str | None = None) -> dict[str, Any]:
     """Check database connectivity.
 
     Args:
@@ -246,8 +241,7 @@ def check_database_health(database_url: Optional[str] = None) -> Dict[str, Any]:
             "error": f"{type(e).__name__}: {str(e)[:80]}",
         }
 
-
-def get_uptime_info(start_time: float) -> Dict[str, Any]:
+def get_uptime_info(start_time: float) -> dict[str, Any]:
     """Get server uptime information.
 
     Args:
@@ -275,8 +269,7 @@ def get_uptime_info(start_time: float) -> Dict[str, Any]:
         "uptime_human": uptime_str,
     }
 
-
-def check_stripe_health() -> Dict[str, Any]:
+def check_stripe_health() -> dict[str, Any]:
     """Check Stripe API connectivity.
 
     Validates the Stripe API key by making a lightweight API call.
@@ -325,8 +318,7 @@ def check_stripe_health() -> Dict[str, Any]:
             "error": f"{type(e).__name__}: {str(e)[:80]}",
         }
 
-
-def check_slack_health() -> Dict[str, Any]:
+def check_slack_health() -> dict[str, Any]:
     """Check Slack API connectivity.
 
     Validates the Slack bot token by calling auth.test endpoint.

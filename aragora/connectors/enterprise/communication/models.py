@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 @dataclass
 class EmailAttachment:
@@ -19,8 +18,7 @@ class EmailAttachment:
     filename: str
     mime_type: str
     size: int
-    data: Optional[bytes] = None  # Populated on demand
-
+    data: bytes | None = None  # Populated on demand
 
 @dataclass
 class GmailLabel:
@@ -31,7 +29,6 @@ class GmailLabel:
     type: str = "user"  # "system" or "user"
     message_list_visibility: str = "show"
     label_list_visibility: str = "labelShow"
-
 
 @dataclass
 class EmailMessage:
@@ -45,16 +42,16 @@ class EmailMessage:
     thread_id: str
     subject: str
     from_address: str
-    to_addresses: List[str]
+    to_addresses: list[str]
     date: datetime
     body_text: str
     body_html: str = ""
     snippet: str = ""
-    labels: List[str] = field(default_factory=list)
-    cc_addresses: List[str] = field(default_factory=list)
-    bcc_addresses: List[str] = field(default_factory=list)
-    attachments: List[EmailAttachment] = field(default_factory=list)
-    headers: Dict[str, str] = field(default_factory=dict)
+    labels: list[str] = field(default_factory=list)
+    cc_addresses: list[str] = field(default_factory=list)
+    bcc_addresses: list[str] = field(default_factory=list)
+    attachments: list[EmailAttachment] = field(default_factory=list)
+    headers: dict[str, str] = field(default_factory=dict)
     is_read: bool = False
     is_starred: bool = False
     is_important: bool = False
@@ -62,11 +59,11 @@ class EmailMessage:
     importance_reason: str = ""  # AI-generated explanation
 
     @property
-    def message_id_header(self) -> Optional[str]:
+    def message_id_header(self) -> str | None:
         """Get the Message-ID header for reply threading."""
         return self.headers.get("Message-ID") or self.headers.get("Message-Id")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -93,7 +90,7 @@ class EmailMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EmailMessage":
+    def from_dict(cls, data: dict[str, Any]) -> "EmailMessage":
         """Deserialize from dictionary."""
         date_val = data.get("date")
         if isinstance(date_val, str):
@@ -134,21 +131,20 @@ class EmailMessage:
             importance_reason=data.get("importance_reason", ""),
         )
 
-
 @dataclass
 class EmailThread:
     """An email thread/conversation."""
 
     id: str
     subject: str
-    messages: List[EmailMessage] = field(default_factory=list)
-    participants: List[str] = field(default_factory=list)
-    labels: List[str] = field(default_factory=list)
-    last_message_date: Optional[datetime] = None
+    messages: list[EmailMessage] = field(default_factory=list)
+    participants: list[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    last_message_date: datetime | None = None
     snippet: str = ""
     message_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "id": self.id,
@@ -163,7 +159,6 @@ class EmailThread:
             "message_count": self.message_count,
         }
 
-
 @dataclass
 class GmailWebhookPayload:
     """
@@ -177,10 +172,10 @@ class GmailWebhookPayload:
     subscription: str
     email_address: str
     history_id: str
-    raw_data: Dict[str, Any] = field(default_factory=dict)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_pubsub(cls, payload: Dict[str, Any]) -> "GmailWebhookPayload":
+    def from_pubsub(cls, payload: dict[str, Any]) -> "GmailWebhookPayload":
         """
         Parse Pub/Sub webhook payload.
 
@@ -223,7 +218,6 @@ class GmailWebhookPayload:
             raw_data=payload,
         )
 
-
 @dataclass
 class GmailSyncState:
     """
@@ -235,22 +229,22 @@ class GmailSyncState:
 
     user_id: str
     history_id: str = ""  # Gmail's incremental sync cursor
-    last_sync: Optional[datetime] = None
+    last_sync: datetime | None = None
     total_messages: int = 0
     indexed_messages: int = 0
     email_address: str = ""
-    labels_synced: List[str] = field(default_factory=list)
+    labels_synced: list[str] = field(default_factory=list)
 
     # Watch state for Pub/Sub notifications
-    watch_expiration: Optional[datetime] = None
-    watch_resource_id: Optional[str] = None
+    watch_expiration: datetime | None = None
+    watch_resource_id: str | None = None
 
     # Extended statistics
     initial_sync_complete: bool = False
     sync_errors: int = 0
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "user_id": self.user_id,
@@ -270,7 +264,7 @@ class GmailSyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "GmailSyncState":
+    def from_dict(cls, data: dict[str, Any]) -> "GmailSyncState":
         """Deserialize from dictionary."""
         last_sync = data.get("last_sync")
         if isinstance(last_sync, str):
@@ -295,19 +289,17 @@ class GmailSyncState:
             last_error=data.get("last_error"),
         )
 
-
 @dataclass
 class OutlookFolder:
     """An Outlook mail folder."""
 
     id: str
     display_name: str
-    parent_folder_id: Optional[str] = None
+    parent_folder_id: str | None = None
     child_folder_count: int = 0
     unread_item_count: int = 0
     total_item_count: int = 0
     is_hidden: bool = False
-
 
 @dataclass
 class OutlookSyncState:
@@ -319,13 +311,13 @@ class OutlookSyncState:
 
     user_id: str
     delta_link: str = ""  # Delta query URL for incremental sync
-    last_sync: Optional[datetime] = None
+    last_sync: datetime | None = None
     total_messages: int = 0
     indexed_messages: int = 0
     email_address: str = ""
-    folders_synced: List[str] = field(default_factory=list)
+    folders_synced: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "user_id": self.user_id,
@@ -338,7 +330,7 @@ class OutlookSyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OutlookSyncState":
+    def from_dict(cls, data: dict[str, Any]) -> "OutlookSyncState":
         """Deserialize from dictionary."""
         last_sync = data.get("last_sync")
         if isinstance(last_sync, str):

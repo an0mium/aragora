@@ -23,7 +23,6 @@ import asyncio
 import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from .exceptions import (
     AgentError,
@@ -38,7 +37,6 @@ from .exceptions import (
 # Error Category Enum
 # =============================================================================
 
-
 class ErrorCategory(Enum):
     """Categorization of errors for metrics and handling decisions."""
 
@@ -52,7 +50,6 @@ class ErrorCategory(Enum):
     CONTENT_POLICY = "content_policy"
     UNKNOWN = "unknown"
 
-
 class ErrorSeverity(Enum):
     """Severity level of errors for logging and alerting."""
 
@@ -60,7 +57,6 @@ class ErrorSeverity(Enum):
     ERROR = "error"  # Operation failed, may need investigation
     WARNING = "warning"  # Transient failure, likely recoverable
     INFO = "info"  # Expected failure (e.g., rate limit, retry will succeed)
-
 
 class RecoveryAction(Enum):
     """Recommended recovery action for an error."""
@@ -71,7 +67,6 @@ class RecoveryAction(Enum):
     WAIT = "wait"  # Wait for specified duration (rate limit)
     ABORT = "abort"  # Do not retry, operation cannot succeed
     ESCALATE = "escalate"  # Requires human intervention
-
 
 # =============================================================================
 # Error Pattern Constants
@@ -272,11 +267,9 @@ ALL_FALLBACK_PATTERNS: tuple[str, ...] = (
     + MODEL_ERROR_PATTERNS
 )
 
-
 # =============================================================================
 # Error Context and Action Dataclasses
 # =============================================================================
-
 
 @dataclass
 class ErrorContext:
@@ -288,7 +281,6 @@ class ErrorContext:
     retry_delay: float
     max_delay: float
     timeout: float | None = None
-
 
 @dataclass
 class ClassifiedError:
@@ -312,7 +304,7 @@ class ClassifiedError:
     action: RecoveryAction
     should_fallback: bool
     message: str = ""
-    retry_after: Optional[float] = None
+    retry_after: float | None = None
     details: dict = field(default_factory=dict)
 
     @property
@@ -324,7 +316,6 @@ class ClassifiedError:
     def category_str(self) -> str:
         """Category as string for backward compatibility."""
         return self.category.value
-
 
 @dataclass
 class ErrorAction:
@@ -339,11 +330,9 @@ class ErrorAction:
     delay_seconds: float = 0.0
     log_level: str = "warning"
 
-
 # =============================================================================
 # Error Classifier
 # =============================================================================
-
 
 class ErrorClassifier:
     """Centralized error classification for fallback and retry decisions.
@@ -767,11 +756,9 @@ class ErrorClassifier:
             message=error_message,
         )
 
-
 # =============================================================================
 # CLI Error Classification
 # =============================================================================
-
 
 def classify_cli_error(
     returncode: int,
@@ -876,7 +863,6 @@ def classify_cli_error(
         returncode=returncode,
         stderr=stderr[:500] if stderr else None,
     )
-
 
 __all__ = [
     # Enums

@@ -20,10 +20,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class EmailPriority(str, Enum):
     """Priority levels for emails."""
@@ -33,7 +32,6 @@ class EmailPriority(str, Enum):
     NORMAL = "normal"
     LOW = "low"
     SPAM = "spam"
-
 
 class EmailCategory(str, Enum):
     """Categories for email classification."""
@@ -49,7 +47,6 @@ class EmailCategory(str, Enum):
     PHISHING = "phishing"
     UNKNOWN = "unknown"
 
-
 @dataclass
 class EmailInput:
     """Email data for vetted decisionmaking."""
@@ -58,12 +55,12 @@ class EmailInput:
     body: str
     sender: str
     received_at: datetime
-    recipients: List[str] = field(default_factory=list)
-    cc: List[str] = field(default_factory=list)
-    thread_id: Optional[str] = None
-    message_id: Optional[str] = None
-    attachments: List[str] = field(default_factory=list)
-    headers: Dict[str, str] = field(default_factory=dict)
+    recipients: list[str] = field(default_factory=list)
+    cc: list[str] = field(default_factory=list)
+    thread_id: str | None = None
+    message_id: str | None = None
+    attachments: list[str] = field(default_factory=list)
+    headers: dict[str, str] = field(default_factory=dict)
 
     def to_context_string(self) -> str:
         """Convert to context string for debate."""
@@ -82,7 +79,6 @@ class EmailInput:
         parts.append(self.body[:2000])  # Truncate long bodies
         return "\n".join(parts)
 
-
 @dataclass
 class EmailDebateResult:
     """Result of multi-agent vetted decisionmaking."""
@@ -92,15 +88,15 @@ class EmailDebateResult:
     category: EmailCategory
     confidence: float
     reasoning: str
-    action_items: List[str] = field(default_factory=list)
-    suggested_labels: List[str] = field(default_factory=list)
+    action_items: list[str] = field(default_factory=list)
+    suggested_labels: list[str] = field(default_factory=list)
     is_spam: bool = False
     is_phishing: bool = False
-    sender_reputation: Optional[float] = None
-    debate_id: Optional[str] = None
+    sender_reputation: float | None = None
+    debate_id: str | None = None
     duration_seconds: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "message_id": self.message_id,
@@ -117,21 +113,20 @@ class EmailDebateResult:
             "duration_seconds": self.duration_seconds,
         }
 
-
 @dataclass
 class BatchEmailResult:
     """Result of batch email deliberation."""
 
-    results: List[EmailDebateResult]
+    results: list[EmailDebateResult]
     total_emails: int
     processed_emails: int
     duration_seconds: float
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
-    def by_priority(self) -> Dict[str, List[EmailDebateResult]]:
+    def by_priority(self) -> dict[str, list[EmailDebateResult]]:
         """Group results by priority."""
-        grouped: Dict[str, List[EmailDebateResult]] = {}
+        grouped: dict[str, list[EmailDebateResult]] = {}
         for r in self.results:
             key = r.priority.value
             if key not in grouped:
@@ -149,7 +144,6 @@ class BatchEmailResult:
         """Count of emails requiring action."""
         return len([r for r in self.results if r.category == EmailCategory.ACTION_REQUIRED])
 
-
 class EmailDebateService:
     """
     Service for multi-agent email deliberation.
@@ -160,10 +154,10 @@ class EmailDebateService:
 
     def __init__(
         self,
-        agents: Optional[List[str]] = None,
+        agents: Optional[list[str]] = None,
         enable_pii_redaction: bool = True,
         enable_sender_reputation: bool = True,
-        preserve_domains: Optional[List[str]] = None,
+        preserve_domains: Optional[list[str]] = None,
         fast_mode: bool = True,
     ):
         """
@@ -243,7 +237,7 @@ class EmailDebateService:
             headers=email.headers,
         )
 
-    async def _get_sender_reputation(self, user_id: str, sender: str) -> Optional[float]:
+    async def _get_sender_reputation(self, user_id: str, sender: str) -> float | None:
         """Get sender reputation score."""
         history = self._get_sender_history()
         if not history:
@@ -260,7 +254,7 @@ class EmailDebateService:
     def _build_debate_prompt(
         self,
         email: EmailInput,
-        sender_reputation: Optional[float] = None,
+        sender_reputation: float | None = None,
     ) -> str:
         """Build the debate prompt for email analysis."""
         context = email.to_context_string()
@@ -350,7 +344,7 @@ Consider:
         self,
         email: EmailInput,
         debate_result: Any,
-        sender_reputation: Optional[float],
+        sender_reputation: float | None,
         duration: float,
     ) -> EmailDebateResult:
         """Parse Arena debate result into EmailDebateResult."""
@@ -410,7 +404,7 @@ Consider:
     def _fallback_prioritization(
         self,
         email: EmailInput,
-        sender_reputation: Optional[float],
+        sender_reputation: float | None,
     ) -> EmailDebateResult:
         """Fallback prioritization using simple heuristics."""
         subject_lower = email.subject.lower()
@@ -449,7 +443,7 @@ Consider:
 
     async def prioritize_batch(
         self,
-        emails: List[EmailInput],
+        emails: list[EmailInput],
         user_id: str = "default",
         max_concurrent: int = 5,
     ) -> BatchEmailResult:
@@ -467,13 +461,13 @@ Consider:
         import asyncio
 
         start_time = datetime.now(timezone.utc)
-        results: List[EmailDebateResult] = []
-        errors: List[str] = []
+        results: list[EmailDebateResult] = []
+        errors: list[str] = []
 
         # Process in batches to limit concurrency
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def process_email(email: EmailInput) -> Optional[EmailDebateResult]:
+        async def process_email(email: EmailInput) -> EmailDebateResult | None:
             async with semaphore:
                 try:
                     return await self.prioritize_email(email, user_id)
@@ -501,13 +495,12 @@ Consider:
             errors=errors,
         )
 
-
 # Convenience function
 async def prioritize_emails(
-    emails: List[Dict[str, Any]],
+    emails: list[dict[str, Any]],
     user_id: str = "default",
     fast_mode: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Convenience function to prioritize emails.
 

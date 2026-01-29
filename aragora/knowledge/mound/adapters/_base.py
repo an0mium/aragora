@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 from aragora.observability.tracing import get_tracer
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
@@ -35,8 +35,7 @@ from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 logger = logging.getLogger(__name__)
 
 # Type alias for event callback
-EventCallback = Callable[[str, Dict[str, Any]], None]
-
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 class KnowledgeMoundAdapter(ResilientAdapterMixin):
     """Base class for all Knowledge Mound adapters.
@@ -65,7 +64,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
     def __init__(
         self,
         enable_dual_write: bool = False,
-        event_callback: Optional[EventCallback] = None,
+        event_callback: EventCallback | None = None,
         enable_tracing: bool = True,
         enable_resilience: bool = True,
         resilience_timeout: float = 5.0,
@@ -102,7 +101,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         Called automatically in __init__ and can be called to reset state.
         """
         if not hasattr(self, "_reverse_flow_state"):
-            self._reverse_flow_state: Dict[str, Any] = {}
+            self._reverse_flow_state: dict[str, Any] = {}
 
         self._reverse_flow_state.update(
             {
@@ -118,7 +117,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         """Clear reverse flow state for testing or reset."""
         self._init_reverse_flow_state()
 
-    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+    def get_reverse_flow_stats(self) -> dict[str, Any]:
         """Get statistics about reverse flow operations.
 
         Returns:
@@ -140,7 +139,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         """
         self._event_callback = callback
 
-    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured.
 
         Events are used for real-time WebSocket notifications.
@@ -162,7 +161,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         operation: str,
         success: bool,
         latency: float,
-        extra_labels: Optional[Dict[str, str]] = None,
+        extra_labels: Optional[dict[str, str]] = None,
     ) -> None:
         """Record Prometheus metric for adapter operation and check SLOs.
 
@@ -232,7 +231,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         record_id: str,
         outcome: str,
         confidence: float,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> None:
         """Record outcome of a validation for tracking.
 
@@ -273,7 +272,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         """
         return _TimedOperation(self, operation_name, span_attributes)
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """Return adapter health status for monitoring.
 
         Returns:
@@ -298,7 +297,6 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         """Reset health counters (e.g., after recovering from errors)."""
         self._error_count = 0
 
-
 class _TimedOperation:
     """Context manager for timing and tracing adapter operations."""
 
@@ -306,14 +304,14 @@ class _TimedOperation:
         self,
         adapter: KnowledgeMoundAdapter,
         operation: str,
-        span_attributes: Optional[Dict[str, Any]] = None,
+        span_attributes: Optional[dict[str, Any]] = None,
     ):
         self.adapter = adapter
         self.operation = operation
         self.span_attributes = span_attributes or {}
         self.start_time = 0.0
         self.success = True
-        self.error: Optional[Exception] = None
+        self.error: Exception | None = None
         self._span = None
 
     def __enter__(self) -> "_TimedOperation":
@@ -355,7 +353,6 @@ class _TimedOperation:
 
         self.adapter._record_metric(self.operation, self.success, latency)
         # Don't suppress exceptions (returning None is equivalent to False)
-
 
 __all__ = [
     "KnowledgeMoundAdapter",

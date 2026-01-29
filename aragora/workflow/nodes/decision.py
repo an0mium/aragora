@@ -11,13 +11,12 @@ Provides flexible decision-making logic:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval, safe_eval_bool
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
-
 
 class DecisionStep(BaseStep):
     """
@@ -27,7 +26,7 @@ class DecisionStep(BaseStep):
     The workflow engine uses the output to determine the next step.
 
     Config options:
-        conditions: List[dict] - Conditions to evaluate in order
+        conditions: list[dict] - Conditions to evaluate in order
             [{
                 "name": "high_risk",
                 "expression": "outputs.risk_score > 0.8",
@@ -59,7 +58,7 @@ class DecisionStep(BaseStep):
         )
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -178,8 +177,8 @@ class DecisionStep(BaseStep):
             raise
 
     async def _ai_decision(
-        self, config: Dict[str, Any], context: WorkflowContext
-    ) -> Dict[str, Any]:
+        self, config: dict[str, Any], context: WorkflowContext
+    ) -> dict[str, Any]:
         """Use AI to make a decision when no conditions match."""
         ai_prompt = config.get("ai_prompt", "")
         conditions = config.get("conditions", [])
@@ -244,14 +243,13 @@ class DecisionStep(BaseStep):
 
         return "\n".join(parts)
 
-
 class SwitchStep(BaseStep):
     """
     Switch step for value-based branching (similar to switch/case).
 
     Config options:
         value: str - Expression to evaluate (e.g., "inputs.category")
-        cases: Dict[str, str] - Map of values to next steps
+        cases: dict[str, str] - Map of values to next steps
             {"legal": "legal_review", "technical": "tech_review"}
         default: str - Default next step if no case matches
 
@@ -270,7 +268,7 @@ class SwitchStep(BaseStep):
         )
     """
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:

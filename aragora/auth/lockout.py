@@ -33,28 +33,25 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, Protocol
-
+from typing import Any, Protocol
 
 class RedisClientProtocol(Protocol):
     """Protocol for Redis client operations we use."""
 
     def ping(self) -> Any: ...
-    def get(self, key: str) -> Optional[str]: ...
+    def get(self, key: str) -> str | None: ...
     def setex(self, key: str, ttl: int, value: str) -> Any: ...
     def delete(self, key: str) -> Any: ...
 
-
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class LockoutEntry:
     """Represents a lockout tracking entry."""
 
     failed_attempts: int = 0
-    lockout_until: Optional[float] = None  # Unix timestamp
-    last_attempt: Optional[float] = None  # Unix timestamp
+    lockout_until: float | None = None  # Unix timestamp
+    last_attempt: float | None = None  # Unix timestamp
 
     def is_locked(self) -> bool:
         """Check if this entry is currently locked."""
@@ -69,12 +66,11 @@ class LockoutEntry:
         remaining = self.lockout_until - time.time()
         return max(0, int(remaining))
 
-
 class LockoutBackend(ABC):
     """Abstract base class for lockout storage backends."""
 
     @abstractmethod
-    def get_entry(self, key: str) -> Optional[LockoutEntry]:
+    def get_entry(self, key: str) -> LockoutEntry | None:
         """Get lockout entry for a key."""
         pass
 
@@ -93,7 +89,6 @@ class LockoutBackend(ABC):
         """Check if the backend is available."""
         pass
 
-
 class InMemoryLockoutBackend(LockoutBackend):
     """
     In-memory lockout storage backend.
@@ -106,7 +101,7 @@ class InMemoryLockoutBackend(LockoutBackend):
         self._store: dict[str, tuple[LockoutEntry, float]] = {}  # key -> (entry, expires_at)
         self._lock = threading.Lock()
 
-    def get_entry(self, key: str) -> Optional[LockoutEntry]:
+    def get_entry(self, key: str) -> LockoutEntry | None:
         """Get lockout entry, returning None if expired."""
         with self._lock:
             data = self._store.get(key)
@@ -144,7 +139,6 @@ class InMemoryLockoutBackend(LockoutBackend):
                 removed += 1
         return removed
 
-
 class RedisLockoutBackend(LockoutBackend):
     """
     Redis-backed lockout storage for distributed deployments.
@@ -154,7 +148,7 @@ class RedisLockoutBackend(LockoutBackend):
 
     def __init__(
         self,
-        redis_url: Optional[str] = None,
+        redis_url: str | None = None,
         key_prefix: str = "aragora:lockout:",
     ) -> None:
         """
@@ -166,7 +160,7 @@ class RedisLockoutBackend(LockoutBackend):
         """
         self._redis_url = redis_url or os.getenv("REDIS_URL")
         self._key_prefix = key_prefix
-        self._client: Optional[RedisClientProtocol] = None
+        self._client: RedisClientProtocol | None = None
         self._available = False
 
         if self._redis_url:
@@ -199,7 +193,7 @@ class RedisLockoutBackend(LockoutBackend):
         """Create full Redis key with prefix."""
         return f"{self._key_prefix}{key}"
 
-    def get_entry(self, key: str) -> Optional[LockoutEntry]:
+    def get_entry(self, key: str) -> LockoutEntry | None:
         """Get lockout entry from Redis."""
         if not self._available or self._client is None:
             return None
@@ -267,7 +261,6 @@ class RedisLockoutBackend(LockoutBackend):
             self._available = False
             return False
 
-
 class LockoutTracker:
     """
     Tracks failed login attempts and enforces account lockouts.
@@ -296,7 +289,7 @@ class LockoutTracker:
 
     def __init__(
         self,
-        redis_url: Optional[str] = None,
+        redis_url: str | None = None,
         use_redis: bool = True,
     ) -> None:
         """
@@ -308,7 +301,7 @@ class LockoutTracker:
                       Redis unavailable, uses in-memory storage.
         """
         self._memory_backend = InMemoryLockoutBackend()
-        self._redis_backend: Optional[RedisLockoutBackend] = None
+        self._redis_backend: RedisLockoutBackend | None = None
 
         if use_redis:
             self._redis_backend = RedisLockoutBackend(redis_url)
@@ -331,7 +324,7 @@ class LockoutTracker:
         """Generate key for IP-based tracking."""
         return f"ip:{ip}"
 
-    def _calculate_lockout_duration(self, attempts: int) -> Optional[int]:
+    def _calculate_lockout_duration(self, attempts: int) -> int | None:
         """
         Calculate lockout duration based on failed attempts.
 
@@ -347,9 +340,9 @@ class LockoutTracker:
 
     def record_failure(
         self,
-        email: Optional[str] = None,
-        ip: Optional[str] = None,
-    ) -> tuple[int, Optional[int]]:
+        email: str | None = None,
+        ip: str | None = None,
+    ) -> tuple[int, int | None]:
         """
         Record a failed login attempt.
 
@@ -363,7 +356,7 @@ class LockoutTracker:
         """
         now = time.time()
         max_attempts = 0
-        lockout_duration: Optional[int] = None
+        lockout_duration: int | None = None
 
         for key in [
             self._email_key(email) if email else None,
@@ -397,8 +390,8 @@ class LockoutTracker:
 
     def is_locked(
         self,
-        email: Optional[str] = None,
-        ip: Optional[str] = None,
+        email: str | None = None,
+        ip: str | None = None,
     ) -> bool:
         """
         Check if login is locked for the given email or IP.
@@ -427,8 +420,8 @@ class LockoutTracker:
 
     def get_remaining_time(
         self,
-        email: Optional[str] = None,
-        ip: Optional[str] = None,
+        email: str | None = None,
+        ip: str | None = None,
     ) -> int:
         """
         Get remaining lockout time in seconds.
@@ -460,8 +453,8 @@ class LockoutTracker:
 
     def reset(
         self,
-        email: Optional[str] = None,
-        ip: Optional[str] = None,
+        email: str | None = None,
+        ip: str | None = None,
     ) -> None:
         """
         Reset lockout state after successful login.
@@ -484,8 +477,8 @@ class LockoutTracker:
 
     def get_info(
         self,
-        email: Optional[str] = None,
-        ip: Optional[str] = None,
+        email: str | None = None,
+        ip: str | None = None,
     ) -> dict:
         """
         Get detailed lockout information.
@@ -532,9 +525,9 @@ class LockoutTracker:
 
     def admin_unlock(
         self,
-        email: Optional[str] = None,
-        ip: Optional[str] = None,
-        user_id: Optional[str] = None,
+        email: str | None = None,
+        ip: str | None = None,
+        user_id: str | None = None,
     ) -> bool:
         """
         Admin-initiated unlock of an account or IP.
@@ -574,14 +567,12 @@ class LockoutTracker:
             return "redis"
         return "memory"
 
-
 # Global lockout tracker instance
-_lockout_tracker: Optional[LockoutTracker] = None
+_lockout_tracker: LockoutTracker | None = None
 _tracker_lock = threading.Lock()
 
-
 def get_lockout_tracker(
-    redis_url: Optional[str] = None,
+    redis_url: str | None = None,
     use_redis: bool = True,
 ) -> LockoutTracker:
     """
@@ -605,13 +596,11 @@ def get_lockout_tracker(
 
     return _lockout_tracker
 
-
 def reset_lockout_tracker() -> None:
     """Reset the global lockout tracker (for testing)."""
     global _lockout_tracker
     with _tracker_lock:
         _lockout_tracker = None
-
 
 __all__ = [
     "LockoutTracker",

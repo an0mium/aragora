@@ -6,11 +6,10 @@ Provides visual rendering of canvas state for various output formats.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from .models import Canvas
-
 
 class CanvasRenderer:
     """
@@ -30,7 +29,7 @@ class CanvasRenderer:
         """Set the canvas to render."""
         self._canvas = canvas
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         """Export canvas state as JSON for web clients."""
         if not self._canvas:
             return {"nodes": [], "edges": [], "viewport": {"x": 0, "y": 0, "zoom": 1}}

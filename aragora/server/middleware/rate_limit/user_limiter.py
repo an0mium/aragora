@@ -11,7 +11,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from .base import (
     BURST_MULTIPLIER,
@@ -24,7 +24,7 @@ from .limiter import RateLimitResult
 logger = logging.getLogger(__name__)
 
 # Per-user rate limits (requests per minute)
-USER_RATE_LIMITS: Dict[str, int] = {
+USER_RATE_LIMITS: dict[str, int] = {
     "default": 60,  # Default for authenticated users
     "debate_create": 10,  # Creating new debates
     "debate_search": 30,  # Searching debates (ReDoS protection)
@@ -43,7 +43,6 @@ USER_RATE_LIMITS: Dict[str, int] = {
     "slack_debate": 5,  # Debate creation via Slack
     "slack_gauntlet": 3,  # Gauntlet runs via Slack
 }
-
 
 class UserRateLimiter:
     """
@@ -69,7 +68,7 @@ class UserRateLimiter:
 
     def __init__(
         self,
-        action_limits: Optional[Dict[str, int]] = None,
+        action_limits: Optional[dict[str, int]] = None,
         default_limit: int = 60,
         max_users: int = 10000,
     ):
@@ -86,7 +85,7 @@ class UserRateLimiter:
         self.max_users = max_users
 
         # Nested structure: action -> user_id -> TokenBucket
-        self._user_buckets: Dict[str, OrderedDict[str, TokenBucket]] = {}
+        self._user_buckets: dict[str, OrderedDict[str, TokenBucket]] = {}
         self._lock = threading.Lock()
         self._last_cleanup = time.monotonic()
 
@@ -160,7 +159,7 @@ class UserRateLimiter:
 
             return removed
 
-    def get_user_status(self, user_id: str) -> Dict[str, Dict[str, Any]]:
+    def get_user_status(self, user_id: str) -> dict[str, dict[str, Any]]:
         """Get rate limit status for a user across all actions."""
         with self._lock:
             status = {}
@@ -174,7 +173,7 @@ class UserRateLimiter:
                     }
             return status
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get user rate limiter statistics."""
         with self._lock:
             return {
@@ -190,10 +189,8 @@ class UserRateLimiter:
         with self._lock:
             self._user_buckets.clear()
 
-
 # Global user rate limiter instance
-_user_limiter: Optional[UserRateLimiter] = None
-
+_user_limiter: UserRateLimiter | None = None
 
 def get_user_rate_limiter() -> UserRateLimiter:
     """Get the global user rate limiter instance."""
@@ -201,7 +198,6 @@ def get_user_rate_limiter() -> UserRateLimiter:
     if _user_limiter is None:
         _user_limiter = UserRateLimiter()
     return _user_limiter
-
 
 def check_user_rate_limit(
     handler: Any,
@@ -254,7 +250,6 @@ def check_user_rate_limit(
             logger.debug(f"Could not extract user for rate limiting: {e}")
 
     return limiter.allow(client_key, action)
-
 
 __all__ = [
     "USER_RATE_LIMITS",

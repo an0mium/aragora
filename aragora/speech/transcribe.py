@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import BinaryIO
 
 from aragora.speech.providers.base import (
     STTProvider,
@@ -25,10 +25,9 @@ __all__ = [
     "TranscriptionSegment",
 ]
 
-
 def get_provider(
-    provider_name: Optional[str] = None,
-    config: Optional[STTProviderConfig] = None,
+    provider_name: str | None = None,
+    config: STTProviderConfig | None = None,
 ) -> STTProvider:
     """
     Get an STT provider by name.
@@ -55,13 +54,12 @@ def get_provider(
 
     return provider_class(config=config)
 
-
 async def transcribe_audio(
     audio_file: Path | BinaryIO,
-    language: Optional[str] = None,
-    prompt: Optional[str] = None,
-    provider_name: Optional[str] = None,
-    config: Optional[STTProviderConfig] = None,
+    language: str | None = None,
+    prompt: str | None = None,
+    provider_name: str | None = None,
+    config: STTProviderConfig | None = None,
 ) -> TranscriptionResult:
     """
     Transcribe audio to text.
@@ -95,12 +93,11 @@ async def transcribe_audio(
 
     return await provider.transcribe(audio_file, language, prompt)
 
-
 async def transcribe_audio_file(
     file_path: str | Path,
-    language: Optional[str] = None,
-    prompt: Optional[str] = None,
-    provider_name: Optional[str] = None,
+    language: str | None = None,
+    prompt: str | None = None,
+    provider_name: str | None = None,
 ) -> TranscriptionResult:
     """
     Transcribe an audio file by path.

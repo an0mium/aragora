@@ -10,10 +10,9 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class UserAuthContext:
@@ -24,13 +23,13 @@ class UserAuthContext:
     """
 
     authenticated: bool = False
-    user_id: Optional[str] = None
-    email: Optional[str] = None
-    org_id: Optional[str] = None
+    user_id: str | None = None
+    email: str | None = None
+    org_id: str | None = None
     role: str = "member"
     token_type: str = "none"  # none, access, api_key
-    client_ip: Optional[str] = None
-    error_reason: Optional[str] = None  # Set when auth fails with a specific reason
+    client_ip: str | None = None
+    error_reason: str | None = None  # Set when auth fails with a specific reason
 
     @property
     def is_authenticated(self) -> bool:
@@ -38,7 +37,7 @@ class UserAuthContext:
         return self.authenticated
 
     @property
-    def id(self) -> Optional[str]:
+    def id(self) -> str | None:
         """Alias for user_id for compatibility."""
         return self.user_id
 
@@ -51,7 +50,6 @@ class UserAuthContext:
     def is_admin(self) -> bool:
         """Check if user is admin or owner."""
         return self.role in ("owner", "admin")
-
 
 def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
     """
@@ -127,7 +125,6 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
 
     return context
 
-
 def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -> UserAuthContext:
     """
     Validate an API key and populate context.
@@ -190,7 +187,6 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
     context.authenticated = False
     context.error_reason = "API key authentication requires server configuration"
     return context
-
 
 __all__ = [
     "UserAuthContext",

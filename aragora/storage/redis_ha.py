@@ -66,10 +66,9 @@ import os
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 class RedisMode(str, Enum):
     """Redis deployment mode."""
@@ -77,7 +76,6 @@ class RedisMode(str, Enum):
     STANDALONE = "standalone"
     SENTINEL = "sentinel"
     CLUSTER = "cluster"
-
 
 @dataclass
 class RedisHAConfig:
@@ -128,18 +126,18 @@ class RedisHAConfig:
     # Standalone configuration
     host: str = "localhost"
     port: int = 6379
-    password: Optional[str] = None
+    password: str | None = None
     db: int = 0
-    url: Optional[str] = None
+    url: str | None = None
 
     # Sentinel configuration
-    sentinel_hosts: List[str] = field(default_factory=list)
+    sentinel_hosts: list[str] = field(default_factory=list)
     sentinel_master: str = "mymaster"
-    sentinel_password: Optional[str] = None
+    sentinel_password: str | None = None
     sentinel_socket_timeout: float = 5.0
 
     # Cluster configuration
-    cluster_nodes: List[str] = field(default_factory=list)
+    cluster_nodes: list[str] = field(default_factory=list)
     cluster_read_from_replicas: bool = True
     cluster_skip_full_coverage_check: bool = False
 
@@ -154,8 +152,8 @@ class RedisHAConfig:
 
     # SSL/TLS settings
     ssl: bool = False
-    ssl_cert_reqs: Optional[str] = None
-    ssl_ca_certs: Optional[str] = None
+    ssl_cert_reqs: str | None = None
+    ssl_ca_certs: str | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
@@ -197,11 +195,11 @@ class RedisHAConfig:
 
         # Parse sentinel hosts
         sentinel_hosts_str = os.environ.get("ARAGORA_REDIS_SENTINEL_HOSTS", "")
-        sentinel_hosts: List[str] = [h.strip() for h in sentinel_hosts_str.split(",") if h.strip()]
+        sentinel_hosts: list[str] = [h.strip() for h in sentinel_hosts_str.split(",") if h.strip()]
 
         # Parse cluster nodes
         cluster_nodes_str = os.environ.get("ARAGORA_REDIS_CLUSTER_NODES", "")
-        cluster_nodes: List[str] = [n.strip() for n in cluster_nodes_str.split(",") if n.strip()]
+        cluster_nodes: list[str] = [n.strip() for n in cluster_nodes_str.split(",") if n.strip()]
 
         # Parse URL for standalone defaults
         url = os.environ.get("ARAGORA_REDIS_URL") or os.environ.get("REDIS_URL")
@@ -258,34 +256,33 @@ class RedisHAConfig:
             ssl_ca_certs=os.environ.get("ARAGORA_REDIS_SSL_CA_CERTS"),
         )
 
-    def get_parsed_sentinel_hosts(self) -> List[Tuple[str, int]]:
+    def get_parsed_sentinel_hosts(self) -> list[tuple[str, int]]:
         """
         Parse sentinel hosts into (host, port) tuples.
 
         Returns:
             List of (host, port) tuples for sentinel nodes
         """
-        parsed: List[Tuple[str, int]] = []
+        parsed: list[tuple[str, int]] = []
         for host_str in self.sentinel_hosts:
             host, port = _parse_host_port(host_str, default_port=26379)
             parsed.append((host, port))
         return parsed
 
-    def get_parsed_cluster_nodes(self) -> List[Tuple[str, int]]:
+    def get_parsed_cluster_nodes(self) -> list[tuple[str, int]]:
         """
         Parse cluster nodes into (host, port) tuples.
 
         Returns:
             List of (host, port) tuples for cluster nodes
         """
-        parsed: List[Tuple[str, int]] = []
+        parsed: list[tuple[str, int]] = []
         for node_str in self.cluster_nodes:
             host, port = _parse_host_port(node_str, default_port=6379)
             parsed.append((host, port))
         return parsed
 
-
-def _parse_host_port(host_str: str, default_port: int = 6379) -> Tuple[str, int]:
+def _parse_host_port(host_str: str, default_port: int = 6379) -> tuple[str, int]:
     """
     Parse a host:port string into components.
 
@@ -305,8 +302,7 @@ def _parse_host_port(host_str: str, default_port: int = 6379) -> Tuple[str, int]
             return parts[0], default_port
     return host_str, default_port
 
-
-def _parse_redis_url(url: str) -> Tuple[Optional[str], Optional[int]]:
+def _parse_redis_url(url: str) -> tuple[str | None, int | None]:
     """
     Parse Redis URL to extract host and port.
 
@@ -335,8 +331,7 @@ def _parse_redis_url(url: str) -> Tuple[Optional[str], Optional[int]]:
         logger.debug(f"Failed to parse Redis URL: {e}")
         return None, None
 
-
-def get_redis_client(config: Optional[RedisHAConfig] = None) -> Optional[Any]:
+def get_redis_client(config: RedisHAConfig | None = None) -> Any | None:
     """
     Get appropriate synchronous Redis client based on configuration.
 
@@ -380,7 +375,6 @@ def get_redis_client(config: Optional[RedisHAConfig] = None) -> Optional[Any]:
             f"Failed to create Redis client ({config.mode.value} mode) - invalid config: {e}"
         )
         return None
-
 
 def _create_standalone_client(config: RedisHAConfig) -> Any:
     """Create standalone Redis client with connection pooling."""
@@ -430,7 +424,6 @@ def _create_standalone_client(config: RedisHAConfig) -> Any:
     logger.info(f"Connected to standalone Redis at {config.host}:{config.port}")
 
     return client
-
 
 def _create_sentinel_client(config: RedisHAConfig) -> Any:
     """Create Redis Sentinel client for HA failover."""
@@ -495,7 +488,6 @@ def _create_sentinel_client(config: RedisHAConfig) -> Any:
 
     return master
 
-
 def _create_cluster_client(config: RedisHAConfig) -> Any:
     """Create Redis Cluster client for horizontal scaling."""
     from redis.cluster import ClusterNode, RedisCluster
@@ -536,8 +528,7 @@ def _create_cluster_client(config: RedisHAConfig) -> Any:
 
     return client
 
-
-async def get_async_redis_client(config: Optional[RedisHAConfig] = None) -> Optional[Any]:
+async def get_async_redis_client(config: RedisHAConfig | None = None) -> Any | None:
     """
     Get appropriate asynchronous Redis client based on configuration.
 
@@ -578,7 +569,6 @@ async def get_async_redis_client(config: Optional[RedisHAConfig] = None) -> Opti
             f"Failed to create async Redis client ({config.mode.value} mode) - invalid config: {e}"
         )
         return None
-
 
 async def _create_async_standalone_client(config: RedisHAConfig) -> Any:
     """Create async standalone Redis client."""
@@ -626,7 +616,6 @@ async def _create_async_standalone_client(config: RedisHAConfig) -> Any:
     logger.info(f"Connected to async standalone Redis at {config.host}:{config.port}")
 
     return client
-
 
 async def _create_async_sentinel_client(config: RedisHAConfig) -> Any:
     """Create async Redis Sentinel client."""
@@ -690,7 +679,6 @@ async def _create_async_sentinel_client(config: RedisHAConfig) -> Any:
 
     return master
 
-
 async def _create_async_cluster_client(config: RedisHAConfig) -> Any:
     """Create async Redis Cluster client."""
     from redis.asyncio.cluster import ClusterNode, RedisCluster
@@ -731,17 +719,15 @@ async def _create_async_cluster_client(config: RedisHAConfig) -> Any:
 
     return client
 
-
 # =============================================================================
 # Singleton Management
 # =============================================================================
 
-_sync_client: Optional[Any] = None
-_async_client: Optional[Any] = None
+_sync_client: Any | None = None
+_async_client: Any | None = None
 _lock = threading.Lock()
 
-
-def get_cached_redis_client(config: Optional[RedisHAConfig] = None) -> Optional[Any]:
+def get_cached_redis_client(config: RedisHAConfig | None = None) -> Any | None:
     """
     Get or create a cached synchronous Redis client (singleton pattern).
 
@@ -764,10 +750,9 @@ def get_cached_redis_client(config: Optional[RedisHAConfig] = None) -> Optional[
             _sync_client = get_redis_client(config)
         return _sync_client
 
-
 async def get_cached_async_redis_client(
-    config: Optional[RedisHAConfig] = None,
-) -> Optional[Any]:
+    config: RedisHAConfig | None = None,
+) -> Any | None:
     """
     Get or create a cached asynchronous Redis client (singleton pattern).
 
@@ -790,7 +775,6 @@ async def get_cached_async_redis_client(
             _async_client = await get_async_redis_client(config)
         return _async_client
 
-
 def reset_cached_clients() -> None:
     """
     Reset cached Redis clients (for testing or reconfiguration).
@@ -812,13 +796,11 @@ def reset_cached_clients() -> None:
             # The connection will be cleaned up by garbage collector
             _async_client = None
 
-
 # =============================================================================
 # Health Check Utilities
 # =============================================================================
 
-
-def check_redis_health(config: Optional[RedisHAConfig] = None) -> dict:
+def check_redis_health(config: RedisHAConfig | None = None) -> dict:
     """
     Check Redis connection health and return diagnostic information.
 
@@ -883,8 +865,7 @@ def check_redis_health(config: Optional[RedisHAConfig] = None) -> dict:
 
     return result
 
-
-async def check_async_redis_health(config: Optional[RedisHAConfig] = None) -> dict:
+async def check_async_redis_health(config: RedisHAConfig | None = None) -> dict:
     """
     Check async Redis connection health and return diagnostic information.
 
@@ -934,7 +915,6 @@ async def check_async_redis_health(config: Optional[RedisHAConfig] = None) -> di
         result["error"] = str(e)
 
     return result
-
 
 __all__ = [
     # Enums and config

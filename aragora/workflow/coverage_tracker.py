@@ -34,10 +34,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 # Known step types that should be covered
 KNOWN_STEP_TYPES = frozenset(
@@ -107,7 +106,6 @@ KNOWN_CONFIG_DIMENSIONS = frozenset(
     }
 )
 
-
 @dataclass
 class CoverageEntry:
     """A single coverage tracking entry."""
@@ -115,9 +113,9 @@ class CoverageEntry:
     component: str
     test_name: str
     timestamp: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "component": self.component,
@@ -125,7 +123,6 @@ class CoverageEntry:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class CoverageReport:
@@ -135,14 +132,14 @@ class CoverageReport:
     pattern_coverage: float
     template_coverage: float
     config_coverage: float
-    covered_steps: Set[str]
-    covered_patterns: Set[str]
-    covered_templates: Set[str]
-    covered_configs: Set[str]
-    missing_steps: Set[str]
-    missing_patterns: Set[str]
-    missing_templates: Set[str]
-    missing_configs: Set[str]
+    covered_steps: set[str]
+    covered_patterns: set[str]
+    covered_templates: set[str]
+    covered_configs: set[str]
+    missing_steps: set[str]
+    missing_patterns: set[str]
+    missing_templates: set[str]
+    missing_configs: set[str]
     total_tests: int
     generated_at: datetime = field(default_factory=datetime.now)
 
@@ -157,7 +154,7 @@ class CoverageReport:
             + self.config_coverage * 0.15
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "step_coverage": self.step_coverage,
@@ -233,7 +230,6 @@ class CoverageReport:
 
         return "\n".join(lines)
 
-
 class WorkflowCoverageTracker:
     """
     Tracks workflow test coverage across multiple dimensions.
@@ -258,11 +254,11 @@ class WorkflowCoverageTracker:
             return
 
         self._data_lock = threading.Lock()
-        self._step_coverage: Dict[str, List[CoverageEntry]] = defaultdict(list)
-        self._pattern_coverage: Dict[str, List[CoverageEntry]] = defaultdict(list)
-        self._template_coverage: Dict[str, List[CoverageEntry]] = defaultdict(list)
-        self._config_coverage: Dict[str, List[CoverageEntry]] = defaultdict(list)
-        self._test_names: Set[str] = set()
+        self._step_coverage: dict[str, list[CoverageEntry]] = defaultdict(list)
+        self._pattern_coverage: dict[str, list[CoverageEntry]] = defaultdict(list)
+        self._template_coverage: dict[str, list[CoverageEntry]] = defaultdict(list)
+        self._config_coverage: dict[str, list[CoverageEntry]] = defaultdict(list)
+        self._test_names: set[str] = set()
         self._initialized = True
 
     def reset(self) -> None:
@@ -275,7 +271,7 @@ class WorkflowCoverageTracker:
             self._test_names.clear()
 
     def track_step(
-        self, step_type: str, test_name: str, metadata: Optional[Dict[str, Any]] = None
+        self, step_type: str, test_name: str, metadata: Optional[dict[str, Any]] = None
     ) -> None:
         """Track coverage of a step type."""
         with self._data_lock:
@@ -289,7 +285,7 @@ class WorkflowCoverageTracker:
             logger.debug(f"Tracked step '{step_type}' in test '{test_name}'")
 
     def track_pattern(
-        self, pattern: str, test_name: str, metadata: Optional[Dict[str, Any]] = None
+        self, pattern: str, test_name: str, metadata: Optional[dict[str, Any]] = None
     ) -> None:
         """Track coverage of an execution pattern."""
         with self._data_lock:
@@ -303,7 +299,7 @@ class WorkflowCoverageTracker:
             logger.debug(f"Tracked pattern '{pattern}' in test '{test_name}'")
 
     def track_template(
-        self, template: str, test_name: str, metadata: Optional[Dict[str, Any]] = None
+        self, template: str, test_name: str, metadata: Optional[dict[str, Any]] = None
     ) -> None:
         """Track coverage of a workflow template."""
         with self._data_lock:
@@ -317,7 +313,7 @@ class WorkflowCoverageTracker:
             logger.debug(f"Tracked template '{template}' in test '{test_name}'")
 
     def track_config(
-        self, config_dimension: str, test_name: str, metadata: Optional[Dict[str, Any]] = None
+        self, config_dimension: str, test_name: str, metadata: Optional[dict[str, Any]] = None
     ) -> None:
         """Track coverage of a configuration dimension."""
         with self._data_lock:
@@ -372,7 +368,7 @@ class WorkflowCoverageTracker:
                 total_tests=len(self._test_names),
             )
 
-    def save_report(self, path: Optional[Path] = None) -> Path:
+    def save_report(self, path: Path | None = None) -> Path:
         """Save coverage report to file."""
         if path is None:
             path = Path(".coverage/workflow_coverage.json")
@@ -391,10 +387,8 @@ class WorkflowCoverageTracker:
         report = self.get_report()
         print(report.summary())  # noqa: T201
 
-
 # Global tracker instance
-_tracker: Optional[WorkflowCoverageTracker] = None
-
+_tracker: WorkflowCoverageTracker | None = None
 
 def get_tracker() -> WorkflowCoverageTracker:
     """Get the global workflow coverage tracker."""
@@ -403,35 +397,29 @@ def get_tracker() -> WorkflowCoverageTracker:
         _tracker = WorkflowCoverageTracker()
     return _tracker
 
-
-def track_step(step_type: str, test_name: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+def track_step(step_type: str, test_name: str, metadata: Optional[dict[str, Any]] = None) -> None:
     """Convenience function to track step coverage."""
     get_tracker().track_step(step_type, test_name, metadata)
 
-
-def track_pattern(pattern: str, test_name: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+def track_pattern(pattern: str, test_name: str, metadata: Optional[dict[str, Any]] = None) -> None:
     """Convenience function to track pattern coverage."""
     get_tracker().track_pattern(pattern, test_name, metadata)
 
-
 def track_template(
-    template: str, test_name: str, metadata: Optional[Dict[str, Any]] = None
+    template: str, test_name: str, metadata: Optional[dict[str, Any]] = None
 ) -> None:
     """Convenience function to track template coverage."""
     get_tracker().track_template(template, test_name, metadata)
 
-
 def track_config(
-    config_dimension: str, test_name: str, metadata: Optional[Dict[str, Any]] = None
+    config_dimension: str, test_name: str, metadata: Optional[dict[str, Any]] = None
 ) -> None:
     """Convenience function to track config coverage."""
     get_tracker().track_config(config_dimension, test_name, metadata)
 
-
 def get_coverage_report() -> CoverageReport:
     """Get the current coverage report."""
     return get_tracker().get_report()
-
 
 def print_coverage_summary() -> None:
     """Print coverage summary."""

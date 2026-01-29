@@ -24,13 +24,13 @@ Usage:
     )
     line = event.to_jsonl()
 """
+from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 SCHEMA_VERSION = "1.0"
-
 
 @dataclass
 class ReplayEvent:
@@ -42,7 +42,7 @@ class ReplayEvent:
     event_type: str  # 'turn', 'vote', 'audience_input', 'phase_change', 'system'
     source: str  # Agent ID, 'system', or user ID
     content: str  # Message text or payload
-    metadata: Dict[str, Any] = field(default_factory=dict)  # round, reasoning, loop_id, etc.
+    metadata: dict[str, Any] = field(default_factory=dict)  # round, reasoning, loop_id, etc.
 
     def to_jsonl(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
@@ -55,7 +55,6 @@ class ReplayEvent:
             raise ValueError(f"Invalid JSON in replay event: {e}") from e
         return cls(**data)
 
-
 @dataclass
 class ReplayMeta:
     """Metadata for a debate recording."""
@@ -64,15 +63,15 @@ class ReplayMeta:
     debate_id: str = ""
     topic: str = ""
     proposal: str = ""
-    agents: List[Dict[str, str]] = field(default_factory=list)
+    agents: list[dict[str, str]] = field(default_factory=list)
     started_at: str = ""
-    ended_at: Optional[str] = None
-    duration_ms: Optional[int] = None
+    ended_at: str | None = None
+    duration_ms: int | None = None
     status: str = "in_progress"
-    final_verdict: Optional[str] = None
-    vote_tally: Dict[str, int] = field(default_factory=dict)
+    final_verdict: str | None = None
+    vote_tally: dict[str, int] = field(default_factory=dict)
     event_count: int = 0
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2, ensure_ascii=False)

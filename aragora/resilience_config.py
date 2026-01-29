@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
-
 
 @dataclass(frozen=True)
 class CircuitBreakerConfig:
@@ -57,10 +55,10 @@ class CircuitBreakerConfig:
 
     def with_overrides(
         self,
-        failure_threshold: Optional[int] = None,
-        success_threshold: Optional[int] = None,
-        timeout_seconds: Optional[float] = None,
-        half_open_max_calls: Optional[int] = None,
+        failure_threshold: int | None = None,
+        success_threshold: int | None = None,
+        timeout_seconds: float | None = None,
+        half_open_max_calls: int | None = None,
     ) -> CircuitBreakerConfig:
         """Create a new config with specified overrides.
 
@@ -87,7 +85,6 @@ class CircuitBreakerConfig:
                 half_open_max_calls if half_open_max_calls is not None else self.half_open_max_calls
             ),
         )
-
 
 # Default configurations per provider
 # These reflect the reliability characteristics of each provider
@@ -150,8 +147,7 @@ PROVIDER_CONFIGS: dict[str, CircuitBreakerConfig] = {
     "default": CircuitBreakerConfig(),
 }
 
-
-def _get_env_int(name: str) -> Optional[int]:
+def _get_env_int(name: str) -> int | None:
     """Get an integer from environment variable, or None if not set/invalid."""
     value = os.environ.get(name)
     if value is None:
@@ -161,8 +157,7 @@ def _get_env_int(name: str) -> Optional[int]:
     except ValueError:
         return None
 
-
-def _get_env_float(name: str) -> Optional[float]:
+def _get_env_float(name: str) -> float | None:
     """Get a float from environment variable, or None if not set/invalid."""
     value = os.environ.get(name)
     if value is None:
@@ -172,10 +167,9 @@ def _get_env_float(name: str) -> Optional[float]:
     except ValueError:
         return None
 
-
 def get_circuit_breaker_config(
-    provider: Optional[str] = None,
-    agent_name: Optional[str] = None,
+    provider: str | None = None,
+    agent_name: str | None = None,
 ) -> CircuitBreakerConfig:
     """Get circuit breaker configuration for a provider or agent.
 
@@ -236,10 +230,8 @@ def get_circuit_breaker_config(
 
     return base_config
 
-
 # Agent-specific configurations (can be extended at runtime)
 _AGENT_CONFIGS: dict[str, CircuitBreakerConfig] = {}
-
 
 def register_agent_config(agent_name: str, config: CircuitBreakerConfig) -> None:
     """Register a circuit breaker configuration for a specific agent.
@@ -260,7 +252,6 @@ def register_agent_config(agent_name: str, config: CircuitBreakerConfig) -> None
     """
     _AGENT_CONFIGS[agent_name] = config
 
-
 def unregister_agent_config(agent_name: str) -> bool:
     """Remove an agent-specific configuration.
 
@@ -275,7 +266,6 @@ def unregister_agent_config(agent_name: str) -> bool:
         return True
     return False
 
-
 def get_registered_agent_configs() -> dict[str, CircuitBreakerConfig]:
     """Get all registered agent-specific configurations.
 
@@ -283,7 +273,6 @@ def get_registered_agent_configs() -> dict[str, CircuitBreakerConfig]:
         Copy of the agent configurations dictionary
     """
     return dict(_AGENT_CONFIGS)
-
 
 def clear_agent_configs() -> None:
     """Clear all agent-specific configurations. Useful for testing."""

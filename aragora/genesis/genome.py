@@ -7,18 +7,17 @@ Extends Persona with genetic-specific fields for:
 - Fitness scoring from debate outcomes
 - Serialization for persistence
 """
+from __future__ import annotations
 
 import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.agents.personas import Persona
 from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
-
 
 def generate_genome_id(traits: dict, expertise: dict, parents: list[str]) -> str:
     """Generate a unique genome ID from its characteristics."""
@@ -32,7 +31,6 @@ def generate_genome_id(traits: dict, expertise: dict, parents: list[str]) -> str
         sort_keys=True,
     )
     return hashlib.sha256(content.encode()).hexdigest()[:12]
-
 
 @dataclass
 class AgentGenome:
@@ -53,7 +51,7 @@ class AgentGenome:
     parent_genomes: list[str] = field(default_factory=list)  # Parent genome IDs
     generation: int = 0  # How many generations from base
     fitness_score: float = 0.5  # Updated by debate outcomes
-    birth_debate_id: Optional[str] = None  # Debate where this genome was created
+    birth_debate_id: str | None = None  # Debate where this genome was created
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -206,7 +204,6 @@ class AgentGenome:
         exp_str = ", ".join(f"{d}:{s:.0%}" for d, s in top_exp)
         return f"Genome({self.name}, gen={self.generation}, fit={self.fitness_score:.2f}, traits={top_traits}, exp=[{exp_str}])"
 
-
 class GenomeStore:
     """SQLite-based storage for genomes."""
 
@@ -257,7 +254,7 @@ class GenomeStore:
 
             conn.commit()
 
-    def get(self, genome_id: str) -> Optional[AgentGenome]:
+    def get(self, genome_id: str) -> AgentGenome | None:
         """Get a genome by ID."""
         with self.db.connection() as conn:
             cursor = conn.cursor()
@@ -270,7 +267,7 @@ class GenomeStore:
 
         return self._row_to_genome(row)
 
-    def get_by_name(self, name: str) -> Optional[AgentGenome]:
+    def get_by_name(self, name: str) -> AgentGenome | None:
         """Get the latest genome with a given name."""
         with self.db.connection() as conn:
             cursor = conn.cursor()

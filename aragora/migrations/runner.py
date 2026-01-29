@@ -9,6 +9,7 @@ Features:
 - Version tracking with applied_by metadata
 - Support for SQL and Python migration functions
 """
+from __future__ import annotations
 
 import importlib
 import logging
@@ -33,7 +34,6 @@ logger = logging.getLogger(__name__)
 # Advisory lock ID for migration coordination (hash of 'aragora_migration')
 MIGRATION_LOCK_ID = 2089872453
 
-
 @dataclass
 class Migration:
     """
@@ -50,15 +50,14 @@ class Migration:
 
     version: int
     name: str
-    up_sql: Optional[str] = None
-    down_sql: Optional[str] = None
+    up_sql: str | None = None
+    down_sql: str | None = None
     up_fn: Optional[Callable[[DatabaseBackend], None]] = None
     down_fn: Optional[Callable[[DatabaseBackend], None]] = None
 
     def __post_init__(self) -> None:
         if not self.up_sql and not self.up_fn:
             raise ValueError(f"Migration {self.version} must have up_sql or up_fn")
-
 
 class MigrationRunner:
     """
@@ -72,9 +71,9 @@ class MigrationRunner:
 
     def __init__(
         self,
-        backend: Optional[DatabaseBackend] = None,
+        backend: DatabaseBackend | None = None,
         db_path: str = "aragora.db",
-        database_url: Optional[str] = None,
+        database_url: str | None = None,
     ):
         """
         Initialize the migration runner.
@@ -213,7 +212,7 @@ class MigrationRunner:
 
     def upgrade(
         self,
-        target_version: Optional[int] = None,
+        target_version: int | None = None,
         lock_timeout: float = 30.0,
     ) -> list[Migration]:
         """
@@ -280,7 +279,7 @@ class MigrationRunner:
 
     def downgrade(
         self,
-        target_version: Optional[int] = None,
+        target_version: int | None = None,
         lock_timeout: float = 30.0,
     ) -> list[Migration]:
         """
@@ -376,15 +375,13 @@ class MigrationRunner:
         """Close the database connection."""
         self._backend.close()
 
-
 # Global runner instance with thread-safe initialization
-_runner: Optional[MigrationRunner] = None
+_runner: MigrationRunner | None = None
 _runner_lock = threading.Lock()
-
 
 def get_migration_runner(
     db_path: str = "aragora.db",
-    database_url: Optional[str] = None,
+    database_url: str | None = None,
 ) -> MigrationRunner:
     """
     Get or create the global migration runner (thread-safe).
@@ -399,7 +396,6 @@ def get_migration_runner(
                 _runner = MigrationRunner(db_path=db_path, database_url=database_url)
                 _load_migrations(_runner)
     return _runner
-
 
 def _load_migrations(runner: MigrationRunner) -> None:
     """Load all migration modules from the versions package."""
@@ -417,11 +413,10 @@ def _load_migrations(runner: MigrationRunner) -> None:
     except ImportError:
         logger.debug("No migrations.versions package found")
 
-
 def apply_migrations(
     db_path: str = "aragora.db",
-    database_url: Optional[str] = None,
-    target_version: Optional[int] = None,
+    database_url: str | None = None,
+    target_version: int | None = None,
 ) -> list[Migration]:
     """
     Apply all pending migrations.
@@ -437,11 +432,10 @@ def apply_migrations(
     runner = get_migration_runner(db_path, database_url)
     return runner.upgrade(target_version)
 
-
 def rollback_migration(
     db_path: str = "aragora.db",
-    database_url: Optional[str] = None,
-    target_version: Optional[int] = None,
+    database_url: str | None = None,
+    target_version: int | None = None,
 ) -> list[Migration]:
     """
     Rollback the last migration.
@@ -457,10 +451,9 @@ def rollback_migration(
     runner = get_migration_runner(db_path, database_url)
     return runner.downgrade(target_version)
 
-
 def get_migration_status(
     db_path: str = "aragora.db",
-    database_url: Optional[str] = None,
+    database_url: str | None = None,
 ) -> dict:
     """
     Get migration status.
@@ -470,7 +463,6 @@ def get_migration_status(
     """
     runner = get_migration_runner(db_path, database_url)
     return runner.status()
-
 
 def reset_runner() -> None:
     """Reset the global runner (for testing)."""

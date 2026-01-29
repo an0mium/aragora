@@ -31,7 +31,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.observability import get_logger
 from aragora.control_plane.scheduler import Task, RegionRoutingMode
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-
 class RegionStatus(Enum):
     """Health status of a region."""
 
@@ -50,7 +49,6 @@ class RegionStatus(Enum):
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
-
 
 @dataclass
 class RegionHealth:
@@ -106,18 +104,16 @@ class RegionHealth:
 
         return max(0.0, score)
 
-
 @dataclass
 class RegionRoutingDecision:
     """Result of a region routing decision."""
 
-    selected_region: Optional[str]
-    fallback_regions: List[str]
+    selected_region: str | None
+    fallback_regions: list[str]
     reason: str
-    health_scores: Dict[str, float] = field(default_factory=dict)
+    health_scores: dict[str, float] = field(default_factory=dict)
     data_residency_compliant: bool = True
     latency_optimized: bool = False
-
 
 class RegionRouter:
     """
@@ -158,10 +154,10 @@ class RegionRouter:
         self._error_weight = error_weight
 
         # Region health cache
-        self._region_health: Dict[str, RegionHealth] = {}
+        self._region_health: dict[str, RegionHealth] = {}
 
         # Track recent routing decisions for analytics
-        self._routing_history: List[Dict[str, Any]] = []
+        self._routing_history: list[dict[str, Any]] = []
         self._max_history = 1000
 
         # Initialize local region as healthy
@@ -195,7 +191,7 @@ class RegionRouter:
 
         return RegionHealth(region_id=region_id, status=RegionStatus.UNKNOWN)
 
-    def get_all_region_health(self) -> Dict[str, RegionHealth]:
+    def get_all_region_health(self) -> dict[str, RegionHealth]:
         """Get health status for all known regions."""
         now = time.time()
         result = {}
@@ -235,10 +231,10 @@ class RegionRouter:
     def update_region_metrics(
         self,
         region_id: str,
-        agent_count: Optional[int] = None,
-        pending_tasks: Optional[int] = None,
-        latency_ms: Optional[float] = None,
-        error_rate: Optional[float] = None,
+        agent_count: int | None = None,
+        pending_tasks: int | None = None,
+        latency_ms: float | None = None,
+        error_rate: float | None = None,
     ) -> None:
         """Update metrics for a region.
 
@@ -362,7 +358,7 @@ class RegionRouter:
         self,
         task: Task,
         constraints: Optional["RegionConstraint"],
-    ) -> List[str]:
+    ) -> list[str]:
         """Get list of candidate regions for a task."""
         candidates = []
 
@@ -396,7 +392,7 @@ class RegionRouter:
 
     def _check_data_residency(
         self,
-        region_id: Optional[str],
+        region_id: str | None,
         constraints: Optional["RegionConstraint"],
     ) -> bool:
         """Check if region selection complies with data residency."""
@@ -415,9 +411,9 @@ class RegionRouter:
         self,
         task_id: str,
         failed_region: str,
-        task: Optional[Task] = None,
+        task: Task | None = None,
         constraints: Optional["RegionConstraint"] = None,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Find a failover region when the primary fails.
 
@@ -501,12 +497,12 @@ class RegionRouter:
         if len(self._routing_history) > self._max_history:
             self._routing_history = self._routing_history[-self._max_history :]
 
-    def get_routing_stats(self) -> Dict[str, Any]:
+    def get_routing_stats(self) -> dict[str, Any]:
         """Get routing statistics."""
         if not self._routing_history:
             return {"total_decisions": 0, "by_region": {}}
 
-        by_region: Dict[str, int] = {}
+        by_region: dict[str, int] = {}
         for record in self._routing_history:
             region = record.get("selected")
             if region:
@@ -518,21 +514,17 @@ class RegionRouter:
             "recent_decisions": self._routing_history[-10:],
         }
 
-
 # Module-level singleton
-_region_router: Optional[RegionRouter] = None
+_region_router: RegionRouter | None = None
 
-
-def get_region_router() -> Optional[RegionRouter]:
+def get_region_router() -> RegionRouter | None:
     """Get the global region router instance."""
     return _region_router
-
 
 def set_region_router(router: RegionRouter) -> None:
     """Set the global region router instance."""
     global _region_router
     _region_router = router
-
 
 def init_region_router(
     regional_event_bus: Optional["RegionalEventBus"] = None,
@@ -545,7 +537,6 @@ def init_region_router(
     )
     set_region_router(router)
     return router
-
 
 __all__ = [
     "RegionStatus",

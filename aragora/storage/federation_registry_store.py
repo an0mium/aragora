@@ -33,7 +33,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 # Global singleton
 _federation_registry_store: Optional["FederationRegistryStoreBackend"] = None
 _store_lock = threading.RLock()
-
 
 @dataclass
 class FederatedRegionConfig:
@@ -59,13 +58,13 @@ class FederatedRegionConfig:
     mode: str = "bidirectional"  # push, pull, bidirectional, none
     sync_scope: str = "summary"  # full, metadata, summary
     enabled: bool = True
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
 
     # Sync status
-    last_sync_at: Optional[str] = None
-    last_sync_error: Optional[str] = None
-    last_push_at: Optional[str] = None
-    last_pull_at: Optional[str] = None
+    last_sync_at: str | None = None
+    last_sync_error: str | None = None
+    last_push_at: str | None = None
+    last_pull_at: str | None = None
 
     # Metrics
     total_pushes: int = 0
@@ -78,7 +77,7 @@ class FederatedRegionConfig:
     updated_at: str = ""
 
     # Additional configuration
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Set default timestamps if not provided."""
@@ -88,7 +87,7 @@ class FederatedRegionConfig:
         if not self.updated_at:
             self.updated_at = now
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "region_id": self.region_id,
@@ -112,7 +111,7 @@ class FederatedRegionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FederatedRegionConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "FederatedRegionConfig":
         """Create from dictionary."""
         return cls(
             region_id=data.get("region_id", ""),
@@ -144,14 +143,13 @@ class FederatedRegionConfig:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
-
 class FederationRegistryStoreBackend(ABC):
     """Abstract base class for federation registry storage backends."""
 
     @abstractmethod
     async def get(
-        self, region_id: str, workspace_id: Optional[str] = None
-    ) -> Optional[FederatedRegionConfig]:
+        self, region_id: str, workspace_id: str | None = None
+    ) -> FederatedRegionConfig | None:
         """Get a federated region by ID."""
         pass
 
@@ -161,17 +159,17 @@ class FederationRegistryStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def delete(self, region_id: str, workspace_id: Optional[str] = None) -> bool:
+    async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region."""
         pass
 
     @abstractmethod
-    async def list_all(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_all(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List all federated regions."""
         pass
 
     @abstractmethod
-    async def list_enabled(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_enabled(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List enabled federated regions."""
         pass
 
@@ -181,8 +179,8 @@ class FederationRegistryStoreBackend(ABC):
         region_id: str,
         direction: str,  # "push" or "pull"
         nodes_synced: int = 0,
-        error: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        error: str | None = None,
+        workspace_id: str | None = None,
     ) -> None:
         """Update sync status after a sync operation."""
         pass
@@ -191,7 +189,6 @@ class FederationRegistryStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
-
 
 class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
     """
@@ -202,18 +199,18 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
 
     def __init__(self) -> None:
         """Initialize in-memory store."""
-        self._data: Dict[str, FederatedRegionConfig] = {}
+        self._data: dict[str, FederatedRegionConfig] = {}
         self._lock = threading.RLock()
 
-    def _make_key(self, region_id: str, workspace_id: Optional[str]) -> str:
+    def _make_key(self, region_id: str, workspace_id: str | None) -> str:
         """Create a composite key for workspace-scoped regions."""
         if workspace_id:
             return f"{workspace_id}:{region_id}"
         return region_id
 
     async def get(
-        self, region_id: str, workspace_id: Optional[str] = None
-    ) -> Optional[FederatedRegionConfig]:
+        self, region_id: str, workspace_id: str | None = None
+    ) -> FederatedRegionConfig | None:
         """Get a federated region by ID."""
         key = self._make_key(region_id, workspace_id)
         with self._lock:
@@ -226,7 +223,7 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
         with self._lock:
             self._data[key] = region
 
-    async def delete(self, region_id: str, workspace_id: Optional[str] = None) -> bool:
+    async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region."""
         key = self._make_key(region_id, workspace_id)
         with self._lock:
@@ -235,14 +232,14 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
                 return True
             return False
 
-    async def list_all(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_all(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List all federated regions."""
         with self._lock:
             if workspace_id:
                 return [r for r in self._data.values() if r.workspace_id == workspace_id]
             return list(self._data.values())
 
-    async def list_enabled(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_enabled(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List enabled federated regions."""
         all_regions = await self.list_all(workspace_id)
         return [r for r in all_regions if r.enabled]
@@ -252,8 +249,8 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
         region_id: str,
         direction: str,
         nodes_synced: int = 0,
-        error: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        error: str | None = None,
+        workspace_id: str | None = None,
     ) -> None:
         """Update sync status after a sync operation."""
         region = await self.get(region_id, workspace_id)
@@ -281,7 +278,6 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
         """No-op for in-memory store."""
         pass
 
-
 class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
     """
     SQLite-backed federation registry store.
@@ -289,7 +285,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
     Suitable for single-instance deployments.
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         """
         Initialize SQLite store.
 
@@ -348,8 +344,8 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
                 conn.close()
 
     async def get(
-        self, region_id: str, workspace_id: Optional[str] = None
-    ) -> Optional[FederatedRegionConfig]:
+        self, region_id: str, workspace_id: str | None = None
+    ) -> FederatedRegionConfig | None:
         """Get a federated region by ID."""
         ws_id = workspace_id or ""
         with self._lock:
@@ -412,7 +408,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
             finally:
                 conn.close()
 
-    async def delete(self, region_id: str, workspace_id: Optional[str] = None) -> bool:
+    async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region."""
         ws_id = workspace_id or ""
         with self._lock:
@@ -428,7 +424,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
             finally:
                 conn.close()
 
-    async def list_all(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_all(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List all federated regions."""
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -445,7 +441,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
             finally:
                 conn.close()
 
-    async def list_enabled(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_enabled(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List enabled federated regions."""
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -467,8 +463,8 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
         region_id: str,
         direction: str,
         nodes_synced: int = 0,
-        error: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        error: str | None = None,
+        workspace_id: str | None = None,
     ) -> None:
         """Update sync status after a sync operation."""
         region = await self.get(region_id, workspace_id)
@@ -495,7 +491,6 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
         """No-op for SQLite (connections are per-operation)."""
         pass
 
-
 class RedisFederationRegistryStore(FederationRegistryStoreBackend):
     """
     Redis-backed federation registry store with SQLite fallback.
@@ -508,8 +503,8 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
 
     def __init__(
         self,
-        fallback_db_path: Optional[Path] = None,
-        redis_url: Optional[str] = None,
+        fallback_db_path: Path | None = None,
+        redis_url: str | None = None,
     ) -> None:
         """
         Initialize Redis store with SQLite fallback.
@@ -545,14 +540,14 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             self._using_fallback = True
             self._redis_client = None
 
-    def _make_key(self, region_id: str, workspace_id: Optional[str]) -> str:
+    def _make_key(self, region_id: str, workspace_id: str | None) -> str:
         """Create Redis key for a region."""
         ws_id = workspace_id or "_global"
         return f"{self.REDIS_PREFIX}{ws_id}:{region_id}"
 
     async def get(
-        self, region_id: str, workspace_id: Optional[str] = None
-    ) -> Optional[FederatedRegionConfig]:
+        self, region_id: str, workspace_id: str | None = None
+    ) -> FederatedRegionConfig | None:
         """Get a federated region by ID."""
         if self._using_fallback:
             return await self._fallback.get(region_id, workspace_id)
@@ -583,7 +578,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         except Exception as e:
             logger.warning(f"Redis save failed (SQLite fallback used): {e}")
 
-    async def delete(self, region_id: str, workspace_id: Optional[str] = None) -> bool:
+    async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region."""
         result = await self._fallback.delete(region_id, workspace_id)
 
@@ -598,12 +593,12 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
 
         return result
 
-    async def list_all(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_all(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List all federated regions."""
         # Use SQLite for listing (more efficient for scanning)
         return await self._fallback.list_all(workspace_id)
 
-    async def list_enabled(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_enabled(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List enabled federated regions."""
         return await self._fallback.list_enabled(workspace_id)
 
@@ -612,8 +607,8 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         region_id: str,
         direction: str,
         nodes_synced: int = 0,
-        error: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        error: str | None = None,
+        workspace_id: str | None = None,
     ) -> None:
         """Update sync status after a sync operation."""
         # Get current region
@@ -647,7 +642,6 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
                 logger.debug(f"Redis close failed (connection already closed): {e}")
             except Exception as e:
                 logger.debug(f"Redis close failed: {e}")
-
 
 class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
     """
@@ -712,8 +706,8 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
 
     async def get(
-        self, region_id: str, workspace_id: Optional[str] = None
-    ) -> Optional[FederatedRegionConfig]:
+        self, region_id: str, workspace_id: str | None = None
+    ) -> FederatedRegionConfig | None:
         """Get a federated region by ID."""
         ws_id = workspace_id or ""
         async with self._pool.acquire() as conn:
@@ -731,8 +725,8 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
             return None
 
     def get_sync(
-        self, region_id: str, workspace_id: Optional[str] = None
-    ) -> Optional[FederatedRegionConfig]:
+        self, region_id: str, workspace_id: str | None = None
+    ) -> FederatedRegionConfig | None:
         """Get a federated region by ID (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.get(region_id, workspace_id))
 
@@ -793,7 +787,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         """Save a federated region configuration (sync wrapper for async)."""
         asyncio.get_event_loop().run_until_complete(self.save(region))
 
-    async def delete(self, region_id: str, workspace_id: Optional[str] = None) -> bool:
+    async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region."""
         ws_id = workspace_id or ""
         async with self._pool.acquire() as conn:
@@ -804,11 +798,11 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
             )
             return result != "DELETE 0"
 
-    def delete_sync(self, region_id: str, workspace_id: Optional[str] = None) -> bool:
+    def delete_sync(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.delete(region_id, workspace_id))
 
-    async def list_all(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_all(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List all federated regions."""
         async with self._pool.acquire() as conn:
             if workspace_id:
@@ -828,11 +822,11 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
                     results.append(FederatedRegionConfig.from_dict(data))
             return results
 
-    def list_all_sync(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    def list_all_sync(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List all federated regions (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.list_all(workspace_id))
 
-    async def list_enabled(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    async def list_enabled(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List enabled federated regions."""
         async with self._pool.acquire() as conn:
             if workspace_id:
@@ -854,7 +848,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
                     results.append(FederatedRegionConfig.from_dict(data))
             return results
 
-    def list_enabled_sync(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
+    def list_enabled_sync(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List enabled federated regions (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.list_enabled(workspace_id))
 
@@ -863,8 +857,8 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         region_id: str,
         direction: str,
         nodes_synced: int = 0,
-        error: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        error: str | None = None,
+        workspace_id: str | None = None,
     ) -> None:
         """Update sync status after a sync operation.
 
@@ -926,8 +920,8 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         region_id: str,
         direction: str,
         nodes_synced: int = 0,
-        error: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        error: str | None = None,
+        workspace_id: str | None = None,
     ) -> None:
         """Update sync status (sync wrapper for async)."""
         asyncio.get_event_loop().run_until_complete(
@@ -937,7 +931,6 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
     async def close(self) -> None:
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
-
 
 def get_federation_registry_store() -> FederationRegistryStoreBackend:
     """
@@ -982,7 +975,6 @@ def get_federation_registry_store() -> FederationRegistryStoreBackend:
 
         return _federation_registry_store
 
-
 def set_federation_registry_store(store: FederationRegistryStoreBackend) -> None:
     """Set a custom federation registry store instance."""
     global _federation_registry_store
@@ -990,14 +982,12 @@ def set_federation_registry_store(store: FederationRegistryStoreBackend) -> None
     with _store_lock:
         _federation_registry_store = store
 
-
 def reset_federation_registry_store() -> None:
     """Reset the global federation registry store (for testing)."""
     global _federation_registry_store
 
     with _store_lock:
         _federation_registry_store = None
-
 
 __all__ = [
     "FederatedRegionConfig",

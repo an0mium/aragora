@@ -27,7 +27,6 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.params import get_clamped_int_param
 
-
 if TYPE_CHECKING:
     from aragora.extensions.moltbot import InboxManager
 
@@ -35,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 # Global inbox instance (lazily initialized)
 _inbox: Optional["InboxManager"] = None
-
 
 def get_inbox() -> "InboxManager":
     """Get or create the inbox manager instance."""
@@ -45,7 +43,6 @@ def get_inbox() -> "InboxManager":
 
         _inbox = InboxManager()
     return _inbox
-
 
 class MoltbotInboxHandler(BaseHandler):
     """HTTP handler for Moltbot inbox operations."""
@@ -65,7 +62,7 @@ class MoltbotInboxHandler(BaseHandler):
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/moltbot/channels":
             return await self._handle_list_channels(query_params, handler)
@@ -92,7 +89,7 @@ class MoltbotInboxHandler(BaseHandler):
 
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/moltbot/channels":
             return await self._handle_register_channel(handler)
@@ -107,7 +104,7 @@ class MoltbotInboxHandler(BaseHandler):
 
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         if path.startswith("/api/v1/moltbot/channels/"):
             parts = path.split("/")

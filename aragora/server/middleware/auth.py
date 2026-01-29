@@ -35,13 +35,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AuthContext:
@@ -52,19 +51,17 @@ class AuthContext:
     """
 
     authenticated: bool = False
-    token: Optional[str] = None
-    client_ip: Optional[str] = None
-    user_id: Optional[str] = None  # Future: user identification
+    token: str | None = None
+    client_ip: str | None = None
+    user_id: str | None = None  # Future: user identification
 
     @property
     def is_authenticated(self) -> bool:
         """Alias for authenticated."""
         return self.authenticated
 
-
 # Import utilities from auth_v2 to avoid duplication
 from .user_auth import extract_client_ip, extract_token
-
 
 def validate_token(token: str) -> bool:
     """
@@ -95,7 +92,6 @@ def validate_token(token: str) -> bool:
 
     return True
 
-
 def _extract_handler(*args, **kwargs) -> Any:
     """Extract handler from function arguments."""
     handler = kwargs.get("handler")
@@ -106,13 +102,11 @@ def _extract_handler(*args, **kwargs) -> Any:
                 break
     return handler
 
-
 def _error_response(message: str, status: int = 401) -> "HandlerResult":
     """Create an error response."""
     from aragora.server.handlers.base import error_response
 
     return error_response(message, status)
-
 
 def require_auth(func: Callable) -> Callable:
     """
@@ -162,7 +156,6 @@ def require_auth(func: Callable) -> Callable:
 
     return wrapper
 
-
 def optional_auth(func: Callable) -> Callable:
     """
     Decorator that provides optional authentication context.
@@ -202,7 +195,6 @@ def optional_auth(func: Callable) -> Callable:
         return func(*args, **kwargs)
 
     return wrapper
-
 
 def require_auth_or_localhost(func: Callable) -> Callable:
     """

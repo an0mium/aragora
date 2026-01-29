@@ -23,7 +23,7 @@ import logging
 import random
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
@@ -36,14 +36,13 @@ from aragora.server.handlers.base import (
 logger = logging.getLogger(__name__)
 
 # In-memory cache for dashboard data
-_dashboard_cache: Dict[str, Dict[str, Any]] = {}
+_dashboard_cache: dict[str, dict[str, Any]] = {}
 _dashboard_cache_lock = threading.Lock()
 
 # Cache TTL (30 seconds for real-time feel)
 CACHE_TTL = 30
 
-
-def _get_cached_data(user_id: str, key: str) -> Optional[Dict[str, Any]]:
+def _get_cached_data(user_id: str, key: str) -> Optional[dict[str, Any]]:
     """Get cached dashboard data if not expired."""
     cache_key = f"{user_id}:{key}"
     with _dashboard_cache_lock:
@@ -53,8 +52,7 @@ def _get_cached_data(user_id: str, key: str) -> Optional[Dict[str, Any]]:
                 return cached.get("data")
     return None
 
-
-def _set_cached_data(user_id: str, key: str, data: Dict[str, Any]) -> None:
+def _set_cached_data(user_id: str, key: str, data: dict[str, Any]) -> None:
     """Cache dashboard data."""
     cache_key = f"{user_id}:{key}"
     with _dashboard_cache_lock:
@@ -63,16 +61,14 @@ def _set_cached_data(user_id: str, key: str, data: Dict[str, Any]) -> None:
             "cached_at": datetime.now(timezone.utc).timestamp(),
         }
 
-
 # =============================================================================
 # Dashboard Overview
 # =============================================================================
 
-
 @require_permission("dashboard:read")
 async def handle_get_dashboard(
     context: AuthorizationContext,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -175,16 +171,14 @@ async def handle_get_dashboard(
         logger.exception("Failed to get dashboard")
         return error_response(f"Dashboard failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Detailed Stats
 # =============================================================================
 
-
 @require_permission("dashboard:read")
 async def handle_get_stats(
     context: AuthorizationContext,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -269,16 +263,14 @@ async def handle_get_stats(
         logger.exception("Failed to get stats")
         return error_response(f"Stats failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Activity Feed
 # =============================================================================
 
-
 @require_permission("dashboard:read")
 async def handle_get_activity(
     context: AuthorizationContext,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -395,16 +387,14 @@ async def handle_get_activity(
         logger.exception("Failed to get activity")
         return error_response(f"Activity failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Inbox Summary
 # =============================================================================
 
-
 @require_permission("dashboard:read")
 async def handle_get_inbox_summary(
     context: AuthorizationContext,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -487,16 +477,14 @@ async def handle_get_inbox_summary(
         logger.exception("Failed to get inbox summary")
         return error_response(f"Inbox summary failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Quick Actions
 # =============================================================================
 
-
 @require_permission("dashboard:read")
 async def handle_get_quick_actions(
     context: AuthorizationContext,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
 ) -> HandlerResult:
     """
@@ -567,11 +555,10 @@ async def handle_get_quick_actions(
         logger.exception("Failed to get quick actions")
         return error_response(f"Get actions failed: {str(e)}", status=500)
 
-
 @require_permission("dashboard:write")
 async def handle_execute_quick_action(
     context: AuthorizationContext,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     action_id: str = "",
     user_id: str = "default",
 ) -> HandlerResult:
@@ -648,13 +635,11 @@ async def handle_execute_quick_action(
         logger.exception("Failed to execute quick action")
         return error_response(f"Execute action failed: {str(e)}", status=500)
 
-
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
-
-def get_dashboard_handlers() -> Dict[str, Any]:
+def get_dashboard_handlers() -> dict[str, Any]:
     """Get all dashboard handlers for registration."""
     return {
         "get_dashboard": handle_get_dashboard,
@@ -664,7 +649,6 @@ def get_dashboard_handlers() -> Dict[str, Any]:
         "get_quick_actions": handle_get_quick_actions,
         "execute_quick_action": handle_execute_quick_action,
     }
-
 
 def get_dashboard_routes() -> list[tuple[str, str, Any]]:
     """
@@ -680,7 +664,6 @@ def get_dashboard_routes() -> list[tuple[str, str, Any]]:
         ("GET", "/api/v1/dashboard/quick-actions", handle_get_quick_actions),
         ("POST", "/api/v1/dashboard/quick-actions/{action}", handle_execute_quick_action),
     ]
-
 
 __all__ = [
     "handle_get_dashboard",

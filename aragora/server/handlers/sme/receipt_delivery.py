@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..base import (
     error_response,
@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter for receipt delivery APIs (60 requests per minute)
 _delivery_limiter = RateLimiter(requests_per_minute=60)
-
 
 class ReceiptDeliveryHandler(SecureHandler):
     """Handler for receipt delivery configuration endpoints.
@@ -59,7 +58,7 @@ class ReceiptDeliveryHandler(SecureHandler):
         query_params: dict,
         handler,
         method: str = "GET",
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Route receipt delivery requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -107,7 +106,7 @@ class ReceiptDeliveryHandler(SecureHandler):
         # Use a simple in-memory store for delivery history
         # In production, this would be backed by a database
         if not hasattr(self, "_delivery_history"):
-            self._delivery_history: List[Dict[str, Any]] = []
+            self._delivery_history: list[dict[str, Any]] = []
         return self._delivery_history
 
     def _get_user_and_org(self, handler, user):
@@ -466,10 +465,10 @@ class ReceiptDeliveryHandler(SecureHandler):
         self,
         channel_type: str,
         channel_id: str,
-        workspace_id: Optional[str],
+        workspace_id: str | None,
         message: str,
         org_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Send a test message to the specified channel."""
         if channel_type == "slack":
             return self._send_test_to_slack(channel_id, workspace_id, message)
@@ -483,8 +482,8 @@ class ReceiptDeliveryHandler(SecureHandler):
             return {"success": False, "error": f"Unsupported channel type: {channel_type}"}
 
     def _send_test_to_slack(
-        self, channel_id: str, workspace_id: Optional[str], message: str
-    ) -> Dict[str, Any]:
+        self, channel_id: str, workspace_id: str | None, message: str
+    ) -> dict[str, Any]:
         """Send test message to Slack."""
         try:
             from aragora.storage.slack_workspace_store import get_slack_workspace_store
@@ -538,8 +537,8 @@ class ReceiptDeliveryHandler(SecureHandler):
             return {"success": False, "error": str(e)}
 
     def _send_test_to_teams(
-        self, channel_id: str, workspace_id: Optional[str], message: str
-    ) -> Dict[str, Any]:
+        self, channel_id: str, workspace_id: str | None, message: str
+    ) -> dict[str, Any]:
         """Send test message to Teams."""
         try:
             from aragora.storage.teams_workspace_store import get_teams_workspace_store
@@ -586,7 +585,7 @@ class ReceiptDeliveryHandler(SecureHandler):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def _send_test_to_email(self, email_address: str, message: str) -> Dict[str, Any]:
+    def _send_test_to_email(self, email_address: str, message: str) -> dict[str, Any]:
         """Send test message via email."""
         try:
             import os
@@ -614,7 +613,7 @@ class ReceiptDeliveryHandler(SecureHandler):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def _send_test_to_webhook(self, webhook_url: str, message: str, org_id: str) -> Dict[str, Any]:
+    def _send_test_to_webhook(self, webhook_url: str, message: str, org_id: str) -> dict[str, Any]:
         """Send test message to webhook."""
         try:
             import json as json_lib
@@ -673,7 +672,7 @@ class ReceiptDeliveryHandler(SecureHandler):
         test_deliveries = len([h for h in org_history if h.get("is_test")])
 
         # Stats by channel type
-        by_channel: Dict[str, Dict[str, int]] = {}
+        by_channel: dict[str, dict[str, int]] = {}
         for h in org_history:
             if h.get("is_test"):
                 continue
@@ -713,6 +712,5 @@ class ReceiptDeliveryHandler(SecureHandler):
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
         )
-
 
 __all__ = ["ReceiptDeliveryHandler"]

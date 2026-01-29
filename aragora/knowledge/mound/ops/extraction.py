@@ -18,13 +18,12 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
 
 logger = logging.getLogger(__name__)
-
 
 class ExtractionType(str, Enum):
     """Types of extracted knowledge."""
@@ -36,7 +35,6 @@ class ExtractionType(str, Enum):
     OPINION = "opinion"  # Agent opinion (lower confidence)
     CONSENSUS = "consensus"  # Consensus-backed conclusion
 
-
 class ConfidenceSource(str, Enum):
     """Sources of confidence for extracted knowledge."""
 
@@ -44,7 +42,6 @@ class ConfidenceSource(str, Enum):
     MULTIPLE_AGENTS = "multiple_agents"  # Multiple agents agree
     CONSENSUS = "consensus"  # Formal consensus reached
     VALIDATED = "validated"  # Externally validated
-
 
 @dataclass
 class ExtractedClaim:
@@ -54,15 +51,15 @@ class ExtractedClaim:
     content: str
     extraction_type: ExtractionType
     source_debate_id: str
-    source_agent_id: Optional[str] = None
-    source_round: Optional[int] = None
+    source_agent_id: str | None = None
+    source_round: int | None = None
     confidence: float = 0.5
     confidence_source: ConfidenceSource = ConfidenceSource.SINGLE_AGENT
-    topics: List[str] = field(default_factory=list)
-    supporting_agents: List[str] = field(default_factory=list)
-    contradicting_agents: List[str] = field(default_factory=list)
+    topics: list[str] = field(default_factory=list)
+    supporting_agents: list[str] = field(default_factory=list)
+    contradicting_agents: list[str] = field(default_factory=list)
     extracted_at: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def agreement_ratio(self) -> float:
@@ -72,7 +69,7 @@ class ExtractedClaim:
             return 0.5
         return len(self.supporting_agents) / total
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -91,7 +88,6 @@ class ExtractedClaim:
             "metadata": self.metadata,
         }
 
-
 @dataclass
 class ExtractedRelationship:
     """A relationship extracted between concepts."""
@@ -105,7 +101,7 @@ class ExtractedRelationship:
     evidence: str = ""
     extracted_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -118,20 +114,19 @@ class ExtractedRelationship:
             "extracted_at": self.extracted_at.isoformat(),
         }
 
-
 @dataclass
 class ExtractionResult:
     """Result of knowledge extraction from a debate."""
 
     debate_id: str
-    claims: List[ExtractedClaim]
-    relationships: List[ExtractedRelationship]
-    topics_discovered: List[str]
+    claims: list[ExtractedClaim]
+    relationships: list[ExtractedRelationship]
+    topics_discovered: list[str]
     promoted_to_mound: int  # Claims added to knowledge mound
     extraction_duration_ms: float
     extracted_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "debate_id": self.debate_id,
@@ -144,7 +139,6 @@ class ExtractionResult:
             "claims": [c.to_dict() for c in self.claims],
             "relationships": [r.to_dict() for r in self.relationships],
         }
-
 
 @dataclass
 class ExtractionConfig:
@@ -167,7 +161,7 @@ class ExtractionConfig:
     min_agreement_ratio: float = 0.6
 
     # Pattern matching
-    fact_patterns: List[str] = field(
+    fact_patterns: list[str] = field(
         default_factory=lambda: [
             r"(?:it is|is|are|was|were) (?:true that|a fact that|known that)",
             r"(?:studies show|research indicates|data shows|evidence suggests)",
@@ -176,7 +170,7 @@ class ExtractionConfig:
         ]
     )
 
-    definition_patterns: List[str] = field(
+    definition_patterns: list[str] = field(
         default_factory=lambda: [
             r"(?:is defined as|means|refers to|is called)",
             r"(?:the definition of|by definition)",
@@ -184,7 +178,7 @@ class ExtractionConfig:
         ]
     )
 
-    procedure_patterns: List[str] = field(
+    procedure_patterns: list[str] = field(
         default_factory=lambda: [
             r"(?:to do this|the steps are|you should|first.*then)",
             r"(?:the process|procedure|method) (?:is|involves)",
@@ -192,7 +186,7 @@ class ExtractionConfig:
         ]
     )
 
-    relationship_patterns: List[str] = field(
+    relationship_patterns: list[str] = field(
         default_factory=lambda: [
             r"(\w+) (?:is a|is an|are) (?:type of|kind of|form of) (\w+)",
             r"(\w+) (?:causes|leads to|results in) (\w+)",
@@ -201,23 +195,22 @@ class ExtractionConfig:
         ]
     )
 
-
 class DebateKnowledgeExtractor:
     """Extracts knowledge from debate transcripts."""
 
-    def __init__(self, config: Optional[ExtractionConfig] = None):
+    def __init__(self, config: ExtractionConfig | None = None):
         """Initialize the extractor."""
         self.config = config or ExtractionConfig()
-        self._extracted_claims: Dict[str, ExtractedClaim] = {}
-        self._extracted_relationships: Dict[str, ExtractedRelationship] = {}
+        self._extracted_claims: dict[str, ExtractedClaim] = {}
+        self._extracted_relationships: dict[str, ExtractedRelationship] = {}
         self._lock = asyncio.Lock()
 
     async def extract_from_debate(
         self,
         debate_id: str,
-        messages: List[Dict[str, Any]],
-        consensus_text: Optional[str] = None,
-        topic: Optional[str] = None,
+        messages: list[dict[str, Any]],
+        consensus_text: str | None = None,
+        topic: str | None = None,
     ) -> ExtractionResult:
         """Extract knowledge from a debate.
 
@@ -234,17 +227,17 @@ class DebateKnowledgeExtractor:
 
         start_time = time.time()
 
-        claims: List[ExtractedClaim] = []
-        relationships: List[ExtractedRelationship] = []
-        topics_discovered: Set[str] = set()
+        claims: list[ExtractedClaim] = []
+        relationships: list[ExtractedRelationship] = []
+        topics_discovered: set[str] = set()
 
         if topic:
             topics_discovered.add(topic)
 
         # Track claims by content for agreement detection
-        claim_supporters: Dict[str, Set[str]] = {}
+        claim_supporters: dict[str, set[str]] = {}
         # Reserved for future contradiction tracking across agents
-        # claim_contradictors: Dict[str, Set[str]] = {}
+        # claim_contradictors: dict[str, set[str]] = {}
 
         # Process each message
         for msg in messages:
@@ -327,13 +320,13 @@ class DebateKnowledgeExtractor:
         self,
         text: str,
         debate_id: str,
-        agent_id: Optional[str],
-        round_num: Optional[int],
-    ) -> List[ExtractedClaim]:
+        agent_id: str | None,
+        round_num: int | None,
+    ) -> list[ExtractedClaim]:
         """Extract claims from a text block."""
         import uuid
 
-        claims: List[ExtractedClaim] = []
+        claims: list[ExtractedClaim] = []
 
         # Split into sentences
         sentences = re.split(r"[.!?]+", text)
@@ -371,7 +364,7 @@ class DebateKnowledgeExtractor:
 
         return claims
 
-    def _classify_sentence(self, sentence: str) -> Optional[ExtractionType]:
+    def _classify_sentence(self, sentence: str) -> ExtractionType | None:
         """Classify a sentence by extraction type."""
         sentence_lower = sentence.lower()
 
@@ -435,7 +428,7 @@ class DebateKnowledgeExtractor:
 
         return max(0.1, min(1.0, base_confidence))
 
-    def _extract_topics(self, sentence: str) -> List[str]:
+    def _extract_topics(self, sentence: str) -> list[str]:
         """Extract topic keywords from a sentence."""
         # Simple noun phrase extraction
         # In production, would use NLP library
@@ -451,11 +444,11 @@ class DebateKnowledgeExtractor:
         self,
         text: str,
         debate_id: str,
-    ) -> List[ExtractedRelationship]:
+    ) -> list[ExtractedRelationship]:
         """Extract relationships between concepts."""
         import uuid
 
-        relationships: List[ExtractedRelationship] = []
+        relationships: list[ExtractedRelationship] = []
 
         for pattern in self.config.relationship_patterns:
             matches = re.finditer(pattern, text, re.IGNORECASE)
@@ -505,8 +498,8 @@ class DebateKnowledgeExtractor:
         self,
         mound: "KnowledgeMound",
         workspace_id: str,
-        claims: Optional[List[ExtractedClaim]] = None,
-        min_confidence: Optional[float] = None,
+        claims: Optional[list[ExtractedClaim]] = None,
+        min_confidence: float | None = None,
     ) -> int:
         """Promote extracted claims to Knowledge Mound.
 
@@ -551,9 +544,9 @@ class DebateKnowledgeExtractor:
 
         return promoted
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get extraction statistics."""
-        by_type: Dict[str, int] = {}
+        by_type: dict[str, int] = {}
         total_confidence = 0.0
 
         for claim in self._extracted_claims.values():
@@ -569,11 +562,10 @@ class DebateKnowledgeExtractor:
             ),
         }
 
-
 class ExtractionMixin:
     """Mixin for knowledge extraction operations on KnowledgeMound."""
 
-    _extractor: Optional[DebateKnowledgeExtractor] = None
+    _extractor: DebateKnowledgeExtractor | None = None
 
     def _get_extractor(self) -> DebateKnowledgeExtractor:
         """Get or create extractor."""
@@ -584,9 +576,9 @@ class ExtractionMixin:
     async def extract_from_debate(
         self,
         debate_id: str,
-        messages: List[Dict[str, Any]],
-        consensus_text: Optional[str] = None,
-        topic: Optional[str] = None,
+        messages: list[dict[str, Any]],
+        consensus_text: str | None = None,
+        topic: str | None = None,
     ) -> ExtractionResult:
         """Extract knowledge from a debate."""
         return await self._get_extractor().extract_from_debate(
@@ -596,7 +588,7 @@ class ExtractionMixin:
     async def promote_extracted_knowledge(
         self,
         workspace_id: str,
-        claims: Optional[List[ExtractedClaim]] = None,
+        claims: Optional[list[ExtractedClaim]] = None,
         min_confidence: float = 0.6,
     ) -> int:
         """Promote extracted claims to Knowledge Mound."""
@@ -607,14 +599,12 @@ class ExtractionMixin:
             min_confidence,  # type: ignore[arg-type]
         )
 
-    def get_extraction_stats(self) -> Dict[str, Any]:
+    def get_extraction_stats(self) -> dict[str, Any]:
         """Get extraction statistics."""
         return self._get_extractor().get_stats()
 
-
 # Singleton instance
-_extractor: Optional[DebateKnowledgeExtractor] = None
-
+_extractor: DebateKnowledgeExtractor | None = None
 
 def get_debate_extractor() -> DebateKnowledgeExtractor:
     """Get the global debate knowledge extractor instance."""

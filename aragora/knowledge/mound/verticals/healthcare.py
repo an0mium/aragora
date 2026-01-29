@@ -16,7 +16,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.verticals.base import (
     BaseVerticalKnowledge,
@@ -28,7 +28,6 @@ from aragora.knowledge.mound.verticals.base import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ClinicalPattern:
     """Pattern for detecting clinical terms."""
@@ -39,7 +38,6 @@ class ClinicalPattern:
     sensitivity: str  # high, medium, low (PHI sensitivity)
     description: str
 
-
 @dataclass
 class DrugPattern:
     """Pattern for detecting drug-related information."""
@@ -48,7 +46,6 @@ class DrugPattern:
     pattern: str
     category: str  # medication, dosage, interaction, contraindication
     description: str
-
 
 class HealthcareKnowledge(BaseVerticalKnowledge):
     """
@@ -251,7 +248,7 @@ class HealthcareKnowledge(BaseVerticalKnowledge):
     async def extract_facts(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list[VerticalFact]:
         """Extract healthcare facts from clinical content."""
         facts = []
@@ -334,7 +331,7 @@ class HealthcareKnowledge(BaseVerticalKnowledge):
     async def validate_fact(
         self,
         fact: VerticalFact,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> tuple[bool, float]:
         """
         Validate a healthcare fact.

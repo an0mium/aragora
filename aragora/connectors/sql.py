@@ -40,7 +40,6 @@ from aragora.reasoning.provenance import ProvenanceManager, SourceType
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class SQLQueryResult:
     """Result from a SQL query."""
@@ -50,7 +49,6 @@ class SQLQueryResult:
     row_count: int
     query_time_ms: float
     database_type: str
-
 
 class SQLConnector(BaseConnector):
     """
@@ -81,9 +79,9 @@ class SQLConnector(BaseConnector):
 
     def __init__(
         self,
-        connection_string: Optional[str] = None,
-        database_type: Optional[str] = None,
-        provenance: Optional[ProvenanceManager] = None,
+        connection_string: str | None = None,
+        database_type: str | None = None,
+        provenance: ProvenanceManager | None = None,
         default_confidence: float = 0.7,
         read_only: bool = True,
         query_timeout: float = 30.0,
@@ -107,7 +105,7 @@ class SQLConnector(BaseConnector):
         self._database_type = database_type or self._detect_database_type()
         self._read_only = read_only
         self._query_timeout = query_timeout
-        self._connection: Optional[Any] = None
+        self._connection: Any | None = None
 
     @property
     def source_type(self) -> SourceType:
@@ -147,7 +145,7 @@ class SQLConnector(BaseConnector):
             return True  # Built-in
         return False
 
-    def _detect_database_type(self) -> Optional[str]:
+    def _detect_database_type(self) -> str | None:
         """Detect database type from connection string."""
         if not self._connection_string:
             return None
@@ -431,7 +429,7 @@ class SQLConnector(BaseConnector):
 
         return evidence_list
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """
         Fetch a specific evidence by ID.
 
@@ -471,6 +469,5 @@ class SQLConnector(BaseConnector):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit."""
         await self.close()
-
 
 __all__ = ["SQLConnector", "SQLQueryResult"]

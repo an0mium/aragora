@@ -14,7 +14,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any, Callable, Coroutine, Optional
 
 from aragora.queue.base import Job, JobQueue, JobStatus
 from aragora.queue.config import get_queue_config
@@ -22,8 +22,7 @@ from aragora.queue.config import get_queue_config
 logger = logging.getLogger(__name__)
 
 # Type alias for explanation generator
-ExplainGenerator = Callable[[str, Dict[str, Any]], Coroutine[Any, Any, Dict[str, Any]]]
-
+ExplainGenerator = Callable[[str, dict[str, Any]], Coroutine[Any, Any, dict[str, Any]]]
 
 @dataclass
 class BatchJobProgress:
@@ -35,8 +34,8 @@ class BatchJobProgress:
     succeeded: int = 0
     failed: int = 0
     started_at: float = field(default_factory=time.time)
-    results: List[Dict[str, Any]] = field(default_factory=list)
-    errors: List[Dict[str, Any]] = field(default_factory=list)
+    results: list[dict[str, Any]] = field(default_factory=list)
+    errors: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def completion_percent(self) -> float:
@@ -49,7 +48,6 @@ class BatchJobProgress:
     def elapsed_seconds(self) -> float:
         """Get elapsed time in seconds."""
         return time.time() - self.started_at
-
 
 class BatchExplainabilityWorker:
     """
@@ -95,13 +93,13 @@ class BatchExplainabilityWorker:
         self._shutdown_event = asyncio.Event()
 
         # Progress tracking
-        self._active_batches: Dict[str, BatchJobProgress] = {}
+        self._active_batches: dict[str, BatchJobProgress] = {}
 
         # Metrics
         self._batches_processed = 0
         self._debates_processed = 0
         self._debates_failed = 0
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
 
     @property
     def worker_id(self) -> str:
@@ -113,7 +111,7 @@ class BatchExplainabilityWorker:
         """Check if worker is running."""
         return self._running
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get worker statistics."""
         uptime = time.time() - self._start_time if self._start_time else 0
         return {
@@ -127,7 +125,7 @@ class BatchExplainabilityWorker:
             "queue_name": self.QUEUE_NAME,
         }
 
-    def get_batch_progress(self, job_id: str) -> Optional[BatchJobProgress]:
+    def get_batch_progress(self, job_id: str) -> BatchJobProgress | None:
         """Get progress for a specific batch job."""
         return self._active_batches.get(job_id)
 
@@ -221,8 +219,8 @@ class BatchExplainabilityWorker:
         job_id = job.id
         payload = job.payload
 
-        debate_ids: List[str] = payload.get("debate_ids", [])
-        options: Dict[str, Any] = payload.get("options", {})
+        debate_ids: list[str] = payload.get("debate_ids", [])
+        options: dict[str, Any] = payload.get("options", {})
 
         logger.info(f"Processing batch job {job_id} with {len(debate_ids)} debates")
 
@@ -283,7 +281,7 @@ class BatchExplainabilityWorker:
     async def _process_debate(
         self,
         debate_id: str,
-        options: Dict[str, Any],
+        options: dict[str, Any],
         progress: BatchJobProgress,
         semaphore: asyncio.Semaphore,
     ) -> None:
@@ -320,12 +318,11 @@ class BatchExplainabilityWorker:
 
             progress.processed += 1
 
-
 async def create_batch_job(
     queue: JobQueue,
-    debate_ids: List[str],
-    options: Optional[Dict[str, Any]] = None,
-    user_id: Optional[str] = None,
+    debate_ids: list[str],
+    options: Optional[dict[str, Any]] = None,
+    user_id: str | None = None,
     priority: int = 0,
 ) -> Job:
     """
@@ -360,7 +357,6 @@ async def create_batch_job(
     )
 
     return job
-
 
 __all__ = [
     "BatchExplainabilityWorker",

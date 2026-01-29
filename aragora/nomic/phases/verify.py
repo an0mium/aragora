@@ -9,6 +9,7 @@ Phase 4: Verify changes work
 - Evidence staleness check
 - Test quality gate
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -23,7 +24,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class VerifyPhase:
     """
     Handles verification of changes made during the implementation phase.
@@ -35,8 +35,8 @@ class VerifyPhase:
     def __init__(
         self,
         aragora_path: Path,
-        codex: Optional[Any] = None,
-        nomic_integration: Optional[Any] = None,
+        codex: Any | None = None,
+        nomic_integration: Any | None = None,
         cycle_count: int = 0,
         log_fn: Optional[Callable[[str], None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
@@ -287,7 +287,7 @@ class VerifyPhase:
                 "note": "Test execution failed",
             }
 
-    async def _codex_audit(self) -> Optional[dict]:
+    async def _codex_audit(self) -> dict | None:
         """Run Codex verification audit on changed files."""
         try:
             self._log("  [hybrid] Codex verification audit...")
@@ -392,6 +392,5 @@ Be concise - this is a quality gate, not a full review."""
         except (OSError, IOError, asyncio.TimeoutError, RuntimeError) as e:
             self._log(f"  [integration] Staleness check failed: {e}")
         return []
-
 
 __all__ = ["VerifyPhase"]

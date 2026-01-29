@@ -13,6 +13,7 @@ Usage:
     # Execute debate
     result = await executor.execute(context)
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -20,12 +21,11 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Callable, Optional, Protocol
 
 from aragora.observability.tracing import trace_debate_phase
 
 logger = logging.getLogger(__name__)
-
 
 class PhaseStatus(Enum):
     """Status of a phase execution."""
@@ -36,25 +36,23 @@ class PhaseStatus(Enum):
     SKIPPED = "skipped"
     FAILED = "failed"
 
-
 @dataclass
 class PhaseResult:
     """Result from a single phase execution."""
 
     phase_name: str
     status: PhaseStatus
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     duration_ms: float = 0.0
     output: Any = None
-    error: Optional[str] = None
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    metrics: dict[str, Any] = field(default_factory=dict)
 
     @property
     def success(self) -> bool:
         """Check if phase completed successfully."""
         return self.status in (PhaseStatus.COMPLETED, PhaseStatus.SKIPPED)
-
 
 @dataclass
 class ExecutionResult:
@@ -62,18 +60,17 @@ class ExecutionResult:
 
     debate_id: str
     success: bool
-    phases: List[PhaseResult]
+    phases: list[PhaseResult]
     total_duration_ms: float
     final_output: Any = None
-    error: Optional[str] = None
+    error: str | None = None
 
-    def get_phase_result(self, name: str) -> Optional[PhaseResult]:
+    def get_phase_result(self, name: str) -> PhaseResult | None:
         """Get result for a specific phase."""
         for phase in self.phases:
             if phase.phase_name == name:
                 return phase
         return None
-
 
 class Phase(Protocol):
     """Protocol for debate phases."""
@@ -86,7 +83,6 @@ class Phase(Protocol):
     async def execute(self, context: Any) -> Any:
         """Execute the phase with given context."""
         ...
-
 
 @dataclass
 class PhaseConfig:
@@ -102,11 +98,10 @@ class PhaseConfig:
 
     # Tracing
     enable_tracing: bool = True
-    trace_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None
+    trace_callback: Optional[Callable[[str, dict[str, Any]], None]] = None
 
     # Metrics
     metrics_callback: Optional[Callable[[str, float], None]] = None
-
 
 # Phase ordering for standard debate flow
 STANDARD_PHASE_ORDER = [
@@ -125,7 +120,6 @@ OPTIONAL_PHASES = {"analytics", "feedback"}
 # Consensus phase generates synthesis which is required for debate completion
 CRITICAL_PHASES = {"consensus"}
 
-
 class PhaseExecutor:
     """
     Executes debate phases in sequence.
@@ -140,8 +134,8 @@ class PhaseExecutor:
 
     def __init__(
         self,
-        phases: Dict[str, Phase],
-        config: Optional[PhaseConfig] = None,
+        phases: dict[str, Phase],
+        config: PhaseConfig | None = None,
     ):
         """
         Initialize the phase executor.
@@ -154,12 +148,12 @@ class PhaseExecutor:
         self._config = config or PhaseConfig()
 
         # Execution state
-        self._current_phase: Optional[str] = None
+        self._current_phase: str | None = None
         self._should_terminate: bool = False
-        self._termination_reason: Optional[str] = None
+        self._termination_reason: str | None = None
 
         # Results tracking
-        self._results: List[PhaseResult] = []
+        self._results: list[PhaseResult] = []
 
     # =========================================================================
     # Main Execution
@@ -169,7 +163,7 @@ class PhaseExecutor:
         self,
         context: Any,
         debate_id: str = "",
-        phase_order: Optional[List[str]] = None,
+        phase_order: Optional[list[str]] = None,
     ) -> ExecutionResult:
         """
         Execute all phases in sequence.
@@ -230,7 +224,7 @@ class PhaseExecutor:
     async def _execute_phases(
         self,
         context: Any,
-        phase_order: List[str],
+        phase_order: list[str],
         debate_id: str,
     ) -> Any:
         """Execute phases in order."""
@@ -481,7 +475,7 @@ class PhaseExecutor:
         self._termination_reason = reason
         logger.info(f"Termination requested: {reason}")
 
-    def check_termination(self) -> tuple[bool, Optional[str]]:
+    def check_termination(self) -> tuple[bool, str | None]:
         """
         Check if termination has been requested.
 
@@ -519,17 +513,17 @@ class PhaseExecutor:
             return True
         return False
 
-    def get_phase(self, name: str) -> Optional[Phase]:
+    def get_phase(self, name: str) -> Phase | None:
         """Get a phase by name."""
         return self._phases.get(name)
 
     @property
-    def phase_names(self) -> List[str]:
+    def phase_names(self) -> list[str]:
         """Get list of available phase names."""
         return list(self._phases.keys())
 
     @property
-    def current_phase(self) -> Optional[str]:
+    def current_phase(self) -> str | None:
         """Get currently executing phase name."""
         return self._current_phase
 
@@ -537,11 +531,11 @@ class PhaseExecutor:
     # Results & Metrics
     # =========================================================================
 
-    def get_results(self) -> List[PhaseResult]:
+    def get_results(self) -> list[PhaseResult]:
         """Get all phase results from last execution."""
         return self._results.copy()
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get execution metrics.
 
@@ -564,7 +558,6 @@ class PhaseExecutor:
             "terminated_early": self._should_terminate,
             "termination_reason": self._termination_reason,
         }
-
 
 __all__ = [
     "PhaseExecutor",

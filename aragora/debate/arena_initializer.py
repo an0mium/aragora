@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
 from aragora.debate.chaos_theater import DramaLevel, get_chaos_director
@@ -35,9 +35,8 @@ try:
 
     PROMPT_EVOLVER_AVAILABLE = True
 except ImportError:
-    PromptEvolver: Optional[Type[Any]] = None  # type: ignore[no-redef]
+    PromptEvolver: Optional[type[Any]] = None  # type: ignore[no-redef]
     PROMPT_EVOLVER_AVAILABLE = False
-
 
 @dataclass
 class CoreComponents:
@@ -92,7 +91,6 @@ class CoreComponents:
     ml_quality_gate: Any = None
     ml_consensus_estimator: Any = None
 
-
 @dataclass
 class TrackerComponents:
     """Container for tracking subsystems initialized by ArenaInitializer."""
@@ -119,7 +117,6 @@ class TrackerComponents:
     # Vertical personas
     vertical: Any = None  # Vertical enum
     vertical_persona_manager: Any = None  # VerticalPersonaManager
-
 
 class ArenaInitializer:
     """Handles Arena initialization to reduce orchestrator complexity."""

@@ -6,10 +6,9 @@ Formats receipts using Slack's Block Kit for rich message display.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .formatter import ReceiptFormatter, register_formatter
-
 
 @register_formatter
 class SlackReceiptFormatter(ReceiptFormatter):
@@ -22,8 +21,8 @@ class SlackReceiptFormatter(ReceiptFormatter):
     def format(
         self,
         receipt: Any,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        options: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Format receipt as Slack Block Kit blocks.
 
@@ -37,7 +36,7 @@ class SlackReceiptFormatter(ReceiptFormatter):
         include_agents = options.get("include_agents", True)
         include_evidence = options.get("include_evidence", True)
 
-        blocks: List[Dict[str, Any]] = []
+        blocks: list[dict[str, Any]] = []
 
         # Header
         confidence_raw = getattr(receipt, "confidence_score", None)

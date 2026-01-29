@@ -12,18 +12,18 @@ Note: LLM outputs are inherently non-deterministic even with
 temperature=0. "Reproducibility" here means same configuration,
 not identical outputs.
 """
+from __future__ import annotations
 
 import hashlib
 import json
 import platform
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import resolve_db_path
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.json_helpers import safe_json_loads
-
 
 @dataclass
 class ModelConfig:
@@ -31,7 +31,7 @@ class ModelConfig:
 
     model_id: str  # e.g., "gpt-4-turbo", "claude-3-opus"
     provider: str  # e.g., "openai", "anthropic", "local"
-    version: Optional[str] = None  # Model version if known
+    version: str | None = None  # Model version if known
 
     # Sampling parameters
     temperature: float = 0.7
@@ -39,7 +39,7 @@ class ModelConfig:
     max_tokens: int = 4096
 
     # Context settings
-    system_prompt_hash: Optional[str] = None
+    system_prompt_hash: str | None = None
     context_window: int = 8192
 
     # Cost info
@@ -95,7 +95,6 @@ class ModelConfig:
             "cost_per_1k_output": self.cost_per_1k_output,
         }
 
-
 @dataclass
 class DebateMetadata:
     """
@@ -125,7 +124,7 @@ class DebateMetadata:
     agent_configs: list[ModelConfig] = field(default_factory=list)
 
     # Randomness
-    random_seed: Optional[int] = None  # For reproducibility context
+    random_seed: int | None = None  # For reproducibility context
 
     # Environment
     aragora_version: str = "0.8.0"
@@ -266,7 +265,6 @@ class DebateMetadata:
 
         return diffs
 
-
 class MetadataStore(SQLiteStore):
     """
     Persistent storage for debate metadata.
@@ -318,7 +316,7 @@ class MetadataStore(SQLiteStore):
 
             conn.commit()
 
-    def get(self, debate_id: str) -> Optional[DebateMetadata]:
+    def get(self, debate_id: str) -> DebateMetadata | None:
         """Retrieve metadata by debate ID."""
         with self.connection() as conn:
             cursor = conn.cursor()

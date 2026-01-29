@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -36,7 +36,6 @@ from aragora.server.handlers.secure import ForbiddenError, SecureHandler, Unauth
 from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
-
 
 class SkillMarketplaceHandler(SecureHandler):
     """Handler for skill marketplace endpoints."""
@@ -70,11 +69,11 @@ class SkillMarketplaceHandler(SecureHandler):
     async def handle(
         self,
         path: str,
-        query_params: Dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
         method: str = "GET",
-        body: Optional[Dict[str, Any]] = None,
-    ) -> Optional[HandlerResult]:
+        body: Optional[dict[str, Any]] = None,
+    ) -> HandlerResult | None:
         """Route marketplace requests."""
         # Get auth context (some endpoints allow anonymous)
         try:
@@ -162,7 +161,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
         return None
 
-    async def _search_skills(self, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _search_skills(self, query_params: dict[str, Any]) -> HandlerResult:
         """Search for skills in the marketplace."""
         try:
             from aragora.skills.marketplace import SkillCategory, SkillTier, get_marketplace
@@ -253,7 +252,7 @@ class SkillMarketplaceHandler(SecureHandler):
             logger.error(f"Error getting versions: {e}")
             return error_response(f"Failed to get versions: {e}", 500)
 
-    async def _get_ratings(self, skill_id: str, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _get_ratings(self, skill_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Get skill ratings."""
         try:
             from aragora.skills.marketplace import get_marketplace
@@ -280,7 +279,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response(f"Failed to get ratings: {e}", 500)
 
     async def _publish_skill(
-        self, body: Dict[str, Any], auth_context: Dict[str, Any]
+        self, body: dict[str, Any], auth_context: dict[str, Any]
     ) -> HandlerResult:
         """Publish a skill to the marketplace."""
         try:
@@ -355,8 +354,8 @@ class SkillMarketplaceHandler(SecureHandler):
     async def _install_skill(
         self,
         skill_id: str,
-        body: Dict[str, Any],
-        auth_context: Dict[str, Any],
+        body: dict[str, Any],
+        auth_context: dict[str, Any],
     ) -> HandlerResult:
         """Install a skill."""
         try:
@@ -397,7 +396,7 @@ class SkillMarketplaceHandler(SecureHandler):
     async def _uninstall_skill(
         self,
         skill_id: str,
-        auth_context: Dict[str, Any],
+        auth_context: dict[str, Any],
     ) -> HandlerResult:
         """Uninstall a skill."""
         try:
@@ -436,8 +435,8 @@ class SkillMarketplaceHandler(SecureHandler):
     async def _rate_skill(
         self,
         skill_id: str,
-        body: Dict[str, Any],
-        auth_context: Dict[str, Any],
+        body: dict[str, Any],
+        auth_context: dict[str, Any],
     ) -> HandlerResult:
         """Rate a skill."""
         try:
@@ -467,7 +466,7 @@ class SkillMarketplaceHandler(SecureHandler):
             logger.error(f"Error rating skill: {e}")
             return error_response(f"Rating failed: {e}", 500)
 
-    async def _list_installed(self, auth_context: Dict[str, Any]) -> HandlerResult:
+    async def _list_installed(self, auth_context: dict[str, Any]) -> HandlerResult:
         """List installed skills for the tenant."""
         try:
             from aragora.skills.installer import SkillInstaller

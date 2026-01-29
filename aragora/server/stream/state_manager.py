@@ -15,6 +15,7 @@ This module provides streaming-specific features:
 The global debate tracking functions in this module delegate to the canonical
 StateManager in aragora.server.state where applicable.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -23,7 +24,7 @@ import time
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import (
     MAX_ACTIVE_DEBATES,
@@ -32,7 +33,6 @@ from aragora.config import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class BoundedDebateDict(OrderedDict):
     """OrderedDict with a maximum size, evicting oldest entries when full.
@@ -55,7 +55,6 @@ class BoundedDebateDict(OrderedDict):
             logger.debug(f"Evicted oldest debate {oldest_key} to maintain maxsize={self.maxsize}")
         super().__setitem__(key, value)
 
-
 @dataclass
 class LoopInstance:
     """Represents an active nomic loop instance."""
@@ -67,7 +66,6 @@ class LoopInstance:
     phase: str = "starting"
     path: str = ""
 
-
 # =============================================================================
 # Global debate tracking state
 # =============================================================================
@@ -75,7 +73,7 @@ class LoopInstance:
 # Thread-safe debate tracking (bounded to prevent memory leaks)
 _active_debates: BoundedDebateDict = BoundedDebateDict(maxsize=MAX_ACTIVE_DEBATES)
 _active_debates_lock = threading.Lock()
-_debate_executor: Optional[ThreadPoolExecutor] = None
+_debate_executor: ThreadPoolExecutor | None = None
 _debate_executor_lock = threading.Lock()
 _debate_cleanup_counter = 0
 _debate_cleanup_counter_lock = threading.Lock()
@@ -83,33 +81,27 @@ _debate_cleanup_counter_lock = threading.Lock()
 # TTL for completed debates (24 hours)
 _DEBATE_TTL_SECONDS = 86400
 
-
 def get_active_debates() -> BoundedDebateDict:
     """Get the global active debates dictionary."""
     return _active_debates
-
 
 def get_active_debates_lock() -> threading.Lock:
     """Get the lock for accessing active debates."""
     return _active_debates_lock
 
-
-def get_debate_executor() -> Optional[ThreadPoolExecutor]:
+def get_debate_executor() -> ThreadPoolExecutor | None:
     """Get the global debate executor."""
     global _debate_executor
     return _debate_executor
 
-
-def set_debate_executor(executor: Optional[ThreadPoolExecutor]) -> None:
+def set_debate_executor(executor: ThreadPoolExecutor | None) -> None:
     """Set the global debate executor."""
     global _debate_executor
     _debate_executor = executor
 
-
 def get_debate_executor_lock() -> threading.Lock:
     """Get the lock for accessing the debate executor."""
     return _debate_executor_lock
-
 
 def cleanup_stale_debates() -> None:
     """Remove completed/errored debates older than TTL."""
@@ -126,7 +118,6 @@ def cleanup_stale_debates() -> None:
     if stale_ids:
         logger.debug(f"Cleaned up {len(stale_ids)} stale debate entries")
 
-
 def increment_cleanup_counter() -> bool:
     """Increment cleanup counter and return True if cleanup should run."""
     global _debate_cleanup_counter
@@ -136,7 +127,6 @@ def increment_cleanup_counter() -> bool:
             _debate_cleanup_counter = 0
             return True
     return False
-
 
 class DebateStateManager:
     """
@@ -200,7 +190,7 @@ class DebateStateManager:
             return False
 
     def update_loop_state(
-        self, loop_id: str, cycle: Optional[int] = None, phase: Optional[str] = None
+        self, loop_id: str, cycle: int | None = None, phase: str | None = None
     ) -> None:
         """Update the state of an active loop instance."""
         with self._active_loops_lock:
@@ -226,7 +216,7 @@ class DebateStateManager:
                 for loop in self.active_loops.values()
             ]
 
-    def get_debate_state(self, loop_id: str) -> Optional[dict]:
+    def get_debate_state(self, loop_id: str) -> dict | None:
         """Get cached debate state for a loop."""
         with self._debate_states_lock:
             state = self.debate_states.get(loop_id)
@@ -302,14 +292,12 @@ class DebateStateManager:
                 return True
             return False
 
-
 # =============================================================================
 # Global DebateStateManager Singleton
 # =============================================================================
 
-_state_manager: Optional[DebateStateManager] = None
+_state_manager: DebateStateManager | None = None
 _state_manager_lock = threading.Lock()
-
 
 def get_stream_state_manager() -> DebateStateManager:
     """Get the global DebateStateManager singleton for streaming.
@@ -333,7 +321,6 @@ def get_stream_state_manager() -> DebateStateManager:
                 _state_manager = DebateStateManager()
     return _state_manager
 
-
 def get_state_manager() -> DebateStateManager:
     """DEPRECATED: Use get_stream_state_manager() for streaming state.
 
@@ -355,14 +342,12 @@ def get_state_manager() -> DebateStateManager:
     )
     return get_stream_state_manager()
 
-
 # =============================================================================
 # Periodic Cleanup Background Task
 # =============================================================================
 
-_cleanup_task: Optional[asyncio.Task] = None
+_cleanup_task: asyncio.Task | None = None
 _default_cleanup_interval = 300  # 5 minutes
-
 
 async def periodic_state_cleanup(
     manager: DebateStateManager,
@@ -389,7 +374,6 @@ async def periodic_state_cleanup(
         except Exception as e:
             logger.warning(f"Periodic state cleanup error: {e}")
 
-
 def start_cleanup_task(
     manager: DebateStateManager,
     interval_seconds: int = 300,
@@ -411,7 +395,6 @@ def start_cleanup_task(
         logger.debug(f"Started periodic state cleanup task (interval={interval_seconds}s)")
     return _cleanup_task
 
-
 def stop_cleanup_task() -> None:
     """Stop the periodic cleanup task gracefully.
 
@@ -422,7 +405,6 @@ def stop_cleanup_task() -> None:
         _cleanup_task.cancel()
         logger.debug("Stopped periodic state cleanup task")
     _cleanup_task = None
-
 
 __all__ = [
     "BoundedDebateDict",

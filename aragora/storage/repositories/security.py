@@ -11,10 +11,9 @@ import logging
 import sqlite3
 from contextlib import AbstractContextManager
 from datetime import datetime, timedelta
-from typing import Callable, Optional
+from typing import Callable
 
 logger = logging.getLogger(__name__)
-
 
 class SecurityRepository:
     """
@@ -50,7 +49,7 @@ class SecurityRepository:
         """
         self._transaction = transaction_fn
 
-    def is_account_locked(self, email: str) -> tuple[bool, Optional[datetime], int]:
+    def is_account_locked(self, email: str) -> tuple[bool, datetime | None, int]:
         """
         Check if an account is currently locked.
 
@@ -89,7 +88,7 @@ class SecurityRepository:
                 # Lockout expired
                 return False, None, failed_attempts
 
-    def record_failed_login(self, email: str) -> tuple[int, Optional[datetime]]:
+    def record_failed_login(self, email: str) -> tuple[int, datetime | None]:
         """
         Record a failed login attempt and potentially lock the account.
 

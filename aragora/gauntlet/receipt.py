@@ -4,6 +4,7 @@ Decision Receipt - Audit-ready output format.
 Provides a tamper-evident, comprehensive record of a Gauntlet validation
 suitable for compliance, audit trails, and decision documentation.
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -18,14 +19,13 @@ from .result import GauntletResult
 if TYPE_CHECKING:
     from .signing import ReceiptSigner
 
-
 @dataclass
 class ProvenanceRecord:
     """A single provenance record in the chain."""
 
     timestamp: str
     event_type: str  # "attack", "probe", "scenario", "verdict"
-    agent: Optional[str] = None
+    agent: str | None = None
     description: str = ""
     evidence_hash: str = ""
 
@@ -37,7 +37,6 @@ class ProvenanceRecord:
             "description": self.description,
             "evidence_hash": self.evidence_hash,
         }
-
 
 @dataclass
 class ConsensusProof:
@@ -59,7 +58,6 @@ class ConsensusProof:
             "method": self.method,
             "evidence_hash": self.evidence_hash,
         }
-
 
 @dataclass
 class DecisionReceipt:
@@ -101,7 +99,7 @@ class DecisionReceipt:
 
     # Evidence
     dissenting_views: list[str] = field(default_factory=list)
-    consensus_proof: Optional[ConsensusProof] = None
+    consensus_proof: ConsensusProof | None = None
     provenance_chain: list[ProvenanceRecord] = field(default_factory=list)
 
     # Integrity
@@ -109,10 +107,10 @@ class DecisionReceipt:
     config_used: dict = field(default_factory=dict)
 
     # Signature fields for cryptographic signing
-    signature: Optional[str] = None
-    signature_algorithm: Optional[str] = None
-    signature_key_id: Optional[str] = None
-    signed_at: Optional[str] = None  # ISO format timestamp
+    signature: str | None = None
+    signature_algorithm: str | None = None
+    signature_key_id: str | None = None
+    signed_at: str | None = None  # ISO format timestamp
 
     def __post_init__(self):
         """Calculate artifact hash if not provided."""
@@ -287,7 +285,7 @@ class DecisionReceipt:
     def from_mode_result(
         cls,
         result: Any,
-        input_hash: Optional[str] = None,
+        input_hash: str | None = None,
     ) -> "DecisionReceipt":
         """Create receipt from aragora.gauntlet.GauntletResult."""
         receipt_id = str(uuid.uuid4())
@@ -494,7 +492,7 @@ class DecisionReceipt:
     def from_debate_result(
         cls,
         result: Any,
-        input_hash: Optional[str] = None,
+        input_hash: str | None = None,
     ) -> "DecisionReceipt":
         """Create receipt from aragora.core_types.DebateResult.
 

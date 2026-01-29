@@ -23,7 +23,6 @@ from aragora.server.handlers.base import (
     json_response,
 )
 
-
 if TYPE_CHECKING:
     from aragora.extensions.moltbot import LocalGateway
 
@@ -31,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 # Global gateway instance (lazily initialized)
 _gateway: Optional["LocalGateway"] = None
-
 
 def get_gateway() -> "LocalGateway":
     """Get or create the gateway instance."""
@@ -41,7 +39,6 @@ def get_gateway() -> "LocalGateway":
 
         _gateway = LocalGateway()
     return _gateway
-
 
 class MoltbotGatewayHandler(BaseHandler):
     """HTTP handler for Moltbot device gateway operations."""
@@ -58,7 +55,7 @@ class MoltbotGatewayHandler(BaseHandler):
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/moltbot/devices":
             return await self._handle_list_devices(query_params, handler)
@@ -74,7 +71,7 @@ class MoltbotGatewayHandler(BaseHandler):
 
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/moltbot/devices":
             return await self._handle_register_device(handler)
@@ -92,7 +89,7 @@ class MoltbotGatewayHandler(BaseHandler):
 
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         if path.startswith("/api/v1/moltbot/devices/"):
             parts = path.split("/")

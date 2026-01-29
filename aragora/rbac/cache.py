@@ -33,7 +33,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from aragora.control_plane.leader import (
     DistributedStateError,
@@ -42,13 +42,12 @@ from aragora.control_plane.leader import (
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class RBACCacheConfig:
     """Configuration for RBAC distributed cache."""
 
     # Redis settings
-    redis_url: Optional[str] = None
+    redis_url: str | None = None
     redis_prefix: str = "aragora:rbac"
 
     # TTL settings
@@ -83,7 +82,6 @@ class RBACCacheConfig:
             enable_pubsub=os.environ.get("RBAC_CACHE_PUBSUB", "true").lower() == "true",
             enable_metrics=os.environ.get("RBAC_CACHE_METRICS", "true").lower() == "true",
         )
-
 
 @dataclass
 class CacheStats:
@@ -127,7 +125,6 @@ class CacheStats:
             "evictions": self.evictions,
         }
 
-
 class RBACDistributedCache:
     """
     Distributed RBAC cache with Redis backend and in-memory L1.
@@ -143,7 +140,7 @@ class RBACDistributedCache:
     - permissions:{role}
     """
 
-    def __init__(self, config: Optional[RBACCacheConfig] = None):
+    def __init__(self, config: RBACCacheConfig | None = None):
         """Initialize the distributed cache."""
         self.config = config or RBACCacheConfig.from_env()
         self._stats = CacheStats()
@@ -153,10 +150,10 @@ class RBACDistributedCache:
         self._l1_lock = threading.RLock()
 
         # Redis client (lazy initialized)
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_checked = False
-        self._pubsub: Optional[Any] = None
-        self._pubsub_thread: Optional[threading.Thread] = None
+        self._pubsub: Any | None = None
+        self._pubsub_thread: threading.Thread | None = None
         self._running = False
 
         # Invalidation callbacks
@@ -172,7 +169,7 @@ class RBACDistributedCache:
         """Check if Redis is available for distributed caching."""
         return self._get_redis() is not None
 
-    def _get_redis(self) -> Optional[Any]:
+    def _get_redis(self) -> Any | None:
         """Get Redis client (lazy initialization)."""
         if self._redis_checked:
             return self._redis
@@ -278,11 +275,11 @@ class RBACDistributedCache:
     def get_decision(
         self,
         user_id: str,
-        org_id: Optional[str],
+        org_id: str | None,
         roles_hash: str,
         permission_key: str,
-        resource_id: Optional[str] = None,
-    ) -> Optional[dict[str, Any]]:
+        resource_id: str | None = None,
+    ) -> dict[str, Any] | None:
         """Get cached permission decision."""
         cache_key = self._decision_key(user_id, org_id, roles_hash, permission_key, resource_id)
 
@@ -320,10 +317,10 @@ class RBACDistributedCache:
     def set_decision(
         self,
         user_id: str,
-        org_id: Optional[str],
+        org_id: str | None,
         roles_hash: str,
         permission_key: str,
-        resource_id: Optional[str],
+        resource_id: str | None,
         decision: dict[str, Any],
     ) -> None:
         """Cache a permission decision."""
@@ -350,10 +347,10 @@ class RBACDistributedCache:
     def _decision_key(
         self,
         user_id: str,
-        org_id: Optional[str],
+        org_id: str | None,
         roles_hash: str,
         permission_key: str,
-        resource_id: Optional[str],
+        resource_id: str | None,
     ) -> str:
         """Build cache key for permission decision."""
         return f"{user_id}:{org_id or ''}:{roles_hash}:{permission_key}:{resource_id or ''}"
@@ -362,7 +359,7 @@ class RBACDistributedCache:
     # Role Assignment Cache
     # --------------------------------------------------------------------------
 
-    def get_user_roles(self, user_id: str, org_id: Optional[str] = None) -> Optional[set[str]]:
+    def get_user_roles(self, user_id: str, org_id: str | None = None) -> set[str] | None:
         """Get cached roles for a user."""
         cache_key = f"{user_id}:{org_id or ''}"
 
@@ -393,7 +390,7 @@ class RBACDistributedCache:
 
         return None
 
-    def set_user_roles(self, user_id: str, org_id: Optional[str], roles: set[str]) -> None:
+    def set_user_roles(self, user_id: str, org_id: str | None, roles: set[str]) -> None:
         """Cache roles for a user."""
         cache_key = f"{user_id}:{org_id or ''}"
 
@@ -417,7 +414,7 @@ class RBACDistributedCache:
     # Permission Set Cache
     # --------------------------------------------------------------------------
 
-    def get_role_permissions(self, role_name: str) -> Optional[set[str]]:
+    def get_role_permissions(self, role_name: str) -> set[str] | None:
         """Get cached permissions for a role."""
         cache_key = f"perms:{role_name}"
 
@@ -573,7 +570,7 @@ class RBACDistributedCache:
     # L1 Cache Operations
     # --------------------------------------------------------------------------
 
-    def _l1_get(self, key: str) -> Optional[Any]:
+    def _l1_get(self, key: str) -> Any | None:
         """Get from L1 cache."""
         l1_key = self._l1_key(key)
         with self._l1_lock:
@@ -655,12 +652,10 @@ class RBACDistributedCache:
             "pubsub_enabled": self.config.enable_pubsub and redis is not None,
         }
 
-
 # Global cache instance
-_rbac_cache: Optional[RBACDistributedCache] = None
+_rbac_cache: RBACDistributedCache | None = None
 
-
-def get_rbac_cache(config: Optional[RBACCacheConfig] = None) -> RBACDistributedCache:
+def get_rbac_cache(config: RBACCacheConfig | None = None) -> RBACDistributedCache:
     """Get or create the global RBAC cache instance."""
     global _rbac_cache
 
@@ -669,12 +664,10 @@ def get_rbac_cache(config: Optional[RBACCacheConfig] = None) -> RBACDistributedC
 
     return _rbac_cache
 
-
 def set_rbac_cache(cache: RBACDistributedCache) -> None:
     """Set the global RBAC cache instance."""
     global _rbac_cache
     _rbac_cache = cache
-
 
 def reset_rbac_cache() -> None:
     """Reset the global RBAC cache (for testing)."""
@@ -682,7 +675,6 @@ def reset_rbac_cache() -> None:
     if _rbac_cache:
         _rbac_cache.stop()
     _rbac_cache = None
-
 
 __all__ = [
     "RBACCacheConfig",

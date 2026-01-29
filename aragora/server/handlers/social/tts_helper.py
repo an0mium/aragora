@@ -25,7 +25,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,9 @@ TTS_ENABLED = os.environ.get("ARAGORA_TTS_CHAT_ENABLED", "false").lower() == "tr
 TTS_DEFAULT_VOICE = os.environ.get("ARAGORA_TTS_DEFAULT_VOICE", "narrator")
 TTS_MAX_TEXT_LENGTH = int(os.environ.get("ARAGORA_TTS_MAX_TEXT", "2000"))
 
-
 def is_tts_enabled() -> bool:
     """Check if TTS is enabled for chat responses."""
     return TTS_ENABLED
-
 
 @dataclass
 class SynthesisResult:
@@ -50,7 +48,6 @@ class SynthesisResult:
     voice: str
     text_length: int
 
-
 class TTSHelper:
     """
     Helper class for TTS synthesis in chat handlers.
@@ -61,9 +58,9 @@ class TTSHelper:
 
     def __init__(self):
         """Initialize TTS Helper."""
-        self._bridge: Optional[Any] = None
-        self._backend: Optional[Any] = None
-        self._available: Optional[bool] = None
+        self._bridge: Any | None = None
+        self._backend: Any | None = None
+        self._available: bool | None = None
 
     @property
     def is_available(self) -> bool:
@@ -122,9 +119,9 @@ class TTSHelper:
     async def synthesize_response(
         self,
         text: str,
-        voice: Optional[str] = None,
+        voice: str | None = None,
         output_format: str = "mp3",
-    ) -> Optional[SynthesisResult]:
+    ) -> SynthesisResult | None:
         """
         Synthesize text to audio.
 
@@ -189,11 +186,11 @@ class TTSHelper:
     async def synthesize_debate_result(
         self,
         task: str,
-        final_answer: Optional[str],
+        final_answer: str | None,
         consensus_reached: bool,
         confidence: float,
         rounds_used: int,
-    ) -> Optional[SynthesisResult]:
+    ) -> SynthesisResult | None:
         """
         Synthesize a debate result summary.
 
@@ -233,7 +230,7 @@ class TTSHelper:
         passed: bool,
         score: float,
         vulnerability_count: int,
-    ) -> Optional[SynthesisResult]:
+    ) -> SynthesisResult | None:
         """
         Synthesize a gauntlet result summary.
 
@@ -259,10 +256,8 @@ class TTSHelper:
 
         return await self.synthesize_response(summary, voice="moderator")
 
-
 # Singleton instance
-_tts_helper: Optional[TTSHelper] = None
-
+_tts_helper: TTSHelper | None = None
 
 def get_tts_helper() -> TTSHelper:
     """Get the TTS helper singleton."""
@@ -270,7 +265,6 @@ def get_tts_helper() -> TTSHelper:
     if _tts_helper is None:
         _tts_helper = TTSHelper()
     return _tts_helper
-
 
 __all__ = [
     "TTSHelper",

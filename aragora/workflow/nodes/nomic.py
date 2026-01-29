@@ -11,12 +11,11 @@ Wraps the NomicStateMachine and phase implementations to enable:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
-
 
 class NomicLoopStep(BaseStep):
     """
@@ -27,7 +26,7 @@ class NomicLoopStep(BaseStep):
 
     Config options:
         cycles: int - Number of nomic cycles to run (default: 1)
-        phases: List[str] - Phases to execute (default: all 6)
+        phases: list[str] - Phases to execute (default: all 6)
             Available: context, debate, design, implement, verify, commit
         workspace_id: str - Workspace for knowledge storage
         enable_code_execution: bool - Allow code changes (default: False)
@@ -36,7 +35,7 @@ class NomicLoopStep(BaseStep):
         timeout_seconds: float - Timeout per phase (default: 300)
         recovery_enabled: bool - Enable automatic recovery (default: True)
         max_retries: int - Maximum retries per phase (default: 3)
-        agents: List[str] - Agent types for debate (default: ["claude", "gpt4"])
+        agents: list[str] - Agent types for debate (default: ["claude", "gpt4"])
 
     Usage:
         step = NomicLoopStep(
@@ -54,7 +53,7 @@ class NomicLoopStep(BaseStep):
     # Available phases in order
     ALL_PHASES = ["context", "debate", "design", "implement", "verify", "commit"]
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
         super().__init__(name, config)
         self._state_machine = None
         self._current_phase_idx = 0
@@ -108,7 +107,7 @@ class NomicLoopStep(BaseStep):
             # Map phase names to state machine states
 
             # Build phase instances
-            phase_instances: Dict[str, Any] = {}
+            phase_instances: dict[str, Any] = {}
 
             if "context" in phases:
                 phase_instances["context"] = ContextPhase(  # type: ignore[call-arg]
@@ -156,12 +155,12 @@ class NomicLoopStep(BaseStep):
                 )
 
             # Execute cycles
-            results: List[Dict[str, Any]] = []
+            results: list[dict[str, Any]] = []
             for cycle in range(cycles):
                 self._cycle_count = cycle + 1
                 logger.info(f"Starting nomic cycle {cycle + 1}/{cycles}")
 
-                cycle_result: Dict[str, Any] = {
+                cycle_result: dict[str, Any] = {
                     "cycle": cycle + 1,
                     "phases": {},
                     "success": True,
@@ -253,8 +252,8 @@ class NomicLoopStep(BaseStep):
     def _build_phase_context(
         self,
         workflow_context: WorkflowContext,
-        cycle_result: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        cycle_result: dict[str, Any],
+    ) -> dict[str, Any]:
         """Build context dict for phase execution."""
         return {
             "workflow_id": workflow_context.workflow_id,
@@ -264,14 +263,14 @@ class NomicLoopStep(BaseStep):
             "cycle_number": cycle_result.get("cycle", 1),
         }
 
-    async def checkpoint(self) -> Dict[str, Any]:
+    async def checkpoint(self) -> dict[str, Any]:
         """Save nomic step state for checkpointing."""
         return {
             "current_phase_idx": self._current_phase_idx,
             "cycle_count": self._cycle_count,
         }
 
-    async def restore(self, state: Dict[str, Any]) -> None:
+    async def restore(self, state: dict[str, Any]) -> None:
         """Restore nomic step state from checkpoint."""
         self._current_phase_idx = state.get("current_phase_idx", 0)
         self._cycle_count = state.get("cycle_count", 0)

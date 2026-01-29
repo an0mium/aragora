@@ -28,7 +28,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,6 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
-
 # Import metrics (optional - graceful degradation if not available)
 try:
     from aragora.observability.metrics import (  # type: ignore[attr-defined]
@@ -93,7 +92,6 @@ except ImportError:
     def record_encryption_error(*args, **kwargs):  # type: ignore[misc,no-redef]
         pass
 
-
 # Credential fields that should be encrypted
 CREDENTIAL_KEYWORDS = frozenset(
     [
@@ -109,16 +107,14 @@ CREDENTIAL_KEYWORDS = frozenset(
     ]
 )
 
-
 def _is_sensitive_key(key: str) -> bool:
     """Check if a config key is sensitive (should be encrypted)."""
     key_lower = key.lower()
     return any(kw in key_lower for kw in CREDENTIAL_KEYWORDS)
 
-
 def _encrypt_config(
-    config: Dict[str, Any], use_encryption: bool, connector_id: str = ""
-) -> Dict[str, Any]:
+    config: dict[str, Any], use_encryption: bool, connector_id: str = ""
+) -> dict[str, Any]:
     """
     Encrypt sensitive fields in connector config.
 
@@ -167,10 +163,9 @@ def _encrypt_config(
         logger.warning(f"Config encryption unavailable for {connector_id}: {e}")
         return config
 
-
 def _decrypt_config(
-    config: Dict[str, Any], use_encryption: bool, connector_id: str = ""
-) -> Dict[str, Any]:
+    config: dict[str, Any], use_encryption: bool, connector_id: str = ""
+) -> dict[str, Any]:
     """
     Decrypt sensitive fields in connector config.
 
@@ -205,7 +200,6 @@ def _decrypt_config(
         record_encryption_error("decrypt", type(e).__name__)
         return config
 
-
 @dataclass
 class ConnectorConfig:
     """Stored connector configuration."""
@@ -213,15 +207,14 @@ class ConnectorConfig:
     id: str
     connector_type: str
     name: str
-    config: Dict[str, Any]
+    config: dict[str, Any]
     status: str = "configured"  # configured, active, error, disabled
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_sync_at: Optional[datetime] = None
-    last_sync_status: Optional[str] = None
+    last_sync_at: datetime | None = None
+    last_sync_status: str | None = None
     items_indexed: int = 0
-    error_message: Optional[str] = None
-
+    error_message: str | None = None
 
 @dataclass
 class SyncJob:
@@ -231,12 +224,11 @@ class SyncJob:
     connector_id: str
     status: str  # running, completed, failed, cancelled
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     items_synced: int = 0
     items_failed: int = 0
-    error_message: Optional[str] = None
-    duration_seconds: Optional[float] = None
-
+    error_message: str | None = None
+    duration_seconds: float | None = None
 
 class SyncStore:
     """
@@ -248,7 +240,7 @@ class SyncStore:
 
     def __init__(
         self,
-        database_url: Optional[str] = None,
+        database_url: str | None = None,
         use_encryption: bool = True,
     ):
         """
@@ -268,8 +260,8 @@ class SyncStore:
         self._connection = None
 
         # In-memory cache for fast access
-        self._connectors_cache: Dict[str, ConnectorConfig] = {}
-        self._active_jobs: Dict[str, SyncJob] = {}
+        self._connectors_cache: dict[str, ConnectorConfig] = {}
+        self._active_jobs: dict[str, SyncJob] = {}
 
     async def initialize(self) -> None:
         """Initialize database connection and create tables."""
@@ -623,7 +615,7 @@ class SyncStore:
         connector_id: str,
         connector_type: str,
         name: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
     ) -> ConnectorConfig:
         """
         Save or update a connector configuration.
@@ -718,15 +710,15 @@ class SyncStore:
 
         return connector
 
-    async def get_connector(self, connector_id: str) -> Optional[ConnectorConfig]:
+    async def get_connector(self, connector_id: str) -> ConnectorConfig | None:
         """Get connector by ID."""
         return self._connectors_cache.get(connector_id)
 
     async def list_connectors(
         self,
-        status: Optional[str] = None,
-        connector_type: Optional[str] = None,
-    ) -> List[ConnectorConfig]:
+        status: str | None = None,
+        connector_type: str | None = None,
+    ) -> list[ConnectorConfig]:
         """List all connectors, optionally filtered."""
         connectors = list(self._connectors_cache.values())
 
@@ -759,7 +751,7 @@ class SyncStore:
         self,
         connector_id: str,
         status: str,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> None:
         """Update connector status."""
         connector = self._connectors_cache.get(connector_id)
@@ -787,7 +779,7 @@ class SyncStore:
     async def record_sync_start(
         self,
         connector_id: str,
-        sync_id: Optional[str] = None,
+        sync_id: str | None = None,
     ) -> SyncJob:
         """Record the start of a sync operation."""
         job = SyncJob(
@@ -857,10 +849,10 @@ class SyncStore:
         self,
         sync_id: str,
         status: str = "completed",
-        items_synced: Optional[int] = None,
+        items_synced: int | None = None,
         items_failed: int = 0,
-        error_message: Optional[str] = None,
-    ) -> Optional[SyncJob]:
+        error_message: str | None = None,
+    ) -> SyncJob | None:
         """Record sync completion."""
         job = self._active_jobs.pop(sync_id, None)
         if not job:
@@ -912,10 +904,10 @@ class SyncStore:
 
     async def get_sync_history(
         self,
-        connector_id: Optional[str] = None,
+        connector_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[SyncJob]:
+    ) -> list[SyncJob]:
         """Get sync history, optionally filtered by connector."""
         jobs = []
 
@@ -961,8 +953,8 @@ class SyncStore:
 
     async def get_sync_stats(
         self,
-        connector_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        connector_id: str | None = None,
+    ) -> dict[str, Any]:
         """Get aggregate sync statistics."""
         stats = {
             "total_syncs": 0,
@@ -1013,10 +1005,8 @@ class SyncStore:
 
         return stats
 
-
 # Global instance for easy access
-_store: Optional[SyncStore] = None
-
+_store: SyncStore | None = None
 
 async def get_sync_store() -> SyncStore:
     """Get the global SyncStore instance, initializing if needed."""
@@ -1025,7 +1015,6 @@ async def get_sync_store() -> SyncStore:
         _store = SyncStore()
         await _store.initialize()
     return _store
-
 
 __all__ = [
     "SyncStore",

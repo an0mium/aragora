@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
+from typing import Any, TYPE_CHECKING, cast
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -24,23 +24,22 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class BatchJob:
     """Batch explanation job."""
 
     batch_id: str
-    debate_ids: List[str]
+    debate_ids: list[str]
     status: str = "pending"  # pending, processing, completed, failed
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
-    results: List[Dict[str, Any]] = field(default_factory=list)
+    started_at: float | None = None
+    completed_at: float | None = None
+    results: list[dict[str, Any]] = field(default_factory=list)
     processed_count: int = 0
-    options: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    options: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "batch_id": self.batch_id,
             "debate_ids": self.debate_ids,
@@ -55,9 +54,8 @@ class BatchJob:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BatchJob":
+    def from_dict(cls, data: dict[str, Any]) -> "BatchJob":
         return cls(**data)
-
 
 class BatchJobStore(ABC):
     """Abstract batch job store interface."""
@@ -68,7 +66,7 @@ class BatchJobStore(ABC):
         pass
 
     @abstractmethod
-    async def get_job(self, batch_id: str) -> Optional[BatchJob]:
+    async def get_job(self, batch_id: str) -> BatchJob | None:
         """Get a batch job by ID."""
         pass
 
@@ -78,10 +76,9 @@ class BatchJobStore(ABC):
         pass
 
     @abstractmethod
-    async def list_jobs(self, status: Optional[str] = None, limit: int = 100) -> List[BatchJob]:
+    async def list_jobs(self, status: str | None = None, limit: int = 100) -> list[BatchJob]:
         """List batch jobs, optionally filtered by status."""
         pass
-
 
 class RedisBatchJobStore(BatchJobStore):
     """Redis-backed batch job storage with TTL."""
@@ -98,27 +95,27 @@ class RedisBatchJobStore(BatchJobStore):
         key = self._key(job.batch_id)
         self._redis.setex(key, self._ttl, json.dumps(job.to_dict()))
 
-    async def get_job(self, batch_id: str) -> Optional[BatchJob]:
+    async def get_job(self, batch_id: str) -> BatchJob | None:
         key = self._key(batch_id)
         data = self._redis.get(key)
         if data:
-            return BatchJob.from_dict(cast(Dict[str, Any], json.loads(data)))  # type: ignore[arg-type]
+            return BatchJob.from_dict(cast(dict[str, Any], json.loads(data)))  # type: ignore[arg-type]
         return None
 
     async def delete_job(self, batch_id: str) -> bool:
         key = self._key(batch_id)
         return bool(self._redis.delete(key) > 0)  # type: ignore[operator]
 
-    async def list_jobs(self, status: Optional[str] = None, limit: int = 100) -> List[BatchJob]:
+    async def list_jobs(self, status: str | None = None, limit: int = 100) -> list[BatchJob]:
         # Scan for keys and filter
-        jobs: List[BatchJob] = []
+        jobs: list[BatchJob] = []
         cursor: int = 0
         while len(jobs) < limit:
             cursor, keys = self._redis.scan(cursor, match=f"{self._prefix}*", count=100)  # type: ignore[misc]
             for key in keys:
                 data = self._redis.get(key)
                 if data:
-                    job = BatchJob.from_dict(cast(Dict[str, Any], json.loads(data)))  # type: ignore[arg-type]
+                    job = BatchJob.from_dict(cast(dict[str, Any], json.loads(data)))  # type: ignore[arg-type]
                     if status is None or job.status == status:
                         jobs.append(job)
                         if len(jobs) >= limit:
@@ -126,7 +123,6 @@ class RedisBatchJobStore(BatchJobStore):
             if cursor == 0:
                 break
         return jobs
-
 
 class MemoryBatchJobStore(BatchJobStore):
     """In-memory batch job storage with LRU eviction (development fallback)."""
@@ -143,7 +139,7 @@ class MemoryBatchJobStore(BatchJobStore):
         self._jobs[job.batch_id] = job
         self._jobs.move_to_end(job.batch_id)
 
-    async def get_job(self, batch_id: str) -> Optional[BatchJob]:
+    async def get_job(self, batch_id: str) -> BatchJob | None:
         job = self._jobs.get(batch_id)
         if job:
             # Check TTL
@@ -159,7 +155,7 @@ class MemoryBatchJobStore(BatchJobStore):
             return True
         return False
 
-    async def list_jobs(self, status: Optional[str] = None, limit: int = 100) -> List[BatchJob]:
+    async def list_jobs(self, status: str | None = None, limit: int = 100) -> list[BatchJob]:
         result = []
         now = time.time()
         for job in list(self._jobs.values()):
@@ -170,7 +166,6 @@ class MemoryBatchJobStore(BatchJobStore):
                 if len(result) >= limit:
                     break
         return result
-
 
 class DatabaseBatchJobStore(BatchJobStore):
     """Database-backed batch job storage using SQLite or PostgreSQL."""
@@ -239,7 +234,7 @@ class DatabaseBatchJobStore(BatchJobStore):
             error=data.get("error"),
         )
 
-    def _is_expired(self, expires_at: Optional[float]) -> bool:
+    def _is_expired(self, expires_at: float | None) -> bool:
         if expires_at is None:
             return False
         return time.time() > expires_at
@@ -288,7 +283,7 @@ class DatabaseBatchJobStore(BatchJobStore):
             ),
         )
 
-    async def get_job(self, batch_id: str) -> Optional[BatchJob]:
+    async def get_job(self, batch_id: str) -> BatchJob | None:
         row = self._backend.fetch_one(
             f"""
             SELECT
@@ -334,8 +329,8 @@ class DatabaseBatchJobStore(BatchJobStore):
         )
         return True
 
-    async def list_jobs(self, status: Optional[str] = None, limit: int = 100) -> List[BatchJob]:
-        params: List[Any] = []
+    async def list_jobs(self, status: str | None = None, limit: int = 100) -> list[BatchJob]:
+        params: list[Any] = []
         conditions = []
 
         if status:
@@ -365,7 +360,7 @@ class DatabaseBatchJobStore(BatchJobStore):
             tuple(params + [limit]),
         )
 
-        jobs: List[BatchJob] = []
+        jobs: list[BatchJob] = []
         for row in rows:
             expires_at = row["expires_at"] if hasattr(row, "keys") else row[-1]  # type: ignore[call-overload]
             if self._is_expired(expires_at):
@@ -381,13 +376,11 @@ class DatabaseBatchJobStore(BatchJobStore):
             jobs.append(self._row_to_job(row))
         return jobs
 
-
 class SQLiteBatchJobStore(DatabaseBatchJobStore):
     """SQLite-backed batch job storage."""
 
     def __init__(self, db_path: Path, ttl_seconds: int = 3600):
         super().__init__(SQLiteBackend(db_path), ttl_seconds=ttl_seconds)
-
 
 class PostgresBatchJobStore(DatabaseBatchJobStore):
     """PostgreSQL-backed batch job storage."""
@@ -397,11 +390,9 @@ class PostgresBatchJobStore(DatabaseBatchJobStore):
             raise ImportError("psycopg2 required for PostgreSQL batch job store")
         super().__init__(PostgreSQLBackend(database_url), ttl_seconds=ttl_seconds)
 
-
 # Singleton management
-_batch_store: Optional[BatchJobStore] = None
+_batch_store: BatchJobStore | None = None
 _warned_memory: bool = False
-
 
 def get_batch_job_store() -> BatchJobStore:
     """Get or create batch job store based on environment."""
@@ -520,13 +511,11 @@ def get_batch_job_store() -> BatchJobStore:
     logger.info("batch_job_store_initialized", extra={"backend": "memory"})
     return _batch_store
 
-
 def reset_batch_job_store() -> None:
     """Reset the batch job store singleton (for testing)."""
     global _batch_store, _warned_memory
     _batch_store = None
     _warned_memory = False
-
 
 __all__ = [
     "BatchJob",

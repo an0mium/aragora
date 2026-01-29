@@ -25,6 +25,7 @@ Usage:
     async def protected_endpoint(request, user: User):
         return {"user_id": user.id}
 """
+from __future__ import annotations
 
 import base64
 import json
@@ -33,11 +34,10 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 if TYPE_CHECKING:
     pass
-
 
 # Stub exception classes for when PyJWT is not installed
 # Defined unconditionally so type checker sees them
@@ -46,30 +46,25 @@ class _ExpiredSignatureError(Exception):
 
     pass
 
-
 class _InvalidSignatureError(Exception):
     """Stub for jwt.exceptions.InvalidSignatureError."""
 
     pass
-
 
 class _DecodeError(Exception):
     """Stub for jwt.exceptions.DecodeError."""
 
     pass
 
-
 class _InvalidTokenError(Exception):
     """Stub for jwt.exceptions.InvalidTokenError."""
 
     pass
 
-
 class _InvalidAudienceError(Exception):
     """Stub for jwt.exceptions.InvalidAudienceError."""
 
     pass
-
 
 class _JWTModuleProtocol(Protocol):
     """Protocol for the jwt module to satisfy type checker."""
@@ -78,15 +73,14 @@ class _JWTModuleProtocol(Protocol):
         self,
         jwt: str,
         key: str,
-        algorithms: List[str],
+        algorithms: list[str],
         audience: str,
-    ) -> Dict[str, Any]: ...
-
+    ) -> dict[str, Any]: ...
 
 # JWT validation (PyJWT always available)
 import jwt
 
-_jwt_module: Optional[_JWTModuleProtocol] = jwt  # type: ignore[assignment]
+_jwt_module: _JWTModuleProtocol | None = jwt  # type: ignore[assignment]
 HAS_JWT = True
 
 # Use real exception classes from jwt
@@ -104,11 +98,9 @@ InvalidAudienceError: type[Exception] = _RealInvalidAudienceError
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Data Models
 # =============================================================================
-
 
 @dataclass
 class User:
@@ -117,15 +109,15 @@ class User:
     id: str
     email: str
     role: str = "user"  # user, admin, service
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Subscription info
     plan: str = "free"  # free, pro, team, enterprise
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
 
     # Timestamps
-    created_at: Optional[str] = None
-    last_sign_in: Optional[str] = None
+    created_at: str | None = None
+    last_sign_in: str | None = None
 
     @property
     def is_admin(self) -> bool:
@@ -135,7 +127,7 @@ class User:
     def is_pro(self) -> bool:
         return self.plan in ("pro", "team", "enterprise")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "email": self.email,
@@ -145,7 +137,6 @@ class User:
             "is_admin": self.is_admin,
             "is_pro": self.is_pro,
         }
-
 
 @dataclass
 class Workspace:
@@ -162,12 +153,12 @@ class Workspace:
     max_members: int = 1
 
     # Members
-    member_ids: List[str] = field(default_factory=list)
+    member_ids: list[str] = field(default_factory=list)
 
     # Settings
-    settings: Dict[str, Any] = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -178,7 +169,6 @@ class Workspace:
             "max_members": self.max_members,
             "member_count": len(self.member_ids) + 1,  # +1 for owner
         }
-
 
 @dataclass
 class APIKey:
@@ -192,14 +182,14 @@ class APIKey:
     prefix: str  # First 8 chars for identification (e.g., "ara_xxxx")
 
     # Permissions
-    scopes: List[str] = field(default_factory=lambda: ["read", "write"])
+    scopes: list[str] = field(default_factory=lambda: ["read", "write"])
 
     # Metadata
-    created_at: Optional[str] = None
-    last_used_at: Optional[str] = None
-    expires_at: Optional[str] = None
+    created_at: str | None = None
+    last_used_at: str | None = None
+    expires_at: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -209,11 +199,9 @@ class APIKey:
             "last_used_at": self.last_used_at,
         }
 
-
 # =============================================================================
 # Supabase JWT Validator
 # =============================================================================
-
 
 class SupabaseAuthValidator:
     """
@@ -225,16 +213,16 @@ class SupabaseAuthValidator:
     - Role/claims extraction
     """
 
-    def __init__(self, jwt_secret: Optional[str] = None, supabase_url: Optional[str] = None):
+    def __init__(self, jwt_secret: str | None = None, supabase_url: str | None = None):
         self.jwt_secret = jwt_secret or os.getenv("SUPABASE_JWT_SECRET")
         self.supabase_url = supabase_url or os.getenv("SUPABASE_URL")
 
         # Cache for validated tokens (short TTL)
         # Stores: (user, cached_at, token_exp)
-        self._cache: Dict[str, tuple[User, float, float]] = {}
+        self._cache: dict[str, tuple[User, float, float]] = {}
         self._cache_ttl = 60  # 1 minute
 
-    def validate_jwt(self, token: str) -> Optional[User]:
+    def validate_jwt(self, token: str) -> User | None:
         """
         Validate a Supabase JWT and return user info.
 
@@ -335,7 +323,7 @@ class SupabaseAuthValidator:
                 logger.warning(f"JWT validation system error (dev mode): {e}")
                 return None
 
-    def _decode_jwt_unsafe(self, token: str) -> Optional[Dict[str, Any]]:
+    def _decode_jwt_unsafe(self, token: str) -> Optional[dict[str, Any]]:
         """
         Decode JWT without signature verification.
         WARNING: Only use in development!
@@ -366,7 +354,7 @@ class SupabaseAuthValidator:
             logger.warning(f"JWT decode failed: {e}")
             return None
 
-    def _payload_to_user(self, payload: Dict[str, Any]) -> User:
+    def _payload_to_user(self, payload: dict[str, Any]) -> User:
         """Convert JWT payload to User object."""
         # Supabase JWT structure
         user_meta = payload.get("user_metadata", {})
@@ -386,11 +374,9 @@ class SupabaseAuthValidator:
         """Clear the token cache."""
         self._cache.clear()
 
-
 # =============================================================================
 # API Key Validator
 # =============================================================================
-
 
 class APIKeyValidator:
     """
@@ -400,12 +386,12 @@ class APIKeyValidator:
     Format: ara_<random>
     """
 
-    def __init__(self, storage: Optional[Any] = None):
+    def __init__(self, storage: Any | None = None):
         self._storage = storage
-        self._cache: Dict[str, tuple[User, float]] = {}
+        self._cache: dict[str, tuple[User, float]] = {}
         self._cache_ttl = 300  # 5 minutes
 
-    async def validate_key(self, key: str) -> Optional[User]:
+    async def validate_key(self, key: str) -> User | None:
         """
         Validate an API key and return associated user.
 
@@ -448,15 +434,13 @@ class APIKeyValidator:
 
         return None
 
-
 # =============================================================================
 # Global Instances
 # =============================================================================
 
 # Singleton validators
-_jwt_validator: Optional[SupabaseAuthValidator] = None
-_api_key_validator: Optional[APIKeyValidator] = None
-
+_jwt_validator: SupabaseAuthValidator | None = None
+_api_key_validator: APIKeyValidator | None = None
 
 def get_jwt_validator() -> SupabaseAuthValidator:
     """Get the global JWT validator."""
@@ -465,7 +449,6 @@ def get_jwt_validator() -> SupabaseAuthValidator:
         _jwt_validator = SupabaseAuthValidator()
     return _jwt_validator
 
-
 def get_api_key_validator() -> APIKeyValidator:
     """Get the global API key validator."""
     global _api_key_validator
@@ -473,13 +456,11 @@ def get_api_key_validator() -> APIKeyValidator:
         _api_key_validator = APIKeyValidator()
     return _api_key_validator
 
-
 # =============================================================================
 # Authentication Functions
 # =============================================================================
 
-
-def extract_auth_token(handler: Any) -> Optional[str]:
+def extract_auth_token(handler: Any) -> str | None:
     """Extract Bearer token or API key from request."""
     if handler is None:
         return None
@@ -498,8 +479,7 @@ def extract_auth_token(handler: Any) -> Optional[str]:
 
     return auth_header
 
-
-def extract_token(handler: Any) -> Optional[str]:
+def extract_token(handler: Any) -> str | None:
     """
     Extract Bearer token from request handler.
 
@@ -524,8 +504,7 @@ def extract_token(handler: Any) -> Optional[str]:
 
     return None
 
-
-def extract_client_ip(handler: Any) -> Optional[str]:
+def extract_client_ip(handler: Any) -> str | None:
     """
     Extract client IP from request handler.
 
@@ -555,8 +534,7 @@ def extract_client_ip(handler: Any) -> Optional[str]:
 
     return None
 
-
-async def authenticate_request(handler: Any) -> Optional[User]:
+async def authenticate_request(handler: Any) -> User | None:
     """
     Authenticate a request and return user.
 
@@ -587,8 +565,7 @@ async def authenticate_request(handler: Any) -> Optional[User]:
 
     return None
 
-
-def get_current_user(handler: Any) -> Optional[User]:
+def get_current_user(handler: Any) -> User | None:
     """
     Get the current authenticated user (sync version).
 
@@ -601,11 +578,9 @@ def get_current_user(handler: Any) -> Optional[User]:
     jwt_validator = get_jwt_validator()
     return jwt_validator.validate_jwt(token)
 
-
 # =============================================================================
 # Decorators
 # =============================================================================
-
 
 def require_user(func: Callable) -> Callable:
     """
@@ -645,7 +620,6 @@ def require_user(func: Callable) -> Callable:
 
     return wrapper
 
-
 def require_admin(func: Callable) -> Callable:
     """
     Decorator that requires admin user.
@@ -683,7 +657,6 @@ def require_admin(func: Callable) -> Callable:
         return func(*args, **kwargs)
 
     return wrapper
-
 
 def require_plan(min_plan: str) -> Callable:
     """
@@ -729,7 +702,6 @@ def require_plan(min_plan: str) -> Callable:
         return wrapper
 
     return decorator
-
 
 __all__ = [
     # Models

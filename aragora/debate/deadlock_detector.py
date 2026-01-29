@@ -17,10 +17,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
 
 class DeadlockType(str, Enum):
     """Types of deadlock patterns."""
@@ -31,7 +30,6 @@ class DeadlockType(str, Enum):
     CONVERGENCE_FAILURE = "convergence_failure"  # No progress toward consensus
     RESOURCE_CONTENTION = "resource_contention"  # Competing for same resource
 
-
 @dataclass
 class ArgumentNode:
     """A node in the argument graph representing a proposal, critique, or rebuttal."""
@@ -41,11 +39,10 @@ class ArgumentNode:
     content_hash: str  # For semantic comparison
     round_number: int
     argument_type: str  # "proposal", "critique", "rebuttal", "revision"
-    parent_id: Optional[str] = None  # What this argument responds to
-    targets: List[str] = field(default_factory=list)  # Arguments this criticizes
+    parent_id: str | None = None  # What this argument responds to
+    targets: list[str] = field(default_factory=list)  # Arguments this criticizes
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Deadlock:
@@ -54,16 +51,15 @@ class Deadlock:
     id: str
     deadlock_type: DeadlockType
     debate_id: str
-    involved_agents: List[str]
-    involved_arguments: List[str]
-    cycle_path: Optional[List[str]] = None  # For cycle-type deadlocks
+    involved_agents: list[str]
+    involved_arguments: list[str]
+    cycle_path: Optional[list[str]] = None  # For cycle-type deadlocks
     detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     severity: str = "medium"  # low, medium, high, critical
     description: str = ""
-    resolution_hint: Optional[str] = None
+    resolution_hint: str | None = None
     resolved: bool = False
-    resolution: Optional[str] = None
-
+    resolution: str | None = None
 
 class ArgumentGraph:
     """
@@ -78,10 +74,10 @@ class ArgumentGraph:
     def __init__(self, debate_id: str):
         """Initialize the argument graph."""
         self.debate_id = debate_id
-        self._nodes: Dict[str, ArgumentNode] = {}
-        self._edges: Dict[str, Set[str]] = defaultdict(set)  # from -> [to]
-        self._reverse_edges: Dict[str, Set[str]] = defaultdict(set)  # to -> [from]
-        self._agent_nodes: Dict[str, Set[str]] = defaultdict(set)  # agent -> nodes
+        self._nodes: dict[str, ArgumentNode] = {}
+        self._edges: dict[str, set[str]] = defaultdict(set)  # from -> [to]
+        self._reverse_edges: dict[str, set[str]] = defaultdict(set)  # to -> [from]
+        self._agent_nodes: dict[str, set[str]] = defaultdict(set)  # agent -> nodes
 
     def add_node(self, node: ArgumentNode) -> None:
         """Add an argument node to the graph."""
@@ -101,23 +97,23 @@ class ArgumentGraph:
         self._edges[from_id].add(to_id)
         self._reverse_edges[to_id].add(from_id)
 
-    def get_node(self, node_id: str) -> Optional[ArgumentNode]:
+    def get_node(self, node_id: str) -> ArgumentNode | None:
         """Get a node by ID."""
         return self._nodes.get(node_id)
 
-    def get_outgoing(self, node_id: str) -> Set[str]:
+    def get_outgoing(self, node_id: str) -> set[str]:
         """Get nodes that this node points to."""
         return self._edges.get(node_id, set())
 
-    def get_incoming(self, node_id: str) -> Set[str]:
+    def get_incoming(self, node_id: str) -> set[str]:
         """Get nodes that point to this node."""
         return self._reverse_edges.get(node_id, set())
 
-    def get_agent_nodes(self, agent_id: str) -> Set[str]:
+    def get_agent_nodes(self, agent_id: str) -> set[str]:
         """Get all nodes belonging to an agent."""
         return self._agent_nodes.get(agent_id, set())
 
-    def find_cycles(self) -> List[List[str]]:
+    def find_cycles(self) -> list[list[str]]:
         """
         Find all cycles in the argument graph.
 
@@ -156,7 +152,7 @@ class ArgumentGraph:
 
         return cycles
 
-    def find_mutual_blocks(self) -> List[Tuple[str, str]]:
+    def find_mutual_blocks(self) -> list[tuple[str, str]]:
         """
         Find pairs of agents that are mutually blocking each other.
 
@@ -171,7 +167,7 @@ class ArgumentGraph:
         mutual_blocks = []
 
         # Get latest argument per agent
-        latest_per_agent: Dict[str, ArgumentNode] = {}
+        latest_per_agent: dict[str, ArgumentNode] = {}
         for node in self._nodes.values():
             if (
                 node.agent_id not in latest_per_agent
@@ -201,14 +197,14 @@ class ArgumentGraph:
 
         return mutual_blocks
 
-    def get_agent_targeting_stats(self) -> Dict[str, Dict[str, int]]:
+    def get_agent_targeting_stats(self) -> dict[str, dict[str, int]]:
         """
         Get statistics on which agents target which other agents.
 
         Returns:
             Dict of {agent_id: {target_agent_id: count}}
         """
-        stats: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        stats: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
         for node in self._nodes.values():
             for target_id in node.targets:
@@ -217,7 +213,6 @@ class ArgumentGraph:
                     stats[node.agent_id][target_node.agent_id] += 1
 
         return {k: dict(v) for k, v in stats.items()}
-
 
 class DeadlockDetector:
     """
@@ -259,12 +254,12 @@ class DeadlockDetector:
         self.cycle_severity_threshold = cycle_severity_threshold
 
         self._graph = ArgumentGraph(debate_id)
-        self._deadlocks: List[Deadlock] = []
-        self._content_history: Dict[str, List[str]] = defaultdict(list)  # hash -> [node_ids]
-        self._round_argument_counts: Dict[int, int] = defaultdict(int)
+        self._deadlocks: list[Deadlock] = []
+        self._content_history: dict[str, list[str]] = defaultdict(list)  # hash -> [node_ids]
+        self._round_argument_counts: dict[int, int] = defaultdict(int)
         self._deadlock_counter = 0
 
-    def register_argument(self, node: ArgumentNode) -> List[Deadlock]:
+    def register_argument(self, node: ArgumentNode) -> list[Deadlock]:
         """
         Register a new argument and check for new deadlocks.
 
@@ -281,7 +276,7 @@ class DeadlockDetector:
         # Check for deadlocks after registration
         return self.detect_deadlocks()
 
-    def detect_deadlocks(self) -> List[Deadlock]:
+    def detect_deadlocks(self) -> list[Deadlock]:
         """
         Run all deadlock detection checks.
 
@@ -304,7 +299,7 @@ class DeadlockDetector:
 
         return new_deadlocks
 
-    def _detect_cycles(self) -> List[Deadlock]:
+    def _detect_cycles(self) -> list[Deadlock]:
         """Detect cycles in the argument graph."""
         deadlocks = []
         cycles = self._graph.find_cycles()
@@ -344,7 +339,7 @@ class DeadlockDetector:
 
         return deadlocks
 
-    def _detect_mutual_blocks(self) -> List[Deadlock]:
+    def _detect_mutual_blocks(self) -> list[Deadlock]:
         """Detect mutual blocking between agents."""
         deadlocks = []
         blocks = self._graph.find_mutual_blocks()
@@ -374,7 +369,7 @@ class DeadlockDetector:
 
         return deadlocks
 
-    def _detect_semantic_loops(self) -> List[Deadlock]:
+    def _detect_semantic_loops(self) -> list[Deadlock]:
         """Detect semantic loops (repeated argument patterns)."""
         deadlocks = []
 
@@ -414,9 +409,9 @@ class DeadlockDetector:
 
         return deadlocks
 
-    def _detect_convergence_failures(self) -> List[Deadlock]:
+    def _detect_convergence_failures(self) -> list[Deadlock]:
         """Detect when debate is failing to converge."""
-        deadlocks: List[Deadlock] = []
+        deadlocks: list[Deadlock] = []
 
         # Need at least 3 rounds to detect convergence failure
         if len(self._round_argument_counts) < 3:
@@ -461,7 +456,7 @@ class DeadlockDetector:
         self._deadlock_counter += 1
         return f"deadlock-{self.debate_id[:8]}-{self._deadlock_counter:04d}"
 
-    def get_deadlocks(self, include_resolved: bool = False) -> List[Deadlock]:
+    def get_deadlocks(self, include_resolved: bool = False) -> list[Deadlock]:
         """Get all detected deadlocks."""
         if include_resolved:
             return self._deadlocks
@@ -477,7 +472,7 @@ class DeadlockDetector:
                 return True
         return False
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get detector statistics."""
         return {
             "debate_id": self.debate_id,
@@ -497,7 +492,6 @@ class DeadlockDetector:
         """Get the underlying argument graph."""
         return self._graph
 
-
 # Convenience function
 def create_argument_node(
     node_id: str,
@@ -505,8 +499,8 @@ def create_argument_node(
     content: str,
     round_number: int,
     argument_type: str,
-    parent_id: Optional[str] = None,
-    targets: Optional[List[str]] = None,
+    parent_id: str | None = None,
+    targets: Optional[list[str]] = None,
 ) -> ArgumentNode:
     """Create an argument node with content hash."""
     import hashlib

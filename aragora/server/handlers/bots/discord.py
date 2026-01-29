@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -37,7 +37,6 @@ DISCORD_PUBLIC_KEY = os.environ.get("DISCORD_PUBLIC_KEY")
 # Log warnings at module load time for missing secrets
 if not DISCORD_PUBLIC_KEY:
     logger.warning("DISCORD_PUBLIC_KEY not configured - signature verification disabled")
-
 
 def _verify_discord_signature(
     signature: str,
@@ -72,7 +71,6 @@ def _verify_discord_signature(
         logger.exception(f"Unexpected signature verification error: {e}")
         return False
 
-
 class DiscordHandler(BotHandlerMixin, SecureHandler):
     """Handler for Discord Interactions API endpoints.
 
@@ -102,7 +100,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         return bool(DISCORD_APPLICATION_ID)
 
     def _build_status_response(
-        self, extra_status: Optional[Dict[str, Any]] = None
+        self, extra_status: Optional[dict[str, Any]] = None
     ) -> HandlerResult:
         """Build Discord-specific status response."""
         status = {
@@ -117,8 +115,8 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=30)
     async def handle(  # type: ignore[override]
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route Discord requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/discord/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -128,8 +126,8 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
 
     @rate_limit(rpm=30)
     async def handle_post(
-        self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if path == "/api/v1/bots/discord/interactions":
             return await self._handle_interactions(handler)
@@ -218,7 +216,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                 }
             )
 
-    async def _handle_application_command(self, interaction: Dict[str, Any]) -> HandlerResult:
+    async def _handle_application_command(self, interaction: dict[str, Any]) -> HandlerResult:
         """Handle slash command interactions."""
         data = interaction.get("data", {})
         command_name = data.get("name", "")
@@ -268,7 +266,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         command: str,
         args: str,
         user_id: str,
-        interaction: Dict[str, Any],
+        interaction: dict[str, Any],
     ) -> HandlerResult:
         """Execute a command and return Discord response."""
         from datetime import datetime, timezone
@@ -325,7 +323,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
 
         # Build response
         if result.success:
-            response_data: Dict[str, Any] = {
+            response_data: dict[str, Any] = {
                 "content": result.message or "Command executed",
             }
 
@@ -352,7 +350,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                 }
             )
 
-    def _handle_message_component(self, interaction: Dict[str, Any]) -> HandlerResult:
+    def _handle_message_component(self, interaction: dict[str, Any]) -> HandlerResult:
         """Handle button/select interactions."""
         data = interaction.get("data", {})
         custom_id = data.get("custom_id", "")
@@ -408,7 +406,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             }
         )
 
-    def _handle_modal_submit(self, interaction: Dict[str, Any]) -> HandlerResult:
+    def _handle_modal_submit(self, interaction: dict[str, Any]) -> HandlerResult:
         """Handle modal submission interactions."""
         data = interaction.get("data", {})
         custom_id = data.get("custom_id", "")
@@ -424,6 +422,5 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                 },
             }
         )
-
 
 __all__ = ["DiscordHandler"]

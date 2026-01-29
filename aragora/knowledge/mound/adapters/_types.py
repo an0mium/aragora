@@ -15,11 +15,10 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 # Generic type for adapter-specific items
 T = TypeVar("T")
-
 
 class SyncResult:
     """Result type for forward sync operations (Source -> Knowledge Mound).
@@ -39,7 +38,7 @@ class SyncResult:
         records_synced: int = 0,
         records_skipped: int = 0,
         records_failed: int = 0,
-        errors: Optional[List[str]] = None,
+        errors: Optional[list[str]] = None,
         duration_ms: float = 0.0,
     ):
         self.records_synced = records_synced
@@ -48,7 +47,7 @@ class SyncResult:
         self.errors = errors if errors is not None else []
         self.duration_ms = duration_ms
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "records_synced": self.records_synced,
@@ -70,7 +69,6 @@ class SyncResult:
         if total == 0:
             return 100.0
         return (self.records_synced / total) * 100
-
 
 class ValidationSyncResult:
     """Result type for reverse validation sync operations (KM -> Source).
@@ -96,7 +94,7 @@ class ValidationSyncResult:
         records_analyzed: int = 0,
         records_updated: int = 0,
         records_skipped: int = 0,
-        errors: Optional[List[str]] = None,
+        errors: Optional[list[str]] = None,
         duration_ms: float = 0.0,
     ):
         self.records_analyzed = records_analyzed
@@ -105,7 +103,7 @@ class ValidationSyncResult:
         self.errors = errors if errors is not None else []
         self.duration_ms = duration_ms
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "records_analyzed": self.records_analyzed,
@@ -114,7 +112,6 @@ class ValidationSyncResult:
             "errors": self.errors,
             "duration_ms": self.duration_ms,
         }
-
 
 @dataclass
 class SearchResult(Generic[T]):
@@ -133,9 +130,9 @@ class SearchResult(Generic[T]):
     item: T
     relevance_score: float = 0.0
     similarity: float = 0.0
-    matched_fields: List[str] = field(default_factory=list)
+    matched_fields: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         item_dict = self.item.to_dict() if hasattr(self.item, "to_dict") else self.item
         return {
@@ -144,7 +141,6 @@ class SearchResult(Generic[T]):
             "similarity": self.similarity,
             "matched_fields": self.matched_fields,
         }
-
 
 @dataclass
 class ValidationResult:
@@ -167,7 +163,7 @@ class ValidationResult:
     recommendation: str = "keep"  # keep, boost, penalize, archive, flag
     adjustment: float = 0.0
     reason: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def should_apply(self, min_confidence: float = 0.7) -> bool:
         """Check if this validation should be applied based on confidence threshold.
@@ -182,7 +178,7 @@ class ValidationResult:
             return False
         return self.recommendation != "keep" or self.adjustment != 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "source_id": self.source_id,
@@ -192,7 +188,6 @@ class ValidationResult:
             "reason": self.reason,
             "metadata": self.metadata,
         }
-
 
 @dataclass
 class BatchSyncResult:
@@ -207,7 +202,7 @@ class BatchSyncResult:
         duration_ms: Total operation duration.
     """
 
-    adapter_results: Dict[str, SyncResult] = field(default_factory=dict)
+    adapter_results: dict[str, SyncResult] = field(default_factory=dict)
     total_synced: int = 0
     total_failed: int = 0
     duration_ms: float = 0.0
@@ -223,7 +218,7 @@ class BatchSyncResult:
         self.total_synced += result.records_synced
         self.total_failed += result.records_failed
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "adapter_results": {
@@ -233,7 +228,6 @@ class BatchSyncResult:
             "total_failed": self.total_failed,
             "duration_ms": self.duration_ms,
         }
-
 
 __all__ = [
     "SyncResult",

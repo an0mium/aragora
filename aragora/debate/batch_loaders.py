@@ -24,7 +24,7 @@ import contextvars
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Generator, Optional
 
 from aragora.performance import DataLoader, BatchResolver
 
@@ -35,7 +35,6 @@ _loaders_context: contextvars.ContextVar[Optional["DebateLoaders"]] = contextvar
     "debate_loaders", default=None
 )
 
-
 @dataclass
 class ELORating:
     """ELO rating data for an agent."""
@@ -45,8 +44,7 @@ class ELORating:
     games_played: int
     wins: int
     losses: int
-    last_updated: Optional[str] = None
-
+    last_updated: str | None = None
 
 @dataclass
 class AgentStats:
@@ -57,8 +55,7 @@ class AgentStats:
     win_rate: float
     avg_confidence: float
     avg_response_time_ms: float
-    domains: List[str]
-
+    domains: list[str]
 
 class DebateLoaders:
     """
@@ -73,9 +70,9 @@ class DebateLoaders:
 
     def __init__(
         self,
-        elo_system: Optional[Any] = None,
-        agent_registry: Optional[Any] = None,
-        debate_store: Optional[Any] = None,
+        elo_system: Any | None = None,
+        agent_registry: Any | None = None,
+        debate_store: Any | None = None,
         max_batch_size: int = 50,
     ):
         """
@@ -91,15 +88,15 @@ class DebateLoaders:
         self._agent_registry = agent_registry
         self._debate_store = debate_store
         self._max_batch_size = max_batch_size
-        self._token: Optional[contextvars.Token] = None
+        self._token: contextvars.Token | None = None
 
         # Initialize loaders
-        self._elo_loader: Optional[DataLoader[str, Optional[ELORating]]] = None
-        self._stats_loader: Optional[DataLoader[str, Optional[AgentStats]]] = None
+        self._elo_loader: Optional[DataLoader[str, ELORating | None]] = None
+        self._stats_loader: Optional[DataLoader[str, AgentStats | None]] = None
         self._resolver = BatchResolver()
 
     @property
-    def elo(self) -> DataLoader[str, Optional[ELORating]]:
+    def elo(self) -> DataLoader[str, ELORating | None]:
         """Get ELO rating loader."""
         if self._elo_loader is None:
             self._elo_loader = DataLoader(
@@ -110,7 +107,7 @@ class DebateLoaders:
         return self._elo_loader
 
     @property
-    def stats(self) -> DataLoader[str, Optional[AgentStats]]:
+    def stats(self) -> DataLoader[str, AgentStats | None]:
         """Get agent stats loader."""
         if self._stats_loader is None:
             self._stats_loader = DataLoader(
@@ -120,7 +117,7 @@ class DebateLoaders:
             )
         return self._stats_loader
 
-    async def _batch_load_elo(self, agent_names: List[str]) -> List[Optional[ELORating]]:
+    async def _batch_load_elo(self, agent_names: list[str]) -> list[ELORating | None]:
         """
         Batch load ELO ratings for multiple agents.
 
@@ -145,7 +142,7 @@ class DebateLoaders:
                 ]
 
             # Fall back to individual lookups (still batched at DataLoader level)
-            results: List[Optional[ELORating]] = []
+            results: list[ELORating | None] = []
             for name in agent_names:
                 try:
                     if hasattr(self._elo_system, "get_rating"):
@@ -162,7 +159,7 @@ class DebateLoaders:
             logger.warning(f"Batch ELO load failed: {e}")
             return [None] * len(agent_names)
 
-    async def _batch_load_stats(self, agent_names: List[str]) -> List[Optional[AgentStats]]:
+    async def _batch_load_stats(self, agent_names: list[str]) -> list[AgentStats | None]:
         """
         Batch load statistics for multiple agents.
 
@@ -185,7 +182,7 @@ class DebateLoaders:
                 return [self._dict_to_stats(agent, stats_dict.get(agent)) for agent in agent_names]
 
             # Fall back to individual lookups
-            results: List[Optional[AgentStats]] = []
+            results: list[AgentStats | None] = []
             for name in agent_names:
                 try:
                     if hasattr(self._debate_store, "get_agent_stats"):
@@ -202,7 +199,7 @@ class DebateLoaders:
             logger.warning(f"Batch stats load failed: {e}")
             return [None] * len(agent_names)
 
-    def _elo_to_rating(self, agent_name: str, data: Optional[Any]) -> Optional[ELORating]:
+    def _elo_to_rating(self, agent_name: str, data: Any | None) -> ELORating | None:
         """Convert raw ELO data to ELORating dataclass."""
         if data is None:
             return None
@@ -232,7 +229,7 @@ class DebateLoaders:
 
         return None
 
-    def _dict_to_stats(self, agent_name: str, data: Optional[Dict]) -> Optional[AgentStats]:
+    def _dict_to_stats(self, agent_name: str, data: dict | None) -> AgentStats | None:
         """Convert raw stats dict to AgentStats dataclass."""
         if data is None:
             return None
@@ -266,7 +263,7 @@ class DebateLoaders:
             self._stats_loader.clear()
         self._resolver.clear_all()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics for all loaders."""
         stats = {}
         if self._elo_loader:
@@ -288,17 +285,15 @@ class DebateLoaders:
             self._token = None
         self.clear()
 
-
-def get_debate_loaders() -> Optional[DebateLoaders]:
+def get_debate_loaders() -> DebateLoaders | None:
     """Get the current request-scoped debate loaders."""
     return _loaders_context.get()
 
-
 @contextmanager
 def debate_loader_context(
-    elo_system: Optional[Any] = None,
-    agent_registry: Optional[Any] = None,
-    debate_store: Optional[Any] = None,
+    elo_system: Any | None = None,
+    agent_registry: Any | None = None,
+    debate_store: Any | None = None,
     max_batch_size: int = 50,
 ) -> Generator[DebateLoaders, None, None]:
     """
@@ -325,7 +320,6 @@ def debate_loader_context(
     )
     with loaders:
         yield loaders
-
 
 __all__ = [
     "DebateLoaders",

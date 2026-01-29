@@ -22,10 +22,9 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class QualityScore:
@@ -59,7 +58,6 @@ class QualityScore:
         """Check if response needs human/LLM review."""
         return self.overall < 0.5 or self.confidence < 0.3
 
-
 @dataclass
 class QualityScorerConfig:
     """Configuration for quality scorer."""
@@ -78,7 +76,6 @@ class QualityScorerConfig:
     # Use embedding similarity for relevance
     use_embeddings: bool = True
 
-
 class QualityScorer:
     """Fast quality scorer for response evaluation.
 
@@ -90,14 +87,14 @@ class QualityScorer:
     Much faster than LLM evaluation (~100x), good for filtering.
     """
 
-    def __init__(self, config: Optional[QualityScorerConfig] = None):
+    def __init__(self, config: QualityScorerConfig | None = None):
         """Initialize the quality scorer.
 
         Args:
             config: Scorer configuration
         """
         self.config = config or QualityScorerConfig()
-        self._embedding_service: Optional[Any] = None
+        self._embedding_service: Any | None = None
 
     def _get_embedding_service(self):
         """Lazy load embedding service."""
@@ -261,7 +258,7 @@ class QualityScorer:
     def _score_relevance(
         self,
         text: str,
-        context: Optional[str],
+        context: str | None,
         features: dict[str, float],
     ) -> float:
         """Score response relevance to context."""
@@ -290,7 +287,7 @@ class QualityScorer:
     def score(
         self,
         text: str,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> QualityScore:
         """Score a single response.
 
@@ -347,7 +344,7 @@ class QualityScorer:
         self,
         texts: Sequence[str],
         contexts: Optional[Sequence[str]] = None,
-    ) -> List[QualityScore]:
+    ) -> list[QualityScore]:
         """Score multiple responses.
 
         Args:
@@ -367,7 +364,7 @@ class QualityScorer:
         texts: Sequence[str],
         threshold: float = 0.7,
         contexts: Optional[Sequence[str]] = None,
-    ) -> List[tuple[str, QualityScore]]:
+    ) -> list[tuple[str, QualityScore]]:
         """Filter texts by quality threshold.
 
         Args:
@@ -381,10 +378,8 @@ class QualityScorer:
         scores = self.score_batch(texts, contexts)
         return [(text, score) for text, score in zip(texts, scores) if score.overall >= threshold]
 
-
 # Global instance
-_quality_scorer: Optional[QualityScorer] = None
-
+_quality_scorer: QualityScorer | None = None
 
 def get_quality_scorer() -> QualityScorer:
     """Get or create the global quality scorer instance."""

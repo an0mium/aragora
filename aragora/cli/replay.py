@@ -3,17 +3,16 @@ Aragora replay command - Replay stored debates.
 
 View and replay previously recorded debate sessions.
 """
+from __future__ import annotations
 
 import json
 import time
 from pathlib import Path
-from typing import Optional
 
 from aragora.spectate.events import SpectatorEvents
 from aragora.spectate.stream import SpectatorStream
 
-
-def find_replay_files(directory: Optional[str] = None) -> list[Path]:
+def find_replay_files(directory: str | None = None) -> list[Path]:
     """Find all replay files in the given directory."""
     if directory:
         base = Path(directory)
@@ -31,8 +30,7 @@ def find_replay_files(directory: Optional[str] = None) -> list[Path]:
 
     return sorted(base.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
 
-
-def load_replay(filepath: Path) -> Optional[dict]:
+def load_replay(filepath: Path) -> dict | None:
     """Load a replay file."""
     try:
         with open(filepath) as f:
@@ -40,7 +38,6 @@ def load_replay(filepath: Path) -> Optional[dict]:
     except (json.JSONDecodeError, OSError) as e:
         print(f"Error loading replay: {e}")
         return None
-
 
 def format_duration(seconds: float) -> str:
     """Format duration in human-readable form."""
@@ -52,7 +49,6 @@ def format_duration(seconds: float) -> str:
         hours = int(seconds // 3600)
         mins = int((seconds % 3600) // 60)
         return f"{hours}h {mins}m"
-
 
 def cmd_replay(args) -> None:
     """Handle 'replay' command."""
@@ -66,7 +62,6 @@ def cmd_replay(args) -> None:
         _play_replay(args)
     else:
         _list_replays(args)
-
 
 def _list_replays(args) -> None:
     """List available replay files."""
@@ -104,7 +99,6 @@ def _list_replays(args) -> None:
         print(f"\n  ... and {len(replays) - limit} more")
 
     print()
-
 
 def _show_replay(args) -> None:
     """Show details of a specific replay."""
@@ -160,7 +154,6 @@ def _show_replay(args) -> None:
     critiques = replay.get("critiques", [])
     print(f"\nMessages: {len(messages)} | Critiques: {len(critiques)}")
     print()
-
 
 def _play_replay(args) -> None:
     """Play back a replay with spectator output."""

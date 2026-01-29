@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import uuid as uuid_lib
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from aragora.knowledge.mound.vector_abstraction.base import (
     BaseVectorStore,
@@ -39,7 +39,6 @@ try:
 except ImportError:
     QDRANT_AVAILABLE = False
     logger.debug("qdrant-client not available - install with: pip install qdrant-client")
-
 
 class QdrantVectorStore(BaseVectorStore):
     """
@@ -71,7 +70,7 @@ class QdrantVectorStore(BaseVectorStore):
         config.backend = VectorBackend.QDRANT
         super().__init__(config)
 
-        self._client: Optional[AsyncQdrantClient] = None
+        self._client: AsyncQdrantClient | None = None
 
     # -------------------------------------------------------------------------
     # Connection Management
@@ -132,7 +131,7 @@ class QdrantVectorStore(BaseVectorStore):
     async def create_collection(
         self,
         name: str,
-        schema: Optional[dict[str, Any]] = None,
+        schema: dict[str, Any] | None = None,
     ) -> None:
         """Create a new collection."""
         if not self._client:
@@ -199,8 +198,8 @@ class QdrantVectorStore(BaseVectorStore):
         id: str,
         embedding: list[float],
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> str:
         """Insert or update a vector."""
         if not self._client:
@@ -231,7 +230,7 @@ class QdrantVectorStore(BaseVectorStore):
     async def upsert_batch(
         self,
         items: Sequence[dict[str, Any]],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[str]:
         """Batch upsert multiple vectors."""
         if not self._client:
@@ -268,7 +267,7 @@ class QdrantVectorStore(BaseVectorStore):
     async def delete(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """Delete vectors by ID."""
         if not self._client:
@@ -286,7 +285,7 @@ class QdrantVectorStore(BaseVectorStore):
     async def delete_by_filter(
         self,
         filters: dict[str, Any],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> int:
         """Delete vectors matching filter criteria."""
         if not self._client:
@@ -312,8 +311,8 @@ class QdrantVectorStore(BaseVectorStore):
         self,
         embedding: list[float],
         limit: int = 10,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
         min_score: float = 0.0,
     ) -> list[VectorSearchResult]:
         """Search for similar vectors."""
@@ -355,8 +354,8 @@ class QdrantVectorStore(BaseVectorStore):
         embedding: list[float],
         limit: int = 10,
         alpha: float = 0.5,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """
         Hybrid search combining vector and text matching.
@@ -412,8 +411,8 @@ class QdrantVectorStore(BaseVectorStore):
     async def get_by_id(
         self,
         id: str,
-        namespace: Optional[str] = None,
-    ) -> Optional[VectorSearchResult]:
+        namespace: str | None = None,
+    ) -> VectorSearchResult | None:
         """Get a specific vector by ID."""
         if not self._client:
             raise ConnectionError("Not connected to Qdrant")
@@ -446,7 +445,7 @@ class QdrantVectorStore(BaseVectorStore):
     async def get_by_ids(
         self,
         ids: Sequence[str],
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> list[VectorSearchResult]:
         """Get multiple vectors by ID."""
         if not self._client:
@@ -480,8 +479,8 @@ class QdrantVectorStore(BaseVectorStore):
 
     async def count(
         self,
-        filters: Optional[dict[str, Any]] = None,
-        namespace: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        namespace: str | None = None,
     ) -> int:
         """Count vectors matching optional filters."""
         if not self._client:
@@ -539,9 +538,9 @@ class QdrantVectorStore(BaseVectorStore):
 
     def _build_filter(
         self,
-        filters: Optional[dict[str, Any]],
-        namespace: Optional[str],
-    ) -> Optional[Filter]:
+        filters: dict[str, Any] | None,
+        namespace: str | None,
+    ) -> Filter | None:
         """Build Qdrant filter from dict."""
         conditions = []
 

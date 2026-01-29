@@ -9,7 +9,7 @@ and adapted for multi-agent debate ranking.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from aragora.config import ELO_INITIAL_RATING, ELO_K_FACTOR
 
@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 # Re-export config values for convenience
 DEFAULT_ELO = ELO_INITIAL_RATING
 K_FACTOR = ELO_K_FACTOR
-
 
 def expected_score(elo_a: float, elo_b: float) -> float:
     """
@@ -36,7 +35,6 @@ def expected_score(elo_a: float, elo_b: float) -> float:
         Expected score for player A (0.0 to 1.0)
     """
     return 1 / (1 + 10 ** ((elo_b - elo_a) / 400))
-
 
 def calculate_new_elo(
     current_elo: float,
@@ -60,7 +58,6 @@ def calculate_new_elo(
         New ELO rating
     """
     return current_elo + k * (actual - expected)
-
 
 def calculate_pairwise_elo_changes(
     participants: list[str],
@@ -130,15 +127,14 @@ def calculate_pairwise_elo_changes(
 
     return elo_changes
 
-
 def apply_elo_changes(
     elo_changes: dict[str, float],
     ratings: dict[str, "AgentRating"],
-    winner: Optional[str],
-    domain: Optional[str] = None,
-    debate_id: Optional[str] = None,
+    winner: str | None,
+    domain: str | None = None,
+    debate_id: str | None = None,
     default_elo: float = DEFAULT_ELO,
-) -> tuple[list["AgentRating"], list[tuple[str, float, Optional[str]]]]:
+) -> tuple[list["AgentRating"], list[tuple[str, float, str | None]]]:
     """
     Apply ELO changes to ratings and prepare for batch save.
 
@@ -159,7 +155,7 @@ def apply_elo_changes(
         - history_entries: List of (agent_name, new_elo, debate_id) tuples
     """
     ratings_to_save = []
-    history_entries: list[tuple[str, float, Optional[str]]] = []
+    history_entries: list[tuple[str, float, str | None]] = []
     now = datetime.now().isoformat()
 
     for agent_name, change in elo_changes.items():
@@ -186,7 +182,6 @@ def apply_elo_changes(
 
     return ratings_to_save, history_entries
 
-
 def calculate_win_probability(elo_a: float, elo_b: float) -> float:
     """
     Calculate probability that player A beats player B.
@@ -202,7 +197,6 @@ def calculate_win_probability(elo_a: float, elo_b: float) -> float:
         Probability of A winning (0.0 to 1.0)
     """
     return expected_score(elo_a, elo_b)
-
 
 def elo_diff_for_probability(target_probability: float) -> float:
     """
@@ -225,7 +219,6 @@ def elo_diff_for_probability(target_probability: float) -> float:
     import math
 
     return 400 * math.log10(target_probability / (1 - target_probability))
-
 
 __all__ = [
     "DEFAULT_ELO",
