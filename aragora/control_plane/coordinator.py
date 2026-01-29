@@ -1735,11 +1735,11 @@ class ControlPlaneCoordinator:
 
             # If no agents provided, select from registry
             if not agents:
-                capabilities: List[str | AgentCapability] = (
-                    task.required_capabilities  # type: ignore[assignment]
-                    if hasattr(task, "required_capabilities")
-                    else ["debate"]
+                # Get required_capabilities from task, defaulting to ["debate"]
+                raw_capabilities: List[str] = getattr(
+                    task, "required_capabilities", ["debate"]
                 )
+                capabilities: List[str | AgentCapability] = list(raw_capabilities)
                 selected_agents: list[Any] = []
                 for _ in range(task.sla.min_agents if hasattr(task, "sla") else 2):
                     agent_info = await self.select_agent(

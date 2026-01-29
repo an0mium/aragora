@@ -819,19 +819,32 @@ class OrchestrationHandler(SecureHandler):
         return None
 
     async def _fetch_github_context(self, source: KnowledgeContextSource) -> Optional[str]:
-        """Fetch content from a GitHub PR or issue."""
+        """Fetch content from a GitHub PR or issue.
+
+        Uses the GitHubConnector's search method to retrieve content.
+        source_id format: owner/repo/pr/123 or owner/repo/issue/123
+        """
         try:
             from aragora.connectors.github import GitHubConnector
 
-            connector = GitHubConnector()
             # source_id format: owner/repo/pr/123 or owner/repo/issue/123
             parts = source.source_id.split("/")
             if len(parts) >= 4:
                 owner, repo, item_type, number = parts[0], parts[1], parts[2], parts[3]
-                if item_type == "pr":
-                    return await connector.get_pr_content(owner, repo, int(number))  # type: ignore[attr-defined]
-                elif item_type == "issue":
-                    return await connector.get_issue_content(owner, repo, int(number))  # type: ignore[attr-defined]
+                full_repo = f"{owner}/{repo}"
+                connector = GitHubConnector(repo=full_repo)
+
+                # Use search to find the specific PR/issue
+                search_type = "prs" if item_type == "pr" else "issues"
+                results = await connector.search(
+                    query=f"#{number}",
+                    limit=1,
+                    search_type=search_type,
+                )
+                if results:
+                    # Evidence objects have content attribute
+                    return str(getattr(results[0], "content", ""))
+            return None
         except Exception as e:
             logger.warning(f"Failed to fetch GitHub context: {e}")
         return None

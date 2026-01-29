@@ -8,19 +8,35 @@ Provides label management (list, create, add), message modification
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
 
 from ..models import GmailLabel
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 
 
-class GmailLabelsMixin:
-    """Mixin providing label management and message action operations."""
+class GmailBaseMethods(Protocol):
+    """Protocol defining expected methods from base classes for type checking."""
 
-    # Expected attributes from concrete class
     user_id: str
+
+    async def _get_access_token(self) -> str: ...
+    async def _api_request(self, endpoint: str, method: str = "GET", **kwargs: Any) -> Dict[str, Any]: ...
+    @asynccontextmanager
+    def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
+    def check_circuit_breaker(self) -> bool: ...
+    def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
+    def record_success(self) -> None: ...
+    def record_failure(self) -> None: ...
+
+
+class GmailLabelsMixin(GmailBaseMethods):
+    """Mixin providing label management and message action operations."""
 
     async def list_labels(self) -> List[GmailLabel]:
         """List all Gmail labels."""
