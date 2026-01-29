@@ -145,14 +145,18 @@ class ConvoyTracker:
         status: ConvoyStatus,
         merge_result: dict[str, Any] | None = None,
         error: str | None = None,
+        extra_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        metadata: dict[str, Any] = {
-            "workspace_id": workspace_id,
-            "rig_id": rig_id,
-            "workspace_name": name,
-            "workspace_description": description,
-            "workspace_status": status.value,
-        }
+        metadata: dict[str, Any] = dict(extra_metadata or {})
+        metadata.update(
+            {
+                "workspace_id": workspace_id,
+                "rig_id": rig_id,
+                "workspace_name": name,
+                "workspace_description": description,
+                "workspace_status": status.value,
+            }
+        )
         if merge_result is not None:
             metadata["merge_result"] = merge_result
         if error:
@@ -188,6 +192,8 @@ class ConvoyTracker:
         description: str = "",
         bead_ids: list[str] | None = None,
         convoy_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        assigned_agents: list[str] | None = None,
     ) -> Convoy:
         """Create a new convoy."""
         if self._use_nomic_store and self._nomic_manager:
@@ -198,6 +204,7 @@ class ConvoyTracker:
                 name=name,
                 description=description,
                 status=ConvoyStatus.CREATED,
+                extra_metadata=metadata,
             )
             nomic_convoy = await self._nomic_manager.create_convoy(
                 title=name or "Untitled Convoy",
@@ -206,6 +213,11 @@ class ConvoyTracker:
                 metadata=metadata,
                 convoy_id=convoy_id,
             )
+            if assigned_agents:
+                nomic_convoy = await self._nomic_manager.update_convoy(
+                    nomic_convoy.id,
+                    assigned_to=assigned_agents,
+                )
             return self._from_nomic_convoy(nomic_convoy)
 
         if convoy_id is None:
@@ -220,6 +232,8 @@ class ConvoyTracker:
             name=name,
             description=description,
             bead_ids=bead_ids or [],
+            assigned_agents=list(assigned_agents or []),
+            metadata=dict(metadata or {}),
         )
         self._convoys[convoy_id] = convoy
         logger.info(f"Created convoy {convoy_id} with {len(convoy.bead_ids)} beads")
@@ -431,11 +445,12 @@ class ConvoyTracker:
         workspace_id: str | None = None,
         rig_id: str | None = None,
         status: ConvoyStatus | None = None,
+        agent_id: str | None = None,
     ) -> list[Convoy]:
         """List convoys with optional filters."""
         if self._use_nomic_store and self._nomic_manager:
             await self._ensure_nomic_manager()
-            convoys = await self._nomic_manager.list_convoys()
+            convoys = await self._nomic_manager.list_convoys(agent_id=agent_id)
             results: list[Convoy] = []
             for nomic_convoy in convoys:
                 workspace_convoy = self._from_nomic_convoy(nomic_convoy)
@@ -444,6 +459,8 @@ class ConvoyTracker:
                 if rig_id and workspace_convoy.rig_id != rig_id:
                     continue
                 if status and workspace_convoy.status != status:
+                    continue
+                if agent_id and agent_id not in workspace_convoy.assigned_agents:
                     continue
                 results.append(workspace_convoy)
             return results
@@ -456,8 +473,40 @@ class ConvoyTracker:
                 continue
             if status and convoy.status != status:
                 continue
+            if agent_id and agent_id not in convoy.assigned_agents:
+                continue
             results.append(convoy)
         return results
+
+    async def update_metadata(
+        self,
+        convoy_id: str,
+        metadata_updates: dict[str, Any] | None = None,
+        assigned_agents: list[str] | None = None,
+    ) -> Convoy | None:
+        """Update convoy metadata and assigned agents."""
+        if self._use_nomic_store and self._nomic_manager:
+            await self._ensure_nomic_manager()
+            nomic_convoy = await self._nomic_manager.update_convoy(
+                convoy_id,
+                metadata_updates=metadata_updates,
+                assigned_to=assigned_agents,
+            )
+            return self._from_nomic_convoy(nomic_convoy)
+
+        convoy = self._convoys.get(convoy_id)
+        if not convoy:
+            return None
+        if metadata_updates:
+            for key, value in metadata_updates.items():
+                if value is None:
+                    convoy.metadata.pop(key, None)
+                else:
+                    convoy.metadata[key] = value
+        if assigned_agents is not None:
+            convoy.assigned_agents = list(assigned_agents)
+        convoy.updated_at = time.time()
+        return convoy
 
     async def get_stats(self) -> dict[str, Any]:
         """Get convoy tracker statistics."""
