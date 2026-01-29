@@ -175,141 +175,160 @@ class TestAuthHandlerRouting:
         mock.command = "POST"
         return mock
 
-    def test_register_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_register_routes_to_handler(self, handler, mock_http):
         """Register POST routes to _handle_register."""
         with patch.object(handler, "_handle_register") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/register", {}, mock_http, "POST")
+            await handler.handle("/api/auth/register", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_login_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_login_routes_to_handler(self, handler, mock_http):
         """Login POST routes to _handle_login."""
         with patch.object(handler, "_handle_login") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/login", {}, mock_http, "POST")
+            await handler.handle("/api/auth/login", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_logout_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_logout_routes_to_handler(self, handler, mock_http):
         """Logout POST routes to _handle_logout."""
         with patch.object(handler, "_handle_logout") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/logout", {}, mock_http, "POST")
+            await handler.handle("/api/auth/logout", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_logout_all_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_logout_all_routes_to_handler(self, handler, mock_http):
         """Logout-all POST routes to _handle_logout_all."""
         with patch.object(handler, "_handle_logout_all") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/logout-all", {}, mock_http, "POST")
+            await handler.handle("/api/auth/logout-all", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_refresh_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_refresh_routes_to_handler(self, handler, mock_http):
         """Refresh POST routes to _handle_refresh."""
         with patch.object(handler, "_handle_refresh") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/refresh", {}, mock_http, "POST")
+            await handler.handle("/api/auth/refresh", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_me_get_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_me_get_routes_to_handler(self, handler, mock_http):
         """Me GET routes to _handle_get_me."""
         mock_http.command = "GET"
         with patch.object(handler, "_handle_get_me") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/me", {}, mock_http, "GET")
+            await handler.handle("/api/auth/me", {}, mock_http, "GET")
             mock_method.assert_called_once()
 
-    def test_me_put_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_me_put_routes_to_handler(self, handler, mock_http):
         """Me PUT routes to _handle_update_me."""
         mock_http.command = "PUT"
         with patch.object(handler, "_handle_update_me") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/me", {}, mock_http, "PUT")
+            await handler.handle("/api/auth/me", {}, mock_http, "PUT")
             mock_method.assert_called_once()
 
-    def test_password_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_password_routes_to_handler(self, handler, mock_http):
         """Password POST routes to _handle_change_password."""
         with patch.object(handler, "_handle_change_password") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/password", {}, mock_http, "POST")
+            await handler.handle("/api/auth/password", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_revoke_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_revoke_routes_to_handler(self, handler, mock_http):
         """Revoke POST routes to _handle_revoke_token."""
         with patch.object(handler, "_handle_revoke_token") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/revoke", {}, mock_http, "POST")
+            await handler.handle("/api/auth/revoke", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_api_key_post_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_api_key_post_routes_to_handler(self, handler, mock_http):
         """API key POST routes to _handle_generate_api_key."""
         with patch.object(handler, "_handle_generate_api_key") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/api-key", {}, mock_http, "POST")
+            await handler.handle("/api/auth/api-key", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_api_key_delete_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_api_key_delete_routes_to_handler(self, handler, mock_http):
         """API key DELETE routes to _handle_revoke_api_key."""
         mock_http.command = "DELETE"
         with patch.object(handler, "_handle_revoke_api_key") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/api-key", {}, mock_http, "DELETE")
+            await handler.handle("/api/auth/api-key", {}, mock_http, "DELETE")
             mock_method.assert_called_once()
 
-    def test_mfa_setup_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_mfa_setup_routes_to_handler(self, handler, mock_http):
         """MFA setup POST routes to _handle_mfa_setup."""
         with patch.object(handler, "_handle_mfa_setup") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/setup", {}, mock_http, "POST")
+            await handler.handle("/api/auth/mfa/setup", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_mfa_enable_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_mfa_enable_routes_to_handler(self, handler, mock_http):
         """MFA enable POST routes to _handle_mfa_enable."""
         with patch.object(handler, "_handle_mfa_enable") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/enable", {}, mock_http, "POST")
+            await handler.handle("/api/auth/mfa/enable", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_mfa_disable_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_mfa_disable_routes_to_handler(self, handler, mock_http):
         """MFA disable POST routes to _handle_mfa_disable."""
         with patch.object(handler, "_handle_mfa_disable") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/disable", {}, mock_http, "POST")
+            await handler.handle("/api/auth/mfa/disable", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_mfa_verify_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_mfa_verify_routes_to_handler(self, handler, mock_http):
         """MFA verify POST routes to _handle_mfa_verify."""
         with patch.object(handler, "_handle_mfa_verify") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/verify", {}, mock_http, "POST")
+            await handler.handle("/api/auth/mfa/verify", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_mfa_backup_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_mfa_backup_routes_to_handler(self, handler, mock_http):
         """MFA backup codes POST routes to _handle_mfa_backup_codes."""
         with patch.object(handler, "_handle_mfa_backup_codes") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/backup-codes", {}, mock_http, "POST")
+            await handler.handle("/api/auth/mfa/backup-codes", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
-    def test_sessions_get_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_sessions_get_routes_to_handler(self, handler, mock_http):
         """Sessions GET routes to _handle_list_sessions."""
         mock_http.command = "GET"
         with patch.object(handler, "_handle_list_sessions") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/sessions", {}, mock_http, "GET")
+            await handler.handle("/api/auth/sessions", {}, mock_http, "GET")
             mock_method.assert_called_once()
 
-    def test_session_delete_routes_to_handler(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_session_delete_routes_to_handler(self, handler, mock_http):
         """Session DELETE routes to _handle_revoke_session."""
         mock_http.command = "DELETE"
         with patch.object(handler, "_handle_revoke_session") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/sessions/abc123", {}, mock_http, "DELETE")
+            await handler.handle("/api/auth/sessions/abc123", {}, mock_http, "DELETE")
             mock_method.assert_called_once_with(mock_http, "abc123")
 
-    def test_unknown_method_returns_405(self, handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_unknown_method_returns_405(self, handler, mock_http):
         """Unknown method returns 405 error."""
         mock_http.command = "PATCH"
-        result = handler.handle("/api/auth/register", {}, mock_http, "PATCH")
+        result = await handler.handle("/api/auth/register", {}, mock_http, "PATCH")
         assert result is not None
         assert result.status_code == 405
 
@@ -409,17 +428,19 @@ class TestAuthHandlerSessionExtraction:
 
         return AuthHandler(server_context={"user_store": MagicMock()})
 
-    def test_extracts_simple_session_id(self, handler):
+    @pytest.mark.asyncio
+    async def test_extracts_simple_session_id(self, handler):
         """Extracts simple session ID from path."""
         mock_http = MagicMock()
         mock_http.command = "DELETE"
 
         with patch.object(handler, "_handle_revoke_session") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/sessions/session123", {}, mock_http, "DELETE")
+            await handler.handle("/api/auth/sessions/session123", {}, mock_http, "DELETE")
             mock_method.assert_called_with(mock_http, "session123")
 
-    def test_extracts_uuid_session_id(self, handler):
+    @pytest.mark.asyncio
+    async def test_extracts_uuid_session_id(self, handler):
         """Extracts UUID session ID from path."""
         mock_http = MagicMock()
         mock_http.command = "DELETE"
@@ -427,7 +448,7 @@ class TestAuthHandlerSessionExtraction:
 
         with patch.object(handler, "_handle_revoke_session") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle(f"/api/auth/sessions/{uuid}", {}, mock_http, "DELETE")
+            await handler.handle(f"/api/auth/sessions/{uuid}", {}, mock_http, "DELETE")
             mock_method.assert_called_with(mock_http, uuid)
 
 

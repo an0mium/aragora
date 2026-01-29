@@ -128,7 +128,7 @@ class AuthHandler(SecureHandler):
             return True
         return False
 
-    def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler, method: str = "GET"
     ) -> Optional[HandlerResult]:
         """Route auth requests to appropriate methods.
@@ -225,38 +225,38 @@ class AuthHandler(SecureHandler):
 
         if path == "/api/auth/verify-email" and method == "POST":
             data = self.read_json_body(handler) or {}
-            return handle_verify_email(data)
+            return await handle_verify_email(data)
 
         if (
             path in ("/api/auth/verify-email/resend", "/api/auth/resend-verification")
             and method == "POST"
         ):
             data = self.read_json_body(handler) or {}
-            return handle_resend_verification(data)
+            return await handle_resend_verification(data)
 
         if path == "/api/auth/setup-organization" and method == "POST":
             data = self.read_json_body(handler) or {}
             user_id, err = self._require_user_id(handler)
             if err:
                 return err
-            return handle_setup_organization(data, user_id=user_id)
+            return await handle_setup_organization(data, user_id=user_id)
 
         if path == "/api/auth/invite" and method == "POST":
             data = self.read_json_body(handler) or {}
             user_id, err = self._require_user_id(handler)
             if err:
                 return err
-            return handle_invite(data, user_id=user_id)
+            return await handle_invite(data, user_id=user_id)
 
         if path == "/api/auth/check-invite" and method == "GET":
-            return handle_check_invite(query_params or {})
+            return await handle_check_invite(query_params or {})
 
         if path == "/api/auth/accept-invite" and method == "POST":
             data = self.read_json_body(handler) or {}
             user_id, err = self._require_user_id(handler)
             if err:
                 return err
-            return handle_accept_invite(data, user_id=user_id)
+            return await handle_accept_invite(data, user_id=user_id)
 
         return error_response("Method not allowed", 405)
 
