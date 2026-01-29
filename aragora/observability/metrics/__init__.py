@@ -137,6 +137,25 @@ from aragora.observability.metrics.agent import (  # noqa: F401, E402
     track_agent_call,
 )
 
+from aragora.observability.metrics.marketplace import (  # noqa: F401, E402
+    init_marketplace_metrics,
+    set_marketplace_templates_count,
+    record_marketplace_download,
+    record_marketplace_rating,
+    record_marketplace_review,
+    record_marketplace_operation_latency,
+    track_marketplace_operation,
+)
+
+from aragora.observability.metrics.explainability import (  # noqa: F401, E402
+    init_explainability_metrics,
+    set_batch_explainability_jobs_active,
+    record_batch_explainability_job,
+    record_batch_explainability_debate,
+    record_batch_explainability_error,
+    track_batch_explainability_debate,
+)
+
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup
