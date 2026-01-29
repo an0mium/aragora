@@ -227,7 +227,7 @@ class DeviceCapabilities:
         """Check if device has all specified capabilities."""
         return all(self.has_capability(category, c) for c in capabilities)
 
-    def _get_capability_list(self, category: CapabilityCategory) -> list:
+    def _get_capability_list(self, category: CapabilityCategory) -> list[str]:
         """Get the capability list for a category."""
         mapping = {
             CapabilityCategory.AUDIO: self.audio,
