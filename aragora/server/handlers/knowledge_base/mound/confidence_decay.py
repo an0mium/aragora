@@ -13,7 +13,7 @@ Phase A2 - Knowledge Quality Assurance
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -31,14 +31,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class ConfidenceDecayOperationsMixin:
-    """Mixin providing confidence decay API endpoints."""
+class ConfidenceDecayHandlerProtocol(Protocol):
+    """Protocol for handlers that use ConfidenceDecayOperationsMixin."""
 
     ctx: Dict[str, Any]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
-        """Get the knowledge mound instance."""
-        raise NotImplementedError("Subclass must implement _get_mound")
+    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
+
+class ConfidenceDecayOperationsMixin:
+    """Mixin providing confidence decay API endpoints."""
 
     @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=10)

@@ -39,6 +39,15 @@ interface WorkflowsClientInterface {
   simulateWorkflow(workflowId: string, inputs?: Record<string, unknown>): Promise<WorkflowSimulationResult>;
   listWorkflowApprovals(params?: { workflow_id?: string; status?: string; limit?: number; offset?: number }): Promise<{ approvals: WorkflowApproval[] }>;
   resolveWorkflowApproval(approvalId: string, body: { approved: boolean; comment?: string }): Promise<WorkflowApproval>;
+  restoreWorkflowVersion(workflowId: string, version: number): Promise<Workflow>;
+  deleteWorkflowExecution(executionId: string): Promise<void>;
+  listPatternTemplates(): Promise<{ patterns: Array<{ id: string; name: string; description: string }> }>;
+  getPatternTemplate(patternId: string): Promise<Record<string, unknown>>;
+  instantiatePattern(patternId: string, body: { name: string; description: string; category?: string; config?: Record<string, unknown>; agents?: string[] }): Promise<{ template_id: string; workflow: Workflow }>;
+  listRecommendedTemplates(): Promise<{ templates: WorkflowTemplate[] }>;
+  listSMEWorkflows(params?: { category?: string; industry?: string } & PaginationParams): Promise<{ workflows: WorkflowTemplate[] }>;
+  getSMEWorkflow(workflowId: string): Promise<WorkflowTemplate>;
+  executeSMEWorkflow(workflowId: string, body: { inputs?: Record<string, unknown>; context?: Record<string, unknown>; execute?: boolean; tenant_id?: string }): Promise<{ execution_id: string }>;
 }
 
 /**
@@ -203,5 +212,68 @@ export class WorkflowsAPI {
    */
   async resolveApproval(approvalId: string, body: { approved: boolean; comment?: string }): Promise<WorkflowApproval> {
     return this.client.resolveWorkflowApproval(approvalId, body);
+  }
+
+  /**
+   * Restore a specific version of a workflow.
+   */
+  async restoreVersion(workflowId: string, version: number): Promise<Workflow> {
+    return this.client.restoreWorkflowVersion(workflowId, version);
+  }
+
+  /**
+   * Delete a workflow execution record.
+   */
+  async deleteExecution(executionId: string): Promise<void> {
+    return this.client.deleteWorkflowExecution(executionId);
+  }
+
+  /**
+   * List available pattern templates for workflow creation.
+   */
+  async listPatternTemplates(): Promise<{ patterns: Array<{ id: string; name: string; description: string }> }> {
+    return this.client.listPatternTemplates();
+  }
+
+  /**
+   * Get a specific pattern template.
+   */
+  async getPatternTemplate(patternId: string): Promise<Record<string, unknown>> {
+    return this.client.getPatternTemplate(patternId);
+  }
+
+  /**
+   * Create a workflow from a pattern template.
+   */
+  async instantiatePattern(patternId: string, body: { name: string; description: string; category?: string; config?: Record<string, unknown>; agents?: string[] }): Promise<{ template_id: string; workflow: Workflow }> {
+    return this.client.instantiatePattern(patternId, body);
+  }
+
+  /**
+   * List recommended workflow templates.
+   */
+  async listRecommended(): Promise<{ templates: WorkflowTemplate[] }> {
+    return this.client.listRecommendedTemplates();
+  }
+
+  /**
+   * List SME-specific workflow templates.
+   */
+  async listSME(params?: { category?: string; industry?: string } & PaginationParams): Promise<{ workflows: WorkflowTemplate[] }> {
+    return this.client.listSMEWorkflows(params);
+  }
+
+  /**
+   * Get an SME workflow template.
+   */
+  async getSME(workflowId: string): Promise<WorkflowTemplate> {
+    return this.client.getSMEWorkflow(workflowId);
+  }
+
+  /**
+   * Execute an SME workflow template.
+   */
+  async executeSME(workflowId: string, body: { inputs?: Record<string, unknown>; context?: Record<string, unknown>; execute?: boolean; tenant_id?: string }): Promise<{ execution_id: string }> {
+    return this.client.executeSMEWorkflow(workflowId, body);
   }
 }

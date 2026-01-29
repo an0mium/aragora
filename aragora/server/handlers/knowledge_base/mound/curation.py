@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -28,14 +28,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CurationOperationsMixin:
-    """Mixin providing curation management endpoints."""
+class CurationHandlerProtocol(Protocol):
+    """Protocol for handlers that use CurationOperationsMixin."""
 
     _mound: Optional["KnowledgeMound"]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
-        """Abstract method - implemented by main handler."""
-        raise NotImplementedError("Subclass must implement _get_mound")
+    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
+
+class CurationOperationsMixin:
+    """Mixin providing curation management endpoints."""
 
     def _check_knowledge_permission(
         self, handler: Any, action: str = "read"

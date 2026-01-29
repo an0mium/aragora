@@ -1667,6 +1667,20 @@ export class AragoraClient {
     );
   }
 
+  async restoreWorkflowVersion(workflowId: string, version: number): Promise<Workflow> {
+    return this.request<Workflow>(
+      'POST',
+      `/api/v1/workflows/${encodeURIComponent(workflowId)}/versions/${version}/restore`
+    );
+  }
+
+  async deleteWorkflowExecution(executionId: string): Promise<void> {
+    return this.request<void>(
+      'DELETE',
+      `/api/v1/workflow-executions/${encodeURIComponent(executionId)}`
+    );
+  }
+
   /**
    * Simulate (dry-run) a workflow without executing.
    */
