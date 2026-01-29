@@ -255,7 +255,7 @@ class KnowledgeFederationMixin:
         ws_id = workspace_id or self._proto.workspace_id
 
         # Get region from persistent store
-        region = await self._get_region_from_store(region_id)  # type: ignore[attr-defined]
+        region = await self._get_region_from_store(region_id)
         if not region:
             return SyncResult(
                 region_id=region_id,
@@ -374,7 +374,7 @@ class KnowledgeFederationMixin:
         ws_id = workspace_id or self._proto.workspace_id
 
         # Get region from persistent store
-        region = await self._get_region_from_store(region_id)  # type: ignore[attr-defined]
+        region = await self._get_region_from_store(region_id)
         if not region:
             return SyncResult(
                 region_id=region_id,
@@ -587,7 +587,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            configs = await store.list_all(self.workspace_id)  # type: ignore[attr-defined]
+            configs = await store.list_all(self._proto.workspace_id)
             return [
                 FederatedRegion(
                     region_id=config.region_id,
@@ -715,12 +715,13 @@ class KnowledgeFederationMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            result = await coordinator.execute_operation(  # type: ignore[call-arg,arg-type,attr-defined]
-                operation=CrossWorkspaceOperation.SYNC_CULTURE,  # type: ignore[attr-defined,arg-type]
-                from_workspace_id=self.workspace_id,  # type: ignore[arg-type,attr-defined]
+            # type: ignore for optional cross-workspace integration (incomplete stubs)
+            result = await coordinator.execute_operation(
+                operation=CrossWorkspaceOperation.SYNC_CULTURE,
+                from_workspace_id=self._proto.workspace_id,
                 to_workspace_id=f"region:{region.region_id}",
                 payload={"items": items},
-            )
+            )  # type: ignore[arg-type,attr-defined,call-arg]
 
             return result.get("synced_count", len(items))
         except ImportError:
@@ -744,12 +745,13 @@ class KnowledgeFederationMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            result = await coordinator.execute_operation(  # type: ignore[call-arg,arg-type,attr-defined]
-                operation=CrossWorkspaceOperation.QUERY_MOUND,  # type: ignore[attr-defined,arg-type]
-                from_workspace_id=self.workspace_id,  # type: ignore[arg-type,attr-defined]
+            # type: ignore for optional cross-workspace integration (incomplete stubs)
+            result = await coordinator.execute_operation(
+                operation=CrossWorkspaceOperation.QUERY_MOUND,
+                from_workspace_id=self._proto.workspace_id,
                 to_workspace_id=f"region:{region.region_id}",
                 payload={"since": since.isoformat() if since else None},
-            )
+            )  # type: ignore[arg-type,attr-defined,call-arg]
 
             return result.get("items", [])
         except ImportError:
