@@ -279,9 +279,18 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
     try:
         moltbot_path = storage_path / "moltbot" if storage_path else None
 
+        canonical_gateway = None
+        if os.getenv("MOLTBOT_CANONICAL_GATEWAY", "0") == "1":
+            from aragora.gateway.canonical_api import GatewayRuntime
+
+            canonical_gateway = GatewayRuntime()
+
         # Initialize components
         inbox = (
-            InboxManager(storage_path=moltbot_path / "inbox" if moltbot_path else None)
+            InboxManager(
+                storage_path=moltbot_path / "inbox" if moltbot_path else None,
+                gateway_inbox=canonical_gateway.inbox if canonical_gateway else None,
+            )
             if InboxManager
             else None
         )
@@ -290,6 +299,8 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
             LocalGateway(
                 gateway_id=os.getenv("ARAGORA_GATEWAY_ID", "default"),
                 storage_path=moltbot_path / "gateway" if moltbot_path else None,
+                registry=canonical_gateway.registry if canonical_gateway else None,
+                mirror_registry=bool(canonical_gateway),
             )
             if LocalGateway
             else None
@@ -311,7 +322,11 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
             else None
         )
 
-        moltbot_adapter = MoltbotGatewayAdapter() if MoltbotGatewayAdapter else None
+        moltbot_adapter = (
+            MoltbotGatewayAdapter(gateway=canonical_gateway)
+            if MoltbotGatewayAdapter
+            else None
+        )
 
         if inbox or gateway:
             logger.info("[extensions] Moltbot extension initialized")
