@@ -2220,6 +2220,90 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "cache_hit_rate": {"type": "number"},
         },
     },
+    "MemoryEntry": {
+        "type": "object",
+        "description": "A single memory entry from the continuum store",
+        "properties": {
+            "id": {"type": "string", "description": "Unique memory ID"},
+            "content": {"type": "string", "description": "Memory content"},
+            "tier": {
+                "type": "string",
+                "enum": ["fast", "medium", "slow", "glacial"],
+                "description": "Memory tier",
+            },
+            "created_at": {"type": "string", "format": "date-time"},
+            "expires_at": {"type": "string", "format": "date-time"},
+            "relevance_score": {"type": "number", "description": "Relevance to query 0-1"},
+            "metadata": {"type": "object", "additionalProperties": True},
+        },
+        "required": ["id", "content", "tier"],
+    },
+    "MemoryRetrievalResponse": {
+        "type": "object",
+        "description": "Response from memory retrieval",
+        "properties": {
+            "memories": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/MemoryEntry"},
+            },
+            "total": {"type": "integer"},
+            "tier": {"type": "string"},
+            "query": {"type": "string"},
+        },
+    },
+    "MemoryTierStats": {
+        "type": "object",
+        "description": "Statistics for a single memory tier",
+        "properties": {
+            "tier": {"type": "string", "enum": ["fast", "medium", "slow", "glacial"]},
+            "count": {"type": "integer"},
+            "size_bytes": {"type": "integer"},
+            "oldest_entry": {"type": "string", "format": "date-time"},
+            "newest_entry": {"type": "string", "format": "date-time"},
+            "avg_age_seconds": {"type": "number"},
+        },
+    },
+    "MemoryTierStatsResponse": {
+        "type": "object",
+        "description": "Statistics for all memory tiers",
+        "properties": {
+            "tiers": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/MemoryTierStats"},
+            },
+            "total_memories": {"type": "integer"},
+            "total_size_bytes": {"type": "integer"},
+        },
+    },
+    "MemoryArchiveStats": {
+        "type": "object",
+        "description": "Archive statistics",
+        "properties": {
+            "archived_count": {"type": "integer"},
+            "archive_size_bytes": {"type": "integer"},
+            "oldest_archive": {"type": "string", "format": "date-time"},
+            "compression_ratio": {"type": "number"},
+        },
+    },
+    "MemoryConsolidationResult": {
+        "type": "object",
+        "description": "Result of memory consolidation",
+        "properties": {
+            "memories_processed": {"type": "integer"},
+            "memories_promoted": {"type": "integer"},
+            "memories_demoted": {"type": "integer"},
+            "duration_ms": {"type": "integer"},
+        },
+    },
+    "MemoryCleanupResult": {
+        "type": "object",
+        "description": "Result of memory cleanup",
+        "properties": {
+            "memories_removed": {"type": "integer"},
+            "bytes_freed": {"type": "integer"},
+            "duration_ms": {"type": "integer"},
+        },
+    },
     # ==========================================================================
     # Knowledge Mound Response Schemas
     # ==========================================================================
