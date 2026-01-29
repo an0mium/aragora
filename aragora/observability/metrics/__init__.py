@@ -27,7 +27,39 @@ _spec.loader.exec_module(_metrics_module)
 from _aragora_metrics_impl import *  # noqa: F401, F403, E402
 
 # Explicitly re-export private functions used by tests (not included in * import)
-from _aragora_metrics_impl import _init_metrics, _init_noop_metrics  # noqa: F401, E402
+from _aragora_metrics_impl import _init_metrics as _impl_init_metrics  # noqa: F401, E402
+from _aragora_metrics_impl import _init_noop_metrics as _impl_init_noop_metrics  # noqa: F401, E402
+from _aragora_metrics_impl import _normalize_endpoint as _impl_normalize_endpoint  # noqa: F401, E402
+
+# Keep package-level attributes in sync with the implementation module.
+_SYNC_NAMES = set(getattr(_metrics_module, "__all__", []))
+_SYNC_NAMES.update({"_initialized", "_metrics_server", "_normalize_endpoint"})
+
+
+def _sync_public_attrs() -> None:
+    for name in _SYNC_NAMES:
+        if hasattr(_metrics_module, name):
+            globals()[name] = getattr(_metrics_module, name)
+
+
+def _init_metrics() -> bool:  # type: ignore[override]
+    result = _impl_init_metrics()
+    _sync_public_attrs()
+    return result
+
+
+def _init_noop_metrics() -> None:  # type: ignore[override]
+    _impl_init_noop_metrics()
+    _sync_public_attrs()
+
+
+def init_core_metrics():  # type: ignore[override]
+    result = _metrics_module.init_core_metrics()
+    _sync_public_attrs()
+    return result
+
+
+_normalize_endpoint = _impl_normalize_endpoint
 
 # Also import from submodules for explicit access
 from aragora.observability.metrics.base import (  # noqa: F401, E402
@@ -109,7 +141,7 @@ from aragora.observability.metrics.agent import (  # noqa: F401, E402
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup
     start_metrics_server,
-    init_core_metrics,
+    # NOTE: init_core_metrics is wrapped above (line 56) to sync public attrs
     # Core recording functions
     measure_async_latency,
     measure_latency,

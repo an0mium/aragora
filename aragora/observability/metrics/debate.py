@@ -178,7 +178,7 @@ def record_agent_participation(agent: str, role: str) -> None:
     AGENT_PARTICIPATION.labels(agent=agent, role=role).inc()
 
 
-def record_slow_debate(severity: str) -> None:
+def record_slow_debate(severity: str = "warning") -> None:
     """Record a slow debate.
 
     Args:
@@ -188,7 +188,7 @@ def record_slow_debate(severity: str) -> None:
     SLOW_DEBATES_TOTAL.labels(severity=severity).inc()
 
 
-def record_slow_round(phase: str) -> None:
+def record_slow_round(phase: str = "unknown") -> None:
     """Record a slow round.
 
     Args:
@@ -206,6 +206,14 @@ def record_round_latency(latency_seconds: float) -> None:
     """
     _ensure_init()
     DEBATE_ROUND_LATENCY.observe(latency_seconds)
+
+
+# Backwards-compatible aliases
+record_debate_completion_v2 = record_debate_completion
+record_phase_duration_v2 = record_phase_duration
+record_agent_participation_v2 = record_agent_participation
+record_slow_round_v2 = record_slow_round
+record_round_latency_v2 = record_round_latency
 
 
 def set_active_debates(count: int) -> None:

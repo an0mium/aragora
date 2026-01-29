@@ -221,6 +221,17 @@ class QueryPlanAnalyzer:
                 table=table,
             )
 
+        # Check for ORDER BY without index hint
+        if "ORDER BY" in upper_query and table in self.KNOWN_LARGE_TABLES:
+            if duration_ms > self.slow_threshold_ms * 2:  # Extra slow
+                return QueryPlanIssue(
+                    query=query,
+                    duration_ms=duration_ms,
+                    issue="slow_order_by",
+                    suggestion=f"Slow ORDER BY on '{table}'. Consider adding index on sort columns.",
+                    table=table,
+                )
+
         # Check for missing WHERE clause on large tables
         if (
             "WHERE" not in upper_query
@@ -234,17 +245,6 @@ class QueryPlanAnalyzer:
                 suggestion=f"Query on large table '{table}' without WHERE clause.",
                 table=table,
             )
-
-        # Check for ORDER BY without index hint
-        if "ORDER BY" in upper_query and table in self.KNOWN_LARGE_TABLES:
-            if duration_ms > self.slow_threshold_ms * 2:  # Extra slow
-                return QueryPlanIssue(
-                    query=query,
-                    duration_ms=duration_ms,
-                    issue="slow_order_by",
-                    suggestion=f"Slow ORDER BY on '{table}'. Consider adding index on sort columns.",
-                    table=table,
-                )
 
         # Check for IN clause with many values
         in_match = re.search(r"IN\s*\(([^)]+)\)", query)
