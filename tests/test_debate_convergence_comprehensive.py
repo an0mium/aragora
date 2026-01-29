@@ -17,8 +17,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.conftest import requires_sklearn, REQUIRES_SKLEARN
-
 from aragora.debate.convergence import (
     AdvancedConvergenceAnalyzer,
     AdvancedConvergenceMetrics,

@@ -15,9 +15,6 @@ from __future__ import annotations
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-# Import centralized skip markers
-from tests.conftest import requires_sklearn, REQUIRES_SKLEARN
-
 from aragora.debate.convergence import (
     SimilarityBackend,
     JaccardBackend,
