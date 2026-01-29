@@ -433,9 +433,12 @@ class TestDebateCreateRequest:
 
     def test_defaults(self):
         """Test default values."""
+        from aragora.config import DEFAULT_AGENTS
+
+        expected_agents = [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
         request = DebateCreateRequest(task="Test task")
         assert request.task == "Test task"
-        assert request.agents == ["anthropic-api", "openai-api"]
+        assert request.agents == expected_agents
         assert request.rounds == 3
         assert request.consensus == ConsensusType.MAJORITY
         assert request.context is None
