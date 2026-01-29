@@ -1206,3 +1206,92 @@ def get_circuit_breaker_summary() -> dict[str, Any]:
             "open": open_names,
             "half_open": half_open_names,
         }
+
+
+# =============================================================================
+# NEW MODULE COMPATIBILITY ALIASES
+# =============================================================================
+# Re-export key components from resilience_patterns module for unified API.
+# This allows connectors to use either old or new patterns during migration.
+# Old code continues working; new code can opt-in to new patterns directly.
+
+try:
+    from aragora.resilience_patterns import (
+        # Retry patterns
+        RetryConfig,
+        RetryStrategy,
+        with_retry,
+        with_retry_sync,
+        # Timeout patterns
+        TimeoutConfig,
+        with_timeout,
+        with_timeout_sync,
+        # Circuit breaker v2
+        BaseCircuitBreaker,
+        CircuitBreakerConfig,
+        CircuitState,
+        with_circuit_breaker,
+        # Health monitoring
+        HealthChecker,
+        HealthStatus,
+        HealthReport,
+    )
+
+    # Make new patterns available via this module
+    __all__ = [
+        # Existing exports (legacy)
+        "CircuitBreaker",
+        "CircuitOpenError",
+        "get_circuit_breaker",
+        "reset_all_circuit_breakers",
+        "get_circuit_breakers",
+        "get_circuit_breaker_status",
+        "get_circuit_breaker_metrics",
+        "with_resilience",
+        "set_metrics_callback",
+        "prune_circuit_breakers",
+        "get_all_circuit_breakers_status",
+        "get_circuit_breaker_summary",
+        # Persistence
+        "init_circuit_breaker_persistence",
+        "persist_circuit_breaker",
+        "persist_all_circuit_breakers",
+        "load_circuit_breakers",
+        "cleanup_stale_persisted",
+        # NEW - Re-exports from resilience_patterns
+        "RetryConfig",
+        "RetryStrategy",
+        "with_retry",
+        "with_retry_sync",
+        "TimeoutConfig",
+        "with_timeout",
+        "with_timeout_sync",
+        "BaseCircuitBreaker",
+        "CircuitBreakerConfig",
+        "CircuitState",
+        "with_circuit_breaker",
+        "HealthChecker",
+        "HealthStatus",
+        "HealthReport",
+    ]
+except ImportError:
+    # resilience_patterns not available - only export legacy patterns
+    __all__ = [
+        "CircuitBreaker",
+        "CircuitOpenError",
+        "get_circuit_breaker",
+        "reset_all_circuit_breakers",
+        "get_circuit_breakers",
+        "get_circuit_breaker_status",
+        "get_circuit_breaker_metrics",
+        "with_resilience",
+        "set_metrics_callback",
+        "prune_circuit_breakers",
+        "get_all_circuit_breakers_status",
+        "get_circuit_breaker_summary",
+        "init_circuit_breaker_persistence",
+        "persist_circuit_breaker",
+        "persist_all_circuit_breakers",
+        "load_circuit_breakers",
+        "cleanup_stale_persisted",
+    ]
