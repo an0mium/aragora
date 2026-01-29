@@ -36,6 +36,7 @@ class ConnectorTypeMeta(TypedDict, total=False):
     description: str
     category: str
     coming_soon: bool
+    expected_sync_duration: int
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
@@ -338,7 +339,7 @@ class ConnectorsHandler(SecureHandler):
             connectors = [
                 c
                 for c in connectors
-                if CONNECTOR_TYPES.get(c["type"], empty_meta).get("category") == category_filter
+                if CONNECTOR_TYPES.get(str(c["type"]), empty_meta).get("category") == category_filter
             ]
 
         return self._json_response(
@@ -402,7 +403,7 @@ class ConnectorsHandler(SecureHandler):
 
         # Add type metadata
         empty_meta: ConnectorTypeMeta = {}
-        type_meta = CONNECTOR_TYPES.get(connector["type"], empty_meta)
+        type_meta = CONNECTOR_TYPES.get(str(connector["type"]), empty_meta)
         connector["type_name"] = type_meta.get("name", connector["type"])
         connector["category"] = type_meta.get("category", "unknown")
 
@@ -687,7 +688,7 @@ class ConnectorsHandler(SecureHandler):
                 history = [h for h in history if h["connector_id"] == connector_id]
 
             # Sort by start time descending
-            history.sort(key=lambda x: x.get("started_at", "") or "", reverse=True)
+            history.sort(key=lambda x: str(x.get("started_at", "") or ""), reverse=True)
 
             # Apply limit
             history = history[:limit]
@@ -739,7 +740,7 @@ class ConnectorsHandler(SecureHandler):
         # Fallback to in-memory
         connectors = list(_connectors.values())
 
-        total_items = sum(int(c.get("items_synced") or 0) for c in connectors)
+        total_items = sum(int(c.get("items_synced", 0) or 0) for c in connectors)
         connected = sum(1 for c in connectors if c["status"] in ("connected", "syncing"))
         syncing = sum(1 for c in connectors if c["status"] == "syncing")
         errors = sum(1 for c in connectors if c["status"] == "error")

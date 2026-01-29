@@ -52,6 +52,7 @@ from aragora.server.startup.knowledge_mound import (
     init_tts_integration,
 )
 from aragora.server.startup.workers import (
+    get_gauntlet_worker,
     init_backup_scheduler,
     init_durable_job_queue_recovery,
     init_gauntlet_run_recovery,

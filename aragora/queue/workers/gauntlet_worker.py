@@ -107,7 +107,21 @@ class GauntletWorker:
             except asyncio.CancelledError:
                 logger.info(f"[{self.worker_id}] Worker cancelled")
                 break
+            except RuntimeError as e:
+                if "Event loop is closed" in str(e):
+                    logger.info(f"[{self.worker_id}] Event loop closed, exiting worker")
+                    break
+                logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
+                await asyncio.sleep(self.poll_interval)
             except Exception as e:
+                # Check for pool/connection closure errors that indicate shutdown
+                err_msg = str(e).lower()
+                if any(
+                    phrase in err_msg
+                    for phrase in ("pool is closed", "connection is closed", "event loop is closed")
+                ):
+                    logger.info(f"[{self.worker_id}] Database connection unavailable, exiting worker")
+                    break
                 logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
                 await asyncio.sleep(self.poll_interval)
 

@@ -450,7 +450,31 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         )
     )
 
-    # Phase 15: Close Redis connection pool
+    # Phase 15: Stop gauntlet worker (must happen before pool closure)
+    async def stop_gauntlet_worker():
+        try:
+            from aragora.server.startup.workers import get_gauntlet_worker
+
+            worker = get_gauntlet_worker()
+            if worker:
+                await worker.stop()
+                # Allow one poll cycle for the worker loop to exit
+                await asyncio.sleep(0.5)
+                logger.info("Gauntlet worker stopped")
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f"Gauntlet worker stop skipped: {e}")
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Stop gauntlet worker",
+            execute=stop_gauntlet_worker,
+            timeout=5.0,
+        )
+    )
+
+    # Phase 16: Close Redis connection pool
     async def close_redis():
         from aragora.server.redis_config import close_redis_pool
 
