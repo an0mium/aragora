@@ -126,8 +126,9 @@ def cmd_list_local(args: argparse.Namespace) -> int:
         tenants = manager.list_tenants(
             status=args.status,
             tier=args.tier,
-            limit=args.limit or 100,
         )
+        limit = args.limit or 100
+        tenants = tenants[:limit]
 
         if not tenants:
             print("\nNo tenants configured locally.")
@@ -206,12 +207,11 @@ def cmd_create_local(args: argparse.Namespace) -> int:
         from aragora.tenancy import Tenant, TenantManager, TenantTier
 
         tier = TenantTier(args.tier)
-        tenant = Tenant.create(name=args.name, tier=tier)
-
-        if args.domain:
-            tenant.domain = args.domain
-        if args.admin_email:
-            tenant.admin_email = args.admin_email
+        tenant = Tenant.create(
+            name=args.name,
+            owner_email=getattr(args, "admin_email", "") or "",
+            tier=tier,
+        )
 
         manager = TenantManager()
         manager.register_tenant(tenant)

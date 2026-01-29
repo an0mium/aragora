@@ -278,15 +278,26 @@ class MigrationRunner:
 
         return applied
 
-    def downgrade(self, target_version: Optional[int] = None) -> list[Migration]:
+    def downgrade(
+        self,
+        target_version: Optional[int] = None,
+        lock_timeout: float = 30.0,
+    ) -> list[Migration]:
         """
         Rollback migrations down to target version.
 
+        Acquires an advisory lock (PostgreSQL) to prevent concurrent migrations
+        across multiple pods/instances.
+
         Args:
             target_version: Minimum version to keep (None = rollback one).
+            lock_timeout: Maximum seconds to wait for migration lock.
 
         Returns:
             List of rolled back migrations.
+
+        Raises:
+            RuntimeError: If migration lock cannot be acquired.
         """
         rolled_back: list[Migration] = []
         applied = self.get_applied_versions()
@@ -298,39 +309,47 @@ class MigrationRunner:
             logger.info("No migrations to rollback")
             return rolled_back
 
-        for migration in to_rollback:
-            if target_version and migration.version <= target_version:
-                break
+        # Acquire lock before rolling back
+        self._acquire_migration_lock(timeout_seconds=lock_timeout)
 
-            if not migration.down_sql and not migration.down_fn:
-                logger.warning(f"Migration {migration.version} has no rollback")
-                break
+        try:
+            for migration in to_rollback:
+                if target_version and migration.version <= target_version:
+                    break
 
-            logger.info(f"Rolling back migration {migration.version}: {migration.name}")
+                if not migration.down_sql and not migration.down_fn:
+                    logger.warning(f"Migration {migration.version} has no rollback")
+                    break
 
-            try:
-                if migration.down_fn:
-                    migration.down_fn(self._backend)
-                elif migration.down_sql:
-                    for stmt in migration.down_sql.split(";"):
-                        stmt = stmt.strip()
-                        if stmt:
-                            self._backend.execute_write(stmt)
+                logger.info(f"Rolling back migration {migration.version}: {migration.name}")
 
-                # Remove migration record
-                self._backend.execute_write(
-                    f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = ?", (migration.version,)
-                )
-                rolled_back.append(migration)
-                logger.info(f"Rolled back migration {migration.version}")
+                try:
+                    if migration.down_fn:
+                        migration.down_fn(self._backend)
+                    elif migration.down_sql:
+                        for stmt in migration.down_sql.split(";"):
+                            stmt = stmt.strip()
+                            if stmt:
+                                self._backend.execute_write(stmt)
 
-            except Exception as e:
-                logger.error(f"Failed to rollback migration {migration.version}: {e}")
-                raise
+                    # Remove migration record
+                    self._backend.execute_write(
+                        f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = ?",
+                        (migration.version,),
+                    )
+                    rolled_back.append(migration)
+                    logger.info(f"Rolled back migration {migration.version}")
 
-            # Only rollback one if no target specified
-            if target_version is None:
-                break
+                except Exception as e:
+                    logger.error(f"Failed to rollback migration {migration.version}: {e}")
+                    raise
+
+                # Only rollback one if no target specified
+                if target_version is None:
+                    break
+        finally:
+            # Always release lock
+            self._release_migration_lock()
 
         return rolled_back
 
