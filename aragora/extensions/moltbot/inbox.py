@@ -8,11 +8,18 @@ unified threading, intent detection, and response tracking.
 from __future__ import annotations
 
 import asyncio
+import os
 import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+
+from aragora.gateway.inbox import (
+    InboxAggregator as GatewayInbox,
+    InboxMessage as GatewayInboxMessage,
+    MessagePriority,
+)
 
 from .models import (
     Channel,
@@ -33,7 +40,12 @@ class InboxManager:
     Telegram, etc.) into a single inbox with threading and analytics.
     """
 
-    def __init__(self, storage_path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        storage_path: str | Path | None = None,
+        gateway_inbox: GatewayInbox | None = None,
+        gateway_max_size: int | None = None,
+    ) -> None:
         """
         Initialize the inbox manager.
 
@@ -45,12 +57,51 @@ class InboxManager:
         self._messages: dict[str, InboxMessage] = {}
         self._threads: dict[str, list[str]] = {}  # thread_id -> message_ids
         self._lock = asyncio.Lock()
+        self._gateway_inbox = gateway_inbox
+        if self._gateway_inbox is None:
+            enable_gateway = os.environ.get("MOLTBOT_GATEWAY_INBOX", "0") == "1"
+            if enable_gateway or gateway_max_size is not None:
+                # Opt-in gateway mirroring when explicitly configured.
+                self._gateway_inbox = GatewayInbox(max_size=gateway_max_size or 10000)
 
         # Message handlers by channel type
         self._handlers: dict[ChannelType, Callable] = {}
 
         if self._storage_path:
             self._storage_path.mkdir(parents=True, exist_ok=True)
+
+    def _map_priority(self, channel: Channel) -> MessagePriority:
+        priority = channel.config.priority
+        if priority >= 8:
+            return MessagePriority.URGENT
+        if priority >= 6:
+            return MessagePriority.HIGH
+        if priority >= 3:
+            return MessagePriority.NORMAL
+        return MessagePriority.LOW
+
+    async def _mirror_to_gateway(self, message: InboxMessage, channel: Channel) -> None:
+        if not self._gateway_inbox:
+            return
+        gateway_message = GatewayInboxMessage(
+            message_id=message.id,
+            channel=channel.config.type.value,
+            sender=message.user_id,
+            content=message.content,
+            timestamp=message.created_at.timestamp(),
+            thread_id=message.thread_id,
+            priority=self._map_priority(channel),
+            metadata={
+                "channel_id": message.channel_id,
+                "direction": message.direction,
+                "content_type": message.content_type,
+                "status": message.status.value,
+                "intent": message.intent,
+                "reply_to": message.reply_to,
+                "external_id": message.external_id,
+            },
+        )
+        await self._gateway_inbox.add_message(gateway_message)
 
     # ========== Channel Management ==========
 
@@ -207,6 +258,7 @@ class InboxManager:
 
             # Process message (intent detection, etc.)
             await self._process_message(message)
+            await self._mirror_to_gateway(message, channel)
 
             return message
 
@@ -283,6 +335,9 @@ class InboxManager:
         message.updated_at = datetime.utcnow()
 
         logger.debug(f"Sent message {message_id} via channel {channel_id}")
+        await self._mirror_to_gateway(message, channel)
+        if self._gateway_inbox and reply_to:
+            await self._gateway_inbox.mark_replied(reply_to)
         return message
 
     async def get_message(self, message_id: str) -> InboxMessage | None:
@@ -335,6 +390,8 @@ class InboxManager:
             message.status = InboxMessageStatus.READ
             message.read_at = datetime.utcnow()
             message.updated_at = datetime.utcnow()
+            if self._gateway_inbox:
+                await self._gateway_inbox.mark_read([message_id])
             return message
 
     async def archive_message(self, message_id: str) -> InboxMessage | None:
