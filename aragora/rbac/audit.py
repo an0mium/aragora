@@ -3,21 +3,132 @@ RBAC Audit Logging - Track authorization decisions for compliance.
 
 Provides comprehensive logging of all authorization decisions,
 role changes, and permission modifications for audit trails.
+
+Features:
+- In-memory buffering for high-throughput logging
+- Persistent storage to PostgreSQL/SQLite for compliance
+- HMAC-SHA256 event signing for integrity verification
+- SOC2 Type II compliant audit trails
+- Break-glass event tracking with tamper detection
+
+Usage:
+    from aragora.rbac.audit import (
+        get_auditor,
+        PersistentAuditHandler,
+        verify_event_signature,
+    )
+
+    # Enable persistent audit logging
+    auditor = get_auditor()
+    handler = PersistentAuditHandler()
+    auditor.add_handler(handler.handle_event)
+
+    # Verify event integrity
+    is_valid = verify_event_signature(event, signature)
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
+import os
+import secrets
+import threading
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 from .models import AuthorizationDecision, RoleAssignment
 
 logger = logging.getLogger(__name__)
+
+# HMAC signing key - should be set via environment variable in production
+_AUDIT_SIGNING_KEY: bytes | None = None
+_signing_key_lock = threading.Lock()
+
+
+def get_audit_signing_key() -> bytes:
+    """
+    Get or generate the HMAC signing key for audit events.
+
+    The key is loaded from ARAGORA_AUDIT_SIGNING_KEY environment variable.
+    If not set, generates a random key (appropriate for development only).
+
+    Returns:
+        32-byte HMAC signing key
+    """
+    global _AUDIT_SIGNING_KEY
+    with _signing_key_lock:
+        if _AUDIT_SIGNING_KEY is None:
+            key_hex = os.environ.get("ARAGORA_AUDIT_SIGNING_KEY")
+            if key_hex:
+                _AUDIT_SIGNING_KEY = bytes.fromhex(key_hex)
+                logger.debug("Loaded audit signing key from environment")
+            else:
+                # Generate random key for development - warn in production
+                _AUDIT_SIGNING_KEY = secrets.token_bytes(32)
+                env = os.environ.get("ARAGORA_ENV", "development")
+                if env in ("production", "prod", "staging"):
+                    logger.warning(
+                        "ARAGORA_AUDIT_SIGNING_KEY not set in %s environment. "
+                        "Audit event signatures will not be verifiable after restart.",
+                        env,
+                    )
+                else:
+                    logger.debug("Generated ephemeral audit signing key for development")
+        return _AUDIT_SIGNING_KEY
+
+
+def set_audit_signing_key(key: bytes) -> None:
+    """
+    Set the HMAC signing key for audit events.
+
+    Args:
+        key: 32-byte HMAC signing key
+    """
+    global _AUDIT_SIGNING_KEY
+    if len(key) < 32:
+        raise ValueError("Audit signing key must be at least 32 bytes")
+    with _signing_key_lock:
+        _AUDIT_SIGNING_KEY = key
+
+
+def compute_event_signature(event_data: dict[str, Any]) -> str:
+    """
+    Compute HMAC-SHA256 signature for an audit event.
+
+    Args:
+        event_data: Event dictionary to sign (without signature field)
+
+    Returns:
+        Hex-encoded HMAC-SHA256 signature
+    """
+    # Remove signature from data if present (for verification)
+    data_to_sign = {k: v for k, v in event_data.items() if k != "signature"}
+    # Serialize deterministically
+    canonical = json.dumps(data_to_sign, sort_keys=True, separators=(",", ":"))
+    key = get_audit_signing_key()
+    signature = hmac.new(key, canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+    return signature
+
+
+def verify_event_signature(event_data: dict[str, Any], signature: str) -> bool:
+    """
+    Verify HMAC-SHA256 signature for an audit event.
+
+    Args:
+        event_data: Event dictionary to verify
+        signature: Expected hex-encoded signature
+
+    Returns:
+        True if signature is valid
+    """
+    computed = compute_event_signature(event_data)
+    return hmac.compare_digest(computed, signature)
 
 
 class AuditEventType(str, Enum):
@@ -85,11 +196,12 @@ class AuditEvent:
         user_agent: Request user agent
         request_id: Request trace ID
         metadata: Additional event data
+        signature: HMAC-SHA256 signature for integrity verification
     """
 
     id: str = field(default_factory=lambda: str(uuid4()))
     event_type: AuditEventType = AuditEventType.PERMISSION_GRANTED
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: str | None = None
     org_id: str | None = None
     actor_id: str | None = None
@@ -102,6 +214,7 @@ class AuditEvent:
     user_agent: str | None = None
     request_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    signature: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -123,9 +236,80 @@ class AuditEvent:
             "metadata": self.metadata,
         }
 
+    def to_signed_dict(self) -> dict[str, Any]:
+        """
+        Convert to dictionary with HMAC-SHA256 signature.
+
+        The signature covers all event fields to ensure integrity.
+        Use verify_event_signature() to validate.
+
+        Returns:
+            Event dictionary with 'signature' field appended
+        """
+        data = self.to_dict()
+        data["signature"] = compute_event_signature(data)
+        self.signature = data["signature"]
+        return data
+
     def to_json(self) -> str:
         """Convert to JSON string."""
         return json.dumps(self.to_dict())
+
+    def verify_signature(self) -> bool:
+        """
+        Verify the event's signature.
+
+        Returns:
+            True if signature is valid, False otherwise
+        """
+        if not self.signature:
+            return False
+        return verify_event_signature(self.to_dict(), self.signature)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "AuditEvent":
+        """
+        Create an AuditEvent from a dictionary.
+
+        Args:
+            data: Event dictionary (from to_dict() or database)
+
+        Returns:
+            AuditEvent instance
+        """
+        # Parse timestamp
+        timestamp = data.get("timestamp")
+        if isinstance(timestamp, str):
+            timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        elif timestamp is None:
+            timestamp = datetime.now(timezone.utc)
+
+        # Parse event type
+        event_type = data.get("event_type", "permission_granted")
+        if isinstance(event_type, str):
+            try:
+                event_type = AuditEventType(event_type)
+            except ValueError:
+                event_type = AuditEventType.CUSTOM
+
+        return cls(
+            id=data.get("id", str(uuid4())),
+            event_type=event_type,
+            timestamp=timestamp,
+            user_id=data.get("user_id"),
+            org_id=data.get("org_id"),
+            actor_id=data.get("actor_id"),
+            resource_type=data.get("resource_type"),
+            resource_id=data.get("resource_id"),
+            permission_key=data.get("permission_key"),
+            decision=data.get("decision", True),
+            reason=data.get("reason", ""),
+            ip_address=data.get("ip_address"),
+            user_agent=data.get("user_agent"),
+            request_id=data.get("request_id"),
+            metadata=data.get("metadata", {}),
+            signature=data.get("signature"),
+        )
 
 
 class AuthorizationAuditor:
@@ -485,3 +669,386 @@ def log_permission_check(
         ip_address=ip_address,
     )
     get_auditor()._emit_event(event)
+
+
+# =============================================================================
+# Persistent Audit Storage
+# =============================================================================
+
+
+class PersistentAuditHandler:
+    """
+    Handler that persists audit events to database storage.
+
+    This handler integrates with the AuthorizationAuditor to provide
+    SOC2 Type II compliant persistent audit trails with integrity verification.
+
+    Features:
+    - Writes to PostgreSQL or SQLite via AuditStore
+    - Signs events with HMAC-SHA256 before storage
+    - Supports querying and verification of historical events
+    - Batch writing for high-throughput scenarios
+
+    Usage:
+        from aragora.rbac.audit import get_auditor, PersistentAuditHandler
+
+        # Create and attach handler
+        handler = PersistentAuditHandler()
+        auditor = get_auditor()
+        auditor.add_handler(handler.handle_event)
+
+        # Query persisted events
+        events = handler.get_events(
+            user_id="user-123",
+            since=datetime.now() - timedelta(days=7)
+        )
+
+        # Verify event integrity
+        for event in events:
+            if not event.verify_signature():
+                logger.warning("Event %s has invalid signature!", event.id)
+    """
+
+    def __init__(
+        self,
+        store: Optional[Any] = None,
+        sign_events: bool = True,
+        batch_size: int = 100,
+        flush_interval_seconds: float = 5.0,
+    ) -> None:
+        """
+        Initialize the persistent audit handler.
+
+        Args:
+            store: Optional AuditStore instance. If None, uses get_audit_store()
+            sign_events: If True, sign events before storage (default: True)
+            batch_size: Number of events to batch before writing (default: 100)
+            flush_interval_seconds: Max time before flushing batch (default: 5.0)
+        """
+        self._store = store
+        self._sign_events = sign_events
+        self._batch_size = batch_size
+        self._flush_interval = flush_interval_seconds
+
+        # Batch buffer
+        self._batch: list[AuditEvent] = []
+        self._batch_lock = threading.Lock()
+        self._last_flush = datetime.now(timezone.utc)
+
+        # Statistics
+        self._events_written = 0
+        self._events_failed = 0
+
+    @property
+    def store(self) -> Any:
+        """Get the underlying AuditStore (lazy initialization)."""
+        if self._store is None:
+            from aragora.storage.audit_store import get_audit_store
+
+            self._store = get_audit_store()
+        return self._store
+
+    def handle_event(self, event: AuditEvent) -> None:
+        """
+        Handle an audit event by persisting it to storage.
+
+        This method is designed to be registered with AuthorizationAuditor.add_handler().
+
+        Args:
+            event: The audit event to persist
+        """
+        with self._batch_lock:
+            self._batch.append(event)
+
+            # Check if we should flush
+            should_flush = len(self._batch) >= self._batch_size
+            time_elapsed = (datetime.now(timezone.utc) - self._last_flush).total_seconds()
+            if should_flush or time_elapsed >= self._flush_interval:
+                self._flush_batch()
+
+    def _flush_batch(self) -> None:
+        """Flush the event batch to storage."""
+        if not self._batch:
+            return
+
+        events_to_write = self._batch.copy()
+        self._batch.clear()
+        self._last_flush = datetime.now(timezone.utc)
+
+        for event in events_to_write:
+            try:
+                self._write_event(event)
+                self._events_written += 1
+            except Exception as e:
+                self._events_failed += 1
+                logger.error("Failed to persist audit event %s: %s", event.id, e)
+
+    def _write_event(self, event: AuditEvent) -> None:
+        """Write a single event to storage."""
+        # Sign the event if configured
+        if self._sign_events:
+            event_data = event.to_signed_dict()
+        else:
+            event_data = event.to_dict()
+
+        # Map AuditEvent fields to AuditStore.log_event() parameters
+        self.store.log_event(
+            action=event_data["event_type"],
+            resource_type=event_data.get("resource_type") or "authorization",
+            resource_id=event_data.get("resource_id"),
+            user_id=event_data.get("user_id"),
+            org_id=event_data.get("org_id"),
+            metadata={
+                "event_id": event_data["id"],
+                "actor_id": event_data.get("actor_id"),
+                "permission_key": event_data.get("permission_key"),
+                "decision": event_data["decision"],
+                "reason": event_data.get("reason"),
+                "request_id": event_data.get("request_id"),
+                "signature": event_data.get("signature"),
+                **event_data.get("metadata", {}),
+            },
+            ip_address=event_data.get("ip_address"),
+            user_agent=event_data.get("user_agent"),
+        )
+
+    def flush(self) -> None:
+        """Force flush any pending events to storage."""
+        with self._batch_lock:
+            self._flush_batch()
+
+    def get_events(
+        self,
+        user_id: str | None = None,
+        org_id: str | None = None,
+        event_type: str | AuditEventType | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        verify_signatures: bool = True,
+    ) -> list[AuditEvent]:
+        """
+        Query persisted audit events.
+
+        Args:
+            user_id: Filter by user ID
+            org_id: Filter by organization ID
+            event_type: Filter by event type
+            since: Filter events after this time
+            until: Filter events before this time
+            limit: Maximum events to return
+            offset: Pagination offset
+            verify_signatures: If True, verify signatures and mark invalid events
+
+        Returns:
+            List of AuditEvent instances
+        """
+        # Map event_type to action filter
+        action = None
+        if event_type:
+            if isinstance(event_type, AuditEventType):
+                action = event_type.value
+            else:
+                action = event_type
+
+        # Query from store
+        rows = self.store.get_log(
+            user_id=user_id,
+            org_id=org_id,
+            action=action,
+            since=since,
+            until=until,
+            limit=limit,
+            offset=offset,
+        )
+
+        events = []
+        for row in rows:
+            # Reconstruct AuditEvent from stored data
+            metadata = row.get("metadata", {})
+            event_data = {
+                "id": metadata.get("event_id", row.get("id")),
+                "event_type": row.get("action", "custom"),
+                "timestamp": row.get("timestamp"),
+                "user_id": row.get("user_id"),
+                "org_id": row.get("org_id"),
+                "actor_id": metadata.get("actor_id"),
+                "resource_type": row.get("resource_type"),
+                "resource_id": row.get("resource_id"),
+                "permission_key": metadata.get("permission_key"),
+                "decision": metadata.get("decision", True),
+                "reason": metadata.get("reason", ""),
+                "ip_address": row.get("ip_address"),
+                "user_agent": row.get("user_agent"),
+                "request_id": metadata.get("request_id"),
+                "metadata": {
+                    k: v
+                    for k, v in metadata.items()
+                    if k
+                    not in (
+                        "event_id",
+                        "actor_id",
+                        "permission_key",
+                        "decision",
+                        "reason",
+                        "request_id",
+                        "signature",
+                    )
+                },
+                "signature": metadata.get("signature"),
+            }
+
+            event = AuditEvent.from_dict(event_data)
+
+            # Verify signature if requested
+            if verify_signatures and event.signature:
+                if not event.verify_signature():
+                    logger.warning(
+                        "Audit event %s has invalid signature - possible tampering",
+                        event.id,
+                    )
+                    # Mark in metadata that signature verification failed
+                    event.metadata["_signature_valid"] = False
+                else:
+                    event.metadata["_signature_valid"] = True
+
+            events.append(event)
+
+        return events
+
+    def get_break_glass_events(
+        self,
+        since: datetime | None = None,
+        limit: int = 100,
+    ) -> list[AuditEvent]:
+        """
+        Get break-glass/emergency access events.
+
+        Args:
+            since: Filter events after this time
+            limit: Maximum events to return
+
+        Returns:
+            List of break-glass related AuditEvent instances
+        """
+        all_events = []
+        for event_type in [
+            AuditEventType.BREAK_GLASS_ACTIVATED,
+            AuditEventType.BREAK_GLASS_DEACTIVATED,
+            AuditEventType.BREAK_GLASS_ACTION,
+        ]:
+            events = self.get_events(
+                event_type=event_type,
+                since=since,
+                limit=limit,
+            )
+            all_events.extend(events)
+
+        # Sort by timestamp descending
+        all_events.sort(key=lambda e: e.timestamp, reverse=True)
+        return all_events[:limit]
+
+    def get_event_count(
+        self,
+        user_id: str | None = None,
+        org_id: str | None = None,
+        event_type: str | AuditEventType | None = None,
+    ) -> int:
+        """
+        Get count of persisted audit events.
+
+        Args:
+            user_id: Filter by user ID
+            org_id: Filter by organization ID
+            event_type: Filter by event type
+
+        Returns:
+            Total count of matching events
+        """
+        action = None
+        if event_type:
+            if isinstance(event_type, AuditEventType):
+                action = event_type.value
+            else:
+                action = event_type
+
+        return self.store.get_log_count(
+            user_id=user_id,
+            org_id=org_id,
+            action=action,
+        )
+
+    def get_stats(self) -> dict[str, Any]:
+        """
+        Get handler statistics.
+
+        Returns:
+            Dictionary with events_written, events_failed, pending_count
+        """
+        with self._batch_lock:
+            pending = len(self._batch)
+
+        return {
+            "events_written": self._events_written,
+            "events_failed": self._events_failed,
+            "pending_count": pending,
+            "sign_events": self._sign_events,
+            "batch_size": self._batch_size,
+        }
+
+    def close(self) -> None:
+        """Flush pending events and close the handler."""
+        self.flush()
+
+
+# Module-level persistent handler singleton
+_persistent_handler: PersistentAuditHandler | None = None
+_handler_lock = threading.Lock()
+
+
+def get_persistent_handler() -> PersistentAuditHandler:
+    """
+    Get or create the global persistent audit handler.
+
+    Returns:
+        PersistentAuditHandler singleton instance
+    """
+    global _persistent_handler
+    if _persistent_handler is None:
+        with _handler_lock:
+            if _persistent_handler is None:
+                _persistent_handler = PersistentAuditHandler()
+    return _persistent_handler
+
+
+def set_persistent_handler(handler: PersistentAuditHandler) -> None:
+    """Set the global persistent audit handler."""
+    global _persistent_handler
+    with _handler_lock:
+        _persistent_handler = handler
+
+
+def enable_persistent_auditing() -> PersistentAuditHandler:
+    """
+    Enable persistent audit logging.
+
+    Attaches the PersistentAuditHandler to the global auditor.
+
+    Returns:
+        The PersistentAuditHandler instance
+
+    Example:
+        from aragora.rbac.audit import enable_persistent_auditing
+
+        # Enable at application startup
+        handler = enable_persistent_auditing()
+
+        # Query events later
+        events = handler.get_events(user_id="user-123")
+    """
+    handler = get_persistent_handler()
+    auditor = get_auditor()
+    auditor.add_handler(handler.handle_event)
+    logger.info("Persistent RBAC audit logging enabled")
+    return handler

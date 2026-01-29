@@ -117,6 +117,16 @@ from .audit import (
     get_auditor,
     set_auditor,
     log_permission_check,
+    # Persistent auditing
+    PersistentAuditHandler,
+    get_persistent_handler,
+    set_persistent_handler,
+    enable_persistent_auditing,
+    # Event signing
+    compute_event_signature,
+    verify_event_signature,
+    get_audit_signing_key,
+    set_audit_signing_key,
 )
 
 # Distributed cache (for horizontal scaling)
@@ -261,6 +271,16 @@ __all__ = [
     "get_auditor",
     "set_auditor",
     "log_permission_check",
+    # Persistent Auditing
+    "PersistentAuditHandler",
+    "get_persistent_handler",
+    "set_persistent_handler",
+    "enable_persistent_auditing",
+    # Event Signing
+    "compute_event_signature",
+    "verify_event_signature",
+    "get_audit_signing_key",
+    "set_audit_signing_key",
     # Distributed Cache
     "RBACCacheConfig",
     "RBACDistributedCache",

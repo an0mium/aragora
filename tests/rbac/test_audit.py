@@ -98,9 +98,11 @@ class TestAuditEvent:
 
     def test_event_default_timestamp(self):
         """Test event gets automatic timestamp."""
-        before = datetime.utcnow()
+        from datetime import timezone
+
+        before = datetime.now(timezone.utc)
         event = AuditEvent()
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
 
         assert before <= event.timestamp <= after
 
