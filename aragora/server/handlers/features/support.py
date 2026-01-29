@@ -32,7 +32,7 @@ from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
-from aragora.server.handlers.utils.responses import error_response, HandlerResult
+from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ class SupportHandler(SecureHandler):
         "/api/v1/support/search",
     ]
 
-    async def _check_permission(self, request: Any, permission: str) -> HandlerResult | None:
+    async def _check_permission(self, request: Any, permission: str) -> Any:
         """Check if user has the required permission using RBAC system."""
         try:
             auth_context = await self.get_auth_context(request, require_auth=True)
