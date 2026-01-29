@@ -25,12 +25,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Protocol, TYPE_CHECKING, Union
+from typing import Any, Callable, Dict, List, Optional, Protocol, TYPE_CHECKING
 
 from aragora.config import MAX_ROUNDS
 
 if TYPE_CHECKING:
-    from aragora.control_plane.coordinator import ControlPlaneCoordinator
+    pass
 
 
 # =============================================================================

@@ -20,7 +20,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Union,
 )
 
 from aragora.control_plane.health import HealthCheck, HealthMonitor, HealthStatus
@@ -732,7 +731,6 @@ class ControlPlaneCoordinator:
         try:
             loaded = self._policy_manager.sync_from_compliance_store(
                 workspace_id=self._config.policy_sync_workspace,
-                enabled_only=True,  # type: ignore[call-arg]
             )
 
             if loaded > 0:
