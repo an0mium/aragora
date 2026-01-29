@@ -75,6 +75,144 @@ ID contract:
 Session fields:
 - `session_id`, `user_id`, `device_id`, `status`, `created_at`, `last_seen`, `metadata`, `end_reason`.
 
+### Gateway HTTP surface (current)
+
+These are the current Local Gateway endpoints (see `aragora.gateway.server`).
+
+`GET /health` response:
+```json
+{
+  "status": "healthy",
+  "service": "aragora-gateway",
+  "uptime_seconds": 120.5
+}
+```
+
+`GET /stats` response (subset):
+```json
+{
+  "running": true,
+  "started_at": 1738101000.0,
+  "messages_routed": 5,
+  "messages_failed": 0,
+  "inbox_size": 2,
+  "devices_registered": 1,
+  "routing_rules": 3
+}
+```
+
+`POST /route` request:
+```json
+{
+  "message_id": "msg-123",
+  "channel": "slack",
+  "sender": "user@example.com",
+  "content": "Hello",
+  "thread_id": "thread-1",
+  "metadata": {
+    "api_key": "optional-key"
+  }
+}
+```
+
+`POST /route` response:
+```json
+{
+  "message_id": "msg-123",
+  "agent_id": "default",
+  "channel": "slack",
+  "success": true,
+  "error": null
+}
+```
+
+`POST /device` request:
+```json
+{
+  "device_id": "optional-id",
+  "name": "MacBook Pro",
+  "device_type": "macos",
+  "capabilities": ["voice", "canvas"]
+}
+```
+
+`POST /device` response:
+```json
+{
+  "device_id": "dev-abc123",
+  "status": "registered"
+}
+```
+
+`GET /device/{device_id}` response (subset):
+```json
+{
+  "device_id": "dev-abc123",
+  "name": "MacBook Pro",
+  "device_type": "macos",
+  "status": "active",
+  "capabilities": ["voice", "canvas"],
+  "last_seen": 1738101123.4
+}
+```
+
+### Gateway WebSocket events (current)
+
+WebSocket endpoint: `GET /ws`.
+
+Inbound ping (client → gateway):
+```json
+{"type": "ping"}
+```
+
+Outbound pong (gateway → client):
+```json
+{"type": "pong"}
+```
+
+Outbound inbox notification (gateway → client):
+```json
+{
+  "type": "new_message",
+  "message": {
+    "message_id": "msg-123",
+    "channel": "slack",
+    "sender": "user@example.com",
+    "content": "Hello",
+    "timestamp": 1738101123.4
+  }
+}
+```
+
+### Gateway WS protocol draft (compatibility target)
+
+These fields are proposed for Moltbot parity and are not yet enforced.
+
+- Envelope:
+  - `type`: string
+  - `protocol_version`: string (e.g., `"0.1"`)
+  - `payload`: object
+  - `request_id`: optional string for request/response pairing
+
+### Device telemetry (draft)
+
+These are proposed device telemetry messages for parity and are not yet enforced.
+
+Heartbeat payload:
+```json
+{
+  "device_id": "dev-abc123",
+  "status": "active",
+  "capabilities": ["voice", "canvas"],
+  "last_seen": 1738101123.4,
+  "telemetry": {
+    "battery": 0.76,
+    "network": "wifi",
+    "os_version": "14.2"
+  }
+}
+```
+
 ### Device node runtime
 
 - Runtime: `aragora.gateway.device_node.DeviceNodeRuntime`.
@@ -110,3 +248,4 @@ Device registry contract:
 - Prefer compatibility adapters over invasive rewrites.
 - Keep Nomic stores authoritative; adapters translate status/metadata.
 - Avoid regenerating SDKs until endpoint surfaces stabilize.
+ - Add `protocol_version` to new gateway/device messages once parity surfaces are finalized.
