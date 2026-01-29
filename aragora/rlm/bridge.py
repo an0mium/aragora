@@ -85,6 +85,8 @@ class RLMBackendConfig:
     backend: str = "openai"  # openai, anthropic, openrouter, litellm
     model_name: str = "gpt-4o"
     sub_model_name: str = "gpt-4o-mini"
+    fallback_backend: Optional[str] = None
+    fallback_model_name: Optional[str] = None
 
     # Environment configuration (REPL sandbox type)
     environment_type: str = "local"  # local, docker, modal
@@ -144,6 +146,8 @@ class AragoraRLM(RLMStreamingMixin):
         self.enable_caching = enable_caching
 
         self._official_rlm: Optional[Any] = None
+        self._fallback_rlm: Optional[Any] = None
+        self._apply_backend_env_overrides()
         # Compressor is ONLY used as fallback when official RLM unavailable
         self._compressor = HierarchicalCompressor(
             config=self.aragora_config,
@@ -168,6 +172,49 @@ class AragoraRLM(RLMStreamingMixin):
                 "Will use compression-based FALLBACK for all queries. "
                 "For TRUE RLM (REPL-based), install with: pip install rlm"
             )
+
+    def _apply_backend_env_overrides(self) -> None:
+        """Apply environment overrides for RLM backend selection."""
+        env_backend = os.environ.get("ARAGORA_RLM_BACKEND") or os.environ.get(
+            "ARAGORA_RLM_PROVIDER"
+        )
+        env_model = os.environ.get("ARAGORA_RLM_MODEL") or os.environ.get("ARAGORA_RLM_MODEL_NAME")
+        env_fallback_backend = os.environ.get("ARAGORA_RLM_FALLBACK_BACKEND")
+        env_fallback_model = os.environ.get("ARAGORA_RLM_FALLBACK_MODEL")
+        if env_backend:
+            self.backend_config.backend = env_backend.strip()
+        if env_model:
+            self.backend_config.model_name = env_model.strip()
+        if env_fallback_backend:
+            self.backend_config.fallback_backend = env_fallback_backend.strip()
+        if env_fallback_model:
+            self.backend_config.fallback_model_name = env_fallback_model.strip()
+
+        if (
+            self.backend_config.fallback_backend is None
+            and self.backend_config.backend == "openai"
+            and os.environ.get("OPENROUTER_API_KEY")
+        ):
+            self.backend_config.fallback_backend = "openrouter"
+
+        if self.backend_config.backend == "openrouter":
+            self.backend_config.model_name = self._normalize_openrouter_model(
+                self.backend_config.model_name
+            )
+        if self.backend_config.fallback_backend == "openrouter":
+            fallback_model = (
+                self.backend_config.fallback_model_name or self.backend_config.model_name
+            )
+            self.backend_config.fallback_model_name = self._normalize_openrouter_model(
+                fallback_model
+            )
+
+    @staticmethod
+    def _normalize_openrouter_model(model_name: str) -> str:
+        """Ensure OpenRouter model names include a provider prefix."""
+        if "/" in model_name:
+            return model_name
+        return f"openai/{model_name}"
 
     async def build_context(
         self,
@@ -263,9 +310,29 @@ class AragoraRLM(RLMStreamingMixin):
                 f"model={self.backend_config.model_name}, "
                 f"environment={self.backend_config.environment_type}"
             )
+            if self.backend_config.fallback_backend:
+                self._fallback_rlm = OfficialRLM(
+                    backend=self.backend_config.fallback_backend,
+                    backend_kwargs={
+                        "model_name": self.backend_config.fallback_model_name
+                        or self.backend_config.model_name,
+                    },
+                    environment=self.backend_config.environment_type,
+                    environment_kwargs=env_kwargs,
+                    max_depth=self.backend_config.max_depth,
+                    max_iterations=self.backend_config.max_iterations,
+                    verbose=self.backend_config.verbose,
+                    persistent=self.backend_config.persistent,
+                )
+                logger.info(
+                    f"[AragoraRLM] Initialized TRUE RLM fallback backend="
+                    f"{self.backend_config.fallback_backend}, "
+                    f"model={self.backend_config.fallback_model_name or self.backend_config.model_name}"
+                )
         except Exception as e:
             logger.error(f"[AragoraRLM] Failed to initialize official RLM: {e}")
             self._official_rlm = None
+            self._fallback_rlm = None
 
     def _agent_call(self, prompt: str, model: str) -> str:
         """Call agent for compression/summarization."""
@@ -276,6 +343,12 @@ class AragoraRLM(RLMStreamingMixin):
                 return completion.response
             except Exception as e:
                 logger.warning(f"Official RLM call failed: {e}")
+                if self._fallback_rlm:
+                    try:
+                        completion = self._fallback_rlm.completion(prompt)
+                        return completion.response
+                    except Exception as fallback_exc:
+                        logger.warning(f"Fallback RLM call failed: {fallback_exc}")
 
         # Fallback to Aragora agent registry
         if self.agent_registry:
@@ -497,6 +570,27 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
 
         except Exception as e:
             logger.error(f"[AragoraRLM] TRUE RLM query failed: {e}")
+            if self._fallback_rlm:
+                try:
+                    completion = self._fallback_rlm.completion(
+                        rlm_prompt,
+                        root_prompt=query,
+                    )
+                    self._last_query_used_true_rlm = True
+                    logger.info("[AragoraRLM] TRUE RLM query succeeded via fallback backend")
+                    return RLMResult(
+                        answer=completion.response,
+                        nodes_examined=[],
+                        levels_traversed=[],
+                        citations=[],
+                        tokens_processed=context.original_tokens,
+                        sub_calls_made=0,
+                        time_seconds=completion.execution_time,
+                        confidence=0.8,
+                        uncertainty_sources=[],
+                    )
+                except Exception as fallback_exc:
+                    logger.warning(f"[AragoraRLM] Fallback TRUE RLM query failed: {fallback_exc}")
             logger.warning(
                 "[AragoraRLM] Falling back to COMPRESSION approach "
                 "(this is suboptimal - TRUE RLM gives model agency)"
