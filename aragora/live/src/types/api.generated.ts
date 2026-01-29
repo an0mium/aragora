@@ -53495,6 +53495,17 @@ export interface components {
             /** @description Calibration accuracy (0-1) */
             calibration_score?: number;
         };
+        HealthCheck: {
+            /** @enum {string} */
+            status?: "healthy" | "degraded" | "unhealthy";
+            version?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            checks?: {
+                [key: string]: Record<string, never>;
+            };
+            response_time_ms?: number;
+        };
         /** @enum {string} */
         DebateStatus: "created" | "starting" | "pending" | "running" | "in_progress" | "completed" | "failed" | "cancelled" | "paused" | "active" | "concluded" | "archived";
         ConsensusResult: {
@@ -53515,8 +53526,8 @@ export interface components {
          *         "gpt-4",
          *         "gemini"
          *       ],
-         *       "rounds": 3,
-         *       "consensus": "majority",
+         *       "rounds": 9,
+         *       "consensus": "judge",
          *       "context": "We have 1M daily active users and need 99.9% uptime."
          *     }
          */
@@ -53542,17 +53553,17 @@ export interface components {
             agents?: string[];
             /**
              * @description Maximum number of debate rounds
-             * @default 3
-             * @example 3
+             * @default 9
+             * @example 9
              */
             rounds: number;
             /**
              * @description Consensus strategy to use
-             * @default majority
-             * @example majority
+             * @default judge
+             * @example judge
              * @enum {string}
              */
-            consensus: "majority" | "unanimous" | "weighted" | "semantic";
+            consensus: "majority" | "unanimous" | "supermajority" | "weighted" | "hybrid" | "judge" | "none";
             /**
              * @description Additional context or background information
              * @example We have 1M daily active users and need 99.9% uptime.
@@ -53676,16 +53687,14 @@ export interface components {
             /** Format: date-time */
             timestamp?: string;
         };
-        HealthCheck: {
-            /** @enum {string} */
-            status?: "healthy" | "degraded" | "unhealthy";
-            version?: string;
-            /** Format: date-time */
-            timestamp?: string;
-            checks?: {
-                [key: string]: Record<string, never>;
-            };
-            response_time_ms?: number;
+        Round: {
+            /** @description Round number (1-indexed) */
+            round_number?: number;
+            messages?: components["schemas"]["Message"][];
+            /** @description Agent votes for this round */
+            votes?: Record<string, never>;
+            /** @description Round summary */
+            summary?: string;
         };
         Consensus: {
             reached?: boolean;
@@ -53789,6 +53798,13 @@ export interface components {
                 contribution_count?: number;
             }[];
         };
+        /** @description Summary of a debate decision */
+        DebateSummary: {
+            debate_id: string;
+            summary: string;
+            confidence?: number;
+            consensus_reached?: boolean;
+        };
         /** @description A crux point of disagreement between agents */
         BeliefCrux: {
             id?: string;
@@ -53856,15 +53872,6 @@ export interface components {
         OAuthProviders: {
             /** @description List of available OAuth providers */
             providers: components["schemas"]["OAuthProvider"][];
-        };
-        Round: {
-            /** @description Round number (1-indexed) */
-            round_number?: number;
-            messages?: components["schemas"]["Message"][];
-            /** @description Agent votes for this round */
-            votes?: Record<string, never>;
-            /** @description Round summary */
-            summary?: string;
         };
         Workspace: {
             /** @description Workspace ID */
@@ -54155,13 +54162,6 @@ export interface components {
             counterfactual_count?: number;
             counterfactuals: components["schemas"]["Counterfactual"][];
         };
-        /** @description Summary of a debate decision */
-        DebateSummary: {
-            debate_id: string;
-            summary: string;
-            confidence?: number;
-            consensus_reached?: boolean;
-        };
         /** @description Batch explainability job creation response */
         ExplainabilityBatch: {
             batch_id: string;
@@ -54301,6 +54301,37 @@ export interface components {
             status?: string;
             agents?: Record<string, never>;
         };
+        /** @description Agent registration data */
+        AgentRegistration: {
+            agent_id?: string;
+            capabilities?: string[];
+            model?: string;
+            provider?: string;
+            /** Format: date-time */
+            registered_at?: string;
+            status?: string;
+        };
+        /** @description Task status record */
+        TaskStatus: {
+            task_id?: string;
+            status?: string;
+            progress?: number;
+            /** Format: date-time */
+            started_at?: string;
+            /** Format: date-time */
+            completed_at?: string | null;
+            result?: Record<string, never> | null;
+            error?: string | null;
+        };
+        /** @description Policy evaluation result */
+        PolicyEvaluation: {
+            policy_id?: string;
+            allowed?: boolean;
+            reason?: string;
+            conditions_met?: string[];
+            /** Format: date-time */
+            evaluated_at?: string;
+        };
         VulnerabilityReference: {
             url?: string;
             source?: string;
@@ -54433,6 +54464,81 @@ export interface components {
         CodebaseMetricsHistoryResponse: {
             success?: boolean;
             analyses?: Record<string, never>[];
+            total?: number;
+            limit?: number;
+            offset?: number;
+        };
+        CodebaseDependencyAnalysisRequest: {
+            repository: string;
+            branch?: string;
+            include_dev?: boolean;
+            ecosystems?: string[];
+        };
+        CodebaseDependencyAnalysisResponse: {
+            success?: boolean;
+            analysis_id?: string;
+            status?: string;
+        };
+        CodebaseDependencyScanRequest: {
+            repository: string;
+            branch?: string;
+            severity_threshold?: string;
+        };
+        CodebaseDependencyScanResponse: {
+            success?: boolean;
+            scan_id?: string;
+            status?: string;
+        };
+        CodebaseLicenseCheckRequest: {
+            repository: string;
+            branch?: string;
+            allowed_licenses?: string[];
+            blocked_licenses?: string[];
+        };
+        CodebaseLicenseCheckResponse: {
+            success?: boolean;
+            check_id?: string;
+            status?: string;
+        };
+        CodebaseSBOMRequest: {
+            repository: string;
+            branch?: string;
+            /** @enum {string} */
+            format?: "spdx" | "cyclonedx";
+            include_dev?: boolean;
+        };
+        CodebaseSBOMResponse: {
+            success?: boolean;
+            sbom_id?: string;
+            format?: string;
+        };
+        CodebaseSecretsScanRequest: {
+            repository: string;
+            branch?: string;
+            include_history?: boolean;
+            patterns?: string[];
+        };
+        CodebaseSecretsScanStartResponse: {
+            success?: boolean;
+            scan_id?: string;
+            status?: string;
+            repository?: string;
+            include_history?: boolean;
+        };
+        CodebaseSecretsScanResultResponse: {
+            success?: boolean;
+            scan_id?: string;
+            findings?: Record<string, never>[];
+            total?: number;
+        };
+        CodebaseSecretsListResponse: {
+            success?: boolean;
+            secrets?: Record<string, never>[];
+            total?: number;
+        };
+        CodebaseSecretsScanListResponse: {
+            success?: boolean;
+            scans?: Record<string, never>[];
             total?: number;
             limit?: number;
             offset?: number;
@@ -54670,6 +54776,136 @@ export interface components {
         CostDismissAlertResponse: {
             success: boolean;
         };
+        /**
+         * @description Budget period type
+         * @enum {string}
+         */
+        BudgetPeriod: "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "unlimited";
+        /**
+         * @description Budget status
+         * @enum {string}
+         */
+        BudgetStatus: "active" | "warning" | "critical" | "exceeded" | "suspended" | "paused" | "closed";
+        /**
+         * @description Action when budget threshold is reached
+         * @enum {string}
+         */
+        BudgetAction: "notify" | "warn" | "soft_limit" | "hard_limit" | "suspend";
+        /** @description Budget alert threshold configuration */
+        BudgetThreshold: {
+            /** @description Threshold percentage (0.0 - 1.0) */
+            percentage: number;
+            action: components["schemas"]["BudgetAction"];
+        };
+        /** @description Budget configuration */
+        Budget: {
+            id: string;
+            workspace_id: string;
+            name: string;
+            description?: string | null;
+            limit_usd: number;
+            period: components["schemas"]["BudgetPeriod"];
+            status: components["schemas"]["BudgetStatus"];
+            current_spend_usd?: number;
+            /** Format: date-time */
+            current_period_start?: string;
+            /** Format: date-time */
+            current_period_end?: string;
+            thresholds?: components["schemas"]["BudgetThreshold"][];
+            scope?: Record<string, never>;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            created_by?: string;
+        };
+        /** @description Request to create a budget */
+        BudgetCreateRequest: {
+            name: string;
+            description?: string;
+            limit_usd: number;
+            period: components["schemas"]["BudgetPeriod"];
+            thresholds?: components["schemas"]["BudgetThreshold"][];
+            scope?: Record<string, never>;
+        };
+        /** @description Request to update a budget */
+        BudgetUpdateRequest: {
+            name?: string;
+            description?: string;
+            limit_usd?: number;
+            period?: components["schemas"]["BudgetPeriod"];
+            status?: components["schemas"]["BudgetStatus"];
+            thresholds?: components["schemas"]["BudgetThreshold"][];
+        };
+        /** @description Response containing list of budgets */
+        BudgetListResponse: {
+            budgets: components["schemas"]["Budget"][];
+            total: number;
+            offset?: number;
+            limit?: number;
+        };
+        /** @description Summary of budget status across workspace */
+        BudgetSummary: {
+            total_budget_usd?: number;
+            total_spend_usd?: number;
+            active_budgets?: number;
+            warning_budgets?: number;
+            exceeded_budgets?: number;
+            utilization_percentage?: number;
+            /** @enum {string} */
+            trend?: "increasing" | "stable" | "decreasing";
+        };
+        /** @description Request to check budget for a specific operation */
+        BudgetCheckRequest: {
+            operation_type: string;
+            estimated_cost_usd?: number;
+            model?: string;
+            tokens?: number;
+        };
+        /** @description Response to budget check request */
+        BudgetCheckResponse: {
+            allowed: boolean;
+            budget_id?: string | null;
+            remaining_usd?: number | null;
+            current_utilization?: number | null;
+            reason?: string | null;
+        };
+        /** @description Budget alert notification */
+        BudgetAlert: {
+            id: string;
+            budget_id: string;
+            budget_name: string;
+            threshold_percentage: number;
+            actual_percentage?: number;
+            action_taken: components["schemas"]["BudgetAction"];
+            message?: string;
+            /** Format: date-time */
+            created_at?: string;
+            acknowledged?: boolean;
+            /** Format: date-time */
+            acknowledged_at?: string | null;
+            acknowledged_by?: string | null;
+        };
+        /** @description Response containing list of budget alerts */
+        BudgetAlertListResponse: {
+            alerts: components["schemas"]["BudgetAlert"][];
+            total: number;
+            unacknowledged_count?: number;
+        };
+        /** @description Request to add a temporary budget override */
+        BudgetOverrideRequest: {
+            budget_id: string;
+            override_limit_usd: number;
+            duration_hours?: number;
+            reason: string;
+        };
+        /** @description Response for budget override request */
+        BudgetOverrideResponse: {
+            override_added: boolean;
+            budget_id: string;
+            user_id: string;
+            duration_hours?: number | null;
+        };
         SharedInbox: {
             id?: string;
             workspace_id?: string;
@@ -54722,6 +54958,25 @@ export interface components {
             message?: components["schemas"]["SharedInboxMessage"];
             error?: string | null;
         };
+        SharedInboxCreateRequest: {
+            workspace_id: string;
+            name: string;
+            description?: string;
+            email_address?: string;
+            connector_type?: string;
+            team_members?: string[];
+            admins?: string[];
+            settings?: Record<string, never>;
+        };
+        SharedInboxAssignRequest: {
+            assigned_to: string;
+        };
+        SharedInboxStatusRequest: {
+            status: string;
+        };
+        SharedInboxTagRequest: {
+            tag: string;
+        };
         RoutingRule: {
             id?: string;
             workspace_id?: string;
@@ -54760,25 +55015,6 @@ export interface components {
             rule?: components["schemas"]["RoutingRule"];
             error?: string | null;
         };
-        SharedInboxCreateRequest: {
-            workspace_id: string;
-            name: string;
-            description?: string;
-            email_address?: string;
-            connector_type?: string;
-            team_members?: string[];
-            admins?: string[];
-            settings?: Record<string, never>;
-        };
-        SharedInboxAssignRequest: {
-            assigned_to: string;
-        };
-        SharedInboxStatusRequest: {
-            status: string;
-        };
-        SharedInboxTagRequest: {
-            tag: string;
-        };
         RoutingRuleCreateRequest: {
             workspace_id: string;
             name: string;
@@ -54800,262 +55036,6 @@ export interface components {
         };
         RoutingRuleTestRequest: {
             workspace_id: string;
-        };
-        CodebaseDependencyAnalysisRequest: {
-            repo_path: string;
-            include_dev?: boolean;
-        };
-        CodebaseDependencyAnalysisResponse: {
-            status?: string;
-            data?: Record<string, never>;
-            message?: string;
-        };
-        CodebaseDependencyScanRequest: {
-            repo_path: string;
-        };
-        CodebaseDependencyScanResponse: {
-            status?: string;
-            data?: Record<string, never>;
-            message?: string;
-        };
-        CodebaseLicenseCheckRequest: {
-            repo_path: string;
-            project_license?: string;
-        };
-        CodebaseLicenseCheckResponse: {
-            status?: string;
-            data?: Record<string, never>;
-            message?: string;
-        };
-        CodebaseSBOMRequest: {
-            repo_path: string;
-            format?: string;
-            include_vulnerabilities?: boolean;
-        };
-        CodebaseSBOMResponse: {
-            status?: string;
-            data?: Record<string, never>;
-            message?: string;
-        };
-        CodebaseSecretsScanRequest: {
-            repo_path: string;
-            branch?: string;
-            commit_sha?: string;
-        };
-        CodebaseSecretsScanStartResponse: {
-            success: boolean;
-            scan_id?: string;
-            status?: string;
-            repository?: string;
-            error?: string | null;
-        };
-        CodebaseSecretsScanResultResponse: {
-            success: boolean;
-            scan_result?: Record<string, never>;
-            error?: string | null;
-        };
-        CodebaseSecretsListResponse: {
-            success: boolean;
-            secrets?: Record<string, never>[];
-            total?: number;
-        };
-        CodebaseSecretsScanListResponse: {
-            success: boolean;
-            scans?: Record<string, never>[];
-            total?: number;
-        };
-        /**
-         * @description Budget period type
-         * @enum {string}
-         */
-        BudgetPeriod: "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "unlimited";
-        /**
-         * @description Budget status
-         * @enum {string}
-         */
-        BudgetStatus: "active" | "warning" | "critical" | "exceeded" | "suspended" | "paused" | "closed";
-        /**
-         * @description Action when budget threshold is reached
-         * @enum {string}
-         */
-        BudgetAction: "notify" | "warn" | "soft_limit" | "hard_limit" | "suspend";
-        /** @description Budget alert threshold configuration */
-        BudgetThreshold: {
-            /** @description Threshold percentage (0.0 - 1.0) */
-            percentage: number;
-            action: components["schemas"]["BudgetAction"];
-        };
-        /** @description Budget configuration and state */
-        Budget: {
-            /** @description Unique budget identifier */
-            budget_id: string;
-            /** @description Organization ID */
-            org_id: string;
-            /** @description Budget name */
-            name: string;
-            /** @description Budget description */
-            description?: string;
-            /** @description Budget limit in USD */
-            amount_usd: number;
-            period?: components["schemas"]["BudgetPeriod"];
-            /** @description Amount spent in current period */
-            spent_usd?: number;
-            /** @description Remaining budget */
-            remaining_usd?: number;
-            /** @description Current usage as percentage (0.0 - 1.0+) */
-            usage_percentage?: number;
-            /** @description Period start timestamp */
-            period_start?: number;
-            /** Format: date-time */
-            period_start_iso?: string;
-            /** @description Period end timestamp */
-            period_end?: number;
-            /** Format: date-time */
-            period_end_iso?: string;
-            status?: components["schemas"]["BudgetStatus"];
-            current_action?: components["schemas"]["BudgetAction"];
-            /** @description Auto-suspend on exceed */
-            auto_suspend?: boolean;
-            /** @description Whether budget is exceeded */
-            is_exceeded?: boolean;
-            thresholds?: components["schemas"]["BudgetThreshold"][];
-            /** @description Creation timestamp */
-            created_at?: number;
-            /** @description Last update timestamp */
-            updated_at?: number;
-        };
-        /** @description Request to create a new budget */
-        BudgetCreateRequest: {
-            /** @description Budget name */
-            name: string;
-            /** @description Budget limit in USD */
-            amount_usd: number;
-            /** @default monthly */
-            period: components["schemas"]["BudgetPeriod"];
-            /** @description Budget description */
-            description?: string;
-            /**
-             * @description Auto-suspend when exceeded
-             * @default true
-             */
-            auto_suspend: boolean;
-        };
-        /** @description Request to update a budget */
-        BudgetUpdateRequest: {
-            name?: string;
-            description?: string;
-            amount_usd?: number;
-            auto_suspend?: boolean;
-            status?: components["schemas"]["BudgetStatus"];
-        };
-        /** @description List of budgets */
-        BudgetListResponse: {
-            budgets: components["schemas"]["Budget"][];
-            count: number;
-            org_id?: string;
-        };
-        /** @description Organization budget summary */
-        BudgetSummary: {
-            org_id: string;
-            total_budget_usd: number;
-            total_spent_usd: number;
-            total_remaining_usd?: number;
-            overall_usage_percentage?: number;
-            active_budgets?: number;
-            exceeded_budgets?: number;
-            budgets?: components["schemas"]["Budget"][];
-        };
-        /** @description Pre-flight budget check request */
-        BudgetCheckRequest: {
-            /** @description Estimated operation cost */
-            estimated_cost_usd: number;
-        };
-        /** @description Budget check result */
-        BudgetCheckResponse: {
-            /** @description Whether operation is allowed */
-            allowed: boolean;
-            /** @description Explanation */
-            reason: string;
-            /** @description Required action if any */
-            action?: string | null;
-            estimated_cost_usd?: number;
-        };
-        /** @description Budget alert event */
-        BudgetAlert: {
-            alert_id: string;
-            budget_id: string;
-            org_id?: string;
-            threshold_percentage?: number;
-            action?: components["schemas"]["BudgetAction"];
-            spent_usd?: number;
-            amount_usd?: number;
-            usage_percentage?: number;
-            message: string;
-            created_at?: number;
-            /** Format: date-time */
-            created_at_iso?: string;
-            acknowledged?: boolean;
-            acknowledged_by?: string | null;
-            acknowledged_at?: number | null;
-        };
-        /** @description List of budget alerts */
-        BudgetAlertListResponse: {
-            alerts: components["schemas"]["BudgetAlert"][];
-            count: number;
-            budget_id?: string;
-        };
-        /** @description Request to add budget override */
-        BudgetOverrideRequest: {
-            /** @description User to grant override */
-            user_id: string;
-            /** @description Override duration (null for permanent) */
-            duration_hours?: number | null;
-        };
-        BudgetOverrideResponse: {
-            override_added: boolean;
-            budget_id: string;
-            user_id: string;
-            duration_hours?: number | null;
-        };
-        /** @description Statistics about debate disagreements */
-        DisagreementStats: {
-            /** @description Total debates analyzed */
-            total_debates?: number;
-            /** @description Debates with disagreements */
-            with_disagreements?: number;
-            /** @description Unanimous debates */
-            unanimous?: number;
-            /** @description Count by disagreement type */
-            disagreement_types?: {
-                [key: string]: number;
-            };
-        };
-        /** @description Statistics about agent role rotation */
-        RoleRotationStats: {
-            total_rotations?: number;
-            by_agent?: {
-                [key: string]: {
-                    proposer?: number;
-                    critic?: number;
-                    judge?: number;
-                };
-            };
-        };
-        /** @description Statistics about early debate stops */
-        EarlyStopStats: {
-            total_early_stops?: number;
-            by_reason?: {
-                [key: string]: number;
-            };
-            average_rounds_saved?: number;
-        };
-        /** @description Aggregate ELO ranking statistics */
-        RankingStats: {
-            total_agents?: number;
-            average_elo?: number;
-            highest_elo?: number;
-            lowest_elo?: number;
-            total_matches?: number;
         };
         /** @description Memory system statistics */
         MemoryStats: {
@@ -55163,106 +55143,97 @@ export interface components {
         };
         /** @description Result of storing knowledge */
         KnowledgeStoreResult: {
-            node_id: string;
-            success: boolean;
-            duplicate?: boolean;
-            topics_extracted?: string[];
+            id?: string;
+            success?: boolean;
+            source?: string;
+            /** Format: date-time */
+            timestamp?: string;
         };
-        /** @description Knowledge fact record */
+        /** @description A verified knowledge fact */
         KnowledgeFact: {
-            id: string;
-            statement: string;
-            workspace_id?: string;
+            id?: string;
+            content?: string;
+            source?: string;
             confidence?: number;
-            validation_status?: string;
-            topics?: string[];
-            evidence_ids?: string[];
-            source_documents?: string[];
-            metadata?: {
-                [key: string]: unknown;
-            };
+            evidence?: string[];
+            contradictions?: string[];
             /** Format: date-time */
             created_at?: string;
             /** Format: date-time */
-            updated_at?: string;
+            verified_at?: string | null;
         };
         /** @description List of knowledge facts */
         KnowledgeFactList: {
             facts?: components["schemas"]["KnowledgeFact"][];
             total?: number;
-            limit?: number;
-            offset?: number;
         };
-        /** @description Knowledge search result entry */
+        /** @description A search result from the knowledge mound */
         KnowledgeSearchResult: {
-            id?: string;
-            content?: string;
+            node?: components["schemas"]["KnowledgeNode"];
             score?: number;
-            metadata?: {
-                [key: string]: unknown;
-            };
+            highlights?: string[];
         };
-        /** @description Knowledge search response */
+        /** @description Search results from knowledge mound */
         KnowledgeSearchResponse: {
-            query?: string;
-            workspace_id?: string;
             results?: components["schemas"]["KnowledgeSearchResult"][];
-            count?: number;
+            total?: number;
+            query?: string;
+            search_time_ms?: number;
         };
-        /** @description Knowledge base statistics */
+        /** @description Knowledge mound statistics */
         KnowledgeStats: {
-            workspace_id?: string;
+            total_nodes?: number;
             total_facts?: number;
-            total_entries?: number;
-            sources?: {
-                [key: string]: number;
-            };
-            categories?: {
+            by_source?: {
                 [key: string]: number;
             };
             avg_confidence?: number;
-            /** Format: date-time */
-            last_updated?: string;
+            contradiction_rate?: number;
         };
-        /** @description Knowledge query response (structure depends on query engine) */
+        /** @description Response from knowledge query */
         KnowledgeQueryResponse: {
-            [key: string]: unknown;
+            success?: boolean;
+            result?: components["schemas"]["KnowledgeQueryResult"];
         };
-        /** @description Registered agent information */
-        AgentRegistration: {
-            agent_id: string;
-            name: string;
-            capabilities?: string[];
-            /** @enum {string} */
-            status: "healthy" | "degraded" | "unhealthy";
-            /** Format: date-time */
-            last_heartbeat?: string;
-            metadata?: {
-                [key: string]: unknown;
+        /** @description Statistics about debate disagreements */
+        DisagreementStats: {
+            /** @description Total debates analyzed */
+            total_debates?: number;
+            /** @description Debates with disagreements */
+            with_disagreements?: number;
+            /** @description Unanimous debates */
+            unanimous?: number;
+            /** @description Count by disagreement type */
+            disagreement_types?: {
+                [key: string]: number;
             };
         };
-        /** @description Task execution status */
-        TaskStatus: {
-            task_id: string;
-            /** @enum {string} */
-            status: "pending" | "running" | "completed" | "failed" | "cancelled";
-            progress?: number;
-            result?: {
-                [key: string]: unknown;
+        /** @description Statistics about agent role rotation */
+        RoleRotationStats: {
+            total_rotations?: number;
+            by_agent?: {
+                [key: string]: {
+                    proposer?: number;
+                    critic?: number;
+                    judge?: number;
+                };
             };
-            error?: string | null;
-            /** Format: date-time */
-            created_at?: string;
-            /** Format: date-time */
-            updated_at?: string;
         };
-        /** @description Policy evaluation result */
-        PolicyEvaluation: {
-            allowed: boolean;
-            policy_id?: string;
-            reason?: string;
-            conditions_met?: string[];
-            conditions_failed?: string[];
+        /** @description Statistics about early debate stops */
+        EarlyStopStats: {
+            total_early_stops?: number;
+            by_reason?: {
+                [key: string]: number;
+            };
+            average_rounds_saved?: number;
+        };
+        /** @description Aggregate ELO ranking statistics */
+        RankingStats: {
+            total_agents?: number;
+            average_elo?: number;
+            highest_elo?: number;
+            lowest_elo?: number;
+            total_matches?: number;
         };
         /** @description A position change by an agent during debate */
         PositionFlip: {
