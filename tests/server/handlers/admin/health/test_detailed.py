@@ -97,15 +97,15 @@ class TestHealthCheck:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
@@ -148,15 +148,15 @@ class TestHealthCheck:
         with patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded}):
             with (
                 patch(
-                    "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                    "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                     return_value={"healthy": True},
                 ),
                 patch(
-                    "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                    "aragora.server.handlers.admin.health_utils.check_redis_health",
                     return_value={"healthy": True, "configured": False},
                 ),
                 patch(
-                    "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                    "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                     return_value={"healthy": True, "any_available": True},
                 ),
                 patch(
@@ -178,15 +178,15 @@ class TestHealthCheck:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": False, "error": "Permission denied"},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
@@ -218,15 +218,15 @@ class TestHealthCheck:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
@@ -260,15 +260,15 @@ class TestHealthCheck:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
@@ -455,23 +455,23 @@ class TestDeepHealthCheck:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_stripe_health",
+                "aragora.server.handlers.admin.health_utils.check_stripe_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_slack_health",
+                "aragora.server.handlers.admin.health_utils.check_slack_health",
                 return_value={"healthy": True, "configured": False},
             ),
         ):
@@ -505,23 +505,23 @@ class TestDeepHealthCheck:
             patch("psutil.cpu_count", return_value=8),
             patch("psutil.disk_usage", return_value=mock_disk),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_stripe_health",
+                "aragora.server.handlers.admin.health_utils.check_stripe_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_slack_health",
+                "aragora.server.handlers.admin.health_utils.check_slack_health",
                 return_value={"healthy": True, "configured": False},
             ),
         ):
@@ -549,23 +549,23 @@ class TestDeepHealthCheck:
             patch("psutil.cpu_count", return_value=8),
             patch("psutil.disk_usage", return_value=MagicMock(percent=50.0, free=100 * 1024**3)),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_stripe_health",
+                "aragora.server.handlers.admin.health_utils.check_stripe_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_slack_health",
+                "aragora.server.handlers.admin.health_utils.check_slack_health",
                 return_value={"healthy": True, "configured": False},
             ),
         ):
@@ -593,23 +593,23 @@ class TestDeepHealthCheck:
             patch("psutil.cpu_count", return_value=8),
             patch("psutil.disk_usage", return_value=mock_disk),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_stripe_health",
+                "aragora.server.handlers.admin.health_utils.check_stripe_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_slack_health",
+                "aragora.server.handlers.admin.health_utils.check_slack_health",
                 return_value={"healthy": True, "configured": False},
             ),
         ):
@@ -626,23 +626,23 @@ class TestDeepHealthCheck:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
+                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_redis_health",
+                "aragora.server.handlers.admin.health_utils.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
+                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_stripe_health",
+                "aragora.server.handlers.admin.health_utils.check_stripe_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.check_slack_health",
+                "aragora.server.handlers.admin.health_utils.check_slack_health",
                 return_value={"healthy": True, "configured": False},
             ),
         ):
