@@ -123,7 +123,8 @@ class NomicBeadAPI(BeadAPI):
 
     async def update_bead(self, bead: Bead) -> Bead:
         store = await self._store()
-        return await store.update(bead)
+        await store.update(bead)
+        return bead
 
     async def list_beads(self, *, status: BeadStatus | None = None) -> list[Bead]:
         store = await self._store()
