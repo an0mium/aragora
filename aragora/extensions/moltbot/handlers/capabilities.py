@@ -148,7 +148,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
         category = query_params.get("category")
 
         matcher = get_capability_matcher()
-        capabilities = await matcher.list_capabilities(category=category)
+        capabilities = await matcher.list_capabilities(category=category)  # type: ignore[attr-defined]
 
         return json_response(
             {
@@ -164,14 +164,14 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             return err
 
         matcher = get_capability_matcher()
-        capability = await matcher.get_capability(capability_name)
+        capability = await matcher.get_capability(capability_name)  # type: ignore[attr-defined]
 
         if not capability:
             return error_response("Capability not found", 404)
 
         result = self._serialize_capability(capability)
         # Include additional metadata
-        result["dependents"] = await matcher.get_dependents(capability_name)
+        result["dependents"] = await matcher.get_dependents(capability_name)  # type: ignore[attr-defined]
 
         return json_response({"capability": result})
 
@@ -182,7 +182,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             return err
 
         matcher = get_capability_matcher()
-        caps = await matcher.get_device_capabilities(device_id)
+        caps = await matcher.get_device_capabilities(device_id)  # type: ignore[attr-defined]
 
         if not caps:
             return error_response("Device not found or no capabilities detected", 404)
@@ -207,7 +207,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             return error_response("capability is required", 400)
 
         matcher = get_capability_matcher()
-        result = await matcher.check_capability(device_id, capability_name)
+        result = await matcher.check_capability(device_id, capability_name)  # type: ignore[attr-defined]
 
         return json_response(
             {
@@ -229,7 +229,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
         tenant_id = query_params.get("tenant_id")
 
         matcher = get_capability_matcher()
-        matrix = await matcher.get_capability_matrix(tenant_id=tenant_id)
+        matrix = await matcher.get_capability_matrix(tenant_id=tenant_id)  # type: ignore[attr-defined]
 
         return json_response(
             {
@@ -269,7 +269,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             return err
 
         matcher = get_capability_matcher()
-        capabilities = await matcher.list_capabilities(category=category)
+        capabilities = await matcher.list_capabilities(category=category)  # type: ignore[attr-defined]
 
         return json_response(
             {
