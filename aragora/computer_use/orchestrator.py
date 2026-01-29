@@ -497,7 +497,7 @@ class ComputerUseOrchestrator:
         try:
             start_time = time.time()
             result = await asyncio.wait_for(
-                self._executor.execute(action),  # type: ignore
+                self._executor.execute(action),  # type: ignore[arg-type]  # Action subtype dispatch
                 timeout=self._config.action_timeout_seconds,
             )
             result.duration_ms = (time.time() - start_time) * 1000

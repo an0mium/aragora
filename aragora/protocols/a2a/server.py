@@ -305,13 +305,13 @@ class A2AServer:
     async def _handle_debate(self, request: TaskRequest) -> TaskResult:
         """Handle debate capability requests."""
         from aragora.agents.base import create_agent
-        from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+        from aragora.config import DEFAULT_AGENT_LIST, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
         from aragora.core import Environment
         from aragora.debate.orchestrator import Arena, DebateProtocol
 
         # Parse context for additional parameters
         rounds = DEFAULT_ROUNDS
-        agents_str = ",".join(DEFAULT_AGENTS)
+        agents_str = ",".join(DEFAULT_AGENT_LIST)
 
         for ctx in request.context:
             if ctx.metadata.get("rounds"):

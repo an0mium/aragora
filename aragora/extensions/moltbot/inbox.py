@@ -119,7 +119,7 @@ class InboxManager:
             if not channel:
                 return None
 
-            channel.status = status  # type: ignore
+            channel.status = status  # type: ignore[assignment]  # ChannelStatus from string
             channel.updated_at = datetime.utcnow()
             return channel
 

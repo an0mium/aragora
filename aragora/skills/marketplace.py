@@ -465,7 +465,7 @@ class SkillMarketplace:
         conn.commit()
         logger.info(f"Published skill: {skill_id} v{manifest.version}")
 
-        return await self.get_skill(skill_id)  # type: ignore
+        return await self.get_skill(skill_id)  # type: ignore[return-value]  # Skill exists after publish
 
     async def unpublish(self, skill_id: str, author_id: str) -> bool:
         """

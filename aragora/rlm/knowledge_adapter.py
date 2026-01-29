@@ -112,7 +112,7 @@ class KnowledgeMoundAdapter:
         """
 
         async def search_mound(query: str, limit: int = 10) -> list[dict]:
-            nodes = await self.mound.query_semantic(query=query, limit=limit)
+            nodes = await self.mound.query_semantic(query, limit=limit)
             return [
                 {
                     "id": n.id,

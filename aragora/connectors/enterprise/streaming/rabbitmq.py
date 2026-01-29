@@ -11,7 +11,7 @@ Requires: aio-pika
 
 Usage:
     config = RabbitMQConfig(
-        url="amqp://guest:guest@localhost/",
+        url=os.environ["RABBITMQ_URL"],  # Required, no default
         queue="decisions",
         exchange="aragora",
     )
@@ -46,10 +46,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RabbitMQConfig:
-    """Configuration for RabbitMQ connector."""
+    """Configuration for RabbitMQ connector.
 
-    # Connection
-    url: str = "amqp://guest:guest@localhost/"
+    Note: The url parameter has no default value to prevent accidental use of
+    insecure credentials in production. Always explicitly configure the URL.
+    """
+
+    # Connection - NO DEFAULT to prevent insecure production deployments
+    url: str  # Required: e.g., "amqp://user:password@host:5672/vhost"
     queue: str = "aragora-events"
     exchange: str = ""  # Default exchange if empty
     exchange_type: str = "direct"  # direct, fanout, topic, headers

@@ -436,12 +436,14 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
 
         try:
             async with aiohttp.ClientSession() as session:
+                from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
+
                 async with session.post(
                     f"{api_base}/api/debate",
                     json={
                         "question": topic,
-                        "agents": "grok,anthropic-api,openai-api,deepseek",
-                        "rounds": 3,
+                        "agents": DEFAULT_AGENTS,
+                        "rounds": DEFAULT_ROUNDS,
                         "metadata": {
                             "source": ctx.platform.value,
                             "channel_id": ctx.channel_id,

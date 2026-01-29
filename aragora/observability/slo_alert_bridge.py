@@ -179,14 +179,14 @@ class SLOAlertBridge:
         try:
             from aragora.connectors.devops.pagerduty import (
                 PagerDutyConnector,
+                PagerDutyCredentials,
                 IncidentCreateRequest,
                 IncidentUrgency,
             )
 
             if self._pagerduty_client is None:
-                self._pagerduty_client = PagerDutyConnector(
-                    api_key=self.config.pagerduty_api_key or ""
-                )
+                credentials = PagerDutyCredentials(api_key=self.config.pagerduty_api_key or "")
+                self._pagerduty_client = PagerDutyConnector(credentials)
 
             # Map severity to PagerDuty urgency/priority
             urgency_map = {
@@ -241,14 +241,14 @@ class SLOAlertBridge:
             return False
 
         try:
-            from aragora.control_plane.notifications import (
-                get_notification_manager,
-                NotificationEventTypes,
+            from aragora.control_plane.channels import (
+                NotificationManager,
+                NotificationEventType,
                 NotificationPriority,
             )
 
             if self._notification_manager is None:
-                self._notification_manager = get_notification_manager()
+                self._notification_manager = NotificationManager()
 
             severity = self._map_severity(violation.severity)
             priority_map = {
@@ -299,12 +299,11 @@ class SLOAlertBridge:
                 },
             ]
 
-            await self._notification_manager.send_notification(
-                event_type=NotificationEventTypes.SLA_VIOLATION,
+            await self._notification_manager.notify(
+                event_type=NotificationEventType.SLA_VIOLATION,
                 title=f"SLO Violation: {violation.operation} {violation.percentile}",
-                message=f"Severity: {violation.severity}, Latency: {context.get('latency_ms')}ms",
+                body=f"Severity: {violation.severity}, Latency: {context.get('latency_ms')}ms",
                 priority=priority_map.get(severity, NotificationPriority.NORMAL),
-                channels=["slack"],
                 metadata={
                     "operation": violation.operation,
                     "percentile": violation.percentile,
@@ -430,17 +429,16 @@ class SLOAlertBridge:
             # Send recovery notification to Slack
             if "slack" in violation.notified_channels and self._notification_manager:
                 try:
-                    from aragora.control_plane.notifications import (
-                        NotificationEventTypes,
+                    from aragora.control_plane.channels import (
+                        NotificationEventType,
                         NotificationPriority,
                     )
 
-                    await self._notification_manager.send_notification(
-                        event_type=NotificationEventTypes.TASK_COMPLETED,
+                    await self._notification_manager.notify(
+                        event_type=NotificationEventType.TASK_COMPLETED,
                         title=f"SLO Recovered: {operation} {percentile}",
-                        message=f"Duration: {time.time() - violation.first_seen:.0f}s, Occurrences: {violation.count}",
+                        body=f"Duration: {time.time() - violation.first_seen:.0f}s, Occurrences: {violation.count}",
                         priority=NotificationPriority.LOW,
-                        channels=["slack"],
                         metadata={
                             "operation": operation,
                             "percentile": percentile,

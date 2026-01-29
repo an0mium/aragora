@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.config import DEFAULT_AGENT_LIST, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.queue.base import Job
 from aragora.serialization import SerializableMixin
 
@@ -24,7 +24,7 @@ class DebateJobPayload(SerializableMixin):
     """
 
     question: str
-    agents: List[str] = field(default_factory=lambda: list(DEFAULT_AGENTS))
+    agents: List[str] = field(default_factory=lambda: list(DEFAULT_AGENT_LIST))
     rounds: int = DEFAULT_ROUNDS
     consensus: str = DEFAULT_CONSENSUS
     protocol: str = "standard"
@@ -75,7 +75,7 @@ def create_debate_job(
     """
     payload = DebateJobPayload(
         question=question,
-        agents=agents or list(DEFAULT_AGENTS),
+        agents=agents or list(DEFAULT_AGENT_LIST),
         rounds=rounds,
         consensus=consensus,
         protocol=protocol,

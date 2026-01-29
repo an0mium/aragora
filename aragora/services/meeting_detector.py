@@ -895,7 +895,7 @@ async def detect_meeting_quick(
 
     email = SimpleEmail(subject, body, sender)
     detector = MeetingDetector()
-    return await detector.detect_meeting(email, check_calendar=False)  # type: ignore
+    return await detector.detect_meeting(email, check_calendar=False)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
 
 
 __all__ = [

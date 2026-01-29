@@ -318,8 +318,8 @@ def instrument_sqlite_connection(conn: sqlite3.Connection) -> sqlite3.Connection
             logger.debug(f"Query batch failed after {duration_ms:.2f}ms: {e}")
             raise
 
-    conn.execute = profiled_execute  # type: ignore
-    conn.executemany = profiled_executemany  # type: ignore
+    conn.execute = profiled_execute  # type: ignore[method-assign]  # Monkey-patch profiled method
+    conn.executemany = profiled_executemany  # type: ignore[method-assign]  # Monkey-patch profiled method
     return conn
 
 

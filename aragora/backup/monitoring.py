@@ -173,8 +173,8 @@ class BackupMetrics:
     backup_age_seconds: Optional[float] = None
     last_backup_size_bytes: Optional[int] = None
     last_restore_duration: Optional[float] = None
-    rpo_compliant: dict[str, bool] = None  # type: ignore
-    rto_compliant: dict[str, bool] = None  # type: ignore
+    rpo_compliant: dict[str, bool] = None  # type: ignore[assignment]  # Initialized in __post_init__
+    rto_compliant: dict[str, bool] = None  # type: ignore[assignment]  # Initialized in __post_init__
 
     def __post_init__(self):
         if self.rpo_compliant is None:

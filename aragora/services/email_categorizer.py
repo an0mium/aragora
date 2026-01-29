@@ -598,4 +598,4 @@ async def categorize_email_quick(
 
     email = SimpleEmail(subject, body, sender)
     categorizer = EmailCategorizer()
-    return await categorizer.categorize_email(email)  # type: ignore
+    return await categorizer.categorize_email(email)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol

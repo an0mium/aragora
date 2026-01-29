@@ -330,7 +330,7 @@ class LazyValue(Generic[T]):
         """Get the value, loading if necessary."""
         if self._loaded:
             _lazy_load_stats.prefetch_hits += 1
-            return self._value  # type: ignore
+            return self._value  # type: ignore[return-value]  # Value exists when _loaded is True
 
         # Handle concurrent loads
         if self._loading:

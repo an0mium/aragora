@@ -498,7 +498,7 @@ class DependencyAnalyzer:
         try:
             import tomllib
         except ImportError:
-            import tomli as tomllib  # type: ignore
+            import tomli as tomllib  # type: ignore[import-not-found]  # Fallback for Python <3.11
 
         content = path.read_text()
         data = tomllib.loads(content)
@@ -585,7 +585,7 @@ class DependencyAnalyzer:
         try:
             import tomllib
         except ImportError:
-            import tomli as tomllib  # type: ignore
+            import tomli as tomllib  # type: ignore[import-not-found]  # Fallback for Python <3.11
 
         content = path.read_text()
         data = tomllib.loads(content)

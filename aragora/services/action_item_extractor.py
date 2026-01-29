@@ -848,7 +848,7 @@ async def extract_action_items_quick(
 
     email = SimpleEmail(subject, body, sender)
     extractor = ActionItemExtractor()
-    return await extractor.extract_action_items(email)  # type: ignore
+    return await extractor.extract_action_items(email)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
 
 
 __all__ = [

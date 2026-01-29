@@ -166,7 +166,7 @@ class OnboardingOrchestrator:
             step = OnboardingStep(
                 id=step_id,
                 name=name,
-                type=step_type,  # type: ignore
+                type=step_type,  # type: ignore[arg-type]  # StepType from string
                 content=content or {},
                 required=required,
                 order=order,
