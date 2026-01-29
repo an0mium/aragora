@@ -1,0 +1,237 @@
+# mypy: ignore-errors
+"""
+Slack integration configuration and lazy singletons.
+
+Module-level constants, environment variables, and lazy-initialized
+singleton accessors for audit logging, rate limiting, and workspace management.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
+
+# --- Lazy import for audit logger (avoid circular imports) ---
+
+_slack_audit: Any = None
+
+
+def _get_audit_logger() -> Any:
+    """Get or create Slack audit logger (lazy initialization)."""
+    global _slack_audit
+    if _slack_audit is None:
+        try:
+            from aragora.audit.slack_audit import get_slack_audit_logger
+
+            _slack_audit = get_slack_audit_logger()
+        except Exception as e:
+            logger.debug(f"Slack audit logger not available: {e}")
+            _slack_audit = None
+    return _slack_audit
+
+
+# --- Lazy import for user rate limiter ---
+
+_slack_user_limiter: Any = None
+
+
+def _get_user_rate_limiter() -> Any:
+    """Get or create user rate limiter for per-user rate limiting."""
+    global _slack_user_limiter
+    if _slack_user_limiter is None:
+        try:
+            from aragora.server.middleware.rate_limit.user_limiter import (
+                get_user_rate_limiter,
+            )
+
+            _slack_user_limiter = get_user_rate_limiter()
+        except Exception as e:
+            logger.debug(f"User rate limiter not available: {e}")
+            _slack_user_limiter = None
+    return _slack_user_limiter
+
+
+# --- Lazy import for workspace rate limiter ---
+
+_slack_workspace_limiter: Any = None
+
+# Configurable workspace rate limit (requests per minute)
+SLACK_WORKSPACE_RATE_LIMIT_RPM = int(os.environ.get("SLACK_WORKSPACE_RATE_LIMIT_RPM", "30"))
+
+
+def _get_workspace_rate_limiter() -> Any:
+    """Get or create workspace rate limiter for per-workspace rate limiting."""
+    global _slack_workspace_limiter
+    if _slack_workspace_limiter is None:
+        try:
+            from aragora.server.middleware.rate_limit.user_limiter import (
+                get_user_rate_limiter,
+            )
+
+            # Use the same limiter infrastructure but with workspace-specific configuration
+            _slack_workspace_limiter = get_user_rate_limiter()
+            if _slack_workspace_limiter:
+                _slack_workspace_limiter.action_limits["slack_workspace_command"] = (
+                    SLACK_WORKSPACE_RATE_LIMIT_RPM
+                )
+        except Exception as e:
+            logger.debug(f"Workspace rate limiter not available: {e}")
+            _slack_workspace_limiter = None
+    return _slack_workspace_limiter
+
+
+# --- URL validation ---
+
+# Allowed domains for Slack response URLs (SSRF protection)
+SLACK_ALLOWED_DOMAINS = frozenset({"hooks.slack.com", "api.slack.com"})
+
+# Base URL for internal API calls (configurable for production)
+ARAGORA_API_BASE_URL = os.environ.get("ARAGORA_API_BASE_URL", "http://localhost:8080")
+
+
+def _validate_slack_url(url: str) -> bool:
+    """Validate that a URL is a legitimate Slack endpoint.
+
+    This prevents SSRF attacks by ensuring we only POST to Slack's servers.
+
+    Args:
+        url: The URL to validate
+
+    Returns:
+        True if the URL is a valid Slack endpoint, False otherwise
+    """
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(url)
+        # Must be HTTPS
+        if parsed.scheme != "https":
+            return False
+        # Must be a Slack domain
+        if parsed.netloc not in SLACK_ALLOWED_DOMAINS:
+            return False
+        return True
+    except (ValueError, TypeError) as e:
+        logger.debug(f"URL validation failed for slack: {e}")
+        return False
+
+
+# --- Task tracking ---
+
+import asyncio
+from typing import Coroutine
+
+
+def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
+    """Handle exceptions from fire-and-forget async tasks."""
+    if task.cancelled():
+        logger.debug(f"Task {task_name} was cancelled")
+    elif task.exception():
+        exc = task.exception()
+        logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+
+
+def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
+    """Create an async task with exception logging.
+
+    Use this instead of raw asyncio.create_task() for fire-and-forget tasks
+    to ensure exceptions are logged rather than silently swallowed.
+    """
+    task = asyncio.create_task(coro, name=name)
+    task.add_done_callback(lambda t: _handle_task_exception(t, name))
+    return task
+
+
+# --- Handler imports ---
+
+
+# RBAC permission for integration status endpoints
+BOTS_READ_PERMISSION = "bots.read"
+
+# Environment variables for Slack integration (fallback for single-workspace mode)
+SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+
+# Log warnings at module load time for missing secrets
+if not SLACK_SIGNING_SECRET:
+    logger.warning("SLACK_SIGNING_SECRET not configured - signature verification disabled")
+if not SLACK_BOT_TOKEN:
+    logger.warning("SLACK_BOT_TOKEN not configured - Slack API calls disabled")
+
+
+# --- Multi-workspace support ---
+
+_workspace_store = None
+
+
+def get_workspace_store():
+    """Get the Slack workspace store for multi-workspace support."""
+    global _workspace_store
+    if _workspace_store is None:
+        try:
+            from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+            _workspace_store = get_slack_workspace_store()
+        except ImportError:
+            logger.debug("Slack workspace store not available")
+    return _workspace_store
+
+
+def resolve_workspace(team_id: str):
+    """Resolve a workspace by team_id.
+
+    Returns workspace object if found, None otherwise.
+    Falls back to environment variable configuration if no store configured.
+    """
+    if not team_id:
+        return None
+
+    store = get_workspace_store()
+    if store:
+        try:
+            return store.get(team_id)
+        except (KeyError, OSError, RuntimeError) as e:
+            logger.debug(f"Failed to get workspace {team_id}: {e}")
+
+    return None
+
+
+# --- Command parsing patterns ---
+
+COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$")
+TOPIC_PATTERN = re.compile(r'^["\']?(.+?)["\']?$')
+
+
+# --- Slack integration singleton ---
+
+_slack_integration: Optional[Any] = None
+
+
+def get_slack_integration() -> Optional[Any]:
+    """Get or create the Slack integration singleton."""
+    global _slack_integration
+    if _slack_integration is None:
+        if not SLACK_WEBHOOK_URL:
+            logger.debug("Slack integration disabled (no SLACK_WEBHOOK_URL)")
+            return None
+        try:
+            from aragora.integrations.slack import SlackConfig, SlackIntegration
+
+            config = SlackConfig(webhook_url=SLACK_WEBHOOK_URL)
+            _slack_integration = SlackIntegration(config)
+            logger.info("Slack integration initialized")
+        except ImportError as e:
+            logger.warning(f"Slack integration module not available: {e}")
+            return None
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid Slack configuration: {e}")
+            return None
+        except Exception as e:
+            logger.exception(f"Unexpected error initializing Slack integration: {e}")
+            return None
+    return _slack_integration

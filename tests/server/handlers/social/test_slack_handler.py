@@ -194,7 +194,9 @@ class TestStatusEndpoint:
             method="GET",
         )
 
-        with patch("aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", "secret123"):
+        with patch(
+            "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET", "secret123"
+        ):
             result = await handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
 
         status_code, body = parse_result(result)
@@ -210,7 +212,9 @@ class TestStatusEndpoint:
             method="GET",
         )
 
-        with patch("aragora.server.handlers.social._slack_impl.SLACK_BOT_TOKEN", "xoxb-token"):
+        with patch(
+            "aragora.server.handlers.social._slack_impl.config.SLACK_BOT_TOKEN", "xoxb-token"
+        ):
             result = await handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
 
         status_code, body = parse_result(result)
@@ -247,7 +251,8 @@ class TestSignatureVerification:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -278,7 +283,8 @@ class TestSignatureVerification:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -312,11 +318,12 @@ class TestSignatureVerification:
         mock_audit = MagicMock()
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch(
-                "aragora.server.handlers.social._slack_impl._get_audit_logger",
+                "aragora.server.handlers.social._slack_impl.config._get_audit_logger",
                 return_value=mock_audit,
             ),
         ):
@@ -341,7 +348,7 @@ class TestSignatureVerification:
             method="POST",
         )
 
-        with patch("aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", ""):
+        with patch("aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET", ""):
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         # Should not fail on signature (no secret to verify against)
@@ -388,11 +395,12 @@ class TestRateLimiting:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch(
-                "aragora.server.handlers.social._slack_impl._get_workspace_rate_limiter",
+                "aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter",
                 return_value=mock_limiter,
             ),
         ):
@@ -438,15 +446,16 @@ class TestRateLimiting:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch(
-                "aragora.server.handlers.social._slack_impl._get_workspace_rate_limiter",
+                "aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter",
                 return_value=mock_workspace_limiter,
             ),
             patch(
-                "aragora.server.handlers.social._slack_impl._get_user_rate_limiter",
+                "aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter",
                 return_value=mock_user_limiter,
             ),
         ):
@@ -488,15 +497,16 @@ class TestRateLimiting:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch(
-                "aragora.server.handlers.social._slack_impl._get_workspace_rate_limiter",
+                "aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter",
                 return_value=mock_limiter,
             ),
             patch(
-                "aragora.server.handlers.social._slack_impl._get_audit_logger",
+                "aragora.server.handlers.social._slack_impl.commands._get_audit_logger",
                 return_value=mock_audit,
             ),
         ):
@@ -542,7 +552,8 @@ class TestSlashCommandHelp:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -583,7 +594,8 @@ class TestSlashCommandHelp:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -633,7 +645,8 @@ class TestSlashCommandStatus:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
@@ -689,7 +702,8 @@ class TestSlashCommandAgents:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
@@ -732,7 +746,8 @@ class TestSlashCommandAgents:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
@@ -776,7 +791,8 @@ class TestSlashCommandAsk:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -816,7 +832,8 @@ class TestSlashCommandAsk:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -856,7 +873,8 @@ class TestSlashCommandAsk:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -896,10 +914,11 @@ class TestSlashCommandAsk:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
-            patch("aragora.server.handlers.social._slack_impl.create_tracked_task"),
+            patch("aragora.server.handlers.social._slack_impl.commands.create_tracked_task"),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -941,7 +960,8 @@ class TestSlashCommandSearch:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -980,7 +1000,8 @@ class TestSlashCommandSearch:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -1023,7 +1044,8 @@ class TestSlashCommandUnknown:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -1073,7 +1095,8 @@ class TestInteractiveComponents:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -1118,7 +1141,8 @@ class TestEventsAPI:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -1160,7 +1184,8 @@ class TestEventsAPI:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -1208,10 +1233,13 @@ class TestMultiWorkspace:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
-            patch("aragora.server.handlers.social._slack_impl.resolve_workspace") as mock_resolve,
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.resolve_workspace"
+            ) as mock_resolve,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             mock_resolve.return_value = None
@@ -1250,9 +1278,9 @@ class TestMultiWorkspace:
         mock_workspace.signing_secret = custom_secret
 
         with (
-            patch("aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", ""),
+            patch("aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET", ""),
             patch(
-                "aragora.server.handlers.social._slack_impl.resolve_workspace",
+                "aragora.server.handlers.social._slack_impl.config.resolve_workspace",
                 return_value=mock_workspace,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
@@ -1312,7 +1340,8 @@ class TestErrorHandling:
 
         with (
             patch(
-                "aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", signing_secret
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
@@ -1368,7 +1397,7 @@ class TestHandlerFactory:
 
         slack_module._slack_integration = None
 
-        with patch("aragora.server.handlers.social._slack_impl.SLACK_WEBHOOK_URL", ""):
+        with patch("aragora.server.handlers.social._slack_impl.config.SLACK_WEBHOOK_URL", ""):
             integration = get_slack_integration()
 
         assert integration is None
