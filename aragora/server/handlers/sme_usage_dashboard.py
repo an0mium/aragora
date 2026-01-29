@@ -479,7 +479,7 @@ class SMEUsageDashboardHandler(SecureHandler):
                 )
             else:
                 calculator = self._get_roi_calculator(benchmark)
-        except Exception:
+        except (ValueError, KeyError):
             calculator = self._get_roi_calculator("sme")
 
         # Estimate debate count and costs from workspace stats

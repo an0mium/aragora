@@ -424,12 +424,9 @@ def get_batch_job_store() -> BatchJobStore:
         db_path = data_dir / "explainability_batch_jobs.db"
 
     def _require_distributed(mode: str, reason: str) -> None:
-        try:
-            from aragora.storage.production_guards import require_distributed_store, StorageMode
+        from aragora.storage.production_guards import require_distributed_store, StorageMode
 
-            require_distributed_store("explainability_batch_store", StorageMode(mode), reason)
-        except Exception:
-            raise
+        require_distributed_store("explainability_batch_store", StorageMode(mode), reason)
 
     def _create_sqlite_store(reason: str) -> BatchJobStore:
         _require_distributed("sqlite", reason)

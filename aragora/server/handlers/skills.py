@@ -15,6 +15,7 @@ __all__ = [
 ]
 
 import asyncio
+import json
 import logging
 from typing import Any, Optional
 
@@ -269,7 +270,7 @@ class SkillsHandler(BaseHandler):
                 body = await request.json()
             else:
                 body = request.get("body", {})
-        except Exception:
+        except (json.JSONDecodeError, TypeError, AttributeError):
             return error_response("Invalid JSON body", 400)
 
         skill_name = body.get("skill")
