@@ -745,7 +745,7 @@ class KnowledgeFederationMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            # type: ignore for optional cross-workspace integration (incomplete stubs)
+            # Ignoring types for optional cross-workspace integration (incomplete stubs)
             result = await coordinator.execute_operation(
                 operation=CrossWorkspaceOperation.QUERY_MOUND,
                 from_workspace_id=self._proto.workspace_id,
