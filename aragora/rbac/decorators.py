@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, TypeVar, ParamSpec
+from typing import Any, Callable, Coroutine, TypeVar, ParamSpec, cast
 
 from .checker import get_permission_checker, PermissionChecker
 from .models import AuthorizationContext, AuthorizationDecision
@@ -169,14 +169,15 @@ def require_permission(
                     on_denied(decision)
                 raise PermissionDeniedError(decision.reason, decision)
 
-            return await func(*args, **kwargs)  # type: ignore[misc]
+            # Cast to coroutine since we know func is async at runtime
+            return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
 
         # Return appropriate wrapper based on function type
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(Callable[P, T], async_wrapper)
+        return cast(Callable[P, T], sync_wrapper)
 
     return decorator
 
@@ -264,13 +265,14 @@ def require_role(
                         context.roles,
                     )
 
-            return await func(*args, **kwargs)  # type: ignore[misc]
+            # Cast to coroutine since we know func is async at runtime
+            return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
 
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(Callable[P, T], async_wrapper)
+        return cast(Callable[P, T], sync_wrapper)
 
     return decorator
 
@@ -341,23 +343,23 @@ def require_org_access(
             org_id = kwargs.get(org_id_param)
 
             if org_id is None and allow_none:
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
 
             if org_id is None:
                 raise PermissionDeniedError("Organization ID required but not provided")
 
             if context.org_id != org_id:
                 if context.org_id is None and "owner" in context.roles:
-                    return await func(*args, **kwargs)  # type: ignore[misc]
+                    return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
                 raise PermissionDeniedError(f"User does not have access to organization {org_id}")
 
-            return await func(*args, **kwargs)  # type: ignore[misc]
+            return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
 
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(Callable[P, T], async_wrapper)
+        return cast(Callable[P, T], sync_wrapper)
 
     return decorator
 
@@ -406,18 +408,18 @@ def require_self_or_admin(
             target_user_id = kwargs.get(user_id_param)
 
             if target_user_id == context.user_id:
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
 
             if context.has_any_role("owner", "admin"):
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
 
             raise PermissionDeniedError("Can only modify own data or requires admin role")
 
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(Callable[P, T], async_wrapper)
+        return cast(Callable[P, T], sync_wrapper)
 
     return decorator
 
@@ -468,6 +470,6 @@ def with_permission_context(
 
             return func(*args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(Callable[P, T], wrapper)
 
     return decorator
