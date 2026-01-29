@@ -941,6 +941,68 @@ PERM_PII_MASK = _permission(
     ResourceType.PII, Action.MASK, "Mask PII", "Configure PII masking rules"
 )
 
+
+# ============================================================================
+# COMPUTER-USE PERMISSIONS
+# ============================================================================
+# Permissions for computer-use orchestration (browser automation, shell access, etc.)
+
+PERM_COMPUTER_USE_READ = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.READ,
+    "View Computer-Use Sessions",
+    "View computer-use task status and history",
+)
+PERM_COMPUTER_USE_EXECUTE = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.EXECUTE,
+    "Execute Computer-Use Tasks",
+    "Run computer-use automation tasks",
+)
+PERM_COMPUTER_USE_BROWSER = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.BROWSER,
+    "Browser Automation",
+    "Control browser (navigate, click, type)",
+)
+PERM_COMPUTER_USE_SHELL = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.SHELL,
+    "Shell Execution",
+    "Execute shell commands (bash, powershell)",
+)
+PERM_COMPUTER_USE_FILE_READ = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.FILE_READ,
+    "Read Files",
+    "Read files from the filesystem",
+)
+PERM_COMPUTER_USE_FILE_WRITE = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.FILE_WRITE,
+    "Write Files",
+    "Write files to the filesystem",
+)
+PERM_COMPUTER_USE_SCREENSHOT = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.SCREENSHOT,
+    "Take Screenshots",
+    "Capture screen contents",
+)
+PERM_COMPUTER_USE_NETWORK = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.NETWORK,
+    "Network Access",
+    "Make network requests (HTTP, etc.)",
+)
+PERM_COMPUTER_USE_ADMIN = _permission(
+    ResourceType.COMPUTER_USE,
+    Action.ADMIN_OP,
+    "Computer-Use Admin",
+    "Full computer-use administration (policy management, override limits)",
+)
+
+
 # ============================================================================
 # ENTERPRISE PERMISSIONS - Compliance & Regulatory
 # ============================================================================
@@ -1755,6 +1817,16 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_CONTROL_PLANE_TASKS_CLAIM,
         PERM_CONTROL_PLANE_TASKS_COMPLETE,
         PERM_CONTROL_PLANE_HEALTH_READ,
+        # Computer-Use
+        PERM_COMPUTER_USE_READ,
+        PERM_COMPUTER_USE_EXECUTE,
+        PERM_COMPUTER_USE_BROWSER,
+        PERM_COMPUTER_USE_SHELL,
+        PERM_COMPUTER_USE_FILE_READ,
+        PERM_COMPUTER_USE_FILE_WRITE,
+        PERM_COMPUTER_USE_SCREENSHOT,
+        PERM_COMPUTER_USE_NETWORK,
+        PERM_COMPUTER_USE_ADMIN,
     ]
 }
 
@@ -1984,6 +2056,16 @@ ROLE_ADMIN = Role(
         # Culture (all operations)
         PERM_CULTURE_READ.key,
         PERM_CULTURE_WRITE.key,
+        # Computer-Use (all operations)
+        PERM_COMPUTER_USE_READ.key,
+        PERM_COMPUTER_USE_EXECUTE.key,
+        PERM_COMPUTER_USE_BROWSER.key,
+        PERM_COMPUTER_USE_SHELL.key,
+        PERM_COMPUTER_USE_FILE_READ.key,
+        PERM_COMPUTER_USE_FILE_WRITE.key,
+        PERM_COMPUTER_USE_SCREENSHOT.key,
+        PERM_COMPUTER_USE_NETWORK.key,
+        PERM_COMPUTER_USE_ADMIN.key,
     },
     parent_roles=[],
     priority=80,

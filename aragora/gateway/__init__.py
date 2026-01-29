@@ -25,6 +25,7 @@ from aragora.gateway.server import LocalGateway, GatewayConfig
 from aragora.gateway.inbox import InboxAggregator, InboxMessage, InboxThread
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry
 from aragora.gateway.router import AgentRouter, RoutingRule
+from aragora.gateway.capability_router import CapabilityRouter, CapabilityRule, RoutingResult
 from aragora.gateway.persistence import (
     GatewayStore,
     InMemoryGatewayStore,
@@ -47,6 +48,9 @@ __all__ = [
     # Router
     "AgentRouter",
     "RoutingRule",
+    "CapabilityRouter",
+    "CapabilityRule",
+    "RoutingResult",
     # Persistence
     "GatewayStore",
     "InMemoryGatewayStore",

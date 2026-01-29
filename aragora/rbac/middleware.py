@@ -273,12 +273,16 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/decisions?/([^/]+)$", "GET", "decisions.read", 1),
     RoutePermission(r"^/api/decisions?/([^/]+)/status$", "GET", "decisions.read", 1),
     RoutePermission(r"^/api/decisions?/([^/]+)/explain$", "GET", "decisions.read", 1),
+    RoutePermission(r"^/api/decisions?/([^/]+)/cancel$", "POST", "decisions.update", 1),
+    RoutePermission(r"^/api/decisions?/([^/]+)/retry$", "POST", "decisions.update", 1),
     # Versioned decision endpoints (v1)
     RoutePermission(r"^/api/v1/decisions?$", "POST", "decisions.create"),
     RoutePermission(r"^/api/v1/decisions?$", "GET", "decisions.read"),
     RoutePermission(r"^/api/v1/decisions?/([^/]+)$", "GET", "decisions.read", 1),
     RoutePermission(r"^/api/v1/decisions?/([^/]+)/status$", "GET", "decisions.read", 1),
     RoutePermission(r"^/api/v1/decisions?/([^/]+)/explain$", "GET", "decisions.read", 1),
+    RoutePermission(r"^/api/v1/decisions?/([^/]+)/cancel$", "POST", "decisions.update", 1),
+    RoutePermission(r"^/api/v1/decisions?/([^/]+)/retry$", "POST", "decisions.update", 1),
     # Policies - governance management
     RoutePermission(r"^/api/v1/policies$", "GET", "policies.read"),
     RoutePermission(r"^/api/v1/policies$", "POST", "policies.create"),

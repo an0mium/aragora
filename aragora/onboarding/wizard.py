@@ -594,3 +594,261 @@ class OnboardingWizard:
             step = session.get_step(step_id)
             return step is not None and step.status == StepStatus.COMPLETED
         return False
+
+    # =========================================================================
+    # Device-specific onboarding (Moltbot pattern)
+    # =========================================================================
+
+    async def create_device_session(
+        self,
+        device_id: str,
+        capabilities: list[str],
+        device_name: str = "",
+        device_type: str = "unknown",
+        user_id: str | None = None,
+    ) -> OnboardingSession:
+        """
+        Create an onboarding session with device-specific steps.
+
+        Pattern: Device Onboarding
+        Inspired by: Moltbot (https://github.com/moltbot)
+        Aragora adaptation: Capability-based step generation.
+
+        Generates appropriate onboarding steps based on device capabilities.
+
+        Args:
+            device_id: Device ID to onboard
+            capabilities: List of device capability strings
+            device_name: Human-readable device name
+            device_type: Device type (laptop, phone, etc.)
+            user_id: Optional user ID (defaults to device_id)
+
+        Returns:
+            OnboardingSession with device-appropriate steps
+        """
+        # Build steps based on capabilities
+        steps = self._get_steps_for_capabilities(capabilities)
+
+        # Create session
+        session = OnboardingSession(
+            user_id=user_id or device_id,
+            device_id=device_id,
+            steps=steps,
+            current_step=steps[0].step_id if steps else "",
+            metadata={
+                "device_type": device_type,
+                "device_name": device_name,
+                "capabilities": capabilities,
+            },
+        )
+
+        # Mark first step as active
+        if session.steps:
+            session.steps[0].status = StepStatus.ACTIVE
+
+        self._sessions[session.session_id] = session
+        return session
+
+    def _get_steps_for_capabilities(
+        self, capabilities: list[str]
+    ) -> list[OnboardingStep]:
+        """
+        Generate onboarding steps based on device capabilities.
+
+        Maps device capabilities to appropriate onboarding steps.
+
+        Args:
+            capabilities: List of device capability strings
+
+        Returns:
+            List of OnboardingStep objects
+        """
+        steps = []
+        order = 0
+
+        # Always include welcome
+        steps.append(
+            OnboardingStep(
+                step_id="welcome",
+                name="Welcome",
+                description="Welcome to Aragora! Let's set up your device.",
+                order=order,
+                required=False,
+            )
+        )
+        order += 1
+
+        # Device pairing (always required for device sessions)
+        steps.append(
+            OnboardingStep(
+                step_id="device_pairing",
+                name="Device Pairing",
+                description="Pair this device with your Aragora account.",
+                order=order,
+                required=True,
+                fields=[
+                    {"name": "pairing_code", "type": "text", "required": True},
+                    {"name": "device_nickname", "type": "text", "required": False},
+                ],
+                help_text="Enter the pairing code shown in your Aragora dashboard.",
+            )
+        )
+        order += 1
+
+        # Voice setup if device has voice capability
+        if "voice" in capabilities or "microphone" in capabilities:
+            steps.append(
+                OnboardingStep(
+                    step_id="voice_setup",
+                    name="Voice Setup",
+                    description="Configure voice interaction settings.",
+                    order=order,
+                    required=False,
+                    fields=[
+                        {
+                            "name": "wake_word",
+                            "type": "select",
+                            "options": ["hey aragora", "ok aragora", "computer"],
+                        },
+                        {"name": "voice_enabled", "type": "checkbox", "default": True},
+                        {"name": "always_listening", "type": "checkbox", "default": False},
+                    ],
+                    help_text="Set up wake word detection for hands-free interaction.",
+                )
+            )
+            order += 1
+
+        # Display setup if device has display capability
+        if "display" in capabilities or "screen" in capabilities:
+            steps.append(
+                OnboardingStep(
+                    step_id="display_setup",
+                    name="Display Settings",
+                    description="Configure display preferences.",
+                    order=order,
+                    required=False,
+                    fields=[
+                        {"name": "theme", "type": "select", "options": ["light", "dark", "auto"]},
+                        {"name": "canvas_enabled", "type": "checkbox", "default": True},
+                        {"name": "notifications_visual", "type": "checkbox", "default": True},
+                    ],
+                )
+            )
+            order += 1
+
+        # Computer use setup if device has automation capability
+        if "automation" in capabilities or "computer_use" in capabilities:
+            steps.append(
+                OnboardingStep(
+                    step_id="automation_setup",
+                    name="Automation Setup",
+                    description="Configure computer use and automation permissions.",
+                    order=order,
+                    required=True,
+                    fields=[
+                        {
+                            "name": "allow_screenshots",
+                            "type": "checkbox",
+                            "default": True,
+                            "required": True,
+                        },
+                        {"name": "allow_mouse_control", "type": "checkbox", "default": False},
+                        {"name": "allow_keyboard_input", "type": "checkbox", "default": False},
+                        {"name": "require_approval", "type": "checkbox", "default": True},
+                    ],
+                    help_text="These permissions control what actions agents can perform.",
+                )
+            )
+            order += 1
+
+        # Notification setup
+        steps.append(
+            OnboardingStep(
+                step_id="notifications",
+                name="Notifications",
+                description="Configure how you receive notifications.",
+                order=order,
+                required=False,
+                fields=[
+                    {"name": "push_enabled", "type": "checkbox", "default": True},
+                    {"name": "sound_enabled", "type": "checkbox", "default": True},
+                    {"name": "quiet_hours", "type": "checkbox", "default": False},
+                ],
+            )
+        )
+        order += 1
+
+        # Security setup
+        steps.append(
+            OnboardingStep(
+                step_id="security",
+                name="Security",
+                description="Review and accept security settings.",
+                order=order,
+                required=True,
+                fields=[
+                    {
+                        "name": "accept_device_policy",
+                        "type": "checkbox",
+                        "required": True,
+                        "label": "I accept the device security policy",
+                    },
+                    {"name": "enable_encryption", "type": "checkbox", "default": True},
+                    {"name": "auto_lock", "type": "checkbox", "default": True},
+                ],
+            )
+        )
+
+        return steps
+
+    async def update_device_capabilities(
+        self,
+        session_id: str,
+        new_capabilities: list[str],
+    ) -> bool:
+        """
+        Update a session with new device capabilities.
+
+        Can be used when a device's capabilities change mid-onboarding.
+
+        Args:
+            session_id: Session to update
+            new_capabilities: Updated capability list
+
+        Returns:
+            True if session was updated
+        """
+        session = self._sessions.get(session_id)
+        if not session:
+            return False
+
+        old_capabilities = session.metadata.get("capabilities", [])
+        added = set(new_capabilities) - set(old_capabilities)
+
+        if not added:
+            return True  # No new capabilities
+
+        # Generate new steps for added capabilities
+        new_steps = self._get_steps_for_capabilities(list(added))
+
+        # Filter to only capability-specific steps
+        existing_ids = {s.step_id for s in session.steps}
+        skip_ids = {"welcome", "device_pairing", "notifications", "security"}
+        new_steps = [s for s in new_steps if s.step_id not in existing_ids and s.step_id not in skip_ids]
+
+        if new_steps:
+            # Insert before the security step
+            security_idx = next(
+                (i for i, s in enumerate(session.steps) if s.step_id == "security"),
+                len(session.steps),
+            )
+            for i, step in enumerate(new_steps):
+                step.order = security_idx + i
+                session.steps.insert(security_idx + i, step)
+
+            # Update order for remaining steps
+            for i, step in enumerate(session.steps):
+                step.order = i
+
+        session.metadata["capabilities"] = new_capabilities
+        return True

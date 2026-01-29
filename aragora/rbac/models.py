@@ -123,6 +123,9 @@ class ResourceType(str, Enum):
     # Scheduling operations
     SCHEDULER = "scheduler"  # Task scheduling and job management
 
+    # Computer-use operations
+    COMPUTER_USE = "computer_use"  # Computer-use orchestration (browser, shell, file access)
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""
@@ -254,6 +257,14 @@ class Action(str, Enum):
     EXECUTE = "execute"  # Execute procedures (DR, migrations)
     MANAGE = "manage"  # Manage resources (submit, retry, cancel)
     ADMIN_OP = "admin"  # Full administrative access
+
+    # Computer-use specific actions
+    BROWSER = "browser"  # Browser automation (navigate, click, type)
+    SHELL = "shell"  # Shell command execution
+    FILE_READ = "file_read"  # Read files from filesystem
+    FILE_WRITE = "file_write"  # Write files to filesystem
+    SCREENSHOT = "screenshot"  # Take screenshots
+    NETWORK = "network"  # Network access (HTTP requests, etc.)
 
     # Wildcard
     ALL = "*"
