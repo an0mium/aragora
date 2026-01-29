@@ -320,7 +320,7 @@ class MySQLConnector(EnterpriseConnector):
         import aiomysql
 
         pool = await self._get_pool()
-        results = []
+        results: List[Dict[str, Any]] = []
 
         tables = self.tables or await self._discover_tables()
 

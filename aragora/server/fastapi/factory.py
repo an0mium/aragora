@@ -16,9 +16,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from .middleware.tracing import TracingMiddleware
 from .middleware.validation import RequestValidationMiddleware
@@ -67,9 +66,9 @@ def _build_server_context(nomic_dir: Optional[Path] = None) -> dict[str, Any]:
 
     # Initialize user store (optional)
     try:
-        from aragora.storage.user_store import UserStore
+        from aragora.storage.user_store import get_user_store
 
-        ctx["user_store"] = UserStore()  # type: ignore[call-arg]
+        ctx["user_store"] = get_user_store()
     except Exception:
         ctx["user_store"] = None
 

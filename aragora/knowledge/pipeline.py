@@ -52,7 +52,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from aragora.documents.chunking import (
     ChunkingConfig,
@@ -835,7 +835,7 @@ Include dates, numbers, names, and specific claims where possible."""
         if self._fact_store:
             fact_stats = self._fact_store.get_statistics(self.config.workspace_id)
 
-        mound_stats = {}
+        mound_stats: Dict[str, Any] = {}
         if self._knowledge_mound:
             try:
                 # Sync call - stats are usually lightweight
@@ -845,7 +845,7 @@ Include dates, numbers, names, and specific claims where possible."""
                 }
             except (RuntimeError, AttributeError, KeyError) as e:
                 logger.debug(f"Could not get mound stats: {e}")
-                mound_stats = {"enabled": True, "error": "stats unavailable"}  # type: ignore[dict-item]
+                mound_stats = {"enabled": True, "error": "stats unavailable"}
         else:
             mound_stats = {"enabled": False}
 

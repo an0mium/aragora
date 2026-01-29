@@ -467,7 +467,7 @@ class GmailQueryHandler(SecureHandler):
                 logger.warning(f"[GmailQuery] Failed to score message {msg.id}: {e}")
 
         # Sort by priority score
-        emails.sort(key=lambda x: x["priority_score"], reverse=True)  # type: ignore[arg-type,return-value]
+        emails.sort(key=lambda x: float(x.get("priority_score") or 0), reverse=True)
 
         return emails[:limit]
 

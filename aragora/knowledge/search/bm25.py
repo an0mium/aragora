@@ -445,7 +445,7 @@ class HybridSearcher:
             )
 
         # Sort by fused score
-        fused.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)  # type: ignore[arg-type]
+        fused.sort(key=lambda x: float(x.get("score") or 0.0), reverse=True)
         return fused[:limit]
 
     @staticmethod

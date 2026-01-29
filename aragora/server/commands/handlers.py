@@ -75,13 +75,13 @@ class DebateCommandHandler(BaseCommandHandler):
             arena = Arena(env, agents, protocol)
             debate_id = arena.debate_id
 
-            register_debate_origin(  # type: ignore[call-arg]
+            register_debate_origin(
                 debate_id=debate_id,
                 platform=ctx.platform,
                 channel_id=ctx.channel_id,
                 user_id=ctx.user_id,
                 thread_id=ctx.thread_id,
-                workspace_id=ctx.workspace_id,
+                metadata={"workspace_id": ctx.workspace_id} if ctx.workspace_id else None,
             )
 
             # Start debate asynchronously

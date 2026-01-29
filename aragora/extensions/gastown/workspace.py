@@ -12,7 +12,7 @@ import uuid
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from aragora.workspace.manager import WorkspaceManager as CoreWorkspaceManager
 from aragora.workspace.rig import Rig as CoreRig
@@ -73,15 +73,16 @@ class WorkspaceManager:
             allowed_agent_types=list(config.tools),
         )
 
-    def _to_gastown_status(self, status: CoreRigStatus) -> str:
-        return {
+    def _to_gastown_status(self, status: CoreRigStatus) -> Literal["active", "paused", "archived"]:
+        mapping: dict[CoreRigStatus, Literal["active", "paused", "archived"]] = {
             CoreRigStatus.ACTIVE: "active",
             CoreRigStatus.READY: "active",
             CoreRigStatus.INITIALIZING: "active",
             CoreRigStatus.DRAINING: "paused",
             CoreRigStatus.STOPPED: "archived",
             CoreRigStatus.ERROR: "archived",
-        }.get(status, "active")
+        }
+        return mapping.get(status, "active")
 
     def _to_gastown_rig(self, core_rig: CoreRig) -> Rig:
         meta = core_rig.metadata or {}

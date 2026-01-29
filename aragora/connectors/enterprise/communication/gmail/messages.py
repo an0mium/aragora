@@ -13,8 +13,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from email.utils import parseaddr
-from email.message import Message
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING, Union
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
 
 from aragora.connectors.enterprise.base import SyncItem, SyncState
 from aragora.reasoning.provenance import SourceType
@@ -558,10 +557,12 @@ class GmailMessagesMixin(GmailBaseMethods):
         # Get fresh token (will refresh if expired)
         access_token = await self._get_access_token()
 
+        from email.mime.base import MIMEBase
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
 
         # Build MIME message
+        message: MIMEBase
         if html_body:
             message = MIMEMultipart("alternative")
             message.attach(MIMEText(body, "plain"))
@@ -649,6 +650,7 @@ class GmailMessagesMixin(GmailBaseMethods):
         if not original:
             raise ValueError(f"Original message not found: {original_message_id}")
 
+        from email.mime.base import MIMEBase
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
 
@@ -666,6 +668,7 @@ class GmailMessagesMixin(GmailBaseMethods):
             reply_cc.extend(cc)
 
         # Build MIME message
+        message: MIMEBase
         if html_body:
             message = MIMEMultipart("alternative")
             message.attach(MIMEText(body, "plain"))

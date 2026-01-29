@@ -327,7 +327,7 @@ class SQLServerConnector(EnterpriseConnector):
         For full-text search, tables should have full-text indexes.
         """
         pool = await self._get_pool()
-        results = []
+        results: List[Dict[str, Any]] = []
 
         tables = self.tables or await self._discover_tables()
 

@@ -442,7 +442,7 @@ class SnowflakeConnector(EnterpriseConnector):
         Note: Full-text search in Snowflake requires SEARCH OPTIMIZATION or
         Cortex functions. This falls back to ILIKE for basic search.
         """
-        results = []
+        results: List[Dict[str, Any]] = []
 
         tables = [table] if table else (self.tables or await self._discover_tables())
 
