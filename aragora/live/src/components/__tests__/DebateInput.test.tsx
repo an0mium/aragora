@@ -34,6 +34,16 @@ jest.mock('@/config', () => ({
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
+const jsonResponse = (data: unknown, ok = true, status = 200) => ({
+  ok,
+  status,
+  headers: {
+    get: (key: string) => (key?.toLowerCase() === 'content-type' ? 'application/json' : null),
+  },
+  json: async () => data,
+  text: async () => JSON.stringify(data),
+});
+
 describe('DebateInput', () => {
   const defaultProps = {
     apiBase: 'http://localhost:8080',
@@ -54,7 +64,7 @@ describe('DebateInput', () => {
     mockFetch.mockImplementationOnce(() =>
       new Promise((resolve) => {
         setTimeout(() => {
-          resolve({ ok: true, json: async () => ({ status: 'ok' }) });
+          resolve(jsonResponse({ status: 'ok' }));
         }, 0);
       })
     );
@@ -77,7 +87,7 @@ describe('DebateInput', () => {
     mockFetch.mockImplementation(() =>
       new Promise((resolve) => {
         setTimeout(() => {
-          resolve({ ok: true, json: async () => ({ status: 'ok' }) });
+          resolve(jsonResponse({ status: 'ok' }));
         }, 0);
       })
     );
@@ -165,10 +175,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, debate_id: 'debate-123' }),
-      }); // submit
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, debate_id: 'debate-123' })); // submit
 
       render(<DebateInput {...defaultProps} />);
 
@@ -193,10 +200,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, debate_id: 'debate-456' }),
-      }); // submit
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, debate_id: 'debate-456' })); // submit
 
       render(<DebateInput {...defaultProps} />);
 
@@ -221,10 +225,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: false, error: 'Server error' }),
-      }); // submit
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: false, error: 'Server error' })); // submit
 
       render(<DebateInput {...defaultProps} />);
 
@@ -343,10 +344,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, debate_id: 'graph-123' }),
-      }); // submit
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, debate_id: 'graph-123' })); // submit
 
       render(<DebateInput {...defaultProps} />);
 
@@ -401,14 +399,11 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          recommendations: [
-            { agent: 'codex', suitability: 0.9, domain_match: true },
-          ],
-        }),
-      }); // recommendations
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          recommendations: [{ agent: 'codex', suitability: 0.9, domain_match: true }],
+        })
+      ); // recommendations
 
       render(<DebateInput {...defaultProps} />);
 
@@ -430,10 +425,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, debate_id: 'debate-789' }),
-      }); // submit
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, debate_id: 'debate-789' })); // submit
 
       render(<DebateInput {...defaultProps} />);
 
