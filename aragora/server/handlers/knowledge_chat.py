@@ -23,7 +23,6 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.resilience_patterns import with_timeout
-from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +116,6 @@ async def handle_knowledge_search(
         }
 
 
-@require_permission("knowledge:read")
 @with_timeout(15.0)
 async def handle_knowledge_inject(
     messages: List[Dict[str, Any]],
@@ -163,7 +161,6 @@ async def handle_knowledge_inject(
         }
 
 
-@require_permission("knowledge:write")
 @with_timeout(20.0)
 async def handle_store_chat_knowledge(
     messages: List[Dict[str, Any]],
@@ -226,7 +223,6 @@ async def handle_store_chat_knowledge(
         }
 
 
-@require_permission("knowledge:read")
 async def handle_channel_knowledge_summary(
     channel_id: str,
     workspace_id: str = "default",

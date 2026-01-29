@@ -1243,6 +1243,34 @@ export class AragoraClient {
     });
   }
 
+  async getAgentMetadata(name: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/agent/${encodeURIComponent(name)}/metadata`);
+  }
+
+  async getAgentIntrospection(name: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/agent/${encodeURIComponent(name)}/introspect`);
+  }
+
+  async getLeaderboardView(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/leaderboard-view');
+  }
+
+  async getRecentMatches(params?: { limit?: number }): Promise<{ matches: unknown[] }> {
+    return this.request<{ matches: unknown[] }>('GET', '/api/matches/recent', { params });
+  }
+
+  async getRecentFlips(params?: { limit?: number }): Promise<{ flips: unknown[] }> {
+    return this.request<{ flips: unknown[] }>('GET', '/api/flips/recent', { params });
+  }
+
+  async getFlipsSummary(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/flips/summary');
+  }
+
+  async getCalibrationLeaderboard(): Promise<{ agents: Array<{ name: string; score: number }> }> {
+    return this.request<{ agents: Array<{ name: string; score: number }> }>('GET', '/api/calibration/leaderboard');
+  }
+
   // ===========================================================================
   // Debates
   // ===========================================================================
@@ -1553,6 +1581,27 @@ export class AragoraClient {
       'GET',
       `/api/workflow/templates/${encodeURIComponent(templateId)}/package`,
       { params: options }
+    );
+  }
+
+  async listPatternTemplates(): Promise<{ patterns: Array<{ id: string; name: string; description: string }> }> {
+    return this.request<{ patterns: Array<{ id: string; name: string; description: string }> }>(
+      'GET',
+      '/api/v1/workflow/pattern-templates'
+    );
+  }
+
+  async getPatternTemplate(patternId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/workflow/pattern-templates/${encodeURIComponent(patternId)}`
+    );
+  }
+
+  async listRecommendedTemplates(): Promise<{ templates: WorkflowTemplate[] }> {
+    return this.request<{ templates: WorkflowTemplate[] }>(
+      'GET',
+      '/api/v1/templates/recommended'
     );
   }
 

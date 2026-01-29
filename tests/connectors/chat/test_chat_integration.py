@@ -265,19 +265,17 @@ class TestTeamsIntegration:
             assert upload_result.filename == "test.pdf"
             assert "sharepoint" in upload_result.url
 
-        # Download flow
+        # Download flow - mock both _graph_api_request (for metadata) and _http_request (for content)
         with patch.object(
             teams_connector, "_graph_api_request", new_callable=AsyncMock
         ) as mock_graph:
             mock_graph.return_value = (True, download_meta, None)
 
-            mock_download = MagicMock()
-            mock_download.content = b"PDF content here"
-            mock_download.raise_for_status = MagicMock()
-
-            with patch("httpx.AsyncClient") as mock_client_class:
-                mock_client = mock_client_class.return_value.__aenter__.return_value
-                mock_client.get = AsyncMock(return_value=mock_download)
+            with patch.object(
+                teams_connector, "_http_request", new_callable=AsyncMock
+            ) as mock_http:
+                # _http_request returns raw bytes when return_raw=True
+                mock_http.return_value = (True, b"PDF content here", None)
 
                 download_result = await teams_connector.download_file(
                     file_id="file-789",
@@ -287,6 +285,9 @@ class TestTeamsIntegration:
                 assert download_result.filename == "test.pdf"
                 assert download_result.content == b"PDF content here"
                 assert download_result.content_type == "application/pdf"
+                # Verify _http_request was called with return_raw=True
+                mock_http.assert_called_once()
+                assert mock_http.call_args[1].get("return_raw") is True
 
     @pytest.mark.asyncio
     async def test_evidence_collection_flow(self, teams_connector):

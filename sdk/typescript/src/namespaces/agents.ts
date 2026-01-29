@@ -7,6 +7,7 @@
 import type {
   Agent,
   AgentCalibration,
+  AgentComparison,
   AgentConsistency,
   AgentFlip,
   AgentMoment,
@@ -50,6 +51,15 @@ interface AgentsClientInterface {
   getAgentDomains(name: string): Promise<{ domains: DomainRating[] }>;
   getAgentElo(agentName: string): Promise<{ agent: string; elo: number; history: Array<{ date: string; elo: number }> }>;
   getAgentRelationship(agentA: string, agentB: string): Promise<AgentRelationship>;
+  getLeaderboard(): Promise<{ agents: Agent[] }>;
+  compareAgents(agents: string[]): Promise<AgentComparison>;
+  getAgentMetadata(name: string): Promise<Record<string, unknown>>;
+  getAgentIntrospection(name: string): Promise<Record<string, unknown>>;
+  getLeaderboardView(): Promise<Record<string, unknown>>;
+  getRecentMatches(params?: { limit?: number }): Promise<{ matches: unknown[] }>;
+  getRecentFlips(params?: { limit?: number }): Promise<{ flips: unknown[] }>;
+  getFlipsSummary(): Promise<Record<string, unknown>>;
+  getCalibrationLeaderboard(): Promise<{ agents: Array<{ name: string; score: number }> }>;
 }
 
 /**
@@ -254,5 +264,68 @@ export class AgentsAPI {
    */
   async getRelationship(agentA: string, agentB: string): Promise<AgentRelationship> {
     return this.client.getAgentRelationship(agentA, agentB);
+  }
+
+  /**
+   * Get agent rankings leaderboard.
+   */
+  async getLeaderboard(): Promise<{ agents: Agent[] }> {
+    return this.client.getLeaderboard();
+  }
+
+  /**
+   * Compare multiple agents side-by-side.
+   */
+  async compare(agents: string[]): Promise<AgentComparison> {
+    return this.client.compareAgents(agents);
+  }
+
+  /**
+   * Get agent metadata (model info, capabilities).
+   */
+  async getMetadata(name: string): Promise<Record<string, unknown>> {
+    return this.client.getAgentMetadata(name);
+  }
+
+  /**
+   * Get agent introspection data (self-awareness metrics).
+   */
+  async getIntrospection(name: string): Promise<Record<string, unknown>> {
+    return this.client.getAgentIntrospection(name);
+  }
+
+  /**
+   * Get consolidated leaderboard view with all tabs.
+   */
+  async getLeaderboardView(): Promise<Record<string, unknown>> {
+    return this.client.getLeaderboardView();
+  }
+
+  /**
+   * Get recent matches across all agents.
+   */
+  async getRecentMatches(params?: { limit?: number }): Promise<{ matches: unknown[] }> {
+    return this.client.getRecentMatches(params);
+  }
+
+  /**
+   * Get recent position flips across all agents.
+   */
+  async getRecentFlips(params?: { limit?: number }): Promise<{ flips: unknown[] }> {
+    return this.client.getRecentFlips(params);
+  }
+
+  /**
+   * Get flip summary data for dashboard display.
+   */
+  async getFlipsSummary(): Promise<Record<string, unknown>> {
+    return this.client.getFlipsSummary();
+  }
+
+  /**
+   * Get agents ranked by calibration score.
+   */
+  async getCalibrationLeaderboard(): Promise<{ agents: Array<{ name: string; score: number }> }> {
+    return this.client.getCalibrationLeaderboard();
   }
 }
