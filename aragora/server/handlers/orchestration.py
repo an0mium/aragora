@@ -786,14 +786,34 @@ class OrchestrationHandler(SecureHandler):
         return None
 
     async def _fetch_confluence_context(self, source: KnowledgeContextSource) -> Optional[str]:
-        """Fetch content from a Confluence page."""
+        """Fetch content from a Confluence page.
+
+        Note: ConfluenceConnector requires base_url configuration. This method
+        expects the connector to be configured via environment or context.
+        The source_id could be a page_id like "confluence-12345" or just "12345".
+        """
         try:
+            import os
             from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
 
-            connector = ConfluenceConnector()  # type: ignore[call-arg]
+            # Get base_url from context or environment
+            confluence_url = self.ctx.get("confluence_url") or os.environ.get(
+                "CONFLUENCE_BASE_URL", ""
+            )
+            if not confluence_url:
+                logger.warning("Confluence base URL not configured")
+                return None
+
+            connector = ConfluenceConnector(base_url=confluence_url)
+            # Use the fetch method which exists on the connector
             # source_id could be page_id or space_key/page_title
-            content = await connector.get_page_content(source.source_id)  # type: ignore[attr-defined]
-            return content
+            page_id = source.source_id
+            if not page_id.startswith("confluence-"):
+                page_id = f"confluence-{page_id}"
+            evidence = await connector.fetch(page_id)
+            if evidence:
+                return str(getattr(evidence, "content", ""))
+            return None
         except Exception as e:
             logger.warning(f"Failed to fetch Confluence context: {e}")
         return None
