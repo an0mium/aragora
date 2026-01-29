@@ -563,7 +563,8 @@ class TestTestConnection:
                         )
 
                         assert result.status_code == 200
-                        assert result[0]["test_result"]["success"] is False
+                        data = json.loads(result.body)
+                        assert data["test_result"]["success"] is False
 
     @pytest.mark.asyncio
     async def test_test_slack_success(self, oauth_handler, mock_handler, auth_context):
@@ -588,8 +589,9 @@ class TestTestConnection:
                         )
 
                         assert result.status_code == 200
-                        assert result[0]["test_result"]["success"] is True
-                        assert result[0]["provider"] == "slack"
+                        data = json.loads(result.body)
+                        assert data["test_result"]["success"] is True
+                        assert data["provider"] == "slack"
 
 
 # -----------------------------------------------------------------------------
@@ -649,8 +651,9 @@ class TestListWorkspaces:
                     )
 
                     assert result.status_code == 200
-                    assert result[0]["provider"] == "slack"
-                    assert result[0]["count"] == 1
+                    data = json.loads(result.body)
+                    assert data["provider"] == "slack"
+                    assert data["count"] == 1
 
     @pytest.mark.asyncio
     async def test_list_teams_tenants(self, oauth_handler, mock_handler, auth_context):
@@ -682,8 +685,9 @@ class TestListWorkspaces:
                     )
 
                     assert result.status_code == 200
-                    assert result[0]["provider"] == "teams"
-                    assert result[0]["count"] == 1
+                    data = json.loads(result.body)
+                    assert data["provider"] == "teams"
+                    assert data["count"] == 1
 
 
 # -----------------------------------------------------------------------------
@@ -756,7 +760,8 @@ class TestDisconnectProvider:
                         )
 
                         assert result.status_code == 200
-                        assert result[0]["disconnected"] is True
+                        data = json.loads(result.body)
+                        assert data["disconnected"] is True
                         mock_store.return_value.deactivate.assert_called_with("W123")
 
     @pytest.mark.asyncio
@@ -781,7 +786,8 @@ class TestDisconnectProvider:
                         )
 
                         assert result.status_code == 200
-                        assert result[0]["disconnected"] is True
+                        data = json.loads(result.body)
+                        assert data["disconnected"] is True
                         mock_store.return_value.deactivate.assert_called_with("T123")
 
     @pytest.mark.asyncio
