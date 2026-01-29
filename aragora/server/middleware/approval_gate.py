@@ -388,7 +388,7 @@ def require_approval(
                     f"Auto-approved {operation} for {auth_context.user_id} "
                     f"(roles: {auth_context.roles})"
                 )
-                result = await func(*args, **kwargs)
+                result = await func(*args, **kwargs)  # type: ignore[misc]
                 return result  # type: ignore[return-value]
 
             # Check for existing approval token in kwargs
@@ -402,7 +402,7 @@ def require_approval(
                     logger.info(
                         f"Executing approved operation {operation} (approval: {approval_id})"
                     )
-                    result = await func(*args, **kwargs)
+                    result = await func(*args, **kwargs)  # type: ignore[misc]
                     return result  # type: ignore[return-value]
                 elif request and request.state == ApprovalState.REJECTED:
                     raise ApprovalDeniedError(request, request.rejection_reason or "")

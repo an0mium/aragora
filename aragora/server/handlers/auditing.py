@@ -22,7 +22,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     pass
@@ -844,7 +844,7 @@ class AuditingHandler(SecureHandler):
             except ValueError:
                 continue
 
-            pattern = vulnerability_patterns.get(attack_type, {})
+            pattern: Dict[str, Any] = vulnerability_patterns.get(attack_type, {})
             keywords: list[str] = pattern.get("keywords") or []
             base_severity = float(pattern.get("base_severity") or 0.5)
 

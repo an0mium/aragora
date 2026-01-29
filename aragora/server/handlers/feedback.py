@@ -60,8 +60,8 @@ def _check_permission(ctx: ServerContext, permission: str) -> Optional[HandlerRe
     auth_context = AuthorizationContext(
         user_id=user_id,
         org_id=str(org_id) if org_id else None,
-        roles=roles if isinstance(roles, set) else set(roles) if roles else set(),
-        permissions=permissions if isinstance(permissions, set) else set(permissions) if permissions else set(),
+        roles=roles if isinstance(roles, set) else set(roles) if roles else set(),  # type: ignore[arg-type]
+        permissions=permissions if isinstance(permissions, set) else set(permissions) if permissions else set(),  # type: ignore[arg-type]
     )
 
     checker = get_permission_checker()
