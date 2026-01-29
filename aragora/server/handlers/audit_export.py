@@ -42,6 +42,7 @@ def get_audit_log() -> "AuditLog":
     return _audit_log
 
 
+@require_permission("audit:read")
 async def handle_audit_events(request: web.Request) -> web.Response:
     """
     Query audit events.
@@ -137,6 +138,7 @@ async def handle_audit_events(request: web.Request) -> web.Response:
     )
 
 
+@require_permission("audit:read")
 async def handle_audit_stats(request: web.Request) -> web.Response:
     """
     Get audit log statistics.
@@ -241,6 +243,7 @@ async def handle_audit_export(request: web.Request) -> web.Response:
             output_path.unlink()
 
 
+@require_permission("audit:verify")
 async def handle_audit_verify(request: web.Request) -> web.Response:
     """
     Verify audit log integrity.

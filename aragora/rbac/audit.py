@@ -56,29 +56,44 @@ def get_audit_signing_key() -> bytes:
     Get or generate the HMAC signing key for audit events.
 
     The key is loaded from ARAGORA_AUDIT_SIGNING_KEY environment variable.
-    If not set, generates a random key (appropriate for development only).
+    If not set in production/staging, raises an error.
+    For development, generates a random key if not set.
 
     Returns:
         32-byte HMAC signing key
+
+    Raises:
+        RuntimeError: If key not set in production/staging environment
     """
     global _AUDIT_SIGNING_KEY
     with _signing_key_lock:
         if _AUDIT_SIGNING_KEY is None:
             key_hex = os.environ.get("ARAGORA_AUDIT_SIGNING_KEY")
             if key_hex:
-                _AUDIT_SIGNING_KEY = bytes.fromhex(key_hex)
-                logger.debug("Loaded audit signing key from environment")
+                try:
+                    _AUDIT_SIGNING_KEY = bytes.fromhex(key_hex)
+                    if len(_AUDIT_SIGNING_KEY) < 32:
+                        raise ValueError("Key must be at least 32 bytes (64 hex chars)")
+                    logger.debug("Loaded audit signing key from environment")
+                except ValueError as e:
+                    raise RuntimeError(
+                        f"Invalid ARAGORA_AUDIT_SIGNING_KEY format: {e}. "
+                        "Key must be a hex-encoded string of at least 64 characters "
+                        "(32 bytes). Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+                    ) from e
             else:
-                # Generate random key for development - warn in production
-                _AUDIT_SIGNING_KEY = secrets.token_bytes(32)
                 env = os.environ.get("ARAGORA_ENV", "development")
                 if env in ("production", "prod", "staging"):
-                    logger.warning(
-                        "ARAGORA_AUDIT_SIGNING_KEY not set in %s environment. "
-                        "Audit event signatures will not be verifiable after restart.",
-                        env,
+                    # SECURITY: Require explicit key in production to ensure
+                    # audit trail integrity across process restarts
+                    raise RuntimeError(
+                        f"ARAGORA_AUDIT_SIGNING_KEY required in {env} environment. "
+                        "Audit event signatures cannot be verified without a persistent key. "
+                        "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
                     )
                 else:
+                    # Generate random key for development only
+                    _AUDIT_SIGNING_KEY = secrets.token_bytes(32)
                     logger.debug("Generated ephemeral audit signing key for development")
         return _AUDIT_SIGNING_KEY
 
