@@ -62,6 +62,13 @@ def disable_rate_limits():
                 rl_module._limiters[name].is_allowed = original
 
 
+@pytest.fixture(autouse=True)
+def bypass_rbac():
+    """Bypass RBAC permission checks for all tests in this module."""
+    with patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", False):
+        yield
+
+
 # ===========================================================================
 # Test Fixtures and Mocks
 # ===========================================================================
