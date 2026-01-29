@@ -472,8 +472,8 @@ class ConvoyTracker:
             return {"total_convoys": len(convoys), "by_status": by_status}
 
         local_by_status: dict[str, int] = {}
-        for convoy in self._convoys.values():
-            key = convoy.status.value
+        for ws_convoy in self._convoys.values():
+            key = ws_convoy.status.value
             local_by_status[key] = local_by_status.get(key, 0) + 1
         return {
             "total_convoys": len(self._convoys),

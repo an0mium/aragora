@@ -401,7 +401,7 @@ class BeadManager:
                     results.append(workspace_bead)
             return results
 
-        ready: list[Bead] = []
+        local_ready: list[Bead] = []
         for bead in self._beads.values():
             if bead.convoy_id != convoy_id:
                 continue
@@ -413,8 +413,8 @@ class BeadManager:
                 for dep_id in bead.depends_on
             )
             if deps_met:
-                ready.append(bead)
-        return ready
+                local_ready.append(bead)
+        return local_ready
 
     def _persist(self, bead: Bead) -> None:
         """Persist bead state to JSONL."""
