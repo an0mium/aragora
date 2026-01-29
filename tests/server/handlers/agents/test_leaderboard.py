@@ -63,7 +63,7 @@ def clear_module_state():
     """Clear any module-level state between tests."""
     from aragora.server.handlers.agents.leaderboard import _leaderboard_limiter
 
-    _leaderboard_limiter._requests.clear()
+    _leaderboard_limiter._buckets.clear()
     yield
 
 

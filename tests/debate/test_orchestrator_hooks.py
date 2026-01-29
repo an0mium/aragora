@@ -11,11 +11,42 @@ Tests cover:
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+# =============================================================================
+# Mock module setup for local imports
+# =============================================================================
+
+
+def create_mock_beads_module():
+    """Create a mock aragora.nomic.beads module."""
+    mock_module = MagicMock()
+    mock_module.Bead = MagicMock()
+    mock_module.BeadStore = MagicMock()
+    mock_module.BeadType = MagicMock()
+    mock_module.BeadType.DEBATE_DECISION = "DEBATE_DECISION"
+    mock_module.BeadPriority = MagicMock()
+    mock_module.BeadPriority.HIGH = "HIGH"
+    mock_module.BeadPriority.NORMAL = "NORMAL"
+    mock_module.BeadPriority.LOW = "LOW"
+    mock_module.BeadStatus = MagicMock()
+    mock_module.BeadStatus.COMPLETED = "COMPLETED"
+    mock_module.BeadStatus.FAILED = "FAILED"
+    mock_module.BeadStatus.PENDING = "PENDING"
+    return mock_module
+
+
+def create_mock_hook_queue_module():
+    """Create a mock aragora.nomic.hook_queue module."""
+    mock_module = MagicMock()
+    mock_module.HookQueueRegistry = MagicMock()
+    return mock_module
 
 
 # =============================================================================
@@ -67,7 +98,7 @@ def mock_bead_store():
     store = MagicMock()
     store.initialize = AsyncMock()
     store.create = AsyncMock(return_value="bead-789")
-    store.get = AsyncMock(return_value=MagicMock())
+    store.get = AsyncMock(return_value=MagicMock(metadata={}))
     store.update_status = AsyncMock()
     return store
 
@@ -75,7 +106,24 @@ def mock_bead_store():
 @pytest.fixture
 def mock_agents():
     """Create mock agents."""
-    return [MagicMock(name=f"agent-{i}") for i in range(3)]
+    agents = []
+    for i in range(3):
+        agent = MagicMock()
+        agent.name = f"agent-{i}"
+        agents.append(agent)
+    return agents
+
+
+@pytest.fixture
+def mock_beads_module():
+    """Create mock beads module for patching."""
+    return create_mock_beads_module()
+
+
+@pytest.fixture
+def mock_hook_queue_module():
+    """Create mock hook queue module for patching."""
+    return create_mock_hook_queue_module()
 
 
 # =============================================================================
@@ -120,7 +168,7 @@ class TestCreateDebateBead:
 
     @pytest.mark.asyncio
     async def test_creates_bead_on_success(
-        self, mock_result, mock_protocol, mock_env, mock_bead_store
+        self, mock_result, mock_protocol, mock_env, mock_bead_store, mock_beads_module
     ):
         """When conditions met, create bead and return ID."""
         from aragora.debate.orchestrator_hooks import create_debate_bead
@@ -128,14 +176,9 @@ class TestCreateDebateBead:
         holder = MagicMock()
         holder._bead_store = mock_bead_store
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore"),
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-        ):
-            MockBead.create.return_value = MagicMock()
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             result = await create_debate_bead(
                 result=mock_result,
                 protocol=mock_protocol,
@@ -147,7 +190,7 @@ class TestCreateDebateBead:
 
     @pytest.mark.asyncio
     async def test_high_priority_for_high_confidence(
-        self, mock_result, mock_protocol, mock_env, mock_bead_store
+        self, mock_result, mock_protocol, mock_env, mock_bead_store, mock_beads_module
     ):
         """Confidence >= 0.9 results in HIGH priority."""
         from aragora.debate.orchestrator_hooks import create_debate_bead
@@ -156,14 +199,9 @@ class TestCreateDebateBead:
         holder = MagicMock()
         holder._bead_store = mock_bead_store
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore"),
-            patch("aragora.debate.orchestrator_hooks.BeadType") as MockType,
-            patch("aragora.debate.orchestrator_hooks.BeadPriority") as MockPriority,
-        ):
-            MockBead.create.return_value = MagicMock()
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             await create_debate_bead(
                 result=mock_result,
                 protocol=mock_protocol,
@@ -172,12 +210,12 @@ class TestCreateDebateBead:
             )
 
             # Verify HIGH priority was used
-            call_kwargs = MockBead.create.call_args[1]
-            assert call_kwargs["priority"] == MockPriority.HIGH
+            call_kwargs = mock_beads_module.Bead.create.call_args[1]
+            assert call_kwargs["priority"] == mock_beads_module.BeadPriority.HIGH
 
     @pytest.mark.asyncio
     async def test_normal_priority_for_medium_confidence(
-        self, mock_result, mock_protocol, mock_env, mock_bead_store
+        self, mock_result, mock_protocol, mock_env, mock_bead_store, mock_beads_module
     ):
         """Confidence 0.7-0.9 results in NORMAL priority."""
         from aragora.debate.orchestrator_hooks import create_debate_bead
@@ -186,14 +224,9 @@ class TestCreateDebateBead:
         holder = MagicMock()
         holder._bead_store = mock_bead_store
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore"),
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
-            patch("aragora.debate.orchestrator_hooks.BeadPriority") as MockPriority,
-        ):
-            MockBead.create.return_value = MagicMock()
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             await create_debate_bead(
                 result=mock_result,
                 protocol=mock_protocol,
@@ -201,12 +234,12 @@ class TestCreateDebateBead:
                 bead_store_holder=holder,
             )
 
-            call_kwargs = MockBead.create.call_args[1]
-            assert call_kwargs["priority"] == MockPriority.NORMAL
+            call_kwargs = mock_beads_module.Bead.create.call_args[1]
+            assert call_kwargs["priority"] == mock_beads_module.BeadPriority.NORMAL
 
     @pytest.mark.asyncio
     async def test_low_priority_for_low_confidence(
-        self, mock_result, mock_protocol, mock_env, mock_bead_store
+        self, mock_result, mock_protocol, mock_env, mock_bead_store, mock_beads_module
     ):
         """Confidence < 0.7 results in LOW priority."""
         from aragora.debate.orchestrator_hooks import create_debate_bead
@@ -215,14 +248,9 @@ class TestCreateDebateBead:
         holder = MagicMock()
         holder._bead_store = mock_bead_store
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore"),
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
-            patch("aragora.debate.orchestrator_hooks.BeadPriority") as MockPriority,
-        ):
-            MockBead.create.return_value = MagicMock()
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             await create_debate_bead(
                 result=mock_result,
                 protocol=mock_protocol,
@@ -230,29 +258,26 @@ class TestCreateDebateBead:
                 bead_store_holder=holder,
             )
 
-            call_kwargs = MockBead.create.call_args[1]
-            assert call_kwargs["priority"] == MockPriority.LOW
+            call_kwargs = mock_beads_module.Bead.create.call_args[1]
+            assert call_kwargs["priority"] == mock_beads_module.BeadPriority.LOW
 
     @pytest.mark.asyncio
-    async def test_initializes_bead_store_if_missing(self, mock_result, mock_protocol, mock_env):
+    async def test_initializes_bead_store_if_missing(
+        self, mock_result, mock_protocol, mock_env, mock_beads_module
+    ):
         """When bead_store is None, initialize a new one."""
         from aragora.debate.orchestrator_hooks import create_debate_bead
 
         holder = MagicMock()
         holder._bead_store = None
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore") as MockStore,
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-        ):
-            mock_store_instance = MagicMock()
-            mock_store_instance.initialize = AsyncMock()
-            mock_store_instance.create = AsyncMock(return_value="new-bead-id")
-            MockStore.return_value = mock_store_instance
-            MockBead.create.return_value = MagicMock()
+        mock_store_instance = MagicMock()
+        mock_store_instance.initialize = AsyncMock()
+        mock_store_instance.create = AsyncMock(return_value="new-bead-id")
+        mock_beads_module.BeadStore.return_value = mock_store_instance
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             result = await create_debate_bead(
                 result=mock_result,
                 protocol=mock_protocol,
@@ -270,20 +295,20 @@ class TestCreateDebateBead:
 
         holder = MagicMock()
 
-        with patch.dict("sys.modules", {"aragora.nomic.beads": None}):
-            with patch("aragora.debate.orchestrator_hooks.Bead", side_effect=ImportError):
-                result = await create_debate_bead(
-                    result=mock_result,
-                    protocol=mock_protocol,
-                    env=mock_env,
-                    bead_store_holder=holder,
-                )
+        # Set module to None to cause ImportError
+        with patch.dict(sys.modules, {"aragora.nomic.beads": None}):
+            result = await create_debate_bead(
+                result=mock_result,
+                protocol=mock_protocol,
+                env=mock_env,
+                bead_store_holder=holder,
+            )
 
         assert result is None
 
     @pytest.mark.asyncio
     async def test_handles_os_error_gracefully(
-        self, mock_result, mock_protocol, mock_env, mock_bead_store
+        self, mock_result, mock_protocol, mock_env, mock_bead_store, mock_beads_module
     ):
         """When OSError occurs, return None."""
         from aragora.debate.orchestrator_hooks import create_debate_bead
@@ -292,14 +317,9 @@ class TestCreateDebateBead:
         holder._bead_store = mock_bead_store
         mock_bead_store.create.side_effect = OSError("Disk full")
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore"),
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-        ):
-            MockBead.create.return_value = MagicMock()
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             result = await create_debate_bead(
                 result=mock_result,
                 protocol=mock_protocol,
@@ -338,7 +358,7 @@ class TestCreatePendingDebateBead:
 
     @pytest.mark.asyncio
     async def test_creates_pending_bead(
-        self, mock_protocol, mock_env, mock_agents, mock_bead_store
+        self, mock_protocol, mock_env, mock_agents, mock_bead_store, mock_beads_module
     ):
         """When enabled, create pending bead."""
         from aragora.debate.orchestrator_hooks import create_pending_debate_bead
@@ -346,14 +366,9 @@ class TestCreatePendingDebateBead:
         holder = MagicMock()
         holder._bead_store = mock_bead_store
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore"),
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-        ):
-            MockBead.create.return_value = MagicMock()
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             result = await create_pending_debate_bead(
                 debate_id="debate-123",
                 task="Test task",
@@ -367,7 +382,7 @@ class TestCreatePendingDebateBead:
 
     @pytest.mark.asyncio
     async def test_bead_marked_as_pending(
-        self, mock_protocol, mock_env, mock_agents, mock_bead_store
+        self, mock_protocol, mock_env, mock_agents, mock_bead_store, mock_beads_module
     ):
         """Pending bead has [Pending] in title."""
         from aragora.debate.orchestrator_hooks import create_pending_debate_bead
@@ -375,14 +390,9 @@ class TestCreatePendingDebateBead:
         holder = MagicMock()
         holder._bead_store = mock_bead_store
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore"),
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-        ):
-            MockBead.create.return_value = MagicMock()
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             await create_pending_debate_bead(
                 debate_id="debate-123",
                 task="Test task",
@@ -392,12 +402,12 @@ class TestCreatePendingDebateBead:
                 bead_store_holder=holder,
             )
 
-            call_kwargs = MockBead.create.call_args[1]
+            call_kwargs = mock_beads_module.Bead.create.call_args[1]
             assert "[Pending]" in call_kwargs["title"]
 
     @pytest.mark.asyncio
     async def test_bead_marked_as_gupp_tracked(
-        self, mock_protocol, mock_env, mock_agents, mock_bead_store
+        self, mock_protocol, mock_env, mock_agents, mock_bead_store, mock_beads_module
     ):
         """Pending bead has gupp-tracked tag."""
         from aragora.debate.orchestrator_hooks import create_pending_debate_bead
@@ -405,14 +415,9 @@ class TestCreatePendingDebateBead:
         holder = MagicMock()
         holder._bead_store = mock_bead_store
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.Bead") as MockBead,
-            patch("aragora.debate.orchestrator_hooks.BeadStore"),
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-        ):
-            MockBead.create.return_value = MagicMock()
+        mock_beads_module.Bead.create.return_value = MagicMock()
 
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             await create_pending_debate_bead(
                 debate_id="debate-123",
                 task="Test task",
@@ -422,7 +427,7 @@ class TestCreatePendingDebateBead:
                 bead_store_holder=holder,
             )
 
-            call_kwargs = MockBead.create.call_args[1]
+            call_kwargs = mock_beads_module.Bead.create.call_args[1]
             assert "gupp-tracked" in call_kwargs["tags"]
 
 
@@ -464,18 +469,15 @@ class TestUpdateDebateBead:
         # Should not raise
 
     @pytest.mark.asyncio
-    async def test_skips_when_bead_not_found(self, mock_result, mock_bead_store):
+    async def test_skips_when_bead_not_found(self, mock_result, mock_bead_store, mock_beads_module):
         """When bead not found, return without action."""
         from aragora.debate.orchestrator_hooks import update_debate_bead
 
         holder = MagicMock()
         holder._bead_store = mock_bead_store
-        mock_bead_store.get.return_value = None
+        mock_bead_store.get = AsyncMock(return_value=None)
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-            patch("aragora.debate.orchestrator_hooks.BeadStatus"),
-        ):
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             await update_debate_bead(
                 bead_id="bead-123",
                 result=mock_result,
@@ -485,7 +487,9 @@ class TestUpdateDebateBead:
         # Should not raise
 
     @pytest.mark.asyncio
-    async def test_sets_status_completed_on_success(self, mock_result, mock_bead_store):
+    async def test_sets_status_completed_on_success(
+        self, mock_result, mock_bead_store, mock_beads_module
+    ):
         """When success=True, set status to COMPLETED."""
         from aragora.debate.orchestrator_hooks import update_debate_bead
 
@@ -495,10 +499,7 @@ class TestUpdateDebateBead:
         mock_bead.metadata = {}
         mock_bead_store.get = AsyncMock(return_value=mock_bead)
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-            patch("aragora.debate.orchestrator_hooks.BeadStatus") as MockStatus,
-        ):
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             await update_debate_bead(
                 bead_id="bead-123",
                 result=mock_result,
@@ -506,10 +507,14 @@ class TestUpdateDebateBead:
                 bead_store_holder=holder,
             )
 
-            mock_bead_store.update_status.assert_called_once_with("bead-123", MockStatus.COMPLETED)
+            mock_bead_store.update_status.assert_called_once_with(
+                "bead-123", mock_beads_module.BeadStatus.COMPLETED
+            )
 
     @pytest.mark.asyncio
-    async def test_sets_status_failed_on_failure(self, mock_result, mock_bead_store):
+    async def test_sets_status_failed_on_failure(
+        self, mock_result, mock_bead_store, mock_beads_module
+    ):
         """When success=False, set status to FAILED."""
         from aragora.debate.orchestrator_hooks import update_debate_bead
 
@@ -519,10 +524,7 @@ class TestUpdateDebateBead:
         mock_bead.metadata = {}
         mock_bead_store.get = AsyncMock(return_value=mock_bead)
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.BeadPriority"),
-            patch("aragora.debate.orchestrator_hooks.BeadStatus") as MockStatus,
-        ):
+        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
             await update_debate_bead(
                 bead_id="bead-123",
                 result=mock_result,
@@ -530,7 +532,9 @@ class TestUpdateDebateBead:
                 bead_store_holder=holder,
             )
 
-            mock_bead_store.update_status.assert_called_once_with("bead-123", MockStatus.FAILED)
+            mock_bead_store.update_status.assert_called_once_with(
+                "bead-123", mock_beads_module.BeadStatus.FAILED
+            )
 
 
 # =============================================================================
@@ -583,7 +587,9 @@ class TestInitHookTracking:
         assert result == {}
 
     @pytest.mark.asyncio
-    async def test_pushes_to_all_agent_hooks(self, mock_protocol, mock_agents, mock_hook_registry):
+    async def test_pushes_to_all_agent_hooks(
+        self, mock_protocol, mock_agents, mock_hook_registry, mock_hook_queue_module
+    ):
         """When enabled, push to each agent's hook queue."""
         from aragora.debate.orchestrator_hooks import init_hook_tracking
 
@@ -591,7 +597,7 @@ class TestInitHookTracking:
         holder._hook_registry = mock_hook_registry
         holder._bead_store = MagicMock()
 
-        with patch("aragora.debate.orchestrator_hooks.HookQueueRegistry"):
+        with patch.dict(sys.modules, {"aragora.nomic.hook_queue": mock_hook_queue_module}):
             result = await init_hook_tracking(
                 debate_id="debate-123",
                 bead_id="bead-456",
@@ -604,7 +610,7 @@ class TestInitHookTracking:
 
     @pytest.mark.asyncio
     async def test_handles_individual_agent_failures(
-        self, mock_protocol, mock_agents, mock_hook_registry
+        self, mock_protocol, mock_agents, mock_hook_registry, mock_hook_queue_module
     ):
         """When one agent fails, continue with others."""
         from aragora.debate.orchestrator_hooks import init_hook_tracking
@@ -628,7 +634,7 @@ class TestInitHookTracking:
         mock_queue.push = side_effect
         mock_hook_registry.get_queue = AsyncMock(return_value=mock_queue)
 
-        with patch("aragora.debate.orchestrator_hooks.HookQueueRegistry"):
+        with patch.dict(sys.modules, {"aragora.nomic.hook_queue": mock_hook_queue_module}):
             result = await init_hook_tracking(
                 debate_id="debate-123",
                 bead_id="bead-456",
@@ -747,59 +753,63 @@ class TestRecoverPendingDebates:
     """Tests for recover_pending_debates function."""
 
     @pytest.mark.asyncio
-    async def test_returns_empty_list_when_no_work(self):
+    async def test_returns_empty_list_when_no_work(
+        self, mock_beads_module, mock_hook_queue_module
+    ):
         """When no pending work, return empty list."""
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.BeadStore") as MockStore,
-            patch("aragora.debate.orchestrator_hooks.HookQueueRegistry") as MockRegistry,
-            patch("aragora.debate.orchestrator_hooks.BeadStatus"),
-            patch("aragora.debate.orchestrator_hooks.BeadType"),
+        mock_store = MagicMock()
+        mock_store.initialize = AsyncMock()
+        mock_beads_module.BeadStore.return_value = mock_store
+
+        mock_registry = MagicMock()
+        mock_registry.recover_all = AsyncMock(return_value={})
+        mock_hook_queue_module.HookQueueRegistry.return_value = mock_registry
+
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.nomic.beads": mock_beads_module,
+                "aragora.nomic.hook_queue": mock_hook_queue_module,
+            },
         ):
-            mock_store = MagicMock()
-            mock_store.initialize = AsyncMock()
-            MockStore.return_value = mock_store
-
-            mock_registry = MagicMock()
-            mock_registry.recover_all = AsyncMock(return_value={})
-            MockRegistry.return_value = mock_registry
-
             result = await recover_pending_debates()
 
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_recovers_pending_debates(self):
+    async def test_recovers_pending_debates(self, mock_beads_module, mock_hook_queue_module):
         """When pending work exists, return recovery info."""
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.BeadStore") as MockStore,
-            patch("aragora.debate.orchestrator_hooks.HookQueueRegistry") as MockRegistry,
-            patch("aragora.debate.orchestrator_hooks.BeadStatus") as MockStatus,
-            patch("aragora.debate.orchestrator_hooks.BeadType") as MockType,
+        mock_store = MagicMock()
+        mock_store.initialize = AsyncMock()
+        mock_beads_module.BeadStore.return_value = mock_store
+
+        # Create mock bead
+        mock_bead = MagicMock()
+        mock_bead.id = "bead-123"
+        mock_bead.bead_type = mock_beads_module.BeadType.DEBATE_DECISION
+        mock_bead.created_at = datetime.now(timezone.utc)
+        mock_bead.status = mock_beads_module.BeadStatus.PENDING
+        mock_bead.metadata = {"debate_id": "debate-456"}
+
+        mock_registry = MagicMock()
+        mock_registry.recover_all = AsyncMock(
+            return_value={
+                "agent-1": [mock_bead],
+            }
+        )
+        mock_hook_queue_module.HookQueueRegistry.return_value = mock_registry
+
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.nomic.beads": mock_beads_module,
+                "aragora.nomic.hook_queue": mock_hook_queue_module,
+            },
         ):
-            mock_store = MagicMock()
-            mock_store.initialize = AsyncMock()
-            MockStore.return_value = mock_store
-
-            # Create mock bead
-            mock_bead = MagicMock()
-            mock_bead.id = "bead-123"
-            mock_bead.bead_type = MockType.DEBATE_DECISION
-            mock_bead.created_at = datetime.now(timezone.utc)
-            mock_bead.status = MockStatus.PENDING
-            mock_bead.metadata = {"debate_id": "debate-456"}
-
-            mock_registry = MagicMock()
-            mock_registry.recover_all = AsyncMock(
-                return_value={
-                    "agent-1": [mock_bead],
-                }
-            )
-            MockRegistry.return_value = mock_registry
-
             result = await recover_pending_debates()
 
         assert len(result) == 1
@@ -807,70 +817,72 @@ class TestRecoverPendingDebates:
         assert "agent-1" in result[0]["agents"]
 
     @pytest.mark.asyncio
-    async def test_filters_by_age_max_hours(self):
+    async def test_filters_by_age_max_hours(self, mock_beads_module, mock_hook_queue_module):
         """Beads older than max_age_hours are filtered out."""
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.BeadStore") as MockStore,
-            patch("aragora.debate.orchestrator_hooks.HookQueueRegistry") as MockRegistry,
-            patch("aragora.debate.orchestrator_hooks.BeadStatus") as MockStatus,
-            patch("aragora.debate.orchestrator_hooks.BeadType") as MockType,
+        mock_store = MagicMock()
+        mock_store.initialize = AsyncMock()
+        mock_beads_module.BeadStore.return_value = mock_store
+
+        # Create old bead (48 hours old)
+        mock_bead = MagicMock()
+        mock_bead.id = "old-bead"
+        mock_bead.bead_type = mock_beads_module.BeadType.DEBATE_DECISION
+        mock_bead.created_at = datetime.now(timezone.utc) - timedelta(hours=48)
+        mock_bead.status = mock_beads_module.BeadStatus.PENDING
+        mock_bead.metadata = {"debate_id": "old-debate"}
+
+        mock_registry = MagicMock()
+        mock_registry.recover_all = AsyncMock(
+            return_value={
+                "agent-1": [mock_bead],
+            }
+        )
+        mock_hook_queue_module.HookQueueRegistry.return_value = mock_registry
+
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.nomic.beads": mock_beads_module,
+                "aragora.nomic.hook_queue": mock_hook_queue_module,
+            },
         ):
-            mock_store = MagicMock()
-            mock_store.initialize = AsyncMock()
-            MockStore.return_value = mock_store
-
-            # Create old bead (48 hours old)
-            mock_bead = MagicMock()
-            mock_bead.id = "old-bead"
-            mock_bead.bead_type = MockType.DEBATE_DECISION
-            mock_bead.created_at = datetime.now(timezone.utc) - timedelta(hours=48)
-            mock_bead.status = MockStatus.PENDING
-            mock_bead.metadata = {"debate_id": "old-debate"}
-
-            mock_registry = MagicMock()
-            mock_registry.recover_all = AsyncMock(
-                return_value={
-                    "agent-1": [mock_bead],
-                }
-            )
-            MockRegistry.return_value = mock_registry
-
             result = await recover_pending_debates(max_age_hours=24)
 
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_ignores_completed_beads(self):
+    async def test_ignores_completed_beads(self, mock_beads_module, mock_hook_queue_module):
         """Completed beads are not included in recovery."""
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
-        with (
-            patch("aragora.debate.orchestrator_hooks.BeadStore") as MockStore,
-            patch("aragora.debate.orchestrator_hooks.HookQueueRegistry") as MockRegistry,
-            patch("aragora.debate.orchestrator_hooks.BeadStatus") as MockStatus,
-            patch("aragora.debate.orchestrator_hooks.BeadType") as MockType,
+        mock_store = MagicMock()
+        mock_store.initialize = AsyncMock()
+        mock_beads_module.BeadStore.return_value = mock_store
+
+        mock_bead = MagicMock()
+        mock_bead.id = "completed-bead"
+        mock_bead.bead_type = mock_beads_module.BeadType.DEBATE_DECISION
+        mock_bead.created_at = datetime.now(timezone.utc)
+        mock_bead.status = mock_beads_module.BeadStatus.COMPLETED
+        mock_bead.metadata = {"debate_id": "completed-debate"}
+
+        mock_registry = MagicMock()
+        mock_registry.recover_all = AsyncMock(
+            return_value={
+                "agent-1": [mock_bead],
+            }
+        )
+        mock_hook_queue_module.HookQueueRegistry.return_value = mock_registry
+
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.nomic.beads": mock_beads_module,
+                "aragora.nomic.hook_queue": mock_hook_queue_module,
+            },
         ):
-            mock_store = MagicMock()
-            mock_store.initialize = AsyncMock()
-            MockStore.return_value = mock_store
-
-            mock_bead = MagicMock()
-            mock_bead.id = "completed-bead"
-            mock_bead.bead_type = MockType.DEBATE_DECISION
-            mock_bead.created_at = datetime.now(timezone.utc)
-            mock_bead.status = MockStatus.COMPLETED
-            mock_bead.metadata = {"debate_id": "completed-debate"}
-
-            mock_registry = MagicMock()
-            mock_registry.recover_all = AsyncMock(
-                return_value={
-                    "agent-1": [mock_bead],
-                }
-            )
-            MockRegistry.return_value = mock_registry
-
             result = await recover_pending_debates()
 
         assert result == []
@@ -880,7 +892,7 @@ class TestRecoverPendingDebates:
         """When import fails, return empty list."""
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
-        with patch("aragora.debate.orchestrator_hooks.BeadStore", side_effect=ImportError):
+        with patch.dict(sys.modules, {"aragora.nomic.beads": None}):
             result = await recover_pending_debates()
 
         assert result == []

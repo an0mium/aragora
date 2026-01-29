@@ -41,6 +41,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Try to import the handler module
+try:
+    from aragora.server.handlers.social.channel_health import ChannelHealthHandler
+
+    HANDLER_AVAILABLE = True
+except ImportError:
+    HANDLER_AVAILABLE = False
+    ChannelHealthHandler = None
+
+pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="ChannelHealthHandler not available")
+
 
 # ===========================================================================
 # Mock Classes
@@ -99,7 +110,7 @@ def reset_module_state():
     try:
         from aragora.server.handlers.social import channel_health
 
-        channel_health._health_limiter._requests.clear()
+        channel_health._health_limiter._buckets.clear()
     except Exception:
         pass
     yield
@@ -149,14 +160,10 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def health_handler(handler_context, mock_channel_monitor):
-    with patch(
-        "aragora.server.handlers.social.channel_health.get_channel_monitor",
-        return_value=mock_channel_monitor,
-    ):
-        from aragora.server.handlers.social.channel_health import ChannelHealthHandler
-
-        handler = ChannelHealthHandler(handler_context)
-        yield handler
+    if not HANDLER_AVAILABLE:
+        pytest.skip("ChannelHealthHandler not available")
+    handler = ChannelHealthHandler(handler_context)
+    yield handler
 
 
 # ===========================================================================

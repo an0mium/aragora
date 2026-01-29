@@ -492,14 +492,14 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
 
         # Phase A2 - Contradiction detection endpoints
         if path == "/api/v1/knowledge/mound/contradictions/detect":
-            return self._handle_detect_contradictions(handler)  # type: ignore[attr-defined]
+            return self._handle_detect_contradictions(handler)
 
         if path == "/api/v1/knowledge/mound/contradictions":
-            return self._handle_list_contradictions(query_params)  # type: ignore[attr-defined]
+            return self._handle_list_contradictions(query_params)
 
         if path.startswith("/api/v1/knowledge/mound/contradictions/") and path.endswith("/resolve"):
             contradiction_id = path.split("/")[-2]
-            return self._handle_resolve_contradiction(contradiction_id, handler)  # type: ignore[attr-defined]
+            return self._handle_resolve_contradiction(contradiction_id, handler)
 
         if path == "/api/v1/knowledge/mound/contradictions/stats":
             return _run_async(self.get_contradiction_stats())
@@ -508,47 +508,47 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         if path == "/api/v1/knowledge/mound/governance/roles":
             method = getattr(handler, "command", "GET")
             if method == "POST":
-                return self._handle_create_role(handler)  # type: ignore[attr-defined]
+                return self._handle_create_role(handler)
             # GET would list roles - not implemented yet
 
         if path == "/api/v1/knowledge/mound/governance/roles/assign":
-            return self._handle_assign_role(handler)  # type: ignore[attr-defined]
+            return self._handle_assign_role(handler)
 
         if path == "/api/v1/knowledge/mound/governance/roles/revoke":
-            return self._handle_revoke_role(handler)  # type: ignore[attr-defined]
+            return self._handle_revoke_role(handler)
 
         if path.startswith("/api/v1/knowledge/mound/governance/permissions/"):
             if path == "/api/v1/knowledge/mound/governance/permissions/check":
-                return self._handle_check_permission(handler)  # type: ignore[attr-defined]
+                return self._handle_check_permission(handler)
             else:
                 user_id = path.split("/")[-1]
-                return self._handle_get_user_permissions(user_id, query_params)  # type: ignore[attr-defined]
+                return self._handle_get_user_permissions(user_id, query_params)
 
         if path == "/api/v1/knowledge/mound/governance/audit":
-            return self._handle_query_audit(query_params)  # type: ignore[attr-defined]
+            return self._handle_query_audit(query_params)
 
         if path.startswith("/api/v1/knowledge/mound/governance/audit/user/"):
             user_id = path.split("/")[-1]
-            return self._handle_get_user_activity(user_id, query_params)  # type: ignore[attr-defined]
+            return self._handle_get_user_activity(user_id, query_params)
 
         if path == "/api/v1/knowledge/mound/governance/stats":
             return _run_async(self.get_governance_stats())
 
         # Phase A2 - Analytics endpoints
         if path == "/api/v1/knowledge/mound/analytics/coverage":
-            return self._handle_analyze_coverage(query_params)  # type: ignore[attr-defined]
+            return self._handle_analyze_coverage(query_params)
 
         if path == "/api/v1/knowledge/mound/analytics/usage":
-            return self._handle_analyze_usage(query_params)  # type: ignore[attr-defined]
+            return self._handle_analyze_usage(query_params)
 
         if path == "/api/v1/knowledge/mound/analytics/usage/record":
-            return self._handle_record_usage_event(handler)  # type: ignore[attr-defined]
+            return self._handle_record_usage_event(handler)
 
         if path == "/api/v1/knowledge/mound/analytics/quality/snapshot":
-            return self._handle_capture_quality_snapshot(handler)  # type: ignore[attr-defined]
+            return self._handle_capture_quality_snapshot(handler)
 
         if path == "/api/v1/knowledge/mound/analytics/quality/trend":
-            return self._handle_get_quality_trend(query_params)  # type: ignore[attr-defined]
+            return self._handle_get_quality_trend(query_params)
 
         if path == "/api/v1/knowledge/mound/analytics/stats":
             return _run_async(self.get_analytics_stats())

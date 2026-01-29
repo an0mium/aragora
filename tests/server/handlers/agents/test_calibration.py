@@ -71,7 +71,7 @@ def clear_module_state():
     """Clear any module-level state between tests."""
     from aragora.server.handlers.agents.calibration import _calibration_limiter
 
-    _calibration_limiter._requests.clear()
+    _calibration_limiter.clear()
     yield
 
 

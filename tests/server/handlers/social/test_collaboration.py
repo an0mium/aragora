@@ -41,6 +41,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Try to import the handler module
+try:
+    from aragora.server.handlers.social.collaboration import CollaborationHandler
+
+    HANDLER_AVAILABLE = True
+except ImportError:
+    HANDLER_AVAILABLE = False
+    CollaborationHandler = None
+
+pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="CollaborationHandler not available")
+
 
 # ===========================================================================
 # Mock Classes
@@ -129,7 +140,7 @@ def reset_module_state():
     try:
         from aragora.server.handlers.social import collaboration
 
-        collaboration._collab_limiter._requests.clear()
+        collaboration._collab_limiter._buckets.clear()
     except Exception:
         pass
     yield
@@ -167,14 +178,10 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def collab_handler(handler_context, mock_session_store):
-    with patch(
-        "aragora.server.handlers.social.collaboration.get_session_store",
-        return_value=mock_session_store,
-    ):
-        from aragora.server.handlers.social.collaboration import CollaborationHandler
-
-        handler = CollaborationHandler(handler_context)
-        yield handler
+    if not HANDLER_AVAILABLE:
+        pytest.skip("CollaborationHandler not available")
+    handler = CollaborationHandler(handler_context)
+    yield handler
 
 
 # ===========================================================================

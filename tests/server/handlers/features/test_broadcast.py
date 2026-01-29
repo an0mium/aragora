@@ -44,7 +44,7 @@ from aragora.server.handlers.features.broadcast import (
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset rate limiter between tests."""
-    _broadcast_limiter._requests.clear()
+    _broadcast_limiter._buckets.clear()
     yield
 
 

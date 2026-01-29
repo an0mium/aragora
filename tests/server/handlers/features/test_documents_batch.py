@@ -44,7 +44,7 @@ from aragora.server.handlers.features.documents_batch import (
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset rate limiter between tests."""
-    _batch_limiter._requests.clear()
+    _batch_limiter._buckets.clear()
     yield
 
 

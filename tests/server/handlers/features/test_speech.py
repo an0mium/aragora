@@ -47,7 +47,7 @@ from aragora.server.handlers.features.speech import (
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset rate limiter between tests."""
-    _speech_limiter._requests.clear()
+    _speech_limiter._buckets.clear()
     yield
 
 

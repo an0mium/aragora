@@ -866,10 +866,15 @@ class OrchestrationHandler(SecureHandler):
 
             mound = get_knowledge_mound()
             if mound:
-                # Search for relevant knowledge
-                results = await mound.search(source.source_id, limit=source.max_items)
-                if results:
-                    return "\n\n".join(r.get("content", "") for r in results if r.get("content"))
+                # Query for relevant knowledge using the KnowledgeMound API
+                results = await mound.query(source.source_id, limit=source.max_items)
+                if results and hasattr(results, "items"):
+                    # QueryResult has an items attribute with KnowledgeItem objects
+                    return "\n\n".join(
+                        str(getattr(item, "content", ""))
+                        for item in results.items
+                        if getattr(item, "content", None)
+                    )
         except Exception as e:
             logger.warning(f"Failed to fetch document context: {e}")
         return None
@@ -886,7 +891,8 @@ class OrchestrationHandler(SecureHandler):
             from aragora.connectors.enterprise.collaboration.jira import JiraConnector
 
             # Get base_url from context or environment
-            jira_url = self.ctx.get("jira_url") or os.environ.get("JIRA_BASE_URL", "")
+            ctx_url = self.ctx.get("jira_url")
+            jira_url: str = str(ctx_url) if ctx_url else os.environ.get("JIRA_BASE_URL", "")
             if not jira_url:
                 logger.warning("Jira base URL not configured")
                 return None

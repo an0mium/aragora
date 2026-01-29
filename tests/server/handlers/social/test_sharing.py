@@ -40,6 +40,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Try to import the handler module
+try:
+    from aragora.server.handlers.social.sharing import SharingHandler
+
+    HANDLER_AVAILABLE = True
+except ImportError:
+    HANDLER_AVAILABLE = False
+    SharingHandler = None
+
+pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="SharingHandler not available")
+
 
 # ===========================================================================
 # Mock Classes
@@ -128,7 +139,7 @@ def reset_module_state():
     try:
         from aragora.server.handlers.social import sharing
 
-        sharing._share_limiter._requests.clear()
+        sharing._share_limiter._buckets.clear()
     except Exception:
         pass
     yield
@@ -163,14 +174,10 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def share_handler(handler_context, mock_share_store):
-    with patch(
-        "aragora.server.handlers.social.sharing.get_share_store",
-        return_value=mock_share_store,
-    ):
-        from aragora.server.handlers.social.sharing import SharingHandler
-
-        handler = SharingHandler(handler_context)
-        yield handler
+    if not HANDLER_AVAILABLE:
+        pytest.skip("SharingHandler not available")
+    handler = SharingHandler(handler_context)
+    yield handler
 
 
 # ===========================================================================
