@@ -161,6 +161,8 @@ class TestRBACPermissions:
         self, oauth_handler, mock_handler, no_permission_context
     ):
         """Requests without required permission return 403."""
+        from aragora.rbac.decorators import PermissionDeniedError
+
         with patch.object(
             oauth_handler,
             "get_auth_context",
@@ -168,7 +170,9 @@ class TestRBACPermissions:
             return_value=no_permission_context,
         ):
             with patch.object(
-                oauth_handler, "check_permission", side_effect=Exception("Permission denied")
+                oauth_handler,
+                "check_permission",
+                side_effect=PermissionDeniedError("Permission denied: integrations.read"),
             ):
                 result = await oauth_handler.handle(
                     "/api/v2/integrations/wizard",
@@ -795,6 +799,8 @@ class TestDisconnectProvider:
         self, oauth_handler, mock_handler, read_only_context
     ):
         """Disconnect requires connector:delete permission."""
+        from aragora.rbac.decorators import PermissionDeniedError
+
         mock_handler.command = "POST"
 
         with patch.object(
@@ -804,7 +810,9 @@ class TestDisconnectProvider:
             return_value=read_only_context,
         ):
             with patch.object(
-                oauth_handler, "check_permission", side_effect=Exception("Permission denied")
+                oauth_handler,
+                "check_permission",
+                side_effect=PermissionDeniedError("Permission denied: integrations.delete"),
             ):
                 with patch.object(
                     oauth_handler, "read_json_body", return_value={"workspace_id": "W123"}

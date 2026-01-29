@@ -257,16 +257,18 @@ class TestFallbackOAuthStateStore:
             pass
 
     def test_without_redis_uses_sqlite(self, temp_db_path):
-        """Test that store uses SQLite when Redis URL not set."""
-        store = FallbackOAuthStateStore(redis_url="", sqlite_path=temp_db_path, use_sqlite=True)
+        """Test that store uses SQLite when Redis URL not set (JWT disabled)."""
+        store = FallbackOAuthStateStore(
+            redis_url="", sqlite_path=temp_db_path, use_sqlite=True, use_jwt=False
+        )
         assert store.is_using_redis is False
         assert store.is_using_sqlite is True
         assert store.backend_name == "sqlite"
         store.close()
 
     def test_without_redis_without_sqlite_uses_memory(self):
-        """Test that store uses memory when both Redis and SQLite disabled."""
-        store = FallbackOAuthStateStore(redis_url="", use_sqlite=False)
+        """Test that store uses memory when both Redis and SQLite disabled (JWT disabled)."""
+        store = FallbackOAuthStateStore(redis_url="", use_sqlite=False, use_jwt=False)
         assert store.is_using_redis is False
         assert store.is_using_sqlite is False
         assert store.backend_name == "memory"
@@ -289,11 +291,12 @@ class TestFallbackOAuthStateStore:
         store.close()
 
     def test_redis_fallback_to_sqlite(self, temp_db_path):
-        """Test fallback to SQLite when Redis connection fails."""
+        """Test fallback to SQLite when Redis connection fails (JWT disabled)."""
         store = FallbackOAuthStateStore(
             redis_url="redis://nonexistent:6379",
             sqlite_path=temp_db_path,
             use_sqlite=True,
+            use_jwt=False,  # Disable JWT to test SQLite fallback
         )
 
         # Should fall back to SQLite and still work
@@ -311,8 +314,10 @@ class TestFallbackOAuthStateStore:
         store.close()
 
     def test_redis_fallback_to_memory_when_sqlite_disabled(self):
-        """Test fallback to memory when Redis fails and SQLite disabled."""
-        store = FallbackOAuthStateStore(redis_url="redis://nonexistent:6379", use_sqlite=False)
+        """Test fallback to memory when Redis fails and SQLite disabled (JWT disabled)."""
+        store = FallbackOAuthStateStore(
+            redis_url="redis://nonexistent:6379", use_sqlite=False, use_jwt=False
+        )
 
         # Should fall back to memory
         state = store.generate(user_id="user123")
@@ -338,8 +343,10 @@ class TestFallbackOAuthStateStore:
         store2.close()
 
     def test_cleanup_expired_with_sqlite(self, temp_db_path):
-        """Test cleanup of expired states with SQLite backend."""
-        store = FallbackOAuthStateStore(redis_url="", sqlite_path=temp_db_path, use_sqlite=True)
+        """Test cleanup of expired states with SQLite backend (JWT disabled)."""
+        store = FallbackOAuthStateStore(
+            redis_url="", sqlite_path=temp_db_path, use_sqlite=True, use_jwt=False
+        )
 
         # Generate some states with short TTL (long enough to batch)
         for i in range(3):

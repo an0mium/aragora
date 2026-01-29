@@ -18,6 +18,7 @@ from aragora.resilience import (
     get_circuit_breakers,
 )
 import aragora.resilience as resilience_module
+from aragora.resilience import registry as registry_module
 
 # Access internal registry for testing
 _circuit_breakers = resilience_module._circuit_breakers
@@ -50,7 +51,8 @@ class TestRegistryExhaustion:
         # Use a smaller limit for faster testing
         test_max = 10
 
-        with patch.object(resilience_module, "MAX_CIRCUIT_BREAKERS", test_max):
+        # Patch the registry module where MAX_CIRCUIT_BREAKERS is actually used
+        with patch.object(registry_module, "MAX_CIRCUIT_BREAKERS", test_max):
             # Fill the registry to the max
             for i in range(test_max):
                 get_circuit_breaker(f"breaker_{i}")

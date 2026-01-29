@@ -508,30 +508,30 @@ class TestSqlitePersistence:
 
     def test_persist_without_init_is_noop(self):
         """Persisting without init does not raise."""
-        # Reset _DB_PATH
-        import aragora.resilience as r
+        # Reset _DB_PATH in persistence module
+        from aragora.resilience import persistence as p
 
-        original = r._DB_PATH
-        r._DB_PATH = None
+        original = p._DB_PATH
+        p._DB_PATH = None
 
         try:
             cb = CircuitBreaker()
             persist_circuit_breaker("test", cb)  # Should not raise
         finally:
-            r._DB_PATH = original
+            p._DB_PATH = original
 
     def test_load_without_init_returns_zero(self):
         """Loading without init returns 0."""
-        import aragora.resilience as r
+        from aragora.resilience import persistence as p
 
-        original = r._DB_PATH
-        r._DB_PATH = None
+        original = p._DB_PATH
+        p._DB_PATH = None
 
         try:
             count = load_circuit_breakers()
             assert count == 0
         finally:
-            r._DB_PATH = original
+            p._DB_PATH = original
 
     def test_load_handles_malformed_json(self, temp_db):
         """Loading handles malformed JSON gracefully."""

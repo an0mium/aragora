@@ -248,7 +248,16 @@ class TestWebSocketHealth:
         assert body["clients"] == 2
         assert result.status_code == 200
 
-    def test_websocket_health_is_public(self):
-        """WebSocket health endpoint should be in PUBLIC_ROUTES."""
-        assert "/api/health/ws" in HealthHandler.PUBLIC_ROUTES
-        assert "/api/v1/health/ws" in HealthHandler.PUBLIC_ROUTES
+    def test_websocket_health_requires_auth(self):
+        """WebSocket health endpoint requires authentication (not in PUBLIC_ROUTES).
+
+        SECURITY: Per aragora/server/handlers/admin/health/__init__.py,
+        only K8s probes are public to minimize information exposure.
+        WebSocket health info could reveal client connection patterns.
+        """
+        # WebSocket health should NOT be public - requires auth
+        assert "/api/health/ws" not in HealthHandler.PUBLIC_ROUTES
+        assert "/api/v1/health/ws" not in HealthHandler.PUBLIC_ROUTES
+        # Only K8s probes are public
+        assert "/healthz" in HealthHandler.PUBLIC_ROUTES
+        assert "/readyz" in HealthHandler.PUBLIC_ROUTES

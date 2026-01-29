@@ -259,18 +259,18 @@ class TestValidateOAuthConfig:
 
     def test_returns_missing_vars_in_production(self):
         """Should return missing vars in production mode."""
-        from aragora.server.handlers import _oauth_impl
+        from aragora.server.handlers.oauth import config as oauth_config
 
         with (
-            patch.object(_oauth_impl, "_IS_PRODUCTION", True),
-            patch.object(_oauth_impl, "GOOGLE_CLIENT_ID", "test-client-id"),
-            patch.object(_oauth_impl, "_get_google_client_secret", return_value=""),
-            patch.object(_oauth_impl, "_get_google_redirect_uri", return_value=""),
-            patch.object(_oauth_impl, "_get_oauth_success_url", return_value=""),
-            patch.object(_oauth_impl, "_get_oauth_error_url", return_value=""),
-            patch.object(_oauth_impl, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset()),
+            patch.object(oauth_config, "_IS_PRODUCTION", True),
+            patch.object(oauth_config, "GOOGLE_CLIENT_ID", "test-client-id"),
+            patch.object(oauth_config, "_get_google_client_secret", return_value=""),
+            patch.object(oauth_config, "_get_google_redirect_uri", return_value=""),
+            patch.object(oauth_config, "_get_oauth_success_url", return_value=""),
+            patch.object(oauth_config, "_get_oauth_error_url", return_value=""),
+            patch.object(oauth_config, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset()),
         ):
-            missing = _oauth_impl.validate_oauth_config()
+            missing = oauth_config.validate_oauth_config()
             assert "GOOGLE_OAUTH_CLIENT_SECRET" in missing
             assert "GOOGLE_OAUTH_REDIRECT_URI" in missing
 
