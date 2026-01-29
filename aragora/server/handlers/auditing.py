@@ -845,10 +845,10 @@ class AuditingHandler(SecureHandler):
                 continue
 
             pattern = vulnerability_patterns.get(attack_type, {})
-            keywords = pattern.get("keywords", [])
-            base_severity = float(pattern.get("base_severity", 0.5) or 0.5)  # type: ignore[arg-type]
+            keywords: list[str] = pattern.get("keywords") or []
+            base_severity = float(pattern.get("base_severity") or 0.5)
 
-            matches = sum(1 for kw in keywords if kw in proposal_lower)  # type: ignore[misc,attr-defined]
+            matches = sum(1 for kw in keywords if kw in proposal_lower)
             severity = min(0.9, base_severity + (matches * 0.1))
 
             if matches > 0:

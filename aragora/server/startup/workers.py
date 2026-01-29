@@ -6,9 +6,27 @@ durable job queue, gauntlet worker, notification worker,
 workflow checkpoint persistence, and backup scheduler initialization.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from aragora.queue.workers.gauntlet_worker import GauntletWorker
 
 logger = logging.getLogger(__name__)
+
+# Module-level reference for shutdown coordination
+_gauntlet_worker: Optional[GauntletWorker] = None
+
+
+def get_gauntlet_worker() -> Optional[GauntletWorker]:
+    """Get the running gauntlet worker instance (if any).
+
+    Used by the shutdown sequence to gracefully stop the worker
+    before closing database connections.
+    """
+    return _gauntlet_worker
 
 
 def init_slo_webhooks() -> bool:
@@ -127,6 +145,9 @@ async def init_gauntlet_worker() -> bool:
 
     Enabled by default. Set ARAGORA_DURABLE_GAUNTLET=0 to disable.
 
+    The worker instance is stored module-level so the shutdown sequence
+    can call ``get_gauntlet_worker().stop()`` before closing database pools.
+
     Environment Variables:
         ARAGORA_DURABLE_GAUNTLET: "0" to disable (enabled by default)
         ARAGORA_GAUNTLET_WORKERS: Number of concurrent jobs (default: 3)
@@ -134,6 +155,7 @@ async def init_gauntlet_worker() -> bool:
     Returns:
         True if worker was started, False otherwise
     """
+    global _gauntlet_worker
     import os
 
     # Enabled by default - set to "0" to disable
@@ -146,6 +168,9 @@ async def init_gauntlet_worker() -> bool:
 
         max_concurrent = int(os.environ.get("ARAGORA_GAUNTLET_WORKERS", "3"))
         worker = GauntletWorker(max_concurrent=max_concurrent)
+
+        # Store reference for shutdown coordination
+        _gauntlet_worker = worker
 
         # Start worker in background
         import asyncio
