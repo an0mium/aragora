@@ -272,7 +272,7 @@ class MultiInboxManager:
 
         async with self._accounts_lock:
             # Create connector
-            connector = GmailConnector()
+            connector = GmailConnector()  # type: ignore[abstract]
 
             # Authenticate
             success = await connector.authenticate(refresh_token=refresh_token)

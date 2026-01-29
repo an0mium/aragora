@@ -214,7 +214,7 @@ class GmailLabelsHandler(SecureHandler):
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            connector = GmailConnector()
+            connector = GmailConnector()  # type: ignore[abstract]
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry

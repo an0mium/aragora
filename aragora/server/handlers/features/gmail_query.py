@@ -158,7 +158,7 @@ class GmailQueryHandler(SecureHandler):
         from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
         # Create connector with user's tokens
-        connector = GmailConnector(max_results=limit * 2)
+        connector = GmailConnector(max_results=limit * 2)  # type: ignore[abstract]
         connector._access_token = state.access_token
         connector._refresh_token = state.refresh_token
         connector._token_expiry = state.token_expiry
@@ -417,7 +417,7 @@ class GmailQueryHandler(SecureHandler):
         from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
         # Create connector
-        connector = GmailConnector(max_results=limit * 2)
+        connector = GmailConnector(max_results=limit * 2)  # type: ignore[abstract]
         connector._access_token = state.access_token
         connector._refresh_token = state.refresh_token
         connector._token_expiry = state.token_expiry

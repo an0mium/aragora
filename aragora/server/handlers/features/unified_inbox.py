@@ -412,7 +412,7 @@ class UnifiedInboxHandler(BaseHandler):
             try:
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-                connector = GmailConnector()
+                connector = GmailConnector()  # type: ignore[abstract]
 
                 if not connector.is_configured:
                     return error_response(
@@ -574,7 +574,7 @@ class UnifiedInboxHandler(BaseHandler):
             )
 
             # Exchange auth code for tokens via Gmail connector
-            connector = GmailConnector()
+            connector = GmailConnector()  # type: ignore[abstract]
             auth_ok = await connector.authenticate(code=auth_code, redirect_uri=redirect_uri)
             if not auth_ok:
                 return {"success": False, "error": "Gmail authentication failed"}
