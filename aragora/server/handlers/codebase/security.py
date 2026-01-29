@@ -132,6 +132,7 @@ def _get_or_create_repo_scans(repo_id: str) -> Dict[str, ScanResult]:
 # =============================================================================
 
 
+@require_permission("security:scan")
 async def handle_scan_repository(
     repo_path: str,
     repo_id: Optional[str] = None,
@@ -225,6 +226,7 @@ async def handle_scan_repository(
         return error_response(str(e), 500)
 
 
+@require_permission("security:read")
 async def handle_get_scan_status(
     repo_id: str,
     scan_id: Optional[str] = None,
@@ -258,6 +260,7 @@ async def handle_get_scan_status(
         return error_response(str(e), 500)
 
 
+@require_permission("security:read")
 async def handle_get_vulnerabilities(
     repo_id: str,
     severity: Optional[str] = None,
@@ -328,6 +331,7 @@ async def handle_get_vulnerabilities(
         return error_response(str(e), 500)
 
 
+@require_permission("security:read")
 async def handle_get_cve_details(
     cve_id: str,
 ) -> HandlerResult:
@@ -350,6 +354,7 @@ async def handle_get_cve_details(
         return error_response(str(e), 500)
 
 
+@require_permission("security:read")
 async def handle_query_package_vulnerabilities(
     package_name: str,
     ecosystem: str,
@@ -383,6 +388,7 @@ async def handle_query_package_vulnerabilities(
         return error_response(str(e), 500)
 
 
+@require_permission("security:read")
 async def handle_list_scans(
     repo_id: str,
     status: Optional[str] = None,
@@ -852,6 +858,7 @@ async def handle_get_secrets(
         return error_response(str(e), 500)
 
 
+@require_permission("secrets:read")
 async def handle_list_secrets_scans(
     repo_id: str,
     status: Optional[str] = None,
@@ -1161,6 +1168,7 @@ class SecurityHandler(BaseHandler):
 # =============================================================================
 
 
+@require_permission("security:sast:scan")
 async def handle_scan_sast(
     repo_path: str,
     repo_id: Optional[str] = None,
@@ -1241,6 +1249,7 @@ async def handle_scan_sast(
         return error_response(str(e), 500)
 
 
+@require_permission("security:sast:read")
 async def handle_get_sast_scan_status(
     repo_id: str,
     scan_id: str,
@@ -1278,6 +1287,7 @@ async def handle_get_sast_scan_status(
         return error_response(str(e), 500)
 
 
+@require_permission("security:sast:read")
 async def handle_get_sast_findings(
     repo_id: str,
     severity: Optional[str] = None,
@@ -1330,6 +1340,7 @@ async def handle_get_sast_findings(
         return error_response(str(e), 500)
 
 
+@require_permission("security:sast:read")
 async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
     """Get OWASP Top 10 summary for a repository."""
     try:
@@ -1450,6 +1461,7 @@ def _get_sbom_generator() -> SBOMGenerator:
     return registry.resolve(SBOMGenerator)
 
 
+@require_permission("security:sbom:generate")
 async def handle_generate_sbom(
     repo_path: str,
     repo_id: Optional[str] = None,
@@ -1542,6 +1554,7 @@ async def handle_generate_sbom(
         return error_response(str(e), 500)
 
 
+@require_permission("security:sbom:read")
 async def handle_get_sbom(
     repo_id: str,
     sbom_id: Optional[str] = None,
@@ -1586,6 +1599,7 @@ async def handle_get_sbom(
         return error_response(str(e), 500)
 
 
+@require_permission("security:sbom:read")
 async def handle_list_sboms(
     repo_id: str,
     limit: int = 10,
@@ -1631,6 +1645,7 @@ async def handle_list_sboms(
         return error_response(str(e), 500)
 
 
+@require_permission("security:sbom:read")
 async def handle_download_sbom(
     repo_id: str,
     sbom_id: str,
@@ -1671,6 +1686,7 @@ async def handle_download_sbom(
         return error_response(str(e), 500)
 
 
+@require_permission("security:sbom:read")
 async def handle_compare_sboms(
     repo_id: str,
     sbom_id_a: str,
