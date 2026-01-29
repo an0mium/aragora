@@ -236,6 +236,7 @@ class ComputerUseOrchestrator:
         policy: ComputerPolicy | None = None,
         config: ComputerUseConfig | None = None,
         api_key: str | None = None,
+        bridge: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -245,6 +246,8 @@ class ComputerUseOrchestrator:
             policy: Computer-use policy
             config: Orchestrator configuration
             api_key: Anthropic API key (uses ANTHROPIC_API_KEY env var if not provided)
+            bridge: ClaudeComputerUseBridge instance for Claude API integration.
+                    If not provided but api_key is given, one is created automatically.
         """
         self._executor = executor
         self._policy = policy or create_default_computer_policy()
@@ -253,6 +256,25 @@ class ComputerUseOrchestrator:
         self._policy_checker = ComputerPolicyChecker(self._policy)
         self._metrics = ComputerUseMetrics()
         self._current_task: TaskResult | None = None
+        self._bridge = bridge
+
+        # Auto-create bridge if api_key provided but no bridge
+        if self._bridge is None and self._api_key:
+            try:
+                from aragora.computer_use.claude_bridge import (
+                    BridgeConfig,
+                    ClaudeComputerUseBridge,
+                )
+
+                self._bridge = ClaudeComputerUseBridge(
+                    api_key=self._api_key,
+                    config=BridgeConfig(
+                        display_width=self._config.display_width,
+                        display_height=self._config.display_height,
+                    ),
+                )
+            except ImportError:
+                logger.warning("Claude bridge unavailable - using stub for _get_next_action")
 
     @property
     def metrics(self) -> ComputerUseMetrics:
@@ -435,6 +457,8 @@ class ComputerUseOrchestrator:
             result.end_time = time.time()
             self._current_task = None
             self._policy_checker.reset()
+            if self._bridge is not None and hasattr(self._bridge, "reset"):
+                self._bridge.reset()
 
         return result
 
@@ -448,25 +472,24 @@ class ComputerUseOrchestrator:
         """
         Call Claude to determine the next action.
 
+        Delegates to ClaudeComputerUseBridge when available, otherwise
+        falls back to a stub that completes after the first step.
+
         Returns:
             (action, model_response, is_complete) tuple
         """
-        # This is a stub - actual implementation would call Anthropic API
-        # with computer_use tool and parse the response
+        if self._bridge is not None:
+            return await self._bridge.get_next_action(
+                goal=goal,
+                screenshot_b64=screenshot_b64,
+                previous_steps=previous_steps,
+                initial_context=initial_context,
+            )
 
-        # For now, return a screenshot action to demonstrate the pattern
-        logger.debug("Getting next action from model (stub implementation)")
-
-        # In real implementation:
-        # 1. Build messages with screenshot and conversation history
-        # 2. Call client.messages.create with computer_use tool
-        # 3. Parse tool_use response to get action
-        # 4. Check for end_turn to determine completion
-
-        # Stub: return None to indicate completion after first call
+        # Fallback stub for testing without API key
+        logger.debug("No bridge configured, using stub (completes after first step)")
         if previous_steps:
             return None, "Task appears complete", True
-
         return ScreenshotAction(), "Taking initial screenshot", False
 
     async def _execute_with_timeout(self, action: Action) -> ActionResult:

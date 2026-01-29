@@ -54,6 +54,15 @@ from aragora.computer_use.orchestrator import (
     StepResult,
     TaskResult,
 )
+from aragora.computer_use.executor import (
+    ExecutorConfig,
+    PlaywrightActionExecutor,
+)
+from aragora.computer_use.claude_bridge import (
+    BridgeConfig,
+    ClaudeComputerUseBridge,
+    ConversationMessage,
+)
 
 __all__ = [
     # Actions
@@ -82,4 +91,11 @@ __all__ = [
     "MockActionExecutor",
     "StepResult",
     "TaskResult",
+    # Executor
+    "ExecutorConfig",
+    "PlaywrightActionExecutor",
+    # Bridge
+    "BridgeConfig",
+    "ClaudeComputerUseBridge",
+    "ConversationMessage",
 ]
