@@ -37,6 +37,276 @@ from aragora.server.versioning.compat import strip_version_prefix
 # API version
 API_VERSION = "1.0.0"
 
+# ---------------------------------------------------------------------------
+# Tag inference from URL path patterns
+# ---------------------------------------------------------------------------
+# Ordered list of (path_prefix, tag) rules. First match wins, so more
+# specific prefixes (e.g. "bots/telegram") must come before generic ones
+# (e.g. "bots").  The path is stripped of /api/, /api/v1/, /api/v2/ before
+# matching.
+# ---------------------------------------------------------------------------
+TAG_INFERENCE_RULES: list[tuple[str, str]] = [
+    # Bot platform-specific
+    ("bots/telegram", "Bots - Telegram"),
+    ("bots/discord", "Bots - Discord"),
+    ("bots/whatsapp", "Bots - WhatsApp"),
+    ("bots/google-chat", "Bots - Google Chat"),
+    ("bots/zoom", "Bots - Zoom"),
+    ("bots/teams", "Teams"),
+    ("bots/email", "Email"),
+    ("bots/slack", "Bots"),
+    ("bots", "Bots"),
+    # SME sub-features
+    ("sme/teams", "Teams"),
+    ("sme/slack", "Integrations"),
+    ("sme/budgets", "Budgets"),
+    ("sme/receipts", "Gauntlet"),
+    ("sme/success", "SME"),
+    ("sme", "SME"),
+    # Workflow sub-features (before generic "workflow")
+    ("workflow-templates", "Workflow Templates"),
+    ("workflow-approvals", "Workflows"),
+    ("workflow-executions", "Workflows"),
+    ("workflows", "Workflows"),
+    ("workflow", "Workflows"),
+    # Core debate
+    ("debates", "Debates"),
+    ("debate", "Debates"),
+    ("graph-debates", "Debates"),
+    ("matrix-debates", "Debates"),
+    ("deliberations", "Deliberations"),
+    ("consensus", "Consensus"),
+    ("decisions", "Decisions"),
+    # Agents & rankings
+    ("agents", "Agents"),
+    ("agent-dashboard", "Agents"),
+    ("agent", "Agents"),
+    ("flips", "Insights"),
+    ("leaderboard", "Agents"),
+    ("rankings", "Agents"),
+    ("selection", "Routing"),
+    ("calibration", "Agents"),
+    ("persona", "Agents"),
+    ("training", "Agents"),
+    ("ml", "Agents"),
+    # Memory & knowledge
+    ("memory", "Memory"),
+    ("learning", "Learning"),
+    ("meta-learning", "Learning"),
+    ("knowledge_base", "Knowledge"),
+    ("knowledge-mound", "Knowledge Mound"),
+    ("knowledge", "Knowledge"),
+    ("km", "Knowledge Mound"),
+    ("evidence", "Knowledge"),
+    ("belief", "Belief"),
+    ("cross-pollination", "Cross-Pollination"),
+    ("rlm", "Knowledge"),
+    ("sharing", "Knowledge"),
+    # Admin & control
+    ("admin", "Admin"),
+    ("control-plane", "Control Plane"),
+    ("policies", "Control Plane"),
+    ("compliance", "Admin"),
+    ("rbac", "Admin"),
+    ("tenancy", "Admin"),
+    ("reconciliation", "Admin"),
+    ("services", "Admin"),
+    ("partner", "Admin"),
+    ("autonomous", "Admin"),
+    ("devops", "Admin"),
+    ("computer-use", "Admin"),
+    ("backups", "Admin"),
+    ("dr", "Admin"),
+    ("users", "Admin"),
+    # Auth & security
+    ("auth", "Authentication"),
+    ("oauth", "OAuth"),
+    ("mfa", "MFA"),
+    ("security", "Security"),
+    ("privacy", "Security"),
+    ("retention", "Retention"),
+    # Audit
+    ("audit-trails", "Audit"),
+    ("audit", "Audit"),
+    # Email & inbox
+    ("email", "Email"),
+    ("inbox", "Inbox"),
+    ("gmail", "Email"),
+    ("outlook", "Email"),
+    # Financial
+    ("accounting", "Accounting"),
+    ("expenses", "Accounting"),
+    ("invoices", "Accounting"),
+    ("payments", "Accounting"),
+    ("billing", "Costs"),
+    ("costs", "Costs"),
+    ("budgets", "Budgets"),
+    ("receipts", "Gauntlet"),
+    # Analytics & monitoring
+    ("analytics", "Analytics"),
+    ("dashboard", "Analytics"),
+    ("endpoint-analytics", "Analytics"),
+    ("evaluation", "Analytics"),
+    ("features", "Analytics"),
+    ("feedback", "Analytics"),
+    ("metrics", "Monitoring"),
+    ("monitoring", "Monitoring"),
+    ("alerts", "Monitoring"),
+    ("incidents", "Monitoring"),
+    ("notifications", "Monitoring"),
+    ("oncall", "Monitoring"),
+    # Codebase & devops
+    ("codebase", "Codebase"),
+    ("repository", "Codebase"),
+    ("github", "GitHub"),
+    ("dependency", "Codebase"),
+    # Auditing & red team
+    ("auditing", "Auditing"),
+    ("probes", "Auditing"),
+    ("redteam", "Auditing"),
+    # Threat & security findings
+    ("cve", "Threat Intel"),
+    ("threat", "Threat Intel"),
+    ("findings", "Gauntlet"),
+    ("finding-workflow", "Gauntlet"),
+    # Documents
+    ("documents", "Documents"),
+    ("upload", "Documents"),
+    ("cloud", "Documents"),
+    ("legal", "Documents"),
+    ("canvas", "Documents"),
+    ("gallery", "Documents"),
+    # Integrations & connectors
+    ("integrations", "Integrations"),
+    ("connectors", "Integrations"),
+    ("external_integrations", "Integrations"),
+    ("a2a", "A2A Protocol"),
+    ("webhooks", "Webhooks"),
+    ("crm", "Integrations"),
+    ("ecommerce", "Integrations"),
+    ("verticals", "Integrations"),
+    ("support", "Integrations"),
+    ("channels", "Integrations"),
+    # Teams
+    ("teams", "Teams"),
+    # Gauntlet
+    ("gauntlet", "Gauntlet"),
+    # Verification
+    ("verification", "Verification"),
+    # Explainability
+    ("explainability", "Explainability"),
+    ("explain", "Explainability"),
+    ("uncertainty", "Explainability"),
+    # Advanced features
+    ("nomic", "Nomic"),
+    ("genesis", "Genesis"),
+    ("evolution", "Evolution"),
+    ("laboratory", "Laboratory"),
+    ("tournaments", "Tournaments"),
+    ("replays", "Replays"),
+    ("critiques", "Critiques"),
+    ("introspection", "Introspection"),
+    ("plugins", "Plugins"),
+    ("marketplace", "Plugins"),
+    ("skills", "Plugins"),
+    ("breakpoints", "Checkpoints"),
+    ("checkpoints", "Checkpoints"),
+    # Classification
+    ("classify", "Classification"),
+    ("classification", "Classification"),
+    # Media & social
+    ("chat", "Bots"),
+    ("voice", "Media"),
+    ("speech", "Media"),
+    ("podcast", "Media"),
+    ("youtube", "Media"),
+    ("advertising", "Advertising"),
+    ("social", "Social"),
+    # Queue
+    ("queue", "Queue"),
+    ("scheduler", "Queue"),
+    ("orchestration", "Workflows"),
+    # Misc
+    ("pulse", "Pulse"),
+    ("gastown", "Gas Town"),
+    ("workspace", "Workspace"),
+    ("workspaces", "Workspace"),
+    ("relationships", "Relationships"),
+    ("devices", "Devices"),
+    # Belief & provenance
+    ("belief-network", "Belief"),
+    ("provenance", "Belief"),
+    # Routing rules & domain routing
+    ("routing-rules", "Routing"),
+    ("routing", "Routing"),
+    ("team-selection", "Routing"),
+    # SLOs & status pages
+    ("slos", "Monitoring"),
+    ("status", "System"),
+    ("diagnostics", "System"),
+    ("debug", "System"),
+    ("circuit-breakers", "Monitoring"),
+    # Evaluation
+    ("evaluate", "Analytics"),
+    # Usage & quotas
+    ("usage", "Costs"),
+    ("quotas", "Admin"),
+    # Reviews
+    ("reviews", "Debates"),
+    # Transcription & media
+    ("transcribe", "Media"),
+    ("transcription", "Media"),
+    # Bindings & personas
+    ("bindings", "Control Plane"),
+    ("personas", "Agents"),
+    ("moments", "Insights"),
+    # Verification (alternate prefix)
+    ("verify", "Verification"),
+    # Templates
+    ("templates", "Workflow Templates"),
+    # System
+    ("openapi", "System"),
+    ("postman", "System"),
+    ("platform", "System"),
+    ("docs", "System"),
+    ("redoc", "System"),
+    ("health", "System"),
+    ("ready", "System"),
+]
+
+# Non-API paths that need tag inference (e.g. /healthz, /readyz, /audio)
+_ROOT_PATH_TAGS: dict[str, str] = {
+    "/healthz": "System",
+    "/readyz": "System",
+    "/readyz/dependencies": "System",
+    "/status": "System",
+    "/audio": "Media",
+}
+
+
+def _infer_tag_for_path(path: str) -> str:
+    """Infer an appropriate OpenAPI tag from the URL path.
+
+    Strips version prefixes and matches the remaining path against
+    known prefix rules.  Returns ``"Undocumented"`` only when no rule
+    matches.
+    """
+    # Check root paths first (non-/api/ paths)
+    root_tag = _ROOT_PATH_TAGS.get(path)
+    if root_tag:
+        return root_tag
+
+    stripped = re.sub(r"^/api/(v\d+/)?", "", path)
+    stripped = re.sub(r"\{[^}]+\}", "", stripped).strip("/")
+
+    # Handle file-like paths (e.g. openapi.json, postman.json)
+    stripped = re.sub(r"\.\w+$", "", stripped)
+
+    for prefix, tag in TAG_INFERENCE_RULES:
+        if stripped == prefix or stripped.startswith(prefix + "/"):
+            return tag
+    return "Undocumented"
+
 
 def _add_v1_aliases(paths: dict[str, Any]) -> dict[str, Any]:
     """Add /api/v1 aliases for non-versioned /api endpoints."""
@@ -210,7 +480,7 @@ def _align_legacy_paths_with_versioned(paths: dict[str, Any]) -> dict[str, Any]:
             else:
                 updated[method] = {
                     "summary": "Autogenerated placeholder (spec pending)",
-                    "tags": ["Undocumented"],
+                    "tags": [_infer_tag_for_path(path)],
                     "responses": {"200": {"description": "OK"}},
                     "x-autogenerated": True,
                     "x-method-inferred": False,
@@ -303,11 +573,12 @@ def _autogenerate_missing_paths(paths: dict[str, Any]) -> dict[str, Any]:
         normalized = _normalize_template(template)
         if normalized in existing_norm:
             continue
+        tag = _infer_tag_for_path(template)
         spec: dict[str, Any] = {}
         for method in methods:
             spec[method] = {
                 "summary": "Autogenerated placeholder (spec pending)",
-                "tags": ["Undocumented"],
+                "tags": [tag],
                 "responses": {"200": {"description": "OK"}},
                 "x-autogenerated": True,
                 "x-method-inferred": inferred,
@@ -411,6 +682,7 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Knowledge Mound", "description": "Knowledge extraction and retrieval"},
             {"name": "Checkpoints", "description": "Debate checkpoint management"},
             {"name": "Threat Intel", "description": "Threat intelligence lookups"},
+            {"name": "SME", "description": "SME workspace, success, and integration management"},
             {"name": "Undocumented", "description": "Autogenerated placeholders pending full spec"},
         ],
         "paths": paths,
