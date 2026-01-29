@@ -2915,6 +2915,29 @@ class NomicLoop:
 
     def _init_agents(self):
         """Initialize agents with distinct personalities and safety awareness."""
+
+        def _env_int(key: str) -> int | None:
+            value = os.environ.get(key)
+            if not value:
+                return None
+            try:
+                return int(value)
+            except ValueError:
+                return None
+
+        def _env_float(key: str) -> float | None:
+            value = os.environ.get(key)
+            if not value:
+                return None
+            try:
+                return float(value)
+            except ValueError:
+                return None
+
+        agent_timeout_override = _env_int("NOMIC_AGENT_TIMEOUT") or _env_int(
+            "ARAGORA_NOMIC_AGENT_TIMEOUT"
+        )
+
         # Common safety footer for all agents
         safety_footer = """
 
@@ -3094,13 +3117,34 @@ The most valuable proposals combine deep analysis with actionable implementation
         )
         self.kimi.system_prompt = self.deepseek.system_prompt
 
+        # Apply optional per-agent timeout overrides (CLI/API agents honor .timeout)
+        if agent_timeout_override:
+            for agent in (
+                self.gemini,
+                self.codex,
+                self.claude,
+                self.grok,
+                self.deepseek,
+                self.mistral,
+                self.qwen,
+                self.kimi,
+            ):
+                if hasattr(agent, "timeout"):
+                    try:
+                        agent.timeout = max(int(agent.timeout), agent_timeout_override)
+                    except Exception:
+                        agent.timeout = agent_timeout_override
+
         # Wrap all agents with Airlock for resilience
         # This adds timeout handling, null byte sanitization, and fallback responses
         # Timeouts increased to accommodate CLI agents (codex/claude can take 10+ min)
+        generate_timeout = _env_float("NOMIC_AIRLOCK_GENERATE_TIMEOUT") or 600.0
+        critique_timeout = _env_float("NOMIC_AIRLOCK_CRITIQUE_TIMEOUT") or 300.0
+        vote_timeout = _env_float("NOMIC_AIRLOCK_VOTE_TIMEOUT") or 120.0
         airlock_config = AirlockConfig(
-            generate_timeout=600.0,  # 10 min for generation (CLI agents need this)
-            critique_timeout=300.0,  # 5 min for critiques
-            vote_timeout=120.0,  # 2 min for votes
+            generate_timeout=generate_timeout,
+            critique_timeout=critique_timeout,
+            vote_timeout=vote_timeout,
             max_retries=1,
             fallback_on_timeout=True,
             fallback_on_error=True,
@@ -3204,11 +3248,13 @@ The most valuable proposals combine deep analysis with actionable implementation
             raise RuntimeError("Extracted phases not available")
 
         # Use NomicDebateProfile for full-power debates
+        force_full_team = False
         try:
             from aragora.nomic.debate_profile import NomicDebateProfile
 
             profile = NomicDebateProfile.from_env()
             debate_config = profile.to_debate_config()
+            force_full_team = True
             self._log(
                 f"  [debate] Using NomicDebateProfile: {profile.agent_count} agents, "
                 f"{profile.rounds} rounds, {profile.total_phases} phases"
@@ -3218,7 +3264,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             debate_config = DebateConfig(rounds=debate_settings.default_rounds)
 
         # Select debate team dynamically (like the legacy inline implementation)
-        debate_team = self._select_debate_team(topic_hint)
+        debate_team = self._select_debate_team(topic_hint, force_full_team=force_full_team)
 
         return DebatePhase(
             aragora_path=self.aragora_path,
@@ -5377,7 +5423,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             if a is not None
         ]
 
-    def _select_debate_team(self, task: str) -> list:
+    def _select_debate_team(self, task: str, *, force_full_team: bool = False) -> list:
         """Select optimal agent team for the task (P14: AgentSelector + P10: ProbeFilter)."""
         agent_pool = getattr(self, "agent_pool", {})
         preferred_names = AgentSettings().default_agent_list
@@ -5462,7 +5508,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             except Exception as e:
                 self._log(f"  [elo] Domain scoring failed: {e}")
 
-        if not self.agent_selector or not SELECTOR_AVAILABLE:
+        if force_full_team or not self.agent_selector or not SELECTOR_AVAILABLE:
             return default_team
         try:
             # Register agents with ELO ratings, probe scores, and calibration data
