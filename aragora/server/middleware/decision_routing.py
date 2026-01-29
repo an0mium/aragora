@@ -37,7 +37,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Literal, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -681,9 +681,22 @@ class DecisionRoutingMiddleware:
 
             env = Environment(task=content)
             defaults = DebateSettings()
+            consensus_type = cast(
+                Literal[
+                    "majority",
+                    "unanimous",
+                    "judge",
+                    "none",
+                    "weighted",
+                    "supermajority",
+                    "any",
+                    "byzantine",
+                ],
+                defaults.default_consensus,
+            )
             protocol = DebateProtocol(
                 rounds=defaults.default_rounds,
-                consensus=defaults.default_consensus,  # type: ignore[arg-type]
+                consensus=consensus_type,
             )
 
             # Run with default agents

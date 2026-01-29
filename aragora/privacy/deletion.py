@@ -870,7 +870,9 @@ class GDPRDeletionScheduler:
                     e,
                 )
                 # Request already marked as failed in execute_deletion
-                processed.append(self._store.get_request(request.request_id))  # type: ignore[arg-type]  # Request may be None
+                failed_request = self._store.get_request(request.request_id)
+                if failed_request is not None:
+                    processed.append(failed_request)
 
         return processed
 

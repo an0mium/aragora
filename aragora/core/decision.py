@@ -28,7 +28,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Literal, Optional, cast
 
 from aragora.config.settings import get_settings
 
@@ -1224,9 +1224,23 @@ class DecisionRouter:
                 context=knowledge_context,
                 documents=document_ids,
             )
+            # Cast consensus to Literal type expected by DebateProtocol
+            consensus_type = cast(
+                Literal[
+                    "majority",
+                    "unanimous",
+                    "judge",
+                    "none",
+                    "weighted",
+                    "supermajority",
+                    "any",
+                    "byzantine",
+                ],
+                request.config.consensus,
+            )
             protocol = DebateProtocol(
                 rounds=request.config.rounds,
-                consensus=request.config.consensus,  # type: ignore[arg-type]
+                consensus=consensus_type,
                 enable_calibration=request.config.enable_calibration,
                 early_stopping=request.config.early_stopping,
                 timeout_seconds=request.config.timeout_seconds,
