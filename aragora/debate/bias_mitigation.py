@@ -15,6 +15,7 @@ All features are opt-in via DebateProtocol configuration flags.
 
 from __future__ import annotations
 
+import ast
 import logging
 import random
 import re
@@ -689,6 +690,64 @@ Respond with ONLY a number from 0-10."""
 
         return 0.5
 
+    def _verify_code_block(self, language: str | None, code: str) -> dict[str, Any]:
+        """Verify a code block for syntax validity.
+
+        Args:
+            language: The programming language tag (e.g., "python", "py")
+            code: The code content to verify
+
+        Returns:
+            Dict with verification results including validity and any errors
+        """
+        result: dict[str, Any] = {
+            "language": language or "unknown",
+            "valid": False,
+            "error": None,
+        }
+
+        # Only verify Python code (other languages would need external tools)
+        if language in ("python", "py", None, ""):
+            try:
+                ast.parse(code)
+                result["valid"] = True
+            except SyntaxError as e:
+                result["error"] = f"Line {e.lineno}: {e.msg}"
+
+        return result
+
+    def _verify_evidence_citations(
+        self,
+        proposal: str,
+        evidence_pack: "EvidencePack",
+    ) -> dict[str, Any]:
+        """Verify citations in proposal match available evidence.
+
+        Args:
+            proposal: The proposal text containing citations
+            evidence_pack: The evidence pack with available snippets
+
+        Returns:
+            Dict with citation validation results
+        """
+        # Match citation patterns like [1], [2], etc.
+        citation_pattern = r"\[(\d+)\]"
+        found_citations = set(re.findall(citation_pattern, proposal))
+
+        # Available citations are 1-indexed based on snippet count
+        available_citations = {str(i + 1) for i in range(len(evidence_pack.snippets))}
+
+        valid_citations = found_citations & available_citations
+        invalid_citations = found_citations - available_citations
+
+        return {
+            "status": "valid" if not invalid_citations else "warnings",
+            "valid_citations": sorted(valid_citations, key=int),
+            "invalid_citations": sorted(invalid_citations, key=int),
+            "total_found": len(found_citations),
+            "total_available": len(available_citations),
+        }
+
     async def _run_tool_verification(
         self,
         proposal: str,
@@ -701,12 +760,22 @@ Respond with ONLY a number from 0-10."""
         code_blocks = re.findall(r"```(\w+)?\n(.*?)```", proposal, re.DOTALL)
         if code_blocks:
             results["code_blocks_found"] = len(code_blocks)
-            results["code_verification"] = "not_implemented"
+            verification_results = [
+                self._verify_code_block(lang, code) for lang, code in code_blocks
+            ]
+            results["code_verification"] = {
+                "status": (
+                    "valid" if all(r["valid"] for r in verification_results) else "invalid"
+                ),
+                "blocks": verification_results,
+            }
 
-        # Check evidence URLs are still valid (placeholder)
+        # Verify evidence citations match available evidence
         if evidence_pack:
             results["evidence_count"] = len(evidence_pack.snippets)
-            results["evidence_verification"] = "not_implemented"
+            results["evidence_verification"] = self._verify_evidence_citations(
+                proposal, evidence_pack
+            )
 
         return results
 

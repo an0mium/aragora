@@ -82,7 +82,7 @@ class TestLeaderboardViewHandlerRoutes:
         """Test can_handle returns True for leaderboard view."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         assert handler.can_handle("/api/leaderboard-view") is True
         assert handler.can_handle("/api/v1/leaderboard-view") is True
@@ -91,7 +91,7 @@ class TestLeaderboardViewHandlerRoutes:
         """Test can_handle returns False for non-leaderboard routes."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         assert handler.can_handle("/api/debates") is False
         assert handler.can_handle("/api/agents") is False
@@ -106,7 +106,7 @@ class TestLeaderboardViewHandlerAuth:
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
         from aragora.server.handlers.secure import UnauthorizedError
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
         mock_http_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -121,7 +121,7 @@ class TestLeaderboardViewHandlerAuth:
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
         from aragora.server.handlers.secure import ForbiddenError
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
         mock_http_handler = MagicMock()
         mock_auth_context = MagicMock()
 
@@ -144,7 +144,7 @@ class TestLeaderboardViewHandlerRateLimit:
         """Test rate limit returns 429."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
         mock_http_handler = MagicMock()
 
         with (
@@ -168,7 +168,7 @@ class TestGetLeaderboardView:
         """Test leaderboard view returns all sections."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         with (
             patch.object(handler, "_fetch_rankings", return_value={"agents": [], "count": 0}),
@@ -208,7 +208,7 @@ class TestGetLeaderboardView:
         """Test leaderboard view handles partial failures."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         with (
             patch.object(handler, "_fetch_rankings", side_effect=RuntimeError("Rankings failed")),
@@ -247,7 +247,7 @@ class TestFetchRankings:
         """Test fetch rankings returns agent data."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         mock_elo = MagicMock()
         mock_elo.get_cached_leaderboard.return_value = [
@@ -268,7 +268,7 @@ class TestFetchRankings:
         """Test fetch rankings returns empty when no ELO system."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         with patch.object(handler, "get_elo_system", return_value=None):
             result = handler._fetch_rankings(10, None)
@@ -280,7 +280,7 @@ class TestFetchRankings:
         """Test fetch rankings with domain filter."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [{"agent": "claude", "elo": 1600, "name": "claude"}]
@@ -301,7 +301,7 @@ class TestFetchMatches:
         """Test fetch matches returns recent matches."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         mock_elo = MagicMock()
         mock_elo.get_cached_recent_matches.return_value = [
@@ -318,7 +318,7 @@ class TestFetchMatches:
         """Test fetch matches returns empty when no ELO system."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         with patch.object(handler, "get_elo_system", return_value=None):
             result = handler._fetch_matches(10, None)
@@ -333,7 +333,7 @@ class TestFetchReputations:
         """Test fetch reputations returns empty when no nomic dir."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         with patch.object(handler, "get_nomic_dir", return_value=None):
             result = handler._fetch_reputations()
@@ -348,7 +348,7 @@ class TestFetchTeams:
         """Test fetch teams returns team combinations."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         mock_selector = MagicMock()
         mock_selector.get_best_team_combinations.return_value = [
@@ -374,7 +374,7 @@ class TestFetchStats:
         """Test fetch stats returns statistics."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         mock_elo = MagicMock()
         mock_elo.get_stats.return_value = {
@@ -397,7 +397,7 @@ class TestFetchStats:
         """Test fetch stats returns defaults when no ELO system."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         with patch.object(handler, "get_elo_system", return_value=None):
             result = handler._fetch_stats()
@@ -413,7 +413,7 @@ class TestFetchIntrospection:
         """Test fetch introspection with default agents when no nomic dir."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         mock_snapshot = MagicMock()
         mock_snapshot.to_dict.return_value = {"agent": "claude", "traits": []}
@@ -437,7 +437,7 @@ class TestSafeFetchSection:
         """Test safe fetch stores result on success."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         data: Dict[str, Any] = {}
         errors: Dict[str, str] = {}
@@ -451,7 +451,7 @@ class TestSafeFetchSection:
         """Test safe fetch stores fallback on failure."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         data: Dict[str, Any] = {}
         errors: Dict[str, str] = {}

@@ -120,14 +120,14 @@ def mock_insight_store():
 def handler(mock_insight_store):
     """Create a test handler with mock insight store."""
     ctx = {"insight_store": mock_insight_store}
-    h = InsightsHandler(ctx=ctx)
+    h = InsightsHandler(server_context=ctx)
     return h
 
 
 @pytest.fixture
 def handler_no_store():
     """Create a test handler without insight store."""
-    return InsightsHandler(ctx={})
+    return InsightsHandler(server_context={})
 
 
 @pytest.fixture(autouse=True)

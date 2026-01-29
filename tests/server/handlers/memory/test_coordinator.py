@@ -128,14 +128,14 @@ def mock_coordinator():
 def handler(mock_coordinator):
     """Create a test handler with mock coordinator."""
     ctx = {"memory_coordinator": mock_coordinator}
-    h = CoordinatorHandler(ctx=ctx)
+    h = CoordinatorHandler(server_context=ctx)
     return h
 
 
 @pytest.fixture
 def handler_no_coordinator():
     """Create a test handler without coordinator."""
-    return CoordinatorHandler(ctx={})
+    return CoordinatorHandler(server_context={})
 
 
 @pytest.fixture(autouse=True)

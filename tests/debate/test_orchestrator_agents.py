@@ -778,10 +778,14 @@ class TestGetFabricAgentsSync:
 
     def test_respects_max_agents_limit(self, mock_fabric, mock_fabric_config):
         """Respects max_agents configuration."""
+        import sys
         from aragora.debate.orchestrator_agents import get_fabric_agents_sync
 
-        with patch("aragora.debate.orchestrator_agents.FabricAgentAdapter") as MockAdapter:
-            MockAdapter.return_value = MagicMock()
+        # Create mock fabric integration module
+        mock_module = MagicMock()
+        mock_module.FabricAgentAdapter = MagicMock(return_value=MagicMock())
+
+        with patch.dict(sys.modules, {"aragora.debate.fabric_integration": mock_module}):
             result = get_fabric_agents_sync(mock_fabric, mock_fabric_config)
 
         # max_agents is 2, so should only create 2 adapters

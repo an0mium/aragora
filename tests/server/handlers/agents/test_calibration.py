@@ -75,6 +75,16 @@ def clear_module_state():
     yield
 
 
+@pytest.fixture
+def mock_server_context():
+    """Create a mock server context for handler initialization."""
+    return {
+        "storage": MagicMock(),
+        "elo_system": MagicMock(),
+        "nomic_dir": None,
+    }
+
+
 class TestCalibrationHandlerRoutes:
     """Tests for CalibrationHandler route configuration."""
 
@@ -92,7 +102,7 @@ class TestCalibrationHandlerRoutes:
         """Test can_handle returns True for calibration curve."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         assert handler.can_handle("/api/agent/claude/calibration-curve") is True
         assert handler.can_handle("/api/agent/gemini/calibration-summary") is True
@@ -102,7 +112,7 @@ class TestCalibrationHandlerRoutes:
         """Test can_handle returns False for non-calibration routes."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         assert handler.can_handle("/api/agent/claude/profile") is False
         assert handler.can_handle("/api/debates") is False
@@ -117,7 +127,7 @@ class TestCalibrationHandlerAuth:
         from aragora.server.handlers.agents.calibration import CalibrationHandler
         from aragora.server.handlers.secure import UnauthorizedError
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
         mock_http_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -132,7 +142,7 @@ class TestCalibrationHandlerAuth:
         from aragora.server.handlers.agents.calibration import CalibrationHandler
         from aragora.server.handlers.secure import ForbiddenError
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
         mock_http_handler = MagicMock()
         mock_auth_context = MagicMock()
 
@@ -155,7 +165,7 @@ class TestCalibrationHandlerRateLimit:
         """Test rate limit returns 429."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
         mock_http_handler = MagicMock()
 
         with (
@@ -179,7 +189,7 @@ class TestGetCalibrationCurve:
         """Test calibration curve returns data."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         mock_buckets = [
             MockCalibrationBucket(0.0, 0.1, 10, 1, 0.1, 0.08),
@@ -208,7 +218,7 @@ class TestGetCalibrationCurve:
         """Test calibration curve returns 503 when tracker not available."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = handler._get_calibration_curve("claude", 10, None)
@@ -219,7 +229,7 @@ class TestGetCalibrationCurve:
         """Test calibration curve with domain filter."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_curve.return_value = []
@@ -245,7 +255,7 @@ class TestGetCalibrationSummary:
         """Test calibration summary returns data."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         mock_summary = MockCalibrationSummary(
             agent="claude",
@@ -281,7 +291,7 @@ class TestGetCalibrationSummary:
         """Test calibration summary returns 503 when tracker not available."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = handler._get_calibration_summary("claude", None)
@@ -296,7 +306,7 @@ class TestGetCalibrationLeaderboard:
         """Test leaderboard returns ranked agents."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         mock_rating = MagicMock()
         mock_rating.calibration_total = 50
@@ -325,7 +335,7 @@ class TestGetCalibrationLeaderboard:
         """Test leaderboard returns 503 when ELO not available."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         with patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", False):
             result = handler._get_calibration_leaderboard(10, "brier", 5)
@@ -336,7 +346,7 @@ class TestGetCalibrationLeaderboard:
         """Test leaderboard filters agents by min predictions."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         mock_rating_low = MagicMock()
         mock_rating_low.calibration_total = 3  # Below min
@@ -381,7 +391,7 @@ class TestGetCalibrationVisualization:
         """Test visualization returns data."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         mock_summary = MockCalibrationSummary(
             agent="claude",
@@ -422,7 +432,7 @@ class TestGetCalibrationVisualization:
         """Test visualization returns 503 when tracker not available."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = handler._get_calibration_visualization(5)
@@ -433,7 +443,7 @@ class TestGetCalibrationVisualization:
         """Test visualization handles no agents."""
         from aragora.server.handlers.agents.calibration import CalibrationHandler
 
-        handler = CalibrationHandler()
+        handler = CalibrationHandler({"storage": None, "elo_system": None})
 
         mock_tracker = MagicMock()
         mock_tracker.get_all_agents.return_value = []

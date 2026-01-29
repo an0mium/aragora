@@ -162,7 +162,7 @@ def handler_context(mock_user_store):
 def health_handler(handler_context, mock_channel_monitor):
     if not HANDLER_AVAILABLE:
         pytest.skip("ChannelHealthHandler not available")
-    handler = ChannelHealthHandler(handler_context)
+    handler = ChannelHealthHandler()
     yield handler
 
 

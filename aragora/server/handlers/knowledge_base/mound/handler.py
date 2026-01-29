@@ -108,7 +108,7 @@ Phase A2 - Confidence Decay endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
@@ -276,8 +276,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound
 
-            # KnowledgeMound is a composed class from mixins that mypy doesn't fully understand
-            self._mound = cast("KnowledgeMound", KnowledgeMound(workspace_id="default"))
+            self._mound = KnowledgeMound(workspace_id="default")
             try:
                 _run_async(self._mound.initialize())
                 self._mound_initialized = True
