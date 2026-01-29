@@ -915,7 +915,8 @@ def get_default_fallback_enabled() -> bool:
 
         explicit_flag = get_secret("ARAGORA_OPENROUTER_FALLBACK_ENABLED")
         secrets_config = SecretsConfig.from_env()
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Could not load secrets config for fallback settings: {e}")
         explicit_flag = None
         secrets_config = None
     if explicit_flag is None:
@@ -932,5 +933,6 @@ def get_default_fallback_enabled() -> bool:
         from aragora.config import get_api_key
 
         return bool(get_api_key("OPENROUTER_API_KEY", required=False))
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Could not load API key config, falling back to env var: {e}")
         return bool(os.environ.get("OPENROUTER_API_KEY"))

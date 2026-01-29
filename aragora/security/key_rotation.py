@@ -394,7 +394,8 @@ class KeyRotationScheduler:
             from aragora.security.kms_provider import detect_cloud_provider
 
             return detect_cloud_provider()
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not detect cloud provider, defaulting to local: {e}")
             return "local"
 
     async def _run_rotation_checks(self) -> None:
