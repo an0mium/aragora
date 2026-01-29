@@ -386,7 +386,7 @@ class AdaptiveComplexityGovernor:
         )
 
         # Keep history bounded
-        if len(self.round_history) > 100:
+        if len(self.round_history) > 50:
             self.round_history = self.round_history[-50:]
 
     def _evaluate_stress_level(self) -> None:
