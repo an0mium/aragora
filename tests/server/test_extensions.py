@@ -61,7 +61,7 @@ class TestExtensionInitialization:
     @pytest.mark.skipif(not MOLTBOT_AVAILABLE, reason="Moltbot not available")
     def test_init_moltbot(self, tmp_path: Path):
         """Test Moltbot initialization."""
-        inbox, gateway, voice, onboarding = init_moltbot(tmp_path)
+        inbox, gateway, voice, onboarding, _adapter = init_moltbot(tmp_path)
 
         if MOLTBOT_AVAILABLE:
             assert inbox is not None
