@@ -3,8 +3,8 @@
 Generated: 2026-01-28
 
 ## Summary
-- SDK TS endpoints not implemented by handlers: 662
-- SDK PY endpoints not implemented by handlers: 635
+- SDK TS endpoints not implemented by handlers: 663
+- SDK PY endpoints not implemented by handlers: 637
 
 These endpoints likely represent stale SDK methods or legacy routes. They should be removed,
 deprecated, or reintroduced in the server if still required.
@@ -383,6 +383,7 @@ GET /api/v1/workflow-executions/{param}
 GET /api/v1/workflow-templates/{param}
 GET /api/v1/workflow/categories
 GET /api/v1/workflow/pattern-templates
+GET /api/v1/workflow/pattern-templates/{param}
 GET /api/v1/workflow/patterns
 GET /api/v1/workflow/templates
 GET /api/v1/workflow/templates/{param}
@@ -1173,6 +1174,8 @@ POST /api/v1/cross-pollination/km/sync
 POST /api/v1/cross-pollination/reset
 POST /api/v1/cross-pollination/subscribe
 POST /api/v1/dashboard/quick-actions/{param}
+POST /api/v1/decisions/{param}/cancel
+POST /api/v1/decisions/{param}/retry
 POST /api/v1/documents/compare
 POST /api/v1/documents/extract
 POST /api/v1/documents/query

@@ -193,6 +193,21 @@ REQUIRES_SECURITY_METRICS = "Security metrics not available"
 requires_security_metrics = not HAS_SECURITY_METRICS
 
 
+def _check_handlers_available() -> bool:
+    """Check if handler registry is available."""
+    try:
+        from aragora.server.handler_registry import HANDLERS_AVAILABLE
+
+        return HANDLERS_AVAILABLE
+    except ImportError:
+        return False
+
+
+HAS_HANDLERS = _check_handlers_available()
+REQUIRES_HANDLERS = "Handlers not available"
+requires_handlers = not HAS_HANDLERS
+
+
 # ============================================================================
 # CI Environment Detection
 # ============================================================================

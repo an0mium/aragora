@@ -22,6 +22,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from sdk_parity_audit import Endpoint, iter_files, parse_python_sdk, parse_ts_sdk
 
 from aragora.server.handler_registry import HandlerRegistryMixin, get_route_index
+from aragora.server.versioning.compat import strip_version_prefix
 
 
 class _RegistryProbe(HandlerRegistryMixin):
@@ -76,11 +77,24 @@ def is_handled(endpoint: Endpoint) -> bool:
     registry = _RegistryProbe()
     registry._init_handlers()
     route_index = get_route_index()
+
+    # Try original path first
     handler_entry = route_index.get_handler(endpoint.path)
-    if not handler_entry:
-        return False
-    _, handler = handler_entry
-    return handler_supports_method(handler, endpoint.method)
+    if handler_entry:
+        _, handler = handler_entry
+        if handler_supports_method(handler, endpoint.method):
+            return True
+
+    # Try with version prefix stripped (/api/v1/debates -> /api/debates)
+    normalized_path = strip_version_prefix(endpoint.path)
+    if normalized_path != endpoint.path:
+        handler_entry = route_index.get_handler(normalized_path)
+        if handler_entry:
+            _, handler = handler_entry
+            if handler_supports_method(handler, endpoint.method):
+                return True
+
+    return False
 
 
 def load_sdk_endpoints() -> tuple[set[Endpoint], set[Endpoint]]:

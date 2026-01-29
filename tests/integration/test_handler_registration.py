@@ -12,6 +12,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 import json
 
+from tests.conftest import requires_handlers, REQUIRES_HANDLERS
+
 
 class TestHandlerRegistry:
     """Test HANDLER_REGISTRY configuration."""
@@ -49,12 +51,10 @@ class TestHandlerRegistry:
         # In a properly configured environment, handlers should be available
         assert HANDLERS_AVAILABLE is True
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_handler_classes_are_valid(self):
         """Handler classes should have required methods."""
-        from aragora.server.handler_registry import HANDLER_REGISTRY, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE:
-            pytest.skip("Handlers not available")
+        from aragora.server.handler_registry import HANDLER_REGISTRY
 
         for attr_name, handler_class in HANDLER_REGISTRY:
             if handler_class is None:
@@ -204,12 +204,10 @@ class TestHandlerValidation:
         assert len(errors) > 0
         assert any("exception" in e.lower() for e in errors)
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_validate_all_handlers(self):
         """validate_all_handlers should check all registry entries."""
-        from aragora.server.handler_registry import validate_all_handlers, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE:
-            pytest.skip("Handlers not available")
+        from aragora.server.handler_registry import validate_all_handlers
 
         results = validate_all_handlers(raise_on_error=False)
 
@@ -301,12 +299,10 @@ class TestAPIVersioning:
 class TestHandlerCanHandlePaths:
     """Test that handlers correctly implement can_handle."""
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_health_handler_paths(self):
         """HealthHandler should handle health paths."""
-        from aragora.server.handler_registry import HealthHandler, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE or HealthHandler is None:
-            pytest.skip("HealthHandler not available")
+        from aragora.server.handler_registry import HealthHandler
 
         handler = HealthHandler({})
 
@@ -315,12 +311,10 @@ class TestHandlerCanHandlePaths:
         assert handler.can_handle("/api/v1/health")
         assert not handler.can_handle("/api/v1/debates")
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_debates_handler_paths(self):
         """DebatesHandler should handle debate paths."""
-        from aragora.server.handler_registry import DebatesHandler, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE or DebatesHandler is None:
-            pytest.skip("DebatesHandler not available")
+        from aragora.server.handler_registry import DebatesHandler
 
         handler = DebatesHandler({})
 
@@ -329,12 +323,10 @@ class TestHandlerCanHandlePaths:
         assert handler.can_handle("/api/v1/search")
         assert not handler.can_handle("/api/v1/agents")
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_control_plane_handler_paths(self):
         """ControlPlaneHandler should handle control plane paths."""
-        from aragora.server.handler_registry import ControlPlaneHandler, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE or ControlPlaneHandler is None:
-            pytest.skip("ControlPlaneHandler not available")
+        from aragora.server.handler_registry import ControlPlaneHandler
 
         handler = ControlPlaneHandler({})
 
@@ -349,12 +341,10 @@ class TestHandlerCanHandlePaths:
 class TestHandlerRoutes:
     """Test handler ROUTES attribute."""
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_handlers_have_routes(self):
         """Handlers should define ROUTES for exact matching."""
-        from aragora.server.handler_registry import HANDLER_REGISTRY, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE:
-            pytest.skip("Handlers not available")
+        from aragora.server.handler_registry import HANDLER_REGISTRY
 
         handlers_with_routes = 0
 
@@ -373,12 +363,10 @@ class TestHandlerRoutes:
         # Most handlers should have ROUTES defined
         assert handlers_with_routes > 30
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_routes_are_valid_paths(self):
         """ROUTES entries should be valid API paths."""
-        from aragora.server.handler_registry import HANDLER_REGISTRY, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE:
-            pytest.skip("Handlers not available")
+        from aragora.server.handler_registry import HANDLER_REGISTRY
 
         for attr_name, handler_class in HANDLER_REGISTRY:
             if handler_class is None:
@@ -393,12 +381,10 @@ class TestHandlerRoutes:
 class TestHandlerInstantiation:
     """Test handler instantiation with context."""
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_handlers_accept_context(self):
         """Handlers should accept context dict."""
-        from aragora.server.handler_registry import HANDLER_REGISTRY, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE:
-            pytest.skip("Handlers not available")
+        from aragora.server.handler_registry import HANDLER_REGISTRY
 
         ctx = {
             "storage": None,
@@ -425,12 +411,10 @@ class TestHandlerInstantiation:
         # Most handlers should instantiate without errors
         assert instantiated > 40
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_handler_has_ctx_attribute(self):
         """Instantiated handlers should have ctx attribute."""
-        from aragora.server.handler_registry import HealthHandler, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE or HealthHandler is None:
-            pytest.skip("HealthHandler not available")
+        from aragora.server.handler_registry import HealthHandler
 
         ctx = {"storage": None}
         handler = HealthHandler(ctx)
@@ -468,12 +452,10 @@ class TestKnowledgeHandler:
         handler_names = [attr for attr, _ in HANDLER_REGISTRY]
         assert "_knowledge_handler" in handler_names
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_knowledge_handler_paths(self):
         """KnowledgeHandler should handle knowledge paths."""
-        from aragora.server.handler_registry import KnowledgeHandler, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE or KnowledgeHandler is None:
-            pytest.skip("KnowledgeHandler not available")
+        from aragora.server.handler_registry import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -495,12 +477,10 @@ class TestWorkflowHandler:
         handler_names = [attr for attr, _ in HANDLER_REGISTRY]
         assert "_workflow_handler" in handler_names
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_workflow_handler_exists(self):
         """WorkflowHandler should be importable."""
-        from aragora.server.handler_registry import WorkflowHandler, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE:
-            pytest.skip("Handlers not available")
+        from aragora.server.handler_registry import WorkflowHandler
 
         assert WorkflowHandler is not None
 
@@ -515,12 +495,10 @@ class TestFeaturesHandler:
         handler_names = [attr for attr, _ in HANDLER_REGISTRY]
         assert "_features_handler" in handler_names
 
+    @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_features_handler_paths(self):
         """FeaturesHandler should handle features paths."""
-        from aragora.server.handler_registry import FeaturesHandler, HANDLERS_AVAILABLE
-
-        if not HANDLERS_AVAILABLE or FeaturesHandler is None:
-            pytest.skip("FeaturesHandler not available")
+        from aragora.server.handler_registry import FeaturesHandler
 
         handler = FeaturesHandler({})
 
