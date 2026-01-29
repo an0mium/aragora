@@ -427,3 +427,371 @@ class TestManifest:
         # Should not raise
         manager = BackupManager(backup_dir=backup_dir, metrics_enabled=False)
         assert len(manager.list_backups()) == 0
+
+
+class TestComprehensiveVerification:
+    """Tests for comprehensive backup verification."""
+
+    def test_comprehensive_verify_valid_backup(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test comprehensive verification of a valid backup."""
+        backup = backup_manager.create_backup(sample_database)
+        result = backup_manager.verify_restore_comprehensive(backup.id)
+
+        assert result.verified
+        assert result.basic_verification.verified
+        assert result.basic_verification.checksum_valid
+        assert len(result.all_errors) == 0
+
+    def test_comprehensive_includes_schema_validation(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test comprehensive verification includes schema validation."""
+        backup = backup_manager.create_backup(sample_database)
+        result = backup_manager.verify_restore_comprehensive(backup.id)
+
+        assert result.schema_validation is not None
+        assert result.schema_validation.valid
+        assert result.schema_validation.tables_match
+
+    def test_comprehensive_includes_integrity_check(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test comprehensive verification includes integrity check."""
+        backup = backup_manager.create_backup(sample_database)
+        result = backup_manager.verify_restore_comprehensive(backup.id)
+
+        assert result.integrity_check is not None
+        assert result.integrity_check.valid
+
+    def test_comprehensive_to_dict(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test comprehensive result serialization."""
+        backup = backup_manager.create_backup(sample_database)
+        result = backup_manager.verify_restore_comprehensive(backup.id)
+        result_dict = result.to_dict()
+
+        assert "backup_id" in result_dict
+        assert "verified" in result_dict
+        assert "basic_verification" in result_dict
+        assert "schema_validation" in result_dict
+        assert "integrity_check" in result_dict
+
+
+class TestSchemaVerification:
+    """Tests for schema validation during backup verification."""
+
+    def test_schema_hash_computed(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test that schema hash is computed during backup."""
+        backup = backup_manager.create_backup(sample_database)
+
+        assert backup.schema_hash != ""
+        assert len(backup.schema_hash) == 64  # SHA-256 hex length
+
+    def test_table_checksums_computed(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test that per-table checksums are computed."""
+        backup = backup_manager.create_backup(sample_database)
+
+        assert len(backup.table_checksums) == 2
+        assert "users" in backup.table_checksums
+        assert "debates" in backup.table_checksums
+        assert len(backup.table_checksums["users"]) == 64
+
+    def test_indexes_captured(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test that indexes are captured in backup metadata."""
+        backup = backup_manager.create_backup(sample_database)
+
+        # The sample database has a UNIQUE constraint on email, which creates an index
+        # Note: SQLite creates indexes for UNIQUE constraints automatically
+        assert isinstance(backup.indexes, list)
+
+
+class TestRetentionPolicyAdvanced:
+    """Advanced tests for retention policy."""
+
+    def test_apply_retention_dry_run(
+        self,
+        temp_dir: Path,
+        sample_database: Path,
+    ):
+        """Test retention policy dry run mode."""
+        policy = RetentionPolicy(
+            keep_daily=1,
+            keep_weekly=0,
+            keep_monthly=0,
+            min_backups=1,
+        )
+        manager = BackupManager(
+            backup_dir=temp_dir / "backups",
+            retention_policy=policy,
+            metrics_enabled=False,
+        )
+
+        # Create multiple backups
+        for _ in range(3):
+            manager.create_backup(sample_database)
+
+        initial_count = len(manager.list_backups())
+
+        # Dry run should return IDs but not delete
+        would_delete = manager.apply_retention_policy(dry_run=True)
+
+        # Backups should still exist
+        final_count = len(manager.list_backups())
+        assert final_count == initial_count
+
+    def test_retention_respects_min_backups(
+        self,
+        temp_dir: Path,
+        sample_database: Path,
+    ):
+        """Test that retention policy respects minimum backup count."""
+        policy = RetentionPolicy(
+            keep_daily=0,
+            keep_weekly=0,
+            keep_monthly=0,
+            min_backups=5,
+        )
+        manager = BackupManager(
+            backup_dir=temp_dir / "backups",
+            retention_policy=policy,
+            metrics_enabled=False,
+        )
+
+        # Create exactly 5 backups
+        for _ in range(5):
+            manager.create_backup(sample_database)
+
+        # Even with keep_* = 0, min_backups should prevent deletion
+        deleted = manager.cleanup_expired()
+        assert len(deleted) == 0
+        assert len(manager.list_backups()) == 5
+
+    def test_cleanup_alias_works(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test that cleanup_expired_backups alias works."""
+        backup_manager.create_backup(sample_database)
+
+        # Should not raise
+        deleted = backup_manager.cleanup_expired_backups()
+        assert isinstance(deleted, list)
+
+
+class TestBackupMetadataSerialization:
+    """Tests for BackupMetadata serialization."""
+
+    def test_metadata_to_dict(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test metadata serializes to dict."""
+        backup = backup_manager.create_backup(sample_database)
+        data = backup.to_dict()
+
+        assert data["id"] == backup.id
+        assert data["status"] == "verified"
+        assert data["backup_type"] == "full"
+        assert "schema_hash" in data
+        assert "table_checksums" in data
+
+    def test_metadata_from_dict(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test metadata deserializes from dict."""
+        backup = backup_manager.create_backup(sample_database)
+        data = backup.to_dict()
+
+        restored = BackupMetadata.from_dict(data)
+
+        assert restored.id == backup.id
+        assert restored.status == backup.status
+        assert restored.checksum == backup.checksum
+
+    def test_metadata_roundtrip(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test full serialization roundtrip."""
+        backup = backup_manager.create_backup(sample_database)
+        data = backup.to_dict()
+        restored = BackupMetadata.from_dict(data)
+        data2 = restored.to_dict()
+
+        assert data == data2
+
+
+class TestVerificationResult:
+    """Tests for VerificationResult dataclass."""
+
+    def test_verification_result_defaults(self):
+        """Test verification result default values."""
+        result = VerificationResult(
+            backup_id="test-123",
+            verified=True,
+            checksum_valid=True,
+            restore_tested=True,
+            tables_valid=True,
+            row_counts_valid=True,
+        )
+
+        assert result.errors == []
+        assert result.warnings == []
+        assert result.duration_seconds == 0.0
+
+
+class TestEdgeCases:
+    """Tests for edge cases and error handling."""
+
+    def test_restore_nonexistent_backup(
+        self,
+        backup_manager: BackupManager,
+        temp_dir: Path,
+    ):
+        """Test restoring nonexistent backup raises error."""
+        with pytest.raises(ValueError, match="not found"):
+            backup_manager.restore_backup("nonexistent", temp_dir / "restore.db")
+
+    def test_list_backups_with_since_filter(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+    ):
+        """Test filtering backups by date."""
+        backup_manager.create_backup(sample_database)
+
+        # Filter for backups in the future - should be empty
+        future = datetime.now(timezone.utc) + timedelta(days=1)
+        backups = backup_manager.list_backups(since=future)
+
+        assert len(backups) == 0
+
+    def test_list_backups_by_source_path(
+        self,
+        backup_manager: BackupManager,
+        sample_database: Path,
+        temp_dir: Path,
+    ):
+        """Test filtering backups by source path."""
+        backup_manager.create_backup(sample_database)
+
+        # Filter for different source - should be empty
+        backups = backup_manager.list_backups(source_path="/nonexistent/path.db")
+        assert len(backups) == 0
+
+        # Filter for correct source
+        backups = backup_manager.list_backups(source_path=str(sample_database))
+        assert len(backups) == 1
+
+    def test_empty_database_backup(
+        self,
+        backup_manager: BackupManager,
+        temp_dir: Path,
+    ):
+        """Test backing up an empty database."""
+        empty_db = temp_dir / "empty.db"
+        conn = sqlite3.connect(str(empty_db))
+        conn.close()
+
+        backup = backup_manager.create_backup(empty_db)
+
+        assert backup.status == BackupStatus.VERIFIED
+        assert len(backup.tables) == 0
+        assert len(backup.row_counts) == 0
+
+
+class TestIntegrityVerification:
+    """Tests for referential integrity verification."""
+
+    @pytest.fixture
+    def database_with_fk(self, temp_dir: Path) -> Path:
+        """Create database with foreign key constraint."""
+        db_path = temp_dir / "fk_test.db"
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+
+        # Enable foreign keys
+        cursor.execute("PRAGMA foreign_keys = ON")
+
+        # Create tables with FK relationship
+        cursor.execute(
+            """
+            CREATE TABLE authors (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+        """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE books (
+                id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                author_id INTEGER,
+                FOREIGN KEY (author_id) REFERENCES authors(id)
+            )
+        """
+        )
+
+        # Insert valid data
+        cursor.execute("INSERT INTO authors (name) VALUES ('Author 1')")
+        cursor.execute("INSERT INTO books (title, author_id) VALUES ('Book 1', 1)")
+
+        conn.commit()
+        conn.close()
+        return db_path
+
+    def test_backup_captures_foreign_keys(
+        self,
+        backup_manager: BackupManager,
+        database_with_fk: Path,
+    ):
+        """Test that foreign keys are captured in backup metadata."""
+        backup = backup_manager.create_backup(database_with_fk)
+
+        # Should capture the FK relationship
+        assert len(backup.foreign_keys) >= 1
+        # FK format: (table, column, ref_table, ref_column)
+        fk_tables = [fk[0] for fk in backup.foreign_keys]
+        assert "books" in fk_tables
+
+    def test_integrity_check_valid_database(
+        self,
+        backup_manager: BackupManager,
+        database_with_fk: Path,
+    ):
+        """Test integrity check on valid database."""
+        backup = backup_manager.create_backup(database_with_fk)
+        result = backup_manager.verify_restore_comprehensive(backup.id)
+
+        assert result.integrity_check is not None
+        assert result.integrity_check.valid
+        assert result.integrity_check.foreign_keys_valid
