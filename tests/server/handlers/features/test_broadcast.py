@@ -1,20 +1,15 @@
 """Tests for Broadcast Handler.
 
-NOTE: These tests were written for an older API design with routes like
-/api/v1/broadcast/* but the handler now uses /api/v1/debates/*/broadcast.
-Tests need to be rewritten to match the actual handler implementation.
-See: https://github.com/aragora/aragora/issues/v2.5.1-broadcast-tests
+Tests cover handler creation, route definitions, can_handle, and the POST endpoints
+for broadcast generation.
 """
 
 import sys
 import types as _types_mod
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-# Skip entire module - API mismatch with actual handler implementation
-pytestmark = pytest.mark.skip(
-    reason="Tests written for /api/v1/broadcast/* but handler uses /api/v1/debates/*/broadcast - needs rewrite for v2.5.1"
-)
 
 # Pre-stub Slack modules to prevent import chain failures
 _SLACK_ATTRS = [
@@ -45,23 +40,32 @@ for _mod_name in (
             setattr(_m, _a, None)
         sys.modules[_mod_name] = _m
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from aragora.server.handlers.features.broadcast import (
+    BROADCAST_AVAILABLE,
     BroadcastHandler,
+    PIPELINE_AVAILABLE,
 )
-
-# Stub for rate limiter (tests are skipped but linter needs the name defined)
-_broadcast_limiter = type(
-    "RateLimiter", (), {"requests_per_minute": 10, "is_allowed": lambda self, ip: True}
-)()
 
 
 @pytest.fixture
 def handler():
-    """Create handler instance."""
-    return BroadcastHandler({})
+    """Create handler instance with minimal context."""
+    return BroadcastHandler(server_context={})
+
+
+@pytest.fixture
+def handler_with_storage():
+    """Create handler with mocked storage and nomic_dir."""
+    mock_storage = MagicMock()
+    mock_nomic_dir = Path("/tmp/test_nomic")
+    mock_audio_store = MagicMock()
+
+    ctx = {
+        "storage": mock_storage,
+        "nomic_dir": mock_nomic_dir,
+        "audio_store": mock_audio_store,
+    }
+    return BroadcastHandler(server_context=ctx)
 
 
 class TestBroadcastHandler:
@@ -70,249 +74,299 @@ class TestBroadcastHandler:
     def test_handler_creation(self, handler):
         """Test creating handler instance."""
         assert handler is not None
+        assert isinstance(handler, BroadcastHandler)
 
     def test_handler_routes(self):
         """Test that handler has route definitions."""
         assert hasattr(BroadcastHandler, "ROUTES")
         routes = BroadcastHandler.ROUTES
-        assert "/api/v1/broadcast/generate" in routes
-        assert "/api/v1/broadcast/jobs" in routes
-        assert "/api/v1/broadcast/voices" in routes
+        # Current handler uses debates/*/broadcast pattern
+        assert "/api/v1/debates/*/broadcast" in routes
+        assert "/api/v1/debates/*/broadcast/full" in routes
 
     def test_can_handle_broadcast_routes(self, handler):
-        """Test can_handle for broadcast routes."""
-        assert handler.can_handle("/api/v1/broadcast/generate") is True
-        assert handler.can_handle("/api/v1/broadcast/jobs") is True
-        assert handler.can_handle("/api/v1/broadcast/voices") is True
+        """Test can_handle for debate broadcast routes."""
+        # Valid broadcast routes
+        assert handler.can_handle("/api/v1/debates/debate123/broadcast") is True
+        assert handler.can_handle("/api/v1/debates/my-debate/broadcast") is True
+        assert handler.can_handle("/api/v1/debates/test_id/broadcast") is True
 
-    def test_can_handle_job_routes(self, handler):
-        """Test can_handle for job-specific routes."""
-        assert handler.can_handle("/api/v1/broadcast/jobs/job123") is True
-        assert handler.can_handle("/api/v1/broadcast/jobs/job123/cancel") is True
-        assert handler.can_handle("/api/v1/broadcast/jobs/job123/download") is True
+    def test_can_handle_full_pipeline_routes(self, handler):
+        """Test can_handle for full pipeline routes."""
+        assert handler.can_handle("/api/v1/debates/debate123/broadcast/full") is True
+        assert handler.can_handle("/api/v1/debates/my-debate/broadcast/full") is True
 
     def test_can_handle_invalid_routes(self, handler):
         """Test can_handle rejects invalid routes."""
+        # Old API routes should not be handled
+        assert handler.can_handle("/api/v1/broadcast/generate") is False
+        assert handler.can_handle("/api/v1/broadcast/jobs") is False
+        assert handler.can_handle("/api/v1/broadcast/voices") is False
+
+        # Other invalid routes
         assert handler.can_handle("/api/v1/podcast/") is False
+        assert handler.can_handle("/api/v1/debates/debate123") is False
         assert handler.can_handle("/api/v1/invalid/route") is False
 
-
-class TestBroadcastVoices:
-    """Tests for voices endpoint."""
-
-    def test_get_voices(self, handler):
-        """Test listing available voices."""
+    def test_handle_get_returns_none(self, handler):
+        """Test that GET requests return None (POST only handler)."""
         mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+        result = handler.handle("/api/v1/debates/debate123/broadcast", {}, mock_handler)
+        assert result is None
 
-        result = handler.handle("/api/v1/broadcast/voices", {}, mock_handler)
-        assert result.status_code == 200
 
-        import json
+class TestBroadcastAvailability:
+    """Tests for broadcast module availability flags."""
 
-        body = json.loads(result.body)
-        assert "voices" in body
-        assert len(body["voices"]) > 0
+    def test_broadcast_available_is_bool(self):
+        """Test that BROADCAST_AVAILABLE is a boolean."""
+        assert isinstance(BROADCAST_AVAILABLE, bool)
+
+    def test_pipeline_available_is_bool(self):
+        """Test that PIPELINE_AVAILABLE is a boolean."""
+        assert isinstance(PIPELINE_AVAILABLE, bool)
 
 
 class TestBroadcastGenerate:
-    """Tests for broadcast generation."""
+    """Tests for POST /api/v1/debates/{debate_id}/broadcast endpoint."""
 
-    def test_generate_missing_debate_id(self, handler):
-        """Test generate requires debate_id."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+    def test_generate_broadcast_not_available(self, handler):
+        """Test response when broadcast module is not available."""
+        mock_http_handler = MagicMock()
+        mock_http_handler.headers = {}
 
-        with (
-            patch.object(handler, "read_json_body", return_value={}),
-            patch(
-                "aragora.server.handlers.features.broadcast.require_user_auth",
-                lambda f: f,
-            ),
-        ):
-            result = handler.handle_post("/api/v1/broadcast/generate", {}, mock_handler)
-            assert result.status_code == 400
+        with patch.object(handler, "get_storage", return_value=MagicMock()):
+            with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp")):
+                with patch(
+                    "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
+                    False,
+                ):
+                    result = handler.handle_post(
+                        "/api/v1/debates/debate123/broadcast", {}, mock_http_handler
+                    )
+                    assert result is not None
+                    assert result.status_code == 503
+                    assert b"not available" in result.body.lower()
 
-    @pytest.mark.asyncio
-    async def test_generate_debate_not_found(self, handler):
-        """Test generate fails when debate not found."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+    def test_generate_broadcast_no_storage(self, handler):
+        """Test response when storage is not configured."""
+        mock_http_handler = MagicMock()
+        mock_http_handler.headers = {}
 
-        with (
-            patch.object(handler, "read_json_body", return_value={"debate_id": "invalid-debate"}),
-            patch(
-                "aragora.server.handlers.features.broadcast.require_user_auth",
-                lambda f: f,
-            ),
-            patch("aragora.server.handlers.features.broadcast.get_debate") as mock_get_debate,
-        ):
-            mock_get_debate.return_value = None
+        with patch.object(handler, "get_storage", return_value=None):
+            with patch(
+                "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
+                True,
+            ):
+                result = handler.handle_post(
+                    "/api/v1/debates/debate123/broadcast", {}, mock_http_handler
+                )
+                assert result is not None
+                assert result.status_code == 503
+                assert b"storage" in result.body.lower()
 
-            result = handler.handle_post("/api/v1/broadcast/generate", {}, mock_handler)
-            assert result.status_code == 404
+    def test_generate_broadcast_no_nomic_dir(self, handler):
+        """Test response when nomic directory is not configured."""
+        mock_http_handler = MagicMock()
+        mock_http_handler.headers = {}
+        mock_storage = MagicMock()
 
-    @pytest.mark.asyncio
-    async def test_generate_success(self, handler):
-        """Test successful broadcast generation."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+        with patch.object(handler, "get_storage", return_value=mock_storage):
+            with patch.object(handler, "get_nomic_dir", return_value=None):
+                with patch(
+                    "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
+                    True,
+                ):
+                    result = handler.handle_post(
+                        "/api/v1/debates/debate123/broadcast", {}, mock_http_handler
+                    )
+                    assert result is not None
+                    assert result.status_code == 503
+                    assert b"nomic" in result.body.lower()
 
-        mock_debate = MagicMock()
-        mock_debate.id = "debate123"
-        mock_debate.topic = "Test Topic"
-        mock_debate.rounds = []
+    def test_generate_broadcast_debate_not_found(self, handler_with_storage):
+        """Test response when debate is not found."""
+        mock_http_handler = MagicMock()
+        mock_http_handler.headers = {}
 
-        with (
-            patch.object(
-                handler,
-                "read_json_body",
-                return_value={
-                    "debate_id": "debate123",
-                    "style": "podcast",
-                    "voices": ["alloy", "echo"],
-                },
-            ),
-            patch(
-                "aragora.server.handlers.features.broadcast.require_user_auth",
-                lambda f: f,
-            ),
-            patch("aragora.server.handlers.features.broadcast.get_debate") as mock_get_debate,
-            patch(
-                "aragora.server.handlers.features.broadcast.generate_broadcast",
-                new_callable=AsyncMock,
-            ) as mock_generate,
-        ):
-            mock_get_debate.return_value = mock_debate
-            mock_generate.return_value = MagicMock(job_id="job123", status="processing")
-
-            result = handler.handle_post("/api/v1/broadcast/generate", {}, mock_handler)
-            assert result.status_code == 202  # Accepted
-
-
-class TestBroadcastJobs:
-    """Tests for broadcast jobs."""
-
-    def test_list_jobs(self, handler):
-        """Test listing broadcast jobs."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+        storage = handler_with_storage.ctx["storage"]
+        storage.get_debate.return_value = None
+        storage.get_debate_by_slug.return_value = None
 
         with patch(
-            "aragora.server.handlers.features.broadcast.get_broadcast_jobs"
-        ) as mock_get_jobs:
-            mock_get_jobs.return_value = []
-
-            result = handler.handle("/api/v1/broadcast/jobs", {}, mock_handler)
-            assert result.status_code == 200
-
-    def test_get_job_status(self, handler):
-        """Test getting job status."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-
-        with patch("aragora.server.handlers.features.broadcast.get_broadcast_job") as mock_get_job:
-            mock_get_job.return_value = MagicMock(
-                job_id="job123",
-                status="completed",
-                to_dict=lambda: {"job_id": "job123", "status": "completed"},
+            "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
+            True,
+        ):
+            result = handler_with_storage.handle_post(
+                "/api/v1/debates/nonexistent/broadcast", {}, mock_http_handler
             )
+            assert result is not None
+            assert result.status_code == 404
+            assert b"not found" in result.body.lower()
 
-            result = handler.handle("/api/v1/broadcast/jobs/job123", {}, mock_handler)
+    def test_generate_broadcast_existing_audio(self, handler_with_storage):
+        """Test response when audio already exists."""
+        mock_http_handler = MagicMock()
+        mock_http_handler.headers = {}
+
+        storage = handler_with_storage.ctx["storage"]
+        storage.get_debate.return_value = {"id": "debate123", "topic": "Test"}
+
+        audio_store = handler_with_storage.ctx["audio_store"]
+        audio_store.exists.return_value = True
+        audio_store.get_metadata.return_value = {"generated_at": "2024-01-01T00:00:00"}
+        audio_store.get_path.return_value = Path("/tmp/audio/debate123.mp3")
+
+        with patch(
+            "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
+            True,
+        ):
+            result = handler_with_storage.handle_post(
+                "/api/v1/debates/debate123/broadcast", {}, mock_http_handler
+            )
+            assert result is not None
             assert result.status_code == 200
 
-    def test_get_job_not_found(self, handler):
-        """Test getting non-existent job."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+            import json
 
-        with patch("aragora.server.handlers.features.broadcast.get_broadcast_job") as mock_get_job:
-            mock_get_job.return_value = None
-
-            result = handler.handle("/api/v1/broadcast/jobs/invalid-job", {}, mock_handler)
-            assert result.status_code == 404
+            body = json.loads(result.body)
+            assert body["status"] == "exists"
+            assert body["debate_id"] == "debate123"
+            assert "/audio/debate123.mp3" in body["audio_url"]
 
 
-class TestBroadcastCancel:
-    """Tests for canceling broadcast jobs."""
+class TestBroadcastFullPipeline:
+    """Tests for POST /api/v1/debates/{debate_id}/broadcast/full endpoint."""
 
-    def test_cancel_job_not_found(self, handler):
-        """Test canceling non-existent job."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+    def test_full_pipeline_not_available(self, handler):
+        """Test response when pipeline is not available."""
+        mock_http_handler = MagicMock()
+        mock_http_handler.headers = {}
 
-        with patch("aragora.server.handlers.features.broadcast.get_broadcast_job") as mock_get_job:
-            mock_get_job.return_value = None
-
+        with patch.object(handler, "_get_pipeline", return_value=None):
             result = handler.handle_post(
-                "/api/v1/broadcast/jobs/invalid-job/cancel", {}, mock_handler
+                "/api/v1/debates/debate123/broadcast/full", {}, mock_http_handler
             )
-            assert result.status_code == 404
+            assert result is not None
+            assert result.status_code == 503
+            assert b"not available" in result.body.lower()
 
-    def test_cancel_job_success(self, handler):
-        """Test successful job cancellation."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+    def test_full_pipeline_with_options(self, handler):
+        """Test full pipeline with query params."""
+        mock_http_handler = MagicMock()
+        mock_http_handler.headers = {}
 
-        with (
-            patch("aragora.server.handlers.features.broadcast.get_broadcast_job") as mock_get_job,
-            patch("aragora.server.handlers.features.broadcast.cancel_broadcast_job") as mock_cancel,
+        mock_pipeline = MagicMock()
+        mock_result = MagicMock()
+        mock_result.debate_id = "debate123"
+        mock_result.success = True
+        mock_result.audio_path = Path("/tmp/debate123.mp3")
+        mock_result.video_path = None
+        mock_result.rss_episode_guid = "guid-123"
+        mock_result.duration_seconds = 120
+        mock_result.steps_completed = ["audio"]
+        mock_result.generated_at = "2024-01-01T00:00:00"
+        mock_result.error_message = None
+
+        mock_pipeline.run = AsyncMock(return_value=mock_result)
+
+        query_params = {
+            "video": "false",
+            "rss": "true",
+            "title": "Custom Title",
+        }
+
+        with patch.object(handler, "_get_pipeline", return_value=mock_pipeline):
+            with patch(
+                "aragora.server.handlers.features.broadcast._run_async",
+                side_effect=lambda coro: mock_result,
+            ):
+                result = handler.handle_post(
+                    "/api/v1/debates/debate123/broadcast/full",
+                    query_params,
+                    mock_http_handler,
+                )
+                assert result is not None
+                assert result.status_code == 200
+
+                import json
+
+                body = json.loads(result.body)
+                assert body["debate_id"] == "debate123"
+                assert body["success"] is True
+
+
+class TestBroadcastPathExtraction:
+    """Tests for debate_id path parameter extraction."""
+
+    def test_extract_debate_id_basic(self, handler):
+        """Test extracting debate_id from broadcast path."""
+        # Path: /api/v1/debates/{debate_id}/broadcast
+        # Parts: ['', 'api', 'v1', 'debates', 'debate123', 'broadcast']
+        # Index:    0     1      2       3          4            5
+        debate_id, err = handler.extract_path_param(
+            "/api/v1/debates/debate123/broadcast", 4, "debate_id"
+        )
+        assert err is None
+        assert debate_id == "debate123"
+
+    def test_extract_debate_id_with_slug(self, handler):
+        """Test extracting slug-style debate_id."""
+        debate_id, err = handler.extract_path_param(
+            "/api/v1/debates/my-awesome-debate/broadcast", 4, "debate_id"
+        )
+        assert err is None
+        assert debate_id == "my-awesome-debate"
+
+    def test_extract_debate_id_from_full_path(self, handler):
+        """Test extracting debate_id from full pipeline path."""
+        debate_id, err = handler.extract_path_param(
+            "/api/v1/debates/debate456/broadcast/full", 4, "debate_id"
+        )
+        assert err is None
+        assert debate_id == "debate456"
+
+
+class TestBroadcastHandlerMethods:
+    """Tests for BroadcastHandler utility methods."""
+
+    def test_get_pipeline_returns_none_when_unavailable(self, handler):
+        """Test _get_pipeline returns None when pipeline module unavailable."""
+        with patch(
+            "aragora.server.handlers.features.broadcast.PIPELINE_AVAILABLE",
+            False,
         ):
-            mock_get_job.return_value = MagicMock(job_id="job123", status="processing")
-            mock_cancel.return_value = True
+            result = handler._get_pipeline()
+            assert result is None
 
-            result = handler.handle_post("/api/v1/broadcast/jobs/job123/cancel", {}, mock_handler)
-            assert result.status_code == 200
-
-
-class TestBroadcastDownload:
-    """Tests for downloading broadcast audio."""
-
-    def test_download_job_not_found(self, handler):
-        """Test download non-existent job."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-
-        with patch("aragora.server.handlers.features.broadcast.get_broadcast_job") as mock_get_job:
-            mock_get_job.return_value = None
-
-            result = handler.handle("/api/v1/broadcast/jobs/invalid-job/download", {}, mock_handler)
-            assert result.status_code == 404
-
-    def test_download_job_not_completed(self, handler):
-        """Test download job that isn't completed."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-
-        with patch("aragora.server.handlers.features.broadcast.get_broadcast_job") as mock_get_job:
-            mock_get_job.return_value = MagicMock(
-                job_id="job123", status="processing", audio_path=None
-            )
-
-            result = handler.handle("/api/v1/broadcast/jobs/job123/download", {}, mock_handler)
-            assert result.status_code == 400
-
-
-class TestBroadcastRateLimiting:
-    """Tests for broadcast rate limiting."""
-
-    def test_rate_limiter_exists(self):
-        """Test that rate limiter is configured."""
-        assert _broadcast_limiter is not None
-        assert _broadcast_limiter.requests_per_minute == 10
-
-    def test_rate_limit_exceeded(self, handler):
-        """Test rate limit enforcement."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-
-        # Exhaust rate limit
-        for _ in range(11):
-            _broadcast_limiter.is_allowed("127.0.0.1")
+    def test_get_pipeline_creates_instance(self, handler):
+        """Test _get_pipeline creates pipeline when available."""
+        mock_nomic_dir = Path("/tmp/test_nomic")
+        handler.ctx["audio_store"] = MagicMock()
 
         with patch(
-            "aragora.server.handlers.features.broadcast.get_client_ip",
-            return_value="127.0.0.1",
+            "aragora.server.handlers.features.broadcast.PIPELINE_AVAILABLE",
+            True,
         ):
-            result = handler.handle("/api/v1/broadcast/voices", {}, mock_handler)
-            assert result.status_code == 429
+            with patch.object(handler, "get_nomic_dir", return_value=mock_nomic_dir):
+                with patch(
+                    "aragora.server.handlers.features.broadcast.BroadcastPipeline"
+                ) as mock_class:
+                    mock_instance = MagicMock()
+                    mock_class.return_value = mock_instance
+
+                    result = handler._get_pipeline()
+                    assert result == mock_instance
+                    mock_class.assert_called_once()
+
+    def test_get_pipeline_returns_cached_instance(self, handler):
+        """Test _get_pipeline returns cached instance on subsequent calls."""
+        mock_pipeline = MagicMock()
+        handler._pipeline = mock_pipeline
+
+        with patch(
+            "aragora.server.handlers.features.broadcast.PIPELINE_AVAILABLE",
+            True,
+        ):
+            result = handler._get_pipeline()
+            assert result == mock_pipeline
