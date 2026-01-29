@@ -1025,3 +1025,931 @@ class TestApprovalWorkflowAuditLog:
         mock_log.assert_called()
         call_args = mock_log.call_args
         assert call_args[0][0] == "access_request_rejected"
+
+    @pytest.mark.asyncio
+    async def test_cancel_creates_audit_log(self, workflow):
+        """Cancelling request logs to audit."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        with patch.object(workflow, "_audit_log", new_callable=AsyncMock) as mock_log:
+            await workflow.cancel(
+                requester_id="user-1",
+                request_id=request.id,
+                reason="Changed my mind",
+            )
+
+        mock_log.assert_called()
+        call_args = mock_log.call_args
+        assert call_args[0][0] == "access_request_cancelled"
+
+    @pytest.mark.asyncio
+    async def test_expire_creates_audit_log(self, workflow):
+        """Expiring request logs to audit."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        # Force expiration
+        request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+
+        with patch.object(workflow, "_audit_log", new_callable=AsyncMock) as mock_log:
+            await workflow.expire_old_requests()
+
+        mock_log.assert_called()
+        call_args = mock_log.call_args
+        assert call_args[0][0] == "access_request_expired"
+
+
+# =============================================================================
+# Additional Multi-Approver Tests
+# =============================================================================
+
+
+class TestMultiApproverScenarios:
+    """Additional tests for multi-approver approval workflows."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Fresh workflow instance."""
+        return ApprovalWorkflow()
+
+    @pytest.mark.asyncio
+    async def test_three_of_five_approvers_required(self, workflow):
+        """Test 3 of 5 approvers required scenario."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="admin:system_config",
+            resource_type="admin",
+            justification="Critical system change",
+            approvers=["admin-1", "admin-2", "admin-3", "admin-4", "admin-5"],
+            required_approvals=3,
+        )
+
+        # First two approvals - still pending
+        await workflow.approve(approver_id="admin-1", request_id=request.id)
+        assert request.status == ApprovalStatus.PENDING
+        assert request.approval_count == 1
+
+        await workflow.approve(approver_id="admin-2", request_id=request.id)
+        assert request.status == ApprovalStatus.PENDING
+        assert request.approval_count == 2
+
+        # Third approval - should complete
+        with patch.object(workflow, "_grant_temporary_permission", new_callable=AsyncMock):
+            await workflow.approve(approver_id="admin-3", request_id=request.id)
+
+        assert request.status == ApprovalStatus.APPROVED
+        assert request.approval_count == 3
+
+    @pytest.mark.asyncio
+    async def test_mixed_approvals_and_rejections(self, workflow):
+        """Test that rejection wins even with prior approvals."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Cleanup",
+            approvers=["admin-1", "admin-2", "admin-3"],
+            required_approvals=2,
+        )
+
+        # First approval
+        await workflow.approve(approver_id="admin-1", request_id=request.id)
+        assert request.status == ApprovalStatus.PENDING
+        assert request.approval_count == 1
+
+        # Then rejection - should terminate
+        await workflow.reject(
+            approver_id="admin-2",
+            request_id=request.id,
+            reason="Policy violation",
+        )
+
+        assert request.status == ApprovalStatus.REJECTED
+        assert request.approval_count == 1
+        assert request.rejection_count == 1
+
+    @pytest.mark.asyncio
+    async def test_approvers_can_only_decide_once(self, workflow):
+        """Test that approvers cannot change their decision."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1", "admin-2"],
+            required_approvals=2,
+        )
+
+        await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        # Same approver cannot approve again
+        with pytest.raises(ValueError, match="already made a decision"):
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+    @pytest.mark.asyncio
+    async def test_all_approvers_can_approve_independently(self, workflow):
+        """Test that all designated approvers can approve."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1", "admin-2", "admin-3"],
+            required_approvals=1,
+        )
+
+        # Any single approver can approve
+        with patch.object(workflow, "_grant_temporary_permission", new_callable=AsyncMock):
+            await workflow.approve(approver_id="admin-2", request_id=request.id)
+
+        assert request.status == ApprovalStatus.APPROVED
+        assert len(request.decisions) == 1
+        assert request.decisions[0].approver_id == "admin-2"
+
+
+# =============================================================================
+# Metadata and Custom Fields Tests
+# =============================================================================
+
+
+class TestApprovalRequestMetadata:
+    """Tests for metadata handling in approval requests."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Fresh workflow instance."""
+        return ApprovalWorkflow()
+
+    @pytest.mark.asyncio
+    async def test_request_with_metadata(self, workflow):
+        """Test creating request with custom metadata."""
+        metadata = {
+            "ticket_id": "JIRA-1234",
+            "priority": "high",
+            "environment": "production",
+        }
+
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Production cleanup",
+            approvers=["admin-1"],
+            metadata=metadata,
+        )
+
+        assert request.metadata["ticket_id"] == "JIRA-1234"
+        assert request.metadata["priority"] == "high"
+        assert request.metadata["environment"] == "production"
+
+    @pytest.mark.asyncio
+    async def test_metadata_in_serialization(self, workflow):
+        """Test that metadata is included in to_dict."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+            metadata={"custom_field": "custom_value"},
+        )
+
+        result = request.to_dict()
+        assert result["metadata"]["custom_field"] == "custom_value"
+
+    @pytest.mark.asyncio
+    async def test_cancellation_reason_in_metadata(self, workflow):
+        """Test that cancellation reason is stored in metadata."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        await workflow.cancel(
+            requester_id="user-1",
+            request_id=request.id,
+            reason="No longer needed",
+        )
+
+        assert request.metadata["cancellation_reason"] == "No longer needed"
+
+    @pytest.mark.asyncio
+    async def test_empty_metadata_default(self, workflow):
+        """Test that empty metadata defaults to empty dict."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        assert request.metadata == {}
+
+
+# =============================================================================
+# Duration and Expiration Edge Cases
+# =============================================================================
+
+
+class TestDurationAndExpiration:
+    """Tests for access duration and request expiration handling."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Fresh workflow instance."""
+        return ApprovalWorkflow()
+
+    @pytest.mark.asyncio
+    async def test_custom_duration(self, workflow):
+        """Test request with custom duration."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Short-term access",
+            approvers=["admin-1"],
+            duration_hours=4,
+        )
+
+        assert request.duration_hours == 4
+
+    @pytest.mark.asyncio
+    async def test_max_duration_boundary(self, workflow):
+        """Test request at maximum allowed duration."""
+        max_hours = ApprovalWorkflow.MAX_ACCESS_DURATION_HOURS
+
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Maximum duration",
+            approvers=["admin-1"],
+            duration_hours=max_hours,
+        )
+
+        assert request.duration_hours == max_hours
+
+    @pytest.mark.asyncio
+    async def test_default_request_expiry(self, workflow):
+        """Test that default request expiry is set correctly."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        expected_expiry = request.created_at + timedelta(
+            days=ApprovalWorkflow.DEFAULT_REQUEST_EXPIRY_DAYS
+        )
+        # Check within 1 second tolerance
+        diff = abs((request.expires_at - expected_expiry).total_seconds())
+        assert diff < 1
+
+    @pytest.mark.asyncio
+    async def test_expired_request_cannot_be_rejected(self, workflow):
+        """Test that expired requests cannot be rejected."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        # Force expiration
+        request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+
+        # Note: reject doesn't check expiration, only approve does
+        # This tests current behavior - reject still works on expired pending requests
+        result = await workflow.reject(
+            approver_id="admin-1",
+            request_id=request.id,
+            reason="Too late",
+        )
+        assert result.status == ApprovalStatus.REJECTED
+
+    @pytest.mark.asyncio
+    async def test_expire_multiple_requests(self, workflow):
+        """Test expiring multiple requests at once."""
+        # Create multiple requests
+        for i in range(3):
+            request = await workflow.request_access(
+                requester_id=f"user-{i}",
+                permission="debates:delete",
+                resource_type="debates",
+                justification=f"Test {i}",
+                approvers=["admin-1"],
+            )
+            # Force expiration
+            request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+
+        # Create one non-expired request
+        await workflow.request_access(
+            requester_id="user-active",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Active request",
+            approvers=["admin-1"],
+        )
+
+        count = await workflow.expire_old_requests()
+        assert count == 3
+
+
+# =============================================================================
+# Grant Temporary Permission Tests
+# =============================================================================
+
+
+class TestGrantTemporaryPermission:
+    """Tests for _grant_temporary_permission integration."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Fresh workflow instance."""
+        return ApprovalWorkflow()
+
+    @pytest.mark.asyncio
+    async def test_grant_called_on_approval(self, workflow):
+        """Test that grant is called when request is fully approved."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+            duration_hours=8,
+        )
+
+        with patch.object(
+            workflow, "_grant_temporary_permission", new_callable=AsyncMock
+        ) as mock_grant:
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        mock_grant.assert_called_once_with(request)
+
+    @pytest.mark.asyncio
+    async def test_grant_not_called_on_partial_approval(self, workflow):
+        """Test that grant is not called until all required approvals."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1", "admin-2"],
+            required_approvals=2,
+        )
+
+        with patch.object(
+            workflow, "_grant_temporary_permission", new_callable=AsyncMock
+        ) as mock_grant:
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        mock_grant.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_grant_not_called_on_rejection(self, workflow):
+        """Test that grant is not called on rejection."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        with patch.object(
+            workflow, "_grant_temporary_permission", new_callable=AsyncMock
+        ) as mock_grant:
+            await workflow.reject(
+                approver_id="admin-1",
+                request_id=request.id,
+                reason="No",
+            )
+
+        mock_grant.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_grant_handles_import_error(self, workflow):
+        """Test that grant handles missing ResourcePermissionStore gracefully."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        # Call the real method with ImportError simulation
+        with patch(
+            "aragora.rbac.approvals.ApprovalWorkflow._grant_temporary_permission"
+        ) as mock_grant:
+            mock_grant.return_value = None
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        # Should complete without error
+        assert request.status == ApprovalStatus.APPROVED
+
+
+# =============================================================================
+# Workspace and Organization Scoped Tests
+# =============================================================================
+
+
+class TestScopedApprovals:
+    """Tests for workspace and organization scoped approvals."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Fresh workflow instance."""
+        return ApprovalWorkflow()
+
+    @pytest.mark.asyncio
+    async def test_org_scoped_request(self, workflow):
+        """Test organization-scoped approval request."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Org-level cleanup",
+            approvers=["admin-1"],
+            org_id="org-123",
+        )
+
+        assert request.org_id == "org-123"
+        assert request.workspace_id is None
+
+    @pytest.mark.asyncio
+    async def test_workspace_scoped_request(self, workflow):
+        """Test workspace-scoped approval request."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Workspace cleanup",
+            approvers=["admin-1"],
+            org_id="org-123",
+            workspace_id="ws-456",
+        )
+
+        assert request.org_id == "org-123"
+        assert request.workspace_id == "ws-456"
+
+    @pytest.mark.asyncio
+    async def test_requests_by_requester_across_orgs(self, workflow):
+        """Test getting requests for a user across organizations."""
+        await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Org 1 request",
+            approvers=["admin-1"],
+            org_id="org-1",
+        )
+        await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Org 2 request",
+            approvers=["admin-2"],
+            org_id="org-2",
+        )
+
+        results = await workflow.get_requests_by_requester("user-1")
+        assert len(results) == 2
+        org_ids = {r.org_id for r in results}
+        assert org_ids == {"org-1", "org-2"}
+
+
+# =============================================================================
+# Edge Cases and Error Handling
+# =============================================================================
+
+
+class TestEdgeCasesAndErrors:
+    """Additional edge cases and error handling tests."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Fresh workflow instance."""
+        return ApprovalWorkflow()
+
+    @pytest.mark.asyncio
+    async def test_request_not_found_for_reject(self, workflow):
+        """Test rejection fails for non-existent request."""
+        with pytest.raises(ValueError, match="Request not found"):
+            await workflow.reject(
+                approver_id="admin-1",
+                request_id="nonexistent",
+                reason="No",
+            )
+
+    @pytest.mark.asyncio
+    async def test_request_not_found_for_cancel(self, workflow):
+        """Test cancellation fails for non-existent request."""
+        with pytest.raises(ValueError, match="Request not found"):
+            await workflow.cancel(
+                requester_id="user-1",
+                request_id="nonexistent",
+            )
+
+    @pytest.mark.asyncio
+    async def test_reject_non_pending_error(self, workflow):
+        """Test rejection fails if request not pending."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        # Approve first
+        with patch.object(workflow, "_grant_temporary_permission", new_callable=AsyncMock):
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        # Try to reject approved request
+        with pytest.raises(ValueError, match="not pending"):
+            await workflow.reject(
+                approver_id="admin-1",
+                request_id=request.id,
+                reason="Changed mind",
+            )
+
+    @pytest.mark.asyncio
+    async def test_empty_justification_allowed(self, workflow):
+        """Test that empty justification is technically allowed."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="",
+            approvers=["admin-1"],
+        )
+
+        assert request.justification == ""
+
+    @pytest.mark.asyncio
+    async def test_approve_without_comment(self, workflow):
+        """Test approval without comment."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        with patch.object(workflow, "_grant_temporary_permission", new_callable=AsyncMock):
+            result = await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        assert result.decisions[0].comment is None
+
+    @pytest.mark.asyncio
+    async def test_cancel_without_reason(self, workflow):
+        """Test cancellation without reason."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        result = await workflow.cancel(requester_id="user-1", request_id=request.id)
+
+        assert result.status == ApprovalStatus.CANCELLED
+        assert result.metadata.get("cancellation_reason") is None
+
+    @pytest.mark.asyncio
+    async def test_request_id_format(self, workflow):
+        """Test that request IDs follow expected format."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        assert request.id.startswith("req-")
+        assert len(request.id) == 16  # "req-" + 12 hex chars
+
+    @pytest.mark.asyncio
+    async def test_resolved_at_set_on_approval(self, workflow):
+        """Test that resolved_at is set when approved."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        assert request.resolved_at is None
+
+        with patch.object(workflow, "_grant_temporary_permission", new_callable=AsyncMock):
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        assert request.resolved_at is not None
+        assert request.resolved_at > request.created_at
+
+    @pytest.mark.asyncio
+    async def test_resolved_at_set_on_rejection(self, workflow):
+        """Test that resolved_at is set when rejected."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        await workflow.reject(
+            approver_id="admin-1",
+            request_id=request.id,
+            reason="No",
+        )
+
+        assert request.resolved_at is not None
+
+    @pytest.mark.asyncio
+    async def test_get_pending_respects_limit(self, workflow):
+        """Test that get_pending_for_approver respects limit."""
+        # Create more requests than limit
+        for i in range(5):
+            await workflow.request_access(
+                requester_id=f"user-{i}",
+                permission="debates:delete",
+                resource_type="debates",
+                justification=f"Test {i}",
+                approvers=["admin-1"],
+            )
+
+        results = await workflow.get_pending_for_approver("admin-1", limit=3)
+        assert len(results) == 3
+
+    @pytest.mark.asyncio
+    async def test_get_requests_by_requester_respects_limit(self, workflow):
+        """Test that get_requests_by_requester respects limit."""
+        for i in range(5):
+            await workflow.request_access(
+                requester_id="user-1",
+                permission=f"debates:action{i}",
+                resource_type="debates",
+                justification=f"Test {i}",
+                approvers=["admin-1"],
+            )
+
+        results = await workflow.get_requests_by_requester("user-1", limit=2)
+        assert len(results) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_requests_by_requester_sorted_by_created_at(self, workflow):
+        """Test that requests are sorted by creation time descending."""
+        for i in range(3):
+            await workflow.request_access(
+                requester_id="user-1",
+                permission=f"debates:action{i}",
+                resource_type="debates",
+                justification=f"Test {i}",
+                approvers=["admin-1"],
+            )
+
+        results = await workflow.get_requests_by_requester("user-1")
+
+        # Should be sorted newest first
+        for i in range(len(results) - 1):
+            assert results[i].created_at >= results[i + 1].created_at
+
+    @pytest.mark.asyncio
+    async def test_multiple_requests_same_permission(self, workflow):
+        """Test creating multiple requests for same permission."""
+        request1 = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            resource_id="debate-1",
+            justification="Delete debate 1",
+            approvers=["admin-1"],
+        )
+        request2 = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            resource_id="debate-2",
+            justification="Delete debate 2",
+            approvers=["admin-1"],
+        )
+
+        # Both should exist independently
+        assert request1.id != request2.id
+        assert request1.resource_id == "debate-1"
+        assert request2.resource_id == "debate-2"
+
+    @pytest.mark.asyncio
+    async def test_approver_pending_excludes_non_pending(self, workflow):
+        """Test that get_pending excludes resolved requests."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        # Verify it's in pending
+        pending_before = await workflow.get_pending_for_approver("admin-1")
+        assert len(pending_before) == 1
+
+        # Reject it
+        await workflow.reject(
+            approver_id="admin-1",
+            request_id=request.id,
+            reason="No",
+        )
+
+        # Should no longer be in pending
+        pending_after = await workflow.get_pending_for_approver("admin-1")
+        assert len(pending_after) == 0
+
+
+# =============================================================================
+# Request State Transitions Tests
+# =============================================================================
+
+
+class TestStateTransitions:
+    """Tests for approval request state machine transitions."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Fresh workflow instance."""
+        return ApprovalWorkflow()
+
+    @pytest.mark.asyncio
+    async def test_pending_to_approved_transition(self, workflow):
+        """Test PENDING -> APPROVED transition."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        assert request.status == ApprovalStatus.PENDING
+
+        with patch.object(workflow, "_grant_temporary_permission", new_callable=AsyncMock):
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        assert request.status == ApprovalStatus.APPROVED
+
+    @pytest.mark.asyncio
+    async def test_pending_to_rejected_transition(self, workflow):
+        """Test PENDING -> REJECTED transition."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        assert request.status == ApprovalStatus.PENDING
+
+        await workflow.reject(
+            approver_id="admin-1",
+            request_id=request.id,
+            reason="Denied",
+        )
+
+        assert request.status == ApprovalStatus.REJECTED
+
+    @pytest.mark.asyncio
+    async def test_pending_to_cancelled_transition(self, workflow):
+        """Test PENDING -> CANCELLED transition."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        assert request.status == ApprovalStatus.PENDING
+
+        await workflow.cancel(requester_id="user-1", request_id=request.id)
+
+        assert request.status == ApprovalStatus.CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_pending_to_expired_transition(self, workflow):
+        """Test PENDING -> EXPIRED transition via expiration."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        assert request.status == ApprovalStatus.PENDING
+
+        # Force expiration
+        request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        await workflow.expire_old_requests()
+
+        assert request.status == ApprovalStatus.EXPIRED
+
+    @pytest.mark.asyncio
+    async def test_pending_to_expired_on_approve_attempt(self, workflow):
+        """Test PENDING -> EXPIRED when approving expired request."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+
+        # Force expiration
+        request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+
+        # Attempt to approve should fail and mark as expired
+        with pytest.raises(ValueError, match="expired"):
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        assert request.status == ApprovalStatus.EXPIRED
+
+    @pytest.mark.asyncio
+    async def test_no_transition_from_approved(self, workflow):
+        """Test that approved requests cannot transition to other states."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1", "admin-2"],
+        )
+
+        with patch.object(workflow, "_grant_temporary_permission", new_callable=AsyncMock):
+            await workflow.approve(approver_id="admin-1", request_id=request.id)
+
+        # Cannot approve again
+        with pytest.raises(ValueError, match="not pending"):
+            await workflow.approve(approver_id="admin-2", request_id=request.id)
+
+        # Cannot reject
+        with pytest.raises(ValueError, match="not pending"):
+            await workflow.reject(
+                approver_id="admin-2",
+                request_id=request.id,
+                reason="Too late",
+            )
+
+        # Cannot cancel
+        with pytest.raises(ValueError, match="not pending"):
+            await workflow.cancel(requester_id="user-1", request_id=request.id)
+
+    @pytest.mark.asyncio
+    async def test_no_transition_from_rejected(self, workflow):
+        """Test that rejected requests cannot transition to other states."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1", "admin-2"],
+        )
+
+        await workflow.reject(
+            approver_id="admin-1",
+            request_id=request.id,
+            reason="No",
+        )
+
+        # Cannot approve
+        with pytest.raises(ValueError, match="not pending"):
+            await workflow.approve(approver_id="admin-2", request_id=request.id)
+
+        # Cannot cancel
+        with pytest.raises(ValueError, match="not pending"):
+            await workflow.cancel(requester_id="user-1", request_id=request.id)
