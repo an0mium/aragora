@@ -96,7 +96,8 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
 
         total_pending = 0
         for status in statuses.values():
-            total_pending += len(status.pending)
+            if status is not None:
+                total_pending += len(status.pending)
 
         if total_pending == 0:
             logger.debug("No pending SQLite migrations")
@@ -148,8 +149,8 @@ def check_migrations_pending() -> dict[str, Any]:
     try:
         from aragora.persistence.migrations.runner import MigrationRunner
 
-        runner = MigrationRunner()
-        statuses = runner.get_all_status()
+        runner = MigrationRunner()  # type: ignore[assignment]
+        statuses = runner.get_all_status()  # type: ignore[attr-defined]
         for status in statuses.values():
             result["sqlite_pending"] += len(status.pending)
     except Exception:
