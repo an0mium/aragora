@@ -101,7 +101,13 @@ class DebateOptions:
         if self.rounds is None:
             self.rounds = settings.debate.default_rounds
         if self.consensus is None:
-            self.consensus = settings.debate.default_consensus
+            # Cast from settings string to literal type (validated at config load)
+            consensus_value = settings.debate.default_consensus
+            if consensus_value in (
+                "majority", "unanimous", "judge", "none",
+                "weighted", "supermajority", "any", "byzantine"
+            ):
+                self.consensus = consensus_value  # type: ignore[assignment]
 
     def to_protocol(self) -> DebateProtocol:
         """Convert options to a DebateProtocol."""
@@ -329,7 +335,10 @@ class DebateService:
     def _resolve_agents(self, agents: Optional[Union[list[Agent], list[str]]]) -> list[Agent]:
         """Resolve agent specifications to Agent objects."""
         if agents is None:
-            return self._default_agents or []
+            # Recursively resolve default agents (which may be strings)
+            if self._default_agents:
+                return self._resolve_agents(self._default_agents)
+            return []
 
         resolved: list[Agent] = []
         for agent in agents:

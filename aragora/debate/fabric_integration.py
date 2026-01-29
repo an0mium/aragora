@@ -389,7 +389,7 @@ class FabricDebateRunner:
         # 6. Create and run Arena
         arena_protocol = protocol or DebateProtocol(
             rounds=DEFAULT_ROUNDS,
-            consensus=DEFAULT_CONSENSUS,
+            consensus=DEFAULT_CONSENSUS,  # type: ignore[arg-type]  # Validated at config load
         )
 
         try:
