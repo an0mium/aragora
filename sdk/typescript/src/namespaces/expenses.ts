@@ -156,7 +156,7 @@ export class ExpensesAPI {
    * @returns Created expense from receipt
    */
   async uploadReceipt(request: UploadReceiptRequest): Promise<{ expense: Expense; message: string }> {
-    return this.client.request('POST', '/accounting/expenses/upload', {
+    return this.client.request('POST', '/api/v1/accounting/expenses/upload', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -172,7 +172,7 @@ export class ExpensesAPI {
    * @returns Created expense
    */
   async create(request: CreateExpenseRequest): Promise<{ expense: Expense; message: string }> {
-    return this.client.request('POST', '/accounting/expenses', {
+    return this.client.request('POST', '/api/v1/accounting/expenses', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -189,7 +189,7 @@ export class ExpensesAPI {
     limit: number;
     offset: number;
   }> {
-    return this.client.request('GET', '/accounting/expenses', {
+    return this.client.request('GET', '/api/v1/accounting/expenses', {
       params: params as unknown as Record<string, unknown>,
     });
   }
@@ -201,7 +201,7 @@ export class ExpensesAPI {
    * @returns Expense details
    */
   async get(expenseId: string): Promise<{ expense: Expense }> {
-    return this.client.request('GET', `/accounting/expenses/${expenseId}`);
+    return this.client.request('GET', `/api/v1/accounting/expenses/${expenseId}`);
   }
 
   /**
@@ -212,7 +212,7 @@ export class ExpensesAPI {
    * @returns Updated expense
    */
   async update(expenseId: string, request: UpdateExpenseRequest): Promise<{ expense: Expense; message: string }> {
-    return this.client.request('PUT', `/accounting/expenses/${expenseId}`, {
+    return this.client.request('PUT', `/api/v1/accounting/expenses/${expenseId}`, {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -224,7 +224,7 @@ export class ExpensesAPI {
    * @returns Confirmation message
    */
   async delete(expenseId: string): Promise<{ message: string }> {
-    return this.client.request('DELETE', `/accounting/expenses/${expenseId}`);
+    return this.client.request('DELETE', `/api/v1/accounting/expenses/${expenseId}`);
   }
 
   // ===========================================================================
@@ -238,7 +238,7 @@ export class ExpensesAPI {
    * @returns Approved expense
    */
   async approve(expenseId: string): Promise<{ expense: Expense; message: string }> {
-    return this.client.request('POST', `/accounting/expenses/${expenseId}/approve`);
+    return this.client.request('POST', `/api/v1/accounting/expenses/${expenseId}/approve`);
   }
 
   /**
@@ -249,7 +249,7 @@ export class ExpensesAPI {
    * @returns Rejected expense
    */
   async reject(expenseId: string, reason?: string): Promise<{ expense: Expense; message: string }> {
-    return this.client.request('POST', `/accounting/expenses/${expenseId}/reject`, {
+    return this.client.request('POST', `/api/v1/accounting/expenses/${expenseId}/reject`, {
       json: { reason },
     });
   }
@@ -260,7 +260,7 @@ export class ExpensesAPI {
    * @returns Pending expenses
    */
   async getPending(): Promise<{ expenses: Expense[]; count: number }> {
-    return this.client.request('GET', '/accounting/expenses/pending');
+    return this.client.request('GET', '/api/v1/accounting/expenses/pending');
   }
 
   // ===========================================================================
@@ -274,7 +274,7 @@ export class ExpensesAPI {
    * @returns Categorization results
    */
   async categorize(expenseIds?: string[]): Promise<CategorizeResult & { message: string }> {
-    return this.client.request('POST', '/accounting/expenses/categorize', {
+    return this.client.request('POST', '/api/v1/accounting/expenses/categorize', {
       json: { expense_ids: expenseIds },
     });
   }
@@ -290,7 +290,7 @@ export class ExpensesAPI {
    * @returns Sync results
    */
   async syncToQBO(expenseIds?: string[]): Promise<{ result: SyncResult; message: string }> {
-    return this.client.request('POST', '/accounting/expenses/sync', {
+    return this.client.request('POST', '/api/v1/accounting/expenses/sync', {
       json: { expense_ids: expenseIds },
     });
   }
@@ -310,7 +310,7 @@ export class ExpensesAPI {
     const params: Record<string, string> = {};
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
-    return this.client.request('GET', '/accounting/expenses/stats', { params });
+    return this.client.request('GET', '/api/v1/accounting/expenses/stats', { params });
   }
 
   /**
@@ -325,6 +325,6 @@ export class ExpensesAPI {
     const params: Record<string, string> = { format };
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
-    return this.client.request('GET', '/accounting/expenses/export', { params });
+    return this.client.request('GET', '/api/v1/accounting/expenses/export', { params });
   }
 }
