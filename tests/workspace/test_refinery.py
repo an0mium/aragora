@@ -6,6 +6,8 @@ Tests the merge queue functionality for integrating convoy work.
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from aragora.workspace.refinery import (
@@ -15,6 +17,27 @@ from aragora.workspace.refinery import (
     Refinery,
     RefineryConfig,
 )
+
+
+def _mock_git_success():
+    """Create a mock _run_git that simulates successful git operations."""
+
+    async def _run_git(self, *args):
+        cmd = args[0] if args else ""
+        if cmd == "rev-parse":
+            return (0, "abc1234deadbeef", "")
+        return (0, "", "")
+
+    return _run_git
+
+
+def _mock_run_tests_pass():
+    """Create a mock _run_tests that always passes."""
+
+    async def _run_tests(self, request):
+        return True
+
+    return _run_tests
 
 
 # =============================================================================
@@ -206,11 +229,14 @@ class TestRefineryQueue:
 
 
 class TestRefineryProcess:
-    """Test merge processing."""
+    """Test merge processing with mocked git operations."""
 
     @pytest.fixture
     def refinery(self):
-        return Refinery()
+        config = RefineryConfig(require_tests=False, require_review=False)
+        r = Refinery(config=config)
+        r._run_git = AsyncMock(side_effect=lambda *a: (0, "abc1234", ""))
+        return r
 
     @pytest.mark.asyncio
     async def test_process_next_empty_queue(self, refinery):
@@ -240,8 +266,9 @@ class TestRefineryProcess:
     @pytest.mark.asyncio
     async def test_max_concurrent_merges(self):
         # With max_concurrent=1, only one at a time
-        config = RefineryConfig(max_concurrent_merges=1)
+        config = RefineryConfig(max_concurrent_merges=1, require_tests=False)
         refinery = Refinery(config=config)
+        refinery._run_git = AsyncMock(side_effect=lambda *a: (0, "abc1234", ""))
 
         await refinery.queue_for_merge("c1", "r1", "b1")
         await refinery.queue_for_merge("c2", "r1", "b2")
@@ -266,7 +293,10 @@ class TestRefineryHistory:
 
     @pytest.fixture
     def refinery(self):
-        return Refinery()
+        config = RefineryConfig(require_tests=False, require_review=False)
+        r = Refinery(config=config)
+        r._run_git = AsyncMock(side_effect=lambda *a: (0, "abc1234", ""))
+        return r
 
     @pytest.mark.asyncio
     async def test_get_history(self, refinery):
@@ -304,7 +334,10 @@ class TestRefineryRollback:
 
     @pytest.fixture
     def refinery(self):
-        return Refinery()
+        config = RefineryConfig(require_tests=False, require_review=False)
+        r = Refinery(config=config)
+        r._run_git = AsyncMock(side_effect=lambda *a: (0, "abc1234", ""))
+        return r
 
     @pytest.mark.asyncio
     async def test_rollback_merged(self, refinery):
@@ -335,7 +368,10 @@ class TestRefineryStats:
 
     @pytest.fixture
     def refinery(self):
-        return Refinery()
+        config = RefineryConfig(require_tests=False, require_review=False)
+        r = Refinery(config=config)
+        r._run_git = AsyncMock(side_effect=lambda *a: (0, "abc1234", ""))
+        return r
 
     @pytest.mark.asyncio
     async def test_get_stats(self, refinery):

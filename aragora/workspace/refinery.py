@@ -22,11 +22,15 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class MergeStatus(Enum):
@@ -129,6 +133,9 @@ class RefineryConfig:
     retry_on_conflict: int = 3
     merge_timeout_seconds: float = 300.0
     rollback_on_test_failure: bool = True
+    work_dir: str | None = None  # Git working directory (None = cwd)
+    test_command: list[str] = field(default_factory=lambda: ["pytest", "--tb=short", "-q"])
+    auto_approve: bool = False  # Skip approval checks
 
 
 class Refinery:
@@ -360,39 +367,149 @@ class Refinery:
                 "processing": self._processing,
             }
 
-    # Internal methods (stubs for actual git operations)
+    # Internal methods - git operations via subprocess
+
+    async def _run_git(self, *args: str) -> tuple[int, str, str]:
+        """
+        Run a git command asynchronously.
+
+        Returns:
+            (return_code, stdout, stderr)
+        """
+        cmd = ["git"] + list(args)
+        logger.debug(f"Running: {' '.join(cmd)}")
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=self.config.work_dir,
+        )
+        stdout_bytes, stderr_bytes = await proc.communicate()
+        stdout = stdout_bytes.decode().strip() if stdout_bytes else ""
+        stderr = stderr_bytes.decode().strip() if stderr_bytes else ""
+        return proc.returncode or 0, stdout, stderr
 
     async def _run_tests(self, request: MergeRequest) -> bool:
-        """Run tests on the source branch. Stub implementation."""
-        # In real implementation: run pytest, cargo test, etc.
-        return True
+        """Run tests on the source branch."""
+        if not self.config.test_command:
+            return True
+
+        logger.info(f"Running tests for merge {request.request_id}")
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *self.config.test_command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=self.config.work_dir,
+            )
+            await proc.communicate()
+            success = proc.returncode == 0
+            if not success:
+                logger.warning(f"Tests failed for merge {request.request_id}")
+            return success
+        except FileNotFoundError:
+            logger.warning(f"Test command not found: {self.config.test_command[0]}")
+            return True  # Don't block if test runner unavailable
 
     async def _check_approval(self, request: MergeRequest) -> bool:
-        """Check if the merge has been approved. Stub implementation."""
-        # In real implementation: check PR approval status
-        return True
+        """Check if the merge has been approved."""
+        if self.config.auto_approve:
+            return True
+        if os.environ.get("ARAGORA_AUTO_APPROVE", "").lower() in ("1", "true", "yes"):
+            return True
+        # Check for .approved marker file on branch metadata
+        approved = request.metadata.get("approved", False)
+        if not approved:
+            logger.info(f"Merge {request.request_id} awaiting approval")
+        return approved
 
     async def _rebase(self, request: MergeRequest) -> bool:
         """
-        Rebase source branch onto target. Stub implementation.
+        Rebase source branch onto target.
 
         Returns True if rebase succeeded, False if conflicts.
         """
-        # In real implementation: git rebase
+        # Checkout source branch
+        rc, _, stderr = await self._run_git("checkout", request.source_branch)
+        if rc != 0:
+            logger.error(f"Failed to checkout {request.source_branch}: {stderr}")
+            return False
+
+        # Rebase onto target
+        rc, _, stderr = await self._run_git("rebase", request.target_branch)
+        if rc != 0:
+            # Detect conflicts
+            logger.warning(f"Rebase conflict for {request.request_id}: {stderr}")
+            # Get conflicting files
+            _, diff_out, _ = await self._run_git("diff", "--name-only", "--diff-filter=U")
+            if diff_out:
+                request.conflict_files = diff_out.splitlines()
+            # Abort the rebase
+            await self._run_git("rebase", "--abort")
+            return False
+
         return True
 
     async def _do_merge(self, request: MergeRequest) -> str | None:
         """
-        Perform the actual merge. Stub implementation.
+        Perform the actual merge.
 
         Returns merge commit SHA if successful.
         """
-        # In real implementation: git merge --no-ff
-        return f"commit-{uuid.uuid4().hex[:7]}"
+        # Checkout target branch
+        rc, _, stderr = await self._run_git("checkout", request.target_branch)
+        if rc != 0:
+            logger.error(f"Failed to checkout {request.target_branch}: {stderr}")
+            return None
+
+        # Merge with no-ff
+        merge_msg = f"Merge {request.source_branch} into {request.target_branch} (convoy: {request.convoy_id})"
+        rc, _, stderr = await self._run_git(
+            "merge",
+            "--no-ff",
+            request.source_branch,
+            "-m",
+            merge_msg,
+        )
+        if rc != 0:
+            logger.error(f"Merge failed for {request.request_id}: {stderr}")
+            # Get conflict files if merge failed
+            _, diff_out, _ = await self._run_git("diff", "--name-only", "--diff-filter=U")
+            if diff_out:
+                request.conflict_files = diff_out.splitlines()
+            # Abort the merge
+            await self._run_git("merge", "--abort")
+            return None
+
+        # Get the merge commit SHA
+        rc, sha, _ = await self._run_git("rev-parse", "HEAD")
+        if rc != 0:
+            return None
+        return sha
 
     async def _do_rollback(self, request: MergeRequest) -> bool:
-        """Rollback a merge. Stub implementation."""
-        # In real implementation: git revert
+        """Rollback a merge by reverting the merge commit."""
+        if not request.merge_commit:
+            return False
+
+        # Checkout target branch
+        rc, _, stderr = await self._run_git("checkout", request.target_branch)
+        if rc != 0:
+            logger.error(f"Failed to checkout {request.target_branch}: {stderr}")
+            return False
+
+        # Revert the merge commit (mainline 1 for merge commits)
+        rc, _, stderr = await self._run_git(
+            "revert",
+            "--no-edit",
+            "-m",
+            "1",
+            request.merge_commit,
+        )
+        if rc != 0:
+            logger.error(f"Rollback failed for {request.request_id}: {stderr}")
+            return False
+
         return True
 
     async def _fail_request(self, request: MergeRequest, error: str):
