@@ -271,7 +271,7 @@ class CompositeHandler(BaseHandler):
             from aragora.memory.continuum import ContinuumMemory
 
             # Check if continuum memory is available in context
-            continuum = self.context.get("continuum_memory")  # type: ignore[attr-defined]
+            continuum = self.ctx.get("continuum_memory")
             if continuum and isinstance(continuum, ContinuumMemory):
                 # Get related memories
                 memories = continuum.recall(debate_id, limit=5)
@@ -293,7 +293,7 @@ class CompositeHandler(BaseHandler):
 
         try:
             # Check for knowledge mound in context
-            knowledge_mound = self.context.get("knowledge_mound")  # type: ignore[attr-defined]
+            knowledge_mound = self.ctx.get("knowledge_mound")
             if knowledge_mound:
                 # Get related knowledge items
                 items = knowledge_mound.query(debate_id, limit=10)
@@ -317,7 +317,7 @@ class CompositeHandler(BaseHandler):
 
         try:
             # Check for belief-related stores
-            dissent_retriever = self.context.get("dissent_retriever")  # type: ignore[attr-defined]
+            dissent_retriever = self.ctx.get("dissent_retriever")
             if dissent_retriever:
                 cruxes = dissent_retriever.get_cruxes(debate_id, limit=5)
                 belief_data["cruxes"] = cruxes
