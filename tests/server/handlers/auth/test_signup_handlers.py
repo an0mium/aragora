@@ -1428,3 +1428,669 @@ class TestGetSignupHandlers:
 
         for name, handler in handlers.items():
             assert callable(handler), f"Handler {name} should be callable"
+
+
+# ===========================================================================
+# Test RBAC Permission Denied Scenarios
+# ===========================================================================
+
+
+class TestRBACPermissionDenied:
+    """Tests for RBAC permission denied scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_setup_org_permission_denied(self):
+        """Setup org should return 403 when permission denied."""
+        from aragora.server.handlers.auth.signup_handlers import (
+            _check_permission,
+            handle_setup_organization as _handle_setup_organization,
+        )
+        from aragora.server.handlers.base import error_response
+
+        # Create handler without the mock fixture
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._check_permission",
+            return_value=error_response("Permission denied: org:create", status=403),
+        ):
+            result = await _handle_setup_organization(
+                {"name": "Test Org"},
+                user_id="user_no_perms",
+            )
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 403
+        assert "permission" in error.lower() or "denied" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_invite_permission_denied(self):
+        """Invite should return 403 when permission denied."""
+        from aragora.server.handlers.base import error_response
+
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._check_permission",
+            return_value=error_response("Permission denied: team.invite", status=403),
+        ):
+            result = await handle_invite(
+                {
+                    "email": "test@example.com",
+                    "organization_id": "org_123",
+                },
+                user_id="user_no_perms",
+            )
+
+        status, _ = parse_result(result)
+        assert status == 403
+
+    @pytest.mark.asyncio
+    async def test_accept_invite_permission_denied(self):
+        """Accept invite should return 403 when permission denied."""
+        from aragora.server.handlers.base import error_response
+
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._check_permission",
+            return_value=error_response("Permission denied: team:join", status=403),
+        ):
+            result = await handle_accept_invite(
+                {"token": "some_token"},
+                user_id="user_no_perms",
+            )
+
+        status, _ = parse_result(result)
+        assert status == 403
+
+    @pytest.mark.asyncio
+    async def test_onboarding_complete_permission_denied(self):
+        """Onboarding complete should return 403 when permission denied."""
+        from aragora.server.handlers.base import error_response
+
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._check_permission",
+            return_value=error_response("Permission denied: org:admin", status=403),
+        ):
+            result = await handle_onboarding_complete(
+                {},
+                user_id="user_no_perms",
+                organization_id="org_123",
+            )
+
+        status, _ = parse_result(result)
+        assert status == 403
+
+    @pytest.mark.asyncio
+    async def test_onboarding_status_permission_denied(self):
+        """Onboarding status should return 403 when permission denied."""
+        from aragora.server.handlers.base import error_response
+
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._check_permission",
+            return_value=error_response("Permission denied: org:read", status=403),
+        ):
+            result = await handle_onboarding_status(
+                organization_id="org_123",
+                user_id="user_no_perms",
+            )
+
+        status, _ = parse_result(result)
+        assert status == 403
+
+
+# ===========================================================================
+# Test Exception Handling (500 errors)
+# ===========================================================================
+
+
+class TestExceptionHandling:
+    """Tests for exception handling in handlers."""
+
+    @pytest.mark.asyncio
+    async def test_signup_exception_returns_500(self, valid_signup_data):
+        """Signup exception should return 500."""
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._hash_password",
+            side_effect=RuntimeError("Hashing service unavailable"),
+        ):
+            result = await handle_signup(valid_signup_data)
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_verify_email_exception_returns_500(self, pending_signup):
+        """Verify email exception should return 500."""
+        token, _ = pending_signup
+
+        with patch(
+            "aragora.billing.jwt_auth.create_access_token",
+            side_effect=RuntimeError("JWT service unavailable"),
+        ):
+            result = await handle_verify_email({"token": token})
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_resend_verification_exception_returns_500(self):
+        """Resend verification exception should return 500."""
+        # Patch the lock acquisition to raise an exception
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._pending_signups_lock.__enter__",
+            side_effect=RuntimeError("Storage unavailable"),
+        ):
+            result = await handle_resend_verification({"email": "test@example.com"})
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_setup_organization_exception_returns_500(self):
+        """Setup organization exception should return 500."""
+        with patch(
+            "secrets.token_hex",
+            side_effect=RuntimeError("Random generation failed"),
+        ):
+            result = await handle_setup_organization(
+                {"name": "Test Org"},
+                user_id="user_123",
+            )
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_invite_exception_returns_500(self):
+        """Invite exception should return 500."""
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._generate_verification_token",
+            side_effect=RuntimeError("Token generation failed"),
+        ):
+            with patch(
+                "aragora.server.handlers.auth.signup_handlers._check_permission",
+                return_value=None,
+            ):
+                result = await handle_invite(
+                    {
+                        "email": "test@example.com",
+                        "organization_id": "org_123",
+                    },
+                    user_id="admin_user",
+                )
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_check_invite_exception_returns_500(self, valid_invite):
+        """Check invite exception should return 500."""
+        token, _ = valid_invite
+
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._pending_invites_lock.__enter__",
+            side_effect=RuntimeError("Storage error"),
+        ):
+            result = await handle_check_invite({"token": token})
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_accept_invite_exception_returns_500(self, valid_invite):
+        """Accept invite exception should return 500."""
+        token, _ = valid_invite
+
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._pending_invites_lock.__enter__",
+            side_effect=RuntimeError("Storage error"),
+        ):
+            result = await handle_accept_invite({"token": token}, user_id="user_123")
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_onboarding_complete_exception_returns_500(self):
+        """Onboarding complete exception should return 500."""
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._onboarding_lock.__enter__",
+            side_effect=RuntimeError("Storage error"),
+        ):
+            result = await handle_onboarding_complete(
+                {},
+                user_id="user_123",
+                organization_id="org_123",
+            )
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_onboarding_status_exception_returns_500(self):
+        """Onboarding status exception should return 500."""
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._onboarding_lock.__enter__",
+            side_effect=RuntimeError("Storage error"),
+        ):
+            result = await handle_onboarding_status(
+                organization_id="org_123",
+                user_id="user_123",
+            )
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+
+# ===========================================================================
+# Test Audit Logging
+# ===========================================================================
+
+
+class TestAuditLogging:
+    """Tests for audit logging in handlers."""
+
+    @pytest.mark.asyncio
+    async def test_signup_calls_audit_action(self, valid_signup_data):
+        """Signup should call audit_action."""
+        with patch("aragora.audit.unified.audit_action") as mock_audit:
+            result = await handle_signup(valid_signup_data)
+
+        status, _ = parse_result(result)
+        assert status == 200
+        mock_audit.assert_called_once()
+        call_kwargs = mock_audit.call_args[1]
+        assert call_kwargs["action"] == "signup_initiated"
+        assert call_kwargs["resource_type"] == "user"
+        assert call_kwargs["email"] == "newuser@example.com"
+
+    @pytest.mark.asyncio
+    async def test_setup_org_calls_audit_admin(self):
+        """Setup organization should call audit_admin."""
+        with patch("aragora.audit.unified.audit_admin") as mock_audit:
+            result = await handle_setup_organization(
+                {"name": "Audit Test Org"},
+                user_id="user_123",
+            )
+
+        status, _ = parse_result(result)
+        assert status == 200
+        mock_audit.assert_called_once()
+        call_kwargs = mock_audit.call_args[1]
+        assert call_kwargs["action"] == "organization_created"
+        assert call_kwargs["admin_id"] == "user_123"
+        assert call_kwargs["target_type"] == "organization"
+
+    @pytest.mark.asyncio
+    async def test_invite_calls_audit_action(self):
+        """Invite should call audit_action."""
+        with patch("aragora.audit.unified.audit_action") as mock_audit:
+            with patch(
+                "aragora.server.handlers.auth.signup_handlers._check_permission",
+                return_value=None,
+            ):
+                result = await handle_invite(
+                    {
+                        "email": "audit@example.com",
+                        "organization_id": "org_123",
+                        "role": "admin",
+                    },
+                    user_id="inviter_user",
+                )
+
+        status, _ = parse_result(result)
+        assert status == 200
+        mock_audit.assert_called_once()
+        call_kwargs = mock_audit.call_args[1]
+        assert call_kwargs["action"] == "team_invitation_sent"
+        assert call_kwargs["user_id"] == "inviter_user"
+        assert call_kwargs["invitee_email"] == "audit@example.com"
+
+    @pytest.mark.asyncio
+    async def test_accept_invite_calls_audit_action(self, valid_invite):
+        """Accept invite should call audit_action."""
+        token, _ = valid_invite
+
+        with patch("aragora.audit.unified.audit_action") as mock_audit:
+            result = await handle_accept_invite(
+                {"token": token},
+                user_id="accepting_user",
+            )
+
+        status, _ = parse_result(result)
+        assert status == 200
+        mock_audit.assert_called_once()
+        call_kwargs = mock_audit.call_args[1]
+        assert call_kwargs["action"] == "team_invitation_accepted"
+        assert call_kwargs["user_id"] == "accepting_user"
+
+    @pytest.mark.asyncio
+    async def test_audit_import_error_gracefully_handled(self, valid_signup_data):
+        """Audit import failure should not break signup."""
+        # Mock the import to fail by patching builtins.__import__
+        original_import = __builtins__.__dict__.get("__import__", __import__)
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aragora.audit.unified":
+                raise ImportError("Audit not available")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", mock_import):
+            result = await handle_signup(valid_signup_data)
+
+        status, _ = parse_result(result)
+        # Should still succeed even if audit fails
+        assert status == 200
+
+
+# ===========================================================================
+# Test Edge Cases and Boundary Conditions
+# ===========================================================================
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    @pytest.mark.asyncio
+    async def test_signup_with_nonexistent_invite_token(self, valid_signup_data):
+        """Signup with nonexistent invite token should proceed without invite data."""
+        valid_signup_data["invite_token"] = "nonexistent_token_xyz"
+        result = await handle_signup(valid_signup_data)
+        status, _ = parse_result(result)
+        body = get_data(result)
+
+        # Should succeed - invite_token not found just means no invite
+        assert status == 200
+        assert "verification_token" in body
+
+    @pytest.mark.asyncio
+    async def test_signup_periodic_cleanup_trigger(self):
+        """Signup should trigger cleanup periodically."""
+        # Add 9 pending signups (cleanup triggers at multiples of 10)
+        for i in range(9):
+            with _pending_signups_lock:
+                _pending_signups[f"token_{i}"] = {
+                    "email": f"user{i}@example.com",
+                    "created_at": time.time() - VERIFICATION_TTL - 100,  # All expired
+                }
+
+        # The 10th signup should trigger cleanup
+        result = await handle_signup(
+            {
+                "email": "trigger@example.com",
+                "password": "SecurePass123!",
+                "name": "Trigger User",
+            }
+        )
+        status, _ = parse_result(result)
+        assert status == 200
+
+        # After cleanup, expired tokens should be removed
+        # (Note: cleanup happens before adding, so our new token is #10)
+
+    @pytest.mark.asyncio
+    async def test_setup_org_slug_edge_cases(self):
+        """Test slug generation edge cases."""
+        # Test leading/trailing hyphens removal
+        result = await handle_setup_organization(
+            {"name": "---Test Org---"},
+            user_id="user_123",
+        )
+        body = get_data(result)
+        slug = body["organization"]["slug"]
+        assert not slug.startswith("-")
+        assert not slug.endswith("-")
+
+    @pytest.mark.asyncio
+    async def test_setup_org_slug_too_long(self):
+        """Slug that's too long should fail validation."""
+        result = await handle_setup_organization(
+            {
+                "name": "Test Org",
+                "slug": "a" * 50,  # Way too long
+            },
+            user_id="user_123",
+        )
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 400
+        assert "slug" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_setup_org_slug_starts_with_hyphen(self):
+        """Slug starting with hyphen should fail validation."""
+        result = await handle_setup_organization(
+            {
+                "name": "Test Org",
+                "slug": "-invalid-slug",
+            },
+            user_id="user_123",
+        )
+        status, _ = parse_result(result)
+        assert status == 400
+
+    @pytest.mark.asyncio
+    async def test_setup_org_slug_ends_with_hyphen(self):
+        """Slug ending with hyphen should fail validation."""
+        result = await handle_setup_organization(
+            {
+                "name": "Test Org",
+                "slug": "invalid-slug-",
+            },
+            user_id="user_123",
+        )
+        status, _ = parse_result(result)
+        assert status == 400
+
+    @pytest.mark.asyncio
+    async def test_invite_viewer_role(self):
+        """Invite with viewer role should succeed."""
+        with patch(
+            "aragora.server.handlers.auth.signup_handlers._check_permission",
+            return_value=None,
+        ):
+            result = await handle_invite(
+                {
+                    "email": "viewer@example.com",
+                    "organization_id": "org_123",
+                    "role": "viewer",
+                },
+                user_id="admin_user",
+            )
+
+        status, _ = parse_result(result)
+        body = get_data(result)
+        assert status == 200
+        token = body["invite_token"]
+        with _pending_invites_lock:
+            assert _pending_invites[token]["role"] == "viewer"
+
+    @pytest.mark.asyncio
+    async def test_verify_email_user_id_format(self, pending_signup):
+        """Verified user ID should follow expected format."""
+        token, _ = pending_signup
+
+        with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
+            mock_jwt.return_value = "jwt_token"
+            result = await handle_verify_email({"token": token})
+
+        body = get_data(result)
+        user_id = body["user_id"]
+        assert user_id.startswith("user_")
+        assert len(user_id) > len("user_")  # Should have random suffix
+
+    @pytest.mark.asyncio
+    async def test_check_invite_expires_at_calculation(self, valid_invite):
+        """Expires_at should be calculated correctly."""
+        token, invite_data = valid_invite
+        created_at = invite_data["created_at"]
+
+        result = await handle_check_invite({"token": token})
+        body = get_data(result)
+
+        expected_expires = created_at + INVITE_TTL
+        assert abs(body["expires_at"] - expected_expires) < 1  # Within 1 second
+
+    @pytest.mark.asyncio
+    async def test_onboarding_status_first_receipt_tied_to_first_debate(self):
+        """First receipt status should be tied to first debate."""
+        # Complete with first_debate_id
+        await handle_onboarding_complete(
+            {"first_debate_id": "debate_xyz"},
+            user_id="user_123",
+            organization_id="org_123",
+        )
+
+        result = await handle_onboarding_status(
+            organization_id="org_123",
+            user_id="user_123",
+        )
+
+        body = get_data(result)
+        assert body["steps"]["first_debate"] is True
+        assert body["steps"]["first_receipt"] is True
+
+    @pytest.mark.asyncio
+    async def test_onboarding_status_no_first_debate(self):
+        """First receipt should be false without first debate."""
+        # Complete without first_debate_id
+        await handle_onboarding_complete(
+            {},
+            user_id="user_123",
+            organization_id="org_456",
+        )
+
+        result = await handle_onboarding_status(
+            organization_id="org_456",
+            user_id="user_123",
+        )
+
+        body = get_data(result)
+        assert body["steps"]["first_debate"] is False
+        assert body["steps"]["first_receipt"] is False
+
+
+# ===========================================================================
+# Test Constants and Configuration
+# ===========================================================================
+
+
+class TestConstantsAndConfig:
+    """Tests for module constants and configuration."""
+
+    def test_verification_ttl_is_24_hours(self):
+        """Verification TTL should be 24 hours."""
+        assert VERIFICATION_TTL == 86400
+
+    def test_invite_ttl_is_7_days(self):
+        """Invite TTL should be 7 days."""
+        assert INVITE_TTL == 604800
+
+    def test_min_password_length_is_8(self):
+        """Minimum password length should be 8."""
+        assert MIN_PASSWORD_LENGTH == 8
+
+    def test_email_regex_compiled(self):
+        """Email regex should be pre-compiled."""
+        import re
+
+        assert isinstance(EMAIL_REGEX, re.Pattern)
+
+
+# ===========================================================================
+# Test _check_permission Helper
+# ===========================================================================
+
+
+class TestCheckPermissionHelper:
+    """Tests for _check_permission helper function."""
+
+    def test_check_permission_returns_none_on_success(self):
+        """Permission check should return None when allowed."""
+        from aragora.server.handlers.auth.signup_handlers import _check_permission
+
+        with patch("aragora.rbac.checker.get_permission_checker") as mock_checker:
+            mock_decision = MagicMock()
+            mock_decision.allowed = True
+            mock_checker.return_value.check_permission.return_value = mock_decision
+
+            result = _check_permission("user_123", "some:permission")
+
+        assert result is None
+
+    def test_check_permission_returns_403_on_denied(self):
+        """Permission check should return 403 when denied."""
+        from aragora.server.handlers.auth.signup_handlers import _check_permission
+
+        with patch("aragora.rbac.checker.get_permission_checker") as mock_checker:
+            mock_decision = MagicMock()
+            mock_decision.allowed = False
+            mock_decision.reason = "Insufficient permissions"
+            mock_checker.return_value.check_permission.return_value = mock_decision
+
+            result = _check_permission("user_123", "some:permission")
+
+        status, _ = parse_result(result)
+        assert status == 403
+
+    def test_check_permission_returns_500_on_exception(self):
+        """Permission check should return 500 on exception."""
+        from aragora.server.handlers.auth.signup_handlers import _check_permission
+
+        with patch("aragora.rbac.checker.get_permission_checker") as mock_checker:
+            mock_checker.side_effect = Exception("RBAC unavailable")
+
+            result = _check_permission("user_123", "some:permission")
+
+        status, _ = parse_result(result)
+        assert status == 500
+
+    def test_check_permission_uses_default_role(self):
+        """Permission check should use default 'member' role."""
+        from aragora.server.handlers.auth.signup_handlers import _check_permission
+        from aragora.rbac.models import AuthorizationContext
+
+        with patch("aragora.rbac.checker.get_permission_checker") as mock_checker:
+            mock_decision = MagicMock()
+            mock_decision.allowed = True
+            mock_checker.return_value.check_permission.return_value = mock_decision
+
+            _check_permission("user_123", "some:permission")
+
+            call_args = mock_checker.return_value.check_permission.call_args
+            context = call_args[0][0]
+            assert "member" in context.roles
+
+    def test_check_permission_with_custom_roles(self):
+        """Permission check should use provided roles."""
+        from aragora.server.handlers.auth.signup_handlers import _check_permission
+
+        with patch("aragora.rbac.checker.get_permission_checker") as mock_checker:
+            mock_decision = MagicMock()
+            mock_decision.allowed = True
+            mock_checker.return_value.check_permission.return_value = mock_decision
+
+            _check_permission(
+                "user_123",
+                "some:permission",
+                roles={"admin", "superuser"},
+            )
+
+            call_args = mock_checker.return_value.check_permission.call_args
+            context = call_args[0][0]
+            assert context.roles == {"admin", "superuser"}
