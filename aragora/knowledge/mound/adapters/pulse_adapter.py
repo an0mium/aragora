@@ -594,7 +594,7 @@ class PulseAdapter:
             if count >= min_occurrences
         ]
 
-        patterns.sort(key=lambda x: int(x.get("occurrence_count") or 0), reverse=True)
+        patterns.sort(key=lambda x: int(x.get("occurrence_count") or 0), reverse=True)  # type: ignore[arg-type]
 
         return patterns[:limit]
 

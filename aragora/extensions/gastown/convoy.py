@@ -139,7 +139,7 @@ class ConvoyTracker:
             "rig_id",
             "merge_result",
         }
-        user_metadata: dict[str, Any] = dict(metadata.get("metadata") or {})
+        user_metadata: dict[str, Any] = dict(metadata.get("metadata") or {})  # type: ignore[call-overload]
         for key, value in metadata.items():
             if key in reserved_keys:
                 continue

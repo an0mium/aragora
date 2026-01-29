@@ -752,3 +752,181 @@ class TestEdgeCases:
 
         result_versions = [m.version for m in runner._migrations]
         assert result_versions == sorted(versions)
+
+
+# ---------------------------------------------------------------------------
+# Advisory locking tests
+# ---------------------------------------------------------------------------
+
+
+class TestAdvisoryLocking:
+    """Tests for advisory lock functionality."""
+
+    def test_acquire_lock_sqlite_always_succeeds(self, runner):
+        """SQLite doesn't use advisory locks, should return True immediately."""
+        result = runner._acquire_migration_lock(timeout_seconds=1.0)
+        assert result is True
+
+    def test_release_lock_sqlite_noop(self, runner):
+        """SQLite release lock should be a no-op (no exception)."""
+        runner._release_migration_lock()  # Should not raise
+
+    def test_get_applied_by(self, runner):
+        """Test _get_applied_by returns hostname:pid format."""
+        applied_by = runner._get_applied_by()
+        assert ":" in applied_by
+        # Should contain process ID
+        import os
+
+        assert str(os.getpid()) in applied_by
+
+
+class TestAppliedByTracking:
+    """Tests for applied_by metadata tracking."""
+
+    def test_upgrade_records_applied_by(self, runner, backend):
+        """Upgrade should record applied_by in tracking table."""
+        from aragora.migrations.runner import Migration
+
+        m = Migration(version=1, name="test", up_sql="SELECT 1")
+        runner.register(m)
+        runner.upgrade()
+
+        # Check applied_by was recorded
+        rows = backend.fetch_all(
+            "SELECT version, name, applied_by FROM _aragora_migrations WHERE version = ?",
+            (1,),
+        )
+        assert len(rows) == 1
+        version, name, applied_by = rows[0]
+        assert version == 1
+        assert name == "test"
+        # applied_by should have hostname:pid format
+        assert applied_by is not None
+        assert ":" in applied_by
+
+
+class TestMigrationLockingBehavior:
+    """Tests for locking behavior during migrations."""
+
+    def test_upgrade_acquires_and_releases_lock(self, backend):
+        """Test that upgrade acquires lock before and releases after."""
+        from aragora.migrations.runner import Migration, MigrationRunner
+
+        runner = MigrationRunner(backend=backend)
+
+        # Track lock operations
+        lock_operations = []
+        original_acquire = runner._acquire_migration_lock
+        original_release = runner._release_migration_lock
+
+        def mock_acquire(timeout_seconds=30.0):
+            lock_operations.append("acquire")
+            return original_acquire(timeout_seconds)
+
+        def mock_release():
+            lock_operations.append("release")
+            return original_release()
+
+        runner._acquire_migration_lock = mock_acquire
+        runner._release_migration_lock = mock_release
+
+        m = Migration(version=1, name="test", up_sql="SELECT 1")
+        runner.register(m)
+        runner.upgrade()
+
+        # Should have acquired then released
+        assert lock_operations == ["acquire", "release"]
+
+    def test_downgrade_acquires_and_releases_lock(self, backend):
+        """Test that downgrade acquires lock before and releases after."""
+        from aragora.migrations.runner import Migration, MigrationRunner
+
+        runner = MigrationRunner(backend=backend)
+
+        m = Migration(version=1, name="test", up_sql="SELECT 1", down_sql="SELECT 1")
+        runner.register(m)
+        runner.upgrade()
+
+        # Track lock operations
+        lock_operations = []
+        original_acquire = runner._acquire_migration_lock
+        original_release = runner._release_migration_lock
+
+        def mock_acquire(timeout_seconds=30.0):
+            lock_operations.append("acquire")
+            return original_acquire(timeout_seconds)
+
+        def mock_release():
+            lock_operations.append("release")
+            return original_release()
+
+        runner._acquire_migration_lock = mock_acquire
+        runner._release_migration_lock = mock_release
+
+        runner.downgrade()
+
+        # Should have acquired then released
+        assert lock_operations == ["acquire", "release"]
+
+    def test_lock_released_on_error(self, backend):
+        """Test that lock is released even when migration fails."""
+        from aragora.migrations.runner import Migration, MigrationRunner
+
+        runner = MigrationRunner(backend=backend)
+
+        lock_released = []
+
+        original_release = runner._release_migration_lock
+
+        def mock_release():
+            lock_released.append(True)
+            return original_release()
+
+        runner._release_migration_lock = mock_release
+
+        def bad_up(be):
+            raise RuntimeError("boom")
+
+        m = Migration(version=1, name="fail", up_fn=bad_up)
+        runner.register(m)
+
+        with pytest.raises(RuntimeError, match="boom"):
+            runner.upgrade()
+
+        # Lock should still be released
+        assert len(lock_released) == 1
+
+    def test_no_lock_for_empty_pending(self, backend):
+        """Test that lock is not acquired when no migrations pending."""
+        from aragora.migrations.runner import MigrationRunner
+
+        runner = MigrationRunner(backend=backend)
+
+        lock_acquired = []
+        original_acquire = runner._acquire_migration_lock
+
+        def mock_acquire(timeout_seconds=30.0):
+            lock_acquired.append(True)
+            return original_acquire(timeout_seconds)
+
+        runner._acquire_migration_lock = mock_acquire
+
+        # No migrations registered, upgrade should return early
+        applied = runner.upgrade()
+
+        assert applied == []
+        assert len(lock_acquired) == 0  # Lock not acquired
+
+
+class TestMigrationTableSchema:
+    """Tests for the migration tracking table schema."""
+
+    def test_migrations_table_has_applied_by_column(self, backend, runner):
+        """Verify the migrations table has the applied_by column."""
+        cursor = backend._conn.execute("PRAGMA table_info(_aragora_migrations)")
+        cols = {row[1] for row in cursor.fetchall()}
+        assert "version" in cols
+        assert "name" in cols
+        assert "applied_at" in cols
+        assert "applied_by" in cols
