@@ -16,6 +16,7 @@ import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
+from aragora.config import DEFAULT_ROUNDS
 if TYPE_CHECKING:
     pass
 
@@ -343,7 +344,9 @@ class ReplaysHandler(BaseHandler):
                         sum(d.get("confidence", 0.5) for d in day_debates) / total if total else 0
                     )
                     avg_rounds = (
-                        sum(d.get("rounds", 3) for d in day_debates) / total if total else 3
+                        sum(d.get("rounds", DEFAULT_ROUNDS) for d in day_debates) / total
+                        if total
+                        else DEFAULT_ROUNDS
                     )
                     avg_duration = (
                         sum(d.get("duration_seconds", 60) for d in day_debates) / total

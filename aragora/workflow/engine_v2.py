@@ -44,6 +44,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, Optional, Set, Type
 
+from aragora.config import DEFAULT_ROUNDS
+from aragora.config.settings import get_settings
 from aragora.workflow.engine import WorkflowEngine
 from aragora.workflow.types import (
     ExecutionPattern,
@@ -646,8 +648,8 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 estimates["total"] += cost
 
             elif step.step_type in ("debate", "quick_debate"):
-                agents = step.config.get("agents", ["claude", "gpt4"])
-                rounds = step.config.get("rounds", 3)
+                agents = step.config.get("agents", get_settings().agent.default_agent_list)
+                rounds = step.config.get("rounds", DEFAULT_ROUNDS)
 
                 for agent_type in agents:
                     pricing = MODEL_PRICING.get(agent_type.lower(), MODEL_PRICING["default"])

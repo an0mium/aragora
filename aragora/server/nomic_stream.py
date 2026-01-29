@@ -9,6 +9,8 @@ Refactored to use category-based organization for improved maintainability.
 
 from typing import Callable, Optional
 
+from aragora.config import DEFAULT_ROUNDS
+
 from .stream import StreamEvent, StreamEventType, SyncEventEmitter
 
 
@@ -356,7 +358,7 @@ def _create_audit_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
                 "task": task,
                 "agents": agents,
                 "config": config or {},
-                "rounds": config.get("rounds", 6) if config else 6,
+                "rounds": config.get("rounds", DEFAULT_ROUNDS) if config else DEFAULT_ROUNDS,
             },
         )
 

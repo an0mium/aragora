@@ -14,6 +14,7 @@ import logging
 import re
 from typing import Any, Optional
 
+from aragora.config import DEFAULT_ROUNDS
 from ..base import (
     SAFE_AGENT_PATTERN,
     HandlerResult,
@@ -220,7 +221,7 @@ class GraphDebatesHandler(SecureHandler):
                 )
 
         # Validate max_rounds
-        max_rounds = data.get("max_rounds", 5)
+        max_rounds = data.get("max_rounds", DEFAULT_ROUNDS)
         if not isinstance(max_rounds, int):
             try:
                 max_rounds = int(max_rounds)

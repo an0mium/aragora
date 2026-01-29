@@ -42,6 +42,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.config.settings import get_settings
 from aragora.nomic.beads import BeadStore
 
 logger = logging.getLogger(__name__)
@@ -391,9 +393,11 @@ class DebateStepExecutor(StepExecutor):
     async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
         """Execute step via Arena debate."""
         question = step.config.get("question", step.name)
-        agents_config = step.config.get("agents", ["claude", "gpt4"])
-        rounds = step.config.get("rounds", 3)
-        consensus = step.config.get("consensus", "majority")
+        agents_config = step.config.get(
+            "agents", get_settings().agent.default_agent_list
+        )
+        rounds = step.config.get("rounds", DEFAULT_ROUNDS)
+        consensus = step.config.get("consensus", DEFAULT_CONSENSUS)
 
         try:
             from aragora.core import Environment, DebateProtocol

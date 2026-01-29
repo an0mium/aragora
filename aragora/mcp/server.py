@@ -23,6 +23,8 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, cast
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
+
 logger = logging.getLogger(__name__)
 
 # Rate limiting configuration (requests per minute per tool)
@@ -369,9 +371,9 @@ class AragoraMCPServer:
             question = arguments.get("question", "")
             if question and len(question) > MAX_QUESTION_LENGTH:
                 return f"Question exceeds maximum length ({MAX_QUESTION_LENGTH} chars)"
-            rounds = arguments.get("rounds", 3)
-            if not isinstance(rounds, int) or rounds < 1 or rounds > 10:
-                return "Rounds must be an integer between 1 and 10"
+            rounds = arguments.get("rounds", DEFAULT_ROUNDS)
+            if not isinstance(rounds, int) or rounds < 1 or rounds > MAX_ROUNDS:
+                return f"Rounds must be an integer between 1 and {MAX_ROUNDS}"
 
         elif tool_name == "run_gauntlet":
             content = arguments.get("content", "")
@@ -614,8 +616,8 @@ class AragoraMCPServer:
 
         question = args.get("question", "")
         agents_str = args.get("agents", "anthropic-api,openai-api")
-        rounds = min(max(args.get("rounds", 3), 1), 10)
-        consensus = args.get("consensus", "majority")
+        rounds = min(max(args.get("rounds", DEFAULT_ROUNDS), 1), MAX_ROUNDS)
+        consensus = args.get("consensus", DEFAULT_CONSENSUS)
 
         if not question:
             return {"error": "Question is required"}

@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.rbac.decorators import require_permission
 
 from .base import (
@@ -816,7 +817,7 @@ class TemplateRecommendationsHandler(BaseHandler):
                     "name": rec.get("name") or template.get("name", rec["id"]),
                     "description": rec.get("description") or template.get("description", ""),
                     "agents_count": len(template.get("recommended_agents", [])) or 2,
-                    "rounds": template.get("config", {}).get("rounds", 3),
+                    "rounds": template.get("config", {}).get("rounds", DEFAULT_ROUNDS),
                     "estimated_duration_minutes": template.get("estimated_duration", 5),
                     "use_case": use_case,
                     "category": rec["id"].split("/")[0] if "/" in rec["id"] else "general",

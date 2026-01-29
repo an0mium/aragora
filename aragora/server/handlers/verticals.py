@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -420,7 +421,7 @@ class VerticalsHandler(SecureHandler):
             # Create environment and protocol
             env = Environment(task=topic)
             protocol = DebateProtocol(
-                rounds=data.get("rounds", 3),
+                rounds=data.get("rounds", DEFAULT_ROUNDS),
                 consensus=data.get("consensus", "weighted"),
             )
 

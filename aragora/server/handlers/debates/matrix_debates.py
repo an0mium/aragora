@@ -15,6 +15,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.server.versioning.compat import strip_version_prefix
 
 if TYPE_CHECKING:
@@ -60,7 +61,7 @@ class MatrixRunnerProtocol(Protocol):
 
     def add_scenario(self, config: Any) -> None: ...
 
-    async def run_all(self, max_rounds: int = 3) -> MatrixResultProtocol: ...
+    async def run_all(self, max_rounds: int = DEFAULT_ROUNDS) -> MatrixResultProtocol: ...
 
 
 from ..base import (
@@ -192,7 +193,7 @@ class MatrixDebatesHandler(SecureHandler):
                 - parameters: dict - Scenario-specific parameters
                 - constraints: list[str] - Additional constraints
                 - is_baseline: bool - Whether this is the baseline scenario
-            max_rounds: int - Maximum rounds per scenario (1-10, default: 3)
+            max_rounds: int - Maximum rounds per scenario (1-10, default: global debate default)
         """
         # Validate task
         task = data.get("task")
@@ -243,7 +244,7 @@ class MatrixDebatesHandler(SecureHandler):
                 return error_response(f"agents[{i}] name too long (max 50 chars)", 400)
 
         # Validate max_rounds
-        max_rounds = data.get("max_rounds", 3)
+        max_rounds = data.get("max_rounds", DEFAULT_ROUNDS)
         if not isinstance(max_rounds, int):
             try:
                 max_rounds = int(max_rounds)
@@ -333,7 +334,7 @@ class MatrixDebatesHandler(SecureHandler):
         task = data.get("task")
         scenarios = data.get("scenarios", [])
         agent_names = data.get("agents", [])
-        max_rounds = data.get("max_rounds", 3)
+        max_rounds = data.get("max_rounds", DEFAULT_ROUNDS)
 
         try:
             agents = await self._load_agents(agent_names)

@@ -20,6 +20,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 from aragora.server.versioning.compat import strip_version_prefix
 from aragora.audit.unified import audit_admin, audit_data
@@ -365,8 +366,8 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             job = create_debate_job(
                 question=question,
                 agents=data.get("agents"),
-                rounds=data.get("rounds", 3),
-                consensus=data.get("consensus", "majority"),
+                rounds=data.get("rounds", DEFAULT_ROUNDS),
+                consensus=data.get("consensus", DEFAULT_CONSENSUS),
                 protocol=data.get("protocol", "standard"),
                 priority=data.get("priority", 0),
                 max_attempts=data.get("max_attempts", 3),

@@ -874,7 +874,7 @@ class DebateRoundsPhase:
             revision_agents.append(agent)
 
         # Calculate dynamic phase timeout based on number of agents
-        base_phase_timeout = AGENT_TIMEOUT_SECONDS
+        base_phase_timeout: float = AGENT_TIMEOUT_SECONDS
         if revision_agents:
             try:
                 base_phase_timeout = max(

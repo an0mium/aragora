@@ -25,6 +25,7 @@ import importlib
 import logging
 from typing import Optional
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.exceptions import (
     DatabaseError,
     RecordNotFoundError,
@@ -565,7 +566,7 @@ class DebatesHandler(
                         if isinstance(active.get("agents"), str)
                         else active.get("agents", [])
                     ),
-                    "rounds": active.get("rounds", 3),
+                    "rounds": active.get("rounds", DEFAULT_ROUNDS),
                     "in_progress": True,
                 }
             )

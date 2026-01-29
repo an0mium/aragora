@@ -34,6 +34,8 @@ import logging
 import os
 from typing import Any, Coroutine, Dict, List, Optional
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -625,8 +627,8 @@ class WhatsAppHandler(BaseHandler):
 
             agents = get_agents_by_names(agent_names)
             protocol = DebateProtocol(
-                rounds=protocol_config.get("rounds", 3),
-                consensus=protocol_config.get("consensus", "majority"),
+                rounds=protocol_config.get("rounds", DEFAULT_ROUNDS),
+                consensus=protocol_config.get("consensus", DEFAULT_CONSENSUS),
                 convergence_detection=protocol_config.get("convergence_detection", False),
                 early_stopping=protocol_config.get("early_stopping", False),
             )

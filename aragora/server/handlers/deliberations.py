@@ -20,6 +20,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.server.handlers.base import BaseHandler
 
 # RBAC imports - graceful fallback if not available
@@ -229,7 +230,7 @@ class DeliberationsHandler(BaseHandler):
             "status": self._map_debate_status(debate.get("status", "unknown")),
             "agents": agents,
             "current_round": current_round,
-            "total_rounds": debate.get("total_rounds", debate.get("rounds", 5)),
+            "total_rounds": debate.get("total_rounds", debate.get("rounds", DEFAULT_ROUNDS)),
             "consensus_score": debate.get("consensus_score", 0),
             "started_at": debate.get("started_at", debate.get("created_at", "")),
             "updated_at": debate.get("updated_at", debate.get("started_at", "")),

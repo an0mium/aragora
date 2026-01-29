@@ -12,6 +12,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.config.settings import get_settings
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
@@ -24,9 +26,9 @@ class DebateStep(BaseStep):
     Config options:
         topic: str - Debate topic (can use {input} placeholders)
         agents: List[str] - Agent types to use (default: auto-selected)
-        rounds: int - Number of debate rounds (default: 3)
+        rounds: int - Number of debate rounds (default: global debate default)
         topology: str - Debate topology (default: "round_robin")
-        consensus_mechanism: str - How to determine consensus (default: "majority")
+        consensus_mechanism: str - How to determine consensus (default: global debate default)
         enable_critique: bool - Enable agent critiques (default: True)
         enable_synthesis: bool - Generate synthesis at end (default: True)
         timeout_seconds: float - Timeout per round (default: 120)
@@ -92,7 +94,7 @@ class DebateStep(BaseStep):
             env = Environment(task=topic)
 
             # Get agents
-            agent_types = config.get("agents", ["claude", "gpt4"])
+            agent_types = config.get("agents", get_settings().agent.default_agent_list)
             agents = []
             for agent_type in agent_types:
                 try:
@@ -106,9 +108,9 @@ class DebateStep(BaseStep):
 
             # Build protocol
             protocol = DebateProtocol(
-                rounds=config.get("rounds", 3),
+                rounds=config.get("rounds", DEFAULT_ROUNDS),
                 topology=config.get("topology", "round_robin"),
-                consensus=config.get("consensus_mechanism", "majority"),
+                consensus=config.get("consensus_mechanism", DEFAULT_CONSENSUS),
                 enable_critique=config.get("enable_critique", True),
                 enable_synthesis=config.get("enable_synthesis", True),
             )

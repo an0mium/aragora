@@ -19,6 +19,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
 
+from aragora.config import DEFAULT_ROUNDS
+from aragora.config.settings import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -258,8 +261,10 @@ class ScheduledTrigger:
         if self.debate_creator:
             try:
                 topic = trigger.metadata.get("topic", f"Scheduled analysis: {trigger.name}")
-                agents = trigger.metadata.get("agents", ["anthropic-api", "openai-api"])
-                rounds = trigger.metadata.get("rounds", 3)
+                agents = trigger.metadata.get(
+                    "agents", get_settings().agent.default_agent_list
+                )
+                rounds = trigger.metadata.get("rounds", DEFAULT_ROUNDS)
 
                 await self.debate_creator(topic, agents, rounds)
 

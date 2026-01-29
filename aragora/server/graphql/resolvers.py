@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
+from aragora.config import DEFAULT_ROUNDS
 if TYPE_CHECKING:
     from aragora.server.handlers.base import ServerContext
 
@@ -766,7 +767,7 @@ class MutationResolvers:
                     "consensus": None,
                     "createdAt": datetime.now().isoformat(),
                     "completedAt": None,
-                    "roundCount": input.get("rounds", 3),
+                    "roundCount": input.get("rounds", DEFAULT_ROUNDS),
                     "tags": input.get("tags", []),
                     "consensusReached": False,
                     "confidence": None,
@@ -1220,7 +1221,7 @@ def _transform_debate(debate: Dict[str, Any]) -> Dict[str, Any]:
             )
 
     # Mark rounds as completed
-    total_rounds = debate.get("rounds", 3)
+    total_rounds = debate.get("rounds", DEFAULT_ROUNDS)
     for round_num in rounds_map:
         if round_num < total_rounds or debate.get("status") in ("completed", "concluded"):
             rounds_map[round_num]["completed"] = True
@@ -1281,7 +1282,7 @@ def _transform_debate(debate: Dict[str, Any]) -> Dict[str, Any]:
         "consensus": consensus,
         "createdAt": _to_iso_datetime(debate.get("created_at") or debate.get("timestamp")),
         "completedAt": _to_iso_datetime(debate.get("completed_at")),
-        "roundCount": debate.get("rounds", 3),
+        "roundCount": debate.get("rounds", DEFAULT_ROUNDS),
         "tags": debate.get("tags", []),
         "consensusReached": debate.get("consensus_reached", False),
         "confidence": debate.get("confidence"),

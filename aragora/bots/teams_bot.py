@@ -21,6 +21,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from aragora.config import DEFAULT_ROUNDS
+
 from aragora.bots.base import (
     BotChannel,
     BotConfig,
@@ -357,7 +359,7 @@ class AragoraTeamsBot:
                 agents=agents,
                 progress=0,
                 current_round=1,
-                total_rounds=result.data.get("rounds", 3),
+                total_rounds=result.data.get("rounds", DEFAULT_ROUNDS),
                 status="in_progress",
             )
 

@@ -473,7 +473,7 @@ def create_phase_executor(arena: "Arena") -> PhaseExecutor:
     # This prevents timeout issues with slow agents (e.g., kimi taking 30-85s/critique)
     num_agents = len(arena.agents) if arena.agents else 4
     num_rounds = getattr(arena.protocol, "rounds", 3)
-    max_agent_timeout = AGENT_TIMEOUT_SECONDS
+    max_agent_timeout: float = AGENT_TIMEOUT_SECONDS
     if arena.agents:
         try:
             max_agent_timeout = max(

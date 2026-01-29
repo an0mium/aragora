@@ -24,7 +24,7 @@ import logging
 import sqlite3
 from typing import Any, Optional
 
-from aragora.config import DEFAULT_ROUNDS
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 try:
     import httpx
@@ -468,8 +468,8 @@ class PulseHandler(BaseHandler):
             agent_names = [a.strip() for a in agent_names.split(",") if a.strip()]
         if not isinstance(agent_names, list):
             return error_response("agents must be a list or comma-separated string", 400)
-        rounds = data.get("rounds", 3)
-        consensus = data.get("consensus", "majority")
+        rounds = data.get("rounds", DEFAULT_ROUNDS)
+        consensus = data.get("consensus", DEFAULT_CONSENSUS)
 
         # Validate parameters
         try:
