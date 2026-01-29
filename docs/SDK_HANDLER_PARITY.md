@@ -1,10 +1,10 @@
 # SDK ↔ Handler Parity Report
 
-Generated: 2026-01-28
+Generated: 2026-01-29
 
 ## Summary
-- SDK TS endpoints not implemented by handlers: 663
-- SDK PY endpoints not implemented by handlers: 637
+- SDK TS endpoints not implemented by handlers: 657
+- SDK PY endpoints not implemented by handlers: 631
 
 These endpoints likely represent stale SDK methods or legacy routes. They should be removed,
 deprecated, or reintroduced in the server if still required.
@@ -213,7 +213,6 @@ GET /api/v1/genesis/debates/{param}/tree
 GET /api/v1/genesis/descendants
 GET /api/v1/genesis/lineage
 GET /api/v1/genesis/tree
-GET /api/v1/graph-debates
 GET /api/v1/graph-debates/{param}
 GET /api/v1/graph-debates/{param}/branches
 GET /api/v1/inbox/accounts/{param}
@@ -263,7 +262,6 @@ GET /api/v1/marketplace/industries
 GET /api/v1/marketplace/new
 GET /api/v1/marketplace/purchases
 GET /api/v1/marketplace/trending
-GET /api/v1/matrix-debates
 GET /api/v1/matrix-debates/{param}
 GET /api/v1/matrix-debates/{param}/conclusions
 GET /api/v1/memory/continuum/stats
@@ -485,8 +483,6 @@ POST /api/v1/audit/sessions/{param}/pause
 POST /api/v1/audit/sessions/{param}/resume
 POST /api/v1/audit/sessions/{param}/start
 POST /api/v1/auth/change-password
-POST /api/v1/auth/forgot-password
-POST /api/v1/auth/reset-password
 POST /api/v1/autonomous/monitoring/record
 POST /api/v1/bindings
 POST /api/v1/bindings/resolve
@@ -528,7 +524,6 @@ POST /api/v1/documents/summarize
 POST /api/v1/feedback/general
 POST /api/v1/feedback/nps
 POST /api/v1/findings/batch-evidence
-POST /api/v1/graph-debates
 POST /api/v1/graph-debates/{param}/branches
 POST /api/v1/invitations/{param}/accept
 POST /api/v1/knowledge
@@ -553,7 +548,6 @@ POST /api/v1/knowledge/mound/sync/consensus
 POST /api/v1/knowledge/mound/sync/continuum
 POST /api/v1/knowledge/mound/sync/facts
 POST /api/v1/knowledge/query-rlm
-POST /api/v1/matrix-debates
 POST /api/v1/memory/continuum/store
 POST /api/v1/memory/snapshot
 POST /api/v1/memory/store
@@ -845,11 +839,6 @@ GET /api/v1/cross-pollination/km/staleness-check
 GET /api/v1/cross-pollination/metrics
 GET /api/v1/cross-pollination/stats
 GET /api/v1/cross-pollination/subscribers
-GET /api/v1/dashboard
-GET /api/v1/dashboard/activity
-GET /api/v1/dashboard/inbox-summary
-GET /api/v1/dashboard/quick-actions
-GET /api/v1/dashboard/stats
 GET /api/v1/debate/{param}/graph-stats
 GET /api/v1/decisions/{param}
 GET /api/v1/decisions/{param}/explain
@@ -1173,7 +1162,6 @@ POST /api/v1/costs/recommendations/{param}/dismiss
 POST /api/v1/cross-pollination/km/sync
 POST /api/v1/cross-pollination/reset
 POST /api/v1/cross-pollination/subscribe
-POST /api/v1/dashboard/quick-actions/{param}
 POST /api/v1/decisions/{param}/cancel
 POST /api/v1/decisions/{param}/retry
 POST /api/v1/documents/compare

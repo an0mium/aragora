@@ -12,6 +12,7 @@ from aragora.security.kms_provider import (
     AwsKmsProvider,
     AzureKeyVaultProvider,
     GcpKmsProvider,
+    HashiCorpVaultProvider,
     LocalKmsProvider,
     get_kms_provider,
     init_kms_provider,
@@ -280,3 +281,180 @@ class TestKmsKeyMetadata:
         assert meta.version is None
         assert meta.algorithm == "AES-256"
         assert meta.provider == "unknown"
+
+
+class TestHashiCorpVaultProvider:
+    """Tests for HashiCorpVaultProvider with mocked hvac."""
+
+    def test_init_with_defaults(self, monkeypatch):
+        """Should use environment defaults."""
+        monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com")
+        monkeypatch.setenv("VAULT_TOKEN", "test-token")
+        monkeypatch.setenv("VAULT_NAMESPACE", "myns")
+        monkeypatch.setenv("ARAGORA_VAULT_TRANSIT_PATH", "transit")
+        monkeypatch.setenv("ARAGORA_VAULT_KEY_NAME", "my-key")
+
+        provider = HashiCorpVaultProvider()
+
+        assert provider.addr == "https://vault.example.com"
+        assert provider.token == "test-token"
+        assert provider.namespace == "myns"
+        assert provider.transit_path == "transit"
+        assert provider.default_key == "my-key"
+
+    def test_init_with_explicit_values(self):
+        """Should use explicit values."""
+        provider = HashiCorpVaultProvider(
+            addr="https://custom.vault.com",
+            token="explicit-token",
+            namespace="custom-ns",
+            transit_path="custom-transit",
+            key_name="custom-key",
+        )
+
+        assert provider.addr == "https://custom.vault.com"
+        assert provider.token == "explicit-token"
+        assert provider.namespace == "custom-ns"
+        assert provider.transit_path == "custom-transit"
+        assert provider.default_key == "custom-key"
+
+    @pytest.mark.asyncio
+    async def test_get_encryption_key(self, monkeypatch):
+        """Should call Vault transit generate_data_key."""
+        import base64
+
+        mock_client = MagicMock()
+        mock_client.is_authenticated.return_value = True
+        mock_client.secrets.transit.generate_data_key.return_value = {
+            "data": {
+                "plaintext": base64.b64encode(b"generated-key-32bytes-here!!!!!").decode(),
+                "ciphertext": "vault:v1:encrypted-blob",
+            }
+        }
+
+        monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com")
+        provider = HashiCorpVaultProvider()
+        provider._client = mock_client
+
+        key = await provider.get_encryption_key("test-key")
+
+        assert key == b"generated-key-32bytes-here!!!!!"
+        mock_client.secrets.transit.generate_data_key.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_encrypt_data_key(self, monkeypatch):
+        """Should call Vault transit encrypt_data."""
+        import base64
+
+        mock_client = MagicMock()
+        mock_client.is_authenticated.return_value = True
+        mock_client.secrets.transit.encrypt_data.return_value = {
+            "data": {"ciphertext": f"vault:v1:{base64.b64encode(b'encrypted-result').decode()}"}
+        }
+
+        monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com")
+        provider = HashiCorpVaultProvider()
+        provider._client = mock_client
+
+        result = await provider.encrypt_data_key(b"plaintext", "test-key")
+
+        assert result == b"encrypted-result"
+
+    @pytest.mark.asyncio
+    async def test_decrypt_data_key(self, monkeypatch):
+        """Should call Vault transit decrypt_data."""
+        import base64
+
+        mock_client = MagicMock()
+        mock_client.is_authenticated.return_value = True
+        mock_client.secrets.transit.decrypt_data.return_value = {
+            "data": {"plaintext": base64.b64encode(b"decrypted-key-32bytes-here!!!!!").decode()}
+        }
+
+        monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com")
+        provider = HashiCorpVaultProvider()
+        provider._client = mock_client
+
+        key = await provider.decrypt_data_key(b"encrypted", "test-key")
+
+        assert key == b"decrypted-key-32bytes-here!!!!!"
+
+    @pytest.mark.asyncio
+    async def test_get_key_metadata(self, monkeypatch):
+        """Should return Vault key metadata."""
+        mock_client = MagicMock()
+        mock_client.is_authenticated.return_value = True
+        mock_client.secrets.transit.read_key.return_value = {
+            "data": {
+                "latest_version": 3,
+                "type": "aes256-gcm96",
+            }
+        }
+
+        monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com")
+        provider = HashiCorpVaultProvider(transit_path="transit")
+        provider._client = mock_client
+
+        meta = await provider.get_key_metadata("test-key")
+
+        assert meta.key_id == "test-key"
+        assert meta.version == "3"
+        assert meta.provider == "hashicorp-vault"
+        assert "vault://transit/keys/test-key" in meta.key_arn
+
+    @pytest.mark.asyncio
+    async def test_rotate_key(self, monkeypatch):
+        """Should rotate key in Vault."""
+        mock_client = MagicMock()
+        mock_client.is_authenticated.return_value = True
+        mock_client.secrets.transit.rotate_key.return_value = {}
+        mock_client.secrets.transit.read_key.return_value = {
+            "data": {
+                "latest_version": 4,
+                "type": "aes256-gcm96",
+            }
+        }
+
+        monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com")
+        provider = HashiCorpVaultProvider()
+        provider._client = mock_client
+
+        new_meta = await provider.rotate_key("test-key")
+
+        assert new_meta.version == "4"
+        mock_client.secrets.transit.rotate_key.assert_called_once()
+
+
+class TestDetectVaultProvider:
+    """Tests for Vault provider detection."""
+
+    def setup_method(self):
+        """Reset provider before each test."""
+        reset_kms_provider()
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        reset_kms_provider()
+
+    def test_explicit_vault(self, monkeypatch):
+        """Should use Vault when explicitly set."""
+        monkeypatch.setenv("ARAGORA_KMS_PROVIDER", "vault")
+        assert detect_cloud_provider() == "vault"
+
+    def test_detect_vault_from_env(self, monkeypatch):
+        """Should detect Vault from environment variables."""
+        monkeypatch.delenv("ARAGORA_KMS_PROVIDER", raising=False)
+        monkeypatch.delenv("AWS_REGION", raising=False)
+        monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com")
+        monkeypatch.setenv("VAULT_TOKEN", "test-token")
+        assert detect_cloud_provider() == "vault"
+
+    def test_vault_requires_auth(self, monkeypatch):
+        """Should not detect Vault without auth."""
+        monkeypatch.delenv("ARAGORA_KMS_PROVIDER", raising=False)
+        monkeypatch.delenv("AWS_REGION", raising=False)
+        monkeypatch.delenv("VAULT_TOKEN", raising=False)
+        monkeypatch.delenv("VAULT_ROLE_ID", raising=False)
+        monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com")
+        # Without VAULT_TOKEN or VAULT_ROLE_ID, should fall back to local
+        assert detect_cloud_provider() == "local"

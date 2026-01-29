@@ -16,6 +16,57 @@ from pathlib import Path
 from typing import Optional
 
 
+# Files/paths that should remain public (no RBAC)
+# These are intentional bypasses documented for security review
+EXCLUDED_PATHS = {
+    # Health/monitoring endpoints - must be public for probes
+    "admin/health/",
+    "health_utils.py",
+    "probes.py",
+    # Authentication flows - must be accessible before auth
+    "signup_handlers.py",
+    "sso_handlers.py",
+    "oidc.py",
+    # OAuth callbacks - verified via state/signatures, not RBAC
+    "_oauth_impl.py",
+    "oauth_wizard.py",
+    # Webhooks - verified via signatures/tokens, not RBAC
+    "webhooks.py",
+    "email_webhooks.py",
+    # Base classes and utilities (not actual endpoints)
+    "base.py",
+    "interface.py",
+    "types.py",
+    "decorators.py",
+    "auth_mixins.py",
+    "lazy_stores.py",
+    "tts_helper.py",
+    # Store implementations (internal, not endpoints)
+    "store.py",
+}
+
+# Specific handlers to exclude (function names)
+EXCLUDED_HANDLERS = {
+    # Callbacks that receive external requests
+    "handle_callback",
+    "handle_sso_callback",
+    "handle_oauth_callback",
+    "handle_accounting_callback",
+    "handle_gusto_callback",
+    "handle_webhook",
+    # Signup/registration (pre-auth)
+    "handle_signup",
+    "handle_verify_email",
+    "handle_resend_verification",
+    "handle_check_invite",
+    # Health checks
+    "handle_health",
+    "handle_ready",
+    "handle_live",
+    "get_status",
+}
+
+
 # Permission mapping based on handler patterns
 PERMISSION_MAP = {
     # Read operations
@@ -65,8 +116,26 @@ MODULE_PERMISSIONS = {
 }
 
 
+def is_excluded(file_path: str, function_name: str) -> bool:
+    """Check if a handler should be excluded from RBAC."""
+    # Check excluded paths
+    for excluded in EXCLUDED_PATHS:
+        if excluded in file_path:
+            return True
+
+    # Check excluded handlers
+    if function_name in EXCLUDED_HANDLERS:
+        return True
+
+    return False
+
+
 def get_permission_for_handler(file_path: str, function_name: str) -> Optional[str]:
     """Determine the appropriate permission for a handler."""
+    # Check exclusions first
+    if is_excluded(file_path, function_name):
+        return None
+
     # Get module from file path
     parts = Path(file_path).parts
     module = parts[-1].replace(".py", "") if parts else ""

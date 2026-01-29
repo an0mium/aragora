@@ -167,22 +167,23 @@ class TestPopulationManagement:
         except ImportError:
             pytest.skip("Selection function not available (see #136)")
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_FUTURE_API_TESTS"),
-        reason="PopulationManager elitism param and evolve_generation not implemented - future API",
-    )
-    def test_elitism_preserves_best(self, mock_population):
-        """Test elitism preserves best performers."""
-        from aragora.genesis.breeding import PopulationManager
+    def test_evolve_population_preserves_genomes(self, tmp_path):
+        """Test population evolution preserves and improves genomes."""
+        from aragora.genesis.breeding import PopulationManager, Population
+        from aragora.genesis.genome import AgentGenome
 
-        manager = PopulationManager(elitism=2)
-        manager.population = mock_population
+        db_path = str(tmp_path / "test_genesis.db")
+        manager = PopulationManager(db_path=db_path, max_population_size=4)
 
-        # Simulate evolution step
-        new_population = manager.evolve_generation()
+        # Create a population with test genomes
+        population = manager.get_or_create_population(["claude", "gemini"])
 
-        # Best 2 should be preserved (elitism)
-        assert len(new_population) > 0
+        # Evolve the population
+        evolved = manager.evolve_population(population)
+
+        # Should have genomes in the evolved population
+        assert evolved is not None
+        assert len(evolved.genomes) > 0
 
 
 # ============================================================================
@@ -210,7 +211,6 @@ class TestPerformanceTracking:
     def test_generation_metrics(self):
         """Test tracking metrics across generations."""
         import tempfile
-        import os
         from aragora.evolution.tracker import EvolutionTracker
 
         # Use isolated temp database to avoid cross-test pollution
@@ -262,61 +262,60 @@ class TestPerformanceTracking:
 class TestEvolutionFeedbackLoop:
     """Integration tests for the complete evolution feedback loop."""
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_FUTURE_API_TESTS"),
-        reason="PopulationManager.record_debate_result() and evolve_generation() not implemented - future API",
-    )
-    @pytest.mark.asyncio
-    async def test_full_evolution_cycle(self, mock_debate_outcome):
+    def test_full_evolution_cycle(self, mock_debate_outcome, tmp_path):
         """Test complete debate → evolution → new debate cycle."""
         from aragora.genesis.breeding import PopulationManager
         from aragora.evolution.evolver import PromptEvolver
 
+        db_path = str(tmp_path / "test_genesis.db")
+
         # Initialize population
-        manager = PopulationManager(max_population_size=4)
+        manager = PopulationManager(db_path=db_path, max_population_size=4)
 
         # Initialize evolver
         evolver = PromptEvolver()
 
-        # Step 1: Record debate outcome
-        manager.record_debate_result(
-            winner=mock_debate_outcome["winner"],
-            loser="gpt4",
-            margin=mock_debate_outcome["votes"]["claude"] - mock_debate_outcome["votes"]["gpt4"],
+        # Step 1: Create population and get a genome
+        population = manager.get_or_create_population(["claude", "gemini"])
+        assert len(population.genomes) > 0
+
+        # Step 2: Update fitness based on debate outcome
+        winner_genome = population.genomes[0]
+        manager.update_fitness(
+            genome_id=winner_genome.genome_id,
+            consensus_win=True,
         )
 
-        # Step 2: Extract patterns and evolve
-        # (In real implementation, this would use patterns)
-        new_generation = manager.evolve_generation()
+        # Step 3: Evolve population
+        evolved = manager.evolve_population(population)
 
-        assert new_generation is not None
-        assert len(new_generation) > 0
+        assert evolved is not None
+        assert len(evolved.genomes) > 0
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_FUTURE_API_TESTS"),
-        reason="PopulationManager.record_debate_result() and evolve_generation() not implemented - future API",
-    )
-    @pytest.mark.asyncio
-    async def test_multiple_generations(self, mock_debate_outcome):
+    def test_multiple_generations(self, mock_debate_outcome, tmp_path):
         """Test evolution across multiple generations."""
         from aragora.genesis.breeding import PopulationManager
 
-        manager = PopulationManager(max_population_size=4)
+        db_path = str(tmp_path / "test_genesis.db")
+        manager = PopulationManager(db_path=db_path, max_population_size=4)
 
-        # Simulate 3 generations
+        # Create initial population
+        population = manager.get_or_create_population(["claude", "gemini"])
+
+        # Simulate 3 generations of evolution
         for gen in range(3):
-            # Record some outcomes
-            for i in range(4):
-                manager.record_debate_result(
-                    winner=f"agent-{i % 2}",
-                    loser=f"agent-{(i + 1) % 2}",
-                    margin=1,
+            # Update fitness for some genomes
+            for genome in population.genomes[:2]:
+                manager.update_fitness(
+                    genome_id=genome.genome_id,
+                    consensus_win=(gen % 2 == 0),
                 )
 
             # Evolve to next generation
-            manager.evolve_generation()
+            population = manager.evolve_population(population)
 
-        assert manager.current_generation >= 3
+        assert population is not None
+        assert population.generation >= 0
 
 
 # ============================================================================
@@ -385,12 +384,8 @@ class TestGenesisLedger:
             ledger = GenesisLedger(db_path=Path(tmpdir) / "genesis.db")
             assert ledger is not None
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_FUTURE_API_TESTS"),
-        reason="GenesisLedger.record_generation() renamed to record_mutation() - API changed",
-    )
-    def test_record_generation(self):
-        """Test recording a generation in the ledger."""
+    def test_record_fitness_update(self):
+        """Test recording fitness updates in the ledger."""
         from aragora.genesis.ledger import GenesisLedger
         import tempfile
         from pathlib import Path
@@ -398,16 +393,18 @@ class TestGenesisLedger:
         with tempfile.TemporaryDirectory() as tmpdir:
             ledger = GenesisLedger(db_path=Path(tmpdir) / "genesis.db")
 
-            ledger.record_generation(
-                generation=1,
-                population_size=10,
-                avg_fitness=0.65,
-                best_fitness=0.85,
+            event = ledger.record_fitness_update(
+                genome_id="genome-123",
+                old_fitness=0.5,
+                new_fitness=0.65,
+                reason="consensus_win",
             )
 
-            stats = ledger.get_generation_stats(1)
-            assert stats is not None
-            assert stats["population_size"] == 10
+            assert event is not None
+            assert event.data["genome_id"] == "genome-123"
+            assert event.data["old_fitness"] == 0.5
+            assert event.data["new_fitness"] == 0.65
+            assert event.data["change"] == pytest.approx(0.15)
 
 
 # ============================================================================

@@ -3248,7 +3248,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             raise RuntimeError("Extracted phases not available")
 
         # Use NomicDebateProfile for full-power debates
-        force_full_team = False
+        force_full_team = os.environ.get("NOMIC_FORCE_FULL_TEAM", "0") == "1"
         try:
             from aragora.nomic.debate_profile import NomicDebateProfile
 
@@ -5509,6 +5509,8 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 self._log(f"  [elo] Domain scoring failed: {e}")
 
         if force_full_team or not self.agent_selector or not SELECTOR_AVAILABLE:
+            if force_full_team:
+                self._log("  [selector] Full-team mode enabled (bypassing selector)")
             return default_team
         try:
             # Register agents with ELO ratings, probe scores, and calibration data

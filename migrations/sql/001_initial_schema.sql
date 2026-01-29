@@ -342,6 +342,31 @@ CREATE INDEX IF NOT EXISTS idx_webhooks_user ON webhooks(user_id);
 CREATE INDEX IF NOT EXISTS idx_webhooks_active ON webhooks(active);
 
 -- =============================================================================
+-- Audit Log (SOC2 Type II compliant)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    user_id TEXT,
+    org_id TEXT,
+    action TEXT NOT NULL,
+    resource_type TEXT NOT NULL,
+    resource_id TEXT,
+    old_value JSONB,
+    new_value JSONB,
+    metadata JSONB DEFAULT '{}',
+    ip_address TEXT,
+    user_agent TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_log(org_id);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource_type, resource_id);
+
+-- =============================================================================
 -- Cleanup Functions
 -- =============================================================================
 
