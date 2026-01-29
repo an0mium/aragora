@@ -100,6 +100,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception("Error listing templates")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:read")
     def handle_get_template(self, template_id: str) -> HandlerResult:
         """
         GET /api/v1/marketplace/templates/{id}
@@ -123,6 +124,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception(f"Error getting template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:write")
     def handle_create_template(self) -> HandlerResult:
         """
         POST /api/v1/marketplace/templates
@@ -154,6 +156,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception("Error creating template")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:delete")
     def handle_delete_template(self, template_id: str) -> HandlerResult:
         """
         DELETE /api/v1/marketplace/templates/{id}
@@ -178,6 +181,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception(f"Error deleting template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:write")
     def handle_rate_template(self, template_id: str) -> HandlerResult:
         """
         POST /api/v1/marketplace/templates/{id}/ratings
@@ -222,6 +226,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception(f"Error rating template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:read")
     def handle_get_ratings(self, template_id: str) -> HandlerResult:
         """
         GET /api/v1/marketplace/templates/{id}/ratings

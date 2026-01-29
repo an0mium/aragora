@@ -98,9 +98,15 @@ from .chat_events import (
 TTS_VOICE_ENABLED = os.environ.get("TELEGRAM_TTS_ENABLED", "false").lower() == "true"
 
 # Environment variables for Telegram integration
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
 TELEGRAM_API_BASE = "https://api.telegram.org/bot"
+
+# Log warnings at module load time for missing secrets
+if not TELEGRAM_BOT_TOKEN:
+    logger.warning("TELEGRAM_BOT_TOKEN not configured - Telegram bot disabled")
+if not TELEGRAM_WEBHOOK_SECRET:
+    logger.warning("TELEGRAM_WEBHOOK_SECRET not configured - webhook verification disabled")
 
 
 class TelegramHandler(BaseHandler):

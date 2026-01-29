@@ -73,8 +73,6 @@ class TestBrokenAccessControl:
     def test_rbac_enforcer_exists(self):
         """Verify RBAC enforcer is implemented."""
         rbac_dir = SRC_ROOT / "rbac"
-        if not rbac_dir.exists():
-            pytest.skip("RBAC module not found")
 
         # Check for enforcer implementation
         found_enforcer = False
@@ -89,8 +87,6 @@ class TestBrokenAccessControl:
     def test_route_permissions_defined(self):
         """Verify route permissions are defined."""
         middleware_file = SRC_ROOT / "rbac" / "middleware.py"
-        if not middleware_file.exists():
-            pytest.skip("RBAC middleware not found")
 
         content = middleware_file.read_text()
         assert "RoutePermission" in content or "route" in content.lower(), (
@@ -114,8 +110,6 @@ class TestCryptographicFailures:
     def test_encryption_uses_strong_algorithms(self):
         """Verify encryption uses AES or Fernet (strong algorithms)."""
         encryption_file = SRC_ROOT / "security" / "encryption.py"
-        if not encryption_file.exists():
-            pytest.skip("Encryption service not found")
 
         content = encryption_file.read_text()
 
@@ -128,8 +122,6 @@ class TestCryptographicFailures:
     def test_no_weak_algorithms_in_encryption(self):
         """Verify no weak algorithms in encryption service."""
         encryption_file = SRC_ROOT / "security" / "encryption.py"
-        if not encryption_file.exists():
-            pytest.skip("Encryption service not found")
 
         content = encryption_file.read_text().upper()
 
@@ -150,8 +142,6 @@ class TestInjection:
     def test_tenant_isolation_uses_parameterized_queries(self):
         """Verify tenant isolation uses parameterized SQL."""
         isolation_file = SRC_ROOT / "tenancy" / "isolation.py"
-        if not isolation_file.exists():
-            pytest.skip("Tenant isolation not found")
 
         content = isolation_file.read_text()
 
@@ -193,8 +183,6 @@ class TestSecurityMisconfiguration:
     def test_environment_detection_exists(self):
         """Verify environment detection for production vs dev."""
         guards_file = SRC_ROOT / "storage" / "production_guards.py"
-        if not guards_file.exists():
-            pytest.skip("Production guards not found")
 
         content = guards_file.read_text()
 
@@ -255,8 +243,6 @@ class TestSecurityLoggingFailures:
     def test_audit_has_security_logging(self):
         """Verify audit module has security event logging."""
         audit_dir = SRC_ROOT / "audit"
-        if not audit_dir.exists():
-            pytest.skip("Audit module not found")
 
         # Look for security audit functions
         found_security_audit = False
@@ -356,8 +342,6 @@ class TestTenantIsolation:
     def test_isolation_violation_exception_exists(self):
         """Verify isolation violation exception is defined."""
         isolation_file = SRC_ROOT / "tenancy" / "isolation.py"
-        if not isolation_file.exists():
-            pytest.skip("Tenant isolation not found")
 
         content = isolation_file.read_text()
         assert "IsolationViolation" in content, "IsolationViolation exception not found"
@@ -379,8 +363,6 @@ class TestWebhookSecurity:
     def test_webhook_verification_required_in_production(self):
         """Verify webhook verification is enforced in production."""
         webhook_file = SRC_ROOT / "connectors" / "chat" / "webhook_security.py"
-        if not webhook_file.exists():
-            pytest.skip("Webhook security module not found")
 
         content = webhook_file.read_text()
 

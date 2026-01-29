@@ -14,10 +14,7 @@ class TestTricksterBasics:
 
     def test_trickster_creation(self):
         """Trickster should be creatable."""
-        try:
-            from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
-        except ImportError:
-            pytest.skip("Trickster module not available")
+        from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
 
         config = TricksterConfig(sensitivity=0.7)
         trickster = EvidencePoweredTrickster(config=config)
@@ -25,10 +22,7 @@ class TestTricksterBasics:
 
     def test_trickster_config_sensitivity(self):
         """TricksterConfig should have configurable sensitivity."""
-        try:
-            from aragora.debate.trickster import TricksterConfig
-        except ImportError:
-            pytest.skip("Trickster module not available")
+        from aragora.debate.trickster import TricksterConfig
 
         config = TricksterConfig(sensitivity=0.5)
         assert config.sensitivity == 0.5
@@ -42,10 +36,7 @@ class TestHollowConsensusDetection:
 
     def test_detect_low_evidence_consensus(self):
         """Should detect consensus with insufficient evidence."""
-        try:
-            from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
-        except ImportError:
-            pytest.skip("Trickster module not available")
+        from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
 
         trickster = EvidencePoweredTrickster(config=TricksterConfig(sensitivity=0.7))
 
@@ -67,10 +58,7 @@ class TestHollowConsensusDetection:
 
     def test_detect_valid_consensus(self):
         """Should not flag consensus backed by evidence."""
-        try:
-            from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
-        except ImportError:
-            pytest.skip("Trickster module not available")
+        from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
 
         trickster = EvidencePoweredTrickster(config=TricksterConfig(sensitivity=0.7))
 
@@ -103,10 +91,7 @@ class TestTricksterChallenge:
 
     def test_generate_challenge(self):
         """Trickster should generate challenge prompts."""
-        try:
-            from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
-        except ImportError:
-            pytest.skip("Trickster module not available")
+        from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
 
         trickster = EvidencePoweredTrickster(config=TricksterConfig(sensitivity=0.7))
 
@@ -209,10 +194,7 @@ class TestTricksterIntegration:
     @pytest.mark.asyncio
     async def test_trickster_intervenes_on_hollow_consensus(self):
         """Trickster should intervene when hollow consensus detected."""
-        try:
-            from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
-        except ImportError:
-            pytest.skip("Trickster module not available")
+        from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
 
         trickster = EvidencePoweredTrickster(
             config=TricksterConfig(sensitivity=0.5)  # Lower threshold for testing
@@ -239,11 +221,7 @@ class TestTricksterIntegration:
     @pytest.mark.asyncio
     async def test_trickster_emits_event(self):
         """Trickster intervention should emit event."""
-        try:
-            from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
-        except ImportError:
-            pytest.skip("Trickster module not available")
-
+        from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
         from aragora.server.stream import StreamEvent, StreamEventType
 
         trickster = EvidencePoweredTrickster(config=TricksterConfig(sensitivity=0.5))
@@ -268,20 +246,14 @@ class TestNoveltyTracker:
 
     def test_novelty_tracker_creation(self):
         """NoveltyTracker should be creatable."""
-        try:
-            from aragora.debate.novelty import NoveltyTracker
-        except ImportError:
-            pytest.skip("NoveltyTracker module not available")
+        from aragora.debate.novelty import NoveltyTracker
 
         tracker = NoveltyTracker(low_novelty_threshold=0.15)
         assert tracker is not None
 
     def test_novelty_tracker_detects_staleness(self):
         """NoveltyTracker should detect stale/repetitive proposals."""
-        try:
-            from aragora.debate.novelty import NoveltyTracker
-        except ImportError:
-            pytest.skip("NoveltyTracker module not available")
+        from aragora.debate.novelty import NoveltyTracker
 
         tracker = NoveltyTracker(low_novelty_threshold=0.15)
 
@@ -303,10 +275,7 @@ class TestNoveltyTracker:
 
     def test_novelty_tracker_accepts_novel_content(self):
         """NoveltyTracker should accept genuinely novel content."""
-        try:
-            from aragora.debate.novelty import NoveltyTracker
-        except ImportError:
-            pytest.skip("NoveltyTracker module not available")
+        from aragora.debate.novelty import NoveltyTracker
 
         tracker = NoveltyTracker(low_novelty_threshold=0.15)
 

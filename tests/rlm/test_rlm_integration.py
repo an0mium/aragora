@@ -558,39 +558,33 @@ class TestRLMDebateAutoEnable:
 
     def test_rlm_cognitive_limiter_exists(self):
         """RLMCognitiveLoadLimiter module should be importable."""
-        try:
-            from aragora.debate.cognitive_limiter_rlm import (
-                RLMCognitiveBudget,
-                RLMCognitiveLoadLimiter,
-            )
+        from aragora.debate.cognitive_limiter_rlm import (
+            RLMCognitiveBudget,
+            RLMCognitiveLoadLimiter,
+        )
 
-            # Verify classes exist
-            assert RLMCognitiveBudget is not None
-            assert RLMCognitiveLoadLimiter is not None
-        except ImportError:
-            pytest.skip("RLM cognitive limiter module not available")
+        # Verify classes exist
+        assert RLMCognitiveBudget is not None
+        assert RLMCognitiveLoadLimiter is not None
 
     def test_rlm_cognitive_limiter_configuration(self):
         """RLMCognitiveLoadLimiter should accept configuration."""
-        try:
-            from aragora.debate.cognitive_limiter_rlm import (
-                RLMCognitiveBudget,
-                RLMCognitiveLoadLimiter,
-            )
+        from aragora.debate.cognitive_limiter_rlm import (
+            RLMCognitiveBudget,
+            RLMCognitiveLoadLimiter,
+        )
 
-            budget = RLMCognitiveBudget(
-                enable_rlm_compression=True,
-                compression_threshold=3000,
-                max_recent_full_messages=5,
-                summary_level="SUMMARY",
-            )
+        budget = RLMCognitiveBudget(
+            enable_rlm_compression=True,
+            compression_threshold=3000,
+            max_recent_full_messages=5,
+            summary_level="SUMMARY",
+        )
 
-            limiter = RLMCognitiveLoadLimiter(budget=budget)
+        limiter = RLMCognitiveLoadLimiter(budget=budget)
 
-            assert limiter is not None
-            assert hasattr(limiter, "compress_context_async")
-        except ImportError:
-            pytest.skip("RLM cognitive limiter module not available")
+        assert limiter is not None
+        assert hasattr(limiter, "compress_context_async")
 
 
 # =============================================================================

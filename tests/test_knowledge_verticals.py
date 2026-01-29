@@ -321,12 +321,9 @@ class TestHealthcareKnowledge:
     @pytest.fixture
     def healthcare(self):
         """Get healthcare vertical instance."""
-        try:
-            from aragora.knowledge.mound.verticals.healthcare import HealthcareKnowledge
+        from aragora.knowledge.mound.verticals.healthcare import HealthcareKnowledge
 
-            return HealthcareKnowledge()
-        except ImportError:
-            pytest.skip("Healthcare vertical not available")
+        return HealthcareKnowledge()
 
     def test_healthcare_vertical_id(self, healthcare):
         """Test healthcare vertical identifier."""
@@ -383,12 +380,9 @@ class TestLegalKnowledge:
     @pytest.fixture
     def legal(self):
         """Get legal vertical instance."""
-        try:
-            from aragora.knowledge.mound.verticals.legal import LegalKnowledge
+        from aragora.knowledge.mound.verticals.legal import LegalKnowledge
 
-            return LegalKnowledge()
-        except ImportError:
-            pytest.skip("Legal vertical not available")
+        return LegalKnowledge()
 
     def test_legal_vertical_id(self, legal):
         """Test legal vertical identifier."""
@@ -429,12 +423,9 @@ class TestAccountingKnowledge:
     @pytest.fixture
     def accounting(self):
         """Get accounting vertical instance."""
-        try:
-            from aragora.knowledge.mound.verticals.accounting import AccountingKnowledge
+        from aragora.knowledge.mound.verticals.accounting import AccountingKnowledge
 
-            return AccountingKnowledge()
-        except ImportError:
-            pytest.skip("Accounting vertical not available")
+        return AccountingKnowledge()
 
     def test_accounting_vertical_id(self, accounting):
         """Test accounting vertical identifier."""

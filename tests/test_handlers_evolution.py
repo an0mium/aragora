@@ -133,9 +133,6 @@ class TestEvolutionHistory:
             handler_mod.EVOLUTION_AVAILABLE = original
 
     def test_evolution_no_nomic_dir(self, handler_no_nomic_dir):
-        if not handler_mod.EVOLUTION_AVAILABLE:
-            pytest.skip("Evolution module not available")
-
         result = handler_no_nomic_dir.handle("/api/evolution/claude/history", {}, None)
         assert result is not None
         assert result.status_code == 503
@@ -143,9 +140,6 @@ class TestEvolutionHistory:
         assert "nomic" in data["error"].lower() or "not configured" in data["error"].lower()
 
     def test_evolution_history_success(self, evolution_handler, mock_prompt_evolver):
-        if not handler_mod.EVOLUTION_AVAILABLE:
-            pytest.skip("Evolution module not available")
-
         with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)
 
@@ -158,9 +152,6 @@ class TestEvolutionHistory:
             assert len(data["history"]) == 3
 
     def test_evolution_history_with_limit(self, evolution_handler, mock_prompt_evolver):
-        if not handler_mod.EVOLUTION_AVAILABLE:
-            pytest.skip("Evolution module not available")
-
         with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {"limit": "5"}, None)
 
@@ -170,9 +161,6 @@ class TestEvolutionHistory:
             mock_prompt_evolver.get_evolution_history.assert_called_with("claude", limit=5)
 
     def test_evolution_history_limit_clamped(self, evolution_handler, mock_prompt_evolver):
-        if not handler_mod.EVOLUTION_AVAILABLE:
-            pytest.skip("Evolution module not available")
-
         with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             # Request 0, should be clamped to 1
             result = evolution_handler.handle("/api/evolution/claude/history", {"limit": "0"}, None)
@@ -221,9 +209,6 @@ class TestEvolutionErrorHandling:
         assert result is None
 
     def test_evolution_history_exception(self, evolution_handler):
-        if not handler_mod.EVOLUTION_AVAILABLE:
-            pytest.skip("Evolution module not available")
-
         mock_evolver = Mock()
         mock_evolver.get_evolution_history.side_effect = Exception("Database error")
 
@@ -259,9 +244,6 @@ class TestEvolutionEdgeCases:
         assert result is not None
 
     def test_evolution_history_empty(self, evolution_handler, mock_prompt_evolver):
-        if not handler_mod.EVOLUTION_AVAILABLE:
-            pytest.skip("Evolution module not available")
-
         mock_prompt_evolver.get_evolution_history.return_value = []
 
         with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
@@ -274,9 +256,6 @@ class TestEvolutionEdgeCases:
             assert data["count"] == 0
 
     def test_invalid_limit_param(self, evolution_handler, mock_prompt_evolver):
-        if not handler_mod.EVOLUTION_AVAILABLE:
-            pytest.skip("Evolution module not available")
-
         with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             # Invalid param should use default
             result = evolution_handler.handle(

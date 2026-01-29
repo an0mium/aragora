@@ -42,10 +42,16 @@ CONNECTOR_READ = "connectors.read"
 CONNECTOR_AUTHORIZE = "connectors.authorize"
 
 # Environment configuration
-SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID", "")
-SLACK_CLIENT_SECRET = os.environ.get("SLACK_CLIENT_SECRET", "")
-SLACK_REDIRECT_URI = os.environ.get("SLACK_REDIRECT_URI", "")
+SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID")
+SLACK_CLIENT_SECRET = os.environ.get("SLACK_CLIENT_SECRET")
+SLACK_REDIRECT_URI = os.environ.get("SLACK_REDIRECT_URI")
 ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
+
+# Log warnings at module load time for missing secrets
+if not SLACK_CLIENT_ID:
+    logger.warning("SLACK_CLIENT_ID not configured - Slack OAuth disabled")
+if not SLACK_CLIENT_SECRET:
+    logger.warning("SLACK_CLIENT_SECRET not configured - Slack OAuth disabled")
 
 # Default OAuth scopes for Aragora Slack app
 DEFAULT_SCOPES = "channels:history,chat:write,commands,users:read,team:read,channels:read"

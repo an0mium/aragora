@@ -59,30 +59,24 @@ def mock_tracker():
 @pytest.fixture
 def handler_with_tracker(mock_tracker):
     """Create handler with mocked tracker."""
-    try:
-        from aragora.server.handlers.memory import MemoryAnalyticsHandler
+    from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
-        handler = MemoryAnalyticsHandler({})
-        handler._tracker = mock_tracker
-        return handler
-    except ImportError:
-        pytest.skip("MemoryAnalyticsHandler not available")
+    handler = MemoryAnalyticsHandler({})
+    handler._tracker = mock_tracker
+    return handler
 
 
 @pytest.fixture
 def handler_without_tracker():
     """Create handler without tracker (simulates module not available)."""
-    try:
-        from aragora.server.handlers.memory import MemoryAnalyticsHandler
+    from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
-        handler = MemoryAnalyticsHandler({})
-        # Use a sentinel to indicate "no tracker" - set to False to bypass lazy loading
-        # The tracker property checks `if self._tracker is None` to lazy load,
-        # so we need to make it return falsy without triggering lazy load
-        handler._tracker = False  # Falsy but not None
-        return handler
-    except ImportError:
-        pytest.skip("MemoryAnalyticsHandler not available")
+    handler = MemoryAnalyticsHandler({})
+    # Use a sentinel to indicate "no tracker" - set to False to bypass lazy loading
+    # The tracker property checks `if self._tracker is None` to lazy load,
+    # so we need to make it return falsy without triggering lazy load
+    handler._tracker = False  # Falsy but not None
+    return handler
 
 
 # ============================================================================
@@ -95,63 +89,48 @@ class TestMemoryAnalyticsRoutes:
 
     def test_handler_routes(self):
         """Test handler recognizes all memory analytics routes."""
-        try:
-            from aragora.server.handlers.memory import MemoryAnalyticsHandler
+        from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
-            handler = MemoryAnalyticsHandler({})
+        handler = MemoryAnalyticsHandler({})
 
-            assert "/api/memory/analytics" in handler.ROUTES
-            assert "/api/memory/analytics/snapshot" in handler.ROUTES
-        except ImportError:
-            pytest.skip("MemoryAnalyticsHandler not available")
+        assert "/api/memory/analytics" in handler.ROUTES
+        assert "/api/memory/analytics/snapshot" in handler.ROUTES
 
     def test_can_handle_analytics_route(self):
         """Test can_handle returns True for analytics route."""
-        try:
-            from aragora.server.handlers.memory import MemoryAnalyticsHandler
+        from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
-            handler = MemoryAnalyticsHandler({})
+        handler = MemoryAnalyticsHandler({})
 
-            assert handler.can_handle("/api/v1/memory/analytics") is True
-        except ImportError:
-            pytest.skip("MemoryAnalyticsHandler not available")
+        assert handler.can_handle("/api/v1/memory/analytics") is True
 
     def test_can_handle_snapshot_route(self):
         """Test can_handle returns True for snapshot route."""
-        try:
-            from aragora.server.handlers.memory import MemoryAnalyticsHandler
+        from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
-            handler = MemoryAnalyticsHandler({})
+        handler = MemoryAnalyticsHandler({})
 
-            assert handler.can_handle("/api/v1/memory/analytics/snapshot") is True
-        except ImportError:
-            pytest.skip("MemoryAnalyticsHandler not available")
+        assert handler.can_handle("/api/v1/memory/analytics/snapshot") is True
 
     def test_can_handle_tier_route(self):
         """Test can_handle returns True for tier-specific routes."""
-        try:
-            from aragora.server.handlers.memory import MemoryAnalyticsHandler
+        from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
-            handler = MemoryAnalyticsHandler({})
+        handler = MemoryAnalyticsHandler({})
 
-            assert handler.can_handle("/api/v1/memory/analytics/tier/fast") is True
-            assert handler.can_handle("/api/v1/memory/analytics/tier/medium") is True
-            assert handler.can_handle("/api/v1/memory/analytics/tier/slow") is True
-            assert handler.can_handle("/api/v1/memory/analytics/tier/glacial") is True
-        except ImportError:
-            pytest.skip("MemoryAnalyticsHandler not available")
+        assert handler.can_handle("/api/v1/memory/analytics/tier/fast") is True
+        assert handler.can_handle("/api/v1/memory/analytics/tier/medium") is True
+        assert handler.can_handle("/api/v1/memory/analytics/tier/slow") is True
+        assert handler.can_handle("/api/v1/memory/analytics/tier/glacial") is True
 
     def test_cannot_handle_other_routes(self):
         """Test can_handle returns False for unrelated routes."""
-        try:
-            from aragora.server.handlers.memory import MemoryAnalyticsHandler
+        from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
-            handler = MemoryAnalyticsHandler({})
+        handler = MemoryAnalyticsHandler({})
 
-            assert handler.can_handle("/api/v1/memory/other") is False
-            assert handler.can_handle("/api/v1/debates") is False
-        except ImportError:
-            pytest.skip("MemoryAnalyticsHandler not available")
+        assert handler.can_handle("/api/v1/memory/other") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
 
 # ============================================================================
@@ -287,19 +266,16 @@ class TestTrackerLazyLoading:
 
     def test_tracker_caches_instance(self):
         """Test tracker property caches the tracker instance."""
-        try:
-            from aragora.server.handlers.memory import MemoryAnalyticsHandler
+        from aragora.server.handlers.memory import MemoryAnalyticsHandler
 
-            handler = MemoryAnalyticsHandler({})
+        handler = MemoryAnalyticsHandler({})
 
-            mock_tracker = Mock()
-            handler._tracker = mock_tracker
+        mock_tracker = Mock()
+        handler._tracker = mock_tracker
 
-            # Should return cached instance
-            assert handler.tracker is mock_tracker
-            assert handler.tracker is mock_tracker  # Same instance
-        except ImportError:
-            pytest.skip("MemoryAnalyticsHandler not available")
+        # Should return cached instance
+        assert handler.tracker is mock_tracker
+        assert handler.tracker is mock_tracker  # Same instance
 
 
 # ============================================================================

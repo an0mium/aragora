@@ -16,22 +16,16 @@ class TestGenesisLedgerBasics:
 
     def test_genesis_ledger_creation(self, temp_db):
         """GenesisLedger should be creatable with a database path."""
-        try:
-            from aragora.genesis.ledger import GenesisLedger
-        except ImportError:
-            pytest.skip("Genesis module not available")
+        from aragora.genesis.ledger import GenesisLedger
 
         ledger = GenesisLedger(temp_db)
         assert ledger is not None
 
     def test_genesis_ledger_records_events(self, temp_db):
         """GenesisLedger should record events."""
-        try:
-            from aragora.genesis.ledger import GenesisLedger, GenesisEventType, GenesisEvent
-            from datetime import datetime
-            import uuid
-        except ImportError:
-            pytest.skip("Genesis module not available")
+        from aragora.genesis.ledger import GenesisLedger, GenesisEventType, GenesisEvent
+        from datetime import datetime
+        import uuid
 
         ledger = GenesisLedger(temp_db)
 
@@ -49,12 +43,9 @@ class TestGenesisLedgerBasics:
 
     def test_genesis_ledger_integrity(self, temp_db):
         """GenesisLedger should verify integrity."""
-        try:
-            from aragora.genesis.ledger import GenesisLedger, GenesisEventType, GenesisEvent
-            from datetime import datetime
-            import uuid
-        except ImportError:
-            pytest.skip("Genesis module not available")
+        from aragora.genesis.ledger import GenesisLedger, GenesisEventType, GenesisEvent
+        from datetime import datetime
+        import uuid
 
         ledger = GenesisLedger(temp_db)
 
@@ -84,20 +75,14 @@ class TestGenomeStoreBasics:
 
     def test_genome_store_creation(self, temp_db):
         """GenomeStore should be creatable."""
-        try:
-            from aragora.genesis.genome import GenomeStore
-        except ImportError:
-            pytest.skip("Genome module not available")
+        from aragora.genesis.genome import GenomeStore
 
         store = GenomeStore(temp_db)
         assert store is not None
 
     def test_genome_store_save_and_retrieve(self, temp_db):
         """GenomeStore should save and retrieve genomes."""
-        try:
-            from aragora.genesis.genome import GenomeStore, AgentGenome
-        except ImportError:
-            pytest.skip("Genome module not available")
+        from aragora.genesis.genome import GenomeStore, AgentGenome
 
         store = GenomeStore(temp_db)
 
@@ -126,20 +111,14 @@ class TestPopulationManagerBasics:
 
     def test_population_manager_creation(self, temp_db):
         """PopulationManager should be creatable."""
-        try:
-            from aragora.genesis.breeding import PopulationManager
-        except ImportError:
-            pytest.skip("Breeding module not available")
+        from aragora.genesis.breeding import PopulationManager
 
         manager = PopulationManager(db_path=temp_db)
         assert manager is not None
 
     def test_population_manager_get_or_create(self, temp_db):
         """PopulationManager should create population from base agents."""
-        try:
-            from aragora.genesis.breeding import PopulationManager
-        except ImportError:
-            pytest.skip("Breeding module not available")
+        from aragora.genesis.breeding import PopulationManager
 
         manager = PopulationManager(db_path=temp_db)
         population = manager.get_or_create_population(base_agents=["claude", "gpt4"])
@@ -216,10 +195,7 @@ class TestFitnessUpdates:
 
     def test_fitness_calculation(self):
         """Should calculate fitness from debate outcomes."""
-        try:
-            from aragora.genesis.breeding import PopulationManager
-        except ImportError:
-            pytest.skip("Breeding module not available")
+        from aragora.genesis.breeding import PopulationManager
 
         # Fitness should incorporate:
         # - Win rate
@@ -265,10 +241,7 @@ class TestBreedingTrigger:
 
     def test_breeding_threshold_tracking(self, temp_db):
         """Should track debate count towards breeding threshold."""
-        try:
-            from aragora.genesis.breeding import PopulationManager
-        except ImportError:
-            pytest.skip("Breeding module not available")
+        from aragora.genesis.breeding import PopulationManager
 
         manager = PopulationManager(db_path=temp_db)
         population = manager.get_or_create_population(base_agents=["claude", "gpt4"])
@@ -291,10 +264,7 @@ class TestBreedingTrigger:
 
     def test_breeding_produces_offspring(self, temp_db):
         """Breeding should produce new genome offspring."""
-        try:
-            from aragora.genesis.breeding import PopulationManager, GenomeBreeder
-        except ImportError:
-            pytest.skip("Breeding module not available")
+        from aragora.genesis.breeding import PopulationManager, GenomeBreeder
 
         manager = PopulationManager(db_path=temp_db)
         population = manager.get_or_create_population(base_agents=["claude", "gpt4"])

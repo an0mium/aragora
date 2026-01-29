@@ -233,75 +233,51 @@ class TestPhaseImports:
     """Tests that phase modules can be imported."""
 
     def test_import_context_phase(self):
-        try:
-            from scripts.nomic.phases.context import ContextPhase
+        from scripts.nomic.phases.context import ContextPhase
 
-            assert ContextPhase is not None
-        except ImportError:
-            pytest.skip("Phase modules not available")
+        assert ContextPhase is not None
 
     def test_import_debate_phase(self):
-        try:
-            from scripts.nomic.phases.debate import DebatePhase
+        from scripts.nomic.phases.debate import DebatePhase
 
-            assert DebatePhase is not None
-        except ImportError:
-            pytest.skip("Phase modules not available")
+        assert DebatePhase is not None
 
     def test_import_design_phase(self):
-        try:
-            from scripts.nomic.phases.design import DesignPhase
+        from scripts.nomic.phases.design import DesignPhase
 
-            assert DesignPhase is not None
-        except ImportError:
-            pytest.skip("Phase modules not available")
+        assert DesignPhase is not None
 
     def test_import_implement_phase(self):
-        try:
-            from scripts.nomic.phases.implement import ImplementPhase
+        from scripts.nomic.phases.implement import ImplementPhase
 
-            assert ImplementPhase is not None
-        except ImportError:
-            pytest.skip("Phase modules not available")
+        assert ImplementPhase is not None
 
     def test_import_verify_phase(self):
-        try:
-            from scripts.nomic.phases.verify import VerifyPhase
+        from scripts.nomic.phases.verify import VerifyPhase
 
-            assert VerifyPhase is not None
-        except ImportError:
-            pytest.skip("Phase modules not available")
+        assert VerifyPhase is not None
 
 
 class TestPhaseRecovery:
     """Tests for phase recovery mechanisms."""
 
     def test_import_recovery_module(self):
-        try:
-            from scripts.nomic.recovery import PhaseError, PhaseRecovery
+        from scripts.nomic.recovery import PhaseError, PhaseRecovery
 
-            assert PhaseError is not None
-            assert PhaseRecovery is not None
-        except ImportError:
-            pytest.skip("Recovery module not available")
+        assert PhaseError is not None
+        assert PhaseRecovery is not None
 
     def test_phase_error_creation(self):
-        try:
-            from scripts.nomic.recovery import PhaseError
+        from scripts.nomic.recovery import PhaseError
 
-            error = PhaseError("test_phase", "Test error message")
-            assert "test_phase" in str(error)
-        except ImportError:
-            pytest.skip("Recovery module not available")
+        error = PhaseError("test_phase", "Test error message")
+        assert "test_phase" in str(error)
 
 
 class TestCircuitBreaker:
     """Tests for agent circuit breaker."""
 
     def test_import_circuit_breaker(self):
-        try:
-            from scripts.nomic.circuit_breaker import AgentCircuitBreaker
+        from scripts.nomic.circuit_breaker import AgentCircuitBreaker
 
-            assert AgentCircuitBreaker is not None
-        except ImportError:
-            pytest.skip("Circuit breaker module not available")
+        assert AgentCircuitBreaker is not None

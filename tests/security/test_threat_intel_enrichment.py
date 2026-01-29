@@ -616,31 +616,23 @@ class TestContextGathererIntegration:
     async def test_context_gatherer_threat_intel_integration(self):
         """Should integrate with ContextGatherer for threat intel."""
         # This tests the integration point we added
-        try:
-            from aragora.debate.context_gatherer import ContextGatherer
+        from aragora.debate.context_gatherer import ContextGatherer
 
-            gatherer = ContextGatherer(
-                enable_threat_intel_enrichment=True,
-            )
+        gatherer = ContextGatherer(
+            enable_threat_intel_enrichment=True,
+        )
 
-            # If threat intel is enabled, the gatherer should have the attribute
-            assert hasattr(gatherer, "_enable_threat_intel")
-            assert hasattr(gatherer, "_threat_intel_enrichment")
-
-        except ImportError:
-            pytest.skip("ContextGatherer not available")
+        # If threat intel is enabled, the gatherer should have the attribute
+        assert hasattr(gatherer, "_enable_threat_intel")
+        assert hasattr(gatherer, "_threat_intel_enrichment")
 
     @pytest.mark.asyncio
     async def test_context_gatherer_threat_intel_disabled(self):
         """Should respect threat intel disabled flag."""
-        try:
-            from aragora.debate.context_gatherer import ContextGatherer
+        from aragora.debate.context_gatherer import ContextGatherer
 
-            gatherer = ContextGatherer(
-                enable_threat_intel_enrichment=False,
-            )
+        gatherer = ContextGatherer(
+            enable_threat_intel_enrichment=False,
+        )
 
-            assert gatherer._enable_threat_intel is False
-
-        except ImportError:
-            pytest.skip("ContextGatherer not available")
+        assert gatherer._enable_threat_intel is False

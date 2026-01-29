@@ -200,17 +200,14 @@ class TestAudioHandlerSecurity:
     @pytest.fixture
     def audio_handler(self):
         """Create audio handler with mock storage."""
-        try:
-            from aragora.server.handlers.features import AudioHandler
+        from aragora.server.handlers.features import AudioHandler
 
-            mock_storage = Mock()
-            mock_storage.storage_dir = Path("/safe/audio/dir")
-            mock_storage.get_path.return_value = None  # Default to not found
+        mock_storage = Mock()
+        mock_storage.storage_dir = Path("/safe/audio/dir")
+        mock_storage.get_path.return_value = None  # Default to not found
 
-            handler = AudioHandler({"audio_store": mock_storage})
-            return handler
-        except ImportError:
-            pytest.skip("AudioHandler not available")
+        handler = AudioHandler({"audio_store": mock_storage})
+        return handler
 
     def test_traversal_blocked_before_storage_access(self, audio_handler):
         """Test that path traversal is blocked by validation, not storage."""

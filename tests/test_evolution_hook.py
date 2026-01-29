@@ -168,10 +168,7 @@ class TestPromptEvolverIntegration:
 
     def test_prompt_evolver_can_extract_patterns(self):
         """PromptEvolver should be able to extract patterns from responses."""
-        try:
-            from aragora.evolution.evolver import PromptEvolver
-        except ImportError:
-            pytest.skip("PromptEvolver not available")
+        from aragora.evolution.evolver import PromptEvolver
 
         evolver = PromptEvolver()
 
@@ -193,10 +190,7 @@ class TestPromptEvolverIntegration:
 
     def test_prompt_evolver_tracks_performance(self):
         """PromptEvolver should track agent performance scores."""
-        try:
-            from aragora.evolution.evolver import PromptEvolver
-        except ImportError:
-            pytest.skip("PromptEvolver not available")
+        from aragora.evolution.evolver import PromptEvolver
 
         evolver = PromptEvolver()
 
@@ -220,10 +214,7 @@ class TestEvolutionPatternExtraction:
 
     def test_extract_structured_claims(self):
         """Should extract structured claims from responses."""
-        try:
-            from aragora.reasoning.claims import fast_extract_claims
-        except ImportError:
-            pytest.skip("claims module not available")
+        from aragora.reasoning.claims import fast_extract_claims
 
         response = """
         Based on the evidence, I conclude:

@@ -63,39 +63,30 @@ class TestPatternExtraction:
 
     def test_extract_argument_patterns(self, mock_debate_outcome):
         """Test extracting argument patterns from debate."""
-        try:
-            from aragora.evolution.pattern_extractor import extract_patterns
+        from aragora.evolution.pattern_extractor import extract_patterns
 
-            patterns = extract_patterns(mock_debate_outcome)
+        patterns = extract_patterns(mock_debate_outcome)
 
-            assert patterns is not None
-            assert "winning_patterns" in patterns or len(patterns) > 0
-        except ImportError:
-            pytest.skip("Pattern extractor not available (see #136)")
+        assert patterns is not None
+        assert "winning_patterns" in patterns or len(patterns) > 0
 
     def test_identify_successful_strategies(self, mock_debate_outcome):
         """Test identifying successful debate strategies."""
-        try:
-            from aragora.evolution.pattern_extractor import identify_strategies
+        from aragora.evolution.pattern_extractor import identify_strategies
 
-            strategies = identify_strategies(mock_debate_outcome)
+        strategies = identify_strategies(mock_debate_outcome)
 
-            assert strategies is not None
-        except ImportError:
-            pytest.skip("Pattern extractor not available (see #136)")
+        assert strategies is not None
 
     def test_patterns_associated_with_winner(self, mock_debate_outcome):
         """Test patterns are correctly associated with winner."""
-        try:
-            from aragora.evolution.pattern_extractor import extract_patterns
+        from aragora.evolution.pattern_extractor import extract_patterns
 
-            patterns = extract_patterns(mock_debate_outcome)
-            winner = mock_debate_outcome["winner"]
+        patterns = extract_patterns(mock_debate_outcome)
+        winner = mock_debate_outcome["winner"]
 
-            # Patterns should reference the winning agent
-            assert winner in str(patterns) or len(patterns) > 0
-        except ImportError:
-            pytest.skip("Pattern extractor not available (see #136)")
+        # Patterns should reference the winning agent
+        assert winner in str(patterns) or len(patterns) > 0
 
 
 # ============================================================================
@@ -157,15 +148,12 @@ class TestPopulationManagement:
 
     def test_population_initialization(self):
         """Test initializing a population."""
-        try:
-            from aragora.genesis.breeding import PopulationManager
+        from aragora.genesis.breeding import PopulationManager
 
-            manager = PopulationManager(max_population_size=10)
+        manager = PopulationManager(max_population_size=10)
 
-            assert manager is not None
-            assert manager.max_population_size == 10
-        except ImportError:
-            pytest.skip("PopulationManager not available (see #136)")
+        assert manager is not None
+        assert manager.max_population_size == 10
 
     def test_selection_by_fitness(self, mock_population):
         """Test selecting agents by fitness."""
@@ -207,72 +195,63 @@ class TestPerformanceTracking:
 
     def test_record_outcome(self, mock_debate_outcome):
         """Test recording debate outcome for evolution."""
-        try:
-            from aragora.evolution.tracker import EvolutionTracker
+        from aragora.evolution.tracker import EvolutionTracker
 
-            tracker = EvolutionTracker()
-            tracker.record_outcome(
-                agent="claude",
-                won=True,
-                debate_id=mock_debate_outcome["debate_id"],
-            )
+        tracker = EvolutionTracker()
+        tracker.record_outcome(
+            agent="claude",
+            won=True,
+            debate_id=mock_debate_outcome["debate_id"],
+        )
 
-            stats = tracker.get_agent_stats("claude")
-            assert stats["wins"] >= 1
-        except ImportError:
-            pytest.skip("EvolutionTracker not available (see #136)")
+        stats = tracker.get_agent_stats("claude")
+        assert stats["wins"] >= 1
 
     def test_generation_metrics(self):
         """Test tracking metrics across generations."""
+        import tempfile
+        import os
+        from aragora.evolution.tracker import EvolutionTracker
+
+        # Use isolated temp database to avoid cross-test pollution
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            temp_db = f.name
+
         try:
-            import tempfile
-            import os
-            from aragora.evolution.tracker import EvolutionTracker
+            tracker = EvolutionTracker(db_path=temp_db)
 
-            # Use isolated temp database to avoid cross-test pollution
-            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-                temp_db = f.name
+            # Record outcomes for generation 0
+            for i in range(5):
+                tracker.record_outcome(
+                    agent=f"agent-{i}",
+                    won=(i % 2 == 0),
+                    generation=0,
+                )
 
-            try:
-                tracker = EvolutionTracker(db_path=temp_db)
+            metrics = tracker.get_generation_metrics(0)
 
-                # Record outcomes for generation 0
-                for i in range(5):
-                    tracker.record_outcome(
-                        agent=f"agent-{i}",
-                        won=(i % 2 == 0),
-                        generation=0,
-                    )
-
-                metrics = tracker.get_generation_metrics(0)
-
-                assert metrics["total_debates"] == 5
-                assert "win_rate" in metrics
-            finally:
-                if os.path.exists(temp_db):
-                    os.unlink(temp_db)
-        except ImportError:
-            pytest.skip("EvolutionTracker not available (see #136)")
+            assert metrics["total_debates"] == 5
+            assert "win_rate" in metrics
+        finally:
+            if os.path.exists(temp_db):
+                os.unlink(temp_db)
 
     def test_performance_delta_calculation(self):
         """Test calculating performance change between generations."""
-        try:
-            from aragora.evolution.tracker import EvolutionTracker
+        from aragora.evolution.tracker import EvolutionTracker
 
-            tracker = EvolutionTracker()
+        tracker = EvolutionTracker()
 
-            # Record outcomes for two generations
-            tracker.record_outcome("agent-1", won=True, generation=0)
-            tracker.record_outcome("agent-1", won=False, generation=0)
-            tracker.record_outcome("agent-1", won=True, generation=1)
-            tracker.record_outcome("agent-1", won=True, generation=1)
+        # Record outcomes for two generations
+        tracker.record_outcome("agent-1", won=True, generation=0)
+        tracker.record_outcome("agent-1", won=False, generation=0)
+        tracker.record_outcome("agent-1", won=True, generation=1)
+        tracker.record_outcome("agent-1", won=True, generation=1)
 
-            delta = tracker.get_performance_delta("agent-1", gen1=0, gen2=1)
+        delta = tracker.get_performance_delta("agent-1", gen1=0, gen2=1)
 
-            # Gen 1 had 50% win rate, Gen 2 had 100%
-            assert delta["win_rate_delta"] > 0
-        except ImportError:
-            pytest.skip("EvolutionTracker not available (see #136)")
+        # Gen 1 had 50% win rate, Gen 2 had 100%
+        assert delta["win_rate_delta"] > 0
 
 
 # ============================================================================
@@ -350,15 +329,12 @@ class TestEvolutionHandlerIntegration:
 
     def test_handler_routes(self):
         """Test evolution handler routes are registered."""
-        try:
-            from aragora.server.handlers.evolution import EvolutionHandler
+        from aragora.server.handlers.evolution import EvolutionHandler
 
-            handler = EvolutionHandler({})
+        handler = EvolutionHandler({})
 
-            # Should have routes for evolution operations
-            assert len(handler.ROUTES) > 0
-        except ImportError:
-            pytest.skip("Evolution handler not available (see #136)")
+        # Should have routes for evolution operations
+        assert len(handler.ROUTES) > 0
 
     def test_get_patterns_endpoint(self, tmp_path):
         """Test patterns endpoint returns data."""
@@ -401,16 +377,13 @@ class TestGenesisLedger:
 
     def test_ledger_initialization(self):
         """Test ledger can be initialized."""
-        try:
-            from aragora.genesis.ledger import GenesisLedger
-            import tempfile
-            from pathlib import Path
+        from aragora.genesis.ledger import GenesisLedger
+        import tempfile
+        from pathlib import Path
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                ledger = GenesisLedger(db_path=Path(tmpdir) / "genesis.db")
-                assert ledger is not None
-        except ImportError:
-            pytest.skip("GenesisLedger not available (see #136)")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ledger = GenesisLedger(db_path=Path(tmpdir) / "genesis.db")
+            assert ledger is not None
 
     @pytest.mark.skipif(
         not os.environ.get("RUN_FUTURE_API_TESTS"),
@@ -457,13 +430,10 @@ class TestEvolutionErrorHandling:
 
     def test_population_handles_no_survivors(self):
         """Test population handles case with no survivors."""
-        try:
-            from aragora.genesis.breeding import PopulationManager
+        from aragora.genesis.breeding import PopulationManager
 
-            manager = PopulationManager(max_population_size=2)
+        manager = PopulationManager(max_population_size=2)
 
-            # Edge case: all agents fail
-            # Should handle gracefully
-            assert manager is not None
-        except ImportError:
-            pytest.skip("PopulationManager not available (see #136)")
+        # Edge case: all agents fail
+        # Should handle gracefully
+        assert manager is not None

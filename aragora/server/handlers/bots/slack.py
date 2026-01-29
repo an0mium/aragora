@@ -934,7 +934,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
         """Initialize the Slack handler."""
         super().__init__(server_context)  # type: ignore[arg-type]
         # Cache signing secret at init time (important for tests with patched env)
-        self._signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+        self._signing_secret = os.environ.get("SLACK_SIGNING_SECRET")
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""

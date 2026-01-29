@@ -268,21 +268,15 @@ class TestConsensusInterface:
 
     def test_convergence_detector_exists(self):
         """ConvergenceDetector is importable."""
-        try:
-            from aragora.debate.convergence import ConvergenceDetector
+        from aragora.debate.convergence import ConvergenceDetector
 
-            assert ConvergenceDetector is not None
-        except ImportError:
-            pytest.skip("ConvergenceDetector not available")
+        assert ConvergenceDetector is not None
 
     def test_consensus_proof_exists(self):
         """ConsensusProof type exists."""
-        try:
-            from aragora.debate.consensus import ConsensusProof
+        from aragora.debate.consensus import ConsensusProof
 
-            assert ConsensusProof is not None
-        except ImportError:
-            pytest.skip("ConsensusProof not available")
+        assert ConsensusProof is not None
 
 
 # ============================================================================
@@ -319,12 +313,9 @@ class TestMemoryInterface:
 
     def test_continuum_memory_importable(self):
         """ContinuumMemory is importable."""
-        try:
-            from aragora.memory.continuum import ContinuumMemory
+        from aragora.memory.continuum import ContinuumMemory
 
-            assert ContinuumMemory is not None
-        except ImportError:
-            pytest.skip("ContinuumMemory not available")
+        assert ContinuumMemory is not None
 
     def test_consensus_memory_importable(self):
         """ConsensusMemory is importable."""
@@ -349,12 +340,9 @@ class TestPhaseSystem:
 
     def test_debate_context_exists(self):
         """DebateContext is importable."""
-        try:
-            from aragora.debate.context import DebateContext
+        from aragora.debate.context import DebateContext
 
-            assert DebateContext is not None
-        except ImportError:
-            pytest.skip("DebateContext not available")
+        assert DebateContext is not None
 
 
 # ============================================================================

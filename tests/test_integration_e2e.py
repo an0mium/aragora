@@ -441,74 +441,62 @@ class TestGroundedPersonasIntegration:
     @pytest.mark.asyncio
     async def test_position_ledger_integration(self, mock_agents, debate_env, temp_db):
         """Position ledger should record positions during debate."""
-        try:
-            from aragora.agents.grounded import PositionLedger
+        from aragora.agents.grounded import PositionLedger
 
-            ledger = PositionLedger(db_path=str(temp_db))
+        ledger = PositionLedger(db_path=str(temp_db))
 
-            protocol = DebateProtocol(rounds=2, consensus="majority", **TEST_PROTOCOL_DEFAULTS)
-            arena = Arena(
-                environment=debate_env,
-                agents=mock_agents,
-                protocol=protocol,
-                position_ledger=ledger,
-            )
+        protocol = DebateProtocol(rounds=2, consensus="majority", **TEST_PROTOCOL_DEFAULTS)
+        arena = Arena(
+            environment=debate_env,
+            agents=mock_agents,
+            protocol=protocol,
+            position_ledger=ledger,
+        )
 
-            await arena.run()
+        await arena.run()
 
-            # Arena should have the ledger attached
-            assert arena.position_ledger is not None
-
-        except ImportError:
-            pytest.skip("Grounded Personas not available")
+        # Arena should have the ledger attached
+        assert arena.position_ledger is not None
 
     @pytest.mark.asyncio
     async def test_relationship_tracker_integration(self, mock_agents, debate_env, temp_db):
         """Relationship tracker should record interactions."""
-        try:
-            from aragora.agents.grounded import RelationshipTracker
+        from aragora.agents.grounded import RelationshipTracker
 
-            tracker = RelationshipTracker(elo_db_path=str(temp_db))
+        tracker = RelationshipTracker(elo_db_path=str(temp_db))
 
-            protocol = DebateProtocol(rounds=2, consensus="majority", **TEST_PROTOCOL_DEFAULTS)
-            arena = Arena(
-                environment=debate_env,
-                agents=mock_agents,
-                protocol=protocol,
-                relationship_tracker=tracker,
-            )
+        protocol = DebateProtocol(rounds=2, consensus="majority", **TEST_PROTOCOL_DEFAULTS)
+        arena = Arena(
+            environment=debate_env,
+            agents=mock_agents,
+            protocol=protocol,
+            relationship_tracker=tracker,
+        )
 
-            await arena.run()
+        await arena.run()
 
-            # Arena should have the tracker attached
-            assert arena.relationship_tracker is not None
-
-        except ImportError:
-            pytest.skip("Grounded Personas not available")
+        # Arena should have the tracker attached
+        assert arena.relationship_tracker is not None
 
     @pytest.mark.asyncio
     async def test_moment_detector_integration(self, mock_agents, debate_env, temp_db):
         """Moment detector should detect significant moments."""
-        try:
-            from aragora.agents.grounded import MomentDetector
+        from aragora.agents.grounded import MomentDetector
 
-            detector = MomentDetector()  # All args optional for testing
+        detector = MomentDetector()  # All args optional for testing
 
-            protocol = DebateProtocol(rounds=2, consensus="majority", **TEST_PROTOCOL_DEFAULTS)
-            arena = Arena(
-                environment=debate_env,
-                agents=mock_agents,
-                protocol=protocol,
-                moment_detector=detector,
-            )
+        protocol = DebateProtocol(rounds=2, consensus="majority", **TEST_PROTOCOL_DEFAULTS)
+        arena = Arena(
+            environment=debate_env,
+            agents=mock_agents,
+            protocol=protocol,
+            moment_detector=detector,
+        )
 
-            await arena.run()
+        await arena.run()
 
-            # Arena should have the detector attached
-            assert arena.moment_detector is not None
-
-        except ImportError:
-            pytest.skip("Moment detector not available")
+        # Arena should have the detector attached
+        assert arena.moment_detector is not None
 
 
 class TestConsensusProtocols:

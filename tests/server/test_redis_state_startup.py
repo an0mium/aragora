@@ -118,22 +118,16 @@ class TestRedisStateManager:
 
     def test_redis_state_module_exists(self):
         """Redis state module should be importable."""
-        try:
-            from aragora.server import redis_state
+        from aragora.server import redis_state
 
-            assert hasattr(redis_state, "RedisStateManager")
-            assert hasattr(redis_state, "get_redis_state_manager")
-        except ImportError:
-            pytest.skip("Redis state module not available")
+        assert hasattr(redis_state, "RedisStateManager")
+        assert hasattr(redis_state, "get_redis_state_manager")
 
     def test_redis_state_manager_has_required_methods(self):
         """RedisStateManager should have required interface methods."""
-        try:
-            from aragora.server.redis_state import RedisStateManager
+        from aragora.server.redis_state import RedisStateManager
 
-            # Check required methods exist
-            assert hasattr(RedisStateManager, "connect")
-            assert hasattr(RedisStateManager, "disconnect")
-            assert hasattr(RedisStateManager, "is_connected")
-        except ImportError:
-            pytest.skip("Redis state module not available")
+        # Check required methods exist
+        assert hasattr(RedisStateManager, "connect")
+        assert hasattr(RedisStateManager, "disconnect")
+        assert hasattr(RedisStateManager, "is_connected")

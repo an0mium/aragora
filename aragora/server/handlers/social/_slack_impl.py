@@ -160,9 +160,15 @@ from ..utils.rate_limit import rate_limit
 BOTS_READ_PERMISSION = "bots.read"
 
 # Environment variables for Slack integration (fallback for single-workspace mode)
-SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
-SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
-SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
+SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+
+# Log warnings at module load time for missing secrets
+if not SLACK_SIGNING_SECRET:
+    logger.warning("SLACK_SIGNING_SECRET not configured - signature verification disabled")
+if not SLACK_BOT_TOKEN:
+    logger.warning("SLACK_BOT_TOKEN not configured - Slack API calls disabled")
 
 # Multi-workspace support
 _workspace_store = None

@@ -26,9 +26,6 @@ class TestHeaderTrustPrevention:
         """WorkflowHandler must not trust X-User-ID headers."""
         from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
 
-        if not RBAC_AVAILABLE:
-            pytest.skip("RBAC not available")
-
         handler = WorkflowHandler({})
         request = MagicMock()
         request.headers = {
@@ -294,20 +291,14 @@ class TestRBACEnforcement:
 
     def test_rbac_module_available(self):
         """RBAC module must be available."""
-        try:
-            from aragora.rbac import AuthorizationContext, check_permission
+        from aragora.rbac import AuthorizationContext, check_permission
 
-            assert AuthorizationContext is not None
-            assert check_permission is not None
-        except ImportError:
-            pytest.skip("RBAC module not installed")
+        assert AuthorizationContext is not None
+        assert check_permission is not None
 
     def test_admin_permissions(self):
         """Admin role must have elevated permissions."""
-        try:
-            from aragora.rbac import AuthorizationContext, check_permission
-        except ImportError:
-            pytest.skip("RBAC not available")
+        from aragora.rbac import AuthorizationContext, check_permission
 
         ctx = AuthorizationContext(
             user_id="admin_user",
@@ -321,10 +312,7 @@ class TestRBACEnforcement:
 
     def test_viewer_restrictions(self):
         """Viewer role must be restricted from write operations."""
-        try:
-            from aragora.rbac import AuthorizationContext, check_permission
-        except ImportError:
-            pytest.skip("RBAC not available")
+        from aragora.rbac import AuthorizationContext, check_permission
 
         ctx = AuthorizationContext(
             user_id="viewer_user",
@@ -342,13 +330,10 @@ class TestApprovalPersistence:
 
     def test_governance_store_available(self):
         """GovernanceStore must be available for approval persistence."""
-        try:
-            from aragora.storage.governance_store import get_governance_store
+        from aragora.storage.governance_store import get_governance_store
 
-            store = get_governance_store()
-            assert store is not None, "SECURITY REGRESSION: GovernanceStore not available"
-        except ImportError:
-            pytest.skip("GovernanceStore not available")
+        store = get_governance_store()
+        assert store is not None, "SECURITY REGRESSION: GovernanceStore not available"
 
     def test_approval_recovery_function_exists(self):
         """recover_pending_approvals must exist."""

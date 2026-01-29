@@ -149,9 +149,6 @@ class TestGetAllIntrospection:
     def test_all_introspection_success(self, introspection_handler, mock_get_agent_introspection):
         import aragora.server.handlers.introspection as mod
 
-        if not mod.INTROSPECTION_AVAILABLE:
-            pytest.skip("Introspection module not available")
-
         with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = introspection_handler.handle("/api/introspection/all", {}, None)
 
@@ -185,9 +182,6 @@ class TestGetIntrospectionLeaderboard:
     def test_leaderboard_with_limit(self, introspection_handler, mock_get_agent_introspection):
         import aragora.server.handlers.introspection as mod
 
-        if not mod.INTROSPECTION_AVAILABLE:
-            pytest.skip("Introspection module not available")
-
         with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = introspection_handler.handle(
                 "/api/introspection/leaderboard", {"limit": "5"}, None
@@ -201,9 +195,6 @@ class TestGetIntrospectionLeaderboard:
 
     def test_leaderboard_limit_capped(self, introspection_handler, mock_get_agent_introspection):
         import aragora.server.handlers.introspection as mod
-
-        if not mod.INTROSPECTION_AVAILABLE:
-            pytest.skip("Introspection module not available")
 
         with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             # Request limit of 100, should be capped at 50
@@ -279,9 +270,6 @@ class TestGetAgentIntrospection:
     def test_agent_introspection_success(self, introspection_handler, mock_get_agent_introspection):
         import aragora.server.handlers.introspection as mod
 
-        if not mod.INTROSPECTION_AVAILABLE:
-            pytest.skip("Introspection module not available")
-
         with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = introspection_handler.handle("/api/introspection/agents/claude", {}, None)
 
@@ -301,9 +289,6 @@ class TestGetAgentIntrospection:
         self, introspection_handler, mock_get_agent_introspection
     ):
         import aragora.server.handlers.introspection as mod
-
-        if not mod.INTROSPECTION_AVAILABLE:
-            pytest.skip("Introspection module not available")
 
         with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = introspection_handler.handle("/api/introspection/agents/gpt-4", {}, None)
@@ -354,9 +339,6 @@ class TestIntrospectionErrorHandling:
     def test_introspection_exception(self, introspection_handler):
         import aragora.server.handlers.introspection as mod
 
-        if not mod.INTROSPECTION_AVAILABLE:
-            pytest.skip("Introspection module not available")
-
         def raise_error(*args, **kwargs):
             raise Exception("Introspection error")
 
@@ -396,9 +378,6 @@ class TestIntrospectionEdgeCases:
         self, handler_no_nomic_dir, mock_get_agent_introspection
     ):
         import aragora.server.handlers.introspection as mod
-
-        if not mod.INTROSPECTION_AVAILABLE:
-            pytest.skip("Introspection module not available")
 
         with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
             result = handler_no_nomic_dir.handle("/api/introspection/all", {}, None)

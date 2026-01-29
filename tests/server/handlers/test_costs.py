@@ -363,25 +363,21 @@ class TestGetActiveAlerts:
 
     def test_get_active_alerts_warning_level(self):
         """Alert generated when budget at warning level."""
-        # Import the actual enum to use as return value
-        try:
-            from aragora.billing.cost_tracker import BudgetAlertLevel
+        from aragora.billing.cost_tracker import BudgetAlertLevel
 
-            mock_budget = MagicMock()
-            mock_budget.check_alert_level = MagicMock(return_value=BudgetAlertLevel.WARNING)
-            mock_budget.current_monthly_spend = Decimal("400.00")
-            mock_budget.monthly_limit_usd = Decimal("500.00")
+        mock_budget = MagicMock()
+        mock_budget.check_alert_level = MagicMock(return_value=BudgetAlertLevel.WARNING)
+        mock_budget.current_monthly_spend = Decimal("400.00")
+        mock_budget.monthly_limit_usd = Decimal("500.00")
 
-            mock_tracker = MagicMock()
-            mock_tracker.get_budget = MagicMock(return_value=mock_budget)
+        mock_tracker = MagicMock()
+        mock_tracker.get_budget = MagicMock(return_value=mock_budget)
 
-            alerts = _get_active_alerts(mock_tracker, "ws_123")
+        alerts = _get_active_alerts(mock_tracker, "ws_123")
 
-            assert len(alerts) == 1
-            assert alerts[0]["type"] == "budget_warning"
-            assert "80.0%" in alerts[0]["message"]
-        except ImportError:
-            pytest.skip("BudgetAlertLevel not available")
+        assert len(alerts) == 1
+        assert alerts[0]["type"] == "budget_warning"
+        assert "80.0%" in alerts[0]["message"]
 
 
 # =============================================================================

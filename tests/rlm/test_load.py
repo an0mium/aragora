@@ -295,13 +295,10 @@ class TestRLMDebateIntegration:
     @pytest.mark.asyncio
     async def test_cognitive_limiter_integration(self):
         """Test RLM integration with CognitiveLoadLimiter."""
-        try:
-            from aragora.debate.cognitive_limiter_rlm import (
-                RLMCognitiveLoadLimiter,
-                create_rlm_limiter,
-            )
-        except ImportError:
-            pytest.skip("RLMCognitiveLoadLimiter not available")
+        from aragora.debate.cognitive_limiter_rlm import (
+            RLMCognitiveLoadLimiter,
+            create_rlm_limiter,
+        )
 
         limiter = create_rlm_limiter(stress_level="elevated")
 
@@ -322,10 +319,7 @@ class TestRLMDebateIntegration:
     @pytest.mark.asyncio
     async def test_prompt_builder_rlm_context(self):
         """Test PromptBuilder RLM context integration."""
-        try:
-            from aragora.debate.prompt_builder import PromptBuilder, HAS_RLM as PB_HAS_RLM
-        except ImportError:
-            pytest.skip("PromptBuilder not available")
+        from aragora.debate.prompt_builder import PromptBuilder, HAS_RLM as PB_HAS_RLM
 
         if not PB_HAS_RLM:
             pytest.skip("PromptBuilder RLM support not available")

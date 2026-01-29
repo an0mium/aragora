@@ -149,7 +149,9 @@ class MoltbotCanvasHandler(BaseHandler):
 
     # ========== Handler Methods ==========
 
-    def _serialize_canvas(self, canvas: "Canvas") -> dict[str, Any]:
+    def _serialize_canvas(
+        self, canvas: "Canvas", element_count: int | None = None
+    ) -> dict[str, Any]:
         """Serialize canvas to JSON-safe dict."""
         return {
             "id": canvas.id,
@@ -157,26 +159,29 @@ class MoltbotCanvasHandler(BaseHandler):
             "owner_id": canvas.owner_id,
             "width": canvas.config.width,
             "height": canvas.config.height,
-            "background": canvas.config.background,
+            "background": canvas.config.background_color,
             "created_at": serialize_datetime(canvas.created_at),
             "updated_at": serialize_datetime(canvas.updated_at),
-            "element_count": len(canvas.elements),
+            "element_count": element_count if element_count is not None else 0,
             "layer_count": len(canvas.layers),
         }
 
-    def _serialize_element(self, element: "CanvasElement") -> dict[str, Any]:
+    def _serialize_element(
+        self, element: "CanvasElement", layer_id: str | None = None
+    ) -> dict[str, Any]:
         """Serialize element to JSON-safe dict."""
         return {
             "id": element.id,
-            "type": serialize_enum(element.element_type),
+            "type": serialize_enum(element.type),
             "x": element.x,
             "y": element.y,
             "width": element.width,
             "height": element.height,
             "rotation": element.rotation,
             "z_index": element.z_index,
-            "properties": element.properties,
-            "layer_id": element.layer_id,
+            "content": element.content,
+            "style": element.style,
+            "layer_id": layer_id,
         }
 
     async def _handle_list_canvases(
@@ -196,9 +201,15 @@ class MoltbotCanvasHandler(BaseHandler):
             tenant_id=tenant_id,
         )
 
+        # Get element counts for each canvas
+        serialized = []
+        for c in canvases:
+            elements = await manager.list_elements(c.id)
+            serialized.append(self._serialize_canvas(c, element_count=len(elements)))
+
         return json_response(
             {
-                "canvases": [self._serialize_canvas(c) for c in canvases],
+                "canvases": serialized,
                 "total": len(canvases),
             }
         )
@@ -226,7 +237,7 @@ class MoltbotCanvasHandler(BaseHandler):
             name=name,
             width=body.get("width", 1920),
             height=body.get("height", 1080),
-            background=body.get("background", "#ffffff"),
+            background_color=body.get("background", "#ffffff"),
         )
 
         manager = get_canvas_manager()
@@ -253,12 +264,25 @@ class MoltbotCanvasHandler(BaseHandler):
         if not canvas:
             return error_response("Canvas not found", 404)
 
-        result = self._serialize_canvas(canvas)
-        result["elements"] = [self._serialize_element(e) for e in canvas.elements]
-        result["layers"] = [
-            {"id": layer.id, "name": layer.name, "visible": layer.visible, "locked": layer.locked}
-            for layer in canvas.layers
-        ]
+        # Get elements via manager
+        elements = await manager.list_elements(canvas_id)
+        result = self._serialize_canvas(canvas, element_count=len(elements))
+        result["elements"] = [self._serialize_element(e) for e in elements]
+
+        # Get layer objects from IDs
+        layers_data = []
+        for layer_id in canvas.layers:
+            layer = await manager.get_layer(layer_id)
+            if layer:
+                layers_data.append(
+                    {
+                        "id": layer.id,
+                        "name": layer.name,
+                        "visible": layer.visible,
+                        "locked": layer.locked,
+                    }
+                )
+        result["layers"] = layers_data
 
         return json_response({"canvas": result})
 
@@ -301,18 +325,19 @@ class MoltbotCanvasHandler(BaseHandler):
             return error_response("Canvas not found", 404)
 
         element_type = query_params.get("type")
-        layer_id = query_params.get("layer_id")
+        layer_id_filter = query_params.get("layer_id")
 
-        elements = canvas.elements
+        # Get elements via manager (optionally filtered by layer)
+        elements = await manager.list_elements(canvas_id, layer_id=layer_id_filter)
+
+        # Filter by type if specified
         if element_type:
             elements = [
                 e
                 for e in elements
-                if str(e.element_type) == element_type
-                or (hasattr(e.element_type, "value") and e.element_type.value == element_type)
+                if str(e.type) == element_type
+                or (hasattr(e.type, "value") and e.type.value == element_type)
             ]
-        if layer_id:
-            elements = [e for e in elements if e.layer_id == layer_id]
 
         return json_response(
             {

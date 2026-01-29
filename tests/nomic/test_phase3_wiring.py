@@ -21,6 +21,7 @@ def _make_mock_agent(response: str = "agent context output"):
     """Create a mock agent with generate() method."""
     agent = AsyncMock()
     agent.generate = AsyncMock(return_value=response)
+    agent.timeout = None  # Prevent MagicMock attribute from breaking asyncio.wait_for
     return agent
 
 
@@ -88,7 +89,7 @@ class TestContextPhaseWithBuilder:
             context_builder=mock_builder,
         )
 
-        with _patch_streaming():
+        with _patch_streaming(), patch.dict(os.environ, {"ARAGORA_NOMIC_CONTEXT_RLM": "false"}):
             result = await phase.execute()
 
         # Should still succeed from agent context
@@ -107,7 +108,7 @@ class TestContextPhaseWithBuilder:
             context_builder=None,
         )
 
-        with _patch_streaming():
+        with _patch_streaming(), patch.dict(os.environ, {"ARAGORA_NOMIC_CONTEXT_RLM": "false"}):
             result = await phase.execute()
 
         assert result["success"]

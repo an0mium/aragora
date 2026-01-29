@@ -100,9 +100,10 @@ class TestRBACIntegration:
     def rbac_setup(self):
         """Set up RBAC for testing."""
         try:
-            from aragora.rbac import AuthorizationContext, check_permission, PermissionDecision
+            from aragora.rbac import AuthorizationContext, check_permission
+            from aragora.rbac.models import AuthorizationDecision
 
-            return AuthorizationContext, check_permission, PermissionDecision
+            return AuthorizationContext, check_permission, AuthorizationDecision
         except ImportError:
             pytest.skip("RBAC module not available")
 
