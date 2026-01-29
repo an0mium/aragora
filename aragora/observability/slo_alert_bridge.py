@@ -190,7 +190,7 @@ class SLOAlertBridge:
                     api_key=self.config.pagerduty_api_key or "",
                     email=self.config.pagerduty_email,
                 )
-                self._pagerduty_client = PagerDutyConnector(credentials)
+                self._pagerduty_client = PagerDutyConnector(credentials)  # type: ignore[assignment]
 
             # Map severity to PagerDuty urgency/priority
             urgency_map = {
@@ -254,7 +254,7 @@ class SLOAlertBridge:
             )
 
             if self._notification_manager is None:
-                self._notification_manager = NotificationManager()
+                self._notification_manager = NotificationManager()  # type: ignore[assignment]
 
             severity = self._map_severity(violation.severity)
             priority_map = {
