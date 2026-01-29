@@ -34,6 +34,7 @@ NAMESPACE_BACKEND_ROUTING: dict[str, VectorBackend] = {
     "evidence": VectorBackend.WEAVIATE,
 }
 
+
 class VectorStoreFactory:
     """
     Factory for creating vector store instances.
@@ -236,6 +237,7 @@ class VectorStoreFactory:
         """
         return NAMESPACE_BACKEND_ROUTING.get(namespace)
 
+
 def _register_default_backends() -> None:
     """Register default vector store implementations."""
     # Import and register backends
@@ -271,6 +273,25 @@ def _register_default_backends() -> None:
         VectorStoreFactory.register(VectorBackend.CHROMA, ChromaVectorStore)
     except ImportError:
         logger.debug("Chroma backend not available (chromadb not installed)")
+
+    # Try to register Pinecone
+    try:
+        from aragora.knowledge.mound.vector_abstraction.pinecone import (
+            PineconeVectorStore,
+        )
+
+        VectorStoreFactory.register(VectorBackend.PINECONE, PineconeVectorStore)
+    except ImportError:
+        logger.debug("Pinecone backend not available (pinecone-client not installed)")
+
+    # Try to register Milvus
+    try:
+        from aragora.knowledge.mound.vector_abstraction.milvus import MilvusVectorStore
+
+        VectorStoreFactory.register(VectorBackend.MILVUS, MilvusVectorStore)
+    except ImportError:
+        logger.debug("Milvus backend not available (pymilvus not installed)")
+
 
 # Register defaults on module load
 _register_default_backends()

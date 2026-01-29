@@ -16,13 +16,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class VectorBackend(str, Enum):
     """Supported vector store backends."""
 
     WEAVIATE = "weaviate"
     QDRANT = "qdrant"
     CHROMA = "chroma"
+    PINECONE = "pinecone"
+    MILVUS = "milvus"
     MEMORY = "memory"  # In-memory for testing
+
 
 @dataclass
 class VectorSearchResult:
@@ -48,6 +52,7 @@ class VectorSearchResult:
             "metadata": self.metadata,
             "embedding": self.embedding,
         }
+
 
 @dataclass
 class VectorStoreConfig:
@@ -88,6 +93,7 @@ class VectorStoreConfig:
             embedding_dimensions=int(os.getenv("EMBEDDING_DIMENSIONS", "1536")),
             distance_metric=os.getenv("DISTANCE_METRIC", "cosine"),
         )
+
 
 class BaseVectorStore(ABC):
     """
