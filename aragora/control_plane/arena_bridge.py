@@ -46,9 +46,9 @@ try:
     HAS_AUDIT = True
 except ImportError:
     HAS_AUDIT = False
-    log_deliberation_started = None  # type: ignore
-    log_deliberation_completed = None  # type: ignore
-    log_deliberation_sla_event = None  # type: ignore
+    log_deliberation_started = None  # type: ignore[assignment]  # Optional module fallback
+    log_deliberation_completed = None  # type: ignore[assignment]  # Optional module fallback
+    log_deliberation_sla_event = None  # type: ignore[assignment]  # Optional module fallback
 
 # Prometheus metrics (optional)
 try:
@@ -61,9 +61,9 @@ try:
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
-    record_deliberation_complete = None  # type: ignore
-    record_deliberation_sla = None  # type: ignore
-    record_agent_utilization = None  # type: ignore
+    record_deliberation_complete = None  # type: ignore[assignment]  # Optional module fallback
+    record_deliberation_sla = None  # type: ignore[assignment]  # Optional module fallback
+    record_agent_utilization = None  # type: ignore[assignment]  # Optional module fallback
 
 if TYPE_CHECKING:
     from aragora.control_plane.shared_state import SharedControlPlaneState
@@ -662,7 +662,7 @@ class ArenaControlPlaneBridge:
                     logger.debug(f"Failed to record SLA violation: {e}")
 
             await adapter.on_debate_complete(
-                None,  # type: ignore
+                None,  # type: ignore[arg-type]  # Passing None for timeout case
                 success=False,
                 error=f"Timeout after {task.sla.timeout_seconds}s",
             )
@@ -696,7 +696,7 @@ class ArenaControlPlaneBridge:
                     logger.debug(f"Failed to record failure metrics: {exc}")
 
             await adapter.on_debate_complete(
-                None,  # type: ignore
+                None,  # type: ignore[arg-type]  # Passing None for error case
                 success=False,
                 error=error_msg,
             )

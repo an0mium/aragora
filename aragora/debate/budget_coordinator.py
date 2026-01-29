@@ -209,7 +209,7 @@ class BudgetCoordinator:
 
         # Check result metadata
         if hasattr(result, "metadata") and isinstance(result.metadata, dict):
-            cost = result.metadata.get("total_cost_usd", 0.0)
+            cost = float(result.metadata.get("total_cost_usd", 0.0))
             if cost > 0:
                 return cost
 
