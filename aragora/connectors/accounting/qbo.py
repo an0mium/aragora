@@ -35,6 +35,7 @@ from aragora.connectors.exceptions import (
     ConnectorTimeoutError,
 )
 from aragora.connectors.model_base import ConnectorDataclass
+from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,8 @@ class QuickBooksConnector:
         client_secret: Optional[str] = None,
         redirect_uri: Optional[str] = None,
         environment: QBOEnvironment = QBOEnvironment.SANDBOX,
+        circuit_breaker: Optional[CircuitBreaker] = None,
+        enable_circuit_breaker: bool = True,
     ):
         """
         Initialize QuickBooks connector.
@@ -190,6 +193,8 @@ class QuickBooksConnector:
             client_secret: OAuth client secret (or from QBO_CLIENT_SECRET env var)
             redirect_uri: OAuth callback URL (or from QBO_REDIRECT_URI env var)
             environment: Sandbox or production
+            circuit_breaker: Optional pre-configured circuit breaker
+            enable_circuit_breaker: Enable circuit breaker protection (default: True)
         """
         self.client_id = client_id or os.getenv("QBO_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("QBO_CLIENT_SECRET")
@@ -208,6 +213,18 @@ class QuickBooksConnector:
 
         self._credentials: Optional[QBOCredentials] = None
         self._http_client: Optional[Any] = None
+
+        # Circuit breaker for API resilience
+        if circuit_breaker is not None:
+            self._circuit_breaker = circuit_breaker
+        elif enable_circuit_breaker:
+            self._circuit_breaker = CircuitBreaker(
+                name="qbo",
+                failure_threshold=3,  # Strict for financial data
+                cooldown_seconds=60.0,
+            )
+        else:
+            self._circuit_breaker: Optional[CircuitBreaker] = None
 
     @property
     def is_configured(self) -> bool:
@@ -353,7 +370,7 @@ class QuickBooksConnector:
         base_delay: float = 0.5,
     ) -> Dict[str, Any]:
         """
-        Make authenticated API request with retry logic.
+        Make authenticated API request with retry logic and circuit breaker.
 
         Args:
             method: HTTP method
@@ -371,6 +388,15 @@ class QuickBooksConnector:
         import asyncio
 
         import aiohttp
+
+        # Check circuit breaker before making request
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            cooldown = self._circuit_breaker.cooldown_remaining()
+            raise ConnectorAPIError(
+                f"Circuit breaker open - retry in {cooldown:.1f}s",
+                connector_name="qbo",
+                status_code=503,
+            )
 
         if not self._credentials:
             raise ConnectorAuthError("Not authenticated", connector_name="qbo")
@@ -424,11 +450,18 @@ class QuickBooksConnector:
 
                         if response.status >= 400:
                             error = response_data.get("Fault", {}).get("Error", [{}])[0]
+                            # Record failure for persistent errors
+                            if self._circuit_breaker:
+                                self._circuit_breaker.record_failure()
                             raise ConnectorAPIError(
                                 f"QBO API error: {error.get('Message', 'Unknown error')}",
                                 connector_name="qbo",
                                 status_code=response.status,
                             )
+
+                        # Success - record it
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_success()
 
                         return response_data
 
@@ -442,12 +475,15 @@ class QuickBooksConnector:
                     )
                     await asyncio.sleep(delay)
                     continue
+                # Record failure after all retries exhausted
+                if self._circuit_breaker:
+                    self._circuit_breaker.record_failure()
                 raise ConnectorNetworkError(
                     f"QBO connection failed after {max_retries} retries: {e}",
                     connector_name="qbo",
-                )
+                ) from e
 
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutError as e:
                 last_error = asyncio.TimeoutError("Request timed out")
                 if attempt < max_retries:
                     delay = base_delay * (2**attempt)
@@ -457,10 +493,13 @@ class QuickBooksConnector:
                     )
                     await asyncio.sleep(delay)
                     continue
+                # Record failure after all retries exhausted
+                if self._circuit_breaker:
+                    self._circuit_breaker.record_failure()
                 raise ConnectorTimeoutError(
                     f"QBO request timed out after {max_retries} retries",
                     connector_name="qbo",
-                )
+                ) from e
 
         # Should not reach here, but just in case
         raise ConnectorAPIError(
@@ -537,7 +576,9 @@ class QuickBooksConnector:
         if end_date:
             conditions.append(f"TxnDate <= '{end_date.strftime('%Y-%m-%d')}'")
         if customer_id:
-            conditions.append(f"CustomerRef = '{customer_id}'")
+            # Validate customer_id is numeric to prevent injection
+            safe_customer_id = self._validate_numeric_id(customer_id, "customer_id")
+            conditions.append(f"CustomerRef = '{safe_customer_id}'")
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         query = f"SELECT * FROM Invoice WHERE {where_clause} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
@@ -646,7 +687,9 @@ class QuickBooksConnector:
         """List chart of accounts."""
         conditions = [f"Active = {str(active_only).lower()}"]
         if account_type:
-            conditions.append(f"AccountType = '{account_type}'")
+            # Sanitize account_type to prevent injection
+            safe_account_type = self._sanitize_query_value(account_type)
+            conditions.append(f"AccountType = '{safe_account_type}'")
 
         where_clause = " AND ".join(conditions)
         query = f"SELECT * FROM Account WHERE {where_clause}"
@@ -727,6 +770,31 @@ class QuickBooksConnector:
             value = str(value)
         # Double single quotes for QBO query language (standard SQL-like escaping)
         return value.replace("'", "''")
+
+    def _validate_numeric_id(self, value: str, field_name: str) -> str:
+        """
+        Validate that a value is a valid numeric ID.
+
+        QuickBooks IDs are always numeric integers. This validation prevents
+        injection attacks by ensuring the ID contains only digits.
+
+        Args:
+            value: The ID value to validate
+            field_name: Name of the field for error messages
+
+        Returns:
+            The validated ID string
+
+        Raises:
+            ValueError: If the ID is not a valid numeric string
+        """
+        if not value:
+            raise ValueError(f"{field_name} cannot be empty")
+        # Strip whitespace and check for numeric only
+        clean_value = value.strip()
+        if not clean_value.isdigit():
+            raise ValueError(f"{field_name} must be a numeric ID, got: {value!r}")
+        return clean_value
 
     async def create_vendor(
         self,
