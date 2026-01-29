@@ -11,6 +11,7 @@ horizontal scaling in multi-instance deployments.
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -155,20 +156,32 @@ class PermissionChecker:
         self._global_resource_cache_version: int = 0
         self._user_resource_cache_versions: dict[str, int] = {}
 
+        # Lock for thread-safe cache version operations (prevents race conditions
+        # between version read and use)
+        self._cache_version_lock = threading.Lock()
+
         # If distributed cache provided, register for invalidation callbacks
         if self._cache_backend:
             self._cache_backend.add_invalidation_callback(self._on_remote_invalidation)
 
     def _get_cache_version(self, user_id: str) -> str:
-        """Get the cache version string for a user (combines global and user version)."""
-        global_v = self._global_cache_version
-        user_v = self._user_cache_versions.get(user_id, 0)
+        """Get the cache version string for a user (combines global and user version).
+
+        Thread-safe: Uses lock to prevent race condition between version read and use.
+        """
+        with self._cache_version_lock:
+            global_v = self._global_cache_version
+            user_v = self._user_cache_versions.get(user_id, 0)
         return f"v{global_v}.{user_v}"
 
     def _get_resource_cache_version(self, user_id: str) -> str:
-        """Get the resource cache version string for a user."""
-        global_v = self._global_resource_cache_version
-        user_v = self._user_resource_cache_versions.get(user_id, 0)
+        """Get the resource cache version string for a user.
+
+        Thread-safe: Uses lock to prevent race condition between version read and use.
+        """
+        with self._cache_version_lock:
+            global_v = self._global_resource_cache_version
+            user_v = self._user_resource_cache_versions.get(user_id, 0)
         return f"v{global_v}.{user_v}"
 
     def _get_condition_evaluator(self) -> "ConditionEvaluator":
@@ -453,6 +466,8 @@ class PermissionChecker:
         Uses O(1) versioning for user-only invalidation, falls back to
         O(n) iteration when filtering by resource_type or resource_id.
 
+        Thread-safe: Uses lock for version operations.
+
         Args:
             user_id: Optional filter by user ID
             resource_type: Optional filter by resource type
@@ -460,22 +475,24 @@ class PermissionChecker:
         """
         if not user_id and not resource_type and not resource_id:
             # O(1) global invalidation
-            self._global_resource_cache_version += 1
-            self._user_resource_cache_versions.clear()
-            self._resource_permission_cache.clear()
+            with self._cache_version_lock:
+                self._global_resource_cache_version += 1
+                self._user_resource_cache_versions.clear()
+                self._resource_permission_cache.clear()
             return
 
         # O(1) user-only invalidation via versioning
         if user_id and not resource_type and not resource_id:
-            self._user_resource_cache_versions[user_id] = (
-                self._user_resource_cache_versions.get(user_id, 0) + 1
-            )
+            with self._cache_version_lock:
+                self._user_resource_cache_versions[user_id] = (
+                    self._user_resource_cache_versions.get(user_id, 0) + 1
+                )
             return
 
         # O(n) fallback for resource_type/resource_id filtering
         # (would need additional indexing for O(1) in these cases)
         keys_to_remove = []
-        for key in self._resource_permission_cache:
+        for key in list(self._resource_permission_cache.keys()):
             parts = key.split(":")
             # Key format: version:user_id:permission:resource_type:resource_id:org_id
             if len(parts) >= 5:
@@ -489,7 +506,7 @@ class PermissionChecker:
                 keys_to_remove.append(key)
 
         for key in keys_to_remove:
-            del self._resource_permission_cache[key]
+            self._resource_permission_cache.pop(key, None)
 
     def _get_cached_resource_permission(
         self,
@@ -611,25 +628,28 @@ class PermissionChecker:
         Uses O(1) cache versioning instead of O(n) key iteration.
         Old entries with stale versions become unreachable and are
         cleaned up on TTL expiry or periodic cache maintenance.
+
+        Thread-safe: Uses lock to prevent race conditions during version updates.
         """
-        if user_id:
-            # O(1) invalidation: increment user's cache version
-            # Old keys with old version won't match on lookup
-            self._user_cache_versions[user_id] = self._user_cache_versions.get(user_id, 0) + 1
-            # Also invalidate resource permission cache for this user
-            self._user_resource_cache_versions[user_id] = (
-                self._user_resource_cache_versions.get(user_id, 0) + 1
-            )
-        else:
-            # O(1) global invalidation: increment global versions
-            self._global_cache_version += 1
-            self._global_resource_cache_version += 1
-            # Clear version dicts (optional, but keeps memory bounded)
-            self._user_cache_versions.clear()
-            self._user_resource_cache_versions.clear()
-            # Also clear the actual cache dicts to free memory immediately
-            self._decision_cache.clear()
-            self._resource_permission_cache.clear()
+        with self._cache_version_lock:
+            if user_id:
+                # O(1) invalidation: increment user's cache version
+                # Old keys with old version won't match on lookup
+                self._user_cache_versions[user_id] = self._user_cache_versions.get(user_id, 0) + 1
+                # Also invalidate resource permission cache for this user
+                self._user_resource_cache_versions[user_id] = (
+                    self._user_resource_cache_versions.get(user_id, 0) + 1
+                )
+            else:
+                # O(1) global invalidation: increment global versions
+                self._global_cache_version += 1
+                self._global_resource_cache_version += 1
+                # Clear version dicts (optional, but keeps memory bounded)
+                self._user_cache_versions.clear()
+                self._user_resource_cache_versions.clear()
+                # Also clear the actual cache dicts to free memory immediately
+                self._decision_cache.clear()
+                self._resource_permission_cache.clear()
 
     def _resolve_permissions(self, context: AuthorizationContext) -> AuthorizationContext:
         """Resolve all permissions from roles."""
@@ -935,22 +955,26 @@ class PermissionChecker:
         self._decision_cache[cache_key] = (decision, datetime.now(timezone.utc))
 
     def _on_remote_invalidation(self, key: str) -> None:
-        """Handle invalidation from distributed cache (pub/sub)."""
-        if key == "all":
-            # O(1) global invalidation via versioning
-            self._global_cache_version += 1
-            self._global_resource_cache_version += 1
-            self._user_cache_versions.clear()
-            self._user_resource_cache_versions.clear()
-            self._decision_cache.clear()
-            self._resource_permission_cache.clear()
-        elif key.startswith("user:"):
-            # O(1) user invalidation via versioning
-            user_id = key[5:]
-            self._user_cache_versions[user_id] = self._user_cache_versions.get(user_id, 0) + 1
-            self._user_resource_cache_versions[user_id] = (
-                self._user_resource_cache_versions.get(user_id, 0) + 1
-            )
+        """Handle invalidation from distributed cache (pub/sub).
+
+        Thread-safe: Uses lock to prevent race conditions during version updates.
+        """
+        with self._cache_version_lock:
+            if key == "all":
+                # O(1) global invalidation via versioning
+                self._global_cache_version += 1
+                self._global_resource_cache_version += 1
+                self._user_cache_versions.clear()
+                self._user_resource_cache_versions.clear()
+                self._decision_cache.clear()
+                self._resource_permission_cache.clear()
+            elif key.startswith("user:"):
+                # O(1) user invalidation via versioning
+                user_id = key[5:]
+                self._user_cache_versions[user_id] = self._user_cache_versions.get(user_id, 0) + 1
+                self._user_resource_cache_versions[user_id] = (
+                    self._user_resource_cache_versions.get(user_id, 0) + 1
+                )
 
     def get_role_permissions(self, role_name: str) -> set[str]:
         """
