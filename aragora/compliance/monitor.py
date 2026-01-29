@@ -290,7 +290,7 @@ class ComplianceMonitor:
         self._last_full_scan = datetime.now(timezone.utc)
 
         try:
-            from aragora.compliance.framework import get_compliance_framework
+            from aragora.compliance.framework import get_compliance_framework  # type: ignore[attr-defined]
 
             framework = get_compliance_framework()
             if not framework:
@@ -317,7 +317,7 @@ class ComplianceMonitor:
             audit_log = get_audit_log()
             if audit_log:
                 # Verify recent entries have valid hash chain
-                verified = await audit_log.verify_chain(limit=100)
+                verified = await audit_log.verify_chain(limit=100)  # type: ignore[attr-defined]
                 if self._last_status:
                     self._last_status.audit_trail_verified = verified
 
