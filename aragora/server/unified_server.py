@@ -1115,6 +1115,19 @@ class UnifiedServer:
         )
         self._watchdog_task = startup_status.get("watchdog_task")
 
+        # Upgrade stores from SQLite to PostgreSQL now that the pool exists.
+        # init_handler_stores() ran in __init__() before the pool was available,
+        # so stores initially fell back to SQLite.  Now we can replace them.
+        if startup_status.get("postgres_pool", {}).get("enabled"):
+            try:
+                from aragora.server.initialization import upgrade_handler_stores
+
+                upgrade_results = await upgrade_handler_stores(self.nomic_dir)
+                if upgrade_results:
+                    logger.info(f"Store upgrades: {upgrade_results}")
+            except Exception as e:
+                logger.warning(f"Store upgrade failed (continuing with SQLite): {e}")
+
         # Wire Control Plane coordinator to handler
         self._control_plane_coordinator = startup_status.get("control_plane_coordinator")
         if self._control_plane_coordinator:

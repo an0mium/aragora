@@ -1087,3 +1087,75 @@ def init_postgres_stores_sync() -> dict[str, bool]:
     except RuntimeError:
         # No running loop - safe to use asyncio.run()
         return asyncio.run(init_postgres_stores())
+
+
+async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
+    """Upgrade handler stores from SQLite to PostgreSQL using the shared pool.
+
+    Called during server ``start()`` AFTER ``run_startup_sequence()`` creates
+    the shared pool.  The first call to ``init_handler_stores()`` happens in
+    ``__init__()`` (synchronous, no pool), so this function re-creates the
+    PostgreSQL-capable stores once the pool is available.
+
+    Args:
+        nomic_dir: Path to nomic state directory
+
+    Returns:
+        Dictionary mapping store name → backend type ("postgres" or "skipped")
+    """
+    from aragora.storage.pool_manager import get_shared_pool, is_pool_initialized
+
+    if not is_pool_initialized():
+        logger.debug("[upgrade] Shared pool not available, skipping store upgrade")
+        return {}
+
+    pool = get_shared_pool()
+    if not pool:
+        return {}
+
+    results: dict[str, str] = {}
+
+    # Upgrade UserStore
+    try:
+        from aragora.storage.user_store import PostgresUserStore
+
+        store = PostgresUserStore(pool)
+        if hasattr(store, "initialize"):
+            await store.initialize()
+        results["user_store"] = "postgres"
+        logger.info("[upgrade] UserStore upgraded to PostgreSQL")
+
+        # Wire to handler
+        from aragora.server.handler_registry import UnifiedHandler
+
+        UnifiedHandler.user_store = store
+    except Exception as e:
+        logger.warning(f"[upgrade] UserStore upgrade failed: {e}")
+        results["user_store"] = "skipped"
+
+    # Upgrade additional stores (job queue, governance, etc.)
+    store_upgrades: list[tuple[str, str, str]] = [
+        ("job_queue", "aragora.storage.job_queue_store", "PostgresJobQueueStore"),
+        ("governance", "aragora.storage.governance_store", "PostgresGovernanceStore"),
+        ("inbox", "aragora.storage.inbox_store", "PostgresInboxStore"),
+    ]
+
+    for name, module_path, class_name in store_upgrades:
+        try:
+            module = __import__(module_path, fromlist=[class_name])
+            store_class = getattr(module, class_name)
+            store = store_class(pool)
+            if hasattr(store, "initialize"):
+                await store.initialize()
+            results[name] = "postgres"
+            logger.info(f"[upgrade] {name} upgraded to PostgreSQL")
+        except ImportError:
+            results[name] = "skipped"
+        except Exception as e:
+            logger.warning(f"[upgrade] {name} upgrade failed: {e}")
+            results[name] = "skipped"
+
+    upgraded = sum(1 for v in results.values() if v == "postgres")
+    if upgraded:
+        logger.info(f"[upgrade] {upgraded} store(s) upgraded to PostgreSQL")
+    return results
