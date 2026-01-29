@@ -23,8 +23,13 @@ Usage:
 
 from aragora.gateway.server import LocalGateway, GatewayConfig
 from aragora.gateway.inbox import InboxAggregator, InboxMessage, InboxThread
-from aragora.gateway.device_registry import DeviceNode, DeviceRegistry
+from aragora.gateway.device_registry import DeviceNode, DeviceRegistry, DeviceStatus
 from aragora.gateway.device_node import DeviceNodeRuntime, DeviceNodeRuntimeConfig
+from aragora.gateway.device_security import (
+    PairingStatus,
+    PairingRequest,
+    SecureDeviceRegistry,
+)
 from aragora.gateway.router import AgentRouter, RoutingRule
 from aragora.gateway.capability_router import CapabilityRouter, CapabilityRule, RoutingResult
 from aragora.gateway.protocol import GatewayProtocolAdapter, GatewaySession
@@ -47,8 +52,13 @@ __all__ = [
     # Device
     "DeviceNode",
     "DeviceRegistry",
+    "DeviceStatus",
     "DeviceNodeRuntime",
     "DeviceNodeRuntimeConfig",
+    # Device Security
+    "PairingStatus",
+    "PairingRequest",
+    "SecureDeviceRegistry",
     # Protocol
     "GatewayProtocolAdapter",
     "GatewaySession",

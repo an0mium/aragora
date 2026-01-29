@@ -54,6 +54,19 @@ from ..base import (
     error_response,
     json_response,
 )
+
+# RBAC imports - optional dependency
+try:
+    from aragora.rbac.checker import check_permission
+    from aragora.rbac.middleware import extract_user_from_request
+    from aragora.rbac.models import AuthorizationContext
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+    check_permission = None  # type: ignore[assignment, misc]
+    extract_user_from_request = None  # type: ignore[assignment, misc]
+    AuthorizationContext = None  # type: ignore[assignment, misc]
 from ..utils.rate_limit import rate_limit
 from .telemetry import (
     record_api_call,
@@ -103,6 +116,49 @@ class TelegramHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    # =========================================================================
+    # RBAC Helper Methods
+    # =========================================================================
+
+    def _get_auth_context(self, handler: Any) -> Optional[Any]:
+        """Extract authorization context from the request."""
+        if not RBAC_AVAILABLE or extract_user_from_request is None:
+            return None
+
+        try:
+            user_info = extract_user_from_request(handler)
+            if not user_info:
+                return None
+
+            return AuthorizationContext(
+                user_id=user_info.user_id or "anonymous",
+                roles={user_info.role} if user_info.role else set(),
+                org_id=user_info.org_id,
+            )
+        except Exception as e:
+            logger.debug(f"Could not extract auth context: {e}")
+            return None
+
+    def _check_permission(self, handler: Any, permission_key: str) -> Optional[HandlerResult]:
+        """Check if current user has permission. Returns error response if denied."""
+        if not RBAC_AVAILABLE or check_permission is None:
+            return None
+
+        context = self._get_auth_context(handler)
+        if context is None:
+            return None
+
+        try:
+            decision = check_permission(context, permission_key)
+            if not decision.allowed:
+                logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
+                return error_response(f"Permission denied: {decision.reason}", 403)
+        except Exception as e:
+            logger.warning(f"RBAC check failed: {e}")
+            return None
+
+        return None
+
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
@@ -110,11 +166,19 @@ class TelegramHandler(BaseHandler):
         logger.debug(f"Telegram request: {path}")
 
         if path == "/api/v1/integrations/telegram/status":
+            # RBAC: Require messaging:read permission
+            perm_error = self._check_permission(handler, "messaging:read")
+            if perm_error:
+                return perm_error
             return self._get_status()
 
         if path == "/api/v1/integrations/telegram/set-webhook":
             if handler.command != "POST":
                 return error_response("Method not allowed", 405)
+            # RBAC: Require messaging:write permission
+            perm_error = self._check_permission(handler, "messaging:write")
+            if perm_error:
+                return perm_error
             return self._set_webhook(handler)
 
         if path == "/api/v1/integrations/telegram/webhook":
@@ -122,6 +186,7 @@ class TelegramHandler(BaseHandler):
                 return error_response("Method not allowed", 405)
 
             # Verify webhook secret if configured
+            # Note: No RBAC for webhook - uses signature verification instead
             if TELEGRAM_WEBHOOK_SECRET and not self._verify_secret(handler):
                 logger.warning("Telegram webhook secret verification failed")
                 return error_response("Unauthorized", 401)

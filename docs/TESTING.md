@@ -630,6 +630,8 @@ python benchmarks/task_bench.py --mode demo --profile fast
 # Include Pulse trending context (network required)
 python benchmarks/task_bench.py --mode demo --profile fast --enable-trending
 
+Sample artifacts live in `examples/task_bench/demo`.
+
 # Run with timing info
 pytest tests/ --durations=10
 

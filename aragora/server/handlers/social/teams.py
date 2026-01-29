@@ -52,6 +52,19 @@ from ..base import (
 )
 from ..utils.rate_limit import rate_limit
 
+# RBAC imports - optional dependency
+try:
+    from aragora.rbac.checker import check_permission
+    from aragora.rbac.middleware import extract_user_from_request
+    from aragora.rbac.models import AuthorizationContext
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+    check_permission = None  # type: ignore[assignment, misc]
+    extract_user_from_request = None  # type: ignore[assignment, misc]
+    AuthorizationContext = None  # type: ignore[assignment, misc]
+
 # Environment configuration
 TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID", "")
 TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD", "")

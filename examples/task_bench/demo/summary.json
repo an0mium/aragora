@@ -1,0 +1,21 @@
+{
+  "mode": "demo",
+  "profile": "fast",
+  "tasks": 8,
+  "summary": {
+    "baseline": {
+      "avg_hit_rate": 0.292,
+      "avg_duration_seconds": 0.016,
+      "samples": 8
+    },
+    "multi": {
+      "avg_hit_rate": 0.292,
+      "avg_duration_seconds": 0.008,
+      "samples": 8
+    },
+    "delta": {
+      "hit_rate": 0.0,
+      "duration_seconds": -0.008
+    }
+  }
+}
