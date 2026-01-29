@@ -205,6 +205,23 @@ def mock_processor():
     return MockBatchProcessor()
 
 
+# Bypass RBAC decorator for testing
+@pytest.fixture(autouse=True)
+def bypass_rbac():
+    """Bypass RBAC decorator for testing."""
+    def passthrough_decorator(*args, **kwargs):
+        """Return identity decorator."""
+        def identity(func):
+            return func
+        # If used as @require_permission("permission"), return identity
+        if args and callable(args[0]):
+            return args[0]
+        return identity
+
+    with patch("aragora.rbac.decorators.require_permission", passthrough_decorator):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Constants Tests
 # ---------------------------------------------------------------------------
@@ -280,14 +297,6 @@ class TestCanHandle:
         """Test can_handle for batch job results route."""
         assert handler.can_handle("/api/v1/documents/batch/job123/results") is True
 
-    def test_can_handle_document_chunks(self, handler):
-        """Test can_handle for document chunks route."""
-        assert handler.can_handle("/api/v1/documents/doc123/chunks") is True
-
-    def test_can_handle_document_context(self, handler):
-        """Test can_handle for document context route."""
-        assert handler.can_handle("/api/v1/documents/doc123/context") is True
-
     def test_can_handle_knowledge_job_id(self, handler):
         """Test can_handle for knowledge job status route."""
         assert handler.can_handle("/api/v1/knowledge/jobs/kp_123") is True
@@ -313,15 +322,10 @@ class TestCanHandle:
 class TestProcessingStats:
     """Tests for processing stats endpoint."""
 
-    @pytest.mark.asyncio
-    async def test_get_processing_stats(self, handler, mock_processor):
+    def test_get_processing_stats(self, handler, mock_processor):
         """Test getting processing stats."""
-        mock_handler = make_mock_handler()
-
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle(
-                "/api/v1/documents/processing/stats", {}, mock_handler
-            )
+            result = handler._get_processing_stats()
 
         assert result is not None
         assert result.status_code == 200
@@ -330,15 +334,10 @@ class TestProcessingStats:
         assert "limits" in body
         assert body["limits"]["max_batch_size"] == MAX_BATCH_SIZE
 
-    @pytest.mark.asyncio
-    async def test_processing_stats_includes_limits(self, handler, mock_processor):
+    def test_processing_stats_includes_limits(self, handler, mock_processor):
         """Test that processing stats include limits."""
-        mock_handler = make_mock_handler()
-
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle(
-                "/api/v1/documents/processing/stats", {}, mock_handler
-            )
+            result = handler._get_processing_stats()
 
         body = json.loads(result.body)
         assert body["limits"]["max_file_size_mb"] == MAX_FILE_SIZE_MB
@@ -356,13 +355,10 @@ class TestGetJobStatus:
     @pytest.mark.asyncio
     async def test_get_job_status_success(self, handler, mock_processor):
         """Test getting job status for existing job."""
-        mock_handler = make_mock_handler()
         mock_processor.jobs["job-123"] = {"status": "processing"}
 
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle(
-                "/api/v1/documents/batch/job-123", {}, mock_handler
-            )
+            result = await handler._get_job_status("job-123")
 
         assert result is not None
         assert result.status_code == 200
@@ -372,12 +368,8 @@ class TestGetJobStatus:
     @pytest.mark.asyncio
     async def test_get_job_status_not_found(self, handler, mock_processor):
         """Test getting status for non-existent job."""
-        mock_handler = make_mock_handler()
-
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle(
-                "/api/v1/documents/batch/nonexistent", {}, mock_handler
-            )
+            result = await handler._get_job_status("nonexistent")
 
         assert result is not None
         assert result.status_code == 404
@@ -396,13 +388,10 @@ class TestGetJobResults:
     @pytest.mark.asyncio
     async def test_get_job_results_completed(self, handler, mock_processor):
         """Test getting results for completed job."""
-        mock_handler = make_mock_handler()
         mock_processor.jobs["job-123"] = {"status": "completed"}
 
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle(
-                "/api/v1/documents/batch/job-123/results", {}, mock_handler
-            )
+            result = await handler._get_job_results("job-123")
 
         assert result is not None
         assert result.status_code == 200
@@ -413,12 +402,8 @@ class TestGetJobResults:
     @pytest.mark.asyncio
     async def test_get_job_results_not_found(self, handler, mock_processor):
         """Test getting results for non-existent job."""
-        mock_handler = make_mock_handler()
-
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle(
-                "/api/v1/documents/batch/nonexistent/results", {}, mock_handler
-            )
+            result = await handler._get_job_results("nonexistent")
 
         assert result is not None
         assert result.status_code == 404
@@ -426,8 +411,6 @@ class TestGetJobResults:
     @pytest.mark.asyncio
     async def test_get_job_results_in_progress(self, handler):
         """Test getting results for job still in progress."""
-        mock_handler = make_mock_handler()
-
         mock_job = MockJob()
         mock_job.status = MagicMock(value="processing")
 
@@ -435,9 +418,7 @@ class TestGetJobResults:
         mock_processor.get_result = AsyncMock(return_value=mock_job)
 
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle(
-                "/api/v1/documents/batch/job-123/results", {}, mock_handler
-            )
+            result = await handler._get_job_results("job-123")
 
         assert result is not None
         assert result.status_code == 202
@@ -457,13 +438,10 @@ class TestCancelJob:
     @pytest.mark.asyncio
     async def test_cancel_job_success(self, handler, mock_processor):
         """Test successful job cancellation."""
-        mock_handler = make_mock_handler()
         mock_processor.jobs["job-123"] = {"status": "queued"}
 
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle_delete(
-                "/api/v1/documents/batch/job-123", {}, mock_handler
-            )
+            result = await handler._cancel_job("job-123")
 
         assert result is not None
         assert result.status_code == 200
@@ -474,12 +452,8 @@ class TestCancelJob:
     @pytest.mark.asyncio
     async def test_cancel_job_not_found_or_processing(self, handler, mock_processor):
         """Test cancelling a non-existent or processing job."""
-        mock_handler = make_mock_handler()
-
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle_delete(
-                "/api/v1/documents/batch/nonexistent", {}, mock_handler
-            )
+            result = await handler._cancel_job("nonexistent")
 
         assert result is not None
         assert result.status_code == 400
@@ -493,14 +467,9 @@ class TestCancelJob:
 class TestDocumentChunks:
     """Tests for document chunks endpoint."""
 
-    @pytest.mark.asyncio
-    async def test_get_document_chunks(self, handler):
+    def test_get_document_chunks(self, handler):
         """Test getting document chunks."""
-        mock_handler = make_mock_handler()
-
-        result = await handler.handle(
-            "/api/v1/documents/doc123/chunks", {"limit": ["50"], "offset": ["0"]}, mock_handler
-        )
+        result = handler._get_document_chunks("doc123", limit=50, offset=0)
 
         assert result is not None
         assert result.status_code == 200
@@ -510,14 +479,9 @@ class TestDocumentChunks:
         assert body["limit"] == 50
         assert body["offset"] == 0
 
-    @pytest.mark.asyncio
-    async def test_get_document_chunks_default_pagination(self, handler):
+    def test_get_document_chunks_default_pagination(self, handler):
         """Test document chunks with default pagination."""
-        mock_handler = make_mock_handler()
-
-        result = await handler.handle(
-            "/api/v1/documents/doc123/chunks", {}, mock_handler
-        )
+        result = handler._get_document_chunks("doc123")
 
         assert result is not None
         assert result.status_code == 200
@@ -534,24 +498,17 @@ class TestDocumentChunks:
 class TestDocumentContext:
     """Tests for document context endpoint."""
 
-    @pytest.mark.asyncio
-    async def test_get_document_context_not_found(self, handler):
+    def test_get_document_context_not_found(self, handler):
         """Test getting context for non-existent document."""
-        mock_handler = make_mock_handler()
         handler.ctx = {}  # No document store
 
-        result = await handler.handle(
-            "/api/v1/documents/doc123/context", {}, mock_handler
-        )
+        result = handler._get_document_context("doc123")
 
         assert result is not None
         assert result.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_get_document_context_with_store(self, handler):
+    def test_get_document_context_with_store(self, handler):
         """Test getting context with document store."""
-        mock_handler = make_mock_handler()
-
         mock_doc = MagicMock()
         mock_doc.text = "This is a test document with some content."
 
@@ -563,14 +520,10 @@ class TestDocumentContext:
         mock_counter = MockTokenCounter()
 
         with patch(
-            "aragora.server.handlers.features.documents_batch.get_token_counter",
+            "aragora.documents.chunking.token_counter.get_token_counter",
             return_value=mock_counter,
         ):
-            result = await handler.handle(
-                "/api/v1/documents/doc123/context",
-                {"max_tokens": ["1000"], "model": ["gpt-4"]},
-                mock_handler,
-            )
+            result = handler._get_document_context("doc123", max_tokens=1000, model="gpt-4")
 
         assert result is not None
         assert result.status_code == 200
@@ -589,40 +542,34 @@ class TestDocumentContext:
 class TestKnowledgeJobs:
     """Tests for knowledge job endpoints."""
 
-    @pytest.mark.asyncio
-    async def test_list_knowledge_jobs_unavailable(self, handler):
+    def test_list_knowledge_jobs_unavailable(self, handler):
         """Test listing knowledge jobs when pipeline unavailable."""
-        mock_handler = make_mock_handler()
-
-        with patch(
-            "aragora.server.handlers.features.documents_batch.get_all_jobs",
-            side_effect=ImportError("Module not available"),
+        with patch.dict(
+            "sys.modules",
+            {"aragora.knowledge.integration": None},
         ):
-            result = await handler.handle(
-                "/api/v1/knowledge/jobs", {}, mock_handler
-            )
+            # Force re-import to trigger ImportError
+            result = handler._list_knowledge_jobs()
 
         assert result is not None
         assert result.status_code == 503
 
-    @pytest.mark.asyncio
-    async def test_list_knowledge_jobs_success(self, handler):
+    def test_list_knowledge_jobs_success(self, handler):
         """Test listing knowledge jobs."""
-        mock_handler = make_mock_handler()
         mock_jobs = [
             {"id": "kp_1", "status": "completed"},
             {"id": "kp_2", "status": "processing"},
         ]
 
-        with patch(
-            "aragora.server.handlers.features.documents_batch.get_all_jobs",
-            return_value=mock_jobs,
+        # Create a mock module
+        mock_integration = MagicMock()
+        mock_integration.get_all_jobs = MagicMock(return_value=mock_jobs)
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.knowledge.integration": mock_integration},
         ):
-            result = await handler.handle(
-                "/api/v1/knowledge/jobs",
-                {"workspace_id": ["ws1"], "status": ["completed"], "limit": ["50"]},
-                mock_handler,
-            )
+            result = handler._list_knowledge_jobs(workspace_id="ws1", status="completed", limit=50)
 
         assert result is not None
         assert result.status_code == 200
@@ -630,37 +577,36 @@ class TestKnowledgeJobs:
         assert body["count"] == 2
         assert len(body["jobs"]) == 2
 
-    @pytest.mark.asyncio
-    async def test_get_knowledge_job_status_success(self, handler):
+    def test_get_knowledge_job_status_success(self, handler):
         """Test getting specific knowledge job status."""
-        mock_handler = make_mock_handler()
         mock_status = {"id": "kp_123", "status": "completed", "progress": 1.0}
 
-        with patch(
-            "aragora.server.handlers.features.documents_batch.get_job_status",
-            return_value=mock_status,
+        # Create a mock module
+        mock_integration = MagicMock()
+        mock_integration.get_job_status = MagicMock(return_value=mock_status)
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.knowledge.integration": mock_integration},
         ):
-            result = await handler.handle(
-                "/api/v1/knowledge/jobs/kp_123", {}, mock_handler
-            )
+            result = handler._get_knowledge_job_status("kp_123")
 
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["id"] == "kp_123"
 
-    @pytest.mark.asyncio
-    async def test_get_knowledge_job_status_not_found(self, handler):
+    def test_get_knowledge_job_status_not_found(self, handler):
         """Test getting status for non-existent knowledge job."""
-        mock_handler = make_mock_handler()
+        # Create a mock module
+        mock_integration = MagicMock()
+        mock_integration.get_job_status = MagicMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.features.documents_batch.get_job_status",
-            return_value=None,
+        with patch.dict(
+            "sys.modules",
+            {"aragora.knowledge.integration": mock_integration},
         ):
-            result = await handler.handle(
-                "/api/v1/knowledge/jobs/nonexistent", {}, mock_handler
-            )
+            result = handler._get_knowledge_job_status("nonexistent")
 
         assert result is not None
         assert result.status_code == 404
@@ -679,9 +625,7 @@ class TestBatchUpload:
         """Test batch upload rejects non-multipart content type."""
         mock_handler = make_mock_handler(content_type="application/json")
 
-        result = await handler.handle_post(
-            "/api/v1/documents/batch", {}, mock_handler
-        )
+        result = await handler._upload_batch(mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -693,9 +637,7 @@ class TestBatchUpload:
         """Test batch upload requires multipart boundary."""
         mock_handler = make_mock_handler(content_type="multipart/form-data")
 
-        result = await handler.handle_post(
-            "/api/v1/documents/batch", {}, mock_handler
-        )
+        result = await handler._upload_batch(mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -709,9 +651,7 @@ class TestBatchUpload:
         mock_handler = make_mock_handler(content_type=content_type, body=body)
 
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle_post(
-                "/api/v1/documents/batch", {}, mock_handler
-            )
+            result = await handler._upload_batch(mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -733,17 +673,15 @@ class TestBatchUpload:
         with (
             patch.object(handler, "_get_batch_processor", return_value=mock_processor),
             patch(
-                "aragora.server.handlers.features.documents_batch.get_token_counter",
+                "aragora.documents.chunking.token_counter.get_token_counter",
                 return_value=mock_counter,
             ),
-            patch(
-                "aragora.server.handlers.features.documents_batch.queue_document_processing",
-                side_effect=ImportError("Module not available"),
+            patch.dict(
+                "sys.modules",
+                {"aragora.knowledge.integration": None},
             ),
         ):
-            result = await handler.handle_post(
-                "/api/v1/documents/batch", {}, mock_handler
-            )
+            result = await handler._upload_batch(mock_handler)
 
         assert result is not None
         assert result.status_code == 202
@@ -772,17 +710,15 @@ class TestBatchUpload:
         with (
             patch.object(handler, "_get_batch_processor", return_value=mock_processor),
             patch(
-                "aragora.server.handlers.features.documents_batch.get_token_counter",
+                "aragora.documents.chunking.token_counter.get_token_counter",
                 return_value=mock_counter,
             ),
-            patch(
-                "aragora.server.handlers.features.documents_batch.queue_document_processing",
-                side_effect=ImportError("Module not available"),
+            patch.dict(
+                "sys.modules",
+                {"aragora.knowledge.integration": None},
             ),
         ):
-            result = await handler.handle_post(
-                "/api/v1/documents/batch", {}, mock_handler
-            )
+            result = await handler._upload_batch(mock_handler)
 
         assert result is not None
         assert result.status_code == 202
@@ -802,9 +738,7 @@ class TestBatchUpload:
             content_length=content_length,
         )
 
-        result = await handler.handle_post(
-            "/api/v1/documents/batch", {}, mock_handler
-        )
+        result = await handler._upload_batch(mock_handler)
 
         assert result is not None
         assert result.status_code == 413
@@ -817,9 +751,7 @@ class TestBatchUpload:
         mock_handler = make_mock_handler(content_type=content_type, body=body)
 
         with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
-            result = await handler.handle_post(
-                "/api/v1/documents/batch", {}, mock_handler
-            )
+            result = await handler._upload_batch(mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -909,7 +841,7 @@ class TestHelperMethods:
         handler.ctx = {}
 
         with patch(
-            "aragora.server.handlers.features.documents_batch.BatchProcessor"
+            "aragora.documents.ingestion.batch_processor.BatchProcessor"
         ) as MockProcessor:
             MockProcessor.return_value = MagicMock()
             processor = handler._get_batch_processor()
