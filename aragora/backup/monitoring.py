@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -173,14 +173,8 @@ class BackupMetrics:
     backup_age_seconds: float | None = None
     last_backup_size_bytes: int | None = None
     last_restore_duration: float | None = None
-    rpo_compliant: dict[str, bool] = None  # type: ignore[assignment]  # Initialized in __post_init__
-    rto_compliant: dict[str, bool] = None  # type: ignore[assignment]  # Initialized in __post_init__
-
-    def __post_init__(self):
-        if self.rpo_compliant is None:
-            self.rpo_compliant = {}
-        if self.rto_compliant is None:
-            self.rto_compliant = {}
+    rpo_compliant: dict[str, bool] = field(default_factory=dict)
+    rto_compliant: dict[str, bool] = field(default_factory=dict)
 
 
 # In-memory state for metrics (used when prometheus_client not available)

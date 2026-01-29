@@ -202,7 +202,8 @@ class QuotaFallbackMixin:
             from aragora.config import get_api_key
 
             openrouter_key = get_api_key("OPENROUTER_API_KEY", required=False)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Config-based API key retrieval failed, using env var: {e}")
             openrouter_key = os.environ.get("OPENROUTER_API_KEY")
         if not openrouter_key:
             return None

@@ -6,9 +6,12 @@ Provides dataclasses for emails, threads, attachments, and sync state.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -212,7 +215,8 @@ class GmailWebhookPayload:
         try:
             data_json = base64.urlsafe_b64decode(data_b64).decode("utf-8")
             data = json.loads(data_json)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to decode Pub/Sub message data: {e}")
             data = {}
 
         return cls(

@@ -27,11 +27,14 @@ __all__ = [
     "integrate_with_position_ledger",
 ]
 
+import logging
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.persistence.db_config import DatabaseType, get_db_path
@@ -637,7 +640,8 @@ class CalibrationTracker(SQLiteStore):
                 if summary.temperature_params
                 else 1.0,
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get calibration export for {agent}: {e}")
             return None
 
     def get_domain_breakdown(self, agent: str) -> dict[str, CalibrationSummary]:

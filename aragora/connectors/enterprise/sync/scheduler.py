@@ -10,11 +10,16 @@ import asyncio
 import json
 import logging
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional, TYPE_CHECKING
+
+# Configuration constants for bounded history
+MAX_HISTORY_ENTRIES = 10_000  # Maximum sync history entries in memory
+DEFAULT_HISTORY_RETENTION_DAYS = 30
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult
@@ -302,17 +307,20 @@ class SyncScheduler:
         self,
         state_dir: Path | None = None,
         max_concurrent_syncs: int = 5,
-        history_retention_days: int = 30,
+        history_retention_days: int = DEFAULT_HISTORY_RETENTION_DAYS,
+        max_history_entries: int = MAX_HISTORY_ENTRIES,
     ):
         self.state_dir = state_dir or Path.home() / ".aragora" / "sync"
         self.max_concurrent_syncs = max_concurrent_syncs
         self.history_retention_days = history_retention_days
+        self._max_history_entries = max_history_entries
 
         self._jobs: dict[str, SyncJob] = {}
         self._connectors: dict[str, "EnterpriseConnector"] = {}
-        self._history: list[SyncHistory] = []
-        self._running_syncs: dict[str, asyncio.Task] = {}
-        self._scheduler_task: asyncio.Task | None = None
+        # Use deque with maxlen for bounded history (FIFO eviction)
+        self._history: deque[SyncHistory] = deque(maxlen=max_history_entries)
+        self._running_syncs: dict[str, asyncio.Task[str]] = {}
+        self._scheduler_task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
 
         # Ensure state directory exists
@@ -588,9 +596,19 @@ class SyncScheduler:
                 await asyncio.sleep(delay)
 
     def _cleanup_history(self):
-        """Remove old history entries."""
+        """Remove old history entries based on retention period.
+
+        Note: The deque maxlen already enforces a hard size limit via FIFO eviction.
+        This method only removes entries older than the retention period.
+        """
         cutoff = datetime.now(timezone.utc) - timedelta(days=self.history_retention_days)
-        self._history = [h for h in self._history if h.started_at >= cutoff]
+        # Remove from left (oldest) while they're too old
+        # Use popleft() for deque or pop(0) for list (backwards compatible)
+        while self._history and self._history[0].started_at < cutoff:
+            if hasattr(self._history, 'popleft'):
+                self._history.popleft()
+            else:
+                self._history.pop(0)
 
     def get_history(
         self,
@@ -640,9 +658,11 @@ class SyncScheduler:
 
     async def save_state(self):
         """Save scheduler state to disk."""
+        # Convert deque to list for slicing (keep last 1000 entries)
+        history_list = list(self._history)
         state = {
             "jobs": {job_id: job.to_dict() for job_id, job in self._jobs.items()},
-            "history": [h.to_dict() for h in self._history[-1000:]],  # Keep last 1000
+            "history": [h.to_dict() for h in history_list[-1000:]],
         }
 
         state_file = self.state_dir / "scheduler_state.json"

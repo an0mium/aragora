@@ -69,7 +69,8 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         from aragora.storage.user_store import get_user_store
 
         ctx["user_store"] = get_user_store()
-    except Exception:
+    except Exception as e:
+        logger.debug(f"User store not available: {e}")
         ctx["user_store"] = None
 
     # Initialize RBAC checker

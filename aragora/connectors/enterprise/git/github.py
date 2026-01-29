@@ -179,7 +179,8 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         try:
             result = await self._run_gh(["api", f"repos/{self.repo}"])
             return result is not None
-        except Exception:
+        except Exception as e:
+            logger.debug(f"GitHub health check failed: {e}")
             return False
 
     def _check_gh_cli(self) -> bool:

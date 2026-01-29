@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.connectors.enterprise.base import EnterpriseConnector
 
@@ -110,7 +110,7 @@ class GmailConnector(  # type: ignore[misc]
         self._gmail_state: GmailSyncState | None = None
 
         # Watch management for Pub/Sub notifications
-        self._watch_task: asyncio.Task | None = None  # type: ignore[assignment]
+        self._watch_task: asyncio.Task[Any] | None = None
         self._watch_running: bool = False
 
 

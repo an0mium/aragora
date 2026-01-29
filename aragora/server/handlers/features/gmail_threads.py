@@ -312,6 +312,10 @@ class GmailThreadsHandler(SecureHandler):
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
 
+            # Note: get_thread uses Gmail API's threads.get with format=full,
+            # which returns all messages and attachment metadata in a single request.
+            # The msg.attachments list is pre-populated (not lazy-loaded), so iterating
+            # over it does NOT cause N+1 queries.
             thread = await connector.get_thread(thread_id)
 
             return json_response(

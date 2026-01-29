@@ -423,9 +423,9 @@ class GmailLabelsMixin(GmailBaseMethods):
         # Add SNOOZED label if it exists (custom label)
         try:
             await self.modify_message(message_id, add_labels=["SNOOZED"])
-        except Exception:
+        except Exception as e:
             # SNOOZED label might not exist, that's okay
-            pass
+            logger.debug(f"Could not add SNOOZED label (may not exist): {e}")
 
         logger.info(f"[Gmail] Snoozed message until {snooze_until}: {message_id}")
 

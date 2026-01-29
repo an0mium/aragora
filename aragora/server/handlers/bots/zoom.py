@@ -63,8 +63,8 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         "/api/v1/bots/zoom/status",
     ]
 
-    def __init__(self, ctx: dict = None):  # type: ignore[assignment]
-        super().__init__(ctx or {})  # type: ignore[arg-type]
+    def __init__(self, ctx: dict | None = None):
+        super().__init__(ctx or {})
         self._bot: Any | None = None
         self._bot_initialized = False
 
