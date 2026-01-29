@@ -341,7 +341,9 @@ class TestCheckIntegrationStore:
 
         handler = TestStoresHandler(ctx={"integration_store": mock_store})
 
-        result = handler._check_integration_store()
+        # Mock the import to avoid ImportError
+        with patch.dict("sys.modules", {"aragora.storage.integration_store": MagicMock()}):
+            result = handler._check_integration_store()
 
         assert result["healthy"] is True
         assert result["status"] == "connected"
