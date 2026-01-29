@@ -472,6 +472,8 @@ def wrap_agent(
     Returns:
         AirlockProxy wrapping the agent
     """
+    if isinstance(agent, AirlockProxy):
+        return agent
     return AirlockProxy(agent, config)
 
 
@@ -489,4 +491,10 @@ def wrap_agents(
     Returns:
         List of AirlockProxy instances
     """
-    return [AirlockProxy(agent, config) for agent in agents]
+    wrapped: list[AirlockProxy] = []
+    for agent in agents:
+        if isinstance(agent, AirlockProxy):
+            wrapped.append(agent)
+        else:
+            wrapped.append(AirlockProxy(agent, config))
+    return wrapped

@@ -662,7 +662,7 @@ Your task is to identify the MOST appropriate category based on content, sender,
             scores["newsletters"] += 0.2
 
         # Find best category
-        best_category = max(scores, key=scores.get)  # type: ignore
+        best_category = max(scores, key=scores.get)  # type: ignore[arg-type]  # dict.get is valid key func
         best_score = scores[best_category]
 
         if best_score < 0.2:

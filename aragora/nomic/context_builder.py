@@ -185,7 +185,8 @@ class NomicContextBuilder:
 
             # Count lines efficiently
             try:
-                line_count = sum(1 for _ in open(path, "rb"))
+                with open(path, "rb") as handle:
+                    line_count = sum(1 for _ in handle)
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -266,17 +267,30 @@ class NomicContextBuilder:
             await self.build_index()
 
         try:
-            from aragora.rlm.bridge import AragoraRLM
+            from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
             from aragora.rlm.types import RLMConfig, RLMMode
 
+            require_true = os.environ.get("ARAGORA_NOMIC_RLM_REQUIRE_TRUE", "0") == "1"
+            allow_compression = os.environ.get("ARAGORA_NOMIC_RLM_ALLOW_COMPRESSION", "0") == "1"
+            if require_true and not HAS_OFFICIAL_RLM:
+                raise RuntimeError("TRUE RLM required but official RLM library not installed")
+            if not HAS_OFFICIAL_RLM and not allow_compression:
+                logger.warning("RLM not available; skipping REPL context build")
+                return None
+
+            target_tokens = int(os.environ.get("ARAGORA_NOMIC_RLM_TARGET_TOKENS", "8000"))
+            max_depth = int(os.environ.get("ARAGORA_NOMIC_RLM_MAX_DEPTH", "3"))
+            max_sub_calls = int(os.environ.get("ARAGORA_NOMIC_RLM_MAX_SUB_CALLS", "20"))
+            parallel_sub_calls = os.environ.get("ARAGORA_NOMIC_RLM_PARALLEL_SUB_CALLS", "1") == "1"
+
             config = RLMConfig(
-                mode=RLMMode.AUTO,
+                mode=RLMMode.TRUE_RLM if require_true else RLMMode.AUTO,
                 prefer_true_rlm=True,
                 max_content_bytes=self._max_context_bytes,
-                target_tokens=8000,  # Larger target for codebase context
-                max_depth=3,  # Deeper recursion for codebase navigation
-                max_sub_calls=20,  # More sub-calls for thorough exploration
-                parallel_sub_calls=True,
+                target_tokens=target_tokens,
+                max_depth=max_depth,
+                max_sub_calls=max_sub_calls,
+                parallel_sub_calls=parallel_sub_calls,
                 cache_compressions=True,
             )
 
@@ -316,11 +330,15 @@ class NomicContextBuilder:
         """
         if self._rlm_context is not None:
             try:
-                from aragora.rlm.bridge import AragoraRLM
+                from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
                 from aragora.rlm.types import RLMConfig, RLMMode
 
+                require_true = os.environ.get("ARAGORA_NOMIC_RLM_REQUIRE_TRUE", "0") == "1"
+                if require_true and not HAS_OFFICIAL_RLM:
+                    raise RuntimeError("TRUE RLM required but official RLM library not installed")
+
                 config = RLMConfig(
-                    mode=RLMMode.AUTO,
+                    mode=RLMMode.TRUE_RLM if require_true else RLMMode.AUTO,
                     prefer_true_rlm=True,
                     max_content_bytes=self._max_context_bytes,
                 )
@@ -389,8 +407,13 @@ class NomicContextBuilder:
         if os.environ.get("NOMIC_RLM_FULL_CORPUS", "1") == "1":
             try:
                 from aragora.nomic.rlm_codebase import summarize_codebase_with_rlm
+                from aragora.rlm.bridge import HAS_OFFICIAL_RLM
 
-                require_true = os.environ.get("NOMIC_RLM_REQUIRE_TRUE", "1") == "1"
+                require_true_env = os.environ.get("NOMIC_RLM_REQUIRE_TRUE")
+                if require_true_env is None:
+                    require_true = HAS_OFFICIAL_RLM
+                else:
+                    require_true = require_true_env == "1"
                 max_files = int(os.environ.get("NOMIC_RLM_MAX_FILES", "25000"))
                 max_file_bytes = int(os.environ.get("NOMIC_RLM_MAX_FILE_BYTES", "2000000"))
                 force_rebuild = os.environ.get("NOMIC_RLM_FORCE_REBUILD", "0") == "1"

@@ -80,6 +80,8 @@ class NomicDebateProfile:
 
     # Convergence
     convergence_detection: bool = True
+    # Force full round execution (disable early stopping/convergence)
+    force_full_rounds: bool = False
 
     @property
     def agent_names(self) -> list[str]:
@@ -109,11 +111,13 @@ class NomicDebateProfile:
             critic_count=self.critic_count,
             asymmetric_stances=self.asymmetric_stances,
             rotate_stances=self.role_rotation,
-            early_stopping=True,
+            early_stopping=False if self.force_full_rounds else True,
             early_stop_threshold=self.early_stop_threshold,
-            min_rounds_before_early_stop=self.min_rounds_before_early_stop,
+            min_rounds_before_early_stop=(
+                self.rounds if self.force_full_rounds else self.min_rounds_before_early_stop
+            ),
             agreement_intensity=self.agreement_intensity,
-            convergence_detection=self.convergence_detection,
+            convergence_detection=False if self.force_full_rounds else self.convergence_detection,
         )
 
     def to_debate_config(self) -> Any:
@@ -153,9 +157,14 @@ class NomicDebateProfile:
 
         rounds = int(os.environ.get("NOMIC_DEBATE_ROUNDS", "9"))
         agreement = int(os.environ.get("NOMIC_AGREEMENT_INTENSITY", "2"))
+        force_full_rounds = (
+            os.environ.get("NOMIC_FORCE_FULL_ROUNDS", "0") == "1"
+            or os.environ.get("NOMIC_DISABLE_EARLY_STOP", "0") == "1"
+        )
 
         return cls(
             agents=agents,
             rounds=rounds,
             agreement_intensity=agreement,
+            force_full_rounds=force_full_rounds,
         )

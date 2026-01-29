@@ -27,7 +27,7 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    aioredis = None  # type: ignore
+    aioredis = None  # type: ignore[assignment]  # Optional module fallback
 
 
 class RedisPolicyCache:
