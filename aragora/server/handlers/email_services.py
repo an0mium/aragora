@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from aragora.server.handlers.base import (
+    ServerContext,
     error_response,
     success_response,
 )
@@ -885,9 +886,9 @@ class EmailServicesHandler(SecureHandler):
         r"/api/v1/email/[^/]+/snooze",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: ServerContext):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
         import re
 
         self._compiled_patterns = [re.compile(p) for p in self.ROUTE_PATTERNS]
