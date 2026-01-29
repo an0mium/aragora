@@ -27,6 +27,13 @@ from aragora.workspace.manager import WorkspaceManager
 from aragora.workspace.rig import Rig, RigConfig, RigStatus
 from aragora.workspace.convoy import Convoy, ConvoyStatus, ConvoyTracker
 from aragora.workspace.bead import Bead, BeadStatus, BeadManager
+from aragora.workspace.refinery import (
+    Refinery,
+    RefineryConfig,
+    MergeRequest,
+    MergeStatus,
+    ConflictResolution,
+)
 
 __all__ = [
     "WorkspaceManager",
@@ -39,4 +46,10 @@ __all__ = [
     "Bead",
     "BeadStatus",
     "BeadManager",
+    # Refinery (merge queue)
+    "Refinery",
+    "RefineryConfig",
+    "MergeRequest",
+    "MergeStatus",
+    "ConflictResolution",
 ]

@@ -89,6 +89,34 @@ def _check_permission(
     return None
 
 
+def _resolve_tenant_id(
+    auth_context: Optional[Any],
+    fallback_tenant_id: str = "default",
+) -> str:
+    """
+    Resolve tenant_id from auth context, falling back to provided value.
+
+    SECURITY: When RBAC is available and auth_context has an org_id,
+    that org_id takes precedence over any user-supplied tenant_id
+    to prevent cross-tenant data access.
+
+    Args:
+        auth_context: Optional AuthorizationContext with org_id
+        fallback_tenant_id: Value to use if no auth context org_id
+
+    Returns:
+        Tenant ID extracted from auth context, or fallback
+    """
+    if RBAC_AVAILABLE and auth_context is not None:
+        if (
+            auth_context != "unauthenticated"
+            and hasattr(auth_context, "org_id")
+            and auth_context.org_id
+        ):
+            return auth_context.org_id
+    return fallback_tenant_id
+
+
 # Global scheduler instance (initialized on first use)
 _scheduler: Optional[SyncScheduler] = None
 
@@ -119,6 +147,9 @@ async def handle_list_connectors(
     perm_error = _check_permission(auth_context, "connectors:read")
     if perm_error:
         return perm_error
+
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
 
     scheduler = get_scheduler()
     jobs = scheduler.list_jobs(tenant_id=tenant_id)
@@ -156,6 +187,9 @@ async def handle_get_connector(
     perm_error = _check_permission(auth_context, "connectors:read", connector_id)
     if perm_error:
         return perm_error
+
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
 
     scheduler = get_scheduler()
     job_id = f"{tenant_id}:{connector_id}"
@@ -197,6 +231,9 @@ async def handle_create_connector(
     perm_error = _check_permission(auth_context, "connectors:create")
     if perm_error:
         return perm_error
+
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
 
     scheduler = get_scheduler()
 
@@ -251,6 +288,9 @@ async def handle_update_connector(
     if perm_error:
         return perm_error
 
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
+
     scheduler = get_scheduler()
     job_id = f"{tenant_id}:{connector_id}"
     job = scheduler.get_job(job_id)
@@ -295,6 +335,9 @@ async def handle_delete_connector(
     perm_error = _check_permission(auth_context, "connectors:delete", connector_id)
     if perm_error:
         return perm_error
+
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
 
     scheduler = get_scheduler()
     scheduler.unregister_connector(connector_id, tenant_id)
@@ -394,6 +437,9 @@ async def handle_trigger_sync(
     if perm_error:
         return perm_error
 
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
+
     scheduler = get_scheduler()
 
     run_id = await scheduler.trigger_sync(
@@ -441,6 +487,9 @@ async def handle_get_sync_status(
     if perm_error:
         return perm_error
 
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
+
     scheduler = get_scheduler()
     job_id = f"{tenant_id}:{connector_id}"
     job = scheduler.get_job(job_id)
@@ -477,6 +526,9 @@ async def handle_get_sync_history(
     perm_error = _check_permission(auth_context, "connectors:read", connector_id)
     if perm_error:
         return perm_error
+
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
 
     scheduler = get_scheduler()
 
@@ -516,6 +568,9 @@ async def handle_webhook(
     perm_error = _check_permission(auth_context, "connectors:execute", connector_id)
     if perm_error:
         return perm_error
+
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
 
     scheduler = get_scheduler()
 
@@ -718,6 +773,9 @@ async def handle_mongodb_aggregate(
     if perm_error:
         return perm_error
 
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
+
     from aragora.connectors.enterprise.registry import get_connector
 
     connector = get_connector(connector_id, tenant_id=tenant_id)
@@ -784,6 +842,9 @@ async def handle_mongodb_collections(
     perm_error = _check_permission(auth_context, "connectors:read", connector_id)
     if perm_error:
         return perm_error
+
+    # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
+    tenant_id = _resolve_tenant_id(auth_context, tenant_id)
 
     from aragora.connectors.enterprise.registry import get_connector
 

@@ -481,3 +481,297 @@ class TestLocalGateway:
         assert stats["running"] is True
         assert stats["messages_routed"] == 1
         await gw.stop()
+
+
+# =============================================================================
+# HTTP Server Tests
+# =============================================================================
+
+
+class TestLocalGatewayHTTP:
+    """Test LocalGateway HTTP endpoints."""
+
+    @pytest.fixture
+    def gw_no_auth(self):
+        return LocalGateway(config=GatewayConfig(enable_auth=False))
+
+    @pytest.fixture
+    def gw_with_auth(self):
+        return LocalGateway(config=GatewayConfig(enable_auth=True, api_key="test-secret"))
+
+    @pytest.mark.asyncio
+    async def test_create_app(self, gw_no_auth):
+        app = gw_no_auth._create_app()
+        assert app is not None
+        # Check routes are registered
+        routes = [r.resource.canonical for r in app.router.routes() if hasattr(r, "resource")]
+        assert "/health" in routes
+        assert "/stats" in routes
+        assert "/inbox" in routes
+        assert "/route" in routes
+        assert "/device" in routes
+        assert "/ws" in routes
+
+    @pytest.mark.asyncio
+    async def test_handle_health(self, gw_no_auth):
+        from aiohttp.test_utils import make_mocked_request
+
+        gw_no_auth._running = True
+        gw_no_auth._started_at = 1000.0
+
+        # Create mock request
+        request = make_mocked_request("GET", "/health")
+        response = await gw_no_auth._handle_health(request)
+
+        assert response.status == 200
+        import json
+
+        data = json.loads(response.body)
+        assert data["status"] == "healthy"
+        assert data["service"] == "aragora-gateway"
+
+    @pytest.mark.asyncio
+    async def test_handle_stats(self, gw_no_auth):
+        from aiohttp.test_utils import make_mocked_request
+
+        await gw_no_auth.start()
+        msg = InboxMessage(message_id="m1", channel="slack", sender="a", content="hi")
+        await gw_no_auth.route_message("slack", msg)
+
+        request = make_mocked_request("GET", "/stats")
+        response = await gw_no_auth._handle_stats(request)
+
+        assert response.status == 200
+        import json
+
+        data = json.loads(response.body)
+        assert data["running"] is True
+        assert data["messages_routed"] == 1
+        await gw_no_auth.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_get_inbox(self, gw_no_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from multidict import CIMultiDict
+
+        await gw_no_auth.start()
+        msg = InboxMessage(message_id="m1", channel="slack", sender="alice", content="hello")
+        await gw_no_auth.route_message("slack", msg)
+
+        request = make_mocked_request(
+            "GET",
+            "/inbox?limit=10",
+            headers=CIMultiDict(),
+        )
+        response = await gw_no_auth._handle_get_inbox(request)
+
+        assert response.status == 200
+        import json
+
+        data = json.loads(response.body)
+        assert data["total"] == 1
+        assert data["messages"][0]["message_id"] == "m1"
+        assert data["messages"][0]["sender"] == "alice"
+        await gw_no_auth.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_route_success(self, gw_no_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from unittest.mock import AsyncMock
+        import json
+
+        await gw_no_auth.start()
+
+        # Create mock request with JSON body
+        request = make_mocked_request("POST", "/route")
+        request.json = AsyncMock(
+            return_value={
+                "channel": "slack",
+                "sender": "bob",
+                "content": "test message",
+            }
+        )
+
+        response = await gw_no_auth._handle_route(request)
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["success"] is True
+        assert data["channel"] == "slack"
+        await gw_no_auth.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_route_missing_fields(self, gw_no_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from unittest.mock import AsyncMock
+        import json
+
+        await gw_no_auth.start()
+
+        request = make_mocked_request("POST", "/route")
+        request.json = AsyncMock(return_value={"channel": "slack"})  # Missing sender, content
+
+        response = await gw_no_auth._handle_route(request)
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data["code"] == "MISSING_FIELDS"
+        await gw_no_auth.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_register_device(self, gw_no_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from unittest.mock import AsyncMock
+        import json
+
+        request = make_mocked_request("POST", "/device")
+        request.json = AsyncMock(
+            return_value={
+                "name": "Test Laptop",
+                "device_type": "laptop",
+                "capabilities": ["browser", "shell"],
+            }
+        )
+
+        response = await gw_no_auth._handle_register_device(request)
+
+        assert response.status == 201
+        data = json.loads(response.body)
+        assert data["status"] == "registered"
+        assert data["device_id"].startswith("dev-")
+
+    @pytest.mark.asyncio
+    async def test_handle_get_device_found(self, gw_no_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from unittest.mock import MagicMock
+        import json
+
+        # Register a device first
+        device = DeviceNode(device_id="dev-test", name="Test", device_type="laptop")
+        await gw_no_auth.register_device(device)
+
+        request = MagicMock()
+        request.match_info = {"device_id": "dev-test"}
+
+        response = await gw_no_auth._handle_get_device(request)
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["device_id"] == "dev-test"
+        assert data["name"] == "Test"
+
+    @pytest.mark.asyncio
+    async def test_handle_get_device_not_found(self, gw_no_auth):
+        from unittest.mock import MagicMock
+        import json
+
+        request = MagicMock()
+        request.match_info = {"device_id": "nonexistent"}
+
+        response = await gw_no_auth._handle_get_device(request)
+
+        assert response.status == 404
+        data = json.loads(response.body)
+        assert data["code"] == "NOT_FOUND"
+
+    @pytest.mark.asyncio
+    async def test_auth_middleware_skip_health(self, gw_with_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from unittest.mock import AsyncMock
+        import json
+
+        # Health endpoint should skip auth
+        request = make_mocked_request("GET", "/health")
+
+        async def mock_handler(req):
+            return await gw_with_auth._handle_health(req)
+
+        gw_with_auth._running = True
+        gw_with_auth._started_at = 1000.0
+
+        response = await gw_with_auth._auth_middleware(request, mock_handler)
+        assert response.status == 200
+
+    @pytest.mark.asyncio
+    async def test_auth_middleware_reject_invalid_key(self, gw_with_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from multidict import CIMultiDict
+        import json
+
+        request = make_mocked_request(
+            "GET",
+            "/stats",
+            headers=CIMultiDict({"X-API-Key": "wrong-key"}),
+        )
+
+        async def mock_handler(req):
+            return await gw_with_auth._handle_stats(req)
+
+        response = await gw_with_auth._auth_middleware(request, mock_handler)
+        assert response.status == 401
+        data = json.loads(response.body)
+        assert data["code"] == "AUTH_FAILED"
+
+    @pytest.mark.asyncio
+    async def test_auth_middleware_accept_valid_key(self, gw_with_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from multidict import CIMultiDict
+
+        await gw_with_auth.start()
+
+        request = make_mocked_request(
+            "GET",
+            "/stats",
+            headers=CIMultiDict({"X-API-Key": "test-secret"}),
+        )
+
+        async def mock_handler(req):
+            return await gw_with_auth._handle_stats(req)
+
+        response = await gw_with_auth._auth_middleware(request, mock_handler)
+        assert response.status == 200
+        await gw_with_auth.stop()
+
+    @pytest.mark.asyncio
+    async def test_auth_middleware_accept_bearer_token(self, gw_with_auth):
+        from aiohttp.test_utils import make_mocked_request
+        from multidict import CIMultiDict
+
+        await gw_with_auth.start()
+
+        request = make_mocked_request(
+            "GET",
+            "/stats",
+            headers=CIMultiDict({"Authorization": "Bearer test-secret"}),
+        )
+
+        async def mock_handler(req):
+            return await gw_with_auth._handle_stats(req)
+
+        response = await gw_with_auth._auth_middleware(request, mock_handler)
+        assert response.status == 200
+        await gw_with_auth.stop()
+
+    @pytest.mark.asyncio
+    async def test_notify_subscribers(self, gw_no_auth):
+        from unittest.mock import AsyncMock, MagicMock
+
+        # Create a mock WebSocket
+        mock_ws = MagicMock()
+        mock_ws.closed = False
+        mock_ws.send_json = AsyncMock()
+
+        gw_no_auth._ws_subscribers = {mock_ws}
+
+        msg = InboxMessage(
+            message_id="m1",
+            channel="slack",
+            sender="alice",
+            content="Hello world",
+        )
+        await gw_no_auth._notify_subscribers(msg)
+
+        mock_ws.send_json.assert_called_once()
+        call_args = mock_ws.send_json.call_args[0][0]
+        assert call_args["type"] == "new_message"
+        assert call_args["message"]["message_id"] == "m1"

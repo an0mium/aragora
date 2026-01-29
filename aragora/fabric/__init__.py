@@ -8,6 +8,7 @@ The Agent Fabric provides:
 - Budget: Cost tracking and enforcement
 - Lifecycle: Agent spawn, heartbeat, termination
 - Telemetry: Metrics, traces, and logs
+- Hooks: GUPP-compliant work persistence (Gastown parity)
 
 Usage:
     from aragora.fabric import AgentFabric
@@ -15,6 +16,13 @@ Usage:
     fabric = AgentFabric()
     agent = await fabric.spawn(AgentConfig(model="claude-3-opus"))
     result = await fabric.schedule(task, agent.id)
+
+For GUPP hook persistence:
+    from aragora.fabric import HookManager
+
+    hooks = HookManager()
+    hook = await hooks.create_hook("agent-1", {"task": "refactor"})
+    pending = await hooks.check_pending_hooks()  # GUPP patrol
 """
 
 from .models import (
@@ -40,6 +48,7 @@ from .lifecycle import LifecycleManager
 from .policy import PolicyEngine
 from .budget import BudgetManager
 from .fabric import AgentFabric, AgentPool, FabricConfig, FabricStats
+from .hooks import Hook, HookManager, HookManagerConfig, HookStatus
 
 __all__ = [
     # Core facade
@@ -69,4 +78,9 @@ __all__ = [
     "TaskStatus",
     "Usage",
     "UsageReport",
+    # Hooks (GUPP - Gastown parity)
+    "Hook",
+    "HookManager",
+    "HookManagerConfig",
+    "HookStatus",
 ]

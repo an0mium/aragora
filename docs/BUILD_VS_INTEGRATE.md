@@ -39,7 +39,8 @@ Aragora adaptation: [Description of how adapted for Aragora]
 
 | Capability | Decision | Status | Attribution |
 | --- | --- | --- | --- |
-| Local gateway daemon | **BUILD** | IN PROGRESS | `gateway/server.py` - Moltbot local-first |
+| Local gateway daemon | **BUILD** | DONE | `gateway/server.py` - Moltbot local-first |
+| Gateway persistence | **BUILD** | DONE | `gateway/persistence.py` - File/Redis backends |
 | Multi-channel inbox | **BUILD** | DONE | `gateway/inbox.py` - Moltbot unified inbox |
 | Multi-agent routing | **BUILD** | DONE | `gateway/router.py` |
 | Device registry | **BUILD** | DONE | `gateway/device_registry.py` |
@@ -72,11 +73,11 @@ Aragora adaptation: [Description of how adapted for Aragora]
 
 ## Implementation Priority
 
-| Priority | Module | Effort | Pattern Source |
-| --- | --- | --- | --- |
-| P0 | `gateway/server.py` - HTTP server | 300-400 lines | Moltbot |
-| P1 | `gateway/persistence.py` | 400-500 lines | Moltbot |
-| P2 | `sandbox/computer_use.py` | 600-800 lines | Anthropic patterns |
-| P3 | `workspace/refinery.py` | 300-400 lines | Gastown |
-| P4 | `onboarding/wizard.py` | 300-400 lines | Moltbot |
-| P5 | `fabric/nudge.py` | 200-300 lines | Gastown |
+| Priority | Module | Effort | Pattern Source | Status |
+| --- | --- | --- | --- | --- |
+| P0 | `gateway/server.py` - HTTP server | 300-400 lines | Moltbot | DONE |
+| P1 | `gateway/persistence.py` | 400-500 lines | Moltbot | DONE |
+| P2 | `sandbox/computer_use.py` | 600-800 lines | Anthropic patterns | PENDING |
+| P3 | `workspace/refinery.py` | 300-400 lines | Gastown | PENDING |
+| P4 | `onboarding/wizard.py` | 300-400 lines | Moltbot | PENDING |
+| P5 | `fabric/nudge.py` | 200-300 lines | Gastown | PENDING |
