@@ -32,9 +32,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from aragora.server.handlers.base import HandlerResult, error_response, json_response
-from aragora.server.handlers.secure import SecureHandler
-from aragora.server.handlers.utils.decorators import has_permission
+from aragora.server.handlers.base import HandlerResult, json_response
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
 
@@ -193,14 +193,16 @@ class CRMHandler(SecureHandler):
         "/api/v1/crm/search",
     ]
 
-    def _check_permission(self, request: Any, permission: str) -> HandlerResult | None:
-        """Check if user has the required permission."""
-        user = self.get_current_user(request)
-        if user:
-            user_role = user.role if hasattr(user, "role") else None
-            if not has_permission(user_role, permission):
-                return self._error_response(403, f"Permission denied: {permission} required")
-        return None
+    async def _check_permission(self, request: Any, permission: str) -> HandlerResult | None:
+        """Check if user has the required permission using RBAC system."""
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            self.check_permission(auth_context, permission)
+            return None
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -226,100 +228,100 @@ class CRMHandler(SecureHandler):
             return await self._list_platforms(request)
 
         elif path.endswith("/connect") and method == "POST":
-            if err := self._check_permission(request, "crm:configure"):
+            if err := await self._check_permission(request, "crm:configure"):
                 return err
             return await self._connect_platform(request)
 
         elif platform and path.endswith(f"/{platform}") and method == "DELETE":
-            if err := self._check_permission(request, "crm:configure"):
+            if err := await self._check_permission(request, "crm:configure"):
                 return err
             return await self._disconnect_platform(request, platform)
 
         # Contacts
         elif path.endswith("/contacts") and not platform and method == "GET":
-            if err := self._check_permission(request, "crm:read"):
+            if err := await self._check_permission(request, "crm:read"):
                 return err
             return await self._list_all_contacts(request)
 
         elif platform and "contacts" in path:
             if method == "GET" and not resource_id:
-                if err := self._check_permission(request, "crm:read"):
+                if err := await self._check_permission(request, "crm:read"):
                     return err
                 return await self._list_platform_contacts(request, platform)
             elif method == "POST" and not resource_id:
-                if err := self._check_permission(request, "crm:write"):
+                if err := await self._check_permission(request, "crm:write"):
                     return err
                 return await self._create_contact(request, platform)
             elif method == "PUT" and resource_id:
-                if err := self._check_permission(request, "crm:write"):
+                if err := await self._check_permission(request, "crm:write"):
                     return err
                 return await self._update_contact(request, platform, resource_id)
             elif method == "GET" and resource_id:
-                if err := self._check_permission(request, "crm:read"):
+                if err := await self._check_permission(request, "crm:read"):
                     return err
                 return await self._get_contact(request, platform, resource_id)
 
         # Companies
         elif path.endswith("/companies") and not platform and method == "GET":
-            if err := self._check_permission(request, "crm:read"):
+            if err := await self._check_permission(request, "crm:read"):
                 return err
             return await self._list_all_companies(request)
 
         elif platform and "companies" in path:
             if method == "GET" and not resource_id:
-                if err := self._check_permission(request, "crm:read"):
+                if err := await self._check_permission(request, "crm:read"):
                     return err
                 return await self._list_platform_companies(request, platform)
             elif method == "POST" and not resource_id:
-                if err := self._check_permission(request, "crm:write"):
+                if err := await self._check_permission(request, "crm:write"):
                     return err
                 return await self._create_company(request, platform)
             elif method == "GET" and resource_id:
-                if err := self._check_permission(request, "crm:read"):
+                if err := await self._check_permission(request, "crm:read"):
                     return err
                 return await self._get_company(request, platform, resource_id)
 
         # Deals
         elif path.endswith("/deals") and not platform and method == "GET":
-            if err := self._check_permission(request, "crm:read"):
+            if err := await self._check_permission(request, "crm:read"):
                 return err
             return await self._list_all_deals(request)
 
         elif platform and "deals" in path:
             if method == "GET" and not resource_id:
-                if err := self._check_permission(request, "crm:read"):
+                if err := await self._check_permission(request, "crm:read"):
                     return err
                 return await self._list_platform_deals(request, platform)
             elif method == "POST" and not resource_id:
-                if err := self._check_permission(request, "crm:write"):
+                if err := await self._check_permission(request, "crm:write"):
                     return err
                 return await self._create_deal(request, platform)
             elif method == "GET" and resource_id:
-                if err := self._check_permission(request, "crm:read"):
+                if err := await self._check_permission(request, "crm:read"):
                     return err
                 return await self._get_deal(request, platform, resource_id)
 
         # Pipeline
         elif path.endswith("/pipeline") and method == "GET":
-            if err := self._check_permission(request, "crm:read"):
+            if err := await self._check_permission(request, "crm:read"):
                 return err
             return await self._get_pipeline(request)
 
         # Lead sync
         elif path.endswith("/sync-lead") and method == "POST":
-            if err := self._check_permission(request, "crm:write"):
+            if err := await self._check_permission(request, "crm:write"):
                 return err
             return await self._sync_lead(request)
 
         # Enrichment
         elif path.endswith("/enrich") and method == "POST":
-            if err := self._check_permission(request, "crm:write"):
+            if err := await self._check_permission(request, "crm:write"):
                 return err
             return await self._enrich_contact(request)
 
         # Search
         elif path.endswith("/search") and method == "POST":
-            if err := self._check_permission(request, "crm:read"):
+            if err := await self._check_permission(request, "crm:read"):
                 return err
             return await self._search_crm(request)
 

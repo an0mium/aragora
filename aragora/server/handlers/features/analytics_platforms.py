@@ -31,8 +31,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
-from aragora.server.handlers.secure import SecureHandler
-from aragora.server.handlers.utils.decorators import has_permission
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
 
@@ -131,14 +131,16 @@ class AnalyticsPlatformsHandler(SecureHandler):
         "/api/v1/analytics/{platform}/retention",
     ]
 
-    def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
-        """Check if user has the required permission."""
-        user = self.get_current_user(request)
-        if user:
-            user_role = user.role if hasattr(user, "role") else None
-            if not has_permission(user_role, permission):
-                return self._error_response(403, f"Permission denied: {permission} required")
-        return None
+    async def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
+        """Check if user has the required permission using RBAC system."""
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            self.check_permission(auth_context, permission)
+            return None
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -164,67 +166,67 @@ class AnalyticsPlatformsHandler(SecureHandler):
             return await self._list_platforms(request)
 
         elif path.endswith("/connect") and method == "POST":
-            if err := self._check_permission(request, "analytics:configure"):
+            if err := await self._check_permission(request, "analytics:configure"):
                 return err
             return await self._connect_platform(request)
 
         elif platform and path.endswith(f"/{platform}") and method == "DELETE":
-            if err := self._check_permission(request, "analytics:configure"):
+            if err := await self._check_permission(request, "analytics:configure"):
                 return err
             return await self._disconnect_platform(request, platform)
 
         elif path.endswith("/dashboards") and not platform and method == "GET":
-            if err := self._check_permission(request, "analytics:read"):
+            if err := await self._check_permission(request, "analytics:read"):
                 return err
             return await self._list_all_dashboards(request)
 
         elif platform and "dashboards" in path:
             if method == "GET" and not dashboard_id:
-                if err := self._check_permission(request, "analytics:read"):
+                if err := await self._check_permission(request, "analytics:read"):
                     return err
                 return await self._list_platform_dashboards(request, platform)
             elif method == "GET" and dashboard_id:
-                if err := self._check_permission(request, "analytics:read"):
+                if err := await self._check_permission(request, "analytics:read"):
                     return err
                 return await self._get_dashboard(request, platform, dashboard_id)
 
         elif path.endswith("/query") and method == "POST":
-            if err := self._check_permission(request, "analytics:query"):
+            if err := await self._check_permission(request, "analytics:query"):
                 return err
             return await self._execute_query(request)
 
         elif path.endswith("/reports") and method == "GET":
-            if err := self._check_permission(request, "analytics:read"):
+            if err := await self._check_permission(request, "analytics:read"):
                 return err
             return await self._list_reports(request)
 
         elif path.endswith("/reports/generate") and method == "POST":
-            if err := self._check_permission(request, "analytics:query"):
+            if err := await self._check_permission(request, "analytics:query"):
                 return err
             return await self._generate_report(request)
 
         elif path.endswith("/metrics") and method == "GET":
-            if err := self._check_permission(request, "analytics:read"):
+            if err := await self._check_permission(request, "analytics:read"):
                 return err
             return await self._get_cross_platform_metrics(request)
 
         elif path.endswith("/realtime") and method == "GET":
-            if err := self._check_permission(request, "analytics:read"):
+            if err := await self._check_permission(request, "analytics:read"):
                 return err
             return await self._get_realtime_metrics(request)
 
         elif platform and path.endswith("/events") and method == "GET":
-            if err := self._check_permission(request, "analytics:read"):
+            if err := await self._check_permission(request, "analytics:read"):
                 return err
             return await self._get_events(request, platform)
 
         elif platform and path.endswith("/funnels") and method == "GET":
-            if err := self._check_permission(request, "analytics:read"):
+            if err := await self._check_permission(request, "analytics:read"):
                 return err
             return await self._get_funnels(request, platform)
 
         elif platform and path.endswith("/retention") and method == "GET":
-            if err := self._check_permission(request, "analytics:read"):
+            if err := await self._check_permission(request, "analytics:read"):
                 return err
             return await self._get_retention(request, platform)
 

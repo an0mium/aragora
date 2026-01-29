@@ -31,8 +31,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from aragora.server.handlers.secure import SecureHandler
-from aragora.server.handlers.utils.decorators import has_permission
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
 
@@ -167,14 +167,16 @@ class EcommerceHandler(SecureHandler):
         "/api/v1/ecommerce/metrics",
     ]
 
-    def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
-        """Check if user has the required permission."""
-        user = self.get_current_user(request)
-        if user:
-            user_role = user.role if hasattr(user, "role") else None
-            if not has_permission(user_role, permission):
-                return self._error_response(403, f"Permission denied: {permission} required")
-        return None
+    async def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
+        """Check if user has the required permission using RBAC system."""
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            self.check_permission(auth_context, permission)
+            return None
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -200,72 +202,72 @@ class EcommerceHandler(SecureHandler):
             return await self._list_platforms(request)
 
         elif path.endswith("/connect") and method == "POST":
-            if err := self._check_permission(request, "ecommerce:configure"):
+            if err := await self._check_permission(request, "ecommerce:configure"):
                 return err
             return await self._connect_platform(request)
 
         elif platform and path.endswith(f"/{platform}") and method == "DELETE":
-            if err := self._check_permission(request, "ecommerce:configure"):
+            if err := await self._check_permission(request, "ecommerce:configure"):
                 return err
             return await self._disconnect_platform(request, platform)
 
         # Orders
         elif path.endswith("/orders") and not platform and method == "GET":
-            if err := self._check_permission(request, "ecommerce:read"):
+            if err := await self._check_permission(request, "ecommerce:read"):
                 return err
             return await self._list_all_orders(request)
 
         elif platform and "orders" in path:
             if method == "GET" and not resource_id:
-                if err := self._check_permission(request, "ecommerce:read"):
+                if err := await self._check_permission(request, "ecommerce:read"):
                     return err
                 return await self._list_platform_orders(request, platform)
             elif method == "GET" and resource_id:
-                if err := self._check_permission(request, "ecommerce:read"):
+                if err := await self._check_permission(request, "ecommerce:read"):
                     return err
                 return await self._get_order(request, platform, resource_id)
 
         # Products
         elif path.endswith("/products") and not platform and method == "GET":
-            if err := self._check_permission(request, "ecommerce:read"):
+            if err := await self._check_permission(request, "ecommerce:read"):
                 return err
             return await self._list_all_products(request)
 
         elif platform and "products" in path:
             if method == "GET" and not resource_id:
-                if err := self._check_permission(request, "ecommerce:read"):
+                if err := await self._check_permission(request, "ecommerce:read"):
                     return err
                 return await self._list_platform_products(request, platform)
             elif method == "GET" and resource_id:
-                if err := self._check_permission(request, "ecommerce:read"):
+                if err := await self._check_permission(request, "ecommerce:read"):
                     return err
                 return await self._get_product(request, platform, resource_id)
 
         # Inventory
         elif path.endswith("/inventory") and method == "GET":
-            if err := self._check_permission(request, "ecommerce:read"):
+            if err := await self._check_permission(request, "ecommerce:read"):
                 return err
             return await self._get_inventory(request)
 
         elif path.endswith("/sync-inventory") and method == "POST":
-            if err := self._check_permission(request, "ecommerce:write"):
+            if err := await self._check_permission(request, "ecommerce:write"):
                 return err
             return await self._sync_inventory(request)
 
         # Fulfillment
         elif path.endswith("/fulfillment") and method == "GET":
-            if err := self._check_permission(request, "ecommerce:read"):
+            if err := await self._check_permission(request, "ecommerce:read"):
                 return err
             return await self._get_fulfillment_status(request)
 
         elif path.endswith("/ship") and method == "POST":
-            if err := self._check_permission(request, "ecommerce:write"):
+            if err := await self._check_permission(request, "ecommerce:write"):
                 return err
             return await self._create_shipment(request)
 
         # Metrics
         elif path.endswith("/metrics") and method == "GET":
-            if err := self._check_permission(request, "ecommerce:read"):
+            if err := await self._check_permission(request, "ecommerce:read"):
                 return err
             return await self._get_metrics(request)
 

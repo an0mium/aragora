@@ -32,8 +32,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
-from aragora.server.handlers.secure import SecureHandler
-from aragora.server.handlers.utils.decorators import has_permission
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
 
@@ -162,14 +162,16 @@ class AdvertisingHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/advertising/")
 
-    def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
-        """Check if user has the required permission."""
-        user = self.get_current_user(request)
-        if user:
-            user_role = user.role if hasattr(user, "role") else None
-            if not has_permission(user_role, permission):
-                return self._error_response(403, f"Permission denied: {permission} required")
-        return None
+    async def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
+        """Check if user has the required permission using RBAC system."""
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            self.check_permission(auth_context, permission)
+            return None
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
 
     async def handle_request(self, request: Any) -> dict[str, Any]:
         """Route request to appropriate handler."""
@@ -191,55 +193,55 @@ class AdvertisingHandler(SecureHandler):
             return await self._list_platforms(request)
 
         elif path.endswith("/connect") and method == "POST":
-            if err := self._check_permission(request, "advertising:configure"):
+            if err := await self._check_permission(request, "advertising:configure"):
                 return err
             return await self._connect_platform(request)
 
         elif platform and path.endswith(f"/{platform}") and method == "DELETE":
-            if err := self._check_permission(request, "advertising:configure"):
+            if err := await self._check_permission(request, "advertising:configure"):
                 return err
             return await self._disconnect_platform(request, platform)
 
         elif path.endswith("/campaigns") and not platform and method == "GET":
-            if err := self._check_permission(request, "advertising:read"):
+            if err := await self._check_permission(request, "advertising:read"):
                 return err
             return await self._list_all_campaigns(request)
 
         elif platform and "campaigns" in path:
             if method == "GET" and not campaign_id:
-                if err := self._check_permission(request, "advertising:read"):
+                if err := await self._check_permission(request, "advertising:read"):
                     return err
                 return await self._list_platform_campaigns(request, platform)
             elif method == "POST" and not campaign_id:
-                if err := self._check_permission(request, "advertising:write"):
+                if err := await self._check_permission(request, "advertising:write"):
                     return err
                 return await self._create_campaign(request, platform)
             elif method == "PUT" and campaign_id:
-                if err := self._check_permission(request, "advertising:write"):
+                if err := await self._check_permission(request, "advertising:write"):
                     return err
                 return await self._update_campaign(request, platform, campaign_id)
             elif method == "GET" and campaign_id:
-                if err := self._check_permission(request, "advertising:read"):
+                if err := await self._check_permission(request, "advertising:read"):
                     return err
                 return await self._get_campaign(request, platform, campaign_id)
 
         elif path.endswith("/performance") and not platform and method == "GET":
-            if err := self._check_permission(request, "advertising:read"):
+            if err := await self._check_permission(request, "advertising:read"):
                 return err
             return await self._get_cross_platform_performance(request)
 
         elif platform and path.endswith("/performance") and method == "GET":
-            if err := self._check_permission(request, "advertising:read"):
+            if err := await self._check_permission(request, "advertising:read"):
                 return err
             return await self._get_platform_performance(request, platform)
 
         elif path.endswith("/analyze") and method == "POST":
-            if err := self._check_permission(request, "advertising:analyze"):
+            if err := await self._check_permission(request, "advertising:analyze"):
                 return err
             return await self._analyze_performance(request)
 
         elif path.endswith("/budget-recommendations") and method == "GET":
-            if err := self._check_permission(request, "advertising:read"):
+            if err := await self._check_permission(request, "advertising:read"):
                 return err
             return await self._get_budget_recommendations(request)
 

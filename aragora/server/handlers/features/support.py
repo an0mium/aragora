@@ -31,8 +31,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
-from aragora.server.handlers.secure import SecureHandler
-from aragora.server.handlers.utils.decorators import has_permission
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
 
@@ -128,14 +128,16 @@ class SupportHandler(SecureHandler):
         "/api/v1/support/search",
     ]
 
-    def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
-        """Check if user has the required permission."""
-        user = self.get_current_user(request)
-        if user:
-            user_role = user.role if hasattr(user, "role") else None
-            if not has_permission(user_role, permission):
-                return self._error_response(403, f"Permission denied: {permission} required")
-        return None
+    async def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
+        """Check if user has the required permission using RBAC system."""
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            self.check_permission(auth_context, permission)
+            return None
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -161,64 +163,64 @@ class SupportHandler(SecureHandler):
             return await self._list_platforms(request)
 
         elif path.endswith("/connect") and method == "POST":
-            if err := self._check_permission(request, "support:configure"):
+            if err := await self._check_permission(request, "support:configure"):
                 return err
             return await self._connect_platform(request)
 
         elif platform and path.endswith(f"/{platform}") and method == "DELETE":
-            if err := self._check_permission(request, "support:configure"):
+            if err := await self._check_permission(request, "support:configure"):
                 return err
             return await self._disconnect_platform(request, platform)
 
         # Tickets
         elif path.endswith("/tickets") and not platform and method == "GET":
-            if err := self._check_permission(request, "support:read"):
+            if err := await self._check_permission(request, "support:read"):
                 return err
             return await self._list_all_tickets(request)
 
         elif platform and "tickets" in path:
             if path.endswith("/reply") and method == "POST":
-                if err := self._check_permission(request, "support:write"):
+                if err := await self._check_permission(request, "support:write"):
                     return err
                 return await self._reply_to_ticket(request, platform, ticket_id or "")
             elif method == "GET" and not ticket_id:
-                if err := self._check_permission(request, "support:read"):
+                if err := await self._check_permission(request, "support:read"):
                     return err
                 return await self._list_platform_tickets(request, platform)
             elif method == "POST" and not ticket_id:
-                if err := self._check_permission(request, "support:write"):
+                if err := await self._check_permission(request, "support:write"):
                     return err
                 return await self._create_ticket(request, platform)
             elif method == "PUT" and ticket_id:
-                if err := self._check_permission(request, "support:write"):
+                if err := await self._check_permission(request, "support:write"):
                     return err
                 return await self._update_ticket(request, platform, ticket_id)
             elif method == "GET" and ticket_id:
-                if err := self._check_permission(request, "support:read"):
+                if err := await self._check_permission(request, "support:read"):
                     return err
                 return await self._get_ticket(request, platform, ticket_id)
 
         # Metrics
         elif path.endswith("/metrics") and method == "GET":
-            if err := self._check_permission(request, "support:read"):
+            if err := await self._check_permission(request, "support:read"):
                 return err
             return await self._get_metrics(request)
 
         # Triage
         elif path.endswith("/triage") and method == "POST":
-            if err := self._check_permission(request, "support:write"):
+            if err := await self._check_permission(request, "support:write"):
                 return err
             return await self._triage_tickets(request)
 
         # Auto-respond
         elif path.endswith("/auto-respond") and method == "POST":
-            if err := self._check_permission(request, "support:write"):
+            if err := await self._check_permission(request, "support:write"):
                 return err
             return await self._generate_response(request)
 
         # Search
         elif path.endswith("/search") and method == "POST":
-            if err := self._check_permission(request, "support:read"):
+            if err := await self._check_permission(request, "support:read"):
                 return err
             return await self._search_tickets(request)
 
