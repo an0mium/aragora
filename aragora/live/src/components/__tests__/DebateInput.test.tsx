@@ -10,6 +10,14 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+jest.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    tokens: { access_token: 'test-token' },
+    isLoading: false,
+    isAuthenticated: true,
+  }),
+}));
+
 // Mock config
 jest.mock('@/config', () => ({
   DEFAULT_AGENTS: 'grok,anthropic-api,openai-api',

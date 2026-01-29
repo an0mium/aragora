@@ -9,6 +9,14 @@ import { DebateInput } from '../src/components/DebateInput';
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
+jest.mock('../src/context/AuthContext', () => ({
+  useAuth: () => ({
+    tokens: { access_token: 'test-token' },
+    isLoading: false,
+    isAuthenticated: true,
+  }),
+}));
+
 // Mock config
 jest.mock('../src/config', () => ({
   DEFAULT_AGENTS: 'claude,gemini,gpt4',
