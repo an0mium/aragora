@@ -67,6 +67,7 @@ from .capabilities import (
     smart_display_capabilities,
     smart_speaker_capabilities,
 )
+from .adapter import MoltbotGatewayAdapter
 
 # HTTP Handlers - import separately to avoid circular imports
 from .handlers import (
@@ -139,4 +140,5 @@ __all__ = [
     "MoltbotOnboardingHandler",
     "MoltbotVoiceHandler",
     "get_all_handlers",
+    "MoltbotGatewayAdapter",
 ]

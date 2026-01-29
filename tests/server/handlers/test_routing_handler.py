@@ -8,6 +8,9 @@ Tests the agent routing and team selection API endpoints including:
 - Domain detection
 - Domain leaderboard
 - Rate limiting
+- Response body validation
+- Parameter defaults and validation
+- Version prefix handling
 """
 
 import pytest
@@ -17,7 +20,7 @@ from unittest.mock import MagicMock, patch
 from dataclasses import dataclass
 from typing import List, Dict, Any
 
-from aragora.server.handlers.routing import RoutingHandler
+from aragora.server.handlers.routing import RoutingHandler, _routing_limiter
 
 
 @dataclass

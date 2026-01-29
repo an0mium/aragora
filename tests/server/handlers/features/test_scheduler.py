@@ -1,0 +1,518 @@
+"""Tests for Audit Scheduler Handler."""
+
+import sys
+import types as _types_mod
+
+# Pre-stub Slack modules to prevent import chain failures
+_SLACK_ATTRS = [
+    "SlackHandler",
+    "get_slack_handler",
+    "get_slack_integration",
+    "get_workspace_store",
+    "resolve_workspace",
+    "create_tracked_task",
+    "_validate_slack_url",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_BOT_TOKEN",
+    "SLACK_WEBHOOK_URL",
+    "SLACK_ALLOWED_DOMAINS",
+    "SignatureVerifierMixin",
+    "CommandsMixin",
+    "EventsMixin",
+    "init_slack_handler",
+]
+for _mod_name in (
+    "aragora.server.handlers.social.slack.handler",
+    "aragora.server.handlers.social.slack",
+    "aragora.server.handlers.social._slack_impl",
+):
+    if _mod_name not in sys.modules:
+        _m = _types_mod.ModuleType(_mod_name)
+        for _a in _SLACK_ATTRS:
+            setattr(_m, _a, None)
+        sys.modules[_mod_name] = _m
+
+import pytest
+from unittest.mock import MagicMock, patch
+
+from aragora.server.handlers.features.scheduler import SchedulerHandler
+
+
+@pytest.fixture
+def handler():
+    """Create handler instance."""
+    return SchedulerHandler(ctx={})
+
+
+class TestSchedulerHandler:
+    """Tests for SchedulerHandler class."""
+
+    def test_handler_creation(self, handler):
+        """Test creating handler instance."""
+        assert handler is not None
+
+    def test_handler_base_routes(self):
+        """Test that handler has base route definitions."""
+        assert hasattr(SchedulerHandler, "BASE_ROUTES")
+        routes = SchedulerHandler.BASE_ROUTES
+        assert "/api/v1/scheduler/jobs" in routes
+        assert "/api/v1/scheduler/webhooks" in routes
+        assert "/api/v1/scheduler/events/git-push" in routes
+        assert "/api/v1/scheduler/events/file-upload" in routes
+        assert "/api/v1/scheduler/status" in routes
+
+    def test_can_handle_base_routes(self, handler):
+        """Test can_handle for base routes."""
+        assert handler.can_handle("/api/v1/scheduler/jobs") is True
+        assert handler.can_handle("/api/v1/scheduler/status") is True
+        assert handler.can_handle("/api/v1/scheduler/events/git-push") is True
+
+    def test_can_handle_job_routes(self, handler):
+        """Test can_handle for job-specific routes."""
+        assert handler.can_handle("/api/v1/scheduler/jobs/job123") is True
+        assert handler.can_handle("/api/v1/scheduler/jobs/job123/history") is True
+        assert handler.can_handle("/api/v1/scheduler/jobs/job123/trigger") is True
+        assert handler.can_handle("/api/v1/scheduler/jobs/job123/pause") is True
+
+    def test_can_handle_webhook_routes(self, handler):
+        """Test can_handle for webhook routes."""
+        assert handler.can_handle("/api/v1/scheduler/webhooks/wh123") is True
+
+    def test_can_handle_invalid_routes(self, handler):
+        """Test can_handle rejects invalid routes."""
+        assert handler.can_handle("/api/v1/tasks/") is False
+        assert handler.can_handle("/api/v1/invalid/route") is False
+
+
+class TestSchedulerStatus:
+    """Tests for scheduler status endpoint."""
+
+    def test_get_scheduler_status(self, handler):
+        """Test get scheduler status."""
+        mock_scheduler = MagicMock()
+        mock_scheduler._running = True
+        mock_scheduler.list_jobs.return_value = []
+
+        with patch.object(handler, "_get_scheduler", return_value=mock_scheduler):
+            result = handler._get_scheduler_status()
+            assert result.status == 200
+
+            import json
+
+            body = json.loads(result.body)
+            assert body["running"] is True
+            assert body["total_jobs"] == 0
+
+
+class TestSchedulerListJobs:
+    """Tests for listing scheduler jobs."""
+
+    def test_list_jobs(self, handler):
+        """Test listing jobs."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.list_jobs.return_value = []
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._list_jobs({})
+            assert result.status == 200
+
+    def test_list_jobs_with_status_filter(self, handler):
+        """Test listing jobs with status filter."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.list_jobs.return_value = []
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+            patch("aragora.server.handlers.features.scheduler.ScheduleStatus") as MockStatus,
+        ):
+            MockStatus.return_value = "active"
+            result = handler._list_jobs({"status": ["active"]})
+            assert result.status == 200
+
+    def test_list_jobs_invalid_status(self, handler):
+        """Test listing jobs with invalid status returns error."""
+        mock_scheduler = MagicMock()
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.ScheduleStatus",
+                side_effect=ValueError("Invalid"),
+            ),
+        ):
+            result = handler._list_jobs({"status": ["invalid_status"]})
+            assert result.status == 400
+
+
+class TestSchedulerGetJob:
+    """Tests for getting a specific job."""
+
+    def test_get_job(self, handler):
+        """Test getting a job."""
+        mock_scheduler = MagicMock()
+        mock_job = MagicMock()
+        mock_job.to_dict.return_value = {"job_id": "job123", "name": "Test Job"}
+        mock_scheduler.get_job.return_value = mock_job
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._get_job("job123")
+            assert result.status == 200
+
+    def test_get_job_not_found(self, handler):
+        """Test getting non-existent job."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = None
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._get_job("invalid_job")
+            assert result.status == 404
+
+
+class TestSchedulerCreateJob:
+    """Tests for creating scheduler jobs."""
+
+    def test_create_job_missing_name(self, handler):
+        """Test create job requires name."""
+        mock_handler = MagicMock()
+
+        with (
+            patch.object(handler, "read_json_body", return_value={"trigger_type": "cron"}),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._create_job(mock_handler)
+            assert result.status == 400
+
+    def test_create_job_missing_body(self, handler):
+        """Test create job requires body."""
+        mock_handler = MagicMock()
+
+        with (
+            patch.object(handler, "read_json_body", return_value=None),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._create_job(mock_handler)
+            assert result.status == 400
+
+    def test_create_job_cron_missing_schedule(self, handler):
+        """Test cron job requires cron field."""
+        mock_handler = MagicMock()
+
+        with (
+            patch.object(
+                handler,
+                "read_json_body",
+                return_value={"name": "Test", "trigger_type": "cron"},
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+            patch("aragora.server.handlers.features.scheduler.TriggerType") as MockTrigger,
+        ):
+            MockTrigger.return_value = MagicMock(value="cron")
+            MockTrigger.CRON = MagicMock(value="cron")
+            result = handler._create_job(mock_handler)
+            assert result.status == 400
+
+    def test_create_job_interval_missing_minutes(self, handler):
+        """Test interval job requires interval_minutes."""
+        mock_handler = MagicMock()
+
+        with (
+            patch.object(
+                handler,
+                "read_json_body",
+                return_value={"name": "Test", "trigger_type": "interval"},
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+            patch("aragora.server.handlers.features.scheduler.TriggerType") as MockTrigger,
+        ):
+            MockTrigger.return_value = MagicMock(value="interval")
+            MockTrigger.CRON = MagicMock(value="cron")
+            MockTrigger.INTERVAL = MagicMock(value="interval")
+            result = handler._create_job(mock_handler)
+            assert result.status == 400
+
+
+class TestSchedulerDeleteJob:
+    """Tests for deleting scheduler jobs."""
+
+    def test_delete_job(self, handler):
+        """Test deleting a job."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = MagicMock()
+        mock_scheduler.remove_schedule.return_value = True
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._delete_job("job123")
+            assert result.status == 200
+
+    def test_delete_job_not_found(self, handler):
+        """Test deleting non-existent job."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = None
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._delete_job("invalid_job")
+            assert result.status == 404
+
+
+class TestSchedulerJobActions:
+    """Tests for scheduler job actions."""
+
+    def test_pause_job(self, handler):
+        """Test pausing a job."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = MagicMock()
+        mock_scheduler.pause_schedule.return_value = True
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._pause_job("job123")
+            assert result.status == 200
+
+    def test_pause_job_not_found(self, handler):
+        """Test pausing non-existent job."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = None
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._pause_job("invalid_job")
+            assert result.status == 404
+
+    def test_resume_job(self, handler):
+        """Test resuming a job."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = MagicMock()
+        mock_scheduler.resume_schedule.return_value = True
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._resume_job("job123")
+            assert result.status == 200
+
+
+class TestSchedulerJobHistory:
+    """Tests for scheduler job history."""
+
+    def test_get_job_history(self, handler):
+        """Test getting job history."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = MagicMock()
+        mock_scheduler.get_job_history.return_value = []
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._get_job_history("job123", limit=10)
+            assert result.status == 200
+
+    def test_get_job_history_not_found(self, handler):
+        """Test getting history for non-existent job."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = None
+
+        with (
+            patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._get_job_history("invalid_job")
+            assert result.status == 404
+
+
+class TestSchedulerWebhook:
+    """Tests for scheduler webhook handling."""
+
+    def test_handle_webhook_missing_body(self, handler):
+        """Test webhook requires request body."""
+        mock_handler = MagicMock()
+
+        with patch.object(handler, "read_json_body", return_value=None):
+            result = handler._handle_webhook(mock_handler, "wh123")
+            assert result.status == 400
+
+
+class TestSchedulerGitPush:
+    """Tests for scheduler git push handling."""
+
+    def test_handle_git_push_missing_body(self, handler):
+        """Test git push requires request body."""
+        mock_handler = MagicMock()
+
+        with patch.object(handler, "read_json_body", return_value=None):
+            result = handler._handle_git_push(mock_handler)
+            assert result.status == 400
+
+
+class TestSchedulerFileUpload:
+    """Tests for scheduler file upload handling."""
+
+    def test_handle_file_upload_missing_workspace(self, handler):
+        """Test file upload requires workspace_id."""
+        mock_handler = MagicMock()
+
+        with (
+            patch.object(handler, "read_json_body", return_value={"document_ids": ["doc1"]}),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._handle_file_upload(mock_handler)
+            assert result.status == 400
+
+    def test_handle_file_upload_missing_documents(self, handler):
+        """Test file upload requires document_ids."""
+        mock_handler = MagicMock()
+
+        with (
+            patch.object(handler, "read_json_body", return_value={"workspace_id": "ws123"}),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_user_auth",
+                lambda f: f,
+            ),
+            patch(
+                "aragora.server.handlers.features.scheduler.require_permission",
+                lambda p: lambda f: f,
+            ),
+        ):
+            result = handler._handle_file_upload(mock_handler)
+            assert result.status == 400

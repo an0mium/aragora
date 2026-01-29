@@ -65,11 +65,13 @@ _imp, GASTOWN_AVAILABLE = try_import(
     "ConvoyTracker",
     "HookRunner",
     "Coordinator",
+    "GastownConvoyAdapter",
 )
 WorkspaceManager = _imp.get("WorkspaceManager")
 ConvoyTracker = _imp.get("ConvoyTracker")
 GastownHookRunner = _imp.get("HookRunner")
 Coordinator = _imp.get("Coordinator")
+GastownConvoyAdapter = _imp.get("GastownConvoyAdapter")
 
 # Moltbot Extension
 _imp, MOLTBOT_AVAILABLE = try_import(
@@ -78,11 +80,13 @@ _imp, MOLTBOT_AVAILABLE = try_import(
     "LocalGateway",
     "VoiceProcessor",
     "OnboardingOrchestrator",
+    "MoltbotGatewayAdapter",
 )
 InboxManager = _imp.get("InboxManager")
 LocalGateway = _imp.get("LocalGateway")
 VoiceProcessor = _imp.get("VoiceProcessor")
 OnboardingOrchestrator = _imp.get("OnboardingOrchestrator")
+MoltbotGatewayAdapter = _imp.get("MoltbotGatewayAdapter")
 
 # Computer Use
 _imp, COMPUTER_USE_AVAILABLE = try_import(
@@ -118,12 +122,14 @@ class ExtensionState:
     convoy_tracker: Any | None = None
     gastown_hooks: Any | None = None
     coordinator: Any | None = None
+    gastown_adapter: Any | None = None
 
     # Moltbot
     inbox_manager: Any | None = None
     local_gateway: Any | None = None
     voice_processor: Any | None = None
     onboarding: Any | None = None
+    moltbot_adapter: Any | None = None
 
     # Computer Use
     computer_orchestrator: Any | None = None
@@ -203,7 +209,7 @@ def init_gastown(storage_path: Path | None = None) -> tuple[Any | None, ...]:
         storage_path: Path for Gastown state storage
 
     Returns:
-        Tuple of (Coordinator, WorkspaceManager, ConvoyTracker, HookRunner)
+        Tuple of (Coordinator, WorkspaceManager, ConvoyTracker, HookRunner, GastownConvoyAdapter)
     """
     if not ENABLE_GASTOWN or not GASTOWN_AVAILABLE:
         logger.debug("[extensions] Gastown disabled or unavailable")
@@ -244,14 +250,16 @@ def init_gastown(storage_path: Path | None = None) -> tuple[Any | None, ...]:
             else None
         )
 
+        gastown_adapter = GastownConvoyAdapter() if GastownConvoyAdapter else None
+
         if coordinator:
             logger.info("[extensions] Gastown extension initialized")
 
-        return coordinator, workspace_mgr, convoy_tracker, hook_runner
+        return coordinator, workspace_mgr, convoy_tracker, hook_runner, gastown_adapter
 
     except Exception as e:
         logger.warning(f"[extensions] Failed to initialize Gastown: {e}")
-        return None, None, None, None
+        return None, None, None, None, None
 
 
 def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
@@ -262,11 +270,11 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
         storage_path: Path for Moltbot state storage
 
     Returns:
-        Tuple of (InboxManager, LocalGateway, VoiceProcessor, OnboardingOrchestrator)
+        Tuple of (InboxManager, LocalGateway, VoiceProcessor, OnboardingOrchestrator, MoltbotGatewayAdapter)
     """
     if not ENABLE_MOLTBOT or not MOLTBOT_AVAILABLE:
         logger.debug("[extensions] Moltbot disabled or unavailable")
-        return None, None, None, None
+        return None, None, None, None, None
 
     try:
         moltbot_path = storage_path / "moltbot" if storage_path else None
@@ -303,14 +311,16 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
             else None
         )
 
+        moltbot_adapter = MoltbotGatewayAdapter() if MoltbotGatewayAdapter else None
+
         if inbox or gateway:
             logger.info("[extensions] Moltbot extension initialized")
 
-        return inbox, gateway, voice, onboarding
+        return inbox, gateway, voice, onboarding, moltbot_adapter
 
     except Exception as e:
         logger.warning(f"[extensions] Failed to initialize Moltbot: {e}")
-        return None, None, None, None
+        return None, None, None, None, None
 
 
 def init_computer_use() -> tuple[Any | None, Any | None]:
@@ -391,19 +401,23 @@ def init_extensions(storage_path: Path | None = None) -> ExtensionState:
     state.fabric_enabled = fabric is not None
 
     # Initialize Gastown
-    coordinator, workspace_mgr, convoy_tracker, gastown_hooks = init_gastown(storage_path)
+    coordinator, workspace_mgr, convoy_tracker, gastown_hooks, gastown_adapter = init_gastown(
+        storage_path
+    )
     state.coordinator = coordinator
     state.workspace_manager = workspace_mgr
     state.convoy_tracker = convoy_tracker
     state.gastown_hooks = gastown_hooks
+    state.gastown_adapter = gastown_adapter
     state.gastown_enabled = coordinator is not None
 
     # Initialize Moltbot
-    inbox, gateway, voice, onboarding = init_moltbot(storage_path)
+    inbox, gateway, voice, onboarding, moltbot_adapter = init_moltbot(storage_path)
     state.inbox_manager = inbox
     state.local_gateway = gateway
     state.voice_processor = voice
     state.onboarding = onboarding
+    state.moltbot_adapter = moltbot_adapter
     state.moltbot_enabled = inbox is not None or gateway is not None
 
     # Initialize Computer Use

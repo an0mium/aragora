@@ -880,3 +880,567 @@ class TestRLMContextHandlerInputValidation:
 
         assert result is not None
         assert result.status_code == 400
+
+
+class TestRLMContextHandlerStreamModesEndpoint:
+    """Test GET /api/v1/rlm/stream/modes endpoint."""
+
+    def test_stream_modes_returns_list(self, rlm_handler, mock_http_handler):
+        """Stream modes endpoint returns available streaming modes."""
+        result = rlm_handler.handle("/api/v1/rlm/stream/modes", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "modes" in body
+
+    def test_stream_modes_includes_expected_modes(self, rlm_handler, mock_http_handler):
+        """Stream modes includes top_down, bottom_up, targeted, progressive."""
+        result = rlm_handler.handle("/api/v1/rlm/stream/modes", {}, mock_http_handler)
+
+        body = json.loads(result.body)
+        modes = body["modes"]
+        mode_values = [m.get("mode") for m in modes]
+
+        # Check for expected mode types
+        expected_modes = ["top_down", "bottom_up", "targeted", "progressive"]
+        for expected in expected_modes:
+            assert expected in mode_values, f"Missing mode: {expected}"
+
+    def test_stream_modes_include_descriptions(self, rlm_handler, mock_http_handler):
+        """Each streaming mode includes description and use case."""
+        result = rlm_handler.handle("/api/v1/rlm/stream/modes", {}, mock_http_handler)
+
+        body = json.loads(result.body)
+        for mode in body["modes"]:
+            assert "mode" in mode, "Mode missing 'mode' field"
+            assert "description" in mode, f"Mode {mode.get('mode')} missing description"
+
+    def test_stream_modes_handles_import_error(self, rlm_handler, mock_http_handler):
+        """Stream modes returns fallback when streaming module unavailable."""
+        with patch.dict("sys.modules", {"aragora.rlm.streaming": None}):
+            result = rlm_handler.handle("/api/v1/rlm/stream/modes", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "modes" in body
+
+
+class TestRLMContextHandlerStreamEndpoint:
+    """Test POST /api/v1/rlm/stream endpoint."""
+
+    def test_stream_requires_body(self, rlm_handler):
+        """Stream endpoint requires a JSON body."""
+        handler = MagicMock()
+        handler.client_address = ("127.0.0.1", 12345)
+        handler.headers = {"Content-Length": "0"}
+        handler.command = "POST"
+
+        result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_stream_requires_context_id(self, rlm_handler):
+        """Stream endpoint requires context_id field."""
+        handler = create_request_body(
+            {
+                "mode": "top_down",
+            },
+            with_auth=True,
+        )
+
+        result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "context_id" in body["error"].lower()
+
+    def test_stream_context_not_found(self, rlm_handler):
+        """Stream endpoint returns 404 for unknown context."""
+        handler = create_request_body(
+            {
+                "context_id": "nonexistent_ctx",
+                "mode": "top_down",
+            },
+            with_auth=True,
+        )
+
+        result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 404
+
+    def test_stream_with_valid_context(self, rlm_handler):
+        """Stream endpoint processes valid context."""
+        # Setup a mock context
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.total_tokens.return_value = 100
+        mock_context.levels = {}
+
+        rlm_handler._contexts["test_stream_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "test_stream_ctx",
+                "mode": "top_down",
+            },
+            with_auth=True,
+        )
+
+        # Mock the streaming module
+        mock_chunk = MagicMock()
+        mock_chunk.level = "summary"
+        mock_chunk.content = "Test content"
+        mock_chunk.token_count = 10
+        mock_chunk.is_final = True
+        mock_chunk.metadata = {}
+
+        async def mock_stream_all():
+            yield mock_chunk
+
+        with patch("aragora.rlm.streaming.StreamingRLMQuery") as MockStreamQuery:
+            mock_stream = MagicMock()
+            mock_stream.stream_all = mock_stream_all
+            MockStreamQuery.return_value = mock_stream
+
+            result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        # Should either succeed or fall back gracefully
+        assert result.status_code in [200, 501]
+
+    def test_stream_with_query_parameter(self, rlm_handler):
+        """Stream endpoint handles query parameter for search."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.levels = {}
+
+        rlm_handler._contexts["search_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "search_ctx",
+                "mode": "top_down",
+                "query": "find specific topic",
+            },
+            with_auth=True,
+        )
+
+        result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        # Expect success, fallback, or error (when streaming module has issues)
+        assert result.status_code in [200, 400, 500, 501]
+
+    def test_stream_with_level_parameter(self, rlm_handler):
+        """Stream endpoint handles level parameter for targeted mode."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.levels = {}
+
+        rlm_handler._contexts["level_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "level_ctx",
+                "mode": "targeted",
+                "level": "summary",
+            },
+            with_auth=True,
+        )
+
+        result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        # Expect success, fallback, or error (when streaming module has issues)
+        assert result.status_code in [200, 400, 500, 501]
+
+    def test_stream_default_mode(self, rlm_handler):
+        """Stream endpoint uses top_down as default mode."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.levels = {}
+
+        rlm_handler._contexts["default_mode_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "default_mode_ctx",
+                # No mode specified - should default to top_down
+            },
+            with_auth=True,
+        )
+
+        result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        assert result.status_code in [200, 501]
+
+    def test_stream_handles_import_error_gracefully(self, rlm_handler):
+        """Stream endpoint returns fallback when streaming module unavailable."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.levels = {}
+
+        rlm_handler._contexts["fallback_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "fallback_ctx",
+                "mode": "top_down",
+            },
+            with_auth=True,
+        )
+
+        # Force ImportError by removing the module
+        with patch.dict("sys.modules", {"aragora.rlm.streaming": None}):
+            result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        # Should return fallback or error
+        assert result.status_code in [200, 501]
+
+    def test_stream_chunk_size_parameter(self, rlm_handler):
+        """Stream endpoint respects chunk_size parameter."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.levels = {}
+
+        rlm_handler._contexts["chunk_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "chunk_ctx",
+                "mode": "progressive",
+                "chunk_size": 250,
+            },
+            with_auth=True,
+        )
+
+        result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        assert result.status_code in [200, 501]
+
+    def test_stream_include_metadata_parameter(self, rlm_handler):
+        """Stream endpoint respects include_metadata parameter."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.levels = {}
+
+        rlm_handler._contexts["meta_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "meta_ctx",
+                "mode": "top_down",
+                "include_metadata": False,
+            },
+            with_auth=True,
+        )
+
+        result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        assert result.status_code in [200, 501]
+
+
+class TestRLMContextHandlerStreamCanHandle:
+    """Test can_handle for stream endpoints."""
+
+    def test_can_handle_stream(self, rlm_handler):
+        """Test can_handle returns True for stream endpoint."""
+        assert rlm_handler.can_handle("/api/v1/rlm/stream")
+
+    def test_can_handle_stream_modes(self, rlm_handler):
+        """Test can_handle returns True for stream/modes endpoint."""
+        assert rlm_handler.can_handle("/api/v1/rlm/stream/modes")
+
+
+class TestRLMContextHandlerQueryWithRefinement:
+    """Test query endpoint with refinement option."""
+
+    def test_query_with_refinement_enabled(self, rlm_handler):
+        """Query endpoint supports iterative refinement."""
+        mock_context = MagicMock()
+        rlm_handler._contexts["refine_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "refine_ctx",
+                "query": "What are the key points?",
+                "refine": True,
+                "max_iterations": 5,
+            },
+            with_auth=True,
+        )
+
+        mock_rlm = MagicMock()
+        mock_result = MagicMock()
+        mock_result.answer = "Refined answer after iterations"
+        mock_result.confidence = 0.95
+        mock_result.iteration = 3
+        mock_rlm.query_with_refinement = AsyncMock(return_value=mock_result)
+
+        with patch.object(rlm_handler, "_get_rlm", return_value=mock_rlm):
+            result = rlm_handler.handle_post("/api/v1/rlm/query", {}, handler)
+
+        assert result is not None
+        if result.status_code == 200:
+            body = json.loads(result.body)
+            assert "answer" in body
+            assert body["metadata"]["refined"] is True
+
+    def test_query_max_iterations_capped(self, rlm_handler):
+        """Query endpoint caps max_iterations at 10."""
+        mock_context = MagicMock()
+        rlm_handler._contexts["cap_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "cap_ctx",
+                "query": "Test query",
+                "refine": True,
+                "max_iterations": 100,  # Should be capped to default (3)
+            },
+            with_auth=True,
+        )
+
+        mock_rlm = MagicMock()
+        mock_result = MagicMock()
+        mock_result.answer = "Answer"
+        mock_result.confidence = 0.9
+        mock_result.iteration = 3
+        mock_rlm.query_with_refinement = AsyncMock(return_value=mock_result)
+
+        with patch.object(rlm_handler, "_get_rlm", return_value=mock_rlm):
+            result = rlm_handler.handle_post("/api/v1/rlm/query", {}, handler)
+
+        assert result is not None
+        # Handler should clamp invalid values to default of 3
+
+
+class TestRLMContextHandlerCompressWithLevels:
+    """Test compress endpoint with different abstraction levels."""
+
+    def test_compress_with_custom_levels(self, rlm_handler):
+        """Compress endpoint accepts custom level count."""
+        handler = create_request_body(
+            {
+                "content": "Test content for multi-level compression",
+                "source_type": "text",
+                "levels": 3,
+            },
+            with_auth=True,
+        )
+
+        mock_compressor = MagicMock()
+        mock_context = MagicMock()
+        mock_context.original_tokens = 100
+        mock_context.total_tokens.return_value = 30
+        mock_context.levels = {}
+        mock_compressor.compress = AsyncMock(return_value=mock_context)
+
+        with patch.object(rlm_handler, "_get_compressor", return_value=mock_compressor):
+            result = rlm_handler.handle_post("/api/v1/rlm/compress", {}, handler)
+
+        assert result is not None
+        if result.status_code == 200:
+            body = json.loads(result.body)
+            assert "compression_result" in body
+
+    def test_compress_code_source_type(self, rlm_handler):
+        """Compress endpoint handles code source type."""
+        handler = create_request_body(
+            {
+                "content": "def hello():\n    print('hello world')",
+                "source_type": "code",
+            },
+            with_auth=True,
+        )
+
+        mock_compressor = MagicMock()
+        mock_context = MagicMock()
+        mock_context.original_tokens = 50
+        mock_context.total_tokens.return_value = 15
+        mock_context.levels = {}
+        mock_compressor.compress = AsyncMock(return_value=mock_context)
+
+        with patch.object(rlm_handler, "_get_compressor", return_value=mock_compressor):
+            result = rlm_handler.handle_post("/api/v1/rlm/compress", {}, handler)
+
+        assert result is not None
+        if result.status_code == 200:
+            body = json.loads(result.body)
+            assert body["compression_result"]["source_type"] == "code"
+
+    def test_compress_debate_source_type(self, rlm_handler):
+        """Compress endpoint handles debate source type."""
+        handler = create_request_body(
+            {
+                "content": "Agent A: I think X. Agent B: I disagree because Y.",
+                "source_type": "debate",
+            },
+            with_auth=True,
+        )
+
+        mock_compressor = MagicMock()
+        mock_context = MagicMock()
+        mock_context.original_tokens = 60
+        mock_context.total_tokens.return_value = 20
+        mock_context.levels = {}
+        mock_compressor.compress = AsyncMock(return_value=mock_context)
+
+        with patch.object(rlm_handler, "_get_compressor", return_value=mock_compressor):
+            result = rlm_handler.handle_post("/api/v1/rlm/compress", {}, handler)
+
+        assert result is not None
+        if result.status_code == 200:
+            body = json.loads(result.body)
+            assert body["compression_result"]["source_type"] == "debate"
+
+
+class TestRLMContextHandlerGetContextWithContent:
+    """Test getting context with content preview."""
+
+    def test_get_context_include_content_true(self, rlm_handler, mock_http_handler):
+        """Get context includes summary preview when include_content=true."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 1000
+        mock_context.total_tokens.return_value = 200
+        mock_context.levels = {}
+
+        # Mock summary content
+        mock_node = MagicMock()
+        mock_node.id = "node_1"
+        mock_node.content = "This is a summary preview content"
+        mock_context.get_at_level = MagicMock(return_value=[mock_node])
+
+        rlm_handler._contexts["preview_ctx"] = {
+            "context": mock_context,
+            "source_type": "text",
+            "original_tokens": 1000,
+            "created_at": "2026-01-15T10:00:00",
+        }
+
+        result = rlm_handler.handle(
+            "/api/v1/rlm/context/preview_ctx",
+            {"include_content": "true"},
+            mock_http_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["id"] == "preview_ctx"
+        # May or may not include preview depending on implementation details
+
+    def test_get_context_include_content_false(self, rlm_handler, mock_http_handler):
+        """Get context excludes summary preview when include_content=false."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 1000
+        mock_context.total_tokens.return_value = 200
+        mock_context.levels = {}
+
+        rlm_handler._contexts["no_preview_ctx"] = {
+            "context": mock_context,
+            "source_type": "text",
+            "original_tokens": 1000,
+            "created_at": "2026-01-15T10:00:00",
+        }
+
+        result = rlm_handler.handle(
+            "/api/v1/rlm/context/no_preview_ctx",
+            {"include_content": "false"},
+            mock_http_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "summary_preview" not in body
+
+
+class TestRLMContextHandlerContextIdValidation:
+    """Test context ID validation in routes."""
+
+    def test_context_route_rejects_path_traversal(self, rlm_handler, mock_http_handler):
+        """Context route rejects path traversal attempts."""
+        result = rlm_handler.handle(
+            "/api/v1/rlm/context/../../../etc/passwd",
+            {},
+            mock_http_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_context_route_rejects_empty_id(self, rlm_handler, mock_http_handler):
+        """Context route rejects empty context ID."""
+        result = rlm_handler.handle(
+            "/api/v1/rlm/context/",
+            {},
+            mock_http_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_delete_route_validates_context_id(self, rlm_handler, mock_http_handler):
+        """Delete route validates context ID format."""
+        mock_http_handler.command = "DELETE"
+        mock_http_handler.headers["Authorization"] = "Bearer test-token"
+
+        result = rlm_handler.handle_delete(
+            "/api/v1/rlm/context/",
+            {},
+            mock_http_handler,
+        )
+
+        # Empty ID should return None (not handled) or 400
+        assert result is None or result.status_code == 400

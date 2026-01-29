@@ -26,6 +26,7 @@ from .workspace import WorkspaceManager
 from .convoy import ConvoyTracker
 from .hooks import HookRunner
 from .coordinator import Coordinator
+from .adapter import GastownConvoyAdapter
 
 __all__ = [
     # Models
@@ -43,4 +44,5 @@ __all__ = [
     "ConvoyTracker",
     "HookRunner",
     "Coordinator",
+    "GastownConvoyAdapter",
 ]

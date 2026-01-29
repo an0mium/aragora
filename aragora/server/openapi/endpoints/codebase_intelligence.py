@@ -3,7 +3,7 @@
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
 
 
-def _codebase_params():
+def _codebase_params() -> list[dict[str, str | bool | dict[str, str]]]:
     return [
         {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
     ]

@@ -4,7 +4,12 @@ URL routing utilities for handler dispatch.
 Provides pattern matching and dispatch for mapping URL paths to handler methods.
 """
 
-from typing import Any, Callable
+from typing import Any, Callable, TypeAlias
+
+# Type aliases for clarity
+PathParams: TypeAlias = dict[str, str]
+QueryParams: TypeAlias = dict[str, Any]
+RouteHandler: TypeAlias = Callable[..., Any]
 
 
 class PathMatcher:
@@ -41,7 +46,7 @@ class PathMatcher:
                 param_name = part[1:-1]
                 self.param_indices[param_name] = i
 
-    def match(self, path: str) -> dict | None:
+    def match(self, path: str) -> PathParams | None:
         """Match a path against this pattern.
 
         Returns:
@@ -86,11 +91,11 @@ class RouteDispatcher:
     """
 
     def __init__(self) -> None:
-        self.routes: list[tuple[PathMatcher, Callable]] = []
+        self.routes: list[tuple[PathMatcher, RouteHandler]] = []
         # Index routes by segment count for faster lookup
         self._segment_index: dict[int, list[int]] = {}
 
-    def add_route(self, pattern: str, handler: Callable) -> "RouteDispatcher":
+    def add_route(self, pattern: str, handler: RouteHandler) -> "RouteDispatcher":
         """Add a route pattern with its handler.
 
         Args:
@@ -113,7 +118,7 @@ class RouteDispatcher:
 
         return self
 
-    def dispatch(self, path: str, query_params: dict | None = None) -> Any:
+    def dispatch(self, path: str, query_params: QueryParams | None = None) -> Any:
         """Dispatch a path to its handler.
 
         Args:

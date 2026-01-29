@@ -92,7 +92,7 @@ def _clear_rate_limiter():
 
     # Reset internal state by clearing the requests dict
     if hasattr(_dashboard_limiter, "_requests"):
-        _dashboard_limiter._requests.clear()
+        _dashboard_limiter._buckets.clear()
     if hasattr(_dashboard_limiter, "_buckets"):
         _dashboard_limiter._buckets.clear()
     if hasattr(_dashboard_limiter, "_timestamps"):
