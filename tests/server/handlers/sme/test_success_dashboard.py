@@ -224,8 +224,8 @@ class TestPeriodParsing:
     @pytest.mark.parametrize("period_val", ["week", "month", "quarter", "year"])
     def test_valid_periods(self, handler, period_val):
         """Test that valid periods are accepted."""
-        mock_handler = MagicMock()
-        mock_handler.get_argument = MagicMock(return_value=period_val)
+        # get_string_param uses .get() on the handler dict-like object
+        mock_handler = {"period": period_val}
 
         start, end, parsed = handler._parse_period(mock_handler)
 
@@ -235,8 +235,8 @@ class TestPeriodParsing:
 
     def test_default_period(self, handler):
         """Test that default period is month."""
-        mock_handler = MagicMock()
-        mock_handler.get_argument = lambda name, default=None: default
+        # Empty dict - get_string_param will return default "month"
+        mock_handler = {}
 
         start, end, parsed = handler._parse_period(mock_handler)
 

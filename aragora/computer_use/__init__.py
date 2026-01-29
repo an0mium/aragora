@@ -50,6 +50,7 @@ from aragora.computer_use.orchestrator import (
     ComputerUseConfig,
     ComputerUseMetrics,
     ComputerUseOrchestrator,
+    MockActionExecutor,
     StepResult,
     TaskResult,
 )
@@ -78,6 +79,7 @@ __all__ = [
     "ComputerUseConfig",
     "ComputerUseMetrics",
     "ComputerUseOrchestrator",
+    "MockActionExecutor",
     "StepResult",
     "TaskResult",
 ]
