@@ -1,20 +1,12 @@
-"""Tests for Documents Batch Handler.
+"""Tests for DocumentBatchHandler.
 
-NOTE: These tests were written for an older API design with different routes
-and internal methods (e.g., require_user_auth, _batch_limiter). The actual
-handler has evolved and tests need to be rewritten to match.
-See: https://github.com/aragora/aragora/issues/v2.5.1-documents-batch-tests
+Tests cover routing, can_handle, batch upload, job status, job results,
+job cancellation, document chunks, document context, processing stats,
+and knowledge job endpoints.
 """
 
 import sys
 import types as _types_mod
-
-import pytest
-
-# Skip entire module - API mismatch with actual handler implementation
-pytestmark = pytest.mark.skip(
-    reason="Tests written for older API design - handler routes and methods have changed - needs rewrite for v2.5.1"
-)
 
 # Pre-stub Slack modules to prevent import chain failures
 _SLACK_ATTRS = [
@@ -45,216 +37,916 @@ for _mod_name in (
             setattr(_m, _a, None)
         sys.modules[_mod_name] = _m
 
+import json
+from dataclasses import dataclass, field
+from io import BytesIO
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 from aragora.server.handlers.features.documents_batch import (
     DocumentBatchHandler,
+    MAX_BATCH_SIZE,
+    MAX_FILE_SIZE_MB,
+    MAX_TOTAL_BATCH_SIZE_MB,
 )
 
-# Stub for rate limiter (tests are skipped but linter needs the name defined)
-_batch_limiter = type(
-    "RateLimiter", (), {"requests_per_minute": 20, "is_allowed": lambda self, ip: True}
-)()
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class MockJob:
+    """Mock DocumentJob for testing."""
+
+    id: str = "job-123"
+    status: MagicMock = field(default_factory=lambda: MagicMock(value="completed"))
+    progress: float = 1.0
+    filename: str = "test.pdf"
+    document: MagicMock = None
+    chunks: list = field(default_factory=list)
+    error_message: str = ""
+
+    def __post_init__(self):
+        if self.document is None:
+            self.document = MagicMock()
+            self.document.to_summary.return_value = {"id": "doc-1", "filename": "test.pdf"}
+
+
+class MockBatchProcessor:
+    """Mock BatchProcessor for testing."""
+
+    def __init__(self):
+        self.jobs = {}
+        self.cancelled = set()
+
+    async def submit(
+        self,
+        content: bytes,
+        filename: str,
+        workspace_id: str,
+        priority=None,
+        chunking_strategy=None,
+        chunk_size=512,
+        chunk_overlap=50,
+        tags=None,
+    ) -> str:
+        job_id = f"job-{len(self.jobs)}"
+        self.jobs[job_id] = {
+            "content": content,
+            "filename": filename,
+            "workspace_id": workspace_id,
+            "status": "queued",
+        }
+        return job_id
+
+    async def get_status(self, job_id: str) -> dict | None:
+        if job_id not in self.jobs:
+            return None
+        return {
+            "job_id": job_id,
+            "status": self.jobs[job_id]["status"],
+            "progress": 0.5,
+        }
+
+    async def get_result(self, job_id: str):
+        if job_id not in self.jobs:
+            return None
+        return MockJob(id=job_id)
+
+    async def cancel(self, job_id: str) -> bool:
+        if job_id not in self.jobs:
+            return False
+        if self.jobs[job_id]["status"] == "processing":
+            return False
+        self.cancelled.add(job_id)
+        return True
+
+    def get_stats(self) -> dict:
+        return {
+            "total_jobs": len(self.jobs),
+            "queued": len([j for j in self.jobs.values() if j["status"] == "queued"]),
+            "completed": 0,
+            "failed": 0,
+        }
+
+
+class MockTokenCounter:
+    """Mock token counter for testing."""
+
+    def count(self, text: str, model: str = "gpt-4") -> int:
+        return len(text.split())
+
+    def truncate_to_tokens(self, text: str, max_tokens: int, model: str = "gpt-4") -> str:
+        words = text.split()
+        return " ".join(words[:max_tokens])
+
+
+def create_multipart_body(files: list[tuple[str, bytes]], form_data: dict = None) -> tuple[bytes, str]:
+    """Create multipart/form-data body for testing."""
+    boundary = "----TestBoundary1234567890"
+    parts = []
+
+    # Add files
+    for filename, content in files:
+        parts.append(f"------{boundary}\r\n")
+        parts.append(f'Content-Disposition: form-data; name="files[]"; filename="{filename}"\r\n')
+        parts.append("Content-Type: application/octet-stream\r\n\r\n")
+        parts.append(content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content)
+        parts.append("\r\n")
+
+    # Add form fields
+    if form_data:
+        for key, value in form_data.items():
+            parts.append(f"------{boundary}\r\n")
+            parts.append(f'Content-Disposition: form-data; name="{key}"\r\n\r\n')
+            parts.append(str(value))
+            parts.append("\r\n")
+
+    parts.append(f"------{boundary}--\r\n")
+
+    body = "".join(parts).encode("utf-8")
+    content_type = f"multipart/form-data; boundary=----{boundary}"
+    return body, content_type
+
+
+def make_mock_handler(
+    content_type: str = "application/json",
+    body: bytes = b"{}",
+    content_length: int = None,
+):
+    """Create a mock HTTP handler."""
+    mock = MagicMock()
+    mock.headers = {
+        "Content-Type": content_type,
+        "Content-Length": str(content_length if content_length is not None else len(body)),
+    }
+    mock.rfile = BytesIO(body)
+    mock.client_address = ("127.0.0.1", 12345)
+    return mock
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def handler():
-    """Create handler instance."""
+    """Create a DocumentBatchHandler instance."""
     return DocumentBatchHandler({})
 
 
-class TestDocumentBatchHandler:
-    """Tests for DocumentBatchHandler class."""
+@pytest.fixture
+def mock_processor():
+    """Create a mock batch processor."""
+    return MockBatchProcessor()
 
-    def test_handler_creation(self, handler):
-        """Test creating handler instance."""
-        assert handler is not None
 
-    def test_handler_routes(self):
-        """Test that handler has route definitions."""
+# ---------------------------------------------------------------------------
+# Constants Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentBatchConstants:
+    """Tests for module constants."""
+
+    def test_max_batch_size(self):
+        """Test max batch size constant."""
+        assert MAX_BATCH_SIZE == 50
+
+    def test_max_file_size(self):
+        """Test max file size constant."""
+        assert MAX_FILE_SIZE_MB == 100
+
+    def test_max_total_batch_size(self):
+        """Test max total batch size constant."""
+        assert MAX_TOTAL_BATCH_SIZE_MB == 500
+
+
+# ---------------------------------------------------------------------------
+# Handler Routes Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentBatchHandlerRoutes:
+    """Tests for handler route definitions."""
+
+    def test_routes_defined(self):
+        """Test that ROUTES are defined."""
         assert hasattr(DocumentBatchHandler, "ROUTES")
-        routes = DocumentBatchHandler.ROUTES
-        assert "/api/v1/documents/batch" in routes
-        assert "/api/v1/documents/batch/status" in routes
+        assert isinstance(DocumentBatchHandler.ROUTES, list)
 
-    def test_can_handle_batch_routes(self, handler):
-        """Test can_handle for batch routes."""
+    def test_batch_route_in_routes(self):
+        """Test batch endpoint is in routes."""
+        assert "/api/v1/documents/batch" in DocumentBatchHandler.ROUTES
+
+    def test_processing_stats_route_in_routes(self):
+        """Test processing stats endpoint is in routes."""
+        assert "/api/v1/documents/processing/stats" in DocumentBatchHandler.ROUTES
+
+    def test_knowledge_jobs_route_in_routes(self):
+        """Test knowledge jobs endpoint is in routes."""
+        assert "/api/v1/knowledge/jobs" in DocumentBatchHandler.ROUTES
+
+
+# ---------------------------------------------------------------------------
+# can_handle Tests
+# ---------------------------------------------------------------------------
+
+
+class TestCanHandle:
+    """Tests for can_handle method."""
+
+    def test_can_handle_batch_route(self, handler):
+        """Test can_handle for batch upload route."""
         assert handler.can_handle("/api/v1/documents/batch") is True
-        assert handler.can_handle("/api/v1/documents/batch/status") is True
 
-    def test_can_handle_job_routes(self, handler):
-        """Test can_handle for job-specific routes."""
+    def test_can_handle_processing_stats(self, handler):
+        """Test can_handle for processing stats route."""
+        assert handler.can_handle("/api/v1/documents/processing/stats") is True
+
+    def test_can_handle_knowledge_jobs(self, handler):
+        """Test can_handle for knowledge jobs route."""
+        assert handler.can_handle("/api/v1/knowledge/jobs") is True
+
+    def test_can_handle_batch_job_id(self, handler):
+        """Test can_handle for batch job status route."""
         assert handler.can_handle("/api/v1/documents/batch/job123") is True
-        assert handler.can_handle("/api/v1/documents/batch/job123/status") is True
 
-    def test_can_handle_invalid_routes(self, handler):
+    def test_can_handle_batch_job_results(self, handler):
+        """Test can_handle for batch job results route."""
+        assert handler.can_handle("/api/v1/documents/batch/job123/results") is True
+
+    def test_can_handle_document_chunks(self, handler):
+        """Test can_handle for document chunks route."""
+        assert handler.can_handle("/api/v1/documents/doc123/chunks") is True
+
+    def test_can_handle_document_context(self, handler):
+        """Test can_handle for document context route."""
+        assert handler.can_handle("/api/v1/documents/doc123/context") is True
+
+    def test_can_handle_knowledge_job_id(self, handler):
+        """Test can_handle for knowledge job status route."""
+        assert handler.can_handle("/api/v1/knowledge/jobs/kp_123") is True
+
+    def test_cannot_handle_invalid_route(self, handler):
         """Test can_handle rejects invalid routes."""
-        assert handler.can_handle("/api/v1/files/batch") is False
         assert handler.can_handle("/api/v1/invalid/route") is False
+
+    def test_cannot_handle_partial_batch_route(self, handler):
+        """Test can_handle rejects partial routes."""
+        assert handler.can_handle("/api/v1/documents") is False
+
+    def test_cannot_handle_wrong_prefix(self, handler):
+        """Test can_handle rejects wrong prefix."""
+        assert handler.can_handle("/api/v2/documents/batch") is False
+
+
+# ---------------------------------------------------------------------------
+# GET Processing Stats Tests
+# ---------------------------------------------------------------------------
+
+
+class TestProcessingStats:
+    """Tests for processing stats endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_processing_stats(self, handler, mock_processor):
+        """Test getting processing stats."""
+        mock_handler = make_mock_handler()
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle(
+                "/api/v1/documents/processing/stats", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "processor" in body
+        assert "limits" in body
+        assert body["limits"]["max_batch_size"] == MAX_BATCH_SIZE
+
+    @pytest.mark.asyncio
+    async def test_processing_stats_includes_limits(self, handler, mock_processor):
+        """Test that processing stats include limits."""
+        mock_handler = make_mock_handler()
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle(
+                "/api/v1/documents/processing/stats", {}, mock_handler
+            )
+
+        body = json.loads(result.body)
+        assert body["limits"]["max_file_size_mb"] == MAX_FILE_SIZE_MB
+        assert body["limits"]["max_total_batch_size_mb"] == MAX_TOTAL_BATCH_SIZE_MB
+
+
+# ---------------------------------------------------------------------------
+# GET Job Status Tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetJobStatus:
+    """Tests for job status endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_job_status_success(self, handler, mock_processor):
+        """Test getting job status for existing job."""
+        mock_handler = make_mock_handler()
+        mock_processor.jobs["job-123"] = {"status": "processing"}
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle(
+                "/api/v1/documents/batch/job-123", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["job_id"] == "job-123"
+
+    @pytest.mark.asyncio
+    async def test_get_job_status_not_found(self, handler, mock_processor):
+        """Test getting status for non-existent job."""
+        mock_handler = make_mock_handler()
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle(
+                "/api/v1/documents/batch/nonexistent", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 404
+        body = json.loads(result.body)
+        assert "error" in body
+
+
+# ---------------------------------------------------------------------------
+# GET Job Results Tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetJobResults:
+    """Tests for job results endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_job_results_completed(self, handler, mock_processor):
+        """Test getting results for completed job."""
+        mock_handler = make_mock_handler()
+        mock_processor.jobs["job-123"] = {"status": "completed"}
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle(
+                "/api/v1/documents/batch/job-123/results", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["job_id"] == "job-123"
+        assert body["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_get_job_results_not_found(self, handler, mock_processor):
+        """Test getting results for non-existent job."""
+        mock_handler = make_mock_handler()
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle(
+                "/api/v1/documents/batch/nonexistent/results", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_job_results_in_progress(self, handler):
+        """Test getting results for job still in progress."""
+        mock_handler = make_mock_handler()
+
+        mock_job = MockJob()
+        mock_job.status = MagicMock(value="processing")
+
+        mock_processor = MagicMock()
+        mock_processor.get_result = AsyncMock(return_value=mock_job)
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle(
+                "/api/v1/documents/batch/job-123/results", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 202
+        body = json.loads(result.body)
+        assert body["status"] == "processing"
+        assert "message" in body
+
+
+# ---------------------------------------------------------------------------
+# DELETE Cancel Job Tests
+# ---------------------------------------------------------------------------
+
+
+class TestCancelJob:
+    """Tests for job cancellation endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_cancel_job_success(self, handler, mock_processor):
+        """Test successful job cancellation."""
+        mock_handler = make_mock_handler()
+        mock_processor.jobs["job-123"] = {"status": "queued"}
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle_delete(
+                "/api/v1/documents/batch/job-123", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["cancelled"] is True
+        assert body["job_id"] == "job-123"
+
+    @pytest.mark.asyncio
+    async def test_cancel_job_not_found_or_processing(self, handler, mock_processor):
+        """Test cancelling a non-existent or processing job."""
+        mock_handler = make_mock_handler()
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle_delete(
+                "/api/v1/documents/batch/nonexistent", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# GET Document Chunks Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentChunks:
+    """Tests for document chunks endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_document_chunks(self, handler):
+        """Test getting document chunks."""
+        mock_handler = make_mock_handler()
+
+        result = await handler.handle(
+            "/api/v1/documents/doc123/chunks", {"limit": ["50"], "offset": ["0"]}, mock_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["document_id"] == "doc123"
+        assert "chunks" in body
+        assert body["limit"] == 50
+        assert body["offset"] == 0
+
+    @pytest.mark.asyncio
+    async def test_get_document_chunks_default_pagination(self, handler):
+        """Test document chunks with default pagination."""
+        mock_handler = make_mock_handler()
+
+        result = await handler.handle(
+            "/api/v1/documents/doc123/chunks", {}, mock_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["limit"] == 100
+        assert body["offset"] == 0
+
+
+# ---------------------------------------------------------------------------
+# GET Document Context Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentContext:
+    """Tests for document context endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_document_context_not_found(self, handler):
+        """Test getting context for non-existent document."""
+        mock_handler = make_mock_handler()
+        handler.ctx = {}  # No document store
+
+        result = await handler.handle(
+            "/api/v1/documents/doc123/context", {}, mock_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_document_context_with_store(self, handler):
+        """Test getting context with document store."""
+        mock_handler = make_mock_handler()
+
+        mock_doc = MagicMock()
+        mock_doc.text = "This is a test document with some content."
+
+        mock_store = MagicMock()
+        mock_store.get.return_value = mock_doc
+
+        handler.ctx = {"document_store": mock_store}
+
+        mock_counter = MockTokenCounter()
+
+        with patch(
+            "aragora.server.handlers.features.documents_batch.get_token_counter",
+            return_value=mock_counter,
+        ):
+            result = await handler.handle(
+                "/api/v1/documents/doc123/context",
+                {"max_tokens": ["1000"], "model": ["gpt-4"]},
+                mock_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["document_id"] == "doc123"
+        assert "context" in body
+        assert body["max_tokens"] == 1000
+        assert body["model"] == "gpt-4"
+
+
+# ---------------------------------------------------------------------------
+# Knowledge Jobs Tests
+# ---------------------------------------------------------------------------
+
+
+class TestKnowledgeJobs:
+    """Tests for knowledge job endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_knowledge_jobs_unavailable(self, handler):
+        """Test listing knowledge jobs when pipeline unavailable."""
+        mock_handler = make_mock_handler()
+
+        with patch(
+            "aragora.server.handlers.features.documents_batch.get_all_jobs",
+            side_effect=ImportError("Module not available"),
+        ):
+            result = await handler.handle(
+                "/api/v1/knowledge/jobs", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_list_knowledge_jobs_success(self, handler):
+        """Test listing knowledge jobs."""
+        mock_handler = make_mock_handler()
+        mock_jobs = [
+            {"id": "kp_1", "status": "completed"},
+            {"id": "kp_2", "status": "processing"},
+        ]
+
+        with patch(
+            "aragora.server.handlers.features.documents_batch.get_all_jobs",
+            return_value=mock_jobs,
+        ):
+            result = await handler.handle(
+                "/api/v1/knowledge/jobs",
+                {"workspace_id": ["ws1"], "status": ["completed"], "limit": ["50"]},
+                mock_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] == 2
+        assert len(body["jobs"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_knowledge_job_status_success(self, handler):
+        """Test getting specific knowledge job status."""
+        mock_handler = make_mock_handler()
+        mock_status = {"id": "kp_123", "status": "completed", "progress": 1.0}
+
+        with patch(
+            "aragora.server.handlers.features.documents_batch.get_job_status",
+            return_value=mock_status,
+        ):
+            result = await handler.handle(
+                "/api/v1/knowledge/jobs/kp_123", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["id"] == "kp_123"
+
+    @pytest.mark.asyncio
+    async def test_get_knowledge_job_status_not_found(self, handler):
+        """Test getting status for non-existent knowledge job."""
+        mock_handler = make_mock_handler()
+
+        with patch(
+            "aragora.server.handlers.features.documents_batch.get_job_status",
+            return_value=None,
+        ):
+            result = await handler.handle(
+                "/api/v1/knowledge/jobs/nonexistent", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# POST Batch Upload Tests
+# ---------------------------------------------------------------------------
 
 
 class TestBatchUpload:
     """Tests for batch upload endpoint."""
 
-    def test_batch_upload_missing_files(self, handler):
+    @pytest.mark.asyncio
+    async def test_batch_upload_wrong_content_type(self, handler):
+        """Test batch upload rejects non-multipart content type."""
+        mock_handler = make_mock_handler(content_type="application/json")
+
+        result = await handler.handle_post(
+            "/api/v1/documents/batch", {}, mock_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "multipart" in body["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_batch_upload_missing_boundary(self, handler):
+        """Test batch upload requires multipart boundary."""
+        mock_handler = make_mock_handler(content_type="multipart/form-data")
+
+        result = await handler.handle_post(
+            "/api/v1/documents/batch", {}, mock_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "boundary" in body["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_batch_upload_no_files(self, handler, mock_processor):
         """Test batch upload requires files."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+        body, content_type = create_multipart_body([], {"workspace_id": "ws1"})
+        mock_handler = make_mock_handler(content_type=content_type, body=body)
 
-        with (
-            patch.object(handler, "read_json_body", return_value={"workspace_id": "ws1"}),
-            patch(
-                "aragora.server.handlers.features.documents_batch.require_user_auth",
-                lambda f: f,
-            ),
-        ):
-            result = handler._batch_upload(mock_handler)
-            assert result.status_code == 400
-
-    def test_batch_upload_empty_files(self, handler):
-        """Test batch upload rejects empty files list."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-
-        with (
-            patch.object(
-                handler,
-                "read_json_body",
-                return_value={"workspace_id": "ws1", "files": []},
-            ),
-            patch(
-                "aragora.server.handlers.features.documents_batch.require_user_auth",
-                lambda f: f,
-            ),
-        ):
-            result = handler._batch_upload(mock_handler)
-            assert result.status_code == 400
-
-
-class TestBatchStatus:
-    """Tests for batch status endpoint."""
-
-    def test_get_batch_status(self, handler):
-        """Test getting batch status."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-
-        with (
-            patch("aragora.server.handlers.features.documents_batch.get_batch_job") as mock_get_job,
-            patch(
-                "aragora.server.handlers.features.documents_batch.require_user_auth",
-                lambda f: f,
-            ),
-        ):
-            mock_get_job.return_value = MagicMock(
-                job_id="job123",
-                status="processing",
-                total_files=10,
-                processed_files=5,
-                to_dict=lambda: {"job_id": "job123", "status": "processing"},
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle_post(
+                "/api/v1/documents/batch", {}, mock_handler
             )
 
-            result = handler.handle("/api/v1/documents/batch/job123", {}, mock_handler)
-            assert result.status_code == 200
+        assert result is not None
+        assert result.status_code == 400
+        body_json = json.loads(result.body)
+        assert "files" in body_json["error"].lower() or "no files" in body_json["error"].lower()
 
-    def test_get_batch_status_not_found(self, handler):
-        """Test getting status for non-existent batch."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+    @pytest.mark.asyncio
+    async def test_batch_upload_success(self, handler, mock_processor):
+        """Test successful batch upload."""
+        files = [
+            ("test1.txt", b"Test content 1"),
+            ("test2.txt", b"Test content 2"),
+        ]
+        body, content_type = create_multipart_body(files, {"workspace_id": "ws1"})
+        mock_handler = make_mock_handler(content_type=content_type, body=body)
+
+        mock_counter = MockTokenCounter()
 
         with (
-            patch("aragora.server.handlers.features.documents_batch.get_batch_job") as mock_get_job,
+            patch.object(handler, "_get_batch_processor", return_value=mock_processor),
             patch(
-                "aragora.server.handlers.features.documents_batch.require_user_auth",
-                lambda f: f,
+                "aragora.server.handlers.features.documents_batch.get_token_counter",
+                return_value=mock_counter,
+            ),
+            patch(
+                "aragora.server.handlers.features.documents_batch.queue_document_processing",
+                side_effect=ImportError("Module not available"),
             ),
         ):
-            mock_get_job.return_value = None
+            result = await handler.handle_post(
+                "/api/v1/documents/batch", {}, mock_handler
+            )
 
-            result = handler.handle("/api/v1/documents/batch/invalid-job", {}, mock_handler)
-            assert result.status_code == 404
+        assert result is not None
+        assert result.status_code == 202
+        body_json = json.loads(result.body)
+        assert "job_ids" in body_json
+        assert len(body_json["job_ids"]) == 2
+        assert "batch_id" in body_json
+        assert body_json["total_files"] == 2
+
+    @pytest.mark.asyncio
+    async def test_batch_upload_with_chunking_options(self, handler, mock_processor):
+        """Test batch upload with custom chunking options."""
+        files = [("test.txt", b"Test content")]
+        form_data = {
+            "workspace_id": "ws1",
+            "chunking_strategy": "semantic",
+            "chunk_size": "256",
+            "chunk_overlap": "25",
+            "priority": "high",
+        }
+        body, content_type = create_multipart_body(files, form_data)
+        mock_handler = make_mock_handler(content_type=content_type, body=body)
+
+        mock_counter = MockTokenCounter()
+
+        with (
+            patch.object(handler, "_get_batch_processor", return_value=mock_processor),
+            patch(
+                "aragora.server.handlers.features.documents_batch.get_token_counter",
+                return_value=mock_counter,
+            ),
+            patch(
+                "aragora.server.handlers.features.documents_batch.queue_document_processing",
+                side_effect=ImportError("Module not available"),
+            ),
+        ):
+            result = await handler.handle_post(
+                "/api/v1/documents/batch", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 202
+        body_json = json.loads(result.body)
+        assert body_json["chunking_strategy"] == "semantic"
+        assert body_json["chunk_size"] == 256
+        assert body_json["chunk_overlap"] == 25
+
+    @pytest.mark.asyncio
+    async def test_batch_upload_exceeds_total_size_limit(self, handler):
+        """Test batch upload rejects oversized batches."""
+        # Create a body that exceeds the limit
+        content_length = (MAX_TOTAL_BATCH_SIZE_MB + 1) * 1024 * 1024
+        mock_handler = make_mock_handler(
+            content_type="multipart/form-data; boundary=----TestBoundary",
+            body=b"",
+            content_length=content_length,
+        )
+
+        result = await handler.handle_post(
+            "/api/v1/documents/batch", {}, mock_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 413
+
+    @pytest.mark.asyncio
+    async def test_batch_upload_too_many_files(self, handler, mock_processor):
+        """Test batch upload rejects too many files."""
+        files = [(f"test{i}.txt", b"content") for i in range(MAX_BATCH_SIZE + 1)]
+        body, content_type = create_multipart_body(files, {})
+        mock_handler = make_mock_handler(content_type=content_type, body=body)
+
+        with patch.object(handler, "_get_batch_processor", return_value=mock_processor):
+            result = await handler.handle_post(
+                "/api/v1/documents/batch", {}, mock_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 400
+        body_json = json.loads(result.body)
+        assert str(MAX_BATCH_SIZE) in body_json["error"]
 
 
-class TestBatchMultipart:
-    """Tests for multipart batch upload."""
+# ---------------------------------------------------------------------------
+# Multipart Parsing Tests
+# ---------------------------------------------------------------------------
 
-    def test_multipart_missing_boundary(self, handler):
-        """Test multipart requires boundary."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-        mock_handler.headers = {"Content-Type": "multipart/form-data"}
+
+class TestMultipartParsing:
+    """Tests for multipart form parsing."""
+
+    def test_parse_multipart_single_file(self, handler):
+        """Test parsing multipart with single file."""
+        body = (
+            b"--boundary\r\n"
+            b'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
+            b"Content-Type: text/plain\r\n\r\n"
+            b"Hello World\r\n"
+            b"--boundary--\r\n"
+        )
+
+        files, form_data = handler._parse_multipart(body, "boundary")
+        assert len(files) == 1
+        assert files[0][0] == "test.txt"
+        assert files[0][1] == b"Hello World"
+
+    def test_parse_multipart_with_form_fields(self, handler):
+        """Test parsing multipart with form fields."""
+        body = (
+            b"--boundary\r\n"
+            b'Content-Disposition: form-data; name="workspace_id"\r\n\r\n'
+            b"ws-123\r\n"
+            b"--boundary\r\n"
+            b'Content-Disposition: form-data; name="file"; filename="doc.pdf"\r\n'
+            b"Content-Type: application/pdf\r\n\r\n"
+            b"PDF content\r\n"
+            b"--boundary--\r\n"
+        )
+
+        files, form_data = handler._parse_multipart(body, "boundary")
+        assert len(files) == 1
+        assert form_data["workspace_id"] == "ws-123"
+
+    def test_parse_multipart_multiple_files(self, handler):
+        """Test parsing multipart with multiple files."""
+        body = (
+            b"--boundary\r\n"
+            b'Content-Disposition: form-data; name="files[]"; filename="file1.txt"\r\n\r\n'
+            b"Content 1\r\n"
+            b"--boundary\r\n"
+            b'Content-Disposition: form-data; name="files[]"; filename="file2.txt"\r\n\r\n'
+            b"Content 2\r\n"
+            b"--boundary--\r\n"
+        )
+
+        files, form_data = handler._parse_multipart(body, "boundary")
+        assert len(files) == 2
+        assert files[0][0] == "file1.txt"
+        assert files[1][0] == "file2.txt"
+
+
+# ---------------------------------------------------------------------------
+# Helper Method Tests
+# ---------------------------------------------------------------------------
+
+
+class TestHelperMethods:
+    """Tests for helper methods."""
+
+    def test_generate_batch_id(self, handler):
+        """Test batch ID generation."""
+        batch_id = handler._generate_batch_id()
+        assert batch_id.startswith("batch-")
+        assert len(batch_id) > len("batch-")
+
+    def test_generate_batch_id_unique(self, handler):
+        """Test that batch IDs are unique."""
+        ids = [handler._generate_batch_id() for _ in range(100)]
+        assert len(set(ids)) == 100
+
+    def test_get_batch_processor_creates_new(self, handler):
+        """Test that _get_batch_processor creates a processor if not in context."""
+        handler.ctx = {}
 
         with patch(
-            "aragora.server.handlers.features.documents_batch.require_user_auth",
-            lambda f: f,
-        ):
-            result = handler._handle_multipart_upload(mock_handler)
-            assert result.status_code == 400
+            "aragora.server.handlers.features.documents_batch.BatchProcessor"
+        ) as MockProcessor:
+            MockProcessor.return_value = MagicMock()
+            processor = handler._get_batch_processor()
+
+            assert processor is not None
+            assert "batch_processor" in handler.ctx
+
+    def test_get_batch_processor_returns_existing(self, handler):
+        """Test that _get_batch_processor returns existing processor."""
+        existing_processor = MagicMock()
+        handler.ctx = {"batch_processor": existing_processor}
+
+        processor = handler._get_batch_processor()
+        assert processor is existing_processor
 
 
-class TestBatchCancel:
-    """Tests for canceling batch jobs."""
-
-    def test_cancel_batch_not_found(self, handler):
-        """Test canceling non-existent batch."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-
-        with (
-            patch("aragora.server.handlers.features.documents_batch.get_batch_job") as mock_get_job,
-            patch(
-                "aragora.server.handlers.features.documents_batch.require_user_auth",
-                lambda f: f,
-            ),
-        ):
-            mock_get_job.return_value = None
-
-            result = handler.handle_delete("/api/v1/documents/batch/invalid-job", {}, mock_handler)
-            assert result.status_code == 404
-
-    def test_cancel_batch_success(self, handler):
-        """Test successful batch cancellation."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
-
-        with (
-            patch("aragora.server.handlers.features.documents_batch.get_batch_job") as mock_get_job,
-            patch(
-                "aragora.server.handlers.features.documents_batch.cancel_batch_job"
-            ) as mock_cancel,
-            patch(
-                "aragora.server.handlers.features.documents_batch.require_user_auth",
-                lambda f: f,
-            ),
-        ):
-            mock_get_job.return_value = MagicMock(job_id="job123", status="processing")
-            mock_cancel.return_value = True
-
-            result = handler.handle_delete("/api/v1/documents/batch/job123", {}, mock_handler)
-            assert result.status_code == 200
+# ---------------------------------------------------------------------------
+# Handler Instance Tests
+# ---------------------------------------------------------------------------
 
 
-class TestBatchRateLimiting:
-    """Tests for batch rate limiting."""
+class TestHandlerInstance:
+    """Tests for handler instance creation."""
 
-    def test_rate_limiter_exists(self):
-        """Test that rate limiter is configured."""
-        assert _batch_limiter is not None
-        assert _batch_limiter.requests_per_minute == 20
+    def test_handler_creation(self):
+        """Test creating handler instance."""
+        handler = DocumentBatchHandler({})
+        assert handler is not None
 
-    def test_rate_limit_exceeded(self, handler):
-        """Test rate limit enforcement."""
-        mock_handler = MagicMock()
-        mock_handler.client_address = ("127.0.0.1", 12345)
+    def test_handler_with_context(self):
+        """Test handler uses provided context."""
+        ctx = {"test_key": "test_value"}
+        handler = DocumentBatchHandler(ctx)
+        assert handler.ctx == ctx
 
-        # Exhaust rate limit
-        for _ in range(21):
-            _batch_limiter.is_allowed("127.0.0.1")
+    def test_handler_inherits_base(self):
+        """Test handler inherits from BaseHandler."""
+        from aragora.server.handlers.base import BaseHandler
 
-        with patch(
-            "aragora.server.handlers.features.documents_batch.get_client_ip",
-            return_value="127.0.0.1",
-        ):
-            result = handler.handle("/api/v1/documents/batch/status", {}, mock_handler)
-            assert result.status_code == 429
+        assert issubclass(DocumentBatchHandler, BaseHandler)
