@@ -32,6 +32,7 @@ from aragora.utils.optional_imports import try_import
 from .base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     get_clamped_int_param,
     handle_errors,
@@ -72,9 +73,9 @@ class BeliefHandler(BaseHandler):
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
     ]
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._km_adapter: Optional["BeliefAdapter"] = None
 
     def _emit_km_event(self, event_emitter: Any, event_type: str, data: dict) -> None:

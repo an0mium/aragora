@@ -33,6 +33,7 @@ from aragora.server.versioning.compat import strip_version_prefix
 from .base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     get_int_param,
     get_string_param,
@@ -267,8 +268,8 @@ class GauntletHandler(BaseHandler):
         "/api/v1/gauntlet/",
     ]
 
-    def __init__(self, server_context: dict):
-        super().__init__(server_context)  # type: ignore[arg-type]
+    def __init__(self, server_context: ServerContext):
+        super().__init__(server_context)
         emitter = server_context.get("stream_emitter")
         if emitter and hasattr(emitter, "emit"):
             set_gauntlet_broadcast_fn(emitter.emit)

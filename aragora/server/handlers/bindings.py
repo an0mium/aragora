@@ -26,6 +26,7 @@ from aragora.server.versioning.compat import strip_version_prefix
 from .base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     handle_errors,
     json_response,
@@ -66,9 +67,9 @@ class BindingsHandler(BaseHandler):
         "/api/bindings/*",  # Must be last due to wildcard
     ]
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._router: Optional["BindingRouter"] = None
 
     def _get_router(self) -> Optional["BindingRouter"]:

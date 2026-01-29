@@ -24,7 +24,7 @@ from urllib.parse import parse_qs
 
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
-from aragora.server.handlers.base import HandlerResult, error_response, json_response
+from aragora.server.handlers.base import HandlerResult, ServerContext, error_response, json_response
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
 import re
@@ -917,9 +917,9 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
         "/api/v1/bots/slack/commands",
     ]
 
-    def __init__(self, server_context: dict[str, Any]):
+    def __init__(self, server_context: ServerContext):
         """Initialize the Slack handler."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         # Cache signing secret at init time (important for tests with patched env)
         self._signing_secret = os.environ.get("SLACK_SIGNING_SECRET")
 

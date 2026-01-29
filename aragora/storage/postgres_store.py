@@ -275,7 +275,13 @@ async def get_postgres_pool(
         # Set idle_in_transaction_session_timeout to prevent abandoned transactions
         await conn.execute("SET idle_in_transaction_session_timeout = '300s'")
 
-    logger.info(
+    # --- DIAGNOSTIC: Log the caller that is creating the pool ---
+    import traceback
+    caller_stack = "".join(traceback.format_stack()[-5:-1])
+    logger.warning(
+        f"[get_postgres_pool] CREATING NEW POOL. Caller stack:\n{caller_stack}"
+    )
+    logger.warning(
         f"Creating PostgreSQL pool (min={min_size}, max={max_size}, "
         f"command_timeout={command_timeout}s, statement_timeout={statement_timeout}s)"
     )
@@ -287,6 +293,18 @@ async def get_postgres_pool(
         max_inactive_connection_lifetime=pool_recycle,
         init=init_connection,
     )
+
+    # --- DIAGNOSTIC: Verify pool health immediately after create_pool ---
+    try:
+        async with _pool.acquire() as conn:
+            v = await conn.fetchval("SELECT 1")
+        logger.warning(f"[get_postgres_pool] Immediate health check: OK (val={v}), "
+                       f"size={_pool.get_size()}, free={_pool.get_idle_size()}")
+    except Exception as e:
+        logger.warning(f"[get_postgres_pool] Immediate health check: FAIL "
+                       f"({type(e).__name__}: {e}), "
+                       f"size={_pool.get_size()}, free={_pool.get_idle_size()}")
+
     return _pool
 
 async def get_postgres_pool_from_settings() -> "Pool":

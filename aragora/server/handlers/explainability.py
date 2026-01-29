@@ -28,6 +28,7 @@ from typing import Any, Optional
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     get_string_param,
     json_response,
@@ -237,9 +238,9 @@ class ExplainabilityHandler(BaseHandler):
         "/api/v1/explain/*",
     ]
 
-    def __init__(self, server_context: dict | None = None):
+    def __init__(self, server_context: ServerContext | None = None):
         """Initialize with server context for richer explanations."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self.elo_system = (server_context or {}).get("elo_system")
         self.calibration_tracker = None
         # Try to get calibration tracker from global

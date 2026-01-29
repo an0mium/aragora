@@ -51,6 +51,7 @@ from aragora.server.http_utils import run_async as _run_async
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     json_response,
     safe_error_message,
@@ -71,9 +72,9 @@ class ControlPlaneHandler(BaseHandler):
     # Class-level coordinator (set during server initialization)
     coordinator: Any | None = None
 
-    def __init__(self, server_context: dict[str, Any]):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
 
     def _get_coordinator(self) -> Any | None:
         """Get the control plane coordinator."""

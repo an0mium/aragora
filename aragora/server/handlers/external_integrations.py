@@ -40,6 +40,7 @@ from aragora.integrations.make import MakeIntegration, get_make_integration
 from aragora.integrations.n8n import N8nIntegration, get_n8n_integration
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
+    ServerContext,
     error_response,
     json_response,
 )
@@ -134,9 +135,9 @@ class ExternalIntegrationsHandler(SecureHandler):
         segments = normalized.strip("/").split("/")
         return len(segments) >= 3 and segments[2] in {"zapier", "make", "n8n"}
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._zapier: ZapierIntegration | None = None
         self._make: MakeIntegration | None = None
         self._n8n: N8nIntegration | None = None

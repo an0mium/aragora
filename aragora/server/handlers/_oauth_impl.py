@@ -62,381 +62,46 @@ from .oauth.config import (  # noqa: F401
 from .oauth.models import OAuthUserInfo, _get_param  # noqa: F401
 from .oauth.state import (  # noqa: F401
     _OAuthStatesView, _OAUTH_STATES, _STATE_TTL_SECONDS, MAX_OAUTH_STATES,
-    _validate_state, _cleanup_expired_states,
+    _cleanup_expired_states,
 )
-from .oauth.validation import _validate_redirect_url  # noqa: F401
 from aragora.server.oauth_state_store import generate_oauth_state as _generate_state  # noqa: F401
+from aragora.server.oauth_state_store import validate_oauth_state as _validate_state_internal  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 # Rate limiter for OAuth endpoints (20 requests per minute - auth attempts should be limited)
 _oauth_limiter = RateLimiter(requests_per_minute=20)
 
-# =============================================================================
-# Configuration (loaded lazily to support AWS Secrets Manager)
-# =============================================================================
 
-def _get_secret(name: str, default: str = "") -> str:
-    """Get a secret from AWS Secrets Manager or environment."""
-    try:
-        from aragora.config.secrets import get_secret
+def _validate_state(state: str) -> dict[str, Any] | None:
+    """Validate and consume OAuth state token."""
+    return _validate_state_internal(state)
 
-        return get_secret(name, default) or default
-    except ImportError:
-        return os.environ.get(name, default)
-
-def _is_production() -> bool:
-    """Check if we're in production mode."""
-    return os.environ.get("ARAGORA_ENV", "").lower() == "production"
-
-def _get_google_client_id() -> str:
-    return _get_secret("GOOGLE_OAUTH_CLIENT_ID", "")
-
-def _get_google_client_secret() -> str:
-    return _get_secret("GOOGLE_OAUTH_CLIENT_SECRET", "")
-
-def _get_github_client_id() -> str:
-    return _get_secret("GITHUB_OAUTH_CLIENT_ID", "")
-
-def _get_github_client_secret() -> str:
-    return _get_secret("GITHUB_OAUTH_CLIENT_SECRET", "")
-
-def _get_microsoft_client_id() -> str:
-    return _get_secret("MICROSOFT_OAUTH_CLIENT_ID", "")
-
-def _get_microsoft_client_secret() -> str:
-    return _get_secret("MICROSOFT_OAUTH_CLIENT_SECRET", "")
-
-def _get_microsoft_tenant() -> str:
-    """Get Microsoft tenant ID (default: 'common' for multi-tenant)."""
-    return _get_secret("MICROSOFT_OAUTH_TENANT", "common")
-
-def _get_apple_client_id() -> str:
-    return _get_secret("APPLE_OAUTH_CLIENT_ID", "")
-
-def _get_apple_team_id() -> str:
-    return _get_secret("APPLE_TEAM_ID", "")
-
-def _get_apple_key_id() -> str:
-    return _get_secret("APPLE_KEY_ID", "")
-
-def _get_apple_private_key() -> str:
-    return _get_secret("APPLE_PRIVATE_KEY", "")
-
-def _get_oidc_issuer() -> str:
-    return _get_secret("OIDC_ISSUER", "")
-
-def _get_oidc_client_id() -> str:
-    return _get_secret("OIDC_CLIENT_ID", "")
-
-def _get_oidc_client_secret() -> str:
-    return _get_secret("OIDC_CLIENT_SECRET", "")
-
-def _get_google_redirect_uri() -> str:
-    val = _get_secret("GOOGLE_OAUTH_REDIRECT_URI", "")
-    if val:
-        return val
-    if _is_production():
-        return ""
-    return "http://localhost:8080/api/auth/oauth/google/callback"
-
-def _get_github_redirect_uri() -> str:
-    val = _get_secret("GITHUB_OAUTH_REDIRECT_URI", "")
-    if val:
-        return val
-    if _is_production():
-        return ""
-    return "http://localhost:8080/api/auth/oauth/github/callback"
-
-def _get_microsoft_redirect_uri() -> str:
-    val = _get_secret("MICROSOFT_OAUTH_REDIRECT_URI", "")
-    if val:
-        return val
-    if _is_production():
-        return ""
-    return "http://localhost:8080/api/auth/oauth/microsoft/callback"
-
-def _get_apple_redirect_uri() -> str:
-    val = _get_secret("APPLE_OAUTH_REDIRECT_URI", "")
-    if val:
-        return val
-    if _is_production():
-        return ""
-    return "http://localhost:8080/api/auth/oauth/apple/callback"
-
-def _get_oidc_redirect_uri() -> str:
-    val = _get_secret("OIDC_REDIRECT_URI", "")
-    if val:
-        return val
-    if _is_production():
-        return ""
-    return "http://localhost:8080/api/auth/oauth/oidc/callback"
-
-def _get_oauth_success_url() -> str:
-    val = _get_secret("OAUTH_SUCCESS_URL", "")
-    if val:
-        return val
-    if _is_production():
-        return ""
-    return "http://localhost:3000/auth/callback"
-
-def _get_oauth_error_url() -> str:
-    val = _get_secret("OAUTH_ERROR_URL", "")
-    if val:
-        return val
-    if _is_production():
-        return ""
-    return "http://localhost:3000/auth/error"
-
-def _get_allowed_redirect_hosts() -> frozenset:
-    val = _get_secret("OAUTH_ALLOWED_REDIRECT_HOSTS", "")
-    if not val:
-        if _is_production():
-            return frozenset()
-        val = "localhost,127.0.0.1"
-    return frozenset(host.strip().lower() for host in val.split(",") if host.strip())
-
-# Legacy module-level variables (for backward compatibility, now call functions)
-# These are kept for any code that imports them directly
-_IS_PRODUCTION = _is_production()
-GOOGLE_CLIENT_ID = _get_google_client_id()
-GOOGLE_CLIENT_SECRET = _get_google_client_secret()
-GITHUB_CLIENT_ID = _get_github_client_id()
-GITHUB_CLIENT_SECRET = _get_github_client_secret()
-GOOGLE_REDIRECT_URI = _get_google_redirect_uri()
-GITHUB_REDIRECT_URI = _get_github_redirect_uri()
-OAUTH_SUCCESS_URL = _get_oauth_success_url()
-OAUTH_ERROR_URL = _get_oauth_error_url()
-ALLOWED_OAUTH_REDIRECT_HOSTS = _get_allowed_redirect_hosts()
-
-def validate_oauth_config() -> list[str]:
-    """
-    Validate OAuth configuration and return list of missing required vars.
-
-    Call this at startup to catch configuration errors early.
-    Returns empty list if configuration is valid, or list of missing var names.
-    """
-    if not _IS_PRODUCTION:
-        return []  # No validation in dev mode
-
-    missing = []
-
-    # If Google OAuth is enabled (client ID set), check required vars
-    if GOOGLE_CLIENT_ID:
-        if not _get_google_client_secret():
-            missing.append("GOOGLE_OAUTH_CLIENT_SECRET")
-        if not _get_google_redirect_uri():
-            missing.append("GOOGLE_OAUTH_REDIRECT_URI")
-        if not _get_oauth_success_url():
-            missing.append("_get_oauth_success_url()")
-        if not _get_oauth_error_url():
-            missing.append("_get_oauth_error_url()")
-        if not ALLOWED_OAUTH_REDIRECT_HOSTS:
-            missing.append("OAUTH_ALLOWED_REDIRECT_HOSTS")
-
-    # If GitHub OAuth is enabled (client ID set), check required vars
-    if GITHUB_CLIENT_ID:
-        if not _get_github_client_secret():
-            missing.append("GITHUB_OAUTH_CLIENT_SECRET")
-        if not _get_github_redirect_uri():
-            missing.append("GITHUB_OAUTH_REDIRECT_URI")
-        # Shared URLs only need to be set once
-        if not _get_oauth_success_url() and "_get_oauth_success_url()" not in missing:
-            missing.append("_get_oauth_success_url()")
-        if not _get_oauth_error_url() and "_get_oauth_error_url()" not in missing:
-            missing.append("_get_oauth_error_url()")
-        if not ALLOWED_OAUTH_REDIRECT_HOSTS and "OAUTH_ALLOWED_REDIRECT_HOSTS" not in missing:
-            missing.append("OAUTH_ALLOWED_REDIRECT_HOSTS")
-
-    return missing
-
-# Google OAuth endpoints
-GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
-
-# GitHub OAuth endpoints
-GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
-GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
-GITHUB_USERINFO_URL = "https://api.github.com/user"
-GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
-
-# Microsoft OAuth endpoints (Azure AD v2.0)
-# Note: {tenant} is replaced at runtime with the configured tenant
-MICROSOFT_AUTH_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
-MICROSOFT_TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
-MICROSOFT_USERINFO_URL = "https://graph.microsoft.com/v1.0/me"
-
-# Apple OAuth endpoints
-APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
-APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"
-APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
-
-# State management - uses Redis in production, falls back to in-memory
-# Import from dedicated state store module
-from aragora.server.oauth_state_store import (
-    OAuthState,
-    get_oauth_state_store,
-)
-from aragora.server.oauth_state_store import (
-    generate_oauth_state as _generate_state,
-)
-from aragora.server.oauth_state_store import (
-    validate_oauth_state as _validate_state_internal,
-)
-
-class _OAuthStatesView(MutableMapping[str, dict]):
-    """Compatibility view over OAuth state storage."""
-
-    def __init__(self, store) -> None:
-        self._store = store
-
-    @property
-    def _states(self) -> dict:
-        return self._store._memory_store._states  # type: ignore[attr-defined]
-
-    def __getitem__(self, key: str) -> dict:
-        value = self._states[key]
-        if isinstance(value, OAuthState):
-            return value.to_dict()
-        if isinstance(value, dict):
-            return value
-        return {"value": value}
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        if isinstance(value, OAuthState):
-            self._states[key] = value
-            return
-        if isinstance(value, dict):
-            self._states[key] = OAuthState.from_dict(value)
-            return
-        self._states[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self._states[key]
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._states)
-
-    def __len__(self) -> int:
-        return len(self._states)
-
-    def values(self):
-        return [self[k] for k in list(self._states.keys())]
-
-    def items(self):
-        return [(k, self[k]) for k in list(self._states.keys())]
-
-    def get(self, key: str, default: Any = None) -> Any:
-        if key in self._states:
-            return self[key]
-        return default
-
-_state_store = get_oauth_state_store()
-_OAUTH_STATES: _OAuthStatesView | dict[str, Any] = {}
-try:
-    _OAUTH_STATES = _OAuthStatesView(_state_store)
-except AttributeError:
-    pass  # Keep empty dict fallback
-
-# Legacy constants for backward compatibility (actual values from oauth_state_store)
-_STATE_TTL_SECONDS = 600  # 10 minutes
-MAX_OAUTH_STATES = 10000  # Prevent memory exhaustion from rapid state generation
-
-@dataclass
-class OAuthUserInfo:
-    """User info from OAuth provider."""
-
-    provider: str
-    provider_user_id: str
-    email: str
-    name: str
-    picture: str | None = None
-    email_verified: bool = False
-
-def _get_param(query_params: dict, name: str, default: str = None) -> str:
-    """
-    Safely extract a query parameter value.
-
-    Handler registry converts single-element lists to scalars, so we need to
-    handle both list and string formats.
-
-    Args:
-        query_params: Dict of query parameters
-        name: Parameter name to extract
-        default: Default value if not found
-
-    Returns:
-        Parameter value as string, or default if not found
-    """
-    value = query_params.get(name, default)
-    if isinstance(value, list):
-        return value[0] if value else default
-    return value
 
 def _validate_redirect_url(redirect_url: str) -> bool:
-    """
-    Validate that redirect URL is in the allowed hosts list and uses safe scheme.
-
-    This prevents open redirect vulnerabilities where an attacker could
-    craft an OAuth URL that redirects tokens to a malicious domain or uses
-    dangerous URL schemes (javascript:, data:, etc.).
-
-    Args:
-        redirect_url: The URL to validate
-
-    Returns:
-        True if URL is allowed, False otherwise
-    """
+    """Validate redirect URL against allowed hosts (uses module-level _get_allowed_redirect_hosts)."""
     from urllib.parse import urlparse
 
     try:
         parsed = urlparse(redirect_url)
-
-        # Security: Only allow http/https schemes to prevent javascript:/data:/etc attacks
         if parsed.scheme not in ("http", "https"):
             logger.warning(f"oauth_redirect_blocked: scheme={parsed.scheme} not allowed")
             return False
-
         host = parsed.hostname
         if not host:
             return False
-
-        # Normalize host for comparison
         host = host.lower()
-
-        # Get allowed hosts at runtime from Secrets Manager
         allowed_hosts = _get_allowed_redirect_hosts()
-
-        # Check against allowlist
         if host in allowed_hosts:
             return True
-
-        # Check if it's a subdomain of allowed hosts
         for allowed in allowed_hosts:
             if host.endswith(f".{allowed}"):
                 return True
-
         logger.warning(f"oauth_redirect_blocked: host={host} not in allowlist")
         return False
     except Exception as e:
         logger.warning(f"oauth_redirect_validation_error: {e}")
         return False
-
-def _validate_state(state: str) -> dict[str, Any] | None:
-    """Validate and consume OAuth state token.
-
-    Uses Redis in production for multi-instance support,
-    falls back to in-memory storage in development.
-    """
-    return _validate_state_internal(state)
-
-def _cleanup_expired_states() -> int:
-    """Backward-compatible cleanup helper for in-memory states."""
-    try:
-        return _state_store._memory_store.cleanup_expired()  # type: ignore[attr-defined]
-    except AttributeError:
-        return 0
 
 class OAuthHandler(SecureHandler):
     """Handler for OAuth authentication endpoints.

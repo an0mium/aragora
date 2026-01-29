@@ -24,6 +24,7 @@ from aragora.server.versioning.compat import strip_version_prefix
 from .base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     handle_errors,
     json_response,
@@ -64,9 +65,9 @@ class SkillsHandler(BaseHandler):
         "/api/skills/*",  # Must be last due to wildcard
     ]
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._registry: Optional["SkillRegistry"] = None
 
     def _get_registry(self) -> Optional["SkillRegistry"]:

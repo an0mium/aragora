@@ -1935,7 +1935,7 @@ class TestOAuthStatesView:
 class TestRedirectUrlHelpers:
     def test_google_redirect_uri_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_google_redirect_uri
 
             result = _get_google_redirect_uri()
@@ -1943,7 +1943,7 @@ class TestRedirectUrlHelpers:
 
     def test_github_redirect_uri_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_github_redirect_uri
 
             result = _get_github_redirect_uri()
@@ -1951,7 +1951,7 @@ class TestRedirectUrlHelpers:
 
     def test_redirect_uri_from_secret(self):
         with mock.patch(
-            "aragora.server.handlers._oauth_impl._get_secret",
+            "aragora.server.handlers.oauth.config._get_secret",
             return_value="https://custom.example.com/callback",
         ):
             from aragora.server.handlers._oauth_impl import _get_google_redirect_uri
@@ -1960,14 +1960,14 @@ class TestRedirectUrlHelpers:
 
     def test_production_empty_when_no_secret(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "production")
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_google_redirect_uri
 
             assert _get_google_redirect_uri() == ""
 
     def test_allowed_redirect_hosts_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_allowed_redirect_hosts
 
             hosts = _get_allowed_redirect_hosts()
@@ -1976,7 +1976,7 @@ class TestRedirectUrlHelpers:
 
     def test_allowed_redirect_hosts_custom(self):
         with mock.patch(
-            "aragora.server.handlers._oauth_impl._get_secret",
+            "aragora.server.handlers.oauth.config._get_secret",
             return_value="example.com,app.example.com",
         ):
             from aragora.server.handlers._oauth_impl import _get_allowed_redirect_hosts
@@ -1987,7 +1987,7 @@ class TestRedirectUrlHelpers:
 
     def test_microsoft_redirect_uri_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_microsoft_redirect_uri
 
             result = _get_microsoft_redirect_uri()
@@ -1995,7 +1995,7 @@ class TestRedirectUrlHelpers:
 
     def test_apple_redirect_uri_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_apple_redirect_uri
 
             result = _get_apple_redirect_uri()
@@ -2003,7 +2003,7 @@ class TestRedirectUrlHelpers:
 
     def test_oidc_redirect_uri_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_oidc_redirect_uri
 
             result = _get_oidc_redirect_uri()
@@ -3407,7 +3407,7 @@ class TestConfigurationGetters:
 
     def test_oauth_success_url_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_oauth_success_url
 
             result = _get_oauth_success_url()
@@ -3415,7 +3415,7 @@ class TestConfigurationGetters:
 
     def test_oauth_error_url_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret", return_value=""):
             from aragora.server.handlers._oauth_impl import _get_oauth_error_url
 
             result = _get_oauth_error_url()
@@ -3425,7 +3425,7 @@ class TestConfigurationGetters:
     def test_microsoft_tenant_from_secret(self):
         # When _get_secret returns a custom tenant, use it
         with mock.patch(
-            "aragora.server.handlers._oauth_impl._get_secret", return_value="my-tenant"
+            "aragora.server.handlers.oauth.config._get_secret", return_value="my-tenant"
         ):
             from aragora.server.handlers._oauth_impl import _get_microsoft_tenant
 
@@ -3436,7 +3436,7 @@ class TestConfigurationGetters:
         # Test that the default fallback is called with "common"
         from aragora.server.handlers._oauth_impl import _get_microsoft_tenant
 
-        with mock.patch("aragora.server.handlers._oauth_impl._get_secret") as mock_get:
+        with mock.patch("aragora.server.handlers.oauth.config._get_secret") as mock_get:
             mock_get.return_value = "common"  # Simulate default being used
             result = _get_microsoft_tenant()
             mock_get.assert_called_once_with("MICROSOFT_OAUTH_TENANT", "common")

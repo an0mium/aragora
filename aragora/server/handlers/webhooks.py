@@ -25,6 +25,7 @@ from typing import Any
 
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
+    ServerContext,
     error_response,
     json_response,
 )
@@ -164,9 +165,9 @@ class WebhookHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/webhooks")
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._webhook_store: WebhookStore | None = None
 
     def _get_webhook_store(self) -> WebhookStore:

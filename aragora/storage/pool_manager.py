@@ -95,6 +95,15 @@ async def initialize_shared_pool(
         from aragora.storage.postgres_store import get_postgres_pool
 
         effective_dsn = dsn or config.dsn
+
+        # --- DIAGNOSTIC: Check if _pool global is already set ---
+        from aragora.storage import postgres_store as _ps_mod
+        if _ps_mod._pool is not None:
+            logger.warning(
+                f"[pool_manager] WARNING: postgres_store._pool already set "
+                f"BEFORE shared pool creation: {_ps_mod._pool}"
+            )
+
         _shared_pool = await get_postgres_pool(
             dsn=effective_dsn,
             min_size=min_size,
@@ -109,6 +118,14 @@ async def initialize_shared_pool(
             "max_size": max_size,
             "is_supabase": config.is_supabase,
         }
+
+        # --- DIAGNOSTIC: Health check right after pool creation ---
+        try:
+            async with _shared_pool.acquire() as conn:
+                v = await conn.fetchval("SELECT 1")
+            logger.warning(f"[pool_manager] Post-creation health: OK (val={v})")
+        except Exception as e:
+            logger.warning(f"[pool_manager] Post-creation health: FAIL ({type(e).__name__}: {e})")
 
         # Apply nest_asyncio to allow nested run_until_complete() calls.
         # This is required because PostgreSQL store sync wrappers use
@@ -125,6 +142,14 @@ async def initialize_shared_pool(
                 "Sync store wrappers may deadlock in async contexts. "
                 "Install with: pip install nest_asyncio"
             )
+
+        # --- DIAGNOSTIC: Health check after nest_asyncio ---
+        try:
+            async with _shared_pool.acquire() as conn:
+                v = await conn.fetchval("SELECT 1")
+            logger.warning(f"[pool_manager] Post-nest_asyncio health: OK (val={v})")
+        except Exception as e:
+            logger.warning(f"[pool_manager] Post-nest_asyncio health: FAIL ({type(e).__name__}: {e})")
 
         pool_size = _shared_pool.get_size() if hasattr(_shared_pool, "get_size") else "unknown"
         backend_name = "Supabase" if config.is_supabase else "PostgreSQL"

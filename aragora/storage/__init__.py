@@ -74,6 +74,16 @@ from .redis_utils import (
     reset_redis_client,
     is_cluster_mode,
 )
+from .connection_router import (
+    ConnectionRouter,
+    RouterConfig,
+    ReplicaConfig,
+    RouterMetrics,
+    initialize_connection_router,
+    get_connection_router,
+    is_router_initialized,
+    close_connection_router,
+)
 from .redis_ha import (
     RedisMode,
     RedisHAConfig,
@@ -199,4 +209,13 @@ __all__ = [
     "get_approval_request_store",
     "set_approval_request_store",
     "reset_approval_request_store",
+    # Connection router (read replicas)
+    "ConnectionRouter",
+    "RouterConfig",
+    "ReplicaConfig",
+    "RouterMetrics",
+    "initialize_connection_router",
+    "get_connection_router",
+    "is_router_initialized",
+    "close_connection_router",
 ]

@@ -19,6 +19,7 @@ from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     json_response,
 )
@@ -562,9 +563,9 @@ class FeaturesHandler(BaseHandler):
         "consensus_alert_threshold": 0.7,
     }
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""

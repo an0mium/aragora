@@ -35,6 +35,7 @@ from aragora.rbac.decorators import require_permission
 from ..base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     get_bounded_string_param,
 )
@@ -78,13 +79,13 @@ class KnowledgeHandler(
         "/api/v1/knowledge/stats",
     ]
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize knowledge handler.
 
         Args:
             server_context: Server context with shared resources
         """
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._fact_store: FactStore | InMemoryFactStore | None = None
         self._query_engine: DatasetQueryEngine | SimpleQueryEngine | None = None
 

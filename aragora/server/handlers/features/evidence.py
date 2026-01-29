@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     BaseHandler,
     PaginatedHandlerMixin,
+    ServerContext,
     error_response,
     get_float_param,
     get_int_param,
@@ -85,9 +86,9 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/evidence")
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._evidence_store: EvidenceStore | None = None
         self._evidence_collector: EvidenceCollector | None = None
         self._km_adapter: Optional["EvidenceAdapter"] = None

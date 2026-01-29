@@ -25,8 +25,17 @@ from typing import Any, Optional, Sequence
 from aragora.observability import (
     get_logger,
 )
+# Resilience
+from aragora.resilience_patterns import (
+    get_circuit_breaker,
+)
 
 logger = get_logger(__name__)
+
+# Circuit breaker for Redis operations in registry
+_registry_redis_cb = get_circuit_breaker(
+    "registry_redis", failure_threshold=3, cooldown_seconds=30
+)
 
 class AgentStatus(Enum):
     """Agent lifecycle status."""
@@ -247,6 +256,14 @@ class AgentRegistry:
             self._redis = None
             return
 
+        # Check circuit breaker before attempting Redis connection
+        if not _registry_redis_cb.can_execute():
+            logger.warning(
+                "AgentRegistry Redis circuit breaker open, using in-memory fallback"
+            )
+            self._redis = None
+            return
+
         try:
             import redis.asyncio as aioredis
 
@@ -257,6 +274,7 @@ class AgentRegistry:
             )
             # Test connection
             await self._redis.ping()
+            _registry_redis_cb.record_success()
             logger.info(f"AgentRegistry connected to Redis: {self._redis_url}")
 
             # Start background cleanup task
@@ -266,6 +284,7 @@ class AgentRegistry:
             logger.warning("redis package not installed, using in-memory fallback")
             self._redis = None
         except Exception as e:
+            _registry_redis_cb.record_failure(e)
             logger.warning(f"Redis not available, using in-memory fallback: {e}")
             self._redis = None
 

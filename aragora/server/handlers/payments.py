@@ -43,6 +43,8 @@ from aragora.resilience_patterns import (
     get_circuit_breaker,
     with_retry,
     RetryConfig,
+    RetryStrategy,
+    JitterMode,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 
@@ -61,8 +63,8 @@ _payment_retry_config = RetryConfig(
     max_retries=2,
     base_delay=0.5,
     max_delay=5.0,
-    strategy="exponential",
-    jitter=True,
+    strategy=RetryStrategy.EXPONENTIAL,
+    jitter_mode=JitterMode.MULTIPLICATIVE,
     retryable_exceptions=(ConnectionError, TimeoutError, OSError),
 )
 

@@ -69,7 +69,15 @@ except ImportError:
     CostEnforcementMode = None  # type: ignore[misc]  # Optional module fallback
     ThrottleLevel = None  # type: ignore[misc]  # Optional module fallback
 
+# Resilience patterns
+from aragora.resilience_patterns import get_circuit_breaker
+
 logger = get_logger(__name__)
+
+# Circuit breaker for scheduler Redis operations
+_scheduler_redis_cb = get_circuit_breaker(
+    "scheduler_redis", failure_threshold=5, cooldown_seconds=30
+)
 
 class TaskStatus(Enum):
     """Task lifecycle status."""
@@ -342,6 +350,17 @@ class TaskScheduler:
                 self._redis = None
                 return
 
+            # Check circuit breaker before attempting Redis connection
+            if not _scheduler_redis_cb.can_execute():
+                add_span_attributes(span, {"backend": "memory", "circuit_breaker": "open"})
+                logger.warning(
+                    "scheduler_circuit_breaker_open",
+                    event="scheduler_fallback",
+                    reason="circuit breaker open",
+                )
+                self._redis = None
+                return
+
             try:
                 import redis.asyncio as aioredis
                 from redis.exceptions import ResponseError as RedisResponseError
@@ -373,6 +392,7 @@ class TaskScheduler:
                             )
 
                 latency_ms = (time.time() - start) * 1000
+                _scheduler_redis_cb.record_success()
                 add_span_attributes(span, {"latency_ms": latency_ms, "backend": "redis"})
                 logger.info(
                     "scheduler_connected",
@@ -394,6 +414,7 @@ class TaskScheduler:
                 )
                 self._redis = None
             except (ConnectionError, OSError, TimeoutError) as e:
+                _scheduler_redis_cb.record_failure(e)
                 if is_distributed_state_required():
                     raise DistributedStateError(
                         "task_scheduler",
@@ -411,6 +432,7 @@ class TaskScheduler:
                 # These are not subclasses of built-in exceptions
                 error_name = type(e).__name__
                 if "ConnectionError" in error_name or "TimeoutError" in error_name:
+                    _scheduler_redis_cb.record_failure(e)
                     if is_distributed_state_required():
                         raise DistributedStateError(
                             "task_scheduler",

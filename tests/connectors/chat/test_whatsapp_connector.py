@@ -363,9 +363,9 @@ class TestWebhookVerification:
     """Test webhook verification methods."""
 
     @pytest.mark.asyncio
-    async def test_verify_webhook_success(self, connector):
-        """Test successful webhook verification."""
-        result = await connector.verify_webhook(
+    async def test_verify_webhook_subscription_success(self, connector):
+        """Test successful webhook subscription verification."""
+        result = connector.verify_webhook_subscription(
             mode="subscribe",
             token="test-verify-token",
             challenge="challenge_123",
@@ -374,9 +374,9 @@ class TestWebhookVerification:
         assert result == "challenge_123"
 
     @pytest.mark.asyncio
-    async def test_verify_webhook_wrong_token(self, connector):
-        """Test webhook verification with wrong token."""
-        result = await connector.verify_webhook(
+    async def test_verify_webhook_subscription_wrong_token(self, connector):
+        """Test webhook subscription verification with wrong token."""
+        result = connector.verify_webhook_subscription(
             mode="subscribe",
             token="wrong-token",
             challenge="challenge_123",
@@ -385,15 +385,43 @@ class TestWebhookVerification:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_verify_webhook_wrong_mode(self, connector):
-        """Test webhook verification with wrong mode."""
-        result = await connector.verify_webhook(
+    async def test_verify_webhook_subscription_wrong_mode(self, connector):
+        """Test webhook subscription verification with wrong mode."""
+        result = connector.verify_webhook_subscription(
             mode="unsubscribe",
             token="test-verify-token",
             challenge="challenge_123",
         )
 
         assert result is None
+
+    def test_verify_webhook_valid_signature(self, connector):
+        """Test webhook signature verification with valid signature."""
+        import hashlib
+        import hmac
+
+        body = b'{"test": "data"}'
+        expected_sig = "sha256=" + hmac.new(
+            b"test-app-secret",
+            body,
+            hashlib.sha256,
+        ).hexdigest()
+
+        result = connector.verify_webhook(
+            headers={"X-Hub-Signature-256": expected_sig},
+            body=body,
+        )
+
+        assert result is True
+
+    def test_verify_webhook_invalid_signature(self, connector):
+        """Test webhook signature verification with invalid signature."""
+        result = connector.verify_webhook(
+            headers={"X-Hub-Signature-256": "sha256=invalid"},
+            body=b'{"test": "data"}',
+        )
+
+        assert result is False
 
 
 class TestParseMessage:
@@ -700,7 +728,7 @@ class TestSendVoiceMessage:
 
             result = await connector.send_voice_message(
                 channel_id="+1234567890",
-                audio_data=b"audio data here",
+                audio_content=b"audio data here",
             )
 
             assert result.success is True
@@ -717,7 +745,7 @@ class TestSendVoiceMessage:
 
             result = await connector.send_voice_message(
                 channel_id="+1234567890",
-                audio_data=b"audio data",
+                audio_content=b"audio data",
             )
 
             assert result.success is False

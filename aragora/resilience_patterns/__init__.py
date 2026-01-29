@@ -39,6 +39,7 @@ Usage:
 
 from .retry import (
     RetryStrategy,
+    JitterMode,
     RetryConfig,
     ExponentialBackoff,
     with_retry,
