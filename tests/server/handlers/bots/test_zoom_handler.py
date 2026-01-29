@@ -209,7 +209,7 @@ class TestUrlValidation:
 
     @pytest.mark.asyncio
     async def test_url_validation_without_secret_token(self, handler, url_validation_event):
-        """Test URL validation returns plain token when no secret configured."""
+        """Test URL validation returns 503 when no secret configured (security fix)."""
         body = json.dumps(url_validation_event).encode()
 
         mock_http = MockHandler(
@@ -225,11 +225,12 @@ class TestUrlValidation:
             result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
-        assert result.status_code == 200
+        # Security fix: Now rejects URL validation without secret token configured
+        assert result.status_code == 503
 
         data = json.loads(result.body)
-        assert data["plainToken"] == "test-token-123"
-        assert "encryptedToken" not in data
+        assert "error" in data
+        assert "not configured" in data["error"].lower()
 
 
 # ===========================================================================
@@ -249,22 +250,24 @@ class TestBotNotification:
             headers={
                 "Content-Type": "application/json",
                 "Content-Length": str(len(body)),
+                "x-zm-request-timestamp": "1234567890",
+                "x-zm-signature": "test-signature",
             },
             body=body,
             method="POST",
         )
 
-        # Bot not configured
+        # Bot not configured - now requires signature verification which needs bot
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", ""):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", ""):
                 result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
+        # Security fix: Returns 503 when bot not configured for signature verification
         assert result.status_code == 503
 
         data = json.loads(result.body)
         assert "error" in data
-        assert "not configured" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_bot_notification_with_bot(self, handler, bot_notification_event):
@@ -275,6 +278,8 @@ class TestBotNotification:
             headers={
                 "Content-Type": "application/json",
                 "Content-Length": str(len(body)),
+                "x-zm-request-timestamp": "1234567890",
+                "x-zm-signature": "valid-signature",
             },
             body=body,
             method="POST",
@@ -413,6 +418,8 @@ class TestErrorHandling:
             headers={
                 "Content-Type": "application/json",
                 "Content-Length": str(len(body)),
+                "x-zm-request-timestamp": "1234567890",
+                "x-zm-signature": "test-signature",
             },
             body=body,
             method="POST",
@@ -424,7 +431,7 @@ class TestErrorHandling:
                 result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
-        # Should return 503 (bot not configured) for unknown events
+        # Should return 503 (bot not configured for signature verification)
         assert result.status_code == 503
 
     @pytest.mark.asyncio
@@ -436,6 +443,8 @@ class TestErrorHandling:
             headers={
                 "Content-Type": "application/json",
                 "Content-Length": str(len(body)),
+                "x-zm-request-timestamp": "1234567890",
+                "x-zm-signature": "test-signature",
             },
             body=body,
             method="POST",
@@ -472,6 +481,8 @@ class TestMeetingEvents:
             headers={
                 "Content-Type": "application/json",
                 "Content-Length": str(len(body)),
+                "x-zm-request-timestamp": "1234567890",
+                "x-zm-signature": "valid-signature",
             },
             body=body,
             method="POST",
@@ -513,6 +524,8 @@ class TestBotInitialization:
             headers={
                 "Content-Type": "application/json",
                 "Content-Length": str(len(body)),
+                "x-zm-request-timestamp": "1234567890",
+                "x-zm-signature": "valid-signature",
             },
             body=body,
             method="POST",

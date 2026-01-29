@@ -120,6 +120,18 @@ class TestGoogleChatStatus:
 # =============================================================================
 
 
+def _make_mock_request(event: dict) -> MagicMock:
+    """Helper to create mock request with proper headers for Google Chat webhook."""
+    body = json.dumps(event).encode()
+    mock_request = MagicMock()
+    mock_request.headers = {
+        "Content-Length": str(len(body)),
+        "Authorization": "Bearer test-google-token",
+    }
+    mock_request.rfile.read.return_value = body
+    return mock_request
+
+
 class TestGoogleChatWebhook:
     """Tests for Google Chat webhook event handling."""
 
@@ -137,11 +149,12 @@ class TestGoogleChatWebhook:
             "user": {"displayName": "Test User"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
@@ -155,11 +168,12 @@ class TestGoogleChatWebhook:
             "space": {"name": "spaces/123", "displayName": "Test Space"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
@@ -176,11 +190,12 @@ class TestGoogleChatWebhook:
             "space": {"name": "spaces/123"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
@@ -199,11 +214,12 @@ class TestGoogleChatWebhook:
             "space": {"name": "spaces/456"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
@@ -213,10 +229,16 @@ class TestGoogleChatWebhook:
         handler = GoogleChatHandler({})
 
         mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": "15"}
+        mock_request.headers = {
+            "Content-Length": "15",
+            "Authorization": "Bearer test-google-token",
+        }
         mock_request.rfile.read.return_value = b"not valid json"
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 400
@@ -227,14 +249,46 @@ class TestGoogleChatWebhook:
 
         event = {"type": "UNKNOWN_EVENT"}
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
+
+    def test_webhook_requires_credentials(self):
+        """Should reject webhook when credentials not configured."""
+        handler = GoogleChatHandler({})
+
+        event = {"type": "MESSAGE", "message": {"text": "test"}}
+        mock_request = _make_mock_request(event)
+
+        with patch("aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", ""):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_webhook_requires_bearer_token(self):
+        """Should reject webhook without bearer token."""
+        handler = GoogleChatHandler({})
+
+        event = {"type": "MESSAGE", "message": {"text": "test"}}
+        body = json.dumps(event).encode()
+        mock_request = MagicMock()
+        mock_request.headers = {"Content-Length": str(len(body))}  # No Authorization
+        mock_request.rfile.read.return_value = body
+
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 401
 
 
 # =============================================================================
@@ -259,11 +313,12 @@ class TestGoogleChatSlashCommands:
             "user": {"displayName": "Test User", "name": "users/456"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
@@ -285,11 +340,12 @@ class TestGoogleChatSlashCommands:
             "user": {"displayName": "Test User", "name": "users/456"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
@@ -309,11 +365,12 @@ class TestGoogleChatSlashCommands:
             "user": {"displayName": "Test User", "name": "users/456"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
@@ -335,11 +392,12 @@ class TestGoogleChatSlashCommands:
             "user": {"displayName": "Test User", "name": "users/456"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200
@@ -413,11 +471,12 @@ class TestInputValidation:
             "user": {"displayName": "Test User", "name": "users/456"},
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {"Content-Length": str(len(json.dumps(event)))}
-        mock_request.rfile.read.return_value = json.dumps(event).encode()
+        mock_request = _make_mock_request(event)
 
-        result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
+        with patch(
+            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
+        ):
+            result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200

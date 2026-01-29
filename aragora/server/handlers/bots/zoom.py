@@ -159,13 +159,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
             # Read body
             body = self._read_request_body(handler)
 
-            # Verify signature if bot is configured
-            if bot and signature and not bot.verify_webhook(body, timestamp, signature):
-                logger.warning("Zoom webhook signature verification failed")
-                self._audit_webhook_auth_failure("signature")
-                return error_response("Invalid signature", 401)
-
-            # Parse event
+            # Parse event first to check if URL validation (which has different requirements)
             event, err = self._parse_json_body(body, "Zoom event")
             if err:
                 return err
@@ -173,28 +167,44 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
             event_type = event.get("event", "")
             logger.info(f"Zoom event received: {event_type}")
 
-            # Handle URL validation even without full bot
+            # Handle URL validation - requires ZOOM_SECRET_TOKEN
             if event_type == "endpoint.url_validation":
+                if not ZOOM_SECRET_TOKEN:
+                    logger.warning("ZOOM_SECRET_TOKEN not configured - rejecting URL validation")
+                    return error_response("Zoom secret token not configured", 503)
+
+                import hashlib
+                import hmac
+
                 payload = event.get("payload", {})
                 plain_token = payload.get("plainToken", "")
 
-                if ZOOM_SECRET_TOKEN:
-                    import hashlib
-                    import hmac
+                encrypted = hmac.new(
+                    ZOOM_SECRET_TOKEN.encode(),
+                    plain_token.encode(),
+                    hashlib.sha256,
+                ).hexdigest()
+                return json_response(
+                    {
+                        "plainToken": plain_token,
+                        "encryptedToken": encrypted,
+                    }
+                )
 
-                    encrypted = hmac.new(
-                        ZOOM_SECRET_TOKEN.encode(),
-                        plain_token.encode(),
-                        hashlib.sha256,
-                    ).hexdigest()
-                    return json_response(
-                        {
-                            "plainToken": plain_token,
-                            "encryptedToken": encrypted,
-                        }
-                    )
-                else:
-                    return json_response({"plainToken": plain_token})
+            # For all other events, require signature verification
+            if signature:
+                if not bot:
+                    logger.warning("Zoom bot not configured - cannot verify signature")
+                    return error_response("Zoom bot not configured for signature verification", 503)
+                if not bot.verify_webhook(body, timestamp, signature):
+                    logger.warning("Zoom webhook signature verification failed")
+                    self._audit_webhook_auth_failure("signature")
+                    return error_response("Invalid signature", 401)
+            else:
+                # No signature provided - for security, require it
+                logger.warning("Zoom webhook request missing signature")
+                self._audit_webhook_auth_failure("signature", "missing")
+                return error_response("Missing signature header", 401)
 
             # For other events, require bot
             if not bot:

@@ -982,9 +982,11 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
             signing_secret = getattr(self, "_signing_secret", "") or os.environ.get(
                 "SLACK_SIGNING_SECRET", ""
             )
-            if signing_secret:
-                if not self._verify_signature(handler):
-                    return error_response("Invalid Slack signature", 401)
+            if not signing_secret:
+                logger.warning("SLACK_SIGNING_SECRET not configured - rejecting webhook request")
+                return error_response("Slack signing secret not configured", 503)
+            if not self._verify_signature(handler):
+                return error_response("Invalid Slack signature", 401)
 
             # Handle the POST request
             import asyncio
@@ -1034,19 +1036,21 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
             "/api/v1/bots/slack/interactions",
             "/api/v1/bots/slack/commands",
         ]:
-            if SLACK_SIGNING_SECRET:
-                try:
-                    timestamp = handler.headers.get("X-Slack-Request-Timestamp", "")
-                    signature = handler.headers.get("X-Slack-Signature", "")
-                    body = handler.rfile.read(int(handler.headers.get("Content-Length", 0)))
-                    # Reset the file position for later reads
-                    handler.rfile.seek(0)
+            if not SLACK_SIGNING_SECRET:
+                logger.warning("SLACK_SIGNING_SECRET not configured - rejecting webhook request")
+                return error_response("Slack signing secret not configured", 503)
+            try:
+                timestamp = handler.headers.get("X-Slack-Request-Timestamp", "")
+                signature = handler.headers.get("X-Slack-Signature", "")
+                body = handler.rfile.read(int(handler.headers.get("Content-Length", 0)))
+                # Reset the file position for later reads
+                handler.rfile.seek(0)
 
-                    if not verify_slack_signature(body, timestamp, signature, SLACK_SIGNING_SECRET):
-                        return error_response("Invalid Slack signature", 401)
-                except Exception as e:
-                    logger.warning(f"Slack signature verification error: {e}")
-                    # Continue without verification if headers are missing
+                if not verify_slack_signature(body, timestamp, signature, SLACK_SIGNING_SECRET):
+                    return error_response("Invalid Slack signature", 401)
+            except Exception as e:
+                logger.warning(f"Slack signature verification error: {e}")
+                return error_response("Slack signature verification failed", 401)
 
         if path == "/api/v1/bots/slack/events":
             return await handle_slack_events(handler)

@@ -745,6 +745,105 @@ class StripeConnector:
         result = await self._request("GET", "/balance_transactions", params=params)
         return [BalanceTransaction.from_api(t) for t in result.get("data", [])]
 
+    # -------------------------------------------------------------------------
+    # Webhooks
+    # -------------------------------------------------------------------------
+
+    async def construct_webhook_event(self, payload: bytes, sig_header: str | None) -> Any:
+        """
+        Construct and verify a Stripe webhook event.
+
+        Args:
+            payload: Raw request body bytes
+            sig_header: Stripe-Signature header value
+
+        Returns:
+            Verified Stripe event object
+
+        Raises:
+            ValueError: If payload is invalid
+            Exception: If signature verification fails
+        """
+        import hmac
+        import hashlib
+        import json
+        import time
+
+        # Check if signature header is provided
+        if not sig_header:
+            raise Exception("Missing Stripe-Signature header")
+
+        # Check if webhook secret is configured
+        if not self.credentials.webhook_secret:
+            raise Exception("Webhook secret not configured")
+
+        # Parse the signature header
+        # Format: t=timestamp,v1=signature,...
+        sig_parts = dict(part.split("=", 1) for part in sig_header.split(",") if "=" in part)
+        timestamp = sig_parts.get("t")
+        signature = sig_parts.get("v1")
+
+        if not timestamp or not signature:
+            raise Exception("Invalid Stripe-Signature format")
+
+        # Check timestamp tolerance (5 minute window)
+        try:
+            ts = int(timestamp)
+            if abs(time.time() - ts) > 300:  # 5 minutes
+                raise Exception("Webhook timestamp too old")
+        except ValueError:
+            raise Exception("Invalid timestamp in signature")
+
+        # Compute expected signature
+        signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
+        expected_sig = hmac.new(
+            self.credentials.webhook_secret.encode("utf-8"),
+            signed_payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        # Compare signatures
+        if not hmac.compare_digest(expected_sig, signature):
+            raise Exception("Signature verification failed")
+
+        # Parse and return the event
+        try:
+            event_data = json.loads(payload.decode("utf-8"))
+        except json.JSONDecodeError:
+            raise ValueError("Invalid JSON payload")
+
+        # Return a simple object with the event data
+        return _StripeEvent(event_data)
+
+
+class _StripeEvent:
+    """Simple wrapper for Stripe webhook event data."""
+
+    def __init__(self, data: dict[str, Any]):
+        self._data = data
+        self.id = data.get("id", "")
+        self.type = data.get("type", "")
+        self.data = _StripeEventData(data.get("data", {}))
+
+
+class _StripeEventData:
+    """Wrapper for Stripe event data object."""
+
+    def __init__(self, data: dict[str, Any]):
+        self._data = data
+        self.object = _StripeObject(data.get("object", {}))
+
+
+class _StripeObject:
+    """Generic wrapper for Stripe API objects."""
+
+    def __init__(self, data: dict[str, Any]):
+        self._data = data
+        self.id = data.get("id", "")
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
 
 # -----------------------------------------------------------------------------
 # Mock Data
