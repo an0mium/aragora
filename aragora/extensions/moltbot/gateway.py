@@ -9,15 +9,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from .models import (
-    DeviceNode,
-    DeviceNodeConfig,
+from aragora.gateway.device_registry import (
+    DeviceNode as GatewayDeviceNode,
+    DeviceRegistry,
+    DeviceStatus,
 )
+
+from .models import DeviceNode, DeviceNodeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +40,8 @@ class LocalGateway:
         gateway_id: str | None = None,
         storage_path: str | Path | None = None,
         heartbeat_timeout: float = 120.0,
+        registry: DeviceRegistry | None = None,
+        mirror_registry: bool | None = None,
     ) -> None:
         """
         Initialize the local gateway.
@@ -43,10 +50,16 @@ class LocalGateway:
             gateway_id: Gateway identifier (auto-generated if None)
             storage_path: Path for device state storage
             heartbeat_timeout: Seconds before device is marked offline
+            registry: Optional shared device registry
+            mirror_registry: Mirror device updates into the registry (env MOLTBOT_GATEWAY_REGISTRY)
         """
         self._gateway_id = gateway_id or str(uuid.uuid4())
         self._storage_path = Path(storage_path) if storage_path else None
         self._heartbeat_timeout = heartbeat_timeout
+        self._registry = registry or DeviceRegistry()
+        if mirror_registry is None:
+            mirror_registry = os.getenv("MOLTBOT_GATEWAY_REGISTRY", "0") == "1"
+        self._mirror_registry = mirror_registry
 
         self._devices: dict[str, DeviceNode] = {}
         self._command_handlers: dict[str, Callable] = {}
@@ -112,6 +125,7 @@ class LocalGateway:
             self._devices[device_id] = device
             logger.info(f"Registered device {config.name} ({device_id})")
 
+            await self._mirror_registry_device(device, status=DeviceStatus.PAIRED)
             await self._emit_event("device_registered", device)
             return device
 
@@ -150,6 +164,7 @@ class LocalGateway:
             del self._devices[device_id]
             logger.info(f"Unregistered device {device_id}")
 
+            await self._mirror_registry_unreg(device_id)
             await self._emit_event("device_unregistered", device)
             return True
 
@@ -204,6 +219,7 @@ class LocalGateway:
             if was_offline:
                 await self._emit_event("device_online", device)
 
+            await self._mirror_registry_device(device, status=DeviceStatus.ONLINE)
             return device
 
     async def update_state(
@@ -235,6 +251,7 @@ class LocalGateway:
 
             device.updated_at = datetime.utcnow()
 
+            await self._mirror_registry_device(device)
             await self._emit_event("state_updated", device)
             return device
 
@@ -416,6 +433,10 @@ class LocalGateway:
                         device.updated_at = now
                         logger.warning(f"Device {device.id} marked offline (heartbeat timeout)")
                         await self._emit_event("device_offline", device)
+                        await self._mirror_registry_device(
+                            device,
+                            status=DeviceStatus.OFFLINE,
+                        )
 
     # ========== Statistics ==========
 
@@ -448,3 +469,58 @@ class LocalGateway:
                 "command_handlers": len(self._command_handlers),
                 "event_subscribers": len(self._event_subscribers),
             }
+
+    async def _mirror_registry_device(
+        self,
+        device: DeviceNode,
+        status: DeviceStatus | None = None,
+    ) -> None:
+        if not self._mirror_registry:
+            return
+
+        reg_device = await self._registry.get(device.id)
+        if reg_device is None:
+            reg_device = GatewayDeviceNode(
+                device_id=device.id,
+                name=device.config.name,
+                device_type=device.config.device_type,
+                capabilities=list(device.config.capabilities),
+                metadata={},
+            )
+            await self._registry.register(reg_device)
+
+        reg_device.name = device.config.name
+        reg_device.device_type = device.config.device_type
+        reg_device.capabilities = list(device.config.capabilities)
+        reg_device.metadata = self._registry_metadata(device)
+        reg_device.last_seen = (
+            device.last_seen.timestamp() if device.last_seen else reg_device.last_seen
+        )
+        if status is not None:
+            reg_device.status = status
+
+    async def _mirror_registry_unreg(self, device_id: str) -> None:
+        if not self._mirror_registry:
+            return
+        await self._registry.unregister(device_id)
+
+    def _registry_metadata(self, device: DeviceNode) -> dict[str, Any]:
+        return {
+            "user_id": device.user_id,
+            "tenant_id": device.tenant_id,
+            "gateway_id": device.gateway_id,
+            "status": device.status,
+            "state": device.state,
+            "firmware_version": device.firmware_version,
+            "battery_level": device.battery_level,
+            "signal_strength": device.signal_strength,
+            "last_seen": device.last_seen.isoformat() if device.last_seen else None,
+            "last_heartbeat": (
+                device.last_heartbeat.isoformat() if device.last_heartbeat else None
+            ),
+            "messages_sent": device.messages_sent,
+            "messages_received": device.messages_received,
+            "errors": device.errors,
+            "updated_at": device.updated_at.isoformat(),
+            "registry_updated_at": time.time(),
+        }
