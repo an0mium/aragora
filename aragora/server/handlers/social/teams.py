@@ -518,8 +518,8 @@ class TeamsIntegrationHandler(BaseHandler):
                 from aragora.server.debate_origin import mark_result_sent
 
                 mark_result_sent(debate_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Could not mark result sent for debate %s: %s", debate_id, e)
 
         except Exception as e:
             logger.exception(f"Teams debate error: {e}")

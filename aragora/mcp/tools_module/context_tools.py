@@ -438,8 +438,8 @@ def _analyze_activity(messages: list[dict[str, Any]]) -> dict[str, Any]:
                     timestamps.append(datetime.fromisoformat(ts.replace("Z", "+00:00")))
                 elif isinstance(ts, datetime):
                     timestamps.append(ts)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Could not parse timestamp %r: %s", ts, e)
 
     activity: dict[str, Any] = {
         "total_messages": len(messages),

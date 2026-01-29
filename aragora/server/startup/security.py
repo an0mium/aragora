@@ -465,8 +465,8 @@ async def init_key_rotation_scheduler() -> bool:
             active_key_id = service.get_active_key_id()
             if active_key_id:
                 set_active_keys(master=1)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Could not set initial key metrics: %s", e)
 
         # Get initial status for logging
         status = await scheduler.get_status()

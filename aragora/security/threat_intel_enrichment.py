@@ -784,8 +784,8 @@ class ThreatIntelEnrichment:
         if self._threat_client:
             try:
                 await self._threat_client.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error closing threat intel client: %s", e)
 
 
 # Convenience function for quick enrichment

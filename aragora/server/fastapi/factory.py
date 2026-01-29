@@ -125,8 +125,8 @@ async def lifespan(app: FastAPI):
     if ctx.get("storage"):
         try:
             ctx["storage"].close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error closing storage during shutdown: %s", e)
 
 
 def create_app(

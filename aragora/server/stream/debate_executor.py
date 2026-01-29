@@ -97,8 +97,8 @@ def _openrouter_key_available() -> bool:
         value = get_secret("OPENROUTER_API_KEY")
         if value and value.strip():
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Secrets module unavailable, falling back to env: %s", e)
     env_value = os.getenv("OPENROUTER_API_KEY")
     return bool(env_value and env_value.strip())
 

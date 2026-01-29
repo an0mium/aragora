@@ -143,8 +143,8 @@ def check_migrations_pending() -> dict[str, Any]:
         runner = get_migration_runner()
         pending = runner.get_pending_migrations()
         result["postgresql_pending"] = len(pending)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("PostgreSQL migration check skipped: %s", e)
 
     try:
         from aragora.persistence.migrations.runner import MigrationRunner
@@ -153,8 +153,8 @@ def check_migrations_pending() -> dict[str, Any]:
         statuses = runner.get_all_status()  # type: ignore[attr-defined]
         for status in statuses.values():
             result["sqlite_pending"] += len(status.pending)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("SQLite migration check skipped: %s", e)
 
     result["total_pending"] = result["postgresql_pending"] + result["sqlite_pending"]
     return result
