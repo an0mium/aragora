@@ -192,6 +192,43 @@ HAS_SECURITY_METRICS = _check_aragora_module("aragora.observability.metrics.secu
 REQUIRES_SECURITY_METRICS = "Security metrics not available"
 requires_security_metrics = not HAS_SECURITY_METRICS
 
+# Debate and evolution modules (commonly skipped)
+HAS_RHETORICAL_OBSERVER = _check_aragora_module("aragora.debate.rhetorical_observer")
+REQUIRES_RHETORICAL_OBSERVER = "RhetoricalObserver module not available"
+requires_rhetorical_observer = not HAS_RHETORICAL_OBSERVER
+
+HAS_INTROSPECTION = _check_aragora_module("aragora.introspection")
+REQUIRES_INTROSPECTION = "Introspection module not available"
+requires_introspection = not HAS_INTROSPECTION
+
+HAS_EVOLUTION = _check_aragora_module("aragora.evolution")
+REQUIRES_EVOLUTION = "Evolution module not available"
+requires_evolution = not HAS_EVOLUTION
+
+HAS_BREEDING = _check_aragora_module("aragora.evolution.breeding")
+REQUIRES_BREEDING = "Breeding module not available"
+requires_breeding = not HAS_BREEDING
+
+HAS_GENESIS = _check_aragora_module("aragora.genesis")
+REQUIRES_GENESIS = "Genesis module not available"
+requires_genesis = not HAS_GENESIS
+
+HAS_PHASES = _check_aragora_module("aragora.debate.phases")
+REQUIRES_PHASES = "Phase modules not available"
+requires_phases = not HAS_PHASES
+
+HAS_NOVELTY_TRACKER = _check_aragora_module("aragora.evolution.novelty")
+REQUIRES_NOVELTY_TRACKER = "NoveltyTracker module not available"
+requires_novelty_tracker = not HAS_NOVELTY_TRACKER
+
+HAS_CULTURE_MANAGER = _check_aragora_module("aragora.organization.culture")
+REQUIRES_CULTURE_MANAGER = "OrganizationCultureManager not available"
+requires_culture_manager = not HAS_CULTURE_MANAGER
+
+HAS_MEMORY_ANALYTICS = _check_aragora_module("aragora.server.handlers.memory_analytics")
+REQUIRES_MEMORY_ANALYTICS = "MemoryAnalyticsHandler not available"
+requires_memory_analytics = not HAS_MEMORY_ANALYTICS
+
 
 def _check_handlers_available() -> bool:
     """Check if handler registry is available."""

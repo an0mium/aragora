@@ -8,29 +8,28 @@ rebuttal, synthesis) and emits appropriate events.
 import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
 
+from tests.conftest import requires_rhetorical_observer, REQUIRES_RHETORICAL_OBSERVER
+
+# Skip entire module if RhetoricalObserver is not available
+pytestmark = pytest.mark.skipif(requires_rhetorical_observer, reason=REQUIRES_RHETORICAL_OBSERVER)
+
 
 class TestRhetoricalObserverBasics:
     """Tests for RhetoricalObserver basic functionality."""
 
     def test_rhetorical_observer_creation(self):
         """RhetoricalObserver should be creatable."""
-        try:
-            from aragora.debate.rhetorical_observer import (
-                RhetoricalObserver,
-                get_rhetorical_observer,
-            )
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import (
+            RhetoricalObserver,
+            get_rhetorical_observer,
+        )
 
         observer = get_rhetorical_observer()
         assert observer is not None
 
     def test_rhetorical_observer_patterns(self):
         """RhetoricalObserver should define pattern types."""
-        try:
-            from aragora.debate.rhetorical_observer import RhetoricalPattern
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import RhetoricalPattern
 
         # Should have these pattern types
         assert hasattr(RhetoricalPattern, "CONCESSION")
@@ -43,13 +42,10 @@ class TestPatternDetection:
 
     def test_detect_concession(self):
         """Should detect concession patterns in text."""
-        try:
-            from aragora.debate.rhetorical_observer import (
-                get_rhetorical_observer,
-                RhetoricalPattern,
-            )
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import (
+            get_rhetorical_observer,
+            RhetoricalPattern,
+        )
 
         observer = get_rhetorical_observer()
 
@@ -62,13 +58,10 @@ class TestPatternDetection:
 
     def test_detect_rebuttal(self):
         """Should detect rebuttal patterns in text."""
-        try:
-            from aragora.debate.rhetorical_observer import (
-                get_rhetorical_observer,
-                RhetoricalPattern,
-            )
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import (
+            get_rhetorical_observer,
+            RhetoricalPattern,
+        )
 
         observer = get_rhetorical_observer()
 
@@ -81,13 +74,10 @@ class TestPatternDetection:
 
     def test_detect_synthesis(self):
         """Should detect synthesis patterns in text."""
-        try:
-            from aragora.debate.rhetorical_observer import (
-                get_rhetorical_observer,
-                RhetoricalPattern,
-            )
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import (
+            get_rhetorical_observer,
+            RhetoricalPattern,
+        )
 
         observer = get_rhetorical_observer()
 
@@ -100,10 +90,7 @@ class TestPatternDetection:
 
     def test_detect_no_patterns(self):
         """Should return empty when no patterns detected."""
-        try:
-            from aragora.debate.rhetorical_observer import get_rhetorical_observer
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import get_rhetorical_observer
 
         observer = get_rhetorical_observer()
 
@@ -170,13 +157,10 @@ class TestRhetoricalEvents:
 
     def test_event_data_format(self):
         """Rhetorical observation events should have correct format."""
-        try:
-            from aragora.debate.rhetorical_observer import (
-                get_rhetorical_observer,
-                RhetoricalPattern,
-            )
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import (
+            get_rhetorical_observer,
+            RhetoricalPattern,
+        )
 
         observer = get_rhetorical_observer()
 
@@ -197,10 +181,7 @@ class TestRhetoricalAnalysis:
 
     def test_track_agent_patterns(self):
         """Should track patterns per agent."""
-        try:
-            from aragora.debate.rhetorical_observer import get_rhetorical_observer
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import get_rhetorical_observer
 
         observer = get_rhetorical_observer()
 
@@ -215,10 +196,7 @@ class TestRhetoricalAnalysis:
 
     def test_identify_dominant_style(self):
         """Should identify agent's dominant rhetorical style."""
-        try:
-            from aragora.debate.rhetorical_observer import get_rhetorical_observer
-        except ImportError:
-            pytest.skip("RhetoricalObserver module not available")
+        from aragora.debate.rhetorical_observer import get_rhetorical_observer
 
         observer = get_rhetorical_observer()
 

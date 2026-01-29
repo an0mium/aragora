@@ -7,6 +7,11 @@ Endpoints tested:
 
 import json
 import pytest
+
+from tests.conftest import requires_evolution, REQUIRES_EVOLUTION
+
+# Skip entire module if Evolution module is not available
+pytestmark = pytest.mark.skipif(requires_evolution, reason=REQUIRES_EVOLUTION)
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 

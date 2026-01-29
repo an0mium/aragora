@@ -11,6 +11,11 @@ import json
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
+from tests.conftest import requires_memory_analytics, REQUIRES_MEMORY_ANALYTICS
+
+# Skip entire module if MemoryAnalyticsHandler is not available
+pytestmark = pytest.mark.skipif(requires_memory_analytics, reason=REQUIRES_MEMORY_ANALYTICS)
+
 
 # ============================================================================
 # Test Fixtures
