@@ -740,7 +740,7 @@ class ConnectorsHandler(SecureHandler):
         # Fallback to in-memory
         connectors = list(_connectors.values())
 
-        total_items = sum(int(c.get("items_synced", 0) or 0) for c in connectors)
+        total_items = sum(int(c.get("items_synced", 0) or 0) for c in connectors)  # type: ignore[call-overload]
         connected = sum(1 for c in connectors if c["status"] in ("connected", "syncing"))
         syncing = sum(1 for c in connectors if c["status"] == "syncing")
         errors = sum(1 for c in connectors if c["status"] == "error")
@@ -826,10 +826,10 @@ class ConnectorsHandler(SecureHandler):
                 success_rate = successful / total_syncs if total_syncs > 0 else 1.0
 
                 # Calculate latency score (lower is better, normalized to 0-1)
-                avg_duration = stats.get("avg_duration_seconds", 0) or 0
+                avg_duration: float = stats.get("avg_duration_seconds", 0) or 0
                 empty_meta: ConnectorTypeMeta = {}
                 connector_type_info = CONNECTOR_TYPES.get(config.connector_type, empty_meta)
-                expected_duration = connector_type_info.get("expected_sync_duration", 60)
+                expected_duration: int = connector_type_info.get("expected_sync_duration", 60)
                 if avg_duration <= expected_duration:
                     latency_score = 1.0
                 else:

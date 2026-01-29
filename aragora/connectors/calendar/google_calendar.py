@@ -413,7 +413,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
                 return await resp.json()
 
-        return await self._circuit_breaker.execute(_make_request)  # type: ignore[union-attr]
+        return await self._circuit_breaker.execute(_make_request)
 
     async def get_calendars(self) -> List[CalendarInfo]:
         """Get list of user's calendars."""
