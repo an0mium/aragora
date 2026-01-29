@@ -342,7 +342,7 @@ class ChatPlatformConnector(ABC):
                         return True, response.content, None
                     try:
                         return True, response.json(), None
-                    except Exception:
+                    except (json.JSONDecodeError, ValueError):
                         # Response may not be JSON
                         return True, {"status": "ok", "text": response.text}, None
 

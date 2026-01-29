@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -273,8 +274,12 @@ class AccountingConnectorBase(ABC, Generic[C]):
                             await self.refresh_tokens()
                             request_headers = self._get_auth_headers()
                             continue
-                        except Exception:
-                            pass
+                        except (ConnectorAuthError, ConnectorAPIError, asyncio.TimeoutError) as e:
+                            logger.warning(f"[{self.PROVIDER_NAME}] Token refresh failed: {e}")
+                        except Exception as e:
+                            logger.error(
+                                f"[{self.PROVIDER_NAME}] Unexpected error during token refresh: {e}"
+                            )
                     raise ConnectorAuthError(f"Authentication failed: {response.status_code}")
 
                 # Handle other client errors
@@ -383,11 +388,15 @@ class AccountingConnectorBase(ABC, Generic[C]):
             if isinstance(data, dict):
                 return data.get("error") or data.get("message") or str(data)
             return str(data)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.debug(f"[{self.PROVIDER_NAME}] Could not parse error as JSON: {e}")
             if hasattr(response, "text"):
                 if asyncio.iscoroutinefunction(response.text):
                     return await response.text()
                 return response.text
+            return f"HTTP {response.status_code}"
+        except Exception as e:
+            logger.warning(f"[{self.PROVIDER_NAME}] Unexpected error parsing response: {e}")
             return f"HTTP {response.status_code}"
 
     # =========================================================================

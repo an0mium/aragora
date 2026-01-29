@@ -47,7 +47,11 @@ from .models import (
 )
 
 # Environment configuration
-SIGNAL_CLI_URL = os.environ.get("SIGNAL_CLI_URL", "http://localhost:8080")
+# In production, SIGNAL_CLI_URL must be set explicitly
+_signal_cli_default = (
+    "http://localhost:8080" if os.environ.get("ARAGORA_ENV", "").lower() != "production" else ""
+)
+SIGNAL_CLI_URL = os.environ.get("SIGNAL_CLI_URL", _signal_cli_default)
 SIGNAL_PHONE_NUMBER = os.environ.get("SIGNAL_PHONE_NUMBER", "")
 
 
@@ -834,7 +838,15 @@ class SignalConnector(ChatPlatformConnector):
                     avatar_url=profile.get("avatar"),
                     metadata=profile,
                 )
-        except Exception:
+        except (httpx.HTTPError, httpx.TimeoutException) as e:
+            logger.debug(f"Signal profile lookup failed for {user_id}: {e}")
+            return ChatUser(
+                id=user_id,
+                platform="signal",
+                username=user_id,
+            )
+        except Exception as e:
+            logger.warning(f"Unexpected error looking up Signal user {user_id}: {e}")
             return ChatUser(
                 id=user_id,
                 platform="signal",

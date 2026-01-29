@@ -48,7 +48,11 @@ from .models import (
 )
 
 # Environment configuration
-BLUEBUBBLES_URL = os.environ.get("BLUEBUBBLES_URL", "http://localhost:1234")
+# In production, BLUEBUBBLES_URL must be set explicitly
+_bluebubbles_default = (
+    "http://localhost:1234" if os.environ.get("ARAGORA_ENV", "").lower() != "production" else ""
+)
+BLUEBUBBLES_URL = os.environ.get("BLUEBUBBLES_URL", _bluebubbles_default)
 BLUEBUBBLES_PASSWORD = os.environ.get("BLUEBUBBLES_PASSWORD", "")
 
 
