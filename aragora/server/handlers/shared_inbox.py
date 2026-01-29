@@ -885,6 +885,7 @@ async def handle_add_message_tag(
         }
 
 
+@require_permission("inbox:write")
 async def handle_add_message_to_inbox(
     inbox_id: str,
     email_id: str,
