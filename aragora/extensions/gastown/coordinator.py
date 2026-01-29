@@ -301,7 +301,7 @@ class Coordinator:
             entry = LedgerEntry(
                 id=entry_id,
                 workspace_id=workspace_id,
-                type=entry_type,  # type: ignore
+                type=entry_type,  # type: ignore[arg-type]
                 title=title,
                 body=body,
                 convoy_id=convoy_id,
@@ -350,7 +350,7 @@ class Coordinator:
             if not entry:
                 return None
 
-            entry.status = "resolved"  # type: ignore
+            entry.status = "resolved"  # type: ignore[attr-defined]
             entry.resolved_at = datetime.utcnow()
             entry.updated_at = datetime.utcnow()
             if resolution:

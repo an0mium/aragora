@@ -157,8 +157,9 @@ class ComputerUseHandler(BaseHandler):
         # GET /api/v1/computer-use/tasks/{id}
         if path.startswith("/api/v1/computer-use/tasks/"):
             parts = path.strip("/").split("/")
-            if len(parts) >= 4:
-                task_id = parts[3]
+            # parts = ["api", "v1", "computer-use", "tasks", task_id]
+            if len(parts) >= 5:
+                task_id = parts[4]
                 return self._handle_get_task(task_id, handler)
 
         # GET /api/v1/computer-use/actions/stats
@@ -188,8 +189,9 @@ class ComputerUseHandler(BaseHandler):
         # POST /api/v1/computer-use/tasks/{id}/cancel
         if "/cancel" in path:
             parts = path.strip("/").split("/")
-            if len(parts) >= 5 and parts[4] == "cancel":
-                task_id = parts[3]
+            # parts = ["api", "v1", "computer-use", "tasks", task_id, "cancel"]
+            if len(parts) >= 6 and parts[5] == "cancel":
+                task_id = parts[4]
                 return self._handle_cancel_task(task_id, handler)
 
         # POST /api/v1/computer-use/policies

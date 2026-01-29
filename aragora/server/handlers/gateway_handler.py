@@ -196,8 +196,9 @@ class GatewayHandler(BaseHandler):
         # POST /api/v1/gateway/devices/{id}/heartbeat
         if "/heartbeat" in path:
             parts = path.strip("/").split("/")
-            if len(parts) >= 5 and parts[3] != "devices":
-                device_id = parts[3]
+            # parts = ["api", "v1", "gateway", "devices", device_id, "heartbeat"]
+            if len(parts) >= 6 and parts[5] == "heartbeat":
+                device_id = parts[4]
                 return self._handle_heartbeat(device_id, handler)
 
         # POST /api/v1/gateway/messages/route
