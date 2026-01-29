@@ -122,6 +122,49 @@ class TeamsIntegrationHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    # =========================================================================
+    # RBAC Helper Methods
+    # =========================================================================
+
+    def _get_auth_context(self, handler: Any) -> Optional[Any]:
+        """Extract authorization context from the request."""
+        if not RBAC_AVAILABLE or extract_user_from_request is None:
+            return None
+
+        try:
+            user_info = extract_user_from_request(handler)
+            if not user_info:
+                return None
+
+            return AuthorizationContext(
+                user_id=user_info.user_id or "anonymous",
+                roles={user_info.role} if user_info.role else set(),
+                org_id=user_info.org_id,
+            )
+        except Exception as e:
+            logger.debug(f"Could not extract auth context: {e}")
+            return None
+
+    def _check_permission(self, handler: Any, permission_key: str) -> Optional[HandlerResult]:
+        """Check if current user has permission. Returns error response if denied."""
+        if not RBAC_AVAILABLE or check_permission is None:
+            return None
+
+        context = self._get_auth_context(handler)
+        if context is None:
+            return None
+
+        try:
+            decision = check_permission(context, permission_key)
+            if not decision.allowed:
+                logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
+                return error_response(f"Permission denied: {decision.reason}", 403)
+        except Exception as e:
+            logger.warning(f"RBAC check failed: {e}")
+            return None
+
+        return None
+
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
@@ -129,6 +172,10 @@ class TeamsIntegrationHandler(BaseHandler):
         logger.debug(f"Teams integration request: {path}")
 
         if path == "/api/v1/integrations/teams/status":
+            # RBAC: Require messaging:read permission
+            perm_error = self._check_permission(handler, "messaging:read")
+            if perm_error:
+                return perm_error
             return self._get_status()
 
         return None
@@ -139,10 +186,16 @@ class TeamsIntegrationHandler(BaseHandler):
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/integrations/teams/commands":
+            # Note: Commands from Teams Bot Framework use bot auth, not user RBAC
             return await self._handle_command(handler)
         elif path == "/api/v1/integrations/teams/interactive":
+            # Note: Interactive actions from Teams Bot Framework use bot auth
             return self._handle_interactive(handler)
         elif path == "/api/v1/integrations/teams/notify":
+            # RBAC: Require messaging:write permission for sending notifications
+            perm_error = self._check_permission(handler, "messaging:write")
+            if perm_error:
+                return perm_error
             return await self._handle_notify(handler)
 
         return error_response("Not found", 404)
