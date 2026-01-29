@@ -40,7 +40,7 @@ Example queries:
         startDebate(input: {
             question: "What is the best programming language?"
             agents: "claude,gpt4,gemini"
-            rounds: 3
+            rounds: 9
         }) {
             id
             topic

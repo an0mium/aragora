@@ -15,6 +15,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -586,8 +587,8 @@ class FeaturesHandler(BaseHandler):
         "theme": "system",  # light, dark, system
         # Debate preferences
         "default_mode": "standard",  # standard, graph, matrix
-        "default_rounds": 9,
-        "default_agents": "grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi",
+        "default_rounds": DEFAULT_ROUNDS,
+        "default_agents": DEFAULT_AGENTS,
         # Notification preferences
         "telegram_enabled": False,
         "email_digest": "none",  # none, daily, weekly

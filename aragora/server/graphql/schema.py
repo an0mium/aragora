@@ -90,7 +90,7 @@ input StartDebateInput {
     """Comma-separated list of agent names, or 'auto' for auto-selection"""
     agents: String
 
-    """Number of debate rounds (default: 3, max: 10)"""
+    """Number of debate rounds (default: 9, max: 12)"""
     rounds: Int
 
     """Consensus method: 'majority', 'unanimous', 'weighted'"""
