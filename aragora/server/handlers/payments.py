@@ -1249,6 +1249,27 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
 
 def register_payment_routes(app: web.Application) -> None:
     """Register payment routes with the application."""
+    # v1 canonical routes
+    app.router.add_post("/api/v1/payments/charge", handle_charge)
+    app.router.add_post("/api/v1/payments/authorize", handle_authorize)
+    app.router.add_post("/api/v1/payments/capture", handle_capture)
+    app.router.add_post("/api/v1/payments/refund", handle_refund)
+    app.router.add_post("/api/v1/payments/void", handle_void)
+    app.router.add_get("/api/v1/payments/transaction/{transaction_id}", handle_get_transaction)
+
+    app.router.add_post("/api/v1/payments/customer", handle_create_customer)
+    app.router.add_get("/api/v1/payments/customer/{customer_id}", handle_get_customer)
+    app.router.add_delete("/api/v1/payments/customer/{customer_id}", handle_delete_customer)
+
+    app.router.add_post("/api/v1/payments/subscription", handle_create_subscription)
+    app.router.add_delete(
+        "/api/v1/payments/subscription/{subscription_id}", handle_cancel_subscription
+    )
+
+    app.router.add_post("/api/v1/payments/webhook/stripe", handle_stripe_webhook)
+    app.router.add_post("/api/v1/payments/webhook/authnet", handle_authnet_webhook)
+
+    # legacy routes
     # Core payment operations
     app.router.add_post("/api/payments/charge", handle_charge)
     app.router.add_post("/api/payments/authorize", handle_authorize)

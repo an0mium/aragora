@@ -410,6 +410,12 @@ def register_routes(app: web.Application) -> None:
     """Register quick scan routes."""
     handler = QuickScanHandler()
 
+    # v1 canonical routes
+    app.router.add_post("/api/v1/codebase/quick-scan", handler.handle_post_quick_scan)
+    app.router.add_get("/api/v1/codebase/quick-scan/{scan_id}", handler.handle_get_quick_scan)
+    app.router.add_get("/api/v1/codebase/quick-scans", handler.handle_list_quick_scans)
+
+    # legacy routes
     app.router.add_post("/api/codebase/quick-scan", handler.handle_post_quick_scan)
     app.router.add_get("/api/codebase/quick-scan/{scan_id}", handler.handle_get_quick_scan)
     app.router.add_get("/api/codebase/quick-scans", handler.handle_list_quick_scans)

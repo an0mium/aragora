@@ -1084,6 +1084,26 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
 
 def register_accounting_routes(app: web.Application) -> None:
     """Register accounting routes with the application."""
+    # v1 canonical routes
+    app.router.add_get("/api/v1/accounting/status", handle_accounting_status)
+    app.router.add_get("/api/v1/accounting/connect", handle_accounting_connect)
+    app.router.add_get("/api/v1/accounting/callback", handle_accounting_callback)
+    app.router.add_post("/api/v1/accounting/disconnect", handle_accounting_disconnect)
+    app.router.add_get("/api/v1/accounting/customers", handle_accounting_customers)
+    app.router.add_get("/api/v1/accounting/transactions", handle_accounting_transactions)
+    app.router.add_post("/api/v1/accounting/report", handle_accounting_report)
+    app.router.add_get("/api/v1/accounting/gusto/status", handle_gusto_status)
+    app.router.add_get("/api/v1/accounting/gusto/connect", handle_gusto_connect)
+    app.router.add_get("/api/v1/accounting/gusto/callback", handle_gusto_callback)
+    app.router.add_post("/api/v1/accounting/gusto/disconnect", handle_gusto_disconnect)
+    app.router.add_get("/api/v1/accounting/gusto/employees", handle_gusto_employees)
+    app.router.add_get("/api/v1/accounting/gusto/payrolls", handle_gusto_payrolls)
+    app.router.add_get(
+        "/api/v1/accounting/gusto/payrolls/{payroll_id}",
+        handle_gusto_payroll_detail,
+    )
+
+    # legacy routes
     app.router.add_get("/api/accounting/status", handle_accounting_status)
     app.router.add_get("/api/accounting/connect", handle_accounting_connect)
     app.router.add_get("/api/accounting/callback", handle_accounting_callback)
@@ -1097,7 +1117,10 @@ def register_accounting_routes(app: web.Application) -> None:
     app.router.add_post("/api/accounting/gusto/disconnect", handle_gusto_disconnect)
     app.router.add_get("/api/accounting/gusto/employees", handle_gusto_employees)
     app.router.add_get("/api/accounting/gusto/payrolls", handle_gusto_payrolls)
-    app.router.add_get("/api/accounting/gusto/payrolls/{payroll_id}", handle_gusto_payroll_detail)
+    app.router.add_get(
+        "/api/accounting/gusto/payrolls/{payroll_id}",
+        handle_gusto_payroll_detail,
+    )
     app.router.add_post(
         "/api/accounting/gusto/payrolls/{payroll_id}/journal-entry",
         handle_gusto_journal_entry,

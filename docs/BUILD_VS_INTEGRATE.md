@@ -1,39 +1,82 @@
 # Build vs Integrate Decisions (Gastown + Moltbot Extensions)
 
-This document captures recommended decisions for parity work. Items marked
-"Decision Needed" require explicit product approval.
+**Decision Date:** 2026-01-28
+**Decision:** BUILD all features independently in Aragora, adopting patterns with attribution.
+
+This document captures finalized decisions for parity work. The guiding principle is to
+**reimplement features in Aragora** rather than depend on external repos, while adopting
+good patterns from Gastown and Moltbot with proper attribution.
+
+---
+
+## Attribution Requirements
+
+All reimplemented patterns must include attribution in docstrings:
+
+```python
+"""
+Pattern: [Pattern Name]
+Inspired by: [Gastown/Moltbot] (https://github.com/[repo])
+Aragora adaptation: [Description of how adapted for Aragora]
+"""
+```
+
+---
 
 ## Gastown Extension
 
-| Capability | Recommendation | Rationale | Decision Needed |
+| Capability | Decision | Status | Attribution |
 | --- | --- | --- | --- |
-| Git worktree hook persistence | **Build** | Deeply tied to Aragora audit + policy model; needs enterprise-grade controls | No |
-| Rig / workspace abstraction | **Build** | Maps to TenantContext and core orchestration | No |
-| Convoy tracking | **Build** | Extends workflow engine + task decomposer | No |
-| Mayor coordinator | **Build** | Must respect Aragora governance + approval flows | No |
-| CLI UX compatibility | **Integrate / mimic** | Keep CLI semantics familiar; can map commands to Aragora endpoints | **Yes** |
+| Git worktree hook persistence | **BUILD** | DONE | `fabric/hooks.py` - Gastown GUPP |
+| Rig / workspace abstraction | **BUILD** | DONE | `workspace/rig.py` - Gastown Rigs |
+| Convoy tracking | **BUILD** | DONE | `workspace/convoy.py` - Gastown Convoys |
+| Mayor coordinator | **BUILD** | DONE | `nomic/mayor_coordinator.py` - Gastown Mayor |
+| CLI UX compatibility | **BUILD** | DONE | Native Aragora CLI with familiar semantics |
+| Refinery (merge queue) | **BUILD** | PENDING | New `workspace/refinery.py` - Gastown Refinery |
+| Nudge (inter-agent mail) | **BUILD** | PENDING | New `fabric/nudge.py` - Gastown Nudge |
 
 ## Moltbot Extension
 
-| Capability | Recommendation | Rationale | Decision Needed |
+| Capability | Decision | Status | Attribution |
 | --- | --- | --- | --- |
-| Local gateway daemon | **Build or Fork** | Must be trusted; Moltbot gateway could bootstrap | **Yes** |
-| Live Canvas UI | **Integrate** | UI-heavy; reuse existing open-source canvas where possible | **Yes** |
-| Voice wake word | **Integrate** | Hardware/ML heavy; use established frameworks | **Yes** |
-| Onboarding wizard | **Build** | Product-specific, enterprise-friendly | No |
-| Device nodes | **Build** | Requires strict policy integration | No |
-| Computer-use sandbox | **Build** | Security-critical; enforce policy/audit by design | No |
+| Local gateway daemon | **BUILD** | IN PROGRESS | `gateway/server.py` - Moltbot local-first |
+| Multi-channel inbox | **BUILD** | DONE | `gateway/inbox.py` - Moltbot unified inbox |
+| Multi-agent routing | **BUILD** | DONE | `gateway/router.py` |
+| Device registry | **BUILD** | DONE | `gateway/device_registry.py` |
+| Live Canvas UI | **BUILD** | EXISTS | `canvas/manager.py` - use existing infra |
+| Voice wake word | **BUILD** | PARTIAL | Integrate proven framework (e.g., Picovoice) |
+| Onboarding wizard | **BUILD** | PENDING | New `onboarding/wizard.py` - Moltbot pattern |
+| Device nodes | **BUILD** | DONE | `gateway/device_registry.py` |
+| Computer-use sandbox | **BUILD** | PENDING | New `sandbox/computer_use.py` |
+| Security pairing | **BUILD** | PARTIAL | Extend `gateway/device_registry.py` |
 
 ## Cross-cutting
 
-| Capability | Recommendation | Rationale | Decision Needed |
+| Capability | Decision | Status | Notes |
 | --- | --- | --- | --- |
-| Agent Fabric | **Build** | Core infrastructure; must be first-party | No |
-| Policy engine extensions | **Build** | Enterprise-grade guardrails | No |
-| Audit + replay | **Build** | Compliance requirement | No |
+| Agent Fabric | **BUILD** | DONE | `aragora/fabric/` - 100% complete |
+| Policy engine | **BUILD** | DONE | `fabric/policy.py` |
+| Budget enforcement | **BUILD** | DONE | `fabric/budget.py` |
+| Audit + replay | **BUILD** | DONE | `gauntlet/receipt.py` |
+| RBAC gates for computer use | **BUILD** | PENDING | Integrate with `rbac/decorators.py` |
 
-## Open Questions
+---
 
-1. Do we want Gastown CLI compatibility (same commands) or a native Aragora CLI?
-2. Should Moltbot gateway be forked for speed or built for security/compliance?
-3. Which canvas/voice stacks are acceptable from a security and licensing standpoint?
+## Resolved Questions
+
+1. **CLI compatibility:** Native Aragora CLI. No external dependency.
+2. **Gateway approach:** Build minimal secure gateway from scratch.
+3. **Canvas/voice stacks:** Use permissive-licensed frameworks (Picovoice for voice wake, existing canvas infra).
+
+---
+
+## Implementation Priority
+
+| Priority | Module | Effort | Pattern Source |
+| --- | --- | --- | --- |
+| P0 | `gateway/server.py` - HTTP server | 300-400 lines | Moltbot |
+| P1 | `gateway/persistence.py` | 400-500 lines | Moltbot |
+| P2 | `sandbox/computer_use.py` | 600-800 lines | Anthropic patterns |
+| P3 | `workspace/refinery.py` | 300-400 lines | Gastown |
+| P4 | `onboarding/wizard.py` | 300-400 lines | Moltbot |
+| P5 | `fabric/nudge.py` | 200-300 lines | Gastown |

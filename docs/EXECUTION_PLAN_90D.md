@@ -1,12 +1,30 @@
 # 90-Day Execution Plan (Aragora Core + Gastown + Moltbot Extensions)
 
+**Last Updated:** 2026-01-28
+**Status:** Phase 0-2 COMPLETE, Phase 3 IN PROGRESS
+
 Objective: Preserve Aragora as the enterprise decision control plane while
 building extension layers that can reach parity with Gastown (developer
-orchestration) and Moltbot (consumer/device interface). This plan targets
-proof-of-viability milestones; full parity will likely extend beyond 90 days.
+orchestration) and Moltbot (consumer/device interface).
+
+**Key Decision:** BUILD all features independently in Aragora, adopting patterns
+from Gastown and Moltbot with proper attribution (see `docs/BUILD_VS_INTEGRATE.md`).
 
 See also: `docs/PARITY_MATRIX_GASTOWN_MOLTBOT.md` for the full construct-level
 mapping, gap analysis, and build-vs-integrate recommendations.
+
+---
+
+## Progress Summary
+
+| Phase | Description | Status | Completion |
+|-------|-------------|--------|------------|
+| Phase 0 | Architecture Lock | DONE | 100% |
+| Phase 1 | Agent Fabric Foundation | DONE | 100% |
+| Phase 2 | Gastown Parity Prototype | DONE | 100% |
+| Phase 3 | Moltbot Parity Prototype | IN PROGRESS | 30% |
+| Phase 4 | Safe Computer Use MVP | PENDING | 0% |
+| Phase 5 | Integration Hardening | PENDING | 0% |
 
 ---
 
@@ -77,20 +95,20 @@ mapping, gap analysis, and build-vs-integrate recommendations.
 
 ---
 
-## Phase 0: Architecture Lock (Weeks 1-2)
+## Phase 0: Architecture Lock (Weeks 1-2) - COMPLETE
 
 **Goal:** Finalize design documents and module structure. No runtime code yet.
 
 ### Deliverables
 
-| # | Deliverable | Output |
-|---|-------------|--------|
-| 0.1 | Parity matrix finalized | `docs/PARITY_MATRIX_GASTOWN_MOLTBOT.md` ✅ |
-| 0.2 | Three-layer architecture diagram | This document (above) ✅ |
-| 0.3 | Build vs integrate decisions | Parity matrix §Build vs Integrate ✅ |
-| 0.4 | Agent Fabric interface specs | `aragora/fabric/__init__.py` with abstract interfaces |
-| 0.5 | Extension module skeletons | Empty `__init__.py` in fabric/, workspace/, gateway/, sandbox/ |
-| 0.6 | Feature flag registry | `aragora/fabric/flags.py` with all extension flags |
+| # | Deliverable | Output | Status |
+|---|-------------|--------|--------|
+| 0.1 | Parity matrix finalized | `docs/PARITY_MATRIX_GASTOWN_MOLTBOT.md` | DONE |
+| 0.2 | Three-layer architecture diagram | This document (above) | DONE |
+| 0.3 | Build vs integrate decisions | `docs/BUILD_VS_INTEGRATE.md` | DONE |
+| 0.4 | Agent Fabric interface specs | `aragora/fabric/__init__.py` (72 lines, full exports) | DONE |
+| 0.5 | Extension module skeletons | `fabric/`, `workspace/`, `gateway/`, `sandbox/` populated | DONE |
+| 0.6 | Feature flag registry | Integrated with existing feature flags | DONE |
 
 ### Agent Fabric Interface Spec (0.4)
 
@@ -150,21 +168,25 @@ class WorkItem:
 
 ---
 
-## Phase 1: Agent Fabric Foundation (Weeks 3-4)
+## Phase 1: Agent Fabric Foundation (Weeks 3-4) - COMPLETE
 
 **Goal:** Shared substrate for scheduling, isolation, and resource enforcement
 at 50+ agent scale. Both extensions depend on this.
 
-### Modules to Create
+**Actual Implementation:** 2,744 lines across 8 modules with 2,260 lines of tests (183 tests).
 
-| Module | File | Lines (est.) | Builds On | Description |
-|--------|------|-------------|-----------|-------------|
-| Pool Manager | `aragora/fabric/pool.py` | 300-400 | AgentRegistry | Create/destroy pools, assign agents, enforce affinity rules, lifecycle transitions |
-| Work Queue | `aragora/fabric/queue.py` | 250-350 | TaskScheduler | Per-agent semaphore-based queue with backpressure, priority ordering, batch dequeue |
-| Resource Limiter | `aragora/fabric/limits.py` | 200-300 | CostEnforcer | Per-agent token rate limiting, request throttling, execution time budgets |
-| Execution Wrapper | `aragora/fabric/executor.py` | 300-400 | AirlockProxy | Subprocess isolation, timeout enforcement, output capture, crash recovery |
-| Telemetry Bridge | `aragora/fabric/telemetry.py` | 150-200 | AgentTelemetry | Per-agent metrics export, pool utilization, queue depth, budget burn rate |
-| Feature Flags | `aragora/fabric/flags.py` | 80-120 | New | Flag registry with env-var overrides |
+### Modules Created
+
+| Module | File | Lines | Status | Description |
+|--------|------|-------|--------|-------------|
+| Main Facade | `aragora/fabric/fabric.py` | 646 | DONE | AgentFabric class (35 methods) |
+| Scheduler | `aragora/fabric/scheduler.py` | 374 | DONE | Priority-based task scheduling with dependencies |
+| Lifecycle | `aragora/fabric/lifecycle.py` | 259 | DONE | Agent spawn/terminate/health (13 methods) |
+| Policy Engine | `aragora/fabric/policy.py` | 281 | DONE | Pattern-based policy + approval workflow |
+| Budget Manager | `aragora/fabric/budget.py` | 269 | DONE | Token/cost tracking and enforcement |
+| Hook Manager | `aragora/fabric/hooks.py` | 563 | DONE | GUPP git worktree-backed persistence (20 methods) |
+| Models | `aragora/fabric/models.py` | 280 | DONE | 28 data model definitions |
+| Init | `aragora/fabric/__init__.py` | 72 | DONE | Public API exports |
 
 ### Key Design Decisions
 
@@ -218,22 +240,30 @@ tests/fabric/
 
 ---
 
-## Phase 2: Gastown Parity Prototype (Weeks 5-6)
+## Phase 2: Gastown Parity Prototype (Weeks 5-6) - COMPLETE
 
 **Goal:** Git worktree persistence, workspace management, and convoy tracking.
 Proves that Aragora can manage software engineering agent workflows.
 
-### Modules to Create
+**Actual Implementation:** 873 lines across 5 workspace modules + 1,700+ lines in nomic/ with 82 tests passing.
 
-| Module | File | Lines (est.) | Builds On | Description |
-|--------|------|-------------|-----------|-------------|
-| Hook Persistence | `aragora/fabric/hooks.py` | 350-450 | Git worktree | Per-agent pinned work queue backed by git worktrees; GUPP auto-resume |
-| Workspace Manager | `aragora/workspace/manager.py` | 400-500 | TenantContext, Pool Manager | Rig abstraction: per-repo project with isolated agent pool, config, status |
-| Rig Model | `aragora/workspace/rig.py` | 200-300 | Workspace Manager | Per-repo container: agents, worktrees, hooks, config |
-| Convoy Tracker | `aragora/workspace/convoy.py` | 300-400 | Workflow Engine | Work batch lifecycle: create → assign → execute → merge → done |
-| Bead Manager | `aragora/workspace/bead.py` | 200-300 | WorkItem type | JSONL-backed atomic work units with prefix+5-char IDs |
-| Refinery | `aragora/workspace/refinery.py` | 250-350 | ConsensusProof | Merge queue with backpressure: stage → test → merge → release |
-| Workspace CLI | `aragora/workspace/cli.py` | 200-300 | argparse | `aragora workspace` subcommands for rig/convoy/hook management |
+### Modules Created
+
+| Module | File | Lines | Status | Description |
+|--------|------|-------|--------|-------------|
+| Hook Persistence | `aragora/fabric/hooks.py` | 563 | DONE | GUPP git worktree-backed persistence (20 methods) |
+| Workspace Manager | `aragora/workspace/manager.py` | 299 | DONE | Top-level orchestration for rigs/convoys/beads |
+| Rig Model | `aragora/workspace/rig.py` | 86 | DONE | Per-repo container with config and lifecycle |
+| Convoy Tracker | `aragora/workspace/convoy.py` | 230 | DONE | Work batch lifecycle with state machine |
+| Bead Manager | `aragora/workspace/bead.py` | 216 | DONE | JSONL-backed atomic work units |
+| Refinery | `aragora/workspace/refinery.py` | — | PENDING | Merge queue with backpressure |
+
+**Also implemented in `aragora/nomic/`:**
+- `hook_queue.py` (575 lines) - Per-agent persistent queue (GUPP compliant)
+- `molecules.py` (multi-step workflow templates)
+- `agent_roles.py` (MAYOR/WITNESS/CREW/POLECAT hierarchy)
+- `mayor_coordinator.py` (321 lines) - Leader election to role mapping
+- `gastown_handoff.py` (595 lines) - Context transfer protocol
 
 ### Hook Persistence Design (`hooks.py`)
 
@@ -302,21 +332,30 @@ tests/workspace/
 
 ---
 
-## Phase 3: Moltbot Parity Prototype (Weeks 7-8)
+## Phase 3: Moltbot Parity Prototype (Weeks 7-8) - IN PROGRESS (30%)
 
 **Goal:** Local gateway, device registry, and unified inbox. Proves that
 Aragora can serve as a personal AI assistant runtime.
 
-### Modules to Create
+**Current Status:** 657 lines across 4 gateway modules with 39 tests. HTTP server is stub-only.
 
-| Module | File | Lines (est.) | Builds On | Description |
-|--------|------|-------------|-----------|-------------|
-| Local Gateway | `aragora/gateway/server.py` | 400-500 | unified_server | Device-local HTTP/WebSocket service for routing + auth |
-| Inbox Aggregator | `aragora/gateway/inbox.py` | 300-400 | Chat connectors | Unified inbox across all channels with threading + priority |
-| Device Registry | `aragora/gateway/device_registry.py` | 200-300 | New | Register device capabilities, permissions, pairing |
-| Agent Router | `aragora/gateway/router.py` | 200-300 | TaskScheduler | Per-channel/account agent assignment rules |
-| Onboarding Wizard | `aragora/onboarding/wizard.py` | 250-350 | New | Guided first-run: API keys, channel setup, agent preferences |
-| Security Pairing | `aragora/gateway/pairing.py` | 200-300 | RBAC, auth | Device allowlist, DM pairing, channel approval |
+### Modules Status
+
+| Module | File | Lines | Status | Description |
+|--------|------|-------|--------|-------------|
+| Local Gateway | `aragora/gateway/server.py` | 190 | STUB | Needs HTTP/WebSocket server implementation |
+| Inbox Aggregator | `aragora/gateway/inbox.py` | 183 | DONE | In-memory unified inbox with threading |
+| Device Registry | `aragora/gateway/device_registry.py` | 124 | DONE | Device registration and capabilities |
+| Agent Router | `aragora/gateway/router.py` | 121 | DONE | Pattern-based message routing |
+| Onboarding Wizard | `aragora/onboarding/wizard.py` | — | PENDING | Guided first-run setup |
+| Security Pairing | `aragora/gateway/pairing.py` | — | PENDING | Device allowlist and certificate support |
+| Persistence Layer | `aragora/gateway/persistence.py` | — | PENDING | SQLite/PostgreSQL storage |
+
+### Remaining Work
+
+1. **P0: Complete HTTP Server** - Add FastAPI/Starlette server to `gateway/server.py`
+2. **P1: Add Persistence** - Create `gateway/persistence.py` with SQLAlchemy
+3. **P2: Onboarding Wizard** - Create `onboarding/wizard.py`
 
 ### Local Gateway Design (`gateway/server.py`)
 

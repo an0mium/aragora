@@ -344,7 +344,13 @@ def setup_voice_routes(app: "Application", handler: Optional[VoiceHandler] = Non
     if handler is None:
         handler = VoiceHandler()
 
-    # Voice webhook routes
+    # v1 canonical routes
+    app.router.add_post("/api/v1/voice/inbound", handler.handle_inbound)
+    app.router.add_post("/api/v1/voice/status", handler.handle_status)
+    app.router.add_post("/api/v1/voice/gather", handler.handle_gather)
+    app.router.add_post("/api/v1/voice/gather/confirm", handler.handle_gather_confirm)
+
+    # legacy routes
     app.router.add_post("/api/voice/inbound", handler.handle_inbound)
     app.router.add_post("/api/voice/status", handler.handle_status)
     app.router.add_post("/api/voice/gather", handler.handle_gather)
