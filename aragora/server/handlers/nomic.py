@@ -119,6 +119,9 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
     ) -> None:
         """Emit an event to the Nomic Loop stream with retry logic.
 
+        Uses non-blocking retry scheduling to avoid blocking the event loop.
+        Retries are scheduled asynchronously using asyncio tasks.
+
         Args:
             emit_method: Name of the stream method to call (e.g., "emit_loop_started")
             *args: Positional arguments for the emit method
@@ -134,29 +137,42 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         if not method:
             return
 
-        last_error: Exception | None = None
-        for attempt in range(max_retries):
+        # Schedule async emission without blocking
+        async def _do_emit_with_retry():
+            last_error: Exception | None = None
+            for attempt in range(max_retries):
+                try:
+                    await method(*args, **kwargs)
+                    return  # Success
+                except (ConnectionError, OSError, TimeoutError) as e:
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2**attempt)
+                        logger.debug(
+                            f"Nomic stream emission attempt {attempt + 1} failed with connection error, "
+                            f"retrying in {delay:.2f}s: {e}"
+                        )
+                        await asyncio.sleep(delay)
+                except Exception as e:
+                    logger.warning(f"Nomic stream emission unexpected error: {e}")
+                    last_error = e
+                    break  # Don't retry unexpected errors
+
+            logger.warning(
+                f"Nomic stream emission failed after {max_retries} attempts "
+                f"for {emit_method}: {last_error}"
+            )
+
+        # Schedule the emission task without blocking
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_do_emit_with_retry())
+        except RuntimeError:
+            # No running event loop - use _run_async as fallback (single attempt)
             try:
                 _run_async(method(*args, **kwargs))
-                return  # Success
-            except (ConnectionError, OSError, TimeoutError) as e:
-                last_error = e
-                if attempt < max_retries - 1:
-                    delay = base_delay * (2**attempt)
-                    logger.debug(
-                        f"Nomic stream emission attempt {attempt + 1} failed with connection error, "
-                        f"retrying in {delay:.2f}s: {e}"
-                    )
-                    time.sleep(delay)
             except Exception as e:
-                logger.warning(f"Nomic stream emission unexpected error: {e}")
-                last_error = e
-                break  # Don't retry unexpected errors
-
-        logger.warning(
-            f"Nomic stream emission failed after {max_retries} attempts "
-            f"for {emit_method}: {last_error}"
-        )
+                logger.warning(f"Nomic stream emission failed (no event loop): {e}")
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""

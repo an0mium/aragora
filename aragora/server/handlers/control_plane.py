@@ -106,8 +106,8 @@ class ControlPlaneHandler(BaseHandler):
     ) -> None:
         """Emit an event to the control plane stream with retry logic.
 
-        Uses exponential backoff for transient failures. After all retries
-        exhausted, logs a warning but doesn't fail the main request.
+        Uses non-blocking retry scheduling to avoid blocking the thread pool.
+        Retries are scheduled asynchronously using asyncio tasks when possible.
 
         Args:
             emit_method: Name of the emit method on the stream server
@@ -124,27 +124,37 @@ class ControlPlaneHandler(BaseHandler):
         if not method:
             return
 
-        last_error: Exception | None = None
+        # Schedule async emission without blocking
+        async def _do_emit_with_retry():
+            last_error: Exception | None = None
+            for attempt in range(max_retries):
+                try:
+                    await method(*args, **kwargs)
+                    return  # Success
+                except Exception as e:
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2**attempt)
+                        logger.debug(
+                            f"Stream emission attempt {attempt + 1} failed, "
+                            f"retrying in {delay:.2f}s: {e}"
+                        )
+                        await asyncio.sleep(delay)
 
-        for attempt in range(max_retries):
+            logger.warning(
+                f"Stream emission failed after {max_retries} attempts for {emit_method}: {last_error}"
+            )
+
+        # Schedule the emission task without blocking
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_do_emit_with_retry())
+        except RuntimeError:
+            # No running event loop - use _run_async as fallback (single attempt)
             try:
                 _run_async(method(*args, **kwargs))
-                return  # Success
             except Exception as e:
-                last_error = e
-                if attempt < max_retries - 1:
-                    # Exponential backoff: 0.1, 0.2, 0.4 seconds
-                    delay = base_delay * (2**attempt)
-                    logger.debug(
-                        f"Stream emission attempt {attempt + 1} failed, "
-                        f"retrying in {delay:.2f}s: {e}"
-                    )
-                    time.sleep(delay)
-
-        # All retries exhausted
-        logger.warning(
-            f"Stream emission failed after {max_retries} attempts for {emit_method}: {last_error}"
-        )
+                logger.warning(f"Stream emission failed (no event loop): {e}")
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
