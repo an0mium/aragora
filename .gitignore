@@ -131,6 +131,9 @@ aragora/live/playwright/.cache/
 .nomic/*.jsonl
 .nomic/*.md
 .nomic/*_transcript*
+.nomic/context/*.tsv
+.nomic/rlm/*.txt
+.nomic/rlm/*.json
 
 # Web cache
 .web_cache/
