@@ -57047,7 +57047,7 @@ export interface operations {
             };
         };
     };
-    getDebateGraphStatsById: {
+    getDebateGraphStats: {
         parameters: {
             query?: never;
             header?: never;
