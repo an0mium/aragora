@@ -172,9 +172,7 @@ class LoggingNotifier(ApprovalNotifier):
 
     async def notify_expiry(self, request: ApprovalRequest) -> None:
         """Log expired request."""
-        logger.warning(
-            f"[Approval Expired] {request.id}: {request.context.action_type}"
-        )
+        logger.warning(f"[Approval Expired] {request.id}: {request.context.action_type}")
 
 
 class WebhookNotifier(ApprovalNotifier):
@@ -207,21 +205,15 @@ class WebhookNotifier(ApprovalNotifier):
 
     async def notify_request(self, request: ApprovalRequest) -> None:
         """Send webhook for new request."""
-        await self._send_webhook(
-            {"event": "approval_request", "request": request.to_dict()}
-        )
+        await self._send_webhook({"event": "approval_request", "request": request.to_dict()})
 
     async def notify_decision(self, request: ApprovalRequest) -> None:
         """Send webhook for decision."""
-        await self._send_webhook(
-            {"event": "approval_decision", "request": request.to_dict()}
-        )
+        await self._send_webhook({"event": "approval_decision", "request": request.to_dict()})
 
     async def notify_expiry(self, request: ApprovalRequest) -> None:
         """Send webhook for expiry."""
-        await self._send_webhook(
-            {"event": "approval_expired", "request": request.to_dict()}
-        )
+        await self._send_webhook({"event": "approval_expired", "request": request.to_dict()})
 
 
 class ApprovalWorkflow:
@@ -506,9 +498,7 @@ class ApprovalWorkflow:
             priority = request.priority.value
             by_priority[priority] = by_priority.get(priority, 0) + 1
 
-        pending = [
-            r for r in self._requests.values() if r.status == ApprovalStatus.PENDING
-        ]
+        pending = [r for r in self._requests.values() if r.status == ApprovalStatus.PENDING]
         avg_wait_time = 0.0
         if pending:
             total_wait = sum(time.time() - r.created_at for r in pending)

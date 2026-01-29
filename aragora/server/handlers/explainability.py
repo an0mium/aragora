@@ -70,7 +70,7 @@ def _cache_decision(debate_id: str, decision: Any) -> None:
 
     # Prune old entries
     if len(_decision_cache) > 100:
-        oldest = min(_cache_timestamps, key=_cache_timestamps.get)  # type: ignore[arg-type]
+        oldest = min(_cache_timestamps, key=lambda k: _cache_timestamps.get(k, 0.0))
         del _decision_cache[oldest]
         del _cache_timestamps[oldest]
 
@@ -883,12 +883,12 @@ h3 {{ color: #666; }}
             return error_response("Batch job not yet started", 202)
 
         if job.status == BatchStatus.PROCESSING and not include_partial:
-            return json_response(  # type: ignore[call-arg]
+            return json_response(
                 {
                     **job.to_dict(),
                     "message": "Batch still processing. Use ?include_partial=true for partial results.",
                 },
-                status_code=202,
+                status=202,
             )
 
         # Pagination
@@ -958,18 +958,15 @@ h3 {{ color: #666; }}
             if len(debates) < 2:
                 return error_response("Need at least 2 valid debates to compare", 404)
 
-            # Build comparison
-            comparison = {
-                "debates_compared": list(debates.keys()),
-                "comparison": {},
-            }
+            # Build comparison - use Dict[str, Any] to allow dynamic keys
+            comparison_data: Dict[str, Any] = {}
 
             if "confidence" in compare_fields:
-                comparison["comparison"]["confidence"] = {  # type: ignore[index]
+                comparison_data["confidence"] = {
                     debate_id: decision.confidence for debate_id, decision in debates.items()
                 }
-                confidences = list(comparison["comparison"]["confidence"].values())  # type: ignore[index]
-                comparison["comparison"]["confidence_stats"] = {  # type: ignore[index]
+                confidences = list(comparison_data["confidence"].values())
+                comparison_data["confidence_stats"] = {
                     "min": min(confidences),
                     "max": max(confidences),
                     "avg": sum(confidences) / len(confidences),
@@ -977,10 +974,10 @@ h3 {{ color: #666; }}
                 }
 
             if "consensus_reached" in compare_fields:
-                comparison["comparison"]["consensus_reached"] = {  # type: ignore[index]
+                comparison_data["consensus_reached"] = {
                     debate_id: decision.consensus_reached for debate_id, decision in debates.items()
                 }
-                comparison["comparison"]["consensus_agreement"] = (  # type: ignore[index]
+                comparison_data["consensus_agreement"] = (
                     len(set(d.consensus_reached for d in debates.values())) == 1
                 )
 
@@ -993,16 +990,21 @@ h3 {{ color: #666; }}
                                 factor_names[f.name] = {}
                             factor_names[f.name][debate_id] = f.contribution
 
-                comparison["comparison"]["contributing_factors"] = factor_names  # type: ignore[index]
-                comparison["comparison"]["common_factors"] = [  # type: ignore[index]
+                comparison_data["contributing_factors"] = factor_names
+                comparison_data["common_factors"] = [
                     name for name, vals in factor_names.items() if len(vals) == len(debates)
                 ]
 
             if "evidence_quality" in compare_fields:
-                comparison["comparison"]["evidence_quality"] = {  # type: ignore[index]
+                comparison_data["evidence_quality"] = {
                     debate_id: getattr(decision, "evidence_quality_score", None)
                     for debate_id, decision in debates.items()
                 }
+
+            comparison: Dict[str, Any] = {
+                "debates_compared": list(debates.keys()),
+                "comparison": comparison_data,
+            }
 
             return json_response(comparison)
 

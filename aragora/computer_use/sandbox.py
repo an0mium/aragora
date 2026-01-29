@@ -210,9 +210,7 @@ class DockerSandboxProvider(SandboxProvider):
             instance.status = SandboxStatus.RUNNING
             instance.started_at = time.time()
 
-            logger.info(
-                f"Started Docker sandbox {instance.id}: {instance.container_id[:12]}"
-            )
+            logger.info(f"Started Docker sandbox {instance.id}: {instance.container_id[:12]}")
 
         except Exception as e:
             instance.status = SandboxStatus.ERROR
@@ -506,9 +504,7 @@ class SandboxManager:
 
         provider = self._providers.get(instance.config.sandbox_type)
         if not provider:
-            raise RuntimeError(
-                f"No provider for sandbox type: {instance.config.sandbox_type}"
-            )
+            raise RuntimeError(f"No provider for sandbox type: {instance.config.sandbox_type}")
 
         return await provider.execute(instance, command, timeout)
 

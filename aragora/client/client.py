@@ -934,7 +934,7 @@ class AragoraClient:
         if hasattr(debate, "debate_id"):
             debate_id = debate.debate_id
         else:
-            debate_id = debate.get("debate_id") if isinstance(debate, dict) else None  # type: ignore[union-attr]
+            debate_id = debate.get("debate_id") if isinstance(debate, dict) else None
         if not debate_id:
             raise ValueError("No debate_id in create_debate response")
 

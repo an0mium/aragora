@@ -646,17 +646,18 @@ class NotificationConfigStore:
 
         recipients = []
         for row in rows:
+            # Access by index for compatibility with sqlite Row objects
             recipients.append(
                 StoredEmailRecipient(
-                    org_id=row["org_id"],  # type: ignore[call-overload]
-                    email=row["email"],  # type: ignore[call-overload]
-                    name=row["name"],  # type: ignore[call-overload]
+                    org_id=str(row[0]),
+                    email=str(row[1]),
+                    name=str(row[2]) if row[2] else None,
                     preferences=(
-                        json.loads(row["preferences_json"])  # type: ignore[call-overload]
-                        if row["preferences_json"]  # type: ignore[call-overload]
+                        json.loads(str(row[3]))
+                        if row[3]
                         else {}
                     ),
-                    created_at=row["created_at"],  # type: ignore[call-overload]
+                    created_at=float(row[4]),
                 )
             )
         return recipients
