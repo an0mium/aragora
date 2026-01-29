@@ -470,14 +470,16 @@ class TestDeprecatedEndpoint:
     """Tests for @deprecated_endpoint decorator."""
 
     def test_returns_result(self):
-        """Should return handler result."""
+        """Should return handler result with deprecation headers."""
 
         @deprecated_endpoint()
         def handler():
             return {"result": "data"}
 
         result = handler()
-        assert result == {"result": "data"}
+        assert result["result"] == "data"
+        # Deprecated endpoint adds headers to dict results
+        assert "headers" in result
 
     def test_adds_deprecation_header(self):
         """Should add Deprecation header."""

@@ -25,9 +25,65 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Protocol, TYPE_CHECKING, Union
 
 from aragora.config import MAX_ROUNDS
+
+if TYPE_CHECKING:
+    from aragora.control_plane.coordinator import ControlPlaneCoordinator
+
+
+# =============================================================================
+# Type Protocols for External Connectors
+# =============================================================================
+
+
+class ConfluenceConnectorProtocol(Protocol):
+    """Protocol for Confluence connector with page content fetching."""
+
+    async def get_page_content(self, page_id: str) -> Optional[str]:
+        """Fetch content from a Confluence page."""
+        ...
+
+
+class GitHubConnectorProtocol(Protocol):
+    """Protocol for GitHub connector with PR/issue content fetching."""
+
+    async def get_pr_content(self, owner: str, repo: str, number: int) -> Optional[str]:
+        """Fetch content from a GitHub PR."""
+        ...
+
+    async def get_issue_content(self, owner: str, repo: str, number: int) -> Optional[str]:
+        """Fetch content from a GitHub issue."""
+        ...
+
+
+class JiraConnectorProtocol(Protocol):
+    """Protocol for Jira connector with issue fetching."""
+
+    async def get_issue(self, issue_key: str) -> Optional[Dict[str, Any]]:
+        """Fetch a Jira issue."""
+        ...
+
+
+class EmailSenderProtocol(Protocol):
+    """Protocol for email sending function."""
+
+    async def __call__(self, to: str, subject: str, body: str) -> None:
+        """Send an email."""
+        ...
+
+
+class KnowledgeMoundProtocol(Protocol):
+    """Protocol for Knowledge Mound search interface."""
+
+    async def search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Search the knowledge mound."""
+        ...
+
+
+# Type alias for recommend_agents function
+RecommendAgentsFunc = Callable[[str], "Any"]
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -763,7 +819,7 @@ class OrchestrationHandler(SecureHandler):
     async def _fetch_document_context(self, source: KnowledgeContextSource) -> Optional[str]:
         """Fetch content from knowledge mound."""
         try:
-            from aragora.knowledge.mound.core import get_knowledge_mound  # type: ignore[attr-defined]
+            from aragora.knowledge.mound import get_knowledge_mound
 
             mound = get_knowledge_mound()
             if mound:

@@ -338,7 +338,7 @@ class KMCheckpointHandler(BaseHandler):
             check_and_record_slo("km_checkpoint", latency_ms)
 
     @rate_limit(rpm=30)
-    def _get_checkpoint(self, handler, name: str) -> HandlerResult:
+    async def _get_checkpoint(self, handler: Any, name: str) -> HandlerResult:
         """Get checkpoint details by name.
 
         GET /api/km/checkpoints/{name}
@@ -354,16 +354,22 @@ class KMCheckpointHandler(BaseHandler):
 
         try:
             store = self._get_checkpoint_store()
-            metadata = store.get_checkpoint(name)  # type: ignore[attr-defined]
+            # Use get_checkpoint_metadata which is the actual async method
+            metadata = await store.get_checkpoint_metadata(name)
 
             if metadata is None:
                 return error_response(f"Checkpoint '{name}' not found", status=404)
+
+            # Handle created_at which may be string or datetime
+            created_at_str = metadata.created_at
+            if hasattr(metadata.created_at, "isoformat"):
+                created_at_str = metadata.created_at.isoformat()
 
             return success_response(
                 {
                     "name": metadata.name,
                     "description": metadata.description,
-                    "created_at": metadata.created_at.isoformat(),
+                    "created_at": created_at_str,
                     "node_count": metadata.node_count,
                     "size_bytes": metadata.size_bytes,
                     "compressed": metadata.compressed,
@@ -376,7 +382,7 @@ class KMCheckpointHandler(BaseHandler):
             return error_response("Checkpoint service unavailable", status=503)
 
     @rate_limit(rpm=5, limiter_name="km_checkpoint_write")
-    def _delete_checkpoint(self, handler, name: str) -> HandlerResult:
+    async def _delete_checkpoint(self, handler: Any, name: str) -> HandlerResult:
         """Delete a checkpoint.
 
         DELETE /api/km/checkpoints/{name}
@@ -396,7 +402,9 @@ class KMCheckpointHandler(BaseHandler):
         try:
             store = self._get_checkpoint_store()
 
-            if not store.delete_checkpoint(name):
+            # delete_checkpoint is async in the actual implementation
+            deleted = await store.delete_checkpoint(name)
+            if not deleted:
                 return error_response(f"Checkpoint '{name}' not found", status=404)
 
             success = True

@@ -13,7 +13,15 @@ import asyncio
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 from aragora.control_plane.health import HealthCheck, HealthMonitor, HealthStatus
 from aragora.control_plane.registry import (
@@ -31,6 +39,33 @@ from aragora.observability import (
     add_span_attributes,
 )
 
+# Type-only imports for optional modules
+if TYPE_CHECKING:
+    from aragora.config.redis import RedisHASettings as _RedisHASettings
+    from aragora.control_plane.arena_bridge import (
+        ArenaControlPlaneBridge as _ArenaControlPlaneBridge,
+    )
+    from aragora.control_plane.deliberation import (
+        DeliberationOutcome as _DeliberationOutcome,
+        DeliberationTask as _DeliberationTask,
+    )
+    from aragora.control_plane.policy import (
+        ControlPlanePolicyManager as _ControlPlanePolicyManager,
+        EnforcementLevel as _EnforcementLevel,
+        PolicyViolation as _PolicyViolation,
+    )
+    from aragora.control_plane.watchdog import (
+        IssueSeverity as _IssueSeverity,
+        ThreeTierWatchdog as _ThreeTierWatchdog,
+        WatchdogConfig as _WatchdogConfig,
+        WatchdogIssue as _WatchdogIssue,
+        WatchdogTier as _WatchdogTier,
+    )
+    from aragora.knowledge.mound.adapters.control_plane_adapter import (
+        ControlPlaneAdapter as _ControlPlaneAdapter,
+        TaskOutcome as _TaskOutcome,
+    )
+
 # Policy imports (optional - graceful fallback if not available)
 try:
     from aragora.control_plane.policy import (
@@ -43,10 +78,10 @@ try:
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    ControlPlanePolicyManager = None  # type: ignore[misc]  # Optional module fallback
-    PolicyViolation = None  # type: ignore[misc]  # Optional module fallback
-    PolicyViolationError = None  # type: ignore[misc]  # Optional module fallback
-    EnforcementLevel = None  # type: ignore[misc]  # Optional module fallback
+    ControlPlanePolicyManager: Optional[type[_ControlPlanePolicyManager]] = None
+    PolicyViolation: Optional[type[_PolicyViolation]] = None
+    PolicyViolationError: Optional[type[BaseException]] = None
+    EnforcementLevel: Optional[type[_EnforcementLevel]] = None
 
 # Optional KM integration
 try:
@@ -58,8 +93,8 @@ try:
     HAS_KM_ADAPTER = True
 except ImportError:
     HAS_KM_ADAPTER = False
-    ControlPlaneAdapter = None  # type: ignore[misc]  # Optional module fallback
-    TaskOutcome = None  # type: ignore[misc]  # Optional module fallback
+    ControlPlaneAdapter: Optional[type[_ControlPlaneAdapter]] = None
+    TaskOutcome: Optional[type[_TaskOutcome]] = None
 
 # Optional Arena Bridge
 try:
@@ -78,9 +113,9 @@ try:
     HAS_ARENA_BRIDGE = True
 except ImportError:
     HAS_ARENA_BRIDGE = False
-    ArenaControlPlaneBridge = None  # type: ignore[misc]  # Optional module fallback
-    DeliberationTask = None  # type: ignore[misc]  # Optional module fallback
-    DeliberationOutcome = None  # type: ignore[misc]  # Optional module fallback
+    ArenaControlPlaneBridge: Optional[type[_ArenaControlPlaneBridge]] = None
+    DeliberationTask: Optional[type[_DeliberationTask]] = None
+    DeliberationOutcome: Optional[type[_DeliberationOutcome]] = None
     DELIBERATION_TASK_TYPE = "deliberation"
 
 # Optional Redis HA support
@@ -90,9 +125,9 @@ try:
     HAS_REDIS_HA = True
 except ImportError:
     HAS_REDIS_HA = False
-    RedisHASettings = None  # type: ignore[misc]  # Optional module fallback
-    RedisMode = None  # type: ignore[misc]  # Optional module fallback
-    get_redis_ha_config = None  # type: ignore[misc]  # Optional module fallback
+    RedisHASettings: Optional[type[_RedisHASettings]] = None
+    RedisMode: Optional[type[Any]] = None
+    get_redis_ha_config: Optional[Callable[[], Any]] = None
 
 # Optional Watchdog support (Gastown three-tier monitoring)
 try:
@@ -108,12 +143,12 @@ try:
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
-    ThreeTierWatchdog = None  # type: ignore[misc]  # Optional module fallback
-    WatchdogConfig = None  # type: ignore[misc]  # Optional module fallback
-    WatchdogTier = None  # type: ignore[misc]  # Optional module fallback
-    WatchdogIssue = None  # type: ignore[misc]  # Optional module fallback
-    IssueSeverity = None  # type: ignore[misc]  # Optional module fallback
-    get_watchdog = None  # type: ignore[misc]  # Optional module fallback
+    ThreeTierWatchdog: Optional[type[_ThreeTierWatchdog]] = None
+    WatchdogConfig: Optional[type[_WatchdogConfig]] = None
+    WatchdogTier: Optional[type[_WatchdogTier]] = None
+    WatchdogIssue: Optional[type[_WatchdogIssue]] = None
+    IssueSeverity: Optional[type[_IssueSeverity]] = None
+    get_watchdog: Optional[Callable[[], Any]] = None
 
 logger = get_logger(__name__)
 
