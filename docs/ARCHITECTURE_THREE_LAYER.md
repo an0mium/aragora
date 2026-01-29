@@ -151,11 +151,12 @@ decision control plane with optional Gastown and Moltbot extension layers.
 **Purpose**: Auditable, policy-gated computer control for task execution.
 
 **Components**:
-- `aragora/computer_use/browser.py` - Sandboxed browser automation
-- `aragora/computer_use/shell.py` - Sandboxed shell execution
-- `aragora/computer_use/screen.py` - Screen capture and interaction
-- `aragora/computer_use/approvals.py` - Explicit user approval gates
-- `aragora/computer_use/replay.py` - Action replay and audit
+- `aragora/computer_use/actions.py` - Action definitions (click, type, scroll, wait)
+- `aragora/computer_use/policies.py` - Policy enforcement and rules
+- `aragora/computer_use/approval.py` - Explicit user approval gates
+- `aragora/computer_use/executor.py` - Playwright-based action executor
+- `aragora/computer_use/sandbox.py` - Sandbox providers (process/docker)
+- `aragora/computer_use/orchestrator.py` - Orchestrator + audit trail
 
 **Capabilities**:
 - Browser automation with screenshot verification

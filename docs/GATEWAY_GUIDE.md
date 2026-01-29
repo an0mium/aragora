@@ -166,6 +166,28 @@ await router.add_rule(RoutingRule(
 agent_id = await router.route("slack", message)
 ```
 
+### CapabilityRouter
+
+Route messages based on device capabilities with fallback agents:
+
+```python
+from aragora.gateway import CapabilityRouter, CapabilityRule
+
+router = CapabilityRouter(default_agent="default", device_registry=registry)
+
+await router.add_capability_rule(CapabilityRule(
+    rule_id="video-support",
+    agent_id="video-agent",
+    channel_pattern="slack",
+    required_capabilities=["camera", "mic"],
+    fallback_capabilities=["mic"],
+    fallback_agent_id="audio-agent",
+))
+
+result = await router.route_with_details("slack", message, device_id="device-1")
+print(result.agent_id, result.used_fallback, result.missing_capabilities)
+```
+
 ## HTTP API Endpoints
 
 The gateway exposes these HTTP endpoints:

@@ -206,6 +206,52 @@ config = ComputerUseConfig(
 )
 ```
 
+For richer workflows (audit trail, expiry, and notifications), use the
+approval workflow primitives:
+
+```python
+from aragora.computer_use.approval import (
+    ApprovalWorkflow,
+    ApprovalConfig,
+    ApprovalContext,
+    ApprovalCategory,
+)
+
+workflow = ApprovalWorkflow(
+    config=ApprovalConfig(default_timeout_seconds=300)
+)
+
+context = ApprovalContext(
+    task_id="task-123",
+    action_type="click",
+    action_details={"x": 120, "y": 250},
+    category=ApprovalCategory.SENSITIVE_DATA,
+    reason="Clicking a sensitive field",
+)
+
+request = await workflow.request_approval(context)
+await workflow.approve(request.id, approver_id="admin", reason="Approved")
+```
+
+### Execution and Sandboxing
+
+Use the Playwright executor for browser automation and the sandbox
+manager to isolate execution:
+
+```python
+from aragora.computer_use.executor import PlaywrightActionExecutor
+from aragora.computer_use.sandbox import SandboxManager, SandboxConfig, SandboxType
+
+manager = SandboxManager()
+instance = await manager.create_sandbox(
+    SandboxConfig(sandbox_type=SandboxType.PROCESS)
+)
+await manager.start_sandbox(instance.id)
+
+async with PlaywrightActionExecutor() as executor:
+    await executor.navigate("https://example.com")
+```
+
 ## API Reference
 
 ### ComputerUseOrchestrator

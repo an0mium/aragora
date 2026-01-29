@@ -1,12 +1,14 @@
 # Aragora Project Status
 
-*Last updated: January 27, 2026*
+*Last updated: January 29, 2026*
 
-## Current Release
+## Upcoming (Draft)
+
+Current released version is **v2.4.0** (see "Current Release" below).
 
 ### v2.5.0 - Type Safety & SDK Expansion (January 2026)
 
-**Production Ready** - Aragora 2.5.0 fixes mypy type errors across handlers, expands TypeScript SDK to 79 namespaces, and consolidates bot handlers.
+**Draft (Not Released)** - Summary below reflects work-in-progress notes. Validate against the repo before publication.
 
 #### Key Highlights
 - **Type safety** - Fixed 10+ mypy type errors across server handlers
@@ -58,6 +60,8 @@
   - RBAC permission enforcement tests
 
 ---
+
+## Current Release
 
 ### v2.4.0 - Python SDK Expansion & Knowledge Mound Integration (January 2026)
 

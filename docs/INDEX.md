@@ -16,6 +16,7 @@ Use this index for fast navigation. For a fuller map, see
 | First-time setup | [GETTING_STARTED.md](GETTING_STARTED.md) |
 | Control plane overview | [CONTROL_PLANE.md](CONTROL_PLANE.md) |
 | Control plane operations | [CONTROL_PLANE_GUIDE.md](CONTROL_PLANE_GUIDE.md) |
+| Capability matrix | [CAPABILITY_MATRIX.md](CAPABILITY_MATRIX.md) |
 | API reference | [API_REFERENCE.md](API_REFERENCE.md) |
 | Admin API reference | [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md) |
 | API examples | [API_EXAMPLES.md](API_EXAMPLES.md) |
