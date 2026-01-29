@@ -312,7 +312,7 @@ class KMCheckpointHandler(BaseHandler):
                     KMCheckpointMetadata as CheckpointMeta,
                 )
 
-                metadata = cast(CheckpointMeta, result)
+                metadata = result  # Already CheckpointMeta type
                 ctx["size_bytes"] = metadata.size_bytes
 
             success = True  # noqa: F841

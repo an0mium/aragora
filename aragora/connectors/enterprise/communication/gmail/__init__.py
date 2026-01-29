@@ -35,7 +35,7 @@ from .watch import GmailWatchMixin
 logger = logging.getLogger(__name__)
 
 
-class GmailConnector(
+class GmailConnector(  # type: ignore[misc]
     GmailClientMixin,
     GmailMessagesMixin,
     GmailLabelsMixin,
@@ -110,7 +110,7 @@ class GmailConnector(
         self._gmail_state: Optional[GmailSyncState] = None
 
         # Watch management for Pub/Sub notifications
-        self._watch_task: Optional[asyncio.Task] = None
+        self._watch_task: Optional[asyncio.Task] = None  # type: ignore[assignment]
         self._watch_running: bool = False
 
 
