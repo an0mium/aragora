@@ -170,10 +170,10 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
                     record["fusion_metadata"] = metadata
                 record_id = record.get("id", "unknown")
             else:
-                record.reliability_score = fused_confidence  # type: ignore
+                record.reliability_score = fused_confidence  # type: ignore[attr-defined]
                 if hasattr(record, "metadata"):
-                    record.metadata["km_fused"] = True  # type: ignore
-                    record.metadata["km_fused_confidence"] = fused_confidence  # type: ignore
+                    record.metadata["km_fused"] = True  # type: ignore[index]
+                    record.metadata["km_fused_confidence"] = fused_confidence  # type: ignore[index]
                 record_id = getattr(record, "id", "unknown")
 
             logger.debug(

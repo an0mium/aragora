@@ -22,22 +22,22 @@ try:
 except ImportError:
     LANGCHAIN_AVAILABLE = False
 
-    class BaseCallbackHandler:  # type: ignore
+    class BaseCallbackHandler:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub BaseCallbackHandler when LangChain not installed."""
 
         pass
 
-    class LLMResult:  # type: ignore
+    class LLMResult:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub LLMResult."""
 
         pass
 
-    class AgentAction:  # type: ignore
+    class AgentAction:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub AgentAction."""
 
         pass
 
-    class AgentFinish:  # type: ignore
+    class AgentFinish:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub AgentFinish."""
 
         pass

@@ -237,10 +237,10 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
                     self._beliefs[belief_id]["confidence"] = fused_confidence
                     self._beliefs[belief_id]["km_fused"] = True
             else:
-                record.confidence = fused_confidence  # type: ignore
+                record.confidence = fused_confidence  # type: ignore[attr-defined]
                 if hasattr(record, "metadata"):
-                    record.metadata["km_fused"] = True  # type: ignore
-                    record.metadata["km_fused_confidence"] = fused_confidence  # type: ignore
+                    record.metadata["km_fused"] = True  # type: ignore[index]
+                    record.metadata["km_fused_confidence"] = fused_confidence  # type: ignore[index]
                 record_id = getattr(record, "id", "unknown")
 
             logger.debug(

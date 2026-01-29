@@ -84,9 +84,9 @@ try:
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
-    KnowledgeMound = None  # type: ignore
-    MoundConfig = None  # type: ignore
-    MoundBackend = None  # type: ignore
+    KnowledgeMound = None  # type: ignore[assignment]  # Optional module fallback
+    MoundConfig = None  # type: ignore[assignment]  # Optional module fallback
+    MoundBackend = None  # type: ignore[assignment]  # Optional module fallback
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ try:
     )
 except ImportError:
     UNSTRUCTURED_AVAILABLE = False
-    UnstructuredParser = None  # type: ignore
+    UnstructuredParser = None  # type: ignore[assignment]  # Optional module fallback
 
 
 @dataclass
@@ -492,7 +492,7 @@ class KnowledgePipeline:
             overlap=self.config.chunk_overlap,
         )
 
-        strategy = get_chunking_strategy(strategy_name, **config.__dict__)  # type: ignore
+        strategy = get_chunking_strategy(strategy_name, **config.__dict__)  # type: ignore[arg-type]
         chunks = strategy.chunk(text=text, document_id=document.id)
 
         # Update document
