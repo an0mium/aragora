@@ -19,6 +19,7 @@ Usage:
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
 
@@ -596,8 +597,74 @@ def create_handlers(
         record_replay_fn=record_replay_fn,
     )
 
+    executor = None
+    if os.environ.get("NOMIC_USE_GASTOWN_EXECUTOR", "1") == "1":
+        try:
+            from aragora.nomic.convoy_executor import GastownConvoyExecutor
+
+            implementers = [a for a in agents if a is not None]
+            for extra in (claude_agent, codex_agent):
+                if extra and extra not in implementers:
+                    implementers.append(extra)
+
+            executor = GastownConvoyExecutor(
+                repo_path=aragora_path,
+                implementers=implementers,
+                reviewers=implementers,
+                log_fn=log_fn,
+                stream_emit_fn=stream_emit_fn,
+            )
+            if log_fn:
+                log_fn(
+                    f"  [implement] GastownConvoyExecutor created with {len(implementers)} agents"
+                )
+        except Exception as exc:
+            logger.warning("Failed to initialize GastownConvoyExecutor: %s", exc)
+            executor = None
+
+    if executor is None:
+        try:
+            from aragora.nomic.implement_executor import ConvoyImplementExecutor
+
+            implementer_names = [getattr(a, "name", "") for a in agents if a is not None]
+
+            def _agent_factory(name: str):
+                for agent in agents:
+                    if getattr(agent, "name", "") == name:
+                        return agent
+                return agents[0] if agents else None
+
+            executor = ConvoyImplementExecutor(
+                aragora_path=aragora_path,
+                agents=[n for n in implementer_names if n],
+                agent_factory=_agent_factory if agents else None,
+                max_parallel=4,
+                enable_cross_check=True,
+                log_fn=log_fn,
+            )
+            if log_fn:
+                log_fn(
+                    f"  [implement] ConvoyImplementExecutor created with "
+                    f"{len(implementer_names)} agents"
+                )
+        except Exception as exc:
+            logger.warning("Failed to initialize ConvoyImplementExecutor: %s", exc)
+            executor = None
+
+    async def _generate_implement_plan(design: str, repo_path: Path):
+        from aragora.implement import create_single_task_plan, generate_implement_plan
+
+        try:
+            return await generate_implement_plan(design, repo_path)
+        except Exception as exc:
+            if log_fn:
+                log_fn(f"  [implement] Plan generation failed, using fallback: {exc}")
+            return create_single_task_plan(design, repo_path)
+
     implement_phase = ImplementPhase(
         aragora_path=aragora_path,
+        plan_generator=_generate_implement_plan,
+        executor=executor,
         cycle_count=cycle_count,
         log_fn=log_fn,
         stream_emit_fn=stream_emit_fn,
