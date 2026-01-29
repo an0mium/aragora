@@ -433,14 +433,15 @@ class TestDebateCreateRequest:
 
     def test_defaults(self):
         """Test default values."""
-        from aragora.config import DEFAULT_AGENTS
+        from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
         expected_agents = [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
+        expected_consensus = ConsensusType(DEFAULT_CONSENSUS)
         request = DebateCreateRequest(task="Test task")
         assert request.task == "Test task"
         assert request.agents == expected_agents
-        assert request.rounds == 3
-        assert request.consensus == ConsensusType.MAJORITY
+        assert request.rounds == DEFAULT_ROUNDS
+        assert request.consensus == expected_consensus
         assert request.context is None
         assert request.metadata == {}
 

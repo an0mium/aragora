@@ -509,7 +509,7 @@ class CostOptimizedPrioritizer:
                 uncached_indices.append(i)
 
         if not uncached_indices:
-            return results  # type: ignore
+            return results  # type: ignore[return-value]  # List may have None placeholders
 
         # Score uncached emails with concurrency limit
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -525,7 +525,7 @@ class CostOptimizedPrioritizer:
         for index, result in scored:
             results[index] = result
 
-        return results  # type: ignore
+        return results  # type: ignore[return-value]  # List now fully populated
 
     def get_usage_stats(self) -> UsageStats:
         """Get current usage statistics."""
