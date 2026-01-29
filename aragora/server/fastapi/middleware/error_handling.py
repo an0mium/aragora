@@ -73,7 +73,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
             "code": exc.code,
         }
         if exc.details:
-            content["details"] = exc.details
+            content["details"] = exc.details  # type: ignore[assignment]
 
         headers = {}
         if isinstance(exc, RateLimitError):

@@ -179,7 +179,7 @@ def require_authenticated(
                 auth_ctx = await get_auth_context(request, require_auth=True)
                 # Add auth context to kwargs for use by the handler
                 kwargs["auth_context"] = auth_ctx
-                return await fn(*args, **kwargs)  # type: ignore[return-value]
+                return await fn(*args, **kwargs)  # type: ignore[return-value,misc]
             except UnauthorizedError as e:
                 if on_failure:
                     return on_failure(e)

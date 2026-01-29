@@ -473,7 +473,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             content_type=mime_type,
             size=file_size or len(content),
             url=media_url,
-            content=content,
+            content=content,  # type: ignore[arg-type]
             metadata={"whatsapp_mime_type": mime_type},
         )
 
