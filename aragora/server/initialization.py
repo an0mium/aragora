@@ -1052,20 +1052,24 @@ def init_postgres_stores_sync() -> dict[str, bool]:
     Synchronous wrapper for init_postgres_stores().
 
     Use this when calling from synchronous server startup code.
+
+    NOTE: This function should ONLY be called BEFORE the async event loop starts.
+    asyncpg connection pools are bound to specific event loops. If called from
+    within a running event loop, this will return an empty dict and log a warning.
     """
     import asyncio
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If we're in an async context, create a new task
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, init_postgres_stores())
-                return future.result(timeout=60)
-        else:
-            return loop.run_until_complete(init_postgres_stores())
+        loop = asyncio.get_running_loop()
+        # We're in an async context - CAN'T use ThreadPoolExecutor approach
+        # because asyncpg pools would be bound to the wrong event loop
+        logger.warning(
+            "[init] init_postgres_stores_sync() called from async context. "
+            "asyncpg pools are event-loop bound and cannot be created in a "
+            "ThreadPoolExecutor. Call this BEFORE starting the event loop, "
+            "or use 'await init_postgres_stores()' directly."
+        )
+        return {}
     except RuntimeError:
-        # No event loop, create one
+        # No running loop - safe to use asyncio.run()
         return asyncio.run(init_postgres_stores())
