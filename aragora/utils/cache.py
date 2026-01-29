@@ -161,7 +161,39 @@ class TTLCache(Generic[T]):
             }
 
     def __len__(self) -> int:
-        return len(self._cache)
+        """Return the number of cached items."""
+        with self._lock:
+            return len(self._cache)
+
+    def __getitem__(self, key: str) -> T:
+        """Get item by key, raises KeyError if not found or expired."""
+        value = self.get(key)
+        if value is None:
+            raise KeyError(key)
+        return value
+
+    def __contains__(self, key: str) -> bool:
+        """Check if key is in cache and not expired."""
+        return self.get(key) is not None
+
+    def __iter__(self):
+        """Iterate over cache keys (returns snapshot to avoid lock during iteration)."""
+        with self._lock:
+            return iter(list(self._cache.keys()))
+
+    def keys(self) -> list[str]:
+        """Return a copy of all keys in the cache."""
+        with self._lock:
+            return list(self._cache.keys())
+
+    def items(self) -> list[tuple[str, T]]:
+        """Return a copy of all (key, value) pairs, filtering expired entries."""
+        with self._lock:
+            now = time.time()
+            return [
+                (k, v) for k, (cached_time, v) in self._cache.items()
+                if now - cached_time < self._ttl_seconds
+            ]
 
 
 # Global cache instances for different purposes

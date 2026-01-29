@@ -39,14 +39,22 @@ Example:
 from __future__ import annotations
 
 import logging
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from aragora.utils.cache import TTLCache
 from .models import AuthorizationDecision, AuthorizationContext, ResourceType
 
 logger = logging.getLogger(__name__)
+
+# Configuration constants for bounded collections
+MAX_OWNERSHIP_RECORDS = 100_000  # Max records per manager instance
+MAX_TRANSFER_HISTORY = 10_000  # Max transfer events to keep
+OWNERSHIP_CACHE_TTL = 300.0  # 5 minutes
+OWNERSHIP_CACHE_SIZE = 10_000  # Max cache entries
 
 
 # Default implicit permissions granted to resource owners
@@ -236,11 +244,13 @@ class OwnershipManager:
         self._by_owner: dict[str, set[str]] = {}  # owner_id -> set of record_ids
         self._by_org: dict[str, set[str]] = {}  # org_id -> set of record_ids
 
-        # Cache for ownership checks
-        self._ownership_cache: dict[str, tuple[str | None, datetime]] = {}
+        # Cache for ownership checks (bounded with TTL)
+        self._ownership_cache: TTLCache[str | None] = TTLCache(
+            maxsize=OWNERSHIP_CACHE_SIZE, ttl_seconds=cache_ttl
+        )
 
-        # Transfer history for audit
-        self._transfer_history: list[dict[str, Any]] = []
+        # Transfer history for audit (bounded circular buffer)
+        self._transfer_history: deque[dict[str, Any]] = deque(maxlen=MAX_TRANSFER_HISTORY)
 
     def set_owner(
         self,
@@ -587,7 +597,8 @@ class OwnershipManager:
         Returns:
             List of transfer events
         """
-        history = self._transfer_history
+        # Convert deque to list for filtering and slicing
+        history: list[dict[str, Any]] = list(self._transfer_history)
 
         if resource_type:
             history = [h for h in history if h["resource_type"] == resource_type.value]
@@ -686,23 +697,23 @@ class OwnershipManager:
         self._by_owner[new_owner_id].add(record_id)
 
     def _get_cached_owner(self, cache_key: str) -> str | None:
-        """Get cached owner lookup result."""
-        if cache_key not in self._ownership_cache:
-            return None
+        """Get cached owner lookup result.
 
-        owner_id, cached_at = self._ownership_cache[cache_key]
-        age = (datetime.now(timezone.utc) - cached_at).total_seconds()
-
-        if age > self._cache_ttl:
-            del self._ownership_cache[cache_key]
-            return None
-
-        return owner_id
+        Returns:
+            Owner ID if cached and not expired, None otherwise.
+            Note: Returns empty string for explicitly cached "no owner" case.
+        """
+        return self._ownership_cache.get(cache_key)
 
     def _cache_owner(self, cache_key: str, owner_id: str | None) -> None:
-        """Cache an owner lookup result."""
+        """Cache an owner lookup result.
+
+        Args:
+            cache_key: The cache key for this resource.
+            owner_id: The owner ID (or empty string for "no owner").
+        """
         # Store empty string for None to distinguish from cache miss
-        self._ownership_cache[cache_key] = (owner_id or "", datetime.now(timezone.utc))
+        self._ownership_cache.set(cache_key, owner_id or "")
 
     def _invalidate_cache(
         self,
@@ -711,7 +722,7 @@ class OwnershipManager:
     ) -> None:
         """Invalidate cache for a resource."""
         cache_key = self._cache_key(resource_type, resource_id)
-        self._ownership_cache.pop(cache_key, None)
+        self._ownership_cache.invalidate(cache_key)
 
 
 # Global ownership manager instance

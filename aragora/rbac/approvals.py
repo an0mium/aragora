@@ -32,6 +32,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -39,6 +40,11 @@ from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
+
+# Configuration constants for bounded collections
+MAX_ACTIVE_REQUESTS = 50_000  # Maximum pending requests
+MAX_RESOLVED_REQUESTS = 10_000  # Resolved requests to retain for audit
+RESOLVED_RETENTION_HOURS = 168  # Keep resolved requests for 7 days
 
 
 class ApprovalStatus(str, Enum):
@@ -164,9 +170,26 @@ class ApprovalWorkflow:
     # Default required approvals
     DEFAULT_REQUIRED_APPROVALS = 1
 
-    def __init__(self):
-        """Initialize the approval workflow engine."""
-        self._requests: dict[str, ApprovalRequest] = {}
+    def __init__(
+        self,
+        max_active_requests: int = MAX_ACTIVE_REQUESTS,
+        max_resolved_requests: int = MAX_RESOLVED_REQUESTS,
+        resolved_retention_hours: int = RESOLVED_RETENTION_HOURS,
+    ):
+        """
+        Initialize the approval workflow engine.
+
+        Args:
+            max_active_requests: Maximum pending requests to allow
+            max_resolved_requests: Maximum resolved requests to retain
+            resolved_retention_hours: Hours to retain resolved requests
+        """
+        self._max_active_requests = max_active_requests
+        self._max_resolved_requests = max_resolved_requests
+        self._resolved_retention_hours = resolved_retention_hours
+
+        # Use OrderedDict for LRU-style cleanup
+        self._requests: OrderedDict[str, ApprovalRequest] = OrderedDict()
         self._by_requester: dict[str, list[str]] = {}  # requester_id -> request_ids
         self._by_approver: dict[str, list[str]] = {}  # approver_id -> request_ids
 
@@ -206,6 +229,19 @@ class ApprovalWorkflow:
         # Validate duration
         if duration_hours > self.MAX_ACCESS_DURATION_HOURS:
             raise ValueError(f"Duration cannot exceed {self.MAX_ACCESS_DURATION_HOURS} hours")
+
+        # Check pending request limit and trigger cleanup if needed
+        pending_count = self._count_pending_requests()
+        if pending_count >= self._max_active_requests:
+            # Try to free space by cleaning old resolved requests
+            await self.cleanup_old_requests()
+            await self.expire_old_requests()
+            pending_count = self._count_pending_requests()
+            if pending_count >= self._max_active_requests:
+                raise ValueError(
+                    f"Maximum pending requests ({self._max_active_requests}) reached. "
+                    "Please wait for existing requests to be processed."
+                )
 
         # Default approvers if not specified
         if not approvers:
@@ -527,6 +563,69 @@ class ApprovalWorkflow:
             logger.info(f"Expired {count} old access requests")
 
         return count
+
+    async def cleanup_old_requests(self) -> int:
+        """
+        Remove old resolved requests to prevent unbounded memory growth.
+
+        Removes resolved requests (approved, rejected, cancelled, expired) that
+        are older than the retention period, keeping at most max_resolved_requests.
+
+        Returns:
+            Number of requests removed
+        """
+        count = 0
+        now = datetime.now(timezone.utc)
+        retention_cutoff = now - timedelta(hours=self._resolved_retention_hours)
+
+        # Collect requests to remove
+        to_remove: list[str] = []
+        resolved_count = 0
+
+        for request_id, request in self._requests.items():
+            if request.status != ApprovalStatus.PENDING:
+                resolved_count += 1
+                # Remove if beyond retention period or exceeds max resolved
+                resolved_time = request.resolved_at or request.created_at
+                if resolved_time < retention_cutoff:
+                    to_remove.append(request_id)
+                elif resolved_count > self._max_resolved_requests:
+                    to_remove.append(request_id)
+
+        # Remove the requests and clean up indexes
+        for request_id in to_remove:
+            self._remove_request(request_id)
+            count += 1
+
+        if count > 0:
+            logger.info(f"Cleaned up {count} old resolved requests")
+
+        return count
+
+    def _remove_request(self, request_id: str) -> None:
+        """Remove a request and clean up all indexes."""
+        request = self._requests.pop(request_id, None)
+        if not request:
+            return
+
+        # Clean up requester index
+        requester_ids = self._by_requester.get(request.requester_id, [])
+        if request_id in requester_ids:
+            requester_ids.remove(request_id)
+            if not requester_ids:
+                del self._by_requester[request.requester_id]
+
+        # Clean up approver indexes
+        for approver_id in request.approvers:
+            approver_ids = self._by_approver.get(approver_id, [])
+            if request_id in approver_ids:
+                approver_ids.remove(request_id)
+                if not approver_ids:
+                    del self._by_approver[approver_id]
+
+    def _count_pending_requests(self) -> int:
+        """Count the number of pending requests."""
+        return sum(1 for r in self._requests.values() if r.status == ApprovalStatus.PENDING)
 
     async def _get_default_approvers(
         self,

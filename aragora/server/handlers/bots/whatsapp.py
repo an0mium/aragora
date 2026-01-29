@@ -55,10 +55,15 @@ def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
 
     WhatsApp uses HMAC-SHA256 with the app secret.
     See: https://developers.facebook.com/docs/graph-api/webhooks/getting-started#verification-requests
+
+    Security: Fails closed when app secret is not configured (rejects all requests).
     """
     if not WHATSAPP_APP_SECRET:
-        logger.warning("WHATSAPP_APP_SECRET not configured, skipping signature verification")
-        return True
+        logger.error(
+            "WHATSAPP_APP_SECRET not configured - rejecting webhook request. "
+            "Set WHATSAPP_APP_SECRET environment variable to enable webhook processing."
+        )
+        return False  # Fail closed - reject unverifiable requests
 
     if not signature.startswith("sha256="):
         return False

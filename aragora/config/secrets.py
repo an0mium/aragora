@@ -244,6 +244,7 @@ class SecretManager:
         self._lock = threading.Lock()
         self._access_log: list[dict[str, Any]] = []
         self._max_access_log_size = 1000
+        self._warned_env_secrets: set[str] = set()
 
     def _is_cache_expired(self) -> bool:
         """Check if the secret cache has expired."""
@@ -432,8 +433,8 @@ class SecretManager:
 
         # Non-strict mode or non-critical secret - allow env fallback
         if env_value is not None:
-            if is_critical:
-                # Warn even in non-strict mode
+            if is_critical and name not in self._warned_env_secrets:
+                self._warned_env_secrets.add(name)
                 logger.warning(
                     "SECURITY: Critical secret '%s' loaded from environment variable. "
                     "Consider migrating to AWS Secrets Manager for production use.",

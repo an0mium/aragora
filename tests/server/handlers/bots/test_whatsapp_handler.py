@@ -21,6 +21,35 @@ from aragora.server.handlers.bots.whatsapp import (
 )
 
 
+# Test secrets for webhook signature verification
+TEST_WHATSAPP_SECRET = "test_whatsapp_secret_12345"
+
+
+@pytest.fixture
+def whatsapp_secret():
+    """Fixture that patches WHATSAPP_APP_SECRET for tests."""
+    with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
+        yield TEST_WHATSAPP_SECRET
+
+
+def _compute_signature(body: bytes, secret: str = TEST_WHATSAPP_SECRET) -> str:
+    """Compute valid HMAC-SHA256 signature for test payloads."""
+    sig = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return f"sha256={sig}"
+
+
+def _create_signed_request(payload: dict, secret: str = TEST_WHATSAPP_SECRET) -> MagicMock:
+    """Create a mock request with valid signature for webhook tests."""
+    body = json.dumps(payload).encode()
+    mock_request = MagicMock()
+    mock_request.headers = {
+        "Content-Length": str(len(body)),
+        "X-Hub-Signature-256": _compute_signature(body, secret),
+    }
+    mock_request.rfile.read.return_value = body
+    return mock_request
+
+
 # =============================================================================
 # Test Signature Verification
 # =============================================================================
@@ -30,16 +59,16 @@ class TestWhatsAppSignatureVerification:
     """Tests for WhatsApp webhook signature verification."""
 
     def test_verify_signature_no_secret(self):
-        """Should pass when no app secret is configured."""
+        """Should reject when no app secret is configured (fail-closed security)."""
         with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
             result = _verify_whatsapp_signature("sha256=anything", b"body")
-        assert result is True
+        assert result is False  # Fail closed - reject unverifiable requests
 
     def test_verify_signature_none_secret(self):
-        """Should pass when app secret is None."""
+        """Should reject when app secret is None (fail-closed security)."""
         with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", None):
             result = _verify_whatsapp_signature("sha256=anything", b"body")
-        assert result is True
+        assert result is False  # Fail closed - reject unverifiable requests
 
     def test_verify_signature_valid(self):
         """Should verify valid signature."""
@@ -327,6 +356,19 @@ class TestWhatsAppVerification:
 class TestWhatsAppWebhook:
     """Tests for WhatsApp webhook message handling."""
 
+    @pytest.fixture(autouse=True)
+    def setup_signed_requests(self):
+        """Auto-patch signature verification for all webhook tests.
+
+        This allows tests to focus on message handling logic without
+        needing to generate valid HMAC signatures for each test payload.
+        """
+        with patch(
+            "aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature",
+            return_value=True,
+        ):
+            yield
+
     def test_handle_text_message(self):
         """Should handle incoming text message."""
         handler = WhatsAppHandler({})
@@ -358,14 +400,9 @@ class TestWhatsAppWebhook:
             ]
         }
 
-        mock_request = MagicMock()
-        mock_request.headers = {
-            "Content-Length": str(len(json.dumps(payload))),
-            "X-Hub-Signature-256": "",
-        }
-        mock_request.rfile.read.return_value = json.dumps(payload).encode()
+        mock_request = _create_signed_request(payload)
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
                 with patch.object(handler, "_start_debate_async", return_value="debate-123"):
                     result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
@@ -410,7 +447,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
                 with patch.object(handler, "_send_message") as mock_send:
                     result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
@@ -458,7 +495,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
                 with patch.object(handler, "_start_debate", return_value=None) as mock_debate:
                     result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
@@ -504,7 +541,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
                 with patch.object(handler, "_send_message") as mock_send:
                     result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
@@ -553,7 +590,7 @@ class TestWhatsAppWebhook:
             }
             mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-            with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+            with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
                 with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
                     with patch.object(handler, "_send_message") as mock_send:
                         result = handler.handle_post(
@@ -598,7 +635,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
                 with patch.object(handler, "_send_message") as mock_send:
                     result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
@@ -620,7 +657,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = b"not valid json"
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
@@ -663,7 +700,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
@@ -706,7 +743,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
@@ -746,7 +783,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
@@ -786,7 +823,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
@@ -805,7 +842,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
@@ -837,7 +874,7 @@ class TestWhatsAppWebhook:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
@@ -951,6 +988,15 @@ class TestWhatsAppDebateStarting:
 class TestWhatsAppErrorHandling:
     """Tests for WhatsApp webhook error handling."""
 
+    @pytest.fixture(autouse=True)
+    def setup_signed_requests(self):
+        """Auto-patch signature verification for error handling tests."""
+        with patch(
+            "aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature",
+            return_value=True,
+        ):
+            yield
+
     def test_handle_exception_returns_200(self):
         """Should return 200 on exception to prevent retries."""
         handler = WhatsAppHandler({})
@@ -963,7 +1009,7 @@ class TestWhatsAppErrorHandling:
         # Cause exception during body read
         mock_request.rfile.read.side_effect = Exception("Read error")
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         # Should return 200 with error status to prevent webhook retries
@@ -990,6 +1036,15 @@ class TestWhatsAppErrorHandling:
 class TestWhatsAppContactResolution:
     """Tests for WhatsApp contact name resolution."""
 
+    @pytest.fixture(autouse=True)
+    def setup_signed_requests(self):
+        """Auto-patch signature verification for contact resolution tests."""
+        with patch(
+            "aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature",
+            return_value=True,
+        ):
+            yield
+
     def test_resolve_contact_name_from_contacts(self):
         """Should resolve contact name from contacts array."""
         handler = WhatsAppHandler({})
@@ -1010,7 +1065,7 @@ class TestWhatsAppContactResolution:
                                         "type": "text",
                                         "from": "1234567890",
                                         "id": "msg123",
-                                        "text": {"body": "Hello"},
+                                        "text": {"body": "What is the weather?"},  # Not a greeting to trigger debate
                                     }
                                 ],
                             },
@@ -1027,7 +1082,7 @@ class TestWhatsAppContactResolution:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
                 with patch.object(handler, "_start_debate") as mock_debate:
                     result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
@@ -1055,7 +1110,7 @@ class TestWhatsAppContactResolution:
                                         "type": "text",
                                         "from": "1234567890",
                                         "id": "msg123",
-                                        "text": {"body": "Hello"},
+                                        "text": {"body": "Explain quantum computing"},  # Not a greeting to trigger debate
                                     }
                                 ],
                             },
@@ -1072,7 +1127,7 @@ class TestWhatsAppContactResolution:
         }
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
-        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET):
             with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
                 with patch.object(handler, "_start_debate") as mock_debate:
                     result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
