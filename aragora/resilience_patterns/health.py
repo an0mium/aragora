@@ -342,3 +342,12 @@ def get_global_health_registry() -> HealthRegistry:
         if _global_registry is None:
             _global_registry = HealthRegistry()
         return _global_registry
+
+
+__all__ = [
+    "HealthStatus",
+    "HealthChecker",
+    "HealthReport",
+    "HealthRegistry",
+    "get_global_health_registry",
+]

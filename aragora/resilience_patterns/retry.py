@@ -411,3 +411,14 @@ def with_retry_sync(
         return wrapper
 
     return decorator
+
+
+__all__ = [
+    "RetryStrategy",
+    "JitterMode",
+    "RetryConfig",
+    "ExponentialBackoff",
+    "with_retry",
+    "with_retry_sync",
+    "calculate_backoff_delay",
+]

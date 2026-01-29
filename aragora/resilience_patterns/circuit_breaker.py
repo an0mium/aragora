@@ -530,3 +530,17 @@ def get_all_circuit_breakers() -> dict[str, BaseCircuitBreaker]:
     """
     with _circuit_breakers_lock:
         return dict(_circuit_breakers)
+
+
+__all__ = [
+    "CircuitState",
+    "CircuitBreakerOpenError",
+    "CircuitBreakerConfig",
+    "CircuitBreakerStats",
+    "BaseCircuitBreaker",
+    "with_circuit_breaker",
+    "with_circuit_breaker_sync",
+    "get_circuit_breaker",
+    "reset_all_circuit_breakers",
+    "get_all_circuit_breakers",
+]
