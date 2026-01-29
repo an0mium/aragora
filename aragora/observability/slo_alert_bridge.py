@@ -305,6 +305,8 @@ class SLOAlertBridge:
                 },
             ]
 
+            # Manager is guaranteed to be non-None after the above assignment
+            assert self._notification_manager is not None
             await self._notification_manager.notify(
                 event_type=NotificationEventType.SLA_VIOLATION,
                 title=f"SLO Violation: {violation.operation} {violation.percentile}",

@@ -347,14 +347,15 @@ except ImportError:
                 "personas": self.personas,
             }
 
-    # Fallback templates
+    # Fallback templates - type ignores needed because the fallback DeliberationTemplate
+    # dataclass is defined conditionally and mypy doesn't recognize the enum type correctly
     TEMPLATES: Dict[str, Any] = {  # type: ignore[no-redef]
         "code_review": DeliberationTemplate(
             name="code_review",
             description="Multi-agent code review with security focus",
             default_agents=["anthropic-api", "openai-api", "codestral"],
             default_knowledge_sources=["github:pr"],
-            output_format=OutputFormat.GITHUB_REVIEW,
+            output_format=OutputFormat.GITHUB_REVIEW,  # type: ignore[arg-type]
             consensus_threshold=0.7,
             max_rounds=3,
             personas=["security", "performance", "maintainability"],
@@ -363,7 +364,7 @@ except ImportError:
             name="quick_decision",
             description="Fast decision with minimal agents",
             default_agents=["anthropic-api", "openai-api"],
-            output_format=OutputFormat.SUMMARY,
+            output_format=OutputFormat.SUMMARY,  # type: ignore[arg-type]
             consensus_threshold=0.5,
             max_rounds=2,
         ),
@@ -629,12 +630,16 @@ class OrchestrationHandler(SecureHandler):
             agents = await self._select_agent_team(request)
 
             # Step 3: Run vetted decisionmaking
+            from typing import cast as typing_cast
             from aragora.control_plane.deliberation import DeliberationManager
             from aragora.control_plane.coordinator import ControlPlaneCoordinator
 
             # coordinator may be None if not configured in server context
-            coordinator: Optional[ControlPlaneCoordinator] = self.ctx.get(
-                "control_plane_coordinator"
+            raw_coordinator = self.ctx.get("control_plane_coordinator")
+            coordinator: Optional[ControlPlaneCoordinator] = (
+                typing_cast(ControlPlaneCoordinator, raw_coordinator)
+                if raw_coordinator is not None
+                else None
             )
             manager = DeliberationManager(coordinator=coordinator)
 
@@ -801,8 +806,9 @@ class OrchestrationHandler(SecureHandler):
             from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
 
             # Get base_url from context or environment
-            confluence_url = self.ctx.get("confluence_url") or os.environ.get(
-                "CONFLUENCE_BASE_URL", ""
+            ctx_url = self.ctx.get("confluence_url")
+            confluence_url: str = (
+                str(ctx_url) if ctx_url else os.environ.get("CONFLUENCE_BASE_URL", "")
             )
             if not confluence_url:
                 logger.warning("Confluence base URL not configured")
