@@ -1909,9 +1909,15 @@ class NomicLoop:
 
         # DebateStrategy for memory-aware adaptive rounds
         self.debate_strategy = None
-        if STRATEGY_AVAILABLE and DebateStrategy and self.continuum:
+        force_full_rounds = (
+            os.environ.get("NOMIC_FORCE_FULL_ROUNDS", "0") == "1"
+            or os.environ.get("NOMIC_DISABLE_EARLY_STOP", "0") == "1"
+        )
+        if force_full_rounds:
+            print("[strategy] Adaptive rounds disabled (force full rounds)")
+        elif STRATEGY_AVAILABLE and DebateStrategy and self.continuum:
             try:
-                self.debate_strategy = DebateStrategy(memory=self.continuum)
+                self.debate_strategy = DebateStrategy(continuum_memory=self.continuum)
                 print("[strategy] Memory-aware debate strategy enabled")
             except Exception as e:
                 print(f"[strategy] Initialization failed: {e}")

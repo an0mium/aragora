@@ -32,6 +32,47 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
+
+def _get_real_consensus_rate(
+    org_id: str,
+    start_time: datetime,
+    end_time: datetime,
+    default: float = 85.0,
+) -> float:
+    """Get real consensus rate from debate store.
+
+    Returns the percentage of completed debates that reached consensus.
+    Falls back to default if no data is available.
+
+    Args:
+        org_id: Organization ID
+        start_time: Period start
+        end_time: Period end
+        default: Default rate when no data available (default: 85.0)
+
+    Returns:
+        Consensus rate as a percentage (0-100)
+    """
+    try:
+        from aragora.memory.debate_store import get_debate_store
+
+        store = get_debate_store()
+        stats = store.get_consensus_stats(org_id, start_time, end_time)
+
+        # Parse the rate string (e.g., "85%") to float
+        rate_str = stats.get("overall_consensus_rate", "")
+        if rate_str and rate_str != "0%":
+            rate = float(rate_str.rstrip("%"))
+            if rate > 0:
+                return rate
+
+        # No data available, use default
+        return default
+    except Exception as e:
+        logger.warning(f"Failed to get consensus rate: {e}")
+        return default
+
+
 # Rate limiter for success dashboard (60 requests per minute)
 _dashboard_limiter = RateLimiter(requests_per_minute=60)
 
@@ -272,8 +313,8 @@ class SMESuccessDashboardHandler(SecureHandler):
         net_savings = time_value_saved - total_cost
         roi_percentage = float((net_savings / total_cost) * 100) if total_cost > 0 else 0
 
-        # Consensus rate (placeholder - would come from debate results)
-        consensus_rate = 85.0
+        # Get real consensus rate from debate store
+        consensus_rate = _get_real_consensus_rate(org_id, start_date, end_date)
 
         return {
             "total_debates": estimated_debates,

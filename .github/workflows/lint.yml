@@ -111,7 +111,7 @@ jobs:
             aragora/knowledge/types.py \
             aragora/agents/types.py \
             aragora/rbac/models.py \
-            aragora/rbac/defaults.py \
+            aragora/rbac/defaults/__init__.py \
             aragora/server/prometheus_nomic.py \
             aragora/server/prometheus_control_plane.py \
             aragora/server/prometheus_rlm.py \

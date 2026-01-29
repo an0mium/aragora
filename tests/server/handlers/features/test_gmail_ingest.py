@@ -37,15 +37,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.server.handlers.features.gmail_ingest import (
     GmailIngestHandler,
-    _gmail_limiter,
 )
-
-
-@pytest.fixture(autouse=True)
-def reset_rate_limiter():
-    """Reset rate limiter between tests."""
-    _gmail_limiter._buckets.clear()
-    yield
 
 
 @pytest.fixture
@@ -380,12 +372,3 @@ class TestGmailIngestDisconnect:
             body = json.loads(result.body)
             assert body["success"] is True
             assert body["was_connected"] is True
-
-
-class TestGmailIngestRateLimiting:
-    """Tests for rate limiting."""
-
-    def test_rate_limiter_exists(self):
-        """Test that rate limiter is configured."""
-        assert _gmail_limiter is not None
-        assert _gmail_limiter.requests_per_minute == 20

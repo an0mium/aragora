@@ -62,9 +62,13 @@ class MockHandler:
 def clear_module_state():
     """Clear any module-level state between tests."""
     from aragora.server.handlers.agents.leaderboard import _leaderboard_limiter
+    from aragora.server.handlers.admin.cache import clear_cache
 
     _leaderboard_limiter.clear()
+    # Clear the handler cache to prevent TTL cache pollution between tests
+    clear_cache()
     yield
+    clear_cache()
 
 
 class TestLeaderboardViewHandlerRoutes:
@@ -350,7 +354,9 @@ class TestFetchTeams:
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
         mock_elo = MagicMock()
-        handler = LeaderboardViewHandler({"storage": None, "elo_system": mock_elo, "nomic_dir": None})
+        handler = LeaderboardViewHandler(
+            {"storage": None, "elo_system": mock_elo, "nomic_dir": None}
+        )
 
         mock_selector = MagicMock()
         mock_selector.get_best_team_combinations.return_value = [
@@ -358,7 +364,7 @@ class TestFetchTeams:
         ]
 
         with patch(
-            "aragora.server.handlers.agents.leaderboard.AgentSelector",
+            "aragora.routing.selection.AgentSelector",
             return_value=mock_selector,
         ):
             result = handler._fetch_teams(3, 10)
@@ -409,7 +415,7 @@ class TestFetchIntrospection:
     """Tests for _fetch_introspection method."""
 
     def test_fetch_introspection_no_nomic_dir(self):
-        """Test fetch introspection with default agents when no nomic dir."""
+        """Test fetch introspection returns agent data when no nomic dir."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
         # Pass None for nomic_dir to simulate no nomic dir available
@@ -419,7 +425,7 @@ class TestFetchIntrospection:
         mock_snapshot.to_dict.return_value = {"agent": "claude", "traits": []}
 
         with patch(
-            "aragora.server.handlers.agents.leaderboard.get_agent_introspection",
+            "aragora.introspection.get_agent_introspection",
             return_value=mock_snapshot,
         ):
             result = handler._fetch_introspection()

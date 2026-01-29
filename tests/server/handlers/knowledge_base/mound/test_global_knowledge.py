@@ -39,7 +39,7 @@ import io
 import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -87,7 +87,9 @@ class MockKnowledgeMound:
     query_global_knowledge: AsyncMock = field(default_factory=AsyncMock)
     get_system_facts: AsyncMock = field(default_factory=AsyncMock)
     promote_to_global: AsyncMock = field(default_factory=AsyncMock)
-    get_system_workspace_id: AsyncMock = field(default_factory=lambda: "system-ws-id")
+    get_system_workspace_id: MagicMock = field(
+        default_factory=lambda: MagicMock(return_value="system-ws-id")
+    )
 
 
 class MockHandler:
