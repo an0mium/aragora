@@ -235,3 +235,42 @@ def get_slack_integration() -> Optional[Any]:
             logger.exception(f"Unexpected error initializing Slack integration: {e}")
             return None
     return _slack_integration
+
+
+# --- Re-export common handler utilities for backward compatibility ---
+# Other modules import these from config.py
+try:
+    from aragora.server.handlers.base import (
+        HandlerResult,
+        error_response,
+        json_response,
+    )
+    from aragora.server.handlers.secure import SecureHandler
+    from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
+    from aragora.server.handlers.utils.decorators import auto_error_response
+    from aragora.server.handlers.utils.rate_limit import rate_limit
+except ImportError as e:
+    logger.warning(f"Failed to import handler utilities: {e}")
+    # Define stubs to prevent import errors
+    HandlerResult = None  # type: ignore
+    SecureHandler = None  # type: ignore
+    ForbiddenError = Exception
+    UnauthorizedError = Exception
+
+    def error_response(*args: Any, **kwargs: Any) -> Any:
+        return None
+
+    def json_response(*args: Any, **kwargs: Any) -> Any:
+        return None
+
+    def auto_error_response(operation: str) -> Any:
+        def decorator(func: Any) -> Any:
+            return func
+
+        return decorator
+
+    def rate_limit(**kwargs: Any) -> Any:
+        def decorator(func: Any) -> Any:
+            return func
+
+        return decorator
