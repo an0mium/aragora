@@ -401,7 +401,7 @@ class BeadManager:
                     results.append(workspace_bead)
             return results
 
-        ready = []
+        ready: list[Bead] = []
         for bead in self._beads.values():
             if bead.convoy_id != convoy_id:
                 continue

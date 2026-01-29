@@ -471,11 +471,11 @@ class ConvoyTracker:
                 by_status[key] = by_status.get(key, 0) + 1
             return {"total_convoys": len(convoys), "by_status": by_status}
 
-        by_status: dict[str, int] = {}
+        local_by_status: dict[str, int] = {}
         for convoy in self._convoys.values():
             key = convoy.status.value
-            by_status[key] = by_status.get(key, 0) + 1
+            local_by_status[key] = local_by_status.get(key, 0) + 1
         return {
             "total_convoys": len(self._convoys),
-            "by_status": by_status,
+            "by_status": local_by_status,
         }
