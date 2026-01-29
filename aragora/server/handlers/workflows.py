@@ -924,10 +924,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         "/api/v1/workflows",
         "/api/v1/workflows/*",
         "/api/v1/workflow-templates",
+        "/api/v1/workflows/templates",
+        "/api/v1/workflows/templates/*",
         "/api/v1/workflow-approvals",
         "/api/v1/workflow-approvals/*",
         "/api/v1/workflow-executions",
         "/api/v1/workflow-executions/*",
+        "/api/v1/workflows/executions",
+        "/api/v1/workflows/executions/*",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -935,8 +939,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         return (
             path.startswith("/api/v1/workflows")
             or path.startswith("/api/v1/workflow-templates")
+            or path.startswith("/api/v1/workflows/templates")
             or path.startswith("/api/v1/workflow-approvals")
             or path.startswith("/api/v1/workflow-executions")
+            or path.startswith("/api/v1/workflows/executions")
         )
 
     def _get_auth_context(self, handler: Any) -> Optional["AuthorizationContext"]:
@@ -1030,6 +1036,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if not self.can_handle(path):
             return None
 
+        if path.startswith("/api/v1/workflows/templates"):
+            path = path.replace("/api/v1/workflows/templates", "/api/v1/workflow-templates", 1)
+        if path.startswith("/api/v1/workflows/executions"):
+            path = path.replace("/api/v1/workflows/executions", "/api/v1/workflow-executions", 1)
+
         # Authentication check
         auth_ctx = self._get_auth_context(handler)
         if auth_ctx == "unauthenticated":
@@ -1091,6 +1102,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         """Handle POST requests."""
         if not self.can_handle(path):
             return None
+
+        if path.startswith("/api/v1/workflows/templates"):
+            path = path.replace("/api/v1/workflows/templates", "/api/v1/workflow-templates", 1)
+        if path.startswith("/api/v1/workflows/executions"):
+            path = path.replace("/api/v1/workflows/executions", "/api/v1/workflow-executions", 1)
 
         # Authentication check
         auth_ctx = self._get_auth_context(handler)
@@ -1196,6 +1212,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         """Handle DELETE requests."""
         if not self.can_handle(path):
             return None
+
+        if path.startswith("/api/v1/workflows/templates"):
+            path = path.replace("/api/v1/workflows/templates", "/api/v1/workflow-templates", 1)
+        if path.startswith("/api/v1/workflows/executions"):
+            path = path.replace("/api/v1/workflows/executions", "/api/v1/workflow-executions", 1)
 
         # Authentication check
         auth_ctx = self._get_auth_context(handler)
