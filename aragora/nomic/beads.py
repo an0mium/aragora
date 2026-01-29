@@ -517,6 +517,27 @@ class BeadStore:
         """List all beads of a given type."""
         return [b for b in self._beads_cache.values() if b.bead_type == bead_type]
 
+    async def list_beads(
+        self,
+        *,
+        status: Optional[BeadStatus] = None,
+        priority: Optional[BeadPriority] = None,
+        limit: Optional[int] = None,
+    ) -> List[Bead]:
+        """List beads with optional status/priority filters and a limit.
+
+        Compatibility shim for callers that previously relied on a
+        BeadManager.list_beads() API.
+        """
+        beads = list(self._beads_cache.values())
+        if status is not None:
+            beads = [b for b in beads if b.status == status]
+        if priority is not None:
+            beads = [b for b in beads if b.priority == priority]
+        if limit is not None:
+            beads = beads[:limit]
+        return beads
+
     async def list_pending_runnable(self) -> List[Bead]:
         """List pending beads that can be started (dependencies met)."""
         completed_ids = {
