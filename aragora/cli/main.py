@@ -1869,6 +1869,11 @@ Production deployment:
 
     create_security_parser(subparsers)
 
+    # Tenant command (multi-tenant management)
+    from aragora.cli.tenant import create_tenant_parser
+
+    create_tenant_parser(subparsers)
+
     # Memory command (inspect ContinuumMemory tiers)
     memory_parser = subparsers.add_parser(
         "memory",
