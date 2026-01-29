@@ -413,6 +413,164 @@ class GcpKmsProvider(KmsProvider):
         self._client = None
 
 
+class HashiCorpVaultProvider(KmsProvider):
+    """
+    HashiCorp Vault provider for enterprise key management.
+
+    Supports both Vault's Transit secrets engine (for encryption/decryption)
+    and KV secrets engine (for key storage).
+
+    Environment variables:
+    - VAULT_ADDR: Vault server address (required)
+    - VAULT_TOKEN: Authentication token (or use other auth methods)
+    - VAULT_NAMESPACE: Namespace for enterprise Vault (optional)
+    - ARAGORA_VAULT_TRANSIT_PATH: Transit engine mount path (default: transit)
+    - ARAGORA_VAULT_KEY_NAME: Default key name (default: aragora-master-key)
+    """
+
+    def __init__(
+        self,
+        addr: Optional[str] = None,
+        token: Optional[str] = None,
+        namespace: Optional[str] = None,
+        transit_path: Optional[str] = None,
+        key_name: Optional[str] = None,
+    ):
+        self.addr = addr or os.environ.get("VAULT_ADDR")
+        self.token = token or os.environ.get("VAULT_TOKEN")
+        self.namespace = namespace or os.environ.get("VAULT_NAMESPACE")
+        self.transit_path = transit_path or os.environ.get("ARAGORA_VAULT_TRANSIT_PATH", "transit")
+        self.default_key = key_name or os.environ.get(
+            "ARAGORA_VAULT_KEY_NAME", "aragora-master-key"
+        )
+        self._client = None
+
+    def _get_client(self):
+        """Lazy initialize the Vault client."""
+        if self._client is None:
+            try:
+                import hvac
+
+                self._client = hvac.Client(
+                    url=self.addr,
+                    token=self.token,
+                    namespace=self.namespace,
+                )
+
+                if not self._client.is_authenticated():
+                    raise ValueError("Vault authentication failed")
+
+            except ImportError:
+                raise ImportError(
+                    "hvac is required for HashiCorp Vault. Install with: pip install hvac"
+                )
+        return self._client
+
+    async def get_encryption_key(self, key_id: str) -> bytes:
+        """Generate a data key using Vault Transit engine.
+
+        Uses Vault's datakey endpoint to generate a new data encryption key
+        that is encrypted with the named key.
+        """
+        import base64
+
+        client = self._get_client()
+        key_name = key_id or self.default_key
+
+        # Generate a new data key (returns plaintext + ciphertext)
+        response = client.secrets.transit.generate_data_key(
+            name=key_name,
+            key_type="plaintext",  # Returns both plaintext and ciphertext
+            mount_point=self.transit_path,
+        )
+
+        # Return the plaintext key (base64 encoded by Vault)
+        plaintext_b64: str = response["data"]["plaintext"]
+        return base64.b64decode(plaintext_b64)
+
+    async def decrypt_data_key(self, encrypted_key: bytes, key_id: str) -> bytes:
+        """Decrypt a data key using Vault Transit engine."""
+        import base64
+
+        client = self._get_client()
+        key_name = key_id or self.default_key
+
+        # Vault expects base64 ciphertext prefixed with vault:v1:
+        ciphertext_b64 = base64.b64encode(encrypted_key).decode("ascii")
+
+        response = client.secrets.transit.decrypt_data(
+            name=key_name,
+            ciphertext=f"vault:v1:{ciphertext_b64}",
+            mount_point=self.transit_path,
+        )
+
+        plaintext_b64: str = response["data"]["plaintext"]
+        return base64.b64decode(plaintext_b64)
+
+    async def encrypt_data_key(self, plaintext_key: bytes, key_id: str) -> bytes:
+        """Encrypt a data key using Vault Transit engine."""
+        import base64
+
+        client = self._get_client()
+        key_name = key_id or self.default_key
+
+        # Vault expects base64-encoded plaintext
+        plaintext_b64 = base64.b64encode(plaintext_key).decode("ascii")
+
+        response = client.secrets.transit.encrypt_data(
+            name=key_name,
+            plaintext=plaintext_b64,
+            mount_point=self.transit_path,
+        )
+
+        # Response is vault:v1:base64ciphertext
+        ciphertext: str = response["data"]["ciphertext"]
+        # Strip the vault:v1: prefix and decode
+        _, _, b64_part = ciphertext.partition("vault:v1:")
+        return base64.b64decode(b64_part)
+
+    async def get_key_metadata(self, key_id: str) -> KmsKeyMetadata:
+        """Get metadata about a Vault Transit key."""
+        client = self._get_client()
+        key_name = key_id or self.default_key
+
+        response = client.secrets.transit.read_key(
+            name=key_name,
+            mount_point=self.transit_path,
+        )
+
+        data = response["data"]
+        return KmsKeyMetadata(
+            key_id=key_name,
+            key_arn=f"vault://{self.transit_path}/keys/{key_name}",
+            version=str(data.get("latest_version", 1)),
+            created_at=None,  # Vault doesn't expose creation time easily
+            algorithm=data.get("type", "aes256-gcm96"),
+            provider="hashicorp-vault",
+        )
+
+    async def rotate_key(self, key_id: str) -> KmsKeyMetadata:
+        """Rotate a key in Vault Transit engine.
+
+        Creates a new version of the key. Old versions remain available
+        for decryption but new encryptions use the new version.
+        """
+        client = self._get_client()
+        key_name = key_id or self.default_key
+
+        client.secrets.transit.rotate_key(
+            name=key_name,
+            mount_point=self.transit_path,
+        )
+
+        logger.info(f"Rotated Vault Transit key: {key_name}")
+        return await self.get_key_metadata(key_name)
+
+    async def close(self) -> None:
+        """Close the Vault client."""
+        self._client = None
+
+
 class LocalKmsProvider(KmsProvider):
     """
     Local KMS provider for development and testing.
@@ -485,15 +643,21 @@ def detect_cloud_provider() -> str:
 
     Detection order:
     1. Explicit ARAGORA_KMS_PROVIDER setting
-    2. AWS (AWS_REGION or AWS_ACCESS_KEY_ID)
-    3. Azure (AZURE_KEY_VAULT_URL)
-    4. GCP (GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_CLOUD_PROJECT)
-    5. Local (fallback)
+    2. HashiCorp Vault (VAULT_ADDR)
+    3. AWS (AWS_REGION or AWS_ACCESS_KEY_ID)
+    4. Azure (AZURE_KEY_VAULT_URL)
+    5. GCP (GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_CLOUD_PROJECT)
+    6. Local (fallback)
     """
     # Explicit setting takes priority
     explicit = os.environ.get("ARAGORA_KMS_PROVIDER", "").lower()
-    if explicit in ("aws", "azure", "gcp", "local"):
+    if explicit in ("aws", "azure", "gcp", "vault", "local"):
         return explicit
+
+    # HashiCorp Vault detection (check before cloud providers)
+    if os.environ.get("VAULT_ADDR"):
+        if os.environ.get("VAULT_TOKEN") or os.environ.get("VAULT_ROLE_ID"):
+            return "vault"
 
     # AWS detection
     if os.environ.get("AWS_REGION") or os.environ.get("AWS_ACCESS_KEY_ID"):
@@ -533,6 +697,9 @@ def get_kms_provider() -> KmsProvider:
         elif provider_type == "gcp":
             _kms_provider = GcpKmsProvider()
             logger.info("Using GCP Cloud KMS provider")
+        elif provider_type == "vault":
+            _kms_provider = HashiCorpVaultProvider()
+            logger.info("Using HashiCorp Vault provider")
         else:
             _kms_provider = LocalKmsProvider()
             logger.info("Using local KMS provider (development only)")
@@ -558,6 +725,7 @@ __all__ = [
     "AwsKmsProvider",
     "AzureKeyVaultProvider",
     "GcpKmsProvider",
+    "HashiCorpVaultProvider",
     "LocalKmsProvider",
     "get_kms_provider",
     "init_kms_provider",

@@ -60,11 +60,24 @@ from .kms_provider import (
     AwsKmsProvider,
     AzureKeyVaultProvider,
     GcpKmsProvider,
+    HashiCorpVaultProvider,
     LocalKmsProvider,
     get_kms_provider,
     init_kms_provider,
     reset_kms_provider,
     detect_cloud_provider,
+)
+
+from .key_rotation import (
+    KeyRotationScheduler,
+    KeyRotationConfig,
+    KeyRotationJob,
+    KeyInfo,
+    RotationStatus,
+    get_key_rotation_scheduler,
+    set_key_rotation_scheduler,
+    start_key_rotation_scheduler,
+    stop_key_rotation_scheduler,
 )
 
 from .threat_intel_enrichment import (
@@ -93,11 +106,22 @@ __all__ = [
     "AwsKmsProvider",
     "AzureKeyVaultProvider",
     "GcpKmsProvider",
+    "HashiCorpVaultProvider",
     "LocalKmsProvider",
     "get_kms_provider",
     "init_kms_provider",
     "reset_kms_provider",
     "detect_cloud_provider",
+    # Key Rotation
+    "KeyRotationScheduler",
+    "KeyRotationConfig",
+    "KeyRotationJob",
+    "KeyInfo",
+    "RotationStatus",
+    "get_key_rotation_scheduler",
+    "set_key_rotation_scheduler",
+    "start_key_rotation_scheduler",
+    "stop_key_rotation_scheduler",
     # Threat Intelligence Enrichment
     "ThreatIndicator",
     "ThreatContext",
