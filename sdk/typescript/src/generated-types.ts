@@ -170,6 +170,142 @@ export interface Consensus {
   participating_agents?: string[];
 }
 
+export interface SimilarDebate {
+  debate_id?: string;
+  topic?: string;
+  /** 0-1 similarity */
+  similarity_score?: number;
+  verdict?: string;
+  created_at?: string;
+  agents?: string[];
+}
+
+export interface SimilarDebatesResponse {
+  debates?: SimilarDebate[];
+  query?: string;
+  total?: number;
+}
+
+export interface SettledQuestion {
+  question?: string;
+  answer?: string;
+  confidence?: number;
+  debate_count?: number;
+  last_debated?: string;
+  supporting_debates?: string[];
+}
+
+export interface SettledQuestionsResponse {
+  questions?: SettledQuestion[];
+  total?: number;
+  threshold?: number;
+}
+
+export interface ConsensusStats {
+  total_debates?: number;
+  consensus_rate?: number;
+  avg_time_to_consensus_ms?: number;
+  avg_rounds_to_consensus?: number;
+  by_domain?: Record<string, any>;
+}
+
+export interface DissentingView {
+  debate_id?: string;
+  agent?: string;
+  position?: string;
+  reasoning?: string;
+  strength_score?: number;
+  created_at?: string;
+}
+
+export interface DissentingViewsResponse {
+  dissents?: DissentingView[];
+  total?: number;
+}
+
+export interface ContrarianView {
+  topic?: string;
+  consensus_position?: string;
+  contrarian_position?: string;
+  agent?: string;
+  argument_strength?: number;
+}
+
+export interface ContrarianViewsResponse {
+  views?: ContrarianView[];
+  total?: number;
+}
+
+export interface RiskWarning {
+  type?: "low_confidence" | "shifting" | "contradictory" | "bias";
+  topic?: string;
+  description?: string;
+  severity?: "low" | "medium" | "high";
+  debate_ids?: string[];
+}
+
+export interface RiskWarningsResponse {
+  warnings?: RiskWarning[];
+  total?: number;
+}
+
+export interface DomainConsensusResponse {
+  domain?: string;
+  total_debates?: number;
+  consensus_rate?: number;
+  settled_questions?: SettledQuestion[];
+  top_agents?: {
+    agent?: string;
+    contribution_count?: number;
+  }[];
+}
+
+export interface BeliefCrux {
+  id?: string;
+  /** The crux proposition */
+  proposition?: string;
+  /** Importance score 0-1 */
+  importance?: number;
+  agents_for?: string[];
+  agents_against?: string[];
+  /** How resolving this crux would affect the debate */
+  resolution_impact?: string;
+}
+
+export interface BeliefCruxesResponse {
+  debate_id?: string;
+  cruxes?: BeliefCrux[];
+  total?: number;
+}
+
+export interface LoadBearingClaim {
+  id?: string;
+  claim?: string;
+  agent?: string;
+  /** Number of arguments that depend on this claim */
+  dependents_count?: number;
+  confidence?: number;
+  evidence?: string[];
+}
+
+export interface LoadBearingClaimsResponse {
+  debate_id?: string;
+  claims?: LoadBearingClaim[];
+  total?: number;
+}
+
+export interface BeliefGraphStats {
+  debate_id?: string;
+  node_count?: number;
+  edge_count?: number;
+  max_depth?: number;
+  clustering_coefficient?: number;
+  most_connected_claims?: {
+    claim?: string;
+    connections?: number;
+  }[];
+}
+
 export interface Calibration {
   agent?: string;
   /** Calibration score (0-1) */
@@ -1458,6 +1594,62 @@ export interface MemoryStats {
     glacial?: number;
   };
   cache_hit_rate?: number;
+}
+
+export interface MemoryEntry {
+  /** Unique memory ID */
+  id: string;
+  /** Memory content */
+  content: string;
+  /** Memory tier */
+  tier: "fast" | "medium" | "slow" | "glacial";
+  created_at?: string;
+  expires_at?: string;
+  /** Relevance to query 0-1 */
+  relevance_score?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface MemoryRetrievalResponse {
+  memories?: MemoryEntry[];
+  total?: number;
+  tier?: string;
+  query?: string;
+}
+
+export interface MemoryTierStats {
+  tier?: "fast" | "medium" | "slow" | "glacial";
+  count?: number;
+  size_bytes?: number;
+  oldest_entry?: string;
+  newest_entry?: string;
+  avg_age_seconds?: number;
+}
+
+export interface MemoryTierStatsResponse {
+  tiers?: MemoryTierStats[];
+  total_memories?: number;
+  total_size_bytes?: number;
+}
+
+export interface MemoryArchiveStats {
+  archived_count?: number;
+  archive_size_bytes?: number;
+  oldest_archive?: string;
+  compression_ratio?: number;
+}
+
+export interface MemoryConsolidationResult {
+  memories_processed?: number;
+  memories_promoted?: number;
+  memories_demoted?: number;
+  duration_ms?: number;
+}
+
+export interface MemoryCleanupResult {
+  memories_removed?: number;
+  bytes_freed?: number;
+  duration_ms?: number;
 }
 
 export interface KnowledgeNode {
