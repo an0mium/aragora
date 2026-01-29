@@ -2,6 +2,9 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DebateInput } from '../DebateInput';
 
+// Enable React 18 act() support in tests
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 // Mock next/navigation
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
@@ -44,6 +47,13 @@ const jsonResponse = (data: unknown, ok = true, status = 200) => ({
   text: async () => JSON.stringify(data),
 });
 
+let healthError: Error | null = null;
+let submitResponse = jsonResponse({ success: true, debate_id: 'debate-123' });
+let submitError: Error | null = null;
+let submitPending = false;
+let recommendationsResponse = jsonResponse({ recommendations: [] });
+let verticalsResponse = jsonResponse({ verticals: [] });
+
 describe('DebateInput', () => {
   const defaultProps = {
     apiBase: 'http://localhost:8080',
@@ -61,36 +71,62 @@ describe('DebateInput', () => {
     });
   };
   const queueHealthCheckSuccess = () => {
-    mockFetch.mockImplementationOnce(() =>
-      new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(jsonResponse({ status: 'ok' }));
-        }, 0);
-      })
-    );
+    healthError = null;
   };
   const queueHealthCheckFailure = (error: Error) => {
-    mockFetch.mockImplementationOnce(() =>
-      new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(error);
-        }, 0);
-      })
-    );
+    healthError = error;
+  };
+  const setSubmitResponse = (data: unknown, ok = true, status = 200) => {
+    submitError = null;
+    submitPending = false;
+    submitResponse = jsonResponse(data, ok, status);
+  };
+  const setSubmitError = (error: Error) => {
+    submitError = error;
+  };
+  const setSubmitPending = () => {
+    submitError = null;
+    submitPending = true;
+  };
+  const setRecommendationsResponse = (data: unknown) => {
+    recommendationsResponse = jsonResponse(data);
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers({ advanceTimers: true });
+    healthError = null;
+    submitResponse = jsonResponse({ success: true, debate_id: 'debate-123' });
+    submitError = null;
+    submitPending = false;
+    recommendationsResponse = jsonResponse({ recommendations: [] });
+    verticalsResponse = jsonResponse({ verticals: [] });
 
-    // Default: API is online
-    mockFetch.mockImplementation(() =>
-      new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(jsonResponse({ status: 'ok' }));
-        }, 0);
-      })
-    );
+    // Default: route responses by URL
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/health')) {
+        if (healthError) {
+          return Promise.reject(healthError);
+        }
+        return Promise.resolve(jsonResponse({ status: 'ok' }));
+      }
+      if (url.includes('/api/verticals')) {
+        return Promise.resolve(verticalsResponse);
+      }
+      if (url.includes('/api/routing/recommendations')) {
+        return Promise.resolve(recommendationsResponse);
+      }
+      if (url.includes('/api/v1/debates')) {
+        if (submitPending) {
+          return new Promise(() => {});
+        }
+        if (submitError) {
+          return Promise.reject(submitError);
+        }
+        return Promise.resolve(submitResponse);
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
   });
 
   afterEach(() => {
@@ -175,7 +211,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, debate_id: 'debate-123' })); // submit
+      setSubmitResponse({ success: true, debate_id: 'debate-123' });
 
       render(<DebateInput {...defaultProps} />);
 
@@ -200,7 +236,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, debate_id: 'debate-456' })); // submit
+      setSubmitResponse({ success: true, debate_id: 'debate-456' });
 
       render(<DebateInput {...defaultProps} />);
 
@@ -215,17 +251,15 @@ describe('DebateInput', () => {
         expect(defaultProps.onDebateStarted).toHaveBeenCalled();
       });
 
-      // Should have used placeholder text
-      const callArgs = (mockFetch.mock.calls[1][1] as RequestInit).body;
-      const parsed = JSON.parse(callArgs as string);
-      expect(parsed.question).toBeTruthy();
+      const [, submittedQuestion] = (defaultProps.onDebateStarted as jest.Mock).mock.calls[0] || [];
+      expect(submittedQuestion).toBeTruthy();
     });
 
     it('calls onError when submission fails', async () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce(jsonResponse({ success: false, error: 'Server error' })); // submit
+      setSubmitResponse({ success: false, error: 'Server error' });
 
       render(<DebateInput {...defaultProps} />);
 
@@ -247,7 +281,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockImplementationOnce(() => new Promise(() => {})); // Never resolves
+      setSubmitPending();
 
       render(<DebateInput {...defaultProps} />);
 
@@ -344,7 +378,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, debate_id: 'graph-123' })); // submit
+      setSubmitResponse({ success: true, debate_id: 'graph-123' });
 
       render(<DebateInput {...defaultProps} />);
 
@@ -399,11 +433,9 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({
-          recommendations: [{ agent: 'codex', suitability: 0.9, domain_match: true }],
-        })
-      ); // recommendations
+      setRecommendationsResponse({
+        recommendations: [{ agent: 'codex', suitability: 0.9, domain_match: true }],
+      });
 
       render(<DebateInput {...defaultProps} />);
 
@@ -425,7 +457,7 @@ describe('DebateInput', () => {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
       queueHealthCheckSuccess();
-      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, debate_id: 'debate-789' })); // submit
+      setSubmitResponse({ success: true, debate_id: 'debate-789' });
 
       render(<DebateInput {...defaultProps} />);
 

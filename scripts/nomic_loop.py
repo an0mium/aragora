@@ -1587,12 +1587,15 @@ class NomicLoop:
         # Initialize OutcomeTracker for calibration and learning
         self.outcome_tracker = None
         try:
-            outcomes_path = self.nomic_dir / "outcomes.db"
-            self.outcome_tracker = _OutcomeTracker(outcomes_path)
-            stats = self.outcome_tracker.get_overall_stats()
-            print(
-                f"[outcomes] Tracker initialized ({stats['total_outcomes']} historical outcomes, {stats['success_rate']:.0%} success rate)"
-            )
+            if _NOMIC_PACKAGE_AVAILABLE and "_OutcomeTracker" in globals():
+                outcomes_path = self.nomic_dir / "outcomes.db"
+                self.outcome_tracker = _OutcomeTracker(outcomes_path)
+                stats = self.outcome_tracker.get_overall_stats()
+                print(
+                    f"[outcomes] Tracker initialized ({stats['total_outcomes']} historical outcomes, {stats['success_rate']:.0%} success rate)"
+                )
+            else:
+                print("[outcomes] Tracker unavailable (package imports not ready)")
         except Exception as e:
             print(f"[outcomes] Failed to initialize: {e}")
 

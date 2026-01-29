@@ -25,6 +25,7 @@ from typing import Any, Optional, Union
 from urllib.parse import urlencode
 
 from aragora.audit.unified import audit_action, audit_security
+from aragora.observability.tracing import create_span, add_span_attributes
 
 from .base import (
     HandlerResult,
@@ -503,67 +504,95 @@ class OAuthHandler(SecureHandler):
         self, path: str, query_params: dict, handler, method: str = "GET"
     ) -> Optional[HandlerResult]:
         """Route OAuth requests to appropriate methods."""
-        # Rate limit check
-        client_ip = get_client_ip(handler)
-        if not _oauth_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for OAuth endpoint: {client_ip}")
-            return error_response("Rate limit exceeded. Please try again later.", 429)
+        # Extract provider from path for tracing
+        provider = "unknown"
+        if "/google" in path:
+            provider = "google"
+        elif "/github" in path:
+            provider = "github"
+        elif "/microsoft" in path:
+            provider = "microsoft"
+        elif "/apple" in path:
+            provider = "apple"
+        elif "/oidc" in path:
+            provider = "oidc"
 
-        if hasattr(handler, "command"):
-            method = handler.command
+        with create_span(
+            f"oauth.{provider}", {"oauth.provider": provider, "oauth.path": path}
+        ) as span:
+            # Rate limit check
+            client_ip = get_client_ip(handler)
+            if not _oauth_limiter.is_allowed(client_ip):
+                logger.warning(f"Rate limit exceeded for OAuth endpoint: {client_ip}")
+                add_span_attributes(span, {"oauth.rate_limited": True})
+                return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Normalize path - support both /api/v1/ and /api/ prefixes
-        normalized = path.replace("/api/v1/", "/api/")
+            if hasattr(handler, "command"):
+                method = handler.command
 
-        if normalized == "/api/auth/oauth/google" and method == "GET":
-            return self._handle_google_auth_start(handler, query_params)
+            # Add method to span
+            add_span_attributes(span, {"oauth.method": method})
 
-        if normalized == "/api/auth/oauth/google/callback" and method == "GET":
-            return self._handle_google_callback(handler, query_params)
+            # Normalize path - support both /api/v1/ and /api/ prefixes
+            normalized = path.replace("/api/v1/", "/api/")
 
-        if normalized == "/api/auth/oauth/github" and method == "GET":
-            return self._handle_github_auth_start(handler, query_params)
+            # Determine if this is a callback (more important to trace)
+            is_callback = "/callback" in normalized
+            add_span_attributes(span, {"oauth.is_callback": is_callback})
 
-        if normalized == "/api/auth/oauth/github/callback" and method == "GET":
-            return self._handle_github_callback(handler, query_params)
+            if normalized == "/api/auth/oauth/google" and method == "GET":
+                return self._handle_google_auth_start(handler, query_params)
 
-        if normalized == "/api/auth/oauth/microsoft" and method == "GET":
-            return self._handle_microsoft_auth_start(handler, query_params)
+            if normalized == "/api/auth/oauth/google/callback" and method == "GET":
+                return self._handle_google_callback(handler, query_params)
 
-        if normalized == "/api/auth/oauth/microsoft/callback" and method == "GET":
-            return self._handle_microsoft_callback(handler, query_params)
+            if normalized == "/api/auth/oauth/github" and method == "GET":
+                return self._handle_github_auth_start(handler, query_params)
 
-        if normalized == "/api/auth/oauth/apple" and method == "GET":
-            return self._handle_apple_auth_start(handler, query_params)
+            if normalized == "/api/auth/oauth/github/callback" and method == "GET":
+                return self._handle_github_callback(handler, query_params)
 
-        if normalized == "/api/auth/oauth/apple/callback" and method in ("GET", "POST"):
-            return self._handle_apple_callback(handler, query_params)
+            if normalized == "/api/auth/oauth/microsoft" and method == "GET":
+                return self._handle_microsoft_auth_start(handler, query_params)
 
-        if normalized == "/api/auth/oauth/oidc" and method == "GET":
-            return self._handle_oidc_auth_start(handler, query_params)
+            if normalized == "/api/auth/oauth/microsoft/callback" and method == "GET":
+                return self._handle_microsoft_callback(handler, query_params)
 
-        if normalized == "/api/auth/oauth/oidc/callback" and method == "GET":
-            return self._handle_oidc_callback(handler, query_params)
+            if normalized == "/api/auth/oauth/apple" and method == "GET":
+                return self._handle_apple_auth_start(handler, query_params)
 
-        if normalized in ("/api/auth/oauth/url", "/api/auth/oauth/authorize") and method == "GET":
-            return self._handle_oauth_url(handler, query_params)
+            if normalized == "/api/auth/oauth/apple/callback" and method in ("GET", "POST"):
+                return self._handle_apple_callback(handler, query_params)
 
-        if normalized == "/api/auth/oauth/callback" and method == "POST":
-            return self._handle_oauth_callback_api(handler)
+            if normalized == "/api/auth/oauth/oidc" and method == "GET":
+                return self._handle_oidc_auth_start(handler, query_params)
 
-        if normalized == "/api/auth/oauth/link" and method == "POST":
-            return self._handle_link_account(handler)
+            if normalized == "/api/auth/oauth/oidc/callback" and method == "GET":
+                return self._handle_oidc_callback(handler, query_params)
 
-        if normalized == "/api/auth/oauth/unlink" and method == "DELETE":
-            return self._handle_unlink_account(handler)
+            if (
+                normalized in ("/api/auth/oauth/url", "/api/auth/oauth/authorize")
+                and method == "GET"
+            ):
+                return self._handle_oauth_url(handler, query_params)
 
-        if normalized == "/api/auth/oauth/providers" and method == "GET":
-            return self._handle_list_providers(handler)
+            if normalized == "/api/auth/oauth/callback" and method == "POST":
+                return self._handle_oauth_callback_api(handler)
 
-        if normalized == "/api/user/oauth-providers" and method == "GET":
-            return self._handle_get_user_providers(handler)
+            if normalized == "/api/auth/oauth/link" and method == "POST":
+                return self._handle_link_account(handler)
 
-        return error_response("Method not allowed", 405)
+            if normalized == "/api/auth/oauth/unlink" and method == "DELETE":
+                return self._handle_unlink_account(handler)
+
+            if normalized == "/api/auth/oauth/providers" and method == "GET":
+                return self._handle_list_providers(handler)
+
+            if normalized == "/api/user/oauth-providers" and method == "GET":
+                return self._handle_get_user_providers(handler)
+
+            add_span_attributes(span, {"oauth.error": "method_not_allowed"})
+            return error_response("Method not allowed", 405)
 
     def _get_user_store(self):
         """Get user store from context."""

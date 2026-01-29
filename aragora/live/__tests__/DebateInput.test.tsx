@@ -5,9 +5,22 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { DebateInput } from '../src/components/DebateInput';
 
+// Enable React 18 act() support in tests
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 // Mock fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+const jsonResponse = (data: unknown, ok = true, status = 200) => ({
+  ok,
+  status,
+  headers: {
+    get: (key: string) => (key?.toLowerCase() === 'content-type' ? 'application/json' : null),
+  },
+  json: async () => data,
+  text: async () => JSON.stringify(data),
+});
 
 jest.mock('../src/context/AuthContext', () => ({
   useAuth: () => ({
@@ -35,6 +48,18 @@ describe('DebateInput', () => {
   beforeEach(() => {
     mockFetch.mockClear();
     jest.useFakeTimers();
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/health')) {
+        return Promise.resolve(jsonResponse({ status: 'ok' }));
+      }
+      if (url.includes('/api/verticals')) {
+        return Promise.resolve(jsonResponse({ verticals: [] }));
+      }
+      if (url.includes('/api/routing/recommendations')) {
+        return Promise.resolve(jsonResponse({ recommendations: [] }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
   });
 
   afterEach(() => {
@@ -52,7 +77,7 @@ describe('DebateInput', () => {
     it('shows online state when API is healthy', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         return Promise.reject(new Error('Not found'));
       });
@@ -101,9 +126,9 @@ describe('DebateInput', () => {
     beforeEach(() => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
     });
 
@@ -158,19 +183,17 @@ describe('DebateInput', () => {
     beforeEach(() => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debate')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                success: true,
-                debate_id: 'test-debate-123',
-              }),
-          });
+          return Promise.resolve(
+            jsonResponse({
+              success: true,
+              debate_id: 'test-debate-123',
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
     });
 
@@ -236,12 +259,12 @@ describe('DebateInput', () => {
     it('disables submit button while submitting', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debate')) {
           return new Promise(() => {}); // Never resolves
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       render(<DebateInput apiBase={apiBase} />);
@@ -266,15 +289,12 @@ describe('DebateInput', () => {
     it('calls onError when debate fails', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debate')) {
-          return Promise.resolve({
-            ok: false,
-            json: () => Promise.resolve({ error: 'Server error' }),
-          });
+          return Promise.resolve(jsonResponse({ error: 'Server error' }, false, 500));
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       const onError = jest.fn();
@@ -298,13 +318,13 @@ describe('DebateInput', () => {
     it('handles network errors gracefully', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debate')) {
           const error = new TypeError('Failed to fetch');
           return Promise.reject(error);
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       const onError = jest.fn();
@@ -332,9 +352,9 @@ describe('DebateInput', () => {
     beforeEach(() => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
     });
 
@@ -396,21 +416,19 @@ describe('DebateInput', () => {
     beforeEach(() => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/routing/recommendations')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                recommendations: [
-                  { agent: 'codex', suitability: 0.9, domain_match: true },
-                  { agent: 'claude', suitability: 0.8, domain_match: true },
-                ],
-              }),
-          });
+          return Promise.resolve(
+            jsonResponse({
+              recommendations: [
+                { agent: 'codex', suitability: 0.9, domain_match: true },
+                { agent: 'claude', suitability: 0.8, domain_match: true },
+              ],
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
     });
 

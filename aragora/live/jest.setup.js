@@ -3,6 +3,12 @@ import '@testing-library/jest-dom';
 process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8080';
 process.env.NEXT_PUBLIC_WS_URL = 'ws://localhost:8765/ws';
 
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+global.IS_REACT_ACT_ENVIRONMENT = true;
+if (typeof window !== 'undefined') {
+  window.IS_REACT_ACT_ENVIRONMENT = true;
+}
+
 jest.mock('next/navigation');
 
 // Mock fetch globally

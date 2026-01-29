@@ -97,10 +97,16 @@ class ContextPhase:
         """
         phase_start = time.perf_counter()
         # Determine how many agents will participate
+        skip_codex = os.environ.get("NOMIC_CONTEXT_SKIP_CODEX", "0") == "1"
+        skip_claude = os.environ.get("NOMIC_CONTEXT_SKIP_CLAUDE", "0") == "1"
         use_kilocode = self.kilocode_available and not self.skip_kilocode
-        agents_count = 2  # Claude + Codex always
+        agents_count = 0
+        if self.claude and not skip_claude:
+            agents_count += 1
+        if self.codex and not skip_codex:
+            agents_count += 1
         if use_kilocode:
-            agents_count = 4  # + Gemini + Grok via Kilo Code
+            agents_count += 2  # + Gemini + Grok via Kilo Code
             self._log("\n" + "=" * 70)
             self._log("PHASE 0: CONTEXT GATHERING (All 4 agents with codebase access)")
             self._log("  Claude → Claude Code | Codex → Codex CLI")
@@ -118,10 +124,11 @@ class ContextPhase:
         self._stream_emit("on_phase_start", "context", self.cycle_count, {"agents": agents_count})
 
         # Build list of exploration tasks
-        exploration_tasks = [
-            self._gather_with_agent(self.claude, "claude", "Claude Code"),
-            self._gather_with_agent(self.codex, "codex", "Codex CLI"),
-        ]
+        exploration_tasks = []
+        if self.claude and not skip_claude:
+            exploration_tasks.append(self._gather_with_agent(self.claude, "claude", "Claude Code"))
+        if self.codex and not skip_codex:
+            exploration_tasks.append(self._gather_with_agent(self.codex, "codex", "Codex CLI"))
 
         # Add Gemini and Grok via Kilo Code if available (and not skipped)
         if use_kilocode and self.kilocode_agent_factory:
@@ -295,7 +302,22 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             prompt = self._build_explore_prompt()
             task_id = f"{name}:nomic_context"
             with streaming_task_context(task_id):
-                result = await agent.generate(prompt, context=[])
+                timeout_override = os.environ.get("NOMIC_CONTEXT_AGENT_TIMEOUT", "")
+                timeout = None
+                if timeout_override:
+                    try:
+                        timeout = int(timeout_override)
+                    except ValueError:
+                        timeout = None
+                if timeout is None:
+                    timeout = getattr(agent, "timeout", None)
+                if timeout and timeout > 0:
+                    result = await asyncio.wait_for(
+                        agent.generate(prompt, context=[]),
+                        timeout=timeout,
+                    )
+                else:
+                    result = await agent.generate(prompt, context=[])
             self._log(f"  {name}: complete ({len(result) if result else 0} chars)", agent=name)
             # Emit agent's full exploration result
             if result:

@@ -8,9 +8,22 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { mockRouter } from 'next/navigation';
 
+// Enable React 18 act() support in tests
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 // Mock fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+const jsonResponse = (data: unknown, ok = true, status = 200) => ({
+  ok,
+  status,
+  headers: {
+    get: (key: string) => (key?.toLowerCase() === 'content-type' ? 'application/json' : null),
+  },
+  json: async () => data,
+  text: async () => JSON.stringify(data),
+});
 
 jest.mock('../src/context/AuthContext', () => ({
   useAuth: () => ({
@@ -46,9 +59,9 @@ describe('DebateInput Mode Switching', () => {
   const setupHealthyApi = () => {
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('/api/health')) {
-        return Promise.resolve({ ok: true });
+        return Promise.resolve(jsonResponse({ status: 'ok' }));
       }
-      return Promise.resolve({ ok: false });
+      return Promise.resolve(jsonResponse({}));
     });
   };
 
@@ -132,18 +145,17 @@ describe('DebateInput Mode Switching', () => {
     it('calls /api/debate for STANDARD mode', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debate') && !url.includes('/graph') && !url.includes('/matrix')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
+          return Promise.resolve(
+            jsonResponse({
               success: true,
               debate_id: 'standard-debate-123',
-            }),
-          });
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       const onDebateStarted = jest.fn();
@@ -170,18 +182,17 @@ describe('DebateInput Mode Switching', () => {
     it('does not navigate away for STANDARD mode', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debate')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
+          return Promise.resolve(
+            jsonResponse({
               success: true,
               debate_id: 'standard-debate-123',
-            }),
-          });
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       render(<DebateInput apiBase={apiBase} />);
@@ -204,18 +215,17 @@ describe('DebateInput Mode Switching', () => {
     it('calls /api/debates/graph for GRAPH mode', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debates/graph')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
+          return Promise.resolve(
+            jsonResponse({
               success: true,
               debate_id: 'graph-debate-123',
-            }),
-          });
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       render(<DebateInput apiBase={apiBase} />);
@@ -246,18 +256,17 @@ describe('DebateInput Mode Switching', () => {
     it('navigates to /debates/graph after GRAPH debate starts', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debates/graph')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
+          return Promise.resolve(
+            jsonResponse({
               success: true,
               debate_id: 'graph-debate-123',
-            }),
-          });
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       render(<DebateInput apiBase={apiBase} />);
@@ -285,18 +294,17 @@ describe('DebateInput Mode Switching', () => {
     it('calls /api/debates/matrix for MATRIX mode', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debates/matrix')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
+          return Promise.resolve(
+            jsonResponse({
               success: true,
               matrix_id: 'matrix-123',
-            }),
-          });
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       render(<DebateInput apiBase={apiBase} />);
@@ -327,18 +335,17 @@ describe('DebateInput Mode Switching', () => {
     it('navigates to /debates/matrix after MATRIX debate starts', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debates/matrix')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
+          return Promise.resolve(
+            jsonResponse({
               success: true,
               matrix_id: 'matrix-123',
-            }),
-          });
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       render(<DebateInput apiBase={apiBase} />);
@@ -432,15 +439,14 @@ describe('DebateInput Mode Switching', () => {
     it('shows appropriate error for failed GRAPH debate', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debates/graph')) {
-          return Promise.resolve({
-            ok: false,
-            json: () => Promise.resolve({ error: 'Graph debates require at least 2 agents' }),
-          });
+          return Promise.resolve(
+            jsonResponse({ error: 'Graph debates require at least 2 agents' }, false, 400)
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       const onError = jest.fn();
@@ -467,15 +473,14 @@ describe('DebateInput Mode Switching', () => {
     it('shows appropriate error for failed MATRIX debate', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debates/matrix')) {
-          return Promise.resolve({
-            ok: false,
-            json: () => Promise.resolve({ error: 'Matrix debates require variables' }),
-          });
+          return Promise.resolve(
+            jsonResponse({ error: 'Matrix debates require variables' }, false, 400)
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       const onError = jest.fn();
@@ -504,18 +509,17 @@ describe('DebateInput Mode Switching', () => {
     it('remembers mode selection after submission', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/api/health')) {
-          return Promise.resolve({ ok: true });
+          return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
         if (url.includes('/api/debates/graph')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
+          return Promise.resolve(
+            jsonResponse({
               success: true,
               debate_id: 'graph-debate-123',
-            }),
-          });
+            })
+          );
         }
-        return Promise.resolve({ ok: false });
+        return Promise.resolve(jsonResponse({}));
       });
 
       render(<DebateInput apiBase={apiBase} />);
