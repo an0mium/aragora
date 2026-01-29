@@ -33,7 +33,7 @@ from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
-from aragora.server.handlers.utils.responses import error_response
+from aragora.server.handlers.utils.responses import error_response, HandlerResult
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class AdvertisingHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/advertising/")
 
-    async def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
+    async def _check_permission(self, request: Any, permission: str) -> HandlerResult | None:
         """Check if user has the required permission using RBAC system."""
         try:
             auth_context = await self.get_auth_context(request, require_auth=True)

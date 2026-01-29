@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
-from aragora.server.handlers.utils.responses import error_response
+from aragora.server.handlers.utils.responses import error_response, HandlerResult
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ class ConnectorsHandler(SecureHandler):
         "/api/v1/connectors/types",
     ]
 
-    async def _check_permission(self, request: Any, permission: str) -> Optional[Dict[str, Any]]:
+    async def _check_permission(self, request: Any, permission: str) -> Optional[HandlerResult]:
         """Check if user has the required permission using RBAC system.
 
         Returns error response if permission denied or auth fails, None if allowed.
