@@ -190,7 +190,9 @@ class AragoraRLM(RLMStreamingMixin):
         if content_bytes > self.aragora_config.max_content_bytes:
             raise RLMContextOverflowError(
                 f"Context size {content_bytes} exceeds max_content_bytes="
-                f"{self.aragora_config.max_content_bytes}"
+                f"{self.aragora_config.max_content_bytes}",
+                content_size=content_bytes,
+                max_size=self.aragora_config.max_content_bytes,
             )
 
         inline_content = content
