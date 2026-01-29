@@ -18,7 +18,9 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from xml.etree import ElementTree as ET
+# Use defusedxml for XXE-safe XML parsing (prevents XXE attacks)
+import defusedxml.ElementTree as DefusedET
+from xml.etree.ElementTree import Element  # For type hints only
 
 import httpx
 
@@ -202,7 +204,7 @@ class FeedIngestor:
                     delay = self.base_retry_delay * (2**attempt)
                     await asyncio.sleep(delay)
 
-                except ET.ParseError as e:
+                except DefusedET.ParseError as e:
                     logger.error(f"Parse error for {source.name}: {e}")
                     cb.record_failure()
                     return []
@@ -213,8 +215,8 @@ class FeedIngestor:
     def _parse_feed(self, content: str, source: FeedSource) -> List[FeedEntry]:
         """Parse RSS or Atom feed content."""
         try:
-            root = ET.fromstring(content)
-        except ET.ParseError as e:
+            root = DefusedET.fromstring(content)
+        except DefusedET.ParseError as e:
             logger.error(f"Failed to parse feed XML: {e}")
             return []
 
@@ -227,7 +229,7 @@ class FeedIngestor:
             logger.warning(f"Unknown feed format: {root.tag}")
             return []
 
-    def _parse_rss(self, root: ET.Element, source: FeedSource) -> List[FeedEntry]:
+    def _parse_rss(self, root: Element, source: FeedSource) -> List[FeedEntry]:
         """Parse RSS 2.0 feed."""
         entries: list[FeedEntry] = []
         channel = root.find("channel")
@@ -254,7 +256,7 @@ class FeedIngestor:
 
         return entries
 
-    def _parse_atom(self, root: ET.Element, source: FeedSource) -> List[FeedEntry]:
+    def _parse_atom(self, root: Element, source: FeedSource) -> List[FeedEntry]:
         """Parse Atom feed."""
         entries = []
         ns = {"atom": "http://www.w3.org/2005/Atom"}
@@ -297,7 +299,7 @@ class FeedIngestor:
 
         return entries
 
-    def _get_text(self, element: ET.Element, tag: str, ns: Optional[dict] = None) -> str:
+    def _get_text(self, element: Element, tag: str, ns: Optional[dict] = None) -> str:
         """Get text content of a child element."""
         child = element.find(tag, ns) if ns else element.find(tag)
         if child is None and ns:
@@ -311,7 +313,7 @@ class FeedIngestor:
             child = element.find(simple_tag)
         return (child.text or "").strip() if child is not None else ""
 
-    def _get_atom_link(self, item: ET.Element, ns: dict) -> str:
+    def _get_atom_link(self, item: Element, ns: dict) -> str:
         """Get link from Atom entry (prefers alternate link)."""
         atom_ns = "{http://www.w3.org/2005/Atom}"
         links = item.findall("atom:link", ns)
@@ -329,7 +331,7 @@ class FeedIngestor:
             return links[0].get("href", "")
         return ""
 
-    def _get_atom_author(self, item: ET.Element, ns: dict) -> str:
+    def _get_atom_author(self, item: Element, ns: dict) -> str:
         """Get author from Atom entry."""
         atom_ns = "{http://www.w3.org/2005/Atom}"
         # Try multiple namespace patterns

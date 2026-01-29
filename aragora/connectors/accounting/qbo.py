@@ -518,7 +518,12 @@ class QuickBooksConnector:
         offset: int = 0,
     ) -> List[QBOCustomer]:
         """List customers."""
-        query = f"SELECT * FROM Customer WHERE Active = {str(active_only).lower()} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        # Validate pagination parameters to prevent injection
+        limit, offset = self._validate_pagination(limit, offset)
+        # active_only is a bool - convert safely to QBO boolean literal
+        active_str = "true" if active_only else "false"
+
+        query = f"SELECT * FROM Customer WHERE Active = {active_str} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
 
         response = await self._request("GET", f"query?query={query}")
 
@@ -540,7 +545,9 @@ class QuickBooksConnector:
 
     async def get_customer(self, customer_id: str) -> Optional[QBOCustomer]:
         """Get customer by ID."""
-        response = await self._request("GET", f"customer/{customer_id}")
+        # Validate customer_id is numeric to prevent path traversal/injection
+        safe_customer_id = self._validate_numeric_id(customer_id, "customer_id")
+        response = await self._request("GET", f"customer/{safe_customer_id}")
 
         item = response.get("Customer")
         if not item:
@@ -569,12 +576,19 @@ class QuickBooksConnector:
         offset: int = 0,
     ) -> List[QBOTransaction]:
         """List invoices."""
+        # Validate pagination parameters to prevent injection
+        limit, offset = self._validate_pagination(limit, offset)
+
         conditions = []
 
         if start_date:
-            conditions.append(f"TxnDate >= '{start_date.strftime('%Y-%m-%d')}'")
+            # Validate and format date safely
+            safe_start = self._format_date_for_query(start_date, "start_date")
+            conditions.append(f"TxnDate >= '{safe_start}'")
         if end_date:
-            conditions.append(f"TxnDate <= '{end_date.strftime('%Y-%m-%d')}'")
+            # Validate and format date safely
+            safe_end = self._format_date_for_query(end_date, "end_date")
+            conditions.append(f"TxnDate <= '{safe_end}'")
         if customer_id:
             # Validate customer_id is numeric to prevent injection
             safe_customer_id = self._validate_numeric_id(customer_id, "customer_id")
@@ -599,12 +613,19 @@ class QuickBooksConnector:
         offset: int = 0,
     ) -> List[QBOTransaction]:
         """List expenses (purchases)."""
+        # Validate pagination parameters to prevent injection
+        limit, offset = self._validate_pagination(limit, offset)
+
         conditions = []
 
         if start_date:
-            conditions.append(f"TxnDate >= '{start_date.strftime('%Y-%m-%d')}'")
+            # Validate and format date safely
+            safe_start = self._format_date_for_query(start_date, "start_date")
+            conditions.append(f"TxnDate >= '{safe_start}'")
         if end_date:
-            conditions.append(f"TxnDate <= '{end_date.strftime('%Y-%m-%d')}'")
+            # Validate and format date safely
+            safe_end = self._format_date_for_query(end_date, "end_date")
+            conditions.append(f"TxnDate <= '{safe_end}'")
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         query = f"SELECT * FROM Purchase WHERE {where_clause} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
@@ -685,7 +706,9 @@ class QuickBooksConnector:
         active_only: bool = True,
     ) -> List[QBOAccount]:
         """List chart of accounts."""
-        conditions = [f"Active = {str(active_only).lower()}"]
+        # active_only is a bool - convert safely to QBO boolean literal
+        active_str = "true" if active_only else "false"
+        conditions = [f"Active = {active_str}"]
         if account_type:
             # Sanitize account_type to prevent injection
             safe_account_type = self._sanitize_query_value(account_type)
@@ -731,7 +754,12 @@ class QuickBooksConnector:
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """List vendors."""
-        query = f"SELECT * FROM Vendor WHERE Active = {str(active_only).lower()} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        # Validate pagination parameters to prevent injection
+        limit, offset = self._validate_pagination(limit, offset)
+        # active_only is a bool - convert safely to QBO boolean literal
+        active_str = "true" if active_only else "false"
+
+        query = f"SELECT * FROM Vendor WHERE Active = {active_str} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
         response = await self._request("GET", f"query?query={query}")
         return response.get("QueryResponse", {}).get("Vendor", [])
 
@@ -795,6 +823,60 @@ class QuickBooksConnector:
         if not clean_value.isdigit():
             raise ValueError(f"{field_name} must be a numeric ID, got: {value!r}")
         return clean_value
+
+    def _validate_pagination(self, limit: int, offset: int, max_limit: int = 1000) -> tuple[int, int]:
+        """
+        Validate and sanitize pagination parameters.
+
+        Prevents injection via malicious limit/offset values and enforces
+        reasonable bounds to prevent resource exhaustion.
+
+        Args:
+            limit: Maximum number of results to return
+            offset: Starting position (0-indexed)
+            max_limit: Maximum allowed limit value (default 1000)
+
+        Returns:
+            Tuple of (validated_limit, validated_offset)
+
+        Raises:
+            ValueError: If parameters are invalid
+        """
+        # Ensure limit is a positive integer within bounds
+        if not isinstance(limit, int):
+            raise ValueError(f"limit must be an integer, got {type(limit).__name__}")
+        if limit < 1:
+            raise ValueError(f"limit must be positive, got {limit}")
+        if limit > max_limit:
+            limit = max_limit
+            logger.warning(f"limit capped to maximum of {max_limit}")
+
+        # Ensure offset is a non-negative integer
+        if not isinstance(offset, int):
+            raise ValueError(f"offset must be an integer, got {type(offset).__name__}")
+        if offset < 0:
+            raise ValueError(f"offset must be non-negative, got {offset}")
+
+        return limit, offset
+
+    def _format_date_for_query(self, date_value: datetime, field_name: str) -> str:
+        """
+        Safely format a datetime for use in QBO queries.
+
+        Args:
+            date_value: The datetime to format
+            field_name: Name of the field for error messages
+
+        Returns:
+            Date string in YYYY-MM-DD format
+
+        Raises:
+            ValueError: If date_value is not a valid datetime
+        """
+        if not isinstance(date_value, datetime):
+            raise ValueError(f"{field_name} must be a datetime object, got {type(date_value).__name__}")
+        # Format produces only digits and hyphens - safe for query use
+        return date_value.strftime("%Y-%m-%d")
 
     async def create_vendor(
         self,
