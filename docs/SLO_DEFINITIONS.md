@@ -26,8 +26,17 @@ SLOs define the target reliability levels for Aragora services. These objectives
 | `GET /api/v1/debates/:id` | 10ms | 50ms | 100ms |
 | `POST /api/v1/documents` | 100ms | 300ms | 1000ms |
 | WebSocket message delivery | 5ms | 20ms | 50ms |
+| Webhook delivery | 500ms | 2s | 5s |
 
-**Note:** Debate completion latency is excluded as it depends on agent response times (typically 2-30 seconds).
+### Debate Completion
+
+| Debate Type | P50 | P95 | Notes |
+|-------------|-----|-----|-------|
+| Standard (3 agents, 3 rounds) | 8s | 20s | Most common |
+| Extended (5+ agents) | 15s | 45s | Team debates |
+| Complex (10+ rounds) | 30s | 90s | Deep analysis |
+
+**Note:** Debate completion depends on LLM provider response times. These are best-effort targets.
 
 ### Error Rate
 
@@ -95,6 +104,27 @@ SLOs define the target reliability levels for Aragora services. These objectives
     sum(rate(http_requests_total{status=~"5.."}[5m]))
     /
     sum(rate(http_requests_total[5m]))
+
+# Webhook Delivery Latency P99
+- record: slo:webhook:delivery:latency:p99
+  expr: |
+    histogram_quantile(0.99,
+      sum(rate(webhook_delivery_seconds_bucket[5m])) by (le)
+    )
+
+# Webhook Delivery Success Rate
+- record: slo:webhook:delivery:success:ratio
+  expr: |
+    sum(rate(webhook_delivery_total{status="success"}[5m]))
+    /
+    sum(rate(webhook_delivery_total[5m]))
+
+# Debate Completion Time P95
+- record: slo:debate:completion:p95
+  expr: |
+    histogram_quantile(0.95,
+      sum(rate(debate_completion_seconds_bucket[5m])) by (le)
+    )
 ```
 
 ## Error Budget Policy
