@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.config.settings import get_settings
+from aragora.rbac.models import AuthorizationContext
+from aragora.server.fastapi.dependencies.auth import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +131,7 @@ async def get_decision_service(request: Request):
 async def start_decision(
     body: StartDebateRequest,
     request: Request,
+    auth: AuthorizationContext = Depends(require_permission("debates:create")),
     service=Depends(get_decision_service),
 ) -> StartDebateResponse:
     """
@@ -224,6 +227,7 @@ async def get_decision(
 @router.delete("/decisions/{debate_id}", response_model=CancelResponse)
 async def cancel_decision(
     debate_id: str,
+    auth: AuthorizationContext = Depends(require_permission("debates:delete")),
     service=Depends(get_decision_service),
 ) -> CancelResponse:
     """

@@ -940,6 +940,9 @@ class UnifiedServer:
         self.ssl_key = ssl_key
         self.ssl_enabled = bool(ssl_cert and ssl_key)
 
+        # HTTP server reference for graceful shutdown
+        self._http_server: Any = None
+
         # Create WebSocket servers
         self.stream_server = DebateStreamServer(host=ws_host, port=ws_port)
         self.control_plane_stream = ControlPlaneStreamServer(host=ws_host, port=control_plane_port)
@@ -1053,6 +1056,7 @@ class UnifiedServer:
             try:
                 # Use ThreadingHTTPServer for concurrent request handling
                 server = ThreadingHTTPServer((self.http_host, self.http_port), UnifiedHandler)
+                self._http_server = server
 
                 # Configure SSL if cert and key are provided
                 if self.ssl_enabled:
@@ -1160,19 +1164,64 @@ class UnifiedServer:
         # Set up signal handlers for graceful shutdown
         self._setup_signal_handlers()
 
-        # Start HTTP server in background thread
-        self._http_thread = Thread(target=self._run_http_server, daemon=True)
-        self._http_thread.start()
+        # Start HTTP server
+        use_fastapi = os.environ.get("ARAGORA_USE_FASTAPI", "").lower() in ("1", "true", "yes")
+        fastapi_port = int(os.environ.get("ARAGORA_FASTAPI_PORT", str(self.http_port)))
+
+        if use_fastapi:
+            # Start FastAPI (async-native, high concurrency)
+            logger.info(f"  FastAPI:    http://localhost:{fastapi_port} (async mode)")
+            fastapi_task = asyncio.create_task(self._start_fastapi_server(fastapi_port))
+            stream_tasks = [
+                fastapi_task,
+                self.stream_server.start(),
+                self.control_plane_stream.start(),
+                self.nomic_loop_stream.start(),
+            ]
+        else:
+            # Start legacy ThreadingHTTPServer in background thread
+            self._http_thread = Thread(target=self._run_http_server, daemon=True)
+            self._http_thread.start()
+            stream_tasks = [
+                self.stream_server.start(),
+                self.control_plane_stream.start(),
+                self.nomic_loop_stream.start(),
+            ]
 
         # Start all WebSocket servers concurrently
-        stream_tasks = [
-            self.stream_server.start(),
-            self.control_plane_stream.start(),
-            self.nomic_loop_stream.start(),
-        ]
         if self.canvas_stream:
             stream_tasks.append(self.canvas_stream.start())
         await asyncio.gather(*stream_tasks)
+
+    async def _start_fastapi_server(self, port: int) -> None:
+        """Start FastAPI server using uvicorn.
+
+        This replaces ThreadingHTTPServer with an async-native server
+        for better concurrency (10,000+ vs ~500 concurrent connections).
+
+        Args:
+            port: Port to bind the FastAPI server to.
+        """
+        try:
+            import uvicorn
+            from aragora.server.fastapi import create_app
+
+            app = create_app(nomic_dir=self.nomic_dir)
+            config = uvicorn.Config(
+                app,
+                host=self.http_host,
+                port=port,
+                log_level="info",
+                access_log=True,
+            )
+            server = uvicorn.Server(config)
+            await server.serve()
+        except ImportError:
+            logger.error(
+                "[server] FastAPI/uvicorn not installed. "
+                "Install with: pip install 'aragora[fastapi]' or pip install fastapi uvicorn"
+            )
+            raise
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
