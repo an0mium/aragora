@@ -115,6 +115,46 @@ class GmailMessagesMixin(GmailBaseMethods):
 
         return self._parse_message(data)
 
+    async def get_messages(
+        self,
+        message_ids: List[str],
+        format: str = "full",
+        max_concurrent: int = 10,
+    ) -> List[EmailMessage]:
+        """
+        Get multiple messages by IDs in parallel.
+
+        Fetches messages concurrently to avoid N+1 query patterns.
+        Failed fetches are logged and skipped (partial results returned).
+
+        Args:
+            message_ids: List of message IDs to fetch
+            format: "full", "metadata", or "minimal"
+            max_concurrent: Maximum concurrent requests (default 10)
+
+        Returns:
+            List of EmailMessage objects (may be shorter than input if some fail)
+        """
+        if not message_ids:
+            return []
+
+        # Use semaphore to limit concurrent requests
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def fetch_one(msg_id: str) -> Optional[EmailMessage]:
+            async with semaphore:
+                try:
+                    return await self.get_message(msg_id, format=format)
+                except Exception as e:
+                    logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
+                    return None
+
+        # Fetch all messages in parallel
+        results = await asyncio.gather(*[fetch_one(msg_id) for msg_id in message_ids])
+
+        # Filter out None (failed fetches) and return
+        return [msg for msg in results if msg is not None]
+
     def _parse_message(self, data: Dict[str, Any]) -> EmailMessage:
         """Parse Gmail API message response into EmailMessage."""
         headers = {}

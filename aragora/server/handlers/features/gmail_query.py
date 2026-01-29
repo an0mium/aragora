@@ -174,34 +174,31 @@ class GmailQueryHandler(SecureHandler):
                 query=question,
             )
 
-        # Fetch full content for top results
+        # Fetch full content for top results using batch method to avoid N+1 queries
         emails_content = []
         sources = []
 
-        for r in results[:5]:
-            try:
-                msg_id = r.id.replace("gmail-", "")
-                msg = await connector.get_message(msg_id)
+        # Extract message IDs and fetch in batch
+        message_ids = [r.id.replace("gmail-", "") for r in results[:5]]
+        messages = await connector.get_messages(message_ids)
 
-                emails_content.append(
-                    f"From: {msg.from_address}\n"
-                    f"Subject: {msg.subject}\n"
-                    f"Date: {msg.date.isoformat() if msg.date else 'Unknown'}\n"
-                    f"Content: {msg.body_text[:1000] if msg.body_text else msg.snippet}\n"
-                )
+        for msg in messages:
+            emails_content.append(
+                f"From: {msg.from_address}\n"
+                f"Subject: {msg.subject}\n"
+                f"Date: {msg.date.isoformat() if msg.date else 'Unknown'}\n"
+                f"Content: {msg.body_text[:1000] if msg.body_text else msg.snippet}\n"
+            )
 
-                sources.append(
-                    {
-                        "id": msg_id,
-                        "subject": msg.subject,
-                        "from": msg.from_address,
-                        "date": msg.date.isoformat() if msg.date else None,
-                        "url": f"https://mail.google.com/mail/u/0/#inbox/{msg_id}",
-                    }
-                )
-
-            except Exception as e:
-                logger.warning(f"[GmailQuery] Failed to fetch message: {e}")
+            sources.append(
+                {
+                    "id": msg.id,
+                    "subject": msg.subject,
+                    "from": msg.from_address,
+                    "date": msg.date.isoformat() if msg.date else None,
+                    "url": f"https://mail.google.com/mail/u/0/#inbox/{msg.id}",
+                }
+            )
 
         if not emails_content:
             return QueryResponse(
@@ -428,12 +425,16 @@ class GmailQueryHandler(SecureHandler):
         # Create priority analyzer
         analyzer = EmailPriorityAnalyzer(user_id=user_id)
 
-        # Fetch and score emails
-        emails = []
-        for msg_id in message_ids[: limit * 2]:
-            try:
-                msg = await connector.get_message(msg_id, format="metadata")
+        # Batch fetch messages to avoid N+1 queries
+        messages = await connector.get_messages(
+            message_ids[: limit * 2],
+            format="metadata",
+        )
 
+        # Score emails (priority scoring still sequential as it may involve external calls)
+        emails = []
+        for msg in messages:
+            try:
                 # Score the email
                 score = await analyzer.score_email(
                     email_id=msg.id,
@@ -463,7 +464,7 @@ class GmailQueryHandler(SecureHandler):
                 )
 
             except Exception as e:
-                logger.warning(f"[GmailQuery] Failed to process message {msg_id}: {e}")
+                logger.warning(f"[GmailQuery] Failed to score message {msg.id}: {e}")
 
         # Sort by priority score
         emails.sort(key=lambda x: x["priority_score"], reverse=True)  # type: ignore[arg-type,return-value]
