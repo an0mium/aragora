@@ -709,24 +709,24 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             True if the entry was updated, False if not found
         """
         # Build update clauses dynamically
-        updates = []
-        params = []
+        updates: List[str] = []
+        params: List[Any] = []
 
         if content is not None:
             updates.append("content = ?")
             params.append(content)
         if importance is not None:
             updates.append("importance = ?")
-            params.append(importance)  # type: ignore[arg-type]
+            params.append(importance)
         if metadata is not None:
             updates.append("metadata = ?")
             params.append(json.dumps(metadata))
         if surprise_score is not None:
             updates.append("surprise_score = ?")
-            params.append(surprise_score)  # type: ignore[arg-type]
+            params.append(surprise_score)
         if consolidation_score is not None:
             updates.append("consolidation_score = ?")
-            params.append(consolidation_score)  # type: ignore[arg-type]
+            params.append(consolidation_score)
 
         if not updates:
             return False

@@ -70,17 +70,19 @@ class MoundHandlersMixin:
             # Try to sync to memory continuum
             try:
                 from aragora.memory.continuum import ContinuumMemory
+                from aragora.memory.tier_manager import MemoryTier
 
                 memory = ContinuumMemory()
-                memory.store(  # type: ignore[unused-coroutine,call-arg]
-                    key=f"km:{node_id}",
-                    value=content,
+                # Use the sync add method instead of async store
+                memory.add(
+                    id=f"km:{node_id}",
+                    content=content,
                     metadata={
                         "source": "knowledge_mound",
                         "workspace": workspace,
                         **metadata,
                     },
-                    tier="medium",  # Cross-session memory
+                    tier=MemoryTier.MEDIUM,  # Cross-session memory
                 )
                 logger.debug(f"Synced KM node {node_id} to memory continuum")
             except Exception as e:
@@ -172,7 +174,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "ingest_belief"):
                     mound.ingest_belief(
                         claim_id=claim_id,
@@ -210,7 +212,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "find_related_claims"):
                     related = mound.find_related_claims(query, limit=5)
                     if related and debate_id:
@@ -246,7 +248,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "update_rlm_metadata"):
                     mound.update_rlm_metadata(
                         content_id=content_id,
@@ -281,7 +283,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "get_compression_hints"):
                     hints = mound.get_compression_hints(content_type)
                     if hints:
@@ -317,7 +319,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "record_elo_update"):
                     mound.record_elo_update(
                         agent_name=agent_name,
@@ -355,7 +357,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "get_agent_history"):
                     for agent in candidate_agents:
                         history = mound.get_agent_history(agent, task_type=task_type)
@@ -391,7 +393,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "ingest_insight"):
                     mound.ingest_insight(
                         insight_type=insight_type,
@@ -431,7 +433,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "record_position_flip"):
                     mound.record_position_flip(
                         agent_name=agent_name,
@@ -468,7 +470,7 @@ class MoundHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "get_hollow_consensus_patterns"):
                     patterns = mound.get_hollow_consensus_patterns(consensus_topic)
                     if patterns:

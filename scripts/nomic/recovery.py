@@ -65,6 +65,9 @@ class PhaseRecovery:
         "verify": int(os.environ.get("NOMIC_VERIFY_TIMEOUT", "600")),  # 10 min
         "commit": int(os.environ.get("NOMIC_COMMIT_TIMEOUT", "180")),  # 3 min
     }
+    # Timeout escalation tuning
+    TIMEOUT_ESCALATION_FACTOR = float(os.environ.get("NOMIC_TIMEOUT_ESCALATION", "1.3"))
+    TIMEOUT_MAX_MULTIPLIER = float(os.environ.get("NOMIC_TIMEOUT_MAX_MULT", "2.0"))
 
     # Errors that should NOT be retried
     NON_RETRYABLE_ERRORS = (
@@ -123,6 +126,7 @@ class PhaseRecovery:
         self.log = log_func
         self.phase_health: dict[str, dict] = {}
         self.consecutive_failures: dict[str, int] = {}
+        self.current_attempt: dict[str, int] = {}
 
     def is_retryable(self, error: Exception, phase: str) -> bool:
         """Check if an error should be retried."""
@@ -154,6 +158,20 @@ class PhaseRecovery:
             self.log(f"  [recovery] Rate limit detected, waiting {delay}s")
 
         return min(delay, 300)  # Cap at 5 minutes
+
+    def get_escalated_timeout(self, phase: str, attempt: int = 0) -> float:
+        """
+        Calculate escalated timeout for retry attempts.
+
+        Each retry gets more time (up to max multiplier) to handle
+        slow but eventually successful operations.
+        """
+        base_timeout = self.PHASE_TIMEOUTS.get(phase, 600)
+        if attempt == 0:
+            return base_timeout
+
+        multiplier = min(self.TIMEOUT_ESCALATION_FACTOR**attempt, self.TIMEOUT_MAX_MULTIPLIER)
+        return int(base_timeout * multiplier)
 
     def record_success(self, phase: str) -> None:
         """Record successful phase completion."""
@@ -206,11 +224,14 @@ class PhaseRecovery:
         """
         config = self.PHASE_RETRY_CONFIG.get(phase, {"max_retries": 1})
         attempts = 0
+        self.current_attempt[phase] = 0
 
         while attempts <= config["max_retries"]:
             try:
+                self.current_attempt[phase] = attempts
                 result = await phase_func(*args, **kwargs)
                 self.record_success(phase)
+                self.current_attempt.pop(phase, None)
                 return (True, result)
 
             except self.NON_RETRYABLE_ERRORS:
@@ -225,7 +246,10 @@ class PhaseRecovery:
 
                 if self.is_retryable(e, phase) and attempts <= config["max_retries"]:
                     delay = self.get_retry_delay(e, phase)
-                    self.log(f"  [recovery] Retrying in {delay:.0f}s...")
+                    next_timeout = self.get_escalated_timeout(phase, attempts)
+                    self.log(
+                        f"  [recovery] Retrying in {delay:.0f}s with {next_timeout}s timeout..."
+                    )
                     await asyncio.sleep(delay)
                 else:
                     # Log full traceback for debugging
@@ -234,6 +258,8 @@ class PhaseRecovery:
                     if self.should_trigger_rollback(phase):
                         self.log(f"  [recovery] CRITICAL: Phase '{phase}' requires rollback")
 
+                    self.current_attempt.pop(phase, None)
                     return (False, str(e))
 
+        self.current_attempt.pop(phase, None)
         return (False, "Max retries exceeded")

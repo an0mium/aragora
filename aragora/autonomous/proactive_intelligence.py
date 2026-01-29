@@ -261,9 +261,7 @@ class ScheduledTrigger:
         if self.debate_creator:
             try:
                 topic = trigger.metadata.get("topic", f"Scheduled analysis: {trigger.name}")
-                agents = trigger.metadata.get(
-                    "agents", get_settings().agent.default_agent_list
-                )
+                agents = trigger.metadata.get("agents", get_settings().agent.default_agent_list)
                 rounds = trigger.metadata.get("rounds", DEFAULT_ROUNDS)
 
                 await self.debate_creator(topic, agents, rounds)

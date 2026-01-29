@@ -764,9 +764,7 @@ Respond with ONLY a number from 0-10."""
                 self._verify_code_block(lang, code) for lang, code in code_blocks
             ]
             results["code_verification"] = {
-                "status": (
-                    "valid" if all(r["valid"] for r in verification_results) else "invalid"
-                ),
+                "status": ("valid" if all(r["valid"] for r in verification_results) else "invalid"),
                 "blocks": verification_results,
             }
 

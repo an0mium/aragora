@@ -167,15 +167,11 @@ class CapabilityRouter(AgentRouter):
                                 )
 
                         # Skip this rule
-                        logger.debug(
-                            f"Skipping rule {rule.rule_id} - missing: {missing}"
-                        )
+                        logger.debug(f"Skipping rule {rule.rule_id} - missing: {missing}")
                         continue
 
             # Rule matches
-            logger.debug(
-                f"Routed {message.message_id} to {rule.agent_id} via {rule.rule_id}"
-            )
+            logger.debug(f"Routed {message.message_id} to {rule.agent_id} via {rule.rule_id}")
             return RoutingResult(
                 agent_id=rule.agent_id,
                 rule_id=rule.rule_id,

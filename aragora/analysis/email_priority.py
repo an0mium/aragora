@@ -113,7 +113,8 @@ class EmailPriorityAnalyzer:
             try:
                 from aragora.memory.continuum import ContinuumMemory
 
-                self._memory = ContinuumMemory(user_id=self.user_id)  # type: ignore[call-arg]
+                # Note: user_id is tracked via memory entry metadata, not constructor
+                self._memory = ContinuumMemory()
                 await self._memory.initialize()  # type: ignore[attr-defined]
             except ImportError:
                 logger.debug("[EmailPriority] ContinuumMemory not available")
@@ -607,7 +608,8 @@ class EmailFeedbackLearner:
             try:
                 from aragora.memory.continuum import ContinuumMemory
 
-                self._memory = ContinuumMemory(user_id=self.user_id)  # type: ignore[call-arg]
+                # Note: user_id is tracked via memory entry metadata, not constructor
+                self._memory = ContinuumMemory()
                 await self._memory.initialize()  # type: ignore[attr-defined]
             except ImportError:
                 logger.debug("[EmailFeedback] ContinuumMemory not available")

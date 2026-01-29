@@ -649,9 +649,7 @@ class OnboardingWizard:
         self._sessions[session.session_id] = session
         return session
 
-    def _get_steps_for_capabilities(
-        self, capabilities: list[str]
-    ) -> list[OnboardingStep]:
+    def _get_steps_for_capabilities(self, capabilities: list[str]) -> list[OnboardingStep]:
         """
         Generate onboarding steps based on device capabilities.
 
@@ -834,7 +832,9 @@ class OnboardingWizard:
         # Filter to only capability-specific steps
         existing_ids = {s.step_id for s in session.steps}
         skip_ids = {"welcome", "device_pairing", "notifications", "security"}
-        new_steps = [s for s in new_steps if s.step_id not in existing_ids and s.step_id not in skip_ids]
+        new_steps = [
+            s for s in new_steps if s.step_id not in existing_ids and s.step_id not in skip_ids
+        ]
 
         if new_steps:
             # Insert before the security step

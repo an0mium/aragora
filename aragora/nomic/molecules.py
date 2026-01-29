@@ -393,9 +393,7 @@ class DebateStepExecutor(StepExecutor):
     async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
         """Execute step via Arena debate."""
         question = step.config.get("question", step.name)
-        agents_config = step.config.get(
-            "agents", get_settings().agent.default_agent_list
-        )
+        agents_config = step.config.get("agents", get_settings().agent.default_agent_list)
         rounds = step.config.get("rounds", DEFAULT_ROUNDS)
         consensus = step.config.get("consensus", DEFAULT_CONSENSUS)
 

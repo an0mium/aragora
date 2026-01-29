@@ -620,9 +620,7 @@ class AsyncDecisionService:
                 # Cleanup
                 self._running_tasks.pop(debate_id, None)
 
-    def _make_round_callback(
-        self, debate_id: str, state: DebateState
-    ) -> Callable[[int], None]:
+    def _make_round_callback(self, debate_id: str, state: DebateState) -> Callable[[int], None]:
         """Create callback for round start events."""
 
         def on_round_start(round_num: int) -> None:
