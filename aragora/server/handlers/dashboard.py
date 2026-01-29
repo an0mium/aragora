@@ -666,6 +666,22 @@ def get_dashboard_handlers() -> Dict[str, Any]:
     }
 
 
+def get_dashboard_routes() -> list[tuple[str, str, Any]]:
+    """
+    Get route definitions for dashboard handlers.
+
+    Returns list of (method, path, handler) tuples.
+    """
+    return [
+        ("GET", "/api/v1/dashboard", handle_get_dashboard),
+        ("GET", "/api/v1/dashboard/stats", handle_get_stats),
+        ("GET", "/api/v1/dashboard/activity", handle_get_activity),
+        ("GET", "/api/v1/dashboard/inbox-summary", handle_get_inbox_summary),
+        ("GET", "/api/v1/dashboard/quick-actions", handle_get_quick_actions),
+        ("POST", "/api/v1/dashboard/quick-actions/{action}", handle_execute_quick_action),
+    ]
+
+
 __all__ = [
     "handle_get_dashboard",
     "handle_get_stats",
@@ -674,4 +690,5 @@ __all__ = [
     "handle_get_quick_actions",
     "handle_execute_quick_action",
     "get_dashboard_handlers",
+    "get_dashboard_routes",
 ]

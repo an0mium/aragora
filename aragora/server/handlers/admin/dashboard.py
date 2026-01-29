@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
@@ -39,12 +39,48 @@ class DashboardHandler(SecureHandler):
     Requires authentication and dashboard.read permission (RBAC).
     """
 
-    ROUTES = ["/api/v1/dashboard/debates", "/api/v1/dashboard/quality-metrics"]
+    ROUTES = [
+        "/api/dashboard/debates",
+        "/api/v1/dashboard",
+        "/api/v1/dashboard/overview",
+        "/api/v1/dashboard/debates",
+        "/api/v1/dashboard/stats",
+        "/api/v1/dashboard/stat-cards",
+        "/api/v1/dashboard/team-performance",
+        "/api/v1/dashboard/top-senders",
+        "/api/v1/dashboard/labels",
+        "/api/v1/dashboard/activity",
+        "/api/v1/dashboard/inbox-summary",
+        "/api/v1/dashboard/quick-actions",
+        "/api/v1/dashboard/urgent",
+        "/api/v1/dashboard/pending-actions",
+        "/api/v1/dashboard/search",
+        "/api/v1/dashboard/export",
+        "/api/v1/dashboard/quality-metrics",
+    ]
+    ROUTE_PREFIXES = ["/api/v1/dashboard/"]
     RESOURCE_TYPE = "dashboard"
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        if path.startswith("/api/v1/dashboard/gastown/"):
+            return False
+        if path in self.ROUTES:
+            return True
+        if path.startswith("/api/v1/dashboard/debates/"):
+            return len(path.split("/")) == 6
+        if path.startswith("/api/v1/dashboard/team-performance/"):
+            return len(path.split("/")) == 6
+        if path.startswith("/api/v1/dashboard/quick-actions/"):
+            return len(path.split("/")) == 6
+        if path.startswith("/api/v1/dashboard/urgent/") and path.endswith("/dismiss"):
+            return len(path.split("/")) == 7
+        if (
+            path.startswith("/api/v1/dashboard/pending-actions/")
+            and path.endswith("/complete")
+        ):
+            return len(path.split("/")) == 7
+        return False
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler
@@ -67,13 +103,122 @@ class DashboardHandler(SecureHandler):
             logger.warning(f"Dashboard access denied: {e}")
             return error_response(str(e), 403)
 
-        if path == "/api/v1/dashboard/debates":
+        if path == "/api/dashboard/debates":
             domain = query_params.get("domain")
             limit = get_int_param(query_params, "limit", 10)
             hours = get_int_param(query_params, "hours", 24)
             return self._get_debates_dashboard(domain, min(limit, 50), hours)
-        elif path == "/api/v1/dashboard/quality-metrics":
+
+        if path in ("/api/v1/dashboard", "/api/v1/dashboard/overview"):
+            return self._get_overview(query_params, handler)
+
+        if path == "/api/v1/dashboard/debates":
+            limit = get_int_param(query_params, "limit", 10)
+            offset = get_int_param(query_params, "offset", 0)
+            status = query_params.get("status")
+            return self._get_dashboard_debates(min(limit, 50), max(offset, 0), status)
+
+        if path.startswith("/api/v1/dashboard/debates/"):
+            parts = path.split("/")
+            if len(parts) == 6:
+                return self._get_dashboard_debate(parts[5])
+
+        if path == "/api/v1/dashboard/stats":
+            return self._get_dashboard_stats()
+
+        if path == "/api/v1/dashboard/stat-cards":
+            return self._get_stat_cards()
+
+        if path == "/api/v1/dashboard/team-performance":
+            limit = get_int_param(query_params, "limit", 10)
+            offset = get_int_param(query_params, "offset", 0)
+            return self._get_team_performance(min(limit, 50), max(offset, 0))
+
+        if path.startswith("/api/v1/dashboard/team-performance/"):
+            parts = path.split("/")
+            if len(parts) == 6:
+                return self._get_team_performance_detail(parts[5])
+
+        if path == "/api/v1/dashboard/top-senders":
+            limit = get_int_param(query_params, "limit", 10)
+            offset = get_int_param(query_params, "offset", 0)
+            return self._get_top_senders(min(limit, 50), max(offset, 0))
+
+        if path == "/api/v1/dashboard/labels":
+            return self._get_labels()
+
+        if path == "/api/v1/dashboard/activity":
+            limit = get_int_param(query_params, "limit", 20)
+            offset = get_int_param(query_params, "offset", 0)
+            return self._get_activity(min(limit, 100), max(offset, 0))
+
+        if path == "/api/v1/dashboard/inbox-summary":
+            return self._get_inbox_summary()
+
+        if path == "/api/v1/dashboard/quick-actions":
+            return self._get_quick_actions()
+
+        if path == "/api/v1/dashboard/urgent":
+            limit = get_int_param(query_params, "limit", 20)
+            offset = get_int_param(query_params, "offset", 0)
+            return self._get_urgent_items(min(limit, 100), max(offset, 0))
+
+        if path == "/api/v1/dashboard/pending-actions":
+            limit = get_int_param(query_params, "limit", 20)
+            offset = get_int_param(query_params, "offset", 0)
+            return self._get_pending_actions(min(limit, 100), max(offset, 0))
+
+        if path == "/api/v1/dashboard/search":
+            query = query_params.get("q") or ""
+            return self._search_dashboard(query)
+
+        if path == "/api/v1/dashboard/quality-metrics":
             return self._get_quality_metrics()
+
+        return None
+
+    async def handle_post(  # type: ignore[override]
+        self, path: str, body: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Handle dashboard write actions (stub)."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _dashboard_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for dashboard endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and dashboard.read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, DASHBOARD_PERMISSION)
+        except UnauthorizedError as e:
+            logger.warning(f"Dashboard auth error: {e}")
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            logger.warning(f"Dashboard access denied: {e}")
+            return error_response(str(e), 403)
+
+        if path.startswith("/api/v1/dashboard/quick-actions/"):
+            parts = path.split("/")
+            if len(parts) == 6:
+                return self._execute_quick_action(parts[5])
+
+        if path.startswith("/api/v1/dashboard/urgent/") and path.endswith("/dismiss"):
+            parts = path.split("/")
+            if len(parts) == 7:
+                return self._dismiss_urgent_item(parts[5])
+
+        if (
+            path.startswith("/api/v1/dashboard/pending-actions/")
+            and path.endswith("/complete")
+        ):
+            parts = path.split("/")
+            if len(parts) == 7:
+                return self._complete_pending_action(parts[5])
+
+        if path == "/api/v1/dashboard/export":
+            return self._export_dashboard_data()
+
         return None
 
     @ttl_cache(
@@ -740,6 +885,204 @@ class DashboardHandler(SecureHandler):
         result["debate_quality"] = self._get_debate_quality_metrics()
 
         return json_response(result)
+
+    def _get_overview(self, query_params: dict, handler: Any) -> HandlerResult:
+        """Return dashboard overview summary."""
+        now = datetime.now(timezone.utc).isoformat()
+        return json_response(
+            {
+                "stats": [],
+                "recent_debates": [],
+                "active_debates": 0,
+                "total_debates_today": 0,
+                "consensus_rate": 0.0,
+                "avg_debate_duration_ms": 0,
+                "system_health": "healthy",
+                "last_updated": now,
+            }
+        )
+
+    def _get_dashboard_debates(
+        self, limit: int, offset: int, status: Any
+    ) -> HandlerResult:
+        """Return dashboard debate list (stub until storage integration)."""
+        return json_response({"debates": [], "total": 0})
+
+    def _get_dashboard_debate(self, debate_id: str) -> HandlerResult:
+        """Return a single debate summary entry."""
+        if not debate_id:
+            return error_response("debate_id is required", 400)
+        return json_response({"debate_id": debate_id})
+
+    def _get_dashboard_stats(self) -> HandlerResult:
+        """Return dashboard statistics (stub)."""
+        return json_response(
+            {
+                "debates": {
+                    "total": 0,
+                    "today": 0,
+                    "this_week": 0,
+                    "this_month": 0,
+                    "by_status": {},
+                },
+                "agents": {"total": 0, "active": 0, "by_provider": {}},
+                "performance": {
+                    "avg_response_time_ms": 0,
+                    "success_rate": 0.0,
+                    "consensus_rate": 0.0,
+                    "error_rate": 0.0,
+                },
+                "usage": {
+                    "api_calls_today": 0,
+                    "tokens_used_today": 0,
+                    "storage_used_bytes": 0,
+                },
+            }
+        )
+
+    def _get_stat_cards(self) -> HandlerResult:
+        """Return stat cards (stub)."""
+        return json_response({"cards": []})
+
+    def _get_team_performance(self, limit: int, offset: int) -> HandlerResult:
+        """Return team performance list (stub)."""
+        return json_response({"teams": [], "total": 0})
+
+    def _get_team_performance_detail(self, team_id: str) -> HandlerResult:
+        """Return team performance detail (stub)."""
+        if not team_id:
+            return error_response("team_id is required", 400)
+        return json_response(
+            {
+                "team_id": team_id,
+                "team_name": "",
+                "member_count": 0,
+                "debates_participated": 0,
+                "avg_response_time_ms": 0,
+                "consensus_contribution_rate": 0.0,
+                "quality_score": 0.0,
+            }
+        )
+
+    def _get_top_senders(self, limit: int, offset: int) -> HandlerResult:
+        """Return top senders list (stub)."""
+        return json_response({"senders": [], "total": 0})
+
+    def _get_labels(self) -> HandlerResult:
+        """Return label counts (stub)."""
+        return json_response({"labels": []})
+
+    def _get_activity(self, limit: int, offset: int) -> HandlerResult:
+        """Return activity feed (stub)."""
+        return json_response({"activity": [], "total": 0})
+
+    def _get_inbox_summary(self) -> HandlerResult:
+        """Return inbox summary (stub)."""
+        return json_response(
+            {
+                "total_messages": 0,
+                "unread_messages": 0,
+                "urgent_count": 0,
+                "today_count": 0,
+                "by_label": [],
+                "by_importance": {"high": 0, "medium": 0, "low": 0},
+                "response_rate": 0.0,
+                "avg_response_time_hours": 0.0,
+            }
+        )
+
+    def _get_quick_actions(self) -> HandlerResult:
+        """Return quick actions list."""
+        actions = [
+            {
+                "id": "archive_read",
+                "name": "Archive All Read",
+                "description": "Archive all read emails older than 24 hours",
+                "icon": "archive",
+                "available": True,
+            },
+            {
+                "id": "snooze_low",
+                "name": "Snooze Low Priority",
+                "description": "Snooze all low priority emails until tomorrow",
+                "icon": "clock",
+                "available": True,
+            },
+            {
+                "id": "mark_spam",
+                "name": "Mark Bulk as Spam",
+                "description": "Mark selected promotional emails as spam",
+                "icon": "slash",
+                "available": True,
+            },
+            {
+                "id": "complete_actions",
+                "name": "Complete Done Actions",
+                "description": "Mark action items you've completed",
+                "icon": "check-circle",
+                "available": True,
+            },
+            {
+                "id": "ai_respond",
+                "name": "AI Auto-Respond",
+                "description": "Let AI draft responses for simple emails",
+                "icon": "sparkles",
+                "available": True,
+            },
+            {
+                "id": "sync_inbox",
+                "name": "Sync Inbox",
+                "description": "Force sync with email provider",
+                "icon": "refresh",
+                "available": True,
+            },
+        ]
+        return json_response({"actions": actions, "total": len(actions)})
+
+    def _execute_quick_action(self, action_id: str) -> HandlerResult:
+        """Execute a quick action (stub)."""
+        if not action_id:
+            return error_response("action_id is required", 400)
+        return json_response(
+            {
+                "success": True,
+                "action_id": action_id,
+                "executed_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+    def _get_urgent_items(self, limit: int, offset: int) -> HandlerResult:
+        """Return urgent items (stub)."""
+        return json_response({"items": [], "total": 0})
+
+    def _dismiss_urgent_item(self, item_id: str) -> HandlerResult:
+        """Dismiss an urgent item (stub)."""
+        if not item_id:
+            return error_response("item_id is required", 400)
+        return json_response({"success": True})
+
+    def _get_pending_actions(self, limit: int, offset: int) -> HandlerResult:
+        """Return pending actions (stub)."""
+        return json_response({"actions": [], "total": 0})
+
+    def _complete_pending_action(self, action_id: str) -> HandlerResult:
+        """Complete a pending action (stub)."""
+        if not action_id:
+            return error_response("action_id is required", 400)
+        return json_response({"success": True})
+
+    def _search_dashboard(self, query: str) -> HandlerResult:
+        """Search dashboard data (stub)."""
+        return json_response({"results": [], "total": 0})
+
+    def _export_dashboard_data(self) -> HandlerResult:
+        """Export dashboard data (stub)."""
+        return json_response(
+            {
+                "url": "/api/v1/dashboard/export/download",
+                "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
+            }
+        )
 
     def _get_calibration_metrics(self) -> dict:
         """Get comprehensive agent calibration metrics.

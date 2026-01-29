@@ -1,9 +1,22 @@
 """Tests for DashboardHandler."""
 
+import asyncio
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.server.handlers.admin import DashboardHandler
+
+
+def run_handle(handler, path, params=None, request=None):
+    return asyncio.run(handler.handle(path, params or {}, request))
+
+
+@pytest.fixture(autouse=True)
+def bypass_dashboard_auth():
+    with patch.object(
+        DashboardHandler, "get_auth_context", new=AsyncMock(return_value=MagicMock())
+    ), patch.object(DashboardHandler, "check_permission", return_value=None):
+        yield
 
 
 class TestDashboardHandlerRouting:
@@ -189,14 +202,14 @@ class TestDashboardParameters:
     def test_limit_is_capped(self):
         """Limit parameter is capped at 50."""
         handler = DashboardHandler({})
-        result = handler.handle("/api/dashboard/debates", {"limit": "100"}, None)
+        result = run_handle(handler, "/api/dashboard/debates", {"limit": "100"}, None)
         # Should not crash, limit internally capped
         assert result is not None
 
     def test_domain_filter_accepted(self):
         """Domain filter parameter is accepted."""
         handler = DashboardHandler({})
-        result = handler.handle("/api/dashboard/debates", {"domain": "science"}, None)
+        result = run_handle(handler, "/api/dashboard/debates", {"domain": "science"}, None)
         assert result is not None
 
     def test_hours_parameter_accepted(self):
@@ -204,7 +217,7 @@ class TestDashboardParameters:
         import json
 
         handler = DashboardHandler({})
-        result = handler.handle("/api/dashboard/debates", {"hours": "72"}, None)
+        result = run_handle(handler, "/api/dashboard/debates", {"hours": "72"}, None)
         data = json.loads(result.body)
         assert data["recent_activity"]["period_hours"] == 72
 

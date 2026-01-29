@@ -120,7 +120,7 @@ class TestDashboardRouting:
     def test_cannot_handle_unknown_route(self, handler):
         """Cannot handle unknown routes."""
         assert handler.can_handle("/api/v1/unknown") is False
-        assert handler.can_handle("/api/v1/dashboard") is False
+        assert handler.can_handle("/api/v1/dashboard") is True
 
     @pytest.mark.asyncio
     async def test_handle_routes_to_debates(self, handler):
@@ -128,7 +128,7 @@ class TestDashboardRouting:
         mock_handler = MagicMock()
         mock_auth_context = MagicMock()
 
-        with patch.object(handler, "_get_debates_dashboard") as mock_method:
+        with patch.object(handler, "_get_dashboard_debates") as mock_method:
             mock_method.return_value = {"data": {}}
 
             with patch(
@@ -142,11 +142,11 @@ class TestDashboardRouting:
                     with patch.object(handler, "check_permission"):
                         await handler.handle(
                             "/api/v1/dashboard/debates",
-                            {"limit": "20", "hours": "48"},
+                            {"limit": "20"},
                             mock_handler,
                         )
 
-                        mock_method.assert_called_once_with(None, 20, 48)
+                        mock_method.assert_called_once_with(20, 0, None)
 
     @pytest.mark.asyncio
     async def test_handle_routes_to_quality_metrics(self, handler):
@@ -187,7 +187,7 @@ class TestDashboardRouting:
         mock_handler = MagicMock()
         mock_auth_context = MagicMock()
 
-        with patch.object(handler, "_get_debates_dashboard") as mock_method:
+        with patch.object(handler, "_get_dashboard_debates") as mock_method:
             mock_method.return_value = {"data": {}}
 
             with patch(
@@ -202,7 +202,7 @@ class TestDashboardRouting:
                         )
 
                         # Limit should be capped at 50
-                        mock_method.assert_called_once_with(None, 50, 24)
+                        mock_method.assert_called_once_with(50, 0, None)
 
 
 # =============================================================================
