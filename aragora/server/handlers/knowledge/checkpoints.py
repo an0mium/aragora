@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.checkpoint import KMCheckpointMetadata, KMCheckpointStore
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     json_response,
     success_response,
@@ -34,7 +35,45 @@ from aragora.observability.metrics import (
     record_checkpoint_operation,
     track_checkpoint_operation,
 )
-from aragora.observability.metrics.slo import check_and_record_slo  # type: ignore[attr-defined]
+from aragora.observability.metrics.slo import check_and_record_slo
+
+
+# Protocol for the checkpoint store's extended interface
+# This documents the methods used by the handler, even if the underlying
+# implementation may have different signatures
+class CheckpointStoreProtocol(Protocol):
+    """Protocol defining the expected checkpoint store interface."""
+
+    async def list_checkpoints(self) -> list[Any]: ...
+    async def create_checkpoint(
+        self,
+        name: str,
+        description: str = "",
+        tags: Optional[list[str]] = None,
+        return_metadata: bool = False,
+    ) -> Union[str, Any]: ...
+    def get_checkpoint(self, name: str) -> Optional[Any]: ...
+    def delete_checkpoint(self, name: str) -> bool: ...
+    def restore_checkpoint(
+        self,
+        name: str,
+        strategy: str = "merge",
+        skip_duplicates: bool = True,
+    ) -> Optional[Any]: ...
+    def compare_with_current(self, name: str) -> Optional[dict[str, Any]]: ...
+    def compare_checkpoints(
+        self, checkpoint_a: str, checkpoint_b: str
+    ) -> Optional[dict[str, Any]]: ...
+
+
+# Protocol for restore result objects
+class RestoreResultProtocol(Protocol):
+    """Protocol for checkpoint restore result."""
+
+    checkpoint_name: str
+    nodes_restored: int
+    nodes_skipped: int
+    errors: list[str]
 
 # RBAC imports with fallback for backwards compatibility
 try:
@@ -70,22 +109,27 @@ class KMCheckpointHandler(BaseHandler):
         "/api/v1/km/checkpoints/{name}/download",
     ]
 
-    def __init__(self, server_context: Any = None):
-        super().__init__(server_context)  # type: ignore[arg-type]
+    def __init__(self, server_context: Optional[ServerContext] = None):
+        # Default to empty dict if None, then cast for BaseHandler
+        ctx = server_context if server_context is not None else cast(ServerContext, {})
+        super().__init__(ctx)
         self._checkpoint_store: Optional["KMCheckpointStore"] = None
 
     def _get_checkpoint_store(self) -> "KMCheckpointStore":
         """Get or create the checkpoint store instance."""
         if self._checkpoint_store is None:
             try:
-                from aragora.knowledge.mound.checkpoint import get_checkpoint_store  # type: ignore[attr-defined]
+                from aragora.knowledge.mound.checkpoint import get_km_checkpoint_store
 
-                self._checkpoint_store = get_checkpoint_store()
+                store = get_km_checkpoint_store()
+                if store is None:
+                    raise RuntimeError("KM checkpoint store not initialized")
+                self._checkpoint_store = store
             except ImportError:
                 raise RuntimeError("KM checkpoint module not available")
         return self._checkpoint_store
 
-    def _check_auth(self, handler) -> tuple[Optional[dict], Optional[HandlerResult]]:
+    def _check_auth(self, handler: Any) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
         """Check authentication for checkpoint operations.
 
         Returns:
@@ -94,7 +138,16 @@ class KMCheckpointHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return None, err
-        return user, None  # type: ignore[return-value]
+        # Convert UserAuthContext to dict for RBAC checks
+        if user is not None:
+            user_dict: dict[str, Any] = {
+                "user_id": getattr(user, "user_id", None),
+                "sub": getattr(user, "user_id", None),
+                "roles": getattr(user, "roles", set()),
+                "org_id": getattr(user, "org_id", None),
+            }
+            return user_dict, None
+        return None, None
 
     def _check_rbac_permission(
         self, auth_ctx: Any, permission_key: str, resource_id: Optional[str] = None

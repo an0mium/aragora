@@ -492,8 +492,9 @@ class TestWhisperConnector:
     @pytest.mark.asyncio
     async def test_transcribe_rate_limit_error(self):
         """Test transcribe handles rate limit errors."""
-        # Create connector with no retries to test rate limit behavior directly
-        connector = WhisperConnector(api_key="test-key", max_retries=0)
+        # Create connector and disable retries to test rate limit behavior directly
+        connector = WhisperConnector(api_key="test-key")
+        connector._max_retries = 0  # Disable retries for this test
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
