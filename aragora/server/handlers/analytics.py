@@ -511,7 +511,7 @@ class AnalyticsHandler(SecureHandler):
         leaderboard = elo.get_leaderboard(limit=limit)
         agents_data = []
         for entry in leaderboard:
-            name = entry.get("agent_name", "")  # type: ignore[attr-defined]
+            name = entry.agent_name
             efficiency = elo.get_learning_efficiency(name, domain=domain)
             agents_data.append({"agent": name, "efficiency": efficiency})
 
@@ -543,7 +543,7 @@ class AnalyticsHandler(SecureHandler):
         leaderboard = elo.get_leaderboard(limit=limit)
         agents_data = []
         for entry in leaderboard:
-            name = entry.get("agent_name", "")  # type: ignore[attr-defined]
+            name = entry.agent_name
             accuracy = elo.get_voting_accuracy(name)
             agents_data.append({"agent": name, "accuracy": accuracy})
 
@@ -596,7 +596,7 @@ class AnalyticsHandler(SecureHandler):
         leaderboard = elo.get_leaderboard(limit=limit)
         agents_data = []
         for entry in leaderboard:
-            name = entry.get("agent_name", "")  # type: ignore[attr-defined]
+            name = entry.agent_name
             cal_data = None
             if tracker:
                 summary = tracker.get_calibration_summary(name)

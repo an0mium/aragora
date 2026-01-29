@@ -937,10 +937,10 @@ async def _send_discord_receipt(origin: DebateOrigin, summary: str) -> bool:
             "Authorization": f"Bot {token}",
             "Content-Type": "application/json",
         }
-        data = {"content": summary}
+        data: dict[str, Any] = {"content": summary}
 
         if origin.message_id:
-            data["message_reference"] = {"message_id": origin.message_id}  # type: ignore[assignment]
+            data["message_reference"] = {"message_id": origin.message_id}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data, headers=headers)
@@ -1132,11 +1132,11 @@ async def _send_discord_result(origin: DebateOrigin, result: Dict[str, Any]) -> 
             "Authorization": f"Bot {token}",
             "Content-Type": "application/json",
         }
-        data = {"content": message}
+        data: dict[str, Any] = {"content": message}
 
         # Reply to original message if we have it
         if origin.message_id:
-            data["message_reference"] = {"message_id": origin.message_id}  # type: ignore[assignment]
+            data["message_reference"] = {"message_id": origin.message_id}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data, headers=headers)
@@ -1836,10 +1836,10 @@ async def _send_discord_error(origin: DebateOrigin, message: str) -> bool:
             "Authorization": f"Bot {token}",
             "Content-Type": "application/json",
         }
-        data = {"content": message}
+        data: dict[str, Any] = {"content": message}
 
         if origin.message_id:
-            data["message_reference"] = {"message_id": origin.message_id}  # type: ignore[assignment]
+            data["message_reference"] = {"message_id": origin.message_id}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data, headers=headers)

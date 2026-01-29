@@ -352,14 +352,14 @@ class TeamsConnector(ChatPlatformConnector):
             conv_id = conversation_id or channel_id
 
             # Build activity payload
-            activity = {
+            activity: dict[str, Any] = {
                 "type": "message",
                 "text": text,
             }
 
             # Add Adaptive Card if blocks provided
             if blocks:
-                activity["attachments"] = [  # type: ignore[assignment]
+                activity["attachments"] = [
                     {
                         "contentType": "application/vnd.microsoft.card.adaptive",
                         "content": {
@@ -444,13 +444,13 @@ class TeamsConnector(ChatPlatformConnector):
             token = await self._get_access_token()
             base_url = service_url or BOT_FRAMEWORK_API_BASE
 
-            activity = {
+            activity: dict[str, Any] = {
                 "type": "message",
                 "text": text,
             }
 
             if blocks:
-                activity["attachments"] = [  # type: ignore[assignment]
+                activity["attachments"] = [
                     {
                         "contentType": "application/vnd.microsoft.card.adaptive",
                         "content": {
