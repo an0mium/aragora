@@ -1917,7 +1917,8 @@ class OAuthHandler(SecureHandler):
             state_vals = parse_qs(parsed.query).get("state")
             if state_vals:
                 state = state_vals[0]
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to parse state from OAuth URL: {e}")
             state = None
 
         return json_response({"auth_url": auth_url, "state": state})

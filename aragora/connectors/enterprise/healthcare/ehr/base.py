@@ -301,8 +301,8 @@ class EHRAdapter(ABC):
                         authorization_endpoint=extensions.get("authorize", ""),
                         token_endpoint=extensions.get("token", ""),
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to parse SMART configuration from capability statement: {e}")
         return None
 
     async def _authenticate(self) -> None:
