@@ -126,7 +126,7 @@ class GmailWatchMixin(GmailBaseMethods):
                     expiration = datetime.fromtimestamp(int(expiration_ms) / 1000, tz=timezone.utc)
 
                 # Initialize or update gmail state
-                if not self._gmail_state:
+                if not self._gmail_state:  # type: ignore[has-type]
                     self._gmail_state = GmailSyncState(
                         user_id=self.user_id,
                         history_id=history_id,
@@ -169,11 +169,11 @@ class GmailWatchMixin(GmailBaseMethods):
             )
 
         # Cancel renewal task if running
-        if self._watch_task and not self._watch_task.done():
+        if self._watch_task and not self._watch_task.done():  # type: ignore[has-type]
             self._watch_running = False
-            self._watch_task.cancel()
+            self._watch_task.cancel()  # type: ignore[has-type]
             try:
-                await self._watch_task
+                await self._watch_task  # type: ignore[has-type]
             except asyncio.CancelledError:
                 pass
             self._watch_task = None
