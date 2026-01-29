@@ -151,7 +151,7 @@ logger = logging.getLogger(__name__)
 _knowledge_limiter = RateLimiter(requests_per_minute=60)
 
 
-class KnowledgeMoundHandler(  
+class KnowledgeMoundHandler(
     NodeOperationsMixin,
     RelationshipOperationsMixin,
     GraphOperationsMixin,
@@ -276,7 +276,7 @@ class KnowledgeMoundHandler(
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound
 
-            self._mound = KnowledgeMound(workspace_id="default")  
+            self._mound = KnowledgeMound(workspace_id="default")
             try:
                 _run_async(self._mound.initialize())
                 self._mound_initialized = True
@@ -492,14 +492,14 @@ class KnowledgeMoundHandler(
 
         # Phase A2 - Contradiction detection endpoints
         if path == "/api/v1/knowledge/mound/contradictions/detect":
-            return self._handle_detect_contradictions(handler)  
+            return self._handle_detect_contradictions(handler)
 
         if path == "/api/v1/knowledge/mound/contradictions":
-            return self._handle_list_contradictions(query_params)  
+            return self._handle_list_contradictions(query_params)
 
         if path.startswith("/api/v1/knowledge/mound/contradictions/") and path.endswith("/resolve"):
             contradiction_id = path.split("/")[-2]
-            return self._handle_resolve_contradiction(contradiction_id, handler)  
+            return self._handle_resolve_contradiction(contradiction_id, handler)
 
         if path == "/api/v1/knowledge/mound/contradictions/stats":
             return _run_async(self.get_contradiction_stats())
@@ -508,70 +508,70 @@ class KnowledgeMoundHandler(
         if path == "/api/v1/knowledge/mound/governance/roles":
             method = getattr(handler, "command", "GET")
             if method == "POST":
-                return self._handle_create_role(handler)  
+                return self._handle_create_role(handler)
             # GET would list roles - not implemented yet
 
         if path == "/api/v1/knowledge/mound/governance/roles/assign":
-            return self._handle_assign_role(handler)  
+            return self._handle_assign_role(handler)
 
         if path == "/api/v1/knowledge/mound/governance/roles/revoke":
-            return self._handle_revoke_role(handler)  
+            return self._handle_revoke_role(handler)
 
         if path.startswith("/api/v1/knowledge/mound/governance/permissions/"):
             if path == "/api/v1/knowledge/mound/governance/permissions/check":
-                return self._handle_check_permission(handler)  
+                return self._handle_check_permission(handler)
             else:
                 user_id = path.split("/")[-1]
-                return self._handle_get_user_permissions(user_id, query_params)  
+                return self._handle_get_user_permissions(user_id, query_params)
 
         if path == "/api/v1/knowledge/mound/governance/audit":
-            return self._handle_query_audit(query_params)  
+            return self._handle_query_audit(query_params)
 
         if path.startswith("/api/v1/knowledge/mound/governance/audit/user/"):
             user_id = path.split("/")[-1]
-            return self._handle_get_user_activity(user_id, query_params)  
+            return self._handle_get_user_activity(user_id, query_params)
 
         if path == "/api/v1/knowledge/mound/governance/stats":
             return _run_async(self.get_governance_stats())
 
         # Phase A2 - Analytics endpoints
         if path == "/api/v1/knowledge/mound/analytics/coverage":
-            return self._handle_analyze_coverage(query_params)  
+            return self._handle_analyze_coverage(query_params)
 
         if path == "/api/v1/knowledge/mound/analytics/usage":
-            return self._handle_analyze_usage(query_params)  
+            return self._handle_analyze_usage(query_params)
 
         if path == "/api/v1/knowledge/mound/analytics/usage/record":
-            return self._handle_record_usage_event(handler)  
+            return self._handle_record_usage_event(handler)
 
         if path == "/api/v1/knowledge/mound/analytics/quality/snapshot":
-            return self._handle_capture_quality_snapshot(handler)  
+            return self._handle_capture_quality_snapshot(handler)
 
         if path == "/api/v1/knowledge/mound/analytics/quality/trend":
-            return self._handle_get_quality_trend(query_params)  
+            return self._handle_get_quality_trend(query_params)
 
         if path == "/api/v1/knowledge/mound/analytics/stats":
             return _run_async(self.get_analytics_stats())
 
         # Phase A2 - Extraction endpoints
         if path == "/api/v1/knowledge/mound/extraction/debate":
-            return self._handle_extract_from_debate(handler)  
+            return self._handle_extract_from_debate(handler)
 
         if path == "/api/v1/knowledge/mound/extraction/promote":
-            return self._handle_promote_extracted(handler)  
+            return self._handle_promote_extracted(handler)
 
         if path == "/api/v1/knowledge/mound/extraction/stats":
             return _run_async(self.get_extraction_stats())
 
         # Phase A2 - Confidence decay endpoints
         if path == "/api/v1/knowledge/mound/confidence/decay":
-            return self._handle_apply_confidence_decay_new(handler)  
+            return self._handle_apply_confidence_decay_new(handler)
 
         if path == "/api/v1/knowledge/mound/confidence/event":
-            return self._handle_record_confidence_event(handler)  
+            return self._handle_record_confidence_event(handler)
 
         if path == "/api/v1/knowledge/mound/confidence/history":
-            return self._handle_get_confidence_history(query_params)  
+            return self._handle_get_confidence_history(query_params)
 
         if path == "/api/v1/knowledge/mound/confidence/stats":
             return _run_async(self.get_decay_stats())

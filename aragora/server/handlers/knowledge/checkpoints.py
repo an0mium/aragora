@@ -306,7 +306,13 @@ class KMCheckpointHandler(BaseHandler):
                         {"name": name, "id": result, "description": description, "tags": tags},
                         status=201,
                     )
-                metadata: KMCheckpointMetadata = result  # type: ignore[assignment]
+                # At this point, result is KMCheckpointMetadata (not a string)
+                # Import the type for runtime and cast
+                from aragora.knowledge.mound.checkpoint import (
+                    KMCheckpointMetadata as CheckpointMeta,
+                )
+
+                metadata = cast(CheckpointMeta, result)
                 ctx["size_bytes"] = metadata.size_bytes
 
             success = True  # noqa: F841
@@ -441,7 +447,6 @@ class KMCheckpointHandler(BaseHandler):
         try:
             body = self.read_json_body(handler) or {}
             strategy = body.get("strategy", "merge")
-            skip_duplicates = body.get("skip_duplicates", True)
 
             if strategy not in ("merge", "replace"):
                 return error_response("Invalid strategy. Use 'merge' or 'replace'", status=400)
@@ -541,12 +546,14 @@ class KMCheckpointHandler(BaseHandler):
 
             if compare_with is None:
                 # Only one checkpoint exists, return its metadata as comparison
-                return success_response({
-                    "checkpoint": name,
-                    "node_count": target_checkpoint.node_count,
-                    "size_bytes": target_checkpoint.size_bytes,
-                    "message": "Only one checkpoint exists, no comparison available",
-                })
+                return success_response(
+                    {
+                        "checkpoint": name,
+                        "node_count": target_checkpoint.node_count,
+                        "size_bytes": target_checkpoint.size_bytes,
+                        "message": "Only one checkpoint exists, no comparison available",
+                    }
+                )
 
             comparison = await store.compare_checkpoints(target_checkpoint.id, compare_with.id)
 
@@ -598,62 +605,86 @@ class KMCheckpointHandler(BaseHandler):
             logger.error("Checkpoint comparison failed: %s", e)
             return error_response("Failed to compare checkpoints", status=500)
 
-    async def handle_get(self, handler) -> HandlerResult:  # type: ignore[override]
-        """Handle GET requests."""
-        path = handler.path.split("?")[0]
+    async def handle_get(
+        self,
+        path: str = "",
+        query_params: Optional[dict[str, Any]] = None,
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle GET requests.
 
-        if path == "/api/v1/km/checkpoints":
+        Note: This overrides BaseHandler.handle() with async signature and different
+        parameters to match the handler registry's calling convention.
+        """
+        if handler is None:
+            return error_response("Missing handler", status=500)
+
+        request_path = handler.path.split("?")[0]
+
+        if request_path == "/api/v1/km/checkpoints":
             return await self._list_checkpoints(handler)
 
         # Handle /api/km/checkpoints/{name} or /api/km/checkpoints/{name}/compare
-        if path.startswith("/api/v1/km/checkpoints/"):
-            parts = path.replace("/api/v1/km/checkpoints/", "").split("/")
+        if request_path.startswith("/api/v1/km/checkpoints/"):
+            parts = request_path.replace("/api/v1/km/checkpoints/", "").split("/")
             name = parts[0]
 
             if len(parts) == 1:
-                return self._get_checkpoint(handler, name)
+                return await self._get_checkpoint(handler, name)
             elif len(parts) == 2 and parts[1] == "compare":
-                return self._compare_checkpoint(handler, name)
+                return await self._compare_checkpoint(handler, name)
 
         return error_response("Not found", status=404)
 
-    async def handle_post(  # type: ignore[override]
-        self, path: str = "", query_params: dict | None = None, handler: Any = None
+    async def handle_post(
+        self,
+        path: str = "",
+        query_params: Optional[dict[str, Any]] = None,
+        handler: Any = None,
     ) -> HandlerResult:
-        """Handle POST requests."""
+        """Handle POST requests.
+
+        Note: This overrides BaseHandler.handle_post() with async signature to
+        match the handler registry's calling convention.
+        """
         if handler is None:
-            from aragora.server.handlers.base import error_response
-
             return error_response("Missing handler", status=500)
-        path = handler.path.split("?")[0]
 
-        if path == "/api/v1/km/checkpoints":
+        request_path = handler.path.split("?")[0]
+
+        if request_path == "/api/v1/km/checkpoints":
             return await self._create_checkpoint(handler)
 
-        if path == "/api/v1/km/checkpoints/compare":
-            return self._compare_checkpoints(handler)
+        if request_path == "/api/v1/km/checkpoints/compare":
+            return await self._compare_checkpoints(handler)
 
         # Handle /api/km/checkpoints/{name}/restore
-        if path.startswith("/api/v1/km/checkpoints/") and path.endswith("/restore"):
-            name = path.replace("/api/v1/km/checkpoints/", "").replace("/restore", "")
-            return self._restore_checkpoint(handler, name)
+        if request_path.startswith("/api/v1/km/checkpoints/") and request_path.endswith("/restore"):
+            name = request_path.replace("/api/v1/km/checkpoints/", "").replace("/restore", "")
+            return await self._restore_checkpoint(handler, name)
 
         return error_response("Not found", status=404)
 
-    def handle_delete(  # type: ignore[override]
-        self, path: str = "", query_params: dict | None = None, handler: Any = None
+    async def handle_delete(
+        self,
+        path: str = "",
+        query_params: Optional[dict[str, Any]] = None,
+        handler: Any = None,
     ) -> HandlerResult:
-        """Handle DELETE requests."""
-        if handler is None:
-            from aragora.server.handlers.base import error_response
+        """Handle DELETE requests.
 
+        Note: This overrides BaseHandler.handle_delete() with async signature to
+        match the handler registry's calling convention.
+        """
+        if handler is None:
             return error_response("Missing handler", status=500)
-        path = handler.path.split("?")[0]
+
+        request_path = handler.path.split("?")[0]
 
         # Handle /api/km/checkpoints/{name}
-        if path.startswith("/api/v1/km/checkpoints/"):
-            name = path.replace("/api/v1/km/checkpoints/", "")
+        if request_path.startswith("/api/v1/km/checkpoints/"):
+            name = request_path.replace("/api/v1/km/checkpoints/", "")
             if "/" not in name:  # Ensure it's just the name
-                return self._delete_checkpoint(handler, name)
+                return await self._delete_checkpoint(handler, name)
 
         return error_response("Not found", status=404)

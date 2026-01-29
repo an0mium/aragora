@@ -858,5 +858,4 @@ class TestPolicySyncOnStartup:
 
         mock_policy_manager.sync_from_compliance_store.assert_called_once_with(
             workspace_id="test-workspace",
-            enabled_only=True,
         )

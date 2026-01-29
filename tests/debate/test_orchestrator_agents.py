@@ -702,12 +702,14 @@ class TestAssignHierarchyRoles:
 
     def test_handles_import_error_gracefully(self, mock_ctx, mock_hierarchy):
         """When AgentProfile import fails, handle gracefully."""
+        import sys
         from aragora.debate.orchestrator_agents import assign_hierarchy_roles
 
-        with patch(
-            "aragora.debate.orchestrator_agents.AgentProfile",
-            side_effect=ImportError("Not found"),
-        ):
+        # Create a mock module that doesn't have AgentProfile attribute
+        # This causes ImportError when doing 'from module import AgentProfile'
+        mock_module = MagicMock(spec=[])  # Empty spec = no attributes
+
+        with patch.dict(sys.modules, {"aragora.routing.selection": mock_module}):
             assign_hierarchy_roles(
                 ctx=mock_ctx,
                 enable_agent_hierarchy=True,

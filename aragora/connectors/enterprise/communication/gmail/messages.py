@@ -10,9 +10,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from email.utils import parseaddr
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
 
 from aragora.connectors.enterprise.base import SyncItem, SyncState
 
@@ -22,18 +23,35 @@ from ..models import (
     EmailThread,
 )
 
+if TYPE_CHECKING:
+    import httpx
+
 logger = logging.getLogger(__name__)
 
 
-class GmailMessagesMixin:
-    """Mixin providing message operations for the Gmail connector."""
+class GmailBaseMethods(Protocol):
+    """Protocol defining expected methods from base classes for type checking."""
 
-    # Expected attributes from GmailClientMixin / concrete class
     user_id: str
     include_spam_trash: bool
     exclude_labels: set
     labels: Optional[List[str]]
     max_results: int
+
+    async def _get_access_token(self) -> str: ...
+    async def _api_request(
+        self, endpoint: str, method: str = "GET", **kwargs: Any
+    ) -> Dict[str, Any]: ...
+    @asynccontextmanager
+    def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
+    def check_circuit_breaker(self) -> bool: ...
+    def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
+    def record_success(self) -> None: ...
+    def record_failure(self) -> None: ...
+
+
+class GmailMessagesMixin(GmailBaseMethods):
+    """Mixin providing message operations for the Gmail connector."""
 
     async def list_messages(
         self,

@@ -1,14 +1,25 @@
 """Tests for agent configuration endpoint handlers."""
+
 import sys
 import types as _types_mod
 
 # Pre-stub Slack modules to prevent import chain failures
 _SLACK_ATTRS = [
-    "SlackHandler", "get_slack_handler", "get_slack_integration",
-    "get_workspace_store", "resolve_workspace", "create_tracked_task",
-    "_validate_slack_url", "SLACK_SIGNING_SECRET", "SLACK_BOT_TOKEN",
-    "SLACK_WEBHOOK_URL", "SLACK_ALLOWED_DOMAINS", "SignatureVerifierMixin",
-    "CommandsMixin", "EventsMixin", "init_slack_handler",
+    "SlackHandler",
+    "get_slack_handler",
+    "get_slack_integration",
+    "get_workspace_store",
+    "resolve_workspace",
+    "create_tracked_task",
+    "_validate_slack_url",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_BOT_TOKEN",
+    "SLACK_WEBHOOK_URL",
+    "SLACK_ALLOWED_DOMAINS",
+    "SignatureVerifierMixin",
+    "CommandsMixin",
+    "EventsMixin",
+    "init_slack_handler",
 ]
 for _mod_name in (
     "aragora.server.handlers.social.slack.handler",
@@ -32,6 +43,7 @@ import pytest
 @dataclass
 class MockAgentConfig:
     """Mock agent configuration."""
+
     name: str
     model_type: str
     role: str = "proposer"
@@ -58,6 +70,7 @@ class MockAgentConfig:
 def clear_module_state():
     """Clear any module-level state between tests."""
     import aragora.server.handlers.agents.config as config_mod
+
     config_mod._config_loader = None
     yield
     config_mod._config_loader = None
@@ -140,11 +153,15 @@ class TestAgentConfigHandlerAuth:
         mock_http_handler = MagicMock()
         mock_auth_context = MagicMock()
 
-        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth, \
-             patch.object(handler, "check_permission") as mock_check:
+        with (
+            patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth,
+            patch.object(handler, "check_permission") as mock_check,
+        ):
             mock_auth.return_value = mock_auth_context
             mock_check.side_effect = ForbiddenError("Permission denied")
-            result = await handler.handle("/api/v1/agents/configs/claude/create", {}, mock_http_handler)
+            result = await handler.handle(
+                "/api/v1/agents/configs/claude/create", {}, mock_http_handler
+            )
 
         assert result.status_code == 403
 
@@ -169,7 +186,9 @@ class TestListConfigs:
         mock_loader.list_configs.return_value = ["claude"]
         mock_loader.get_config.return_value = mock_config
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._list_configs({})
 
         assert result.status_code == 200
@@ -208,7 +227,9 @@ class TestListConfigs:
 
         mock_loader.get_config.side_effect = get_config
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._list_configs({"priority": "high"})
 
         body = json.loads(result.body.decode("utf-8"))
@@ -221,7 +242,9 @@ class TestListConfigs:
 
         handler = AgentConfigHandler()
 
-        mock_config_proposer = MockAgentConfig(name="claude", model_type="anthropic", role="proposer")
+        mock_config_proposer = MockAgentConfig(
+            name="claude", model_type="anthropic", role="proposer"
+        )
         mock_config_critic = MockAgentConfig(name="gemini", model_type="google", role="critic")
 
         mock_loader = MagicMock()
@@ -234,7 +257,9 @@ class TestListConfigs:
 
         mock_loader.get_config.side_effect = get_config
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._list_configs({"role": "critic"})
 
         body = json.loads(result.body.decode("utf-8"))
@@ -260,7 +285,9 @@ class TestGetConfig:
         mock_loader = MagicMock()
         mock_loader.get_config.return_value = mock_config
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._get_config("claude")
 
         assert result.status_code == 200
@@ -276,7 +303,9 @@ class TestGetConfig:
         mock_loader = MagicMock()
         mock_loader.get_config.return_value = None
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._get_config("nonexistent")
 
         assert result.status_code == 404
@@ -304,7 +333,9 @@ class TestCreateAgentFromConfig:
         mock_loader.get_config.return_value = mock_config
         mock_loader.create_agent.return_value = mock_agent
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._create_agent_from_config("claude")
 
         assert result.status_code == 200
@@ -321,7 +352,9 @@ class TestCreateAgentFromConfig:
         mock_loader = MagicMock()
         mock_loader.get_config.return_value = None
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._create_agent_from_config("nonexistent")
 
         assert result.status_code == 404
@@ -338,7 +371,9 @@ class TestCreateAgentFromConfig:
         mock_loader.get_config.return_value = mock_config
         mock_loader.create_agent.side_effect = RuntimeError("Creation failed")
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._create_agent_from_config("claude")
 
         assert result.status_code == 500
@@ -356,7 +391,9 @@ class TestReloadConfigs:
         mock_loader = MagicMock()
         mock_loader.reload_all.return_value = {"claude": {}, "gemini": {}}
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._reload_configs()
 
         assert result.status_code == 200
@@ -373,7 +410,9 @@ class TestReloadConfigs:
         mock_loader = MagicMock()
         mock_loader.reload_all.side_effect = RuntimeError("Reload failed")
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._reload_configs()
 
         assert result.status_code == 500
@@ -399,7 +438,9 @@ class TestSearchConfigs:
         mock_loader.get_by_capability.return_value = []
         mock_loader.get_by_tag.return_value = []
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._search_configs({"expertise": "coding"})
 
         assert result.status_code == 200
@@ -423,7 +464,9 @@ class TestSearchConfigs:
         mock_loader.get_by_capability.return_value = [mock_config]
         mock_loader.get_by_tag.return_value = []
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._search_configs({"capability": "code_generation"})
 
         assert result.status_code == 200
@@ -438,7 +481,9 @@ class TestSearchConfigs:
 
         mock_loader = MagicMock()
 
-        with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader):
+        with patch(
+            "aragora.server.handlers.agents.config.get_config_loader", return_value=mock_loader
+        ):
             result = handler._search_configs({})
 
         assert result.status_code == 400

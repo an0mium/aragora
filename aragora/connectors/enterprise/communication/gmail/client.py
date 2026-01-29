@@ -11,11 +11,20 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Protocol
 
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
+
+
+class EnterpriseConnectorMethods(Protocol):
+    """Protocol defining expected methods from EnterpriseConnector base class."""
+
+    def check_circuit_breaker(self) -> bool: ...
+    def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
+    def record_success(self) -> None: ...
+    def record_failure(self) -> None: ...
 
 
 # Gmail API scopes
@@ -52,7 +61,7 @@ def _get_client_credentials() -> tuple[str, str]:
     return client_id, client_secret
 
 
-class GmailClientMixin:
+class GmailClientMixin(EnterpriseConnectorMethods):
     """Mixin providing OAuth2 authentication and API request infrastructure."""
 
     # These attributes are expected to be set by the concrete class

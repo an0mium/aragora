@@ -797,9 +797,7 @@ class TestRecommendationsWithAllParameters:
 
         handler = RoutingHandler({})
         handler.get_elo_system = MagicMock(return_value=MagicMock())
-        handler.read_json_body = MagicMock(
-            return_value={"primary_domain": "code", "limit": 100}
-        )
+        handler.read_json_body = MagicMock(return_value={"primary_domain": "code", "limit": 100})
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 

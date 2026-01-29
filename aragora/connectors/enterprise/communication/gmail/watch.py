@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
 
 from ..models import (
     EmailMessage,
@@ -18,18 +19,35 @@ from ..models import (
     GmailWebhookPayload,
 )
 
+if TYPE_CHECKING:
+    import httpx
+
 logger = logging.getLogger(__name__)
 
 
-class GmailWatchMixin:
-    """Mixin providing Pub/Sub watch and push notification operations."""
+class GmailBaseMethods(Protocol):
+    """Protocol defining expected methods from base classes for type checking."""
 
-    # Expected attributes from concrete class
     user_id: str
     exclude_labels: set
     _gmail_state: Optional[GmailSyncState]
-    _watch_task: Optional[asyncio.Task]
+    _watch_task: Optional["asyncio.Task[None]"]
     _watch_running: bool
+
+    async def _get_access_token(self) -> str: ...
+    async def _api_request(
+        self, endpoint: str, method: str = "GET", **kwargs: Any
+    ) -> Dict[str, Any]: ...
+    @asynccontextmanager
+    def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
+    def check_circuit_breaker(self) -> bool: ...
+    def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
+    def record_success(self) -> None: ...
+    def record_failure(self) -> None: ...
+
+
+class GmailWatchMixin(GmailBaseMethods):
+    """Mixin providing Pub/Sub watch and push notification operations."""
 
     async def setup_watch(
         self,

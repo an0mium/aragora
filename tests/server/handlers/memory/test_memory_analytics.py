@@ -328,9 +328,10 @@ class TestAuthentication:
         """Test endpoint requires analytics permission."""
         from aragora.server.handlers.secure import ForbiddenError
 
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
-        ) as mock_perm:
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission") as mock_perm,
+        ):
             mock_auth.return_value = MockAuthContext(permissions=[])
             mock_perm.side_effect = ForbiddenError("Missing permission")
 
@@ -350,11 +351,13 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_allows_initial_requests(self, handler):
         """Test rate limiter allows initial requests."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
-        ), patch(
-            "aragora.server.handlers.memory.memory_analytics._memory_analytics_limiter"
-        ) as mock_limiter:
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission"),
+            patch(
+                "aragora.server.handlers.memory.memory_analytics._memory_analytics_limiter"
+            ) as mock_limiter,
+        ):
             mock_auth.return_value = MockAuthContext()
             mock_limiter.is_allowed.return_value = True
 

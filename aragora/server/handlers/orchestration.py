@@ -354,7 +354,7 @@ except ImportError:
             description="Multi-agent code review with security focus",
             default_agents=["anthropic-api", "openai-api", "codestral"],
             default_knowledge_sources=["github:pr"],
-            output_format=OutputFormat.GITHUB_REVIEW,  # type: ignore[arg-type]
+            output_format=OutputFormat.GITHUB_REVIEW,
             consensus_threshold=0.7,
             max_rounds=3,
             personas=["security", "performance", "maintainability"],
@@ -363,7 +363,7 @@ except ImportError:
             name="quick_decision",
             description="Fast decision with minimal agents",
             default_agents=["anthropic-api", "openai-api"],
-            output_format=OutputFormat.SUMMARY,  # type: ignore[arg-type]
+            output_format=OutputFormat.SUMMARY,
             consensus_threshold=0.5,
             max_rounds=2,
         ),
@@ -630,9 +630,13 @@ class OrchestrationHandler(SecureHandler):
 
             # Step 3: Run vetted decisionmaking
             from aragora.control_plane.deliberation import DeliberationManager
+            from aragora.control_plane.coordinator import ControlPlaneCoordinator
 
-            coordinator = self.ctx.get("control_plane_coordinator")
-            manager = DeliberationManager(coordinator=coordinator)  # type: ignore[arg-type]
+            # coordinator may be None if not configured in server context
+            coordinator: Optional[ControlPlaneCoordinator] = self.ctx.get(
+                "control_plane_coordinator"
+            )
+            manager = DeliberationManager(coordinator=coordinator)
 
             if coordinator:
                 # Use control plane task scheduling
@@ -865,14 +869,31 @@ class OrchestrationHandler(SecureHandler):
         return None
 
     async def _fetch_jira_context(self, source: KnowledgeContextSource) -> Optional[str]:
-        """Fetch content from a Jira issue."""
+        """Fetch content from a Jira issue.
+
+        Note: JiraConnector requires base_url configuration. This method
+        expects the connector to be configured via environment or context.
+        The source_id should be a Jira issue key like "PROJ-123".
+        """
         try:
+            import os
             from aragora.connectors.enterprise.collaboration.jira import JiraConnector
 
-            connector = JiraConnector()  # type: ignore[call-arg]
-            issue = await connector.get_issue(source.source_id)  # type: ignore[attr-defined]
-            if issue:
-                return f"Summary: {issue.get('summary', '')}\nDescription: {issue.get('description', '')}"
+            # Get base_url from context or environment
+            jira_url = self.ctx.get("jira_url") or os.environ.get("JIRA_BASE_URL", "")
+            if not jira_url:
+                logger.warning("Jira base URL not configured")
+                return None
+
+            connector = JiraConnector(base_url=jira_url)
+            # Use the fetch method which exists on the connector
+            issue_key = source.source_id
+            if not issue_key.startswith("jira-"):
+                issue_key = f"jira-{issue_key}"
+            evidence = await connector.fetch(issue_key)
+            if evidence:
+                return str(getattr(evidence, "content", ""))
+            return None
         except Exception as e:
             logger.warning(f"Failed to fetch Jira context: {e}")
         return None
