@@ -1457,34 +1457,6 @@ class GmailAPI:
         return await self._client._post(f"/api/v1/gmail/drafts/{draft_id}/send", {})
 
 
-class ReplaysAPI:
-    """API for replay management."""
-
-    def __init__(self, client: AragoraClient) -> None:
-        self._client = client
-
-    async def list(self, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
-        """List replays."""
-        data = await self._client._get(
-            "/api/v1/replays", params={"limit": limit, "offset": offset}
-        )
-        return data.get("replays", [])
-
-    async def get(self, replay_id: str) -> dict[str, Any]:
-        """Get a replay by ID."""
-        return await self._client._get(f"/api/v1/replays/{replay_id}")
-
-    async def export(self, replay_id: str, format: str = "json") -> bytes:
-        """Export a replay."""
-        return await self._client._get_raw(
-            f"/api/v1/replays/{replay_id}/export", params={"format": format}
-        )
-
-    async def delete(self, replay_id: str) -> None:
-        """Delete a replay."""
-        await self._client._delete(f"/api/v1/replays/{replay_id}")
-
-
 class AragoraClient:
     """
     Client for the Aragora API.
@@ -1537,7 +1509,6 @@ class AragoraClient:
         self.gauntlet = GauntletAPI(self)
         self.memory = MemoryAPI(self)
         self.selection = SelectionAPI(self)
-        self.replays = ReplaysAPI(self)
         self.control_plane = ControlPlaneAPI(self)
         self.codebase = CodebaseAPI(self)
         self.gmail = GmailAPI(self)
