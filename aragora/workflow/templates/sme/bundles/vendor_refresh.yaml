@@ -1,0 +1,279 @@
+# SME Bundle: Vendor Refresh
+# Complete workflow for vendor evaluation and replacement
+id: sme_bundle_vendor_refresh
+name: Vendor Refresh Bundle
+description: |
+  End-to-end vendor evaluation and transition workflow.
+  Covers tool evaluation, contract review, and onboarding planning.
+  Designed for SMEs evaluating new tools, services, or vendor relationships.
+version: "1.0.0"
+category: sme
+tags:
+  - sme
+  - vendor
+  - procurement
+  - bundle
+  - evaluation
+  - contract
+  - onboarding
+icon: refresh-cw
+is_template: true
+estimated_duration: "30-50 minutes"
+complexity: high
+
+inputs:
+  category: "Vendor category (e.g., CRM, HR software, cloud provider)"
+  current_vendor: "Current vendor details and pain points"
+  candidates: "Vendor options being evaluated"
+  requirements: "Must-have and nice-to-have requirements"
+  budget: "Annual budget for this category"
+  timeline: "Decision and transition timeline"
+
+outputs:
+  evaluation_matrix: "Scored comparison matrix"
+  recommendation: "Recommended vendor with rationale"
+  contract_review: "Contract terms analysis"
+  transition_plan: "Onboarding and migration plan"
+  risk_analysis: "Vendor and transition risks"
+
+steps:
+  - id: requirements_analysis
+    name: Requirements Analysis
+    step_type: debate
+    description: Debate to refine and prioritize requirements
+    config:
+      agents:
+        - claude
+        - gpt-4
+      rounds: 2
+      consensus_mode: synthesis
+      prompt_template: |
+        Analyze requirements for {category} vendor:
+
+        Current Vendor Issues:
+        {current_vendor}
+
+        Stated Requirements:
+        {requirements}
+
+        Budget: {budget}
+        Timeline: {timeline}
+
+        Refine requirements:
+        1. Must-have vs nice-to-have classification
+        2. Weight each requirement (1-10)
+        3. Identify hidden requirements
+        4. Consider integration needs
+        5. Data migration requirements
+        6. Support and SLA requirements
+    visual:
+      position: {x: 100, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - evaluate_vendors
+
+  - id: evaluate_vendors
+    name: Vendor Evaluation Debate
+    step_type: debate
+    description: Multi-agent evaluation of vendor candidates
+    config:
+      agents:
+        - claude
+        - gpt-4
+        - gemini
+      rounds: 3
+      consensus_mode: weighted
+      prompt_template: |
+        Evaluate {category} vendors:
+
+        Weighted Requirements:
+        {requirements_analysis.consensus}
+
+        Vendor Candidates:
+        {candidates}
+
+        For each vendor:
+        1. Score against each requirement
+        2. Assess pricing vs budget
+        3. Evaluate company stability
+        4. Check integration capabilities
+        5. Review customer references/reviews
+        6. Identify strengths and weaknesses
+
+        Create a scored comparison matrix.
+    visual:
+      position: {x: 300, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - contract_analysis
+      - make_recommendation
+
+  - id: make_recommendation
+    name: Vendor Recommendation
+    step_type: debate
+    description: Debate to finalize vendor recommendation
+    config:
+      agents:
+        - claude
+        - gpt-4
+      rounds: 2
+      consensus_mode: synthesis
+      prompt_template: |
+        Make vendor recommendation for {category}:
+
+        Evaluation Matrix:
+        {evaluate_vendors.consensus}
+
+        Budget: {budget}
+        Timeline: {timeline}
+
+        Provide:
+        1. Primary recommendation with rationale
+        2. Alternative option (backup)
+        3. Total cost of ownership analysis
+        4. Implementation complexity assessment
+        5. Long-term viability analysis
+        6. Specific concerns to address
+    visual:
+      position: {x: 500, y: 50}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - plan_transition
+
+  - id: contract_analysis
+    name: Contract Analysis
+    step_type: agent
+    description: Analyze contract terms and negotiate points
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze contract for recommended {category} vendor:
+
+        Vendor Selection:
+        {evaluate_vendors.consensus}
+
+        Budget: {budget}
+
+        Review contract terms for:
+        1. Pricing structure and hidden costs
+        2. Contract length and exit clauses
+        3. SLA guarantees and penalties
+        4. Data ownership and portability
+        5. Auto-renewal terms
+        6. Security and compliance provisions
+        7. Negotiation opportunities
+    visual:
+      position: {x: 500, y: 150}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - plan_transition
+
+  - id: plan_transition
+    name: Transition Planning
+    step_type: agent
+    description: Create detailed onboarding and migration plan
+    config:
+      agent_type: claude
+      prompt_template: |
+        Create transition plan for {category} vendor:
+
+        Recommendation:
+        {make_recommendation.consensus}
+
+        Contract Analysis:
+        {contract_analysis.output}
+
+        Current Vendor: {current_vendor}
+        Timeline: {timeline}
+
+        Create transition plan:
+        1. Pre-migration checklist
+        2. Data migration steps
+        3. Integration setup
+        4. User training plan
+        5. Parallel run period
+        6. Cutover plan
+        7. Rollback contingency
+        8. Success metrics
+
+        Include timeline with milestones.
+    visual:
+      position: {x: 700, y: 100}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - analyze_risks
+
+  - id: analyze_risks
+    name: Risk Analysis
+    step_type: agent
+    description: Identify vendor and transition risks
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze risks for {category} vendor transition:
+
+        Recommendation:
+        {make_recommendation.consensus}
+
+        Transition Plan:
+        {plan_transition.output}
+
+        Identify risks:
+        1. Vendor risks (stability, support, roadmap)
+        2. Migration risks (data loss, downtime)
+        3. Adoption risks (user resistance, training)
+        4. Integration risks (compatibility, performance)
+        5. Financial risks (cost overruns, hidden fees)
+        6. Timeline risks (delays, dependencies)
+
+        For each risk, provide mitigation strategy.
+    visual:
+      position: {x: 900, y: 100}
+      category: agent
+      color: "#ed8936"
+    next_steps:
+      - store_results
+
+  - id: store_results
+    name: Store Vendor Decision
+    step_type: memory_write
+    description: Store vendor decision for future reference
+    config:
+      node_type: vendor_decision
+      metadata:
+        category: "{category}"
+        workflow_type: vendor_refresh
+    visual:
+      position: {x: 1100, y: 100}
+      category: memory
+      color: "#667eea"
+
+entry_step: requirements_analysis
+
+transitions:
+  - from_step: requirements_analysis
+    to_step: evaluate_vendors
+    priority: 1
+  - from_step: evaluate_vendors
+    to_step: make_recommendation
+    priority: 1
+  - from_step: evaluate_vendors
+    to_step: contract_analysis
+    priority: 2
+  - from_step: make_recommendation
+    to_step: plan_transition
+    priority: 1
+  - from_step: contract_analysis
+    to_step: plan_transition
+    priority: 1
+  - from_step: plan_transition
+    to_step: analyze_risks
+    priority: 1
+  - from_step: analyze_risks
+    to_step: store_results
+    priority: 1

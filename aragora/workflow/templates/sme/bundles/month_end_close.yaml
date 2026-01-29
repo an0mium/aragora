@@ -1,0 +1,242 @@
+# SME Bundle: Month-End Close
+# Complete workflow for monthly financial close process
+id: sme_bundle_month_end_close
+name: Month-End Close Bundle
+description: |
+  Complete month-end financial close workflow with multi-agent debate.
+  Includes budget review, variance analysis, report generation, and
+  stakeholder announcement. Designed for SME finance teams.
+version: "1.0.0"
+category: sme
+tags:
+  - sme
+  - finance
+  - monthly
+  - close
+  - bundle
+  - budget
+  - reporting
+icon: calendar-check
+is_template: true
+estimated_duration: "15-30 minutes"
+complexity: medium
+
+inputs:
+  month: "Month being closed (e.g., January 2026)"
+  budget_data: "Monthly budget vs actual figures"
+  department_reports: "Department spending reports (optional)"
+  prior_month_notes: "Notes from prior month close (optional)"
+  stakeholder_list: "List of stakeholders to notify"
+
+outputs:
+  variance_analysis: "Budget variance analysis with explanations"
+  monthly_report: "Complete monthly financial report"
+  executive_summary: "Executive summary for leadership"
+  announcement_draft: "Stakeholder announcement draft"
+  action_items: "Follow-up action items identified"
+
+steps:
+  - id: gather_financials
+    name: Gather Financial Data
+    step_type: agent
+    description: Compile and validate all financial data for the month
+    config:
+      agent_type: claude
+      prompt_template: |
+        Review and organize the financial data for {month} close:
+
+        Budget Data:
+        {budget_data}
+
+        Department Reports:
+        {department_reports}
+
+        Please:
+        1. Validate data completeness
+        2. Identify any missing information
+        3. Flag any obvious anomalies
+        4. Organize data by category
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - variance_debate
+
+  - id: variance_debate
+    name: Budget Variance Analysis Debate
+    step_type: debate
+    description: Multi-agent debate to analyze and explain budget variances
+    config:
+      agents:
+        - claude
+        - gpt-4
+        - gemini
+      rounds: 3
+      consensus_mode: synthesis
+      prompt_template: |
+        Analyze the budget variances for {month}:
+
+        Financial Data:
+        {gather_financials.output}
+
+        Prior Month Context:
+        {prior_month_notes}
+
+        Debate focus:
+        1. What caused significant variances (>10%)?
+        2. Are variances one-time or recurring?
+        3. What corrective actions are needed?
+        4. What should leadership know?
+    visual:
+      position: {x: 300, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - generate_report
+
+  - id: generate_report
+    name: Generate Monthly Report
+    step_type: agent
+    description: Generate comprehensive monthly financial report
+    config:
+      agent_type: claude
+      prompt_template: |
+        Generate the monthly financial report for {month}:
+
+        Variance Analysis:
+        {variance_debate.consensus}
+
+        Create a professional report with:
+        1. Executive Summary (1 paragraph)
+        2. Key Metrics Dashboard
+        3. Variance Analysis by Department
+        4. Trend Analysis (vs prior months)
+        5. Recommendations
+        6. Appendix with detailed figures
+    visual:
+      position: {x: 500, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - executive_summary
+
+  - id: executive_summary
+    name: Create Executive Summary
+    step_type: agent
+    description: Create concise executive summary for leadership
+    config:
+      agent_type: claude
+      prompt_template: |
+        Create an executive summary for {month} financial close:
+
+        Full Report:
+        {generate_report.output}
+
+        Requirements:
+        - Maximum 3 bullet points
+        - Focus on business impact
+        - Include key numbers
+        - Highlight any concerns
+        - Recommend immediate actions if needed
+    visual:
+      position: {x: 700, y: 50}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - draft_announcement
+
+  - id: draft_announcement
+    name: Draft Stakeholder Announcement
+    step_type: agent
+    description: Draft announcement email for stakeholders
+    config:
+      agent_type: claude
+      prompt_template: |
+        Draft a stakeholder announcement for {month} close:
+
+        Executive Summary:
+        {executive_summary.output}
+
+        Stakeholders:
+        {stakeholder_list}
+
+        Create a professional email that:
+        - Is appropriate for all stakeholder levels
+        - Highlights key achievements
+        - Notes any concerns diplomatically
+        - Includes relevant attachments reference
+        - Has a clear call to action if needed
+    visual:
+      position: {x: 700, y: 150}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - identify_actions
+
+  - id: identify_actions
+    name: Identify Action Items
+    step_type: agent
+    description: Extract and prioritize action items from the analysis
+    config:
+      agent_type: claude
+      prompt_template: |
+        Review the month-end close analysis and identify action items:
+
+        Variance Analysis:
+        {variance_debate.consensus}
+
+        Executive Summary:
+        {executive_summary.output}
+
+        Create a prioritized action item list:
+        1. Immediate actions (this week)
+        2. Short-term actions (this month)
+        3. Long-term considerations (quarterly)
+
+        Include owner suggestions and deadlines.
+    visual:
+      position: {x: 900, y: 100}
+      category: agent
+      color: "#ed8936"
+    next_steps:
+      - store_results
+
+  - id: store_results
+    name: Store Close Results
+    step_type: memory_write
+    description: Store results in Knowledge Mound for future reference
+    config:
+      node_type: financial_close
+      metadata:
+        month: "{month}"
+        workflow_type: month_end_close
+    visual:
+      position: {x: 1100, y: 100}
+      category: memory
+      color: "#667eea"
+
+entry_step: gather_financials
+
+transitions:
+  - from_step: gather_financials
+    to_step: variance_debate
+    priority: 1
+  - from_step: variance_debate
+    to_step: generate_report
+    priority: 1
+  - from_step: generate_report
+    to_step: executive_summary
+    priority: 1
+  - from_step: generate_report
+    to_step: draft_announcement
+    priority: 2
+  - from_step: executive_summary
+    to_step: draft_announcement
+    priority: 1
+  - from_step: draft_announcement
+    to_step: identify_actions
+    priority: 1
+  - from_step: identify_actions
+    to_step: store_results
+    priority: 1

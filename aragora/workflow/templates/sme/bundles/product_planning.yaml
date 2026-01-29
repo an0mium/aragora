@@ -1,0 +1,271 @@
+# SME Bundle: Product Planning
+# Complete workflow for product planning cycle
+id: sme_bundle_product_planning
+name: Product Planning Bundle
+description: |
+  End-to-end product planning workflow with multi-agent prioritization.
+  Covers feature prioritization, sprint planning, and resource allocation.
+  Designed for SME product teams running agile processes.
+version: "1.0.0"
+category: sme
+tags:
+  - sme
+  - product
+  - planning
+  - bundle
+  - sprint
+  - agile
+  - prioritization
+icon: layers
+is_template: true
+estimated_duration: "25-45 minutes"
+complexity: medium
+
+inputs:
+  product_name: "Product being planned"
+  feature_backlog: "List of features/items to prioritize"
+  business_goals: "Current quarter/period business goals"
+  team_capacity: "Available team capacity (story points or hours)"
+  constraints: "Technical debt, dependencies, blockers"
+  customer_feedback: "Recent customer feedback or requests (optional)"
+
+outputs:
+  prioritized_backlog: "Ranked feature list with scores"
+  sprint_plan: "Recommended sprint composition"
+  resource_allocation: "Team member assignments"
+  risk_assessment: "Identified risks and mitigations"
+  stakeholder_summary: "Summary for stakeholder communication"
+
+steps:
+  - id: analyze_backlog
+    name: Backlog Analysis
+    step_type: agent
+    description: Analyze and categorize the feature backlog
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze the feature backlog for {product_name}:
+
+        Features:
+        {feature_backlog}
+
+        Business Goals:
+        {business_goals}
+
+        Customer Feedback:
+        {customer_feedback}
+
+        Please:
+        1. Categorize features (new feature, improvement, bug, tech debt)
+        2. Estimate relative complexity (S/M/L/XL)
+        3. Map features to business goals
+        4. Identify dependencies between features
+        5. Flag any unclear or incomplete items
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - prioritization_debate
+
+  - id: prioritization_debate
+    name: Feature Prioritization Debate
+    step_type: debate
+    description: Multi-agent debate to prioritize features
+    config:
+      agents:
+        - claude
+        - gpt-4
+        - gemini
+      rounds: 3
+      consensus_mode: weighted
+      prompt_template: |
+        Prioritize features for {product_name}:
+
+        Analyzed Backlog:
+        {analyze_backlog.output}
+
+        Team Capacity: {team_capacity}
+        Constraints: {constraints}
+
+        Use RICE scoring (Reach, Impact, Confidence, Effort):
+        1. Score each feature
+        2. Consider dependencies
+        3. Balance quick wins vs strategic items
+        4. Account for technical debt
+        5. Create final prioritized ranking
+
+        Debate different prioritization approaches.
+    visual:
+      position: {x: 300, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - plan_sprint
+
+  - id: plan_sprint
+    name: Sprint Planning
+    step_type: debate
+    description: Plan sprint composition based on priorities
+    config:
+      agents:
+        - claude
+        - gpt-4
+      rounds: 2
+      consensus_mode: synthesis
+      prompt_template: |
+        Plan the sprint for {product_name}:
+
+        Prioritized Features:
+        {prioritization_debate.consensus}
+
+        Team Capacity: {team_capacity}
+        Constraints: {constraints}
+
+        Create sprint plan:
+        1. Select features that fit capacity
+        2. Balance feature types (don't overload one area)
+        3. Include buffer for unknowns (15-20%)
+        4. Identify sprint goals (2-3 max)
+        5. Define acceptance criteria for key items
+        6. Note carry-over items for next sprint
+    visual:
+      position: {x: 500, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - allocate_resources
+      - assess_risks
+
+  - id: allocate_resources
+    name: Resource Allocation
+    step_type: agent
+    description: Assign team members to sprint items
+    config:
+      agent_type: claude
+      prompt_template: |
+        Allocate resources for {product_name} sprint:
+
+        Sprint Plan:
+        {plan_sprint.consensus}
+
+        Team Capacity: {team_capacity}
+
+        Create assignments:
+        1. Match skills to features
+        2. Distribute workload fairly
+        3. Pair on complex items
+        4. Identify knowledge gaps
+        5. Plan for code review coverage
+        6. Note training opportunities
+    visual:
+      position: {x: 700, y: 50}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - create_summary
+
+  - id: assess_risks
+    name: Risk Assessment
+    step_type: agent
+    description: Identify risks and mitigation strategies
+    config:
+      agent_type: claude
+      prompt_template: |
+        Assess risks for {product_name} sprint:
+
+        Sprint Plan:
+        {plan_sprint.consensus}
+
+        Constraints:
+        {constraints}
+
+        Identify:
+        1. Technical risks (complexity, unknowns)
+        2. Resource risks (availability, skills)
+        3. Dependency risks (external, internal)
+        4. Timeline risks (estimates, scope)
+        5. Quality risks (testing, technical debt)
+
+        For each risk, provide:
+        - Likelihood (Low/Medium/High)
+        - Impact (Low/Medium/High)
+        - Mitigation strategy
+        - Early warning signs
+    visual:
+      position: {x: 700, y: 150}
+      category: agent
+      color: "#ed8936"
+    next_steps:
+      - create_summary
+
+  - id: create_summary
+    name: Stakeholder Summary
+    step_type: agent
+    description: Create summary for stakeholder communication
+    config:
+      agent_type: claude
+      prompt_template: |
+        Create stakeholder summary for {product_name} planning:
+
+        Sprint Plan:
+        {plan_sprint.consensus}
+
+        Resource Allocation:
+        {allocate_resources.output}
+
+        Risk Assessment:
+        {assess_risks.output}
+
+        Create a summary that includes:
+        1. Sprint goals (bullet points)
+        2. Key deliverables with dates
+        3. Resource highlights
+        4. Main risks and mitigations
+        5. Dependencies on other teams
+        6. Success metrics
+    visual:
+      position: {x: 900, y: 100}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - store_results
+
+  - id: store_results
+    name: Store Planning Results
+    step_type: memory_write
+    description: Store planning results for future reference
+    config:
+      node_type: product_planning
+      metadata:
+        product_name: "{product_name}"
+        workflow_type: product_planning
+    visual:
+      position: {x: 1100, y: 100}
+      category: memory
+      color: "#667eea"
+
+entry_step: analyze_backlog
+
+transitions:
+  - from_step: analyze_backlog
+    to_step: prioritization_debate
+    priority: 1
+  - from_step: prioritization_debate
+    to_step: plan_sprint
+    priority: 1
+  - from_step: plan_sprint
+    to_step: allocate_resources
+    priority: 1
+  - from_step: plan_sprint
+    to_step: assess_risks
+    priority: 2
+  - from_step: allocate_resources
+    to_step: create_summary
+    priority: 1
+  - from_step: assess_risks
+    to_step: create_summary
+    priority: 1
+  - from_step: create_summary
+    to_step: store_results
+    priority: 1

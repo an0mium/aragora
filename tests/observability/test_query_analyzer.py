@@ -183,7 +183,7 @@ class TestQueryPlanAnalyzer:
         """Should detect slow ORDER BY on large tables."""
         analyzer = QueryPlanAnalyzer(slow_threshold_ms=50, mode="warn")
         result = await analyzer.analyze(
-            "SELECT id FROM knowledge_nodes ORDER BY created_at",
+            "SELECT id FROM knowledge_nodes WHERE status = 'active' ORDER BY created_at",
             250.0,  # > 2x threshold
         )
         assert result is not None

@@ -1,0 +1,229 @@
+# SME Bundle: Hiring Sprint
+# Complete workflow for rapid hiring decisions
+id: sme_bundle_hiring_sprint
+name: Hiring Sprint Bundle
+description: |
+  Accelerated hiring workflow with multi-agent evaluation.
+  Covers job analysis, candidate evaluation, and offer preparation.
+  Designed for SMEs needing to make quick, quality hiring decisions.
+version: "1.0.0"
+category: sme
+tags:
+  - sme
+  - hiring
+  - hr
+  - bundle
+  - recruitment
+  - team
+icon: users
+is_template: true
+estimated_duration: "20-40 minutes"
+complexity: medium
+
+inputs:
+  job_title: "Position being filled"
+  job_requirements: "Required skills and qualifications"
+  team_context: "Team the hire will join, culture notes"
+  candidates: "List of candidates with resumes/notes"
+  budget_range: "Salary budget range"
+  urgency: "Hiring urgency (immediate, soon, flexible)"
+
+outputs:
+  job_analysis: "Refined job requirements and success criteria"
+  candidate_rankings: "Ranked candidates with rationale"
+  top_candidate_assessment: "Detailed assessment of top candidate(s)"
+  offer_recommendation: "Recommended offer terms"
+  interview_questions: "Suggested follow-up interview questions"
+
+steps:
+  - id: analyze_job
+    name: Job Requirements Analysis
+    step_type: debate
+    description: Debate to refine job requirements and success criteria
+    config:
+      agents:
+        - claude
+        - gpt-4
+      rounds: 2
+      consensus_mode: synthesis
+      prompt_template: |
+        Analyze and refine the job requirements for {job_title}:
+
+        Initial Requirements:
+        {job_requirements}
+
+        Team Context:
+        {team_context}
+
+        Budget: {budget_range}
+        Urgency: {urgency}
+
+        Debate:
+        1. Are the requirements realistic for the budget?
+        2. Which requirements are must-have vs nice-to-have?
+        3. What success looks like at 30/60/90 days?
+        4. Any red flags or concerns with the role definition?
+    visual:
+      position: {x: 100, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - evaluate_candidates
+
+  - id: evaluate_candidates
+    name: Candidate Evaluation Debate
+    step_type: debate
+    description: Multi-agent evaluation of all candidates
+    config:
+      agents:
+        - claude
+        - gpt-4
+        - gemini
+      rounds: 3
+      consensus_mode: weighted
+      prompt_template: |
+        Evaluate candidates for {job_title}:
+
+        Refined Requirements:
+        {analyze_job.consensus}
+
+        Candidates:
+        {candidates}
+
+        For each candidate, assess:
+        1. Skills match (1-10)
+        2. Experience relevance (1-10)
+        3. Cultural fit indicators
+        4. Growth potential
+        5. Risk factors
+        6. Compensation expectations vs budget
+
+        Provide a ranked list with clear rationale.
+    visual:
+      position: {x: 300, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - deep_dive_top
+
+  - id: deep_dive_top
+    name: Top Candidate Deep Dive
+    step_type: debate
+    description: Detailed analysis of top candidates
+    config:
+      agents:
+        - claude
+        - gpt-4
+      rounds: 2
+      consensus_mode: synthesis
+      prompt_template: |
+        Deep dive on top candidates for {job_title}:
+
+        Candidate Rankings:
+        {evaluate_candidates.consensus}
+
+        For the top 2-3 candidates:
+        1. Strengths that differentiate them
+        2. Concerns or gaps to probe
+        3. Reference check focus areas
+        4. Negotiation considerations
+        5. Onboarding recommendations
+        6. Risk mitigation strategies
+    visual:
+      position: {x: 500, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - prepare_offer
+      - generate_questions
+
+  - id: prepare_offer
+    name: Offer Preparation
+    step_type: agent
+    description: Prepare offer recommendation for top candidate
+    config:
+      agent_type: claude
+      prompt_template: |
+        Prepare offer recommendation for {job_title}:
+
+        Top Candidate Assessment:
+        {deep_dive_top.consensus}
+
+        Budget Range: {budget_range}
+
+        Create offer recommendation including:
+        1. Recommended base salary with justification
+        2. Suggested benefits/perks
+        3. Start date considerations
+        4. Any signing bonus recommendation
+        5. Equity/bonus structure if applicable
+        6. Contingencies (background check, references)
+    visual:
+      position: {x: 700, y: 50}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - store_results
+
+  - id: generate_questions
+    name: Generate Interview Questions
+    step_type: agent
+    description: Generate targeted follow-up interview questions
+    config:
+      agent_type: claude
+      prompt_template: |
+        Generate interview questions for {job_title} candidates:
+
+        Assessment Results:
+        {deep_dive_top.consensus}
+
+        Create targeted questions to:
+        1. Validate identified strengths
+        2. Probe areas of concern
+        3. Assess cultural fit
+        4. Understand motivation
+        5. Test problem-solving approach
+
+        Include both behavioral and situational questions.
+    visual:
+      position: {x: 700, y: 150}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - store_results
+
+  - id: store_results
+    name: Store Hiring Decision
+    step_type: memory_write
+    description: Store hiring decision for future reference
+    config:
+      node_type: hiring_decision
+      metadata:
+        job_title: "{job_title}"
+        workflow_type: hiring_sprint
+    visual:
+      position: {x: 900, y: 100}
+      category: memory
+      color: "#667eea"
+
+entry_step: analyze_job
+
+transitions:
+  - from_step: analyze_job
+    to_step: evaluate_candidates
+    priority: 1
+  - from_step: evaluate_candidates
+    to_step: deep_dive_top
+    priority: 1
+  - from_step: deep_dive_top
+    to_step: prepare_offer
+    priority: 1
+  - from_step: deep_dive_top
+    to_step: generate_questions
+    priority: 2
+  - from_step: prepare_offer
+    to_step: store_results
+    priority: 1
+  - from_step: generate_questions
+    to_step: store_results
+    priority: 1

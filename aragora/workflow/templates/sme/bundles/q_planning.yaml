@@ -1,0 +1,326 @@
+# SME Bundle: Quarterly Planning
+# Complete workflow for quarterly business planning
+id: sme_bundle_q_planning
+name: Quarterly Planning Bundle
+description: |
+  Comprehensive quarterly planning workflow with multi-agent debate.
+  Covers budget allocation, goal setting, and KPI definition.
+  Designed for SME leadership teams running quarterly planning cycles.
+version: "1.0.0"
+category: sme
+tags:
+  - sme
+  - planning
+  - quarterly
+  - bundle
+  - okr
+  - budget
+  - strategy
+icon: target
+is_template: true
+estimated_duration: "40-60 minutes"
+complexity: high
+
+inputs:
+  quarter: "Quarter being planned (e.g., Q2 2026)"
+  prior_quarter_results: "Results and learnings from prior quarter"
+  annual_goals: "Company annual goals and strategy"
+  department_requests: "Budget and resource requests by department"
+  total_budget: "Total available budget for the quarter"
+  headcount_budget: "Available headcount additions"
+  market_context: "Market conditions, competitive landscape"
+
+outputs:
+  quarterly_budget: "Approved budget allocation by department"
+  quarterly_goals: "OKRs or goals for the quarter"
+  kpi_definitions: "Key metrics and targets"
+  resource_plan: "Headcount and resource allocation"
+  executive_memo: "Executive summary and communication"
+  review_schedule: "Monthly review checkpoints"
+
+steps:
+  - id: review_prior_quarter
+    name: Prior Quarter Review
+    step_type: debate
+    description: Review and analyze prior quarter performance
+    config:
+      agents:
+        - claude
+        - gpt-4
+      rounds: 2
+      consensus_mode: synthesis
+      prompt_template: |
+        Review prior quarter performance for {quarter} planning:
+
+        Prior Quarter Results:
+        {prior_quarter_results}
+
+        Annual Goals:
+        {annual_goals}
+
+        Analyze:
+        1. Goal achievement rate
+        2. Key wins and successes
+        3. Misses and root causes
+        4. Lessons learned
+        5. Carry-over items
+        6. Changed assumptions
+    visual:
+      position: {x: 100, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - set_goals
+
+  - id: set_goals
+    name: Quarterly Goal Setting Debate
+    step_type: debate
+    description: Multi-agent debate to set quarterly goals/OKRs
+    config:
+      agents:
+        - claude
+        - gpt-4
+        - gemini
+      rounds: 3
+      consensus_mode: weighted
+      prompt_template: |
+        Set goals for {quarter}:
+
+        Prior Quarter Analysis:
+        {review_prior_quarter.consensus}
+
+        Annual Goals:
+        {annual_goals}
+
+        Market Context:
+        {market_context}
+
+        Create quarterly OKRs:
+        1. Company-level objectives (3-5 max)
+        2. Key results for each objective (2-4 per objective)
+        3. Leading vs lagging indicators
+        4. Stretch vs committed targets
+        5. Cross-department dependencies
+        6. Risk factors for each goal
+
+        Goals should be SMART and aligned to annual strategy.
+    visual:
+      position: {x: 300, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - allocate_budget
+
+  - id: allocate_budget
+    name: Budget Allocation Debate
+    step_type: debate
+    description: Debate to allocate quarterly budget
+    config:
+      agents:
+        - claude
+        - gpt-4
+        - gemini
+      rounds: 3
+      consensus_mode: weighted
+      prompt_template: |
+        Allocate budget for {quarter}:
+
+        Quarterly Goals:
+        {set_goals.consensus}
+
+        Department Requests:
+        {department_requests}
+
+        Total Budget: {total_budget}
+        Headcount Budget: {headcount_budget}
+
+        Allocate budget considering:
+        1. Goal alignment (fund goals first)
+        2. Historical spending patterns
+        3. ROI expectations by department
+        4. Strategic investments vs maintenance
+        5. Reserve for contingencies (10-15%)
+        6. Headcount prioritization
+
+        Provide rationale for each allocation decision.
+    visual:
+      position: {x: 500, y: 100}
+      category: debate
+      color: "#9f7aea"
+    next_steps:
+      - define_kpis
+      - plan_resources
+
+  - id: define_kpis
+    name: KPI Definition
+    step_type: agent
+    description: Define key metrics and targets for the quarter
+    config:
+      agent_type: claude
+      prompt_template: |
+        Define KPIs for {quarter}:
+
+        Quarterly Goals:
+        {set_goals.consensus}
+
+        Budget Allocation:
+        {allocate_budget.consensus}
+
+        Create KPI framework:
+        1. Company-level KPIs (5-7 max)
+        2. Department-level KPIs
+        3. Baseline values (current state)
+        4. Target values (end of quarter)
+        5. Measurement frequency
+        6. Data sources
+        7. Dashboard requirements
+
+        Ensure KPIs are measurable and actionable.
+    visual:
+      position: {x: 700, y: 50}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - create_memo
+
+  - id: plan_resources
+    name: Resource Planning
+    step_type: agent
+    description: Plan headcount and resource allocation
+    config:
+      agent_type: claude
+      prompt_template: |
+        Plan resources for {quarter}:
+
+        Quarterly Goals:
+        {set_goals.consensus}
+
+        Budget Allocation:
+        {allocate_budget.consensus}
+
+        Headcount Budget: {headcount_budget}
+
+        Create resource plan:
+        1. New hire priorities (ranked)
+        2. Role definitions for new hires
+        3. Internal mobility opportunities
+        4. Contractor vs FTE decisions
+        5. Training investments
+        6. Tool/software needs
+        7. Timeline for additions
+
+        Align resources to highest-impact goals.
+    visual:
+      position: {x: 700, y: 150}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - create_memo
+
+  - id: create_memo
+    name: Executive Memo
+    step_type: agent
+    description: Create executive summary and communication
+    config:
+      agent_type: claude
+      prompt_template: |
+        Create executive memo for {quarter} planning:
+
+        Quarterly Goals:
+        {set_goals.consensus}
+
+        Budget Allocation:
+        {allocate_budget.consensus}
+
+        KPIs:
+        {define_kpis.output}
+
+        Resource Plan:
+        {plan_resources.output}
+
+        Create memo including:
+        1. Executive summary (1 page)
+        2. Key priorities (top 3)
+        3. Budget highlights
+        4. Success metrics
+        5. Major changes from prior quarter
+        6. Communication plan (who needs to know what)
+        7. Q&A preparation
+    visual:
+      position: {x: 900, y: 100}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - schedule_reviews
+
+  - id: schedule_reviews
+    name: Review Schedule
+    step_type: agent
+    description: Create monthly review checkpoints
+    config:
+      agent_type: claude
+      prompt_template: |
+        Create review schedule for {quarter}:
+
+        Quarterly Goals:
+        {set_goals.consensus}
+
+        KPIs:
+        {define_kpis.output}
+
+        Create review framework:
+        1. Monthly review dates
+        2. Review meeting agenda template
+        3. KPI check-in format
+        4. Escalation criteria (when to raise concerns)
+        5. Mid-quarter course correction process
+        6. End-of-quarter review format
+        7. Stakeholder communication cadence
+    visual:
+      position: {x: 1100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_results
+
+  - id: store_results
+    name: Store Planning Results
+    step_type: memory_write
+    description: Store quarterly plan for future reference
+    config:
+      node_type: quarterly_plan
+      metadata:
+        quarter: "{quarter}"
+        workflow_type: q_planning
+    visual:
+      position: {x: 1300, y: 100}
+      category: memory
+      color: "#667eea"
+
+entry_step: review_prior_quarter
+
+transitions:
+  - from_step: review_prior_quarter
+    to_step: set_goals
+    priority: 1
+  - from_step: set_goals
+    to_step: allocate_budget
+    priority: 1
+  - from_step: allocate_budget
+    to_step: define_kpis
+    priority: 1
+  - from_step: allocate_budget
+    to_step: plan_resources
+    priority: 2
+  - from_step: define_kpis
+    to_step: create_memo
+    priority: 1
+  - from_step: plan_resources
+    to_step: create_memo
+    priority: 1
+  - from_step: create_memo
+    to_step: schedule_reviews
+    priority: 1
+  - from_step: schedule_reviews
+    to_step: store_results
+    priority: 1

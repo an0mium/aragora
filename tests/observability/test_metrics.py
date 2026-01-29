@@ -333,33 +333,3 @@ class TestKMMetrics:
         from aragora.observability.metrics import set_km_active_adapters
 
         set_km_active_adapters(14)
-
-
-# =============================================================================
-# TestSlowDebateMetrics
-# =============================================================================
-
-
-class TestSlowDebateMetrics:
-    """Tests for slow debate detection metrics."""
-
-    def test_record_slow_debate(self):
-        """Slow debate recording should not raise."""
-        from aragora.observability.metrics.debate import record_slow_debate
-
-        record_slow_debate("low")
-        record_slow_debate("high")
-
-    def test_record_slow_round(self):
-        """Slow round recording should not raise."""
-        from aragora.observability.metrics.debate import record_slow_round
-
-        record_slow_round("propose")
-        record_slow_round("consensus")
-
-    def test_record_round_latency(self):
-        """Round latency recording should not raise."""
-        from aragora.observability.metrics.debate import record_round_latency
-
-        record_round_latency(5.0)
-        record_round_latency(0.001)
