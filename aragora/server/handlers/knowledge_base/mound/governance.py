@@ -18,7 +18,7 @@ Phase A2 - Workspace Governance
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Set
 
 from aragora.rbac.decorators import require_permission
 
@@ -36,14 +36,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class GovernanceOperationsMixin:
-    """Mixin providing governance (RBAC + audit) API endpoints."""
+class GovernanceHandlerProtocol(Protocol):
+    """Protocol for handlers that use GovernanceOperationsMixin."""
 
     ctx: Dict[str, Any]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
-        """Get the knowledge mound instance."""
-        raise NotImplementedError("Subclass must implement _get_mound")
+    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
+
+class GovernanceOperationsMixin:
+    """Mixin providing governance (RBAC + audit) API endpoints."""
 
     @require_permission("governance:admin")
     @rate_limit(requests_per_minute=20)

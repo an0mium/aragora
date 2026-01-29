@@ -861,7 +861,18 @@ def register_routes(app: web.Application) -> None:
     """Register cost visibility routes."""
     handler = CostHandler()
 
-    # Core cost endpoints
+    # Core cost endpoints (v1 canonical)
+    app.router.add_get("/api/v1/costs", handler.handle_get_costs)
+    app.router.add_get("/api/v1/costs/breakdown", handler.handle_get_breakdown)
+    app.router.add_get("/api/v1/costs/timeline", handler.handle_get_timeline)
+    app.router.add_get("/api/v1/costs/alerts", handler.handle_get_alerts)
+    app.router.add_post("/api/v1/costs/budget", handler.handle_set_budget)
+    app.router.add_post(
+        "/api/v1/costs/alerts/{alert_id}/dismiss",
+        handler.handle_dismiss_alert,
+    )
+
+    # Core cost endpoints (legacy, no version prefix)
     app.router.add_get("/api/costs", handler.handle_get_costs)
     app.router.add_get("/api/costs/breakdown", handler.handle_get_breakdown)
     app.router.add_get("/api/costs/timeline", handler.handle_get_timeline)
@@ -869,7 +880,22 @@ def register_routes(app: web.Application) -> None:
     app.router.add_post("/api/costs/budget", handler.handle_set_budget)
     app.router.add_post("/api/costs/alerts/{alert_id}/dismiss", handler.handle_dismiss_alert)
 
-    # Optimization recommendations
+    # Optimization recommendations (v1 canonical)
+    app.router.add_get("/api/v1/costs/recommendations", handler.handle_get_recommendations)
+    app.router.add_get(
+        "/api/v1/costs/recommendations/{recommendation_id}",
+        handler.handle_get_recommendation,
+    )
+    app.router.add_post(
+        "/api/v1/costs/recommendations/{recommendation_id}/apply",
+        handler.handle_apply_recommendation,
+    )
+    app.router.add_post(
+        "/api/v1/costs/recommendations/{recommendation_id}/dismiss",
+        handler.handle_dismiss_recommendation,
+    )
+
+    # Optimization recommendations (legacy)
     app.router.add_get("/api/costs/recommendations", handler.handle_get_recommendations)
     app.router.add_get(
         "/api/costs/recommendations/{recommendation_id}",
@@ -884,9 +910,15 @@ def register_routes(app: web.Application) -> None:
         handler.handle_dismiss_recommendation,
     )
 
-    # Efficiency metrics
+    # Efficiency metrics (v1 canonical + legacy)
+    app.router.add_get("/api/v1/costs/efficiency", handler.handle_get_efficiency)
     app.router.add_get("/api/costs/efficiency", handler.handle_get_efficiency)
 
-    # Forecasting
+    # Forecasting (v1 canonical + legacy)
+    app.router.add_get("/api/v1/costs/forecast", handler.handle_get_forecast)
+    app.router.add_post(
+        "/api/v1/costs/forecast/simulate",
+        handler.handle_simulate_forecast,
+    )
     app.router.add_get("/api/costs/forecast", handler.handle_get_forecast)
     app.router.add_post("/api/costs/forecast/simulate", handler.handle_simulate_forecast)

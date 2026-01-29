@@ -155,6 +155,43 @@ HAS_PLUGINS = _check_aragora_module("aragora.plugins")
 REQUIRES_PLUGINS = "Plugins module not available"
 requires_plugins = not HAS_PLUGINS
 
+HAS_BROADCAST = _check_aragora_module("aragora.broadcast.pipeline")
+REQUIRES_BROADCAST = "Broadcast module not available (see #134)"
+requires_broadcast = not HAS_BROADCAST
+
+HAS_BROADCAST_STORAGE = _check_aragora_module("aragora.broadcast.storage")
+REQUIRES_BROADCAST_STORAGE = "Broadcast storage not available (see #134)"
+requires_broadcast_storage = not HAS_BROADCAST_STORAGE
+
+# Security and encryption modules
+HAS_ENCRYPTION = _check_aragora_module("aragora.security.encryption")
+REQUIRES_ENCRYPTION = "Encryption service not available"
+requires_encryption = not HAS_ENCRYPTION
+
+HAS_INTEGRATION_STORE = _check_aragora_module("aragora.storage.integration_store")
+REQUIRES_INTEGRATION_STORE = "IntegrationStore not available"
+requires_integration_store = not HAS_INTEGRATION_STORE
+
+HAS_GMAIL_TOKEN_STORE = _check_aragora_module("aragora.storage.gmail_token_store")
+REQUIRES_GMAIL_TOKEN_STORE = "GmailTokenStore not available"
+requires_gmail_token_store = not HAS_GMAIL_TOKEN_STORE
+
+HAS_SYNC_STORE = _check_aragora_module("aragora.connectors.enterprise.sync_store")
+REQUIRES_SYNC_STORE = "SyncStore not available"
+requires_sync_store = not HAS_SYNC_STORE
+
+HAS_KEY_ROTATION = _check_aragora_module("aragora.security.migration")
+REQUIRES_KEY_ROTATION = "Key rotation not available"
+requires_key_rotation = not HAS_KEY_ROTATION
+
+HAS_SECURITY_HANDLER = _check_aragora_module("aragora.server.handlers.admin.security")
+REQUIRES_SECURITY_HANDLER = "SecurityHandler not available"
+requires_security_handler = not HAS_SECURITY_HANDLER
+
+HAS_SECURITY_METRICS = _check_aragora_module("aragora.observability.metrics.security")
+REQUIRES_SECURITY_METRICS = "Security metrics not available"
+requires_security_metrics = not HAS_SECURITY_METRICS
+
 
 # ============================================================================
 # CI Environment Detection

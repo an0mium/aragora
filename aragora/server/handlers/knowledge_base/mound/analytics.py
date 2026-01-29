@@ -15,7 +15,7 @@ Phase A2 - Knowledge Analytics Dashboard
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from aragora.rbac.decorators import require_permission
 
@@ -33,14 +33,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AnalyticsOperationsMixin:
-    """Mixin providing analytics API endpoints."""
+class AnalyticsHandlerProtocol(Protocol):
+    """Protocol for handlers that use AnalyticsOperationsMixin."""
 
     ctx: Dict[str, Any]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
-        """Get the knowledge mound instance."""
-        raise NotImplementedError("Subclass must implement _get_mound")
+    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
+
+class AnalyticsOperationsMixin:
+    """Mixin providing analytics API endpoints."""
 
     @require_permission("analytics:read")
     @rate_limit(requests_per_minute=20)

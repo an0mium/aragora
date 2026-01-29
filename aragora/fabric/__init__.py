@@ -39,11 +39,14 @@ from .scheduler import AgentScheduler
 from .lifecycle import LifecycleManager
 from .policy import PolicyEngine
 from .budget import BudgetManager
-from .fabric import AgentFabric
+from .fabric import AgentFabric, AgentPool, FabricConfig, FabricStats
 
 __all__ = [
     # Core facade
     "AgentFabric",
+    "AgentPool",
+    "FabricConfig",
+    "FabricStats",
     # Components
     "AgentScheduler",
     "LifecycleManager",

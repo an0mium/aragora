@@ -83,6 +83,7 @@ class LifecycleManager:
             pool_id = config.pool_id
             if pool_id and pool_id in self._pools and self._pools[pool_id]:
                 handle = self._pools[pool_id].pop()
+                handle.agent_id = config.id
                 handle.config = config
                 handle.status = HealthStatus.HEALTHY
                 handle.last_heartbeat = datetime.utcnow()
