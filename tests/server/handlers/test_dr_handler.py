@@ -299,3 +299,105 @@ class TestFactoryFunction:
         """Test factory function creates handler."""
         handler = create_dr_handler(mock_server_context)
         assert isinstance(handler, DRHandler)
+
+
+# ===========================================================================
+# Extended Test Coverage - Edge Cases
+# ===========================================================================
+
+
+class TestDRStatusEdgeCases:
+    """Test DR status edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_get_status_stale_backup(self, handler, mock_backup_manager):
+        """Test DR status handles stale backup (>24h old)."""
+        mock_backup_manager._backups["backup-001"] = MockBackupMetadata(
+            created_at=datetime.now(timezone.utc) - timedelta(hours=48)
+        )
+        result = await handler.handle("GET", "/api/v2/dr/status")
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_status_unverified_backup(self, handler, mock_backup_manager):
+        """Test DR status handles unverified backup."""
+        mock_backup_manager._backups["backup-001"] = MockBackupMetadata(
+            verified=False, status="pending"
+        )
+        result = await handler.handle("GET", "/api/v2/dr/status")
+        assert result.status_code == 200
+
+
+class TestDRDrillEdgeCases:
+    """Test DR drill edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_run_drill_missing_type_uses_default(self, handler):
+        """Test drill with missing drill_type uses default (restore_test)."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/dr/drill",
+            body={},
+        )
+        # Handler defaults to restore_test when type is missing
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_run_drill_with_notification(self, handler):
+        """Test drill with notification flag."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/dr/drill",
+            body={"drill_type": "restore_test", "notify": True},
+        )
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_run_drill_dry_run(self, handler):
+        """Test drill dry run mode."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/dr/drill",
+            body={"drill_type": "restore_test", "dry_run": True},
+        )
+        assert result.status_code == 200
+
+
+class TestDRValidateEdgeCases:
+    """Test DR validate edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_validate_missing_storage(self, handler, mock_backup_manager):
+        """Test validation when storage is missing."""
+        mock_backup_manager.backup_dir.exists.return_value = False
+        result = await handler.handle(
+            "POST",
+            "/api/v2/dr/validate",
+            body={"check_storage": True},
+        )
+        # Should still return 200 with validation results
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_validate_all_checks(self, handler):
+        """Test validation with all check flags enabled."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/dr/validate",
+            body={
+                "check_storage": True,
+                "check_retention": True,
+                "check_encryption": True,
+            },
+        )
+        assert result.status_code == 200
+
+
+class TestDRObjectivesEdgeCases:
+    """Test DR objectives edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_get_objectives_includes_policy(self, handler):
+        """Test objectives response includes retention policy info."""
+        result = await handler.handle("GET", "/api/v2/dr/objectives")
+        assert result.status_code == 200

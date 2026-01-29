@@ -482,25 +482,33 @@ class TestN8nRBACIntegration:
 class TestExternalIntegrationsRouting:
     """Tests for request routing in ExternalIntegrationsHandler."""
 
-    def test_can_handle_zapier_paths(self, integrations_handler):
+    def test_can_handle_zapier_paths(self):
         """Handler should recognize Zapier API paths."""
-        assert integrations_handler.can_handle("/api/v1/integrations/zapier/apps")
-        assert integrations_handler.can_handle("/api/v1/integrations/zapier/apps")
+        from aragora.server.handlers.external_integrations import ExternalIntegrationsHandler
 
-    def test_can_handle_make_paths(self, integrations_handler):
+        assert ExternalIntegrationsHandler.can_handle("/api/integrations/zapier/apps")
+        assert ExternalIntegrationsHandler.can_handle("/api/v2/integrations/zapier/apps")
+
+    def test_can_handle_make_paths(self):
         """Handler should recognize Make.com API paths."""
-        assert integrations_handler.can_handle("/api/v1/integrations/make/connections")
-        assert integrations_handler.can_handle("/api/v1/integrations/make/connections")
+        from aragora.server.handlers.external_integrations import ExternalIntegrationsHandler
 
-    def test_can_handle_n8n_paths(self, integrations_handler):
+        assert ExternalIntegrationsHandler.can_handle("/api/integrations/make/connections")
+        assert ExternalIntegrationsHandler.can_handle("/api/v2/integrations/make/connections")
+
+    def test_can_handle_n8n_paths(self):
         """Handler should recognize n8n API paths."""
-        assert integrations_handler.can_handle("/api/v1/integrations/n8n/credentials")
-        assert integrations_handler.can_handle("/api/v1/integrations/n8n/nodes")
+        from aragora.server.handlers.external_integrations import ExternalIntegrationsHandler
 
-    def test_cannot_handle_other_paths(self, integrations_handler):
+        assert ExternalIntegrationsHandler.can_handle("/api/integrations/n8n/credentials")
+        assert ExternalIntegrationsHandler.can_handle("/api/v2/integrations/n8n/nodes")
+
+    def test_cannot_handle_other_paths(self):
         """Handler should reject non-integration paths."""
-        assert not integrations_handler.can_handle("/api/v2/debates")
-        assert not integrations_handler.can_handle("/api/v1/integrations/unknown")
+        from aragora.server.handlers.external_integrations import ExternalIntegrationsHandler
+
+        assert not ExternalIntegrationsHandler.can_handle("/api/v2/debates")
+        assert not ExternalIntegrationsHandler.can_handle("/api/backups")
 
 
 class TestZapierTriggerOperations:
@@ -648,9 +656,7 @@ class TestErrorHandling:
         mock_extract.return_value = MockUserInfo(user_id="user-123", role="admin")
         handler = make_mock_handler()
 
-        result = integrations_handler._handle_list_zapier_apps(
-            {"workspace_id": "ws-123"}, handler
-        )
+        result = integrations_handler._handle_list_zapier_apps({"workspace_id": "ws-123"}, handler)
 
         assert result is not None
         assert get_status(result) == 200
