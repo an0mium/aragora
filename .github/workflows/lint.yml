@@ -129,7 +129,7 @@ jobs:
             aragora/connectors/chat/base.py \
             aragora/connectors/chat/telegram.py \
             aragora/connectors/chat/whatsapp.py \
-            aragora/connectors/chat/slack.py \
+            aragora/connectors/chat/slack/__init__.py \
             aragora/connectors/chat/discord.py \
             --config-file pyproject.toml \
             --no-error-summary
@@ -233,11 +233,13 @@ jobs:
 
       - name: Lint Kubernetes Helm chart
         run: |
+          helm dependency build deploy/kubernetes/helm/aragora/
           helm lint deploy/kubernetes/helm/aragora/ --strict
           echo "Kubernetes chart passed lint!"
 
       - name: Lint multi-region Helm chart
         run: |
+          helm dependency build deploy/multi-region/helm/aragora/
           helm lint deploy/multi-region/helm/aragora/ --strict
           echo "Multi-region chart passed lint!"
 
