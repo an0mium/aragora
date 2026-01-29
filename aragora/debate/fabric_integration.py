@@ -395,7 +395,7 @@ class FabricDebateRunner:
         try:
             arena = Arena(
                 environment=environment,
-                agents=agents,  # type: ignore  # Adapters implement Agent protocol
+                agents=agents,  # type: ignore[arg-type]  # Adapters implement Agent protocol
                 protocol=arena_protocol,
                 org_id=config.org_id,
                 user_id=config.user_id,

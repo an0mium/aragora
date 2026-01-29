@@ -690,6 +690,9 @@ class ConsensusPhase:
             if judge is None:
                 continue
 
+            judge_timeout = float(getattr(judge, "timeout", AGENT_TIMEOUT_SECONDS))
+            judge_timeout = max(60.0, judge_timeout - 60.0)
+
             tried_judges.append(judge.name)
             logger.info(
                 f"judge_attempt judge={judge.name} method={judge_method} attempt={len(tried_judges)}"
@@ -711,7 +714,7 @@ class ConsensusPhase:
                 with streaming_task_context(task_id):
                     synthesis = await asyncio.wait_for(
                         self._generate_with_agent(judge, judge_prompt, ctx.context_messages),
-                        timeout=self.JUDGE_TIMEOUT_PER_ATTEMPT,
+                        timeout=judge_timeout,
                     )
 
                 result.final_answer = synthesis
@@ -745,9 +748,7 @@ class ConsensusPhase:
                 return
 
             except asyncio.TimeoutError:
-                logger.warning(
-                    f"judge_timeout judge={judge.name} timeout={self.JUDGE_TIMEOUT_PER_ATTEMPT}s"
-                )
+                logger.warning(f"judge_timeout judge={judge.name} timeout={judge_timeout}s")
             except Exception as e:
                 logger.error(f"judge_error judge={judge.name} error={type(e).__name__}: {e}")
 
@@ -891,11 +892,13 @@ class ConsensusPhase:
         )
 
         try:
+            judge_timeout = float(getattr(judge, "timeout", AGENT_TIMEOUT_SECONDS))
+            judge_timeout = max(60.0, judge_timeout - 60.0)
             task_id = f"{judge.name}:judge_synthesis"
             with streaming_task_context(task_id):
                 synthesis = await asyncio.wait_for(
                     self._generate_with_agent(judge, judge_prompt, ctx.context_messages),
-                    timeout=self.JUDGE_TIMEOUT_PER_ATTEMPT,
+                    timeout=judge_timeout,
                 )
 
             result.final_answer = synthesis

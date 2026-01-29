@@ -152,14 +152,13 @@ class RevisionGenerator:
         if not all_critiques:
             return updated_proposals
 
-        # Get complexity-scaled timeout
-        timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
-
         # Semaphore for bounded concurrency
         revision_semaphore = asyncio.Semaphore(self._max_concurrent)
 
         async def generate_revision_bounded(agent: "Agent", revision_prompt: str):
             """Wrap revision generation with semaphore for bounded concurrency."""
+            base_timeout = getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)
+            timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
             task_id = f"{agent.name}:revision:{round_num}"
             async with revision_semaphore:
                 # Mark molecule as in_progress
@@ -199,8 +198,9 @@ class RevisionGenerator:
         debate_id = getattr(ctx, "debate_id", None) or (ctx.env.task[:50] if ctx.env else "unknown")
         self._create_revision_molecules(debate_id, round_num, revision_agents)
 
-        # Calculate dynamic phase timeout
-        phase_timeout = calculate_phase_timeout(len(revision_agents), timeout)
+        # Calculate dynamic phase timeout using base timeout constant
+        base_timeout = AGENT_TIMEOUT_SECONDS
+        phase_timeout = calculate_phase_timeout(len(revision_agents), base_timeout)
 
         # Emit heartbeat before revision phase
         if self._emit_heartbeat:

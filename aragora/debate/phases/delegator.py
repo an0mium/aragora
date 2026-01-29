@@ -307,7 +307,7 @@ Please provide your response to the task."""
 
             if parse_fn:
                 return parse_fn(agent.name, str(response))
-            return str(response)  # type: ignore
+            return str(response)  # type: ignore[return-value]  # parse_fn return type varies
 
         batch_config = BatchConfig(
             max_concurrent=self._config.max_concurrent,

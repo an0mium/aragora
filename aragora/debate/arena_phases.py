@@ -473,11 +473,19 @@ def create_phase_executor(arena: "Arena") -> PhaseExecutor:
     # This prevents timeout issues with slow agents (e.g., kimi taking 30-85s/critique)
     num_agents = len(arena.agents) if arena.agents else 4
     num_rounds = getattr(arena.protocol, "rounds", 3)
+    max_agent_timeout = AGENT_TIMEOUT_SECONDS
+    if arena.agents:
+        try:
+            max_agent_timeout = max(
+                float(getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)) for agent in arena.agents
+            )
+        except Exception:
+            max_agent_timeout = AGENT_TIMEOUT_SECONDS
 
     # Minimum time: (agents / concurrent) × timeout × 2 phases × rounds + buffer
     min_timeout_needed = (
         (num_agents / max(MAX_CONCURRENT_CRITIQUES, 1))
-        * AGENT_TIMEOUT_SECONDS
+        * max_agent_timeout
         * 2  # critique + revision phases per round
         * num_rounds
         + 180  # 3 minute buffer for overhead
@@ -489,7 +497,8 @@ def create_phase_executor(arena: "Arena") -> PhaseExecutor:
 
     logger.info(
         f"debate_timeout_calculated agents={num_agents} rounds={num_rounds} "
-        f"base={base_timeout}s calculated={min_timeout_needed:.0f}s final={timeout:.0f}s"
+        f"agent_timeout={max_agent_timeout:.0f}s base={base_timeout}s "
+        f"calculated={min_timeout_needed:.0f}s final={timeout:.0f}s"
     )
 
     # Create wrapper for context_initializer to match Phase protocol

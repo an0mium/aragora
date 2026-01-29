@@ -615,7 +615,8 @@ class DebateRoundsPhase:
             """Generate critique and return (critic, proposal_agent, result_or_error)."""
             logger.debug(f"critique_generating critic={critic.name} target={proposal_agent}")
             # Use complexity-scaled timeout from governor
-            timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
+            base_timeout = getattr(critic, "timeout", AGENT_TIMEOUT_SECONDS)
+            timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
             # Use task context to distinguish concurrent streaming from same agent
             task_id = f"{critic.name}:critique:{proposal_agent}"
             try:
@@ -832,15 +833,13 @@ class DebateRoundsPhase:
         if not all_critiques:
             return
 
-        # Build revision tasks for all proposers with bounded concurrency
-        # Use complexity-scaled timeout from governor
-        timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
-
         # Semaphore prevents exhausting API rate limits with too many parallel requests
         revision_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REVISIONS)
 
         async def generate_revision_bounded(agent, revision_prompt):
             """Wrap revision generation with semaphore for bounded concurrency."""
+            base_timeout = getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)
+            timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
             # Use task context to distinguish concurrent streaming from same agent
             task_id = f"{agent.name}:revision:{round_num}"
             async with revision_semaphore:
@@ -875,7 +874,15 @@ class DebateRoundsPhase:
             revision_agents.append(agent)
 
         # Calculate dynamic phase timeout based on number of agents
-        phase_timeout = _calculate_phase_timeout(len(revision_agents), timeout)
+        base_phase_timeout = AGENT_TIMEOUT_SECONDS
+        if revision_agents:
+            try:
+                base_phase_timeout = max(
+                    float(getattr(a, "timeout", AGENT_TIMEOUT_SECONDS)) for a in revision_agents
+                )
+            except Exception:
+                base_phase_timeout = AGENT_TIMEOUT_SECONDS
+        phase_timeout = _calculate_phase_timeout(len(revision_agents), base_phase_timeout)
 
         # Emit heartbeat before revision phase
         self._emit_heartbeat(

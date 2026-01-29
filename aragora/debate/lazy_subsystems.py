@@ -56,7 +56,7 @@ class LazySubsystem(Generic[T]):
 
     def __get__(self, obj: Optional["Arena"], objtype: type = None) -> Optional[T]:
         if obj is None:
-            return self  # type: ignore
+            return self  # type: ignore[return-value]  # Descriptor returns self when accessed on class
 
         # Check if already initialized
         cached = getattr(obj, self.private_attr, None)

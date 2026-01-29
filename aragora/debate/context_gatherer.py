@@ -214,8 +214,11 @@ class ContextGatherer:
         if self._enable_knowledge_grounding and KnowledgeMound is not None:
             if not self._knowledge_mound:
                 try:
-                    self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
-                        workspace_id=self._knowledge_workspace_id
+                    from aragora.knowledge.mound import get_knowledge_mound
+
+                    self._knowledge_mound = get_knowledge_mound(
+                        workspace_id=self._knowledge_workspace_id,
+                        auto_initialize=True,
                     )
                     logger.info(
                         f"[knowledge] ContextGatherer: Knowledge Mound enabled "
@@ -225,6 +228,19 @@ class ContextGatherer:
                     # Expected: knowledge mound initialization issues
                     logger.warning(f"[knowledge] Failed to initialize Knowledge Mound: {e}")
                     self._enable_knowledge_grounding = False
+                except ImportError:
+                    # Fallback: instantiate directly if singleton helper unavailable
+                    try:
+                        self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
+                            workspace_id=self._knowledge_workspace_id
+                        )
+                        logger.info(
+                            f"[knowledge] ContextGatherer: Knowledge Mound enabled "
+                            f"(workspace={self._knowledge_workspace_id})"
+                        )
+                    except (RuntimeError, ValueError, OSError) as e:
+                        logger.warning(f"[knowledge] Failed to initialize Knowledge Mound: {e}")
+                        self._enable_knowledge_grounding = False
                 except Exception as e:
                     # Unexpected error
                     logger.warning(
@@ -842,6 +858,22 @@ class ContextGatherer:
                 "Relevant institutional knowledge from previous debates and analyses:",
                 "",
             ]
+            confidence_map = {
+                "verified": 0.95,
+                "high": 0.8,
+                "medium": 0.6,
+                "low": 0.3,
+                "unverified": 0.2,
+            }
+
+            def _confidence_to_float(value: Any) -> float:
+                if isinstance(value, (int, float)):
+                    return float(value)
+                if hasattr(value, "value"):
+                    value = value.value
+                if isinstance(value, str):
+                    return confidence_map.get(value.lower(), 0.5)
+                return 0.5
 
             # Group by source type for better organization
             facts = []
@@ -858,7 +890,7 @@ class ContextGatherer:
                     else "unknown"
                 )
                 content = item.content[:500] if item.content else ""
-                confidence = getattr(item, "confidence", 0.5)
+                confidence = _confidence_to_float(getattr(item, "confidence", 0.5))
 
                 if source_name in ("fact", "fact_store"):
                     facts.append((content, confidence))

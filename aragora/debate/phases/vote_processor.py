@@ -125,7 +125,8 @@ class VoteProcessor:
             """Cast a vote for a single agent with timeout protection."""
             logger.debug(f"agent_voting agent={agent.name}")
             try:
-                timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
+                base_timeout = getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)
+                timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
                 if self._with_timeout:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
@@ -193,7 +194,8 @@ class VoteProcessor:
             """Cast a vote for unanimous consensus with timeout protection."""
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
-                timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
+                base_timeout = getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)
+                timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
                 if self._with_timeout:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),

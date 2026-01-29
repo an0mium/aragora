@@ -76,28 +76,64 @@ class KnowledgeMoundOperations:
 
         try:
             # Query mound for semantically related knowledge
-            results = await self.knowledge_mound.query_semantic(
-                query=task,
-                limit=limit,
-                min_confidence=0.5,
-            )
+            try:
+                results = await self.knowledge_mound.query_semantic(
+                    task,
+                    limit=limit,
+                    min_confidence=0.5,
+                )
+            except RuntimeError as e:
+                if "not initialized" in str(e).lower() and hasattr(
+                    self.knowledge_mound, "initialize"
+                ):
+                    await self.knowledge_mound.initialize()
+                    results = await self.knowledge_mound.query_semantic(
+                        task,
+                        limit=limit,
+                        min_confidence=0.5,
+                    )
+                else:
+                    raise
 
-            if not results or not results.items:
+            items = None
+            if isinstance(results, list):
+                items = results
+            elif hasattr(results, "items"):
+                items = results.items
+
+            if not items:
                 return None
 
             # Format knowledge for agent context
             lines = ["## KNOWLEDGE MOUND CONTEXT"]
             lines.append("Relevant knowledge from organizational memory:\n")
 
-            for item in results.items[:limit]:
+            confidence_map = {
+                "verified": 0.95,
+                "high": 0.8,
+                "medium": 0.6,
+                "low": 0.3,
+                "unverified": 0.2,
+            }
+
+            def _confidence_to_float(value: Any) -> float:
+                if isinstance(value, (int, float)):
+                    return float(value)
+                if hasattr(value, "value"):
+                    value = value.value
+                if isinstance(value, str):
+                    return confidence_map.get(value.lower(), 0.5)
+                return 0.5
+
+            for item in items[:limit]:
                 source = getattr(item, "source", "unknown")
-                confidence = getattr(item, "confidence", 0.0)
+                confidence = _confidence_to_float(getattr(item, "confidence", 0.0))
                 content = getattr(item, "content", str(item))[:300]
                 lines.append(f"**[{source}]** (confidence: {confidence:.0%})")
                 lines.append(f"{content}")
                 lines.append("")
 
-            logger.info(f"  [knowledge_mound] Retrieved {len(results.items)} items for context")
+            logger.info(f"  [knowledge_mound] Retrieved {len(items)} items for context")
             return "\n".join(lines)
 
         except Exception as e:

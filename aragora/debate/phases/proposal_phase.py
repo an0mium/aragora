@@ -293,7 +293,8 @@ class ProposalPhase:
 
         try:
             # Use complexity-scaled timeout from governor
-            timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
+            base_timeout = getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)
+            timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
             # Use unique task_id to prevent token interleaving between concurrent agents
             task_id = f"{agent.name}:proposal"
             with streaming_task_context(task_id):

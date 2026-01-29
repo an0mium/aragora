@@ -164,7 +164,8 @@ class CritiqueGenerator:
         async def generate_critique(critic: "Agent", proposal_agent: str, proposal: str):
             """Generate critique and return CritiqueResult."""
             logger.debug(f"critique_generating critic={critic.name} target={proposal_agent}")
-            timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
+            base_timeout = getattr(critic, "timeout", AGENT_TIMEOUT_SECONDS)
+            timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
             task_id = f"{critic.name}:critique:{proposal_agent}"
 
             try:
