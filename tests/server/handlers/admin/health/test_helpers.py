@@ -75,7 +75,7 @@ class TestSyncStatus:
         mock_service.get_status.return_value = mock_status
 
         with patch(
-            "aragora.server.handlers.admin.health.helpers.get_sync_service",
+            "aragora.persistence.sync_service.get_sync_service",
             return_value=mock_service,
         ):
             result = sync_status(handler)
@@ -93,7 +93,7 @@ class TestSyncStatus:
         handler = MockHandler()
 
         with patch(
-            "aragora.server.handlers.admin.health.helpers.get_sync_service",
+            "aragora.persistence.sync_service.get_sync_service",
             side_effect=ImportError("Module not found"),
         ):
             result = sync_status(handler)
@@ -115,11 +115,11 @@ class TestSlowDebatesStatus:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health.helpers.get_active_debates",
+                "aragora.server.stream.state_manager.get_active_debates",
                 return_value={},
             ),
             patch(
-                "aragora.server.handlers.admin.health.helpers.get_active_debates_lock",
+                "aragora.server.stream.state_manager.get_active_debates_lock",
                 return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
             ),
         ):
@@ -154,11 +154,11 @@ class TestSlowDebatesStatus:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health.helpers.get_active_debates",
+                "aragora.server.stream.state_manager.get_active_debates",
                 return_value=active_debates,
             ),
             patch(
-                "aragora.server.handlers.admin.health.helpers.get_active_debates_lock",
+                "aragora.server.stream.state_manager.get_active_debates_lock",
                 return_value=mock_lock,
             ),
         ):
@@ -186,7 +186,7 @@ class TestCircuitBreakersStatus:
         }
 
         with patch(
-            "aragora.server.handlers.admin.health.helpers.get_circuit_breaker_metrics",
+            "aragora.resilience.get_circuit_breaker_metrics",
             return_value=mock_metrics,
         ):
             result = circuit_breakers_status(handler)
@@ -212,7 +212,7 @@ class TestCircuitBreakersStatus:
         }
 
         with patch(
-            "aragora.server.handlers.admin.health.helpers.get_circuit_breaker_metrics",
+            "aragora.resilience.get_circuit_breaker_metrics",
             return_value=mock_metrics,
         ):
             result = circuit_breakers_status(handler)
@@ -229,7 +229,7 @@ class TestCircuitBreakersStatus:
         handler = MockHandler()
 
         with patch(
-            "aragora.server.handlers.admin.health.helpers.get_circuit_breaker_metrics",
+            "aragora.resilience.get_circuit_breaker_metrics",
             side_effect=ImportError("Module not found"),
         ):
             result = circuit_breakers_status(handler)
@@ -266,7 +266,7 @@ class TestComponentHealthStatus:
         mock_registry.get_report.return_value = mock_report
 
         with patch(
-            "aragora.server.handlers.admin.health.helpers.get_global_health_registry",
+            "aragora.resilience_patterns.health.get_global_health_registry",
             return_value=mock_registry,
         ):
             result = component_health_status(handler)
@@ -300,7 +300,7 @@ class TestComponentHealthStatus:
         mock_registry.get_report.return_value = mock_report
 
         with patch(
-            "aragora.server.handlers.admin.health.helpers.get_global_health_registry",
+            "aragora.resilience_patterns.health.get_global_health_registry",
             return_value=mock_registry,
         ):
             result = component_health_status(handler)
@@ -316,7 +316,7 @@ class TestComponentHealthStatus:
         handler = MockHandler()
 
         with patch(
-            "aragora.server.handlers.admin.health.helpers.get_global_health_registry",
+            "aragora.resilience_patterns.health.get_global_health_registry",
             side_effect=ImportError("Module not found"),
         ):
             result = component_health_status(handler)
