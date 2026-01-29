@@ -108,7 +108,7 @@ Phase A2 - Confidence Decay endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
@@ -276,7 +276,8 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound
 
-            self._mound = KnowledgeMound(workspace_id="default")  # type: ignore[abstract]
+            # KnowledgeMound is a composed class from mixins that mypy doesn't fully understand
+            self._mound = cast("KnowledgeMound", KnowledgeMound(workspace_id="default"))
             try:
                 _run_async(self._mound.initialize())
                 self._mound_initialized = True
@@ -555,23 +556,23 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
 
         # Phase A2 - Extraction endpoints
         if path == "/api/v1/knowledge/mound/extraction/debate":
-            return self._handle_extract_from_debate(handler)  # type: ignore[attr-defined]
+            return self._handle_extract_from_debate(handler)
 
         if path == "/api/v1/knowledge/mound/extraction/promote":
-            return self._handle_promote_extracted(handler)  # type: ignore[attr-defined]
+            return self._handle_promote_extracted(handler)
 
         if path == "/api/v1/knowledge/mound/extraction/stats":
             return _run_async(self.get_extraction_stats())
 
         # Phase A2 - Confidence decay endpoints
         if path == "/api/v1/knowledge/mound/confidence/decay":
-            return self._handle_apply_confidence_decay_new(handler)  # type: ignore[attr-defined]
+            return self._handle_apply_confidence_decay_new(handler)
 
         if path == "/api/v1/knowledge/mound/confidence/event":
-            return self._handle_record_confidence_event(handler)  # type: ignore[attr-defined]
+            return self._handle_record_confidence_event(handler)
 
         if path == "/api/v1/knowledge/mound/confidence/history":
-            return self._handle_get_confidence_history(query_params)  # type: ignore[attr-defined]
+            return self._handle_get_confidence_history(query_params)
 
         if path == "/api/v1/knowledge/mound/confidence/stats":
             return _run_async(self.get_decay_stats())

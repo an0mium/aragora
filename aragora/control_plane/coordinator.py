@@ -77,10 +77,10 @@ try:
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    ControlPlanePolicyManager: Optional[type[_ControlPlanePolicyManager]] = None
-    PolicyViolation: Optional[type[_PolicyViolation]] = None
-    PolicyViolationError: Optional[type[BaseException]] = None
-    EnforcementLevel: Optional[type[_EnforcementLevel]] = None
+    ControlPlanePolicyManager: Optional[type[_ControlPlanePolicyManager]] = None  # type: ignore[misc]
+    PolicyViolation: Optional[type[_PolicyViolation]] = None  # type: ignore[misc]
+    PolicyViolationError: Optional[type[BaseException]] = None  # type: ignore[misc]
+    EnforcementLevel: Optional[type[_EnforcementLevel]] = None  # type: ignore[misc]
 
 # Optional KM integration
 try:
@@ -92,8 +92,8 @@ try:
     HAS_KM_ADAPTER = True
 except ImportError:
     HAS_KM_ADAPTER = False
-    ControlPlaneAdapter: Optional[type[_ControlPlaneAdapter]] = None
-    TaskOutcome: Optional[type[_TaskOutcome]] = None
+    ControlPlaneAdapter: Optional[type[_ControlPlaneAdapter]] = None  # type: ignore[misc]
+    TaskOutcome: Optional[type[_TaskOutcome]] = None  # type: ignore[misc]
 
 # Optional Arena Bridge
 try:
@@ -112,9 +112,9 @@ try:
     HAS_ARENA_BRIDGE = True
 except ImportError:
     HAS_ARENA_BRIDGE = False
-    ArenaControlPlaneBridge: Optional[type[_ArenaControlPlaneBridge]] = None
-    DeliberationTask: Optional[type[_DeliberationTask]] = None
-    DeliberationOutcome: Optional[type[_DeliberationOutcome]] = None
+    ArenaControlPlaneBridge: Optional[type[_ArenaControlPlaneBridge]] = None  # type: ignore[misc]
+    DeliberationTask: Optional[type[_DeliberationTask]] = None  # type: ignore[misc]
+    DeliberationOutcome: Optional[type[_DeliberationOutcome]] = None  # type: ignore[misc]
     DELIBERATION_TASK_TYPE = "deliberation"
 
 # Optional Redis HA support
@@ -124,9 +124,9 @@ try:
     HAS_REDIS_HA = True
 except ImportError:
     HAS_REDIS_HA = False
-    RedisHASettings: Optional[type[_RedisHASettings]] = None
-    RedisMode: Optional[type[Any]] = None
-    get_redis_ha_config: Optional[Callable[[], Any]] = None
+    RedisHASettings: Optional[type[_RedisHASettings]] = None  # type: ignore[misc]
+    RedisMode: Optional[type[Any]] = None  # type: ignore[misc]
+    get_redis_ha_config: Optional[Callable[[], Any]] = None  # type: ignore[misc]
 
 # Optional Watchdog support (Gastown three-tier monitoring)
 try:
@@ -142,12 +142,12 @@ try:
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
-    ThreeTierWatchdog: Optional[type[_ThreeTierWatchdog]] = None
-    WatchdogConfig: Optional[type[_WatchdogConfig]] = None
-    WatchdogTier: Optional[type[_WatchdogTier]] = None
-    WatchdogIssue: Optional[type[_WatchdogIssue]] = None
-    IssueSeverity: Optional[type[_IssueSeverity]] = None
-    get_watchdog: Optional[Callable[[], Any]] = None
+    ThreeTierWatchdog: Optional[type[_ThreeTierWatchdog]] = None  # type: ignore[misc]
+    WatchdogConfig: Optional[type[_WatchdogConfig]] = None  # type: ignore[misc]
+    WatchdogTier: Optional[type[_WatchdogTier]] = None  # type: ignore[misc]
+    WatchdogIssue: Optional[type[_WatchdogIssue]] = None  # type: ignore[misc]
+    IssueSeverity: Optional[type[_IssueSeverity]] = None  # type: ignore[misc]
+    get_watchdog: Optional[Callable[[], Any]] = None  # type: ignore[misc]
 
 logger = get_logger(__name__)
 

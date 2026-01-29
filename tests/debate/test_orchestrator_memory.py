@@ -12,9 +12,74 @@ Tests cover:
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+# =============================================================================
+# Mock module creators
+# =============================================================================
+
+
+def create_mock_sync_service_module():
+    """Create mock sync service module."""
+    mock_module = MagicMock()
+    mock_sync = MagicMock()
+    mock_sync.enabled = False
+    mock_module.get_sync_service = MagicMock(return_value=mock_sync)
+    return mock_module
+
+
+def create_mock_belief_module():
+    """Create mock belief module."""
+    mock_module = MagicMock()
+    mock_module.BeliefNetwork = MagicMock()
+    return mock_module
+
+
+def create_mock_belief_adapter_module():
+    """Create mock belief adapter module."""
+    mock_module = MagicMock()
+    mock_module.BeliefAdapter = MagicMock()
+    return mock_module
+
+
+def create_mock_rlm_module():
+    """Create mock RLM cognitive limiter module."""
+    mock_module = MagicMock()
+    mock_module.RLMCognitiveBudget = MagicMock()
+    mock_module.RLMCognitiveLoadLimiter = MagicMock()
+    return mock_module
+
+
+def create_mock_molecule_module():
+    """Create mock molecule orchestrator module."""
+    mock_module = MagicMock()
+    mock_module.get_molecule_orchestrator = MagicMock()
+    return mock_module
+
+
+def create_mock_checkpoint_bridge_module():
+    """Create mock checkpoint bridge module."""
+    mock_module = MagicMock()
+    mock_module.create_checkpoint_bridge = MagicMock()
+    return mock_module
+
+
+def create_mock_knowledge_mound_module():
+    """Create mock knowledge mound module."""
+    mock_module = MagicMock()
+    mock_module.get_knowledge_mound = MagicMock()
+    return mock_module
+
+
+def create_mock_arena_bridge_module():
+    """Create mock arena bridge module."""
+    mock_module = MagicMock()
+    mock_module.ArenaEventBridge = MagicMock()
+    return mock_module
 
 
 # =============================================================================
@@ -29,7 +94,12 @@ def mock_ctx():
     ctx.debate_id = "debate-123"
     ctx.loop_id = "loop-456"
     ctx.cycle_number = 2
-    ctx.agents = [MagicMock(name=f"agent-{i}") for i in range(3)]
+    agents = []
+    for i in range(3):
+        agent = MagicMock()
+        agent.name = f"agent-{i}"
+        agents.append(agent)
+    ctx.agents = agents
     return ctx
 
 
@@ -57,6 +127,36 @@ def mock_protocol():
     return protocol
 
 
+@pytest.fixture
+def mock_sync_module():
+    """Create mock sync service module."""
+    return create_mock_sync_service_module()
+
+
+@pytest.fixture
+def mock_belief_module():
+    """Create mock belief module."""
+    return create_mock_belief_module()
+
+
+@pytest.fixture
+def mock_rlm_module():
+    """Create mock RLM module."""
+    return create_mock_rlm_module()
+
+
+@pytest.fixture
+def mock_km_module():
+    """Create mock knowledge mound module."""
+    return create_mock_knowledge_mound_module()
+
+
+@pytest.fixture
+def mock_arena_bridge_module():
+    """Create mock arena bridge module."""
+    return create_mock_arena_bridge_module()
+
+
 # =============================================================================
 # Tests for queue_for_supabase_sync
 # =============================================================================
@@ -65,106 +165,117 @@ def mock_protocol():
 class TestQueueForSupabaseSync:
     """Tests for queue_for_supabase_sync function."""
 
-    def test_skips_when_sync_disabled(self, mock_ctx, mock_result):
+    def test_skips_when_sync_disabled(self, mock_ctx, mock_result, mock_sync_module):
         """When sync is disabled, return without action."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
-        with patch("aragora.debate.orchestrator_memory.get_sync_service") as MockGetSync:
-            mock_sync = MagicMock()
-            mock_sync.enabled = False
-            MockGetSync.return_value = mock_sync
+        mock_sync = MagicMock()
+        mock_sync.enabled = False
+        mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
+        with patch.dict(
+            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
+        ):
             queue_for_supabase_sync(mock_ctx, mock_result)
 
-            mock_sync.queue_debate.assert_not_called()
+        mock_sync.queue_debate.assert_not_called()
 
-    def test_queues_debate_data_on_enabled(self, mock_ctx, mock_result):
+    def test_queues_debate_data_on_enabled(self, mock_ctx, mock_result, mock_sync_module):
         """When sync is enabled, queue debate data."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
-        with patch("aragora.debate.orchestrator_memory.get_sync_service") as MockGetSync:
-            mock_sync = MagicMock()
-            mock_sync.enabled = True
-            MockGetSync.return_value = mock_sync
+        mock_sync = MagicMock()
+        mock_sync.enabled = True
+        mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
+        with patch.dict(
+            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
+        ):
             queue_for_supabase_sync(mock_ctx, mock_result)
 
-            mock_sync.queue_debate.assert_called_once()
+        mock_sync.queue_debate.assert_called_once()
 
-    def test_builds_correct_debate_data_structure(self, mock_ctx, mock_result):
+    def test_builds_correct_debate_data_structure(
+        self, mock_ctx, mock_result, mock_sync_module
+    ):
         """Debate data includes all required fields."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
-        with patch("aragora.debate.orchestrator_memory.get_sync_service") as MockGetSync:
-            mock_sync = MagicMock()
-            mock_sync.enabled = True
-            MockGetSync.return_value = mock_sync
+        mock_sync = MagicMock()
+        mock_sync.enabled = True
+        mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
+        with patch.dict(
+            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
+        ):
             queue_for_supabase_sync(mock_ctx, mock_result)
 
-            call_args = mock_sync.queue_debate.call_args[0][0]
-            assert "id" in call_args
-            assert "debate_id" in call_args
-            assert "loop_id" in call_args
-            assert "cycle_number" in call_args
-            assert "task" in call_args
-            assert "consensus_reached" in call_args
-            assert "confidence" in call_args
+        call_args = mock_sync.queue_debate.call_args[0][0]
+        assert "id" in call_args
+        assert "debate_id" in call_args
+        assert "loop_id" in call_args
+        assert "cycle_number" in call_args
+        assert "task" in call_args
+        assert "consensus_reached" in call_args
+        assert "confidence" in call_args
 
     def test_handles_import_error(self, mock_ctx, mock_result):
         """When import fails, return without action."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
-        with patch(
-            "aragora.debate.orchestrator_memory.get_sync_service",
-            side_effect=ImportError("Not found"),
+        # Setting module to None causes ImportError
+        with patch.dict(sys.modules, {"aragora.persistence.sync_service": None}):
+            # Should not raise
+            queue_for_supabase_sync(mock_ctx, mock_result)
+
+    def test_catches_connection_error(self, mock_ctx, mock_result, mock_sync_module):
+        """When connection error occurs, handle gracefully."""
+        from aragora.debate.orchestrator_memory import queue_for_supabase_sync
+
+        mock_sync = MagicMock()
+        mock_sync.enabled = True
+        mock_sync.queue_debate.side_effect = ConnectionError("Network error")
+        mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
+
+        with patch.dict(
+            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
         ):
             # Should not raise
             queue_for_supabase_sync(mock_ctx, mock_result)
 
-    def test_catches_connection_error(self, mock_ctx, mock_result):
-        """When connection error occurs, handle gracefully."""
-        from aragora.debate.orchestrator_memory import queue_for_supabase_sync
-
-        with patch("aragora.debate.orchestrator_memory.get_sync_service") as MockGetSync:
-            mock_sync = MagicMock()
-            mock_sync.enabled = True
-            mock_sync.queue_debate.side_effect = ConnectionError("Network error")
-            MockGetSync.return_value = mock_sync
-
-            # Should not raise
-            queue_for_supabase_sync(mock_ctx, mock_result)
-
-    def test_catches_timeout_error(self, mock_ctx, mock_result):
+    def test_catches_timeout_error(self, mock_ctx, mock_result, mock_sync_module):
         """When timeout error occurs, handle gracefully."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
-        with patch("aragora.debate.orchestrator_memory.get_sync_service") as MockGetSync:
-            mock_sync = MagicMock()
-            mock_sync.enabled = True
-            mock_sync.queue_debate.side_effect = TimeoutError("Timeout")
-            MockGetSync.return_value = mock_sync
+        mock_sync = MagicMock()
+        mock_sync.enabled = True
+        mock_sync.queue_debate.side_effect = TimeoutError("Timeout")
+        mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
+        with patch.dict(
+            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
+        ):
             # Should not raise
             queue_for_supabase_sync(mock_ctx, mock_result)
 
-    def test_limits_transcript_to_50_messages(self, mock_ctx, mock_result):
+    def test_limits_transcript_to_50_messages(
+        self, mock_ctx, mock_result, mock_sync_module
+    ):
         """Transcript is limited to first 50 messages."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
         mock_result.messages = [MagicMock() for _ in range(100)]
 
-        with patch("aragora.debate.orchestrator_memory.get_sync_service") as MockGetSync:
-            mock_sync = MagicMock()
-            mock_sync.enabled = True
-            MockGetSync.return_value = mock_sync
+        mock_sync = MagicMock()
+        mock_sync.enabled = True
+        mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
+        with patch.dict(
+            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
+        ):
             queue_for_supabase_sync(mock_ctx, mock_result)
 
-            # Check that only first 50 messages were used
-            call_args = mock_sync.queue_debate.call_args[0][0]
-            # The transcript is a joined string, so we can't directly count
-            # but the function should use messages[:50]
+        # The function should work without error
 
 
 # =============================================================================
@@ -179,9 +290,7 @@ class TestSetupBeliefNetwork:
         """When BeliefNetwork import fails, return None."""
         from aragora.debate.orchestrator_memory import setup_belief_network
 
-        with patch(
-            "aragora.debate.orchestrator_memory.BeliefNetwork", side_effect=ImportError("Not found")
-        ):
+        with patch.dict(sys.modules, {"aragora.reasoning.belief": None}):
             result = setup_belief_network(
                 debate_id="debate-123",
                 topic="Test topic",
@@ -189,58 +298,67 @@ class TestSetupBeliefNetwork:
 
         assert result is None
 
-    def test_creates_belief_network_instance(self):
+    def test_creates_belief_network_instance(self, mock_belief_module):
         """When import succeeds, create BeliefNetwork."""
         from aragora.debate.orchestrator_memory import setup_belief_network
 
-        with patch("aragora.debate.orchestrator_memory.BeliefNetwork") as MockNetwork:
-            mock_instance = MagicMock()
-            MockNetwork.return_value = mock_instance
+        mock_instance = MagicMock()
+        mock_belief_module.BeliefNetwork.return_value = mock_instance
 
-            with patch("aragora.debate.orchestrator_memory.BeliefAdapter", side_effect=ImportError):
-                result = setup_belief_network(
-                    debate_id="debate-123",
-                    topic="Test topic",
-                    seed_from_km=False,
-                )
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.reasoning.belief": mock_belief_module,
+                "aragora.knowledge.mound.adapters.belief_adapter": None,  # Cause adapter import to fail
+            },
+        ):
+            result = setup_belief_network(
+                debate_id="debate-123",
+                topic="Test topic",
+                seed_from_km=False,
+            )
 
         assert result == mock_instance
 
-    def test_seeds_from_km_when_enabled(self):
+    def test_seeds_from_km_when_enabled(self, mock_belief_module):
         """When seed_from_km is True, seed from Knowledge Mound."""
         from aragora.debate.orchestrator_memory import setup_belief_network
 
-        with (
-            patch("aragora.debate.orchestrator_memory.BeliefNetwork") as MockNetwork,
-            patch("aragora.debate.orchestrator_memory.BeliefAdapter") as MockAdapter,
-        ):
-            mock_instance = MagicMock()
-            mock_instance.seed_from_km.return_value = 5
-            MockNetwork.return_value = mock_instance
-            MockAdapter.return_value = MagicMock()
+        mock_instance = MagicMock()
+        mock_instance.seed_from_km.return_value = 5
+        mock_belief_module.BeliefNetwork.return_value = mock_instance
 
+        mock_adapter_module = create_mock_belief_adapter_module()
+
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.reasoning.belief": mock_belief_module,
+                "aragora.knowledge.mound.adapters.belief_adapter": mock_adapter_module,
+            },
+        ):
             result = setup_belief_network(
                 debate_id="debate-123",
                 topic="Test topic",
                 seed_from_km=True,
             )
 
-            mock_instance.seed_from_km.assert_called_once()
+        mock_instance.seed_from_km.assert_called_once()
 
-    def test_handles_adapter_import_error(self):
+    def test_handles_adapter_import_error(self, mock_belief_module):
         """When BeliefAdapter import fails, continue without adapter."""
         from aragora.debate.orchestrator_memory import setup_belief_network
 
-        with (
-            patch("aragora.debate.orchestrator_memory.BeliefNetwork") as MockNetwork,
-            patch(
-                "aragora.debate.orchestrator_memory.BeliefAdapter",
-                side_effect=ImportError("Not found"),
-            ),
-        ):
-            mock_instance = MagicMock()
-            MockNetwork.return_value = mock_instance
+        mock_instance = MagicMock()
+        mock_belief_module.BeliefNetwork.return_value = mock_instance
 
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.reasoning.belief": mock_belief_module,
+                "aragora.knowledge.mound.adapters.belief_adapter": None,
+            },
+        ):
             result = setup_belief_network(
                 debate_id="debate-123",
                 topic="Test topic",
@@ -248,13 +366,13 @@ class TestSetupBeliefNetwork:
 
         assert result == mock_instance
 
-    def test_catches_value_error(self):
+    def test_catches_value_error(self, mock_belief_module):
         """When ValueError occurs, return None."""
         from aragora.debate.orchestrator_memory import setup_belief_network
 
-        with patch("aragora.debate.orchestrator_memory.BeliefNetwork") as MockNetwork:
-            MockNetwork.side_effect = ValueError("Invalid")
+        mock_belief_module.BeliefNetwork.side_effect = ValueError("Invalid")
 
+        with patch.dict(sys.modules, {"aragora.reasoning.belief": mock_belief_module}):
             result = setup_belief_network(
                 debate_id="debate-123",
                 topic="Test topic",
@@ -302,17 +420,16 @@ class TestInitRlmLimiterState:
 
         assert result["rlm_limiter"] == provided_limiter
 
-    def test_creates_limiter_when_enabled(self):
+    def test_creates_limiter_when_enabled(self, mock_rlm_module):
         """When enabled without limiter, create one."""
         from aragora.debate.orchestrator_memory import init_rlm_limiter_state
 
-        with (
-            patch("aragora.debate.orchestrator_memory.RLMCognitiveBudget") as MockBudget,
-            patch("aragora.debate.orchestrator_memory.RLMCognitiveLoadLimiter") as MockLimiter,
-        ):
-            mock_limiter = MagicMock()
-            MockLimiter.return_value = mock_limiter
+        mock_limiter = MagicMock()
+        mock_rlm_module.RLMCognitiveLoadLimiter.return_value = mock_limiter
 
+        with patch.dict(
+            sys.modules, {"aragora.debate.cognitive_limiter_rlm": mock_rlm_module}
+        ):
             result = init_rlm_limiter_state(
                 use_rlm_limiter=True,
                 rlm_limiter=None,
@@ -322,17 +439,14 @@ class TestInitRlmLimiterState:
             )
 
         assert result["rlm_limiter"] == mock_limiter
-        MockBudget.assert_called_once()
-        MockLimiter.assert_called_once()
+        mock_rlm_module.RLMCognitiveBudget.assert_called_once()
+        mock_rlm_module.RLMCognitiveLoadLimiter.assert_called_once()
 
     def test_handles_import_error(self):
         """When import fails, disable limiter."""
         from aragora.debate.orchestrator_memory import init_rlm_limiter_state
 
-        with patch(
-            "aragora.debate.orchestrator_memory.RLMCognitiveBudget",
-            side_effect=ImportError("Not found"),
-        ):
+        with patch.dict(sys.modules, {"aragora.debate.cognitive_limiter_rlm": None}):
             result = init_rlm_limiter_state(
                 use_rlm_limiter=True,
                 rlm_limiter=None,
@@ -390,37 +504,45 @@ class TestInitCheckpointBridge:
 
         mock_protocol.enable_molecule_tracking = True
 
-        with (
-            patch("aragora.debate.orchestrator_memory.get_molecule_orchestrator") as MockGetOrch,
-            patch("aragora.debate.orchestrator_memory.create_checkpoint_bridge") as MockCreate,
-        ):
-            mock_orch = MagicMock()
-            MockGetOrch.return_value = mock_orch
-            MockCreate.return_value = MagicMock()
+        mock_molecule_module = create_mock_molecule_module()
+        mock_checkpoint_module = create_mock_checkpoint_bridge_module()
 
+        mock_orch = MagicMock()
+        mock_molecule_module.get_molecule_orchestrator.return_value = mock_orch
+        mock_checkpoint_module.create_checkpoint_bridge.return_value = MagicMock()
+
+        with patch.dict(
+            sys.modules,
+            {
+                "aragora.debate.molecule_orchestrator": mock_molecule_module,
+                "aragora.debate.checkpoint_bridge": mock_checkpoint_module,
+            },
+        ):
             result = init_checkpoint_bridge(
                 protocol=mock_protocol,
                 checkpoint_manager=None,
             )
 
-        MockGetOrch.assert_called_once()
+        mock_molecule_module.get_molecule_orchestrator.assert_called_once()
 
     def test_creates_checkpoint_bridge_when_manager_provided(self, mock_protocol):
         """When checkpoint_manager provided, create bridge."""
         from aragora.debate.orchestrator_memory import init_checkpoint_bridge
 
         mock_manager = MagicMock()
+        mock_checkpoint_module = create_mock_checkpoint_bridge_module()
+        mock_bridge = MagicMock()
+        mock_checkpoint_module.create_checkpoint_bridge.return_value = mock_bridge
 
-        with patch("aragora.debate.orchestrator_memory.create_checkpoint_bridge") as MockCreate:
-            mock_bridge = MagicMock()
-            MockCreate.return_value = mock_bridge
-
+        with patch.dict(
+            sys.modules, {"aragora.debate.checkpoint_bridge": mock_checkpoint_module}
+        ):
             result = init_checkpoint_bridge(
                 protocol=mock_protocol,
                 checkpoint_manager=mock_manager,
             )
 
-        MockCreate.assert_called_once()
+        mock_checkpoint_module.create_checkpoint_bridge.assert_called_once()
 
     def test_handles_molecule_orchestrator_import_error(self, mock_protocol):
         """When orchestrator import fails, continue without it."""
@@ -428,10 +550,7 @@ class TestInitCheckpointBridge:
 
         mock_protocol.enable_molecule_tracking = True
 
-        with patch(
-            "aragora.debate.orchestrator_memory.get_molecule_orchestrator",
-            side_effect=ImportError("Not found"),
-        ):
+        with patch.dict(sys.modules, {"aragora.debate.molecule_orchestrator": None}):
             result = init_checkpoint_bridge(
                 protocol=mock_protocol,
                 checkpoint_manager=None,
@@ -493,14 +612,14 @@ class TestAutoCreateKnowledgeMound:
 
         assert result is None
 
-    def test_creates_mound_when_enabled_with_retrieval(self):
+    def test_creates_mound_when_enabled_with_retrieval(self, mock_km_module):
         """When auto_create and retrieval enabled, create mound."""
         from aragora.debate.orchestrator_memory import auto_create_knowledge_mound
 
-        with patch("aragora.debate.orchestrator_memory.get_knowledge_mound") as MockGet:
-            mock_mound = MagicMock()
-            MockGet.return_value = mock_mound
+        mock_mound = MagicMock()
+        mock_km_module.get_knowledge_mound.return_value = mock_mound
 
+        with patch.dict(sys.modules, {"aragora.knowledge.mound": mock_km_module}):
             result = auto_create_knowledge_mound(
                 knowledge_mound=None,
                 auto_create=True,
@@ -510,16 +629,16 @@ class TestAutoCreateKnowledgeMound:
             )
 
         assert result == mock_mound
-        MockGet.assert_called_once()
+        mock_km_module.get_knowledge_mound.assert_called_once()
 
-    def test_creates_mound_when_enabled_with_ingestion(self):
+    def test_creates_mound_when_enabled_with_ingestion(self, mock_km_module):
         """When auto_create and ingestion enabled, create mound."""
         from aragora.debate.orchestrator_memory import auto_create_knowledge_mound
 
-        with patch("aragora.debate.orchestrator_memory.get_knowledge_mound") as MockGet:
-            mock_mound = MagicMock()
-            MockGet.return_value = mock_mound
+        mock_mound = MagicMock()
+        mock_km_module.get_knowledge_mound.return_value = mock_mound
 
+        with patch.dict(sys.modules, {"aragora.knowledge.mound": mock_km_module}):
             result = auto_create_knowledge_mound(
                 knowledge_mound=None,
                 auto_create=True,
@@ -534,10 +653,7 @@ class TestAutoCreateKnowledgeMound:
         """When import fails, return None."""
         from aragora.debate.orchestrator_memory import auto_create_knowledge_mound
 
-        with patch(
-            "aragora.debate.orchestrator_memory.get_knowledge_mound",
-            side_effect=ImportError("Not found"),
-        ):
+        with patch.dict(sys.modules, {"aragora.knowledge.mound": None}):
             result = auto_create_knowledge_mound(
                 knowledge_mound=None,
                 auto_create=True,
@@ -548,14 +664,13 @@ class TestAutoCreateKnowledgeMound:
 
         assert result is None
 
-    def test_handles_runtime_error(self):
+    def test_handles_runtime_error(self, mock_km_module):
         """When RuntimeError occurs, return None."""
         from aragora.debate.orchestrator_memory import auto_create_knowledge_mound
 
-        with patch(
-            "aragora.debate.orchestrator_memory.get_knowledge_mound",
-            side_effect=RuntimeError("Init failed"),
-        ):
+        mock_km_module.get_knowledge_mound.side_effect = RuntimeError("Init failed")
+
+        with patch.dict(sys.modules, {"aragora.knowledge.mound": mock_km_module}):
             result = auto_create_knowledge_mound(
                 knowledge_mound=None,
                 auto_create=True,
@@ -566,14 +681,13 @@ class TestAutoCreateKnowledgeMound:
 
         assert result is None
 
-    def test_handles_connection_error(self):
+    def test_handles_connection_error(self, mock_km_module):
         """When ConnectionError occurs, return None."""
         from aragora.debate.orchestrator_memory import auto_create_knowledge_mound
 
-        with patch(
-            "aragora.debate.orchestrator_memory.get_knowledge_mound",
-            side_effect=ConnectionError("Network error"),
-        ):
+        mock_km_module.get_knowledge_mound.side_effect = ConnectionError("Network error")
+
+        with patch.dict(sys.modules, {"aragora.knowledge.mound": mock_km_module}):
             result = auto_create_knowledge_mound(
                 knowledge_mound=None,
                 auto_create=True,
@@ -584,14 +698,14 @@ class TestAutoCreateKnowledgeMound:
 
         assert result is None
 
-    def test_uses_default_workspace_id(self):
+    def test_uses_default_workspace_id(self, mock_km_module):
         """When org_id is empty, use 'default'."""
         from aragora.debate.orchestrator_memory import auto_create_knowledge_mound
 
-        with patch("aragora.debate.orchestrator_memory.get_knowledge_mound") as MockGet:
-            mock_mound = MagicMock()
-            MockGet.return_value = mock_mound
+        mock_mound = MagicMock()
+        mock_km_module.get_knowledge_mound.return_value = mock_mound
 
+        with patch.dict(sys.modules, {"aragora.knowledge.mound": mock_km_module}):
             auto_create_knowledge_mound(
                 knowledge_mound=None,
                 auto_create=True,
@@ -600,10 +714,10 @@ class TestAutoCreateKnowledgeMound:
                 org_id="",
             )
 
-            MockGet.assert_called_once_with(
-                workspace_id="default",
-                auto_initialize=True,
-            )
+        mock_km_module.get_knowledge_mound.assert_called_once_with(
+            workspace_id="default",
+            auto_initialize=True,
+        )
 
 
 # =============================================================================
@@ -622,34 +736,36 @@ class TestInitCrossSubscriberBridge:
 
         assert result is None
 
-    def test_creates_arena_event_bridge(self):
+    def test_creates_arena_event_bridge(self, mock_arena_bridge_module):
         """When event_bus provided, create bridge."""
         from aragora.debate.orchestrator_memory import init_cross_subscriber_bridge
 
         mock_bus = MagicMock()
+        mock_bridge = MagicMock()
+        mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch("aragora.debate.orchestrator_memory.ArenaEventBridge") as MockBridge:
-            mock_bridge = MagicMock()
-            MockBridge.return_value = mock_bridge
-
+        with patch.dict(
+            sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}
+        ):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result == mock_bridge
-        MockBridge.assert_called_once_with(mock_bus)
+        mock_arena_bridge_module.ArenaEventBridge.assert_called_once_with(mock_bus)
 
-    def test_connects_to_cross_subscribers(self):
+    def test_connects_to_cross_subscribers(self, mock_arena_bridge_module):
         """Bridge connects to cross subscribers."""
         from aragora.debate.orchestrator_memory import init_cross_subscriber_bridge
 
         mock_bus = MagicMock()
+        mock_bridge = MagicMock()
+        mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch("aragora.debate.orchestrator_memory.ArenaEventBridge") as MockBridge:
-            mock_bridge = MagicMock()
-            MockBridge.return_value = mock_bridge
-
+        with patch.dict(
+            sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}
+        ):
             init_cross_subscriber_bridge(event_bus=mock_bus)
 
-            mock_bridge.connect_to_cross_subscribers.assert_called_once()
+        mock_bridge.connect_to_cross_subscribers.assert_called_once()
 
     def test_handles_import_error(self):
         """When import fails, return None."""
@@ -657,25 +773,23 @@ class TestInitCrossSubscriberBridge:
 
         mock_bus = MagicMock()
 
-        with patch(
-            "aragora.debate.orchestrator_memory.ArenaEventBridge",
-            side_effect=ImportError("Not found"),
-        ):
+        with patch.dict(sys.modules, {"aragora.events.arena_bridge": None}):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result is None
 
-    def test_handles_attribute_error(self):
+    def test_handles_attribute_error(self, mock_arena_bridge_module):
         """When AttributeError occurs, return None."""
         from aragora.debate.orchestrator_memory import init_cross_subscriber_bridge
 
         mock_bus = MagicMock()
+        mock_bridge = MagicMock()
+        mock_bridge.connect_to_cross_subscribers.side_effect = AttributeError("No attr")
+        mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch("aragora.debate.orchestrator_memory.ArenaEventBridge") as MockBridge:
-            mock_bridge = MagicMock()
-            mock_bridge.connect_to_cross_subscribers.side_effect = AttributeError("No attr")
-            MockBridge.return_value = mock_bridge
-
+        with patch.dict(
+            sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}
+        ):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result is None

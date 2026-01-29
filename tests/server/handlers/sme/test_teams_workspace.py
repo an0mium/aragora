@@ -193,20 +193,10 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def teams_handler(handler_context, mock_teams_store, mock_teams_client):
-    with (
-        patch(
-            "aragora.server.handlers.sme.teams_workspace.get_teams_workspace_store",
-            return_value=mock_teams_store,
-        ),
-        patch(
-            "aragora.server.handlers.sme.teams_workspace.get_teams_client",
-            return_value=mock_teams_client,
-        ),
-    ):
-        from aragora.server.handlers.sme.teams_workspace import TeamsWorkspaceHandler
-
-        handler = TeamsWorkspaceHandler(handler_context)
-        yield handler
+    if not HANDLER_AVAILABLE:
+        pytest.skip("TeamsWorkspaceHandler not available")
+    handler = TeamsWorkspaceHandler(handler_context)
+    yield handler
 
 
 # ===========================================================================

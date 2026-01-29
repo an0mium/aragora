@@ -764,16 +764,21 @@ class TestKnowledgeContextFetching:
             source_id="search query",
         )
 
+        # Create mock knowledge items with content attribute
+        mock_item1 = MagicMock()
+        mock_item1.content = "Doc 1 content"
+        mock_item2 = MagicMock()
+        mock_item2.content = "Doc 2 content"
+
+        # Create mock QueryResult with items attribute
+        mock_query_result = MagicMock()
+        mock_query_result.items = [mock_item1, mock_item2]
+
         mock_mound = MagicMock()
-        mock_mound.search = AsyncMock(
-            return_value=[
-                {"content": "Doc 1 content"},
-                {"content": "Doc 2 content"},
-            ]
-        )
+        mock_mound.query = AsyncMock(return_value=mock_query_result)
 
         with patch(
-            "aragora.knowledge.mound.core.get_knowledge_mound",
+            "aragora.knowledge.mound.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await handler._fetch_document_context(source)

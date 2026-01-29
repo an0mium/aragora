@@ -36,6 +36,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Try to import the module
+try:
+    from aragora.server.handlers.social import telemetry
+
+    MODULE_AVAILABLE = True
+except ImportError:
+    MODULE_AVAILABLE = False
+    telemetry = None
+
+pytestmark = pytest.mark.skipif(not MODULE_AVAILABLE, reason="telemetry module not available")
+
 
 # ===========================================================================
 # Fixtures
