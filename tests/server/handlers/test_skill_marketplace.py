@@ -250,7 +250,7 @@ class MockHandler:
 @pytest.fixture
 def handler():
     """Create a test handler."""
-    return SkillMarketplaceHandler(ctx={})
+    return SkillMarketplaceHandler(server_context={})
 
 
 @pytest.fixture(autouse=True)

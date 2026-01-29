@@ -98,12 +98,12 @@ try:
         export_invoice_html,
     )
 except ImportError:
-    InvoiceExporter = None  # type: ignore[assignment]
-    InvoiceCompanyInfo = None  # type: ignore[assignment]
-    InvoiceCustomerInfo = None  # type: ignore[assignment]
-    InvoiceExportConfig = None  # type: ignore[assignment]
-    export_invoice_pdf = None  # type: ignore[assignment]
-    export_invoice_html = None  # type: ignore[assignment]
+    InvoiceExporter = None  # type: ignore[misc]
+    InvoiceCompanyInfo = None  # type: ignore[misc]
+    InvoiceCustomerInfo = None  # type: ignore[misc]
+    InvoiceExportConfig = None  # type: ignore[misc]
+    export_invoice_pdf = None  # type: ignore[misc]
+    export_invoice_html = None  # type: ignore[misc]
 from aragora.billing.discounts import (
     DiscountType,
     DiscountCodeStatus,

@@ -93,7 +93,7 @@ class TestAgentConfigHandlerRoutes:
         """Test can_handle returns True for config routes."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         assert handler.can_handle("/api/v1/agents/configs") is True
         assert handler.can_handle("/api/v1/agents/configs/claude") is True
@@ -103,7 +103,7 @@ class TestAgentConfigHandlerRoutes:
         """Test can_handle returns False for non-config routes."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         assert handler.can_handle("/api/agents") is False
         assert handler.can_handle("/api/v1/debates") is False
@@ -118,7 +118,7 @@ class TestAgentConfigHandlerAuth:
         from aragora.server.handlers.agents.config import AgentConfigHandler
         from aragora.server.handlers.secure import UnauthorizedError
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
         mock_http_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -132,7 +132,7 @@ class TestAgentConfigHandlerAuth:
         """Test reload endpoint requires admin role."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
         mock_http_handler = MagicMock()
         mock_auth_context = MagicMock()
         mock_auth_context.has_any_role.return_value = False
@@ -149,7 +149,7 @@ class TestAgentConfigHandlerAuth:
         from aragora.server.handlers.agents.config import AgentConfigHandler
         from aragora.server.handlers.secure import ForbiddenError
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
         mock_http_handler = MagicMock()
         mock_auth_context = MagicMock()
 
@@ -173,7 +173,7 @@ class TestListConfigs:
         """Test list configs returns all configurations."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_config = MockAgentConfig(
             name="claude",
@@ -201,7 +201,7 @@ class TestListConfigs:
         """Test list configs returns 503 when loader not available."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         with patch("aragora.server.handlers.agents.config.get_config_loader", return_value=None):
             result = handler._list_configs({})
@@ -212,7 +212,7 @@ class TestListConfigs:
         """Test list configs filters by priority."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_config_high = MockAgentConfig(name="claude", model_type="anthropic", priority="high")
         mock_config_normal = MockAgentConfig(name="gemini", model_type="google", priority="normal")
@@ -240,7 +240,7 @@ class TestListConfigs:
         """Test list configs filters by role."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_config_proposer = MockAgentConfig(
             name="claude", model_type="anthropic", role="proposer"
@@ -274,7 +274,7 @@ class TestGetConfig:
         """Test get config returns configuration."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_config = MockAgentConfig(
             name="claude",
@@ -298,7 +298,7 @@ class TestGetConfig:
         """Test get config returns 404 for missing config."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_loader = MagicMock()
         mock_loader.get_config.return_value = None
@@ -318,7 +318,7 @@ class TestCreateAgentFromConfig:
         """Test create agent from config succeeds."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_config = MockAgentConfig(
             name="claude",
@@ -347,7 +347,7 @@ class TestCreateAgentFromConfig:
         """Test create agent returns 404 for missing config."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_loader = MagicMock()
         mock_loader.get_config.return_value = None
@@ -363,7 +363,7 @@ class TestCreateAgentFromConfig:
         """Test create agent returns 500 on creation error."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_config = MockAgentConfig(name="claude", model_type="anthropic")
 
@@ -386,7 +386,7 @@ class TestReloadConfigs:
         """Test reload configs succeeds."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_loader = MagicMock()
         mock_loader.reload_all.return_value = {"claude": {}, "gemini": {}}
@@ -405,7 +405,7 @@ class TestReloadConfigs:
         """Test reload configs returns 500 on error."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_loader = MagicMock()
         mock_loader.reload_all.side_effect = RuntimeError("Reload failed")
@@ -425,7 +425,7 @@ class TestSearchConfigs:
         """Test search configs by expertise domain."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_config = MockAgentConfig(
             name="claude",
@@ -451,7 +451,7 @@ class TestSearchConfigs:
         """Test search configs by capability."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_config = MockAgentConfig(
             name="claude",
@@ -477,7 +477,7 @@ class TestSearchConfigs:
         """Test search requires at least one parameter."""
         from aragora.server.handlers.agents.config import AgentConfigHandler
 
-        handler = AgentConfigHandler()
+        handler = AgentConfigHandler({"storage": None})
 
         mock_loader = MagicMock()
 
