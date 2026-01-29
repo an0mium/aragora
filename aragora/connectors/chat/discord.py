@@ -168,7 +168,7 @@ class DiscordConnector(ChatPlatformConnector):
                 operation="send_message",
             )
 
-            if success and data:
+            if success and data and isinstance(data, dict):
                 return SendMessageResponse(
                     success=True,
                     message_id=data.get("id"),
@@ -441,7 +441,7 @@ class DiscordConnector(ChatPlatformConnector):
                 operation="upload_file",
             )
 
-            if success and result:
+            if success and result and isinstance(result, dict):
                 attachments = result.get("attachments", [])
                 if attachments:
                     att = attachments[0]
@@ -967,7 +967,7 @@ class DiscordConnector(ChatPlatformConnector):
                 operation="get_channel_info",
             )
 
-            if not success or not data:
+            if not success or not data or not isinstance(data, dict):
                 logger.debug(f"Failed to get channel info: {error}")
                 return None
 
@@ -1036,7 +1036,7 @@ class DiscordConnector(ChatPlatformConnector):
                 operation="get_user_info",
             )
 
-            if not success or not data:
+            if not success or not data or not isinstance(data, dict):
                 logger.debug(f"Failed to get user info: {error}")
                 return None
 
