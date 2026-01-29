@@ -141,7 +141,7 @@ class TestGmailQueryAuthentication:
 
             result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_handler)
             assert result is not None
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_handle_post_requires_authentication(self):
@@ -156,7 +156,7 @@ class TestGmailQueryAuthentication:
 
             result = await handler.handle_post("/api/v1/gmail/query", {}, mock_handler)
             assert result is not None
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_handle_checks_permission(self):
@@ -175,7 +175,7 @@ class TestGmailQueryAuthentication:
 
             result = await handler.handle("/api/v1/gmail/inbox/priority", {}, mock_handler)
             assert result is not None
-            assert result.status == 403
+            assert result.status_code == 403
 
 
 class TestGmailQuery:
@@ -198,7 +198,7 @@ class TestGmailQuery:
             result = await handler.handle_post(
                 "/api/v1/gmail/query", {"question": "Test?"}, mock_handler
             )
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_query_requires_question(self):
@@ -218,7 +218,7 @@ class TestGmailQuery:
             mock_get_state.return_value = mock_state
 
             result = await handler.handle_post("/api/v1/gmail/query", {}, mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestGmailVoiceQuery:
@@ -242,7 +242,7 @@ class TestGmailVoiceQuery:
             mock_get_state.return_value = mock_state
 
             result = await handler.handle_post("/api/v1/gmail/query/voice", {}, mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_voice_query_not_connected(self):
@@ -261,7 +261,7 @@ class TestGmailVoiceQuery:
             result = await handler.handle_post(
                 "/api/v1/gmail/query/voice", {"audio": "base64data"}, mock_handler
             )
-            assert result.status == 401
+            assert result.status_code == 401
 
 
 class TestGmailPriorityInbox:
@@ -284,7 +284,7 @@ class TestGmailPriorityInbox:
             result = await handler.handle(
                 "/api/v1/gmail/inbox/priority", {"user_id": "test"}, mock_handler
             )
-            assert result.status == 401
+            assert result.status_code == 401
 
 
 class TestGmailFeedback:
@@ -305,7 +305,7 @@ class TestGmailFeedback:
             result = await handler.handle_post(
                 "/api/v1/gmail/inbox/feedback", {"action": "opened"}, mock_handler
             )
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_feedback_requires_action(self):
@@ -322,7 +322,7 @@ class TestGmailFeedback:
             result = await handler.handle_post(
                 "/api/v1/gmail/inbox/feedback", {"email_id": "123"}, mock_handler
             )
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_feedback_validates_action(self):
@@ -341,7 +341,7 @@ class TestGmailFeedback:
                 {"email_id": "123", "action": "invalid_action"},
                 mock_handler,
             )
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestSimpleAnswer:

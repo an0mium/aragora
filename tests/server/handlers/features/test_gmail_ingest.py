@@ -130,7 +130,7 @@ class TestGmailIngestAuthentication:
             assert user_id is None
             assert org_id is None
             assert error is not None
-            assert error.status == 401
+            assert error.status_code == 401
 
     def test_get_authenticated_user_with_auth(self):
         """Test _get_authenticated_user with valid authentication."""
@@ -185,7 +185,7 @@ class TestGmailIngestStatus:
             mock_get_state.return_value = None
             result = await handler._get_status("user123")
 
-            assert result.status == 200
+            assert result.status_code == 200
             import json
 
             body = json.loads(result.body)
@@ -209,7 +209,7 @@ class TestGmailIngestStatus:
             mock_get_state.return_value = mock_state
             result = await handler._get_status("user123")
 
-            assert result.status == 200
+            assert result.status_code == 200
             import json
 
             body = json.loads(result.body)
@@ -234,7 +234,7 @@ class TestGmailIngestOAuth:
             MockConnector.return_value = mock_instance
 
             result = handler._get_auth_url({"redirect_uri": "http://localhost:3000/callback"})
-            assert result.status == 200
+            assert result.status_code == 200
             import json
 
             body = json.loads(result.body)
@@ -255,7 +255,7 @@ class TestGmailIngestOAuth:
             result = handler._start_connect(
                 {"redirect_uri": "http://localhost:3000/callback"}, "user123"
             )
-            assert result.status == 200
+            assert result.status_code == 200
             import json
 
             body = json.loads(result.body)
@@ -277,7 +277,7 @@ class TestGmailIngestSync:
         ) as mock_get_state:
             mock_get_state.return_value = None
             result = await handler._start_sync({}, "user123")
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_sync_status(self):
@@ -310,7 +310,7 @@ class TestGmailIngestSync:
             mock_get_job.return_value = mock_job
 
             result = await handler._get_sync_status("user123")
-            assert result.status == 200
+            assert result.status_code == 200
             import json
 
             body = json.loads(result.body)
@@ -333,7 +333,7 @@ class TestGmailIngestMessages:
         ) as mock_get_state:
             mock_get_state.return_value = None
             result = await handler._list_messages("user123", {})
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_search_requires_query(self):
@@ -349,7 +349,7 @@ class TestGmailIngestMessages:
         ) as mock_get_state:
             mock_get_state.return_value = mock_state
             result = await handler._search("user123", {"query": ""})
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestGmailIngestDisconnect:
@@ -374,7 +374,7 @@ class TestGmailIngestDisconnect:
             mock_delete_job.return_value = True
 
             result = await handler._disconnect("user123")
-            assert result.status == 200
+            assert result.status_code == 200
             import json
 
             body = json.loads(result.body)

@@ -81,7 +81,7 @@ class TestDocumentQueryGET:
         mock_handler = MagicMock()
 
         result = handler.handle("/api/v1/documents/query", {}, mock_handler)
-        assert result.status == 405
+        assert result.status_code == 405
 
 
 class TestDocumentQuery:
@@ -99,7 +99,7 @@ class TestDocumentQuery:
             ),
         ):
             result = handler._query_documents(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_query_missing_question(self, handler):
         """Test query requires question field."""
@@ -113,7 +113,7 @@ class TestDocumentQuery:
             ),
         ):
             result = handler._query_documents(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_query_empty_question(self, handler):
         """Test query rejects empty question."""
@@ -127,7 +127,7 @@ class TestDocumentQuery:
             ),
         ):
             result = handler._query_documents(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestDocumentSummarize:
@@ -145,7 +145,7 @@ class TestDocumentSummarize:
             ),
         ):
             result = handler._summarize_documents(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_summarize_missing_document_ids(self, handler):
         """Test summarize requires document_ids."""
@@ -159,7 +159,7 @@ class TestDocumentSummarize:
             ),
         ):
             result = handler._summarize_documents(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_summarize_empty_document_ids(self, handler):
         """Test summarize rejects empty document_ids."""
@@ -173,7 +173,7 @@ class TestDocumentSummarize:
             ),
         ):
             result = handler._summarize_documents(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestDocumentCompare:
@@ -191,7 +191,7 @@ class TestDocumentCompare:
             ),
         ):
             result = handler._compare_documents(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_compare_requires_two_documents(self, handler):
         """Test compare requires at least 2 documents."""
@@ -205,7 +205,7 @@ class TestDocumentCompare:
             ),
         ):
             result = handler._compare_documents(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestDocumentExtract:
@@ -223,7 +223,7 @@ class TestDocumentExtract:
             ),
         ):
             result = handler._extract_information(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_extract_missing_document_ids(self, handler):
         """Test extract requires document_ids."""
@@ -237,7 +237,7 @@ class TestDocumentExtract:
             ),
         ):
             result = handler._extract_information(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_extract_missing_fields(self, handler):
         """Test extract requires fields."""
@@ -251,7 +251,7 @@ class TestDocumentExtract:
             ),
         ):
             result = handler._extract_information(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_extract_empty_fields(self, handler):
         """Test extract rejects empty fields."""
@@ -269,7 +269,7 @@ class TestDocumentExtract:
             ),
         ):
             result = handler._extract_information(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestDocumentQueryAsync:

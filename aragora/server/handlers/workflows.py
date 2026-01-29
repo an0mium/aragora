@@ -966,7 +966,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 "workflows: JWT authentication required. Request rejected - no valid token."
             )
             # Return special sentinel to distinguish from RBAC-not-available
-            return "unauthenticated"  # type: ignore
+            return "unauthenticated"  # type: ignore[return-value]
 
         roles = {jwt_context.role} if jwt_context.role else {"member"}
         permissions: set[str] = set()

@@ -105,7 +105,7 @@ class TestSpeechProviders:
     def test_get_providers(self, handler):
         """Test getting available providers."""
         result = handler._get_providers()
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 
@@ -145,7 +145,7 @@ class TestSpeechTranscribe:
             ),
         ):
             result = handler._transcribe_upload(mock_handler, {})
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_transcribe_file_too_large(self, handler):
         """Test transcribe rejects files too large."""
@@ -165,7 +165,7 @@ class TestSpeechTranscribe:
             ),
         ):
             result = handler._transcribe_upload(mock_handler, {})
-            assert result.status == 413
+            assert result.status_code == 413
 
     def test_transcribe_unsupported_format(self, handler):
         """Test transcribe rejects unsupported formats."""
@@ -195,7 +195,7 @@ class TestSpeechTranscribe:
             ),
         ):
             result = handler._transcribe_upload(mock_handler, {})
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestSpeechTranscribeUrl:
@@ -221,7 +221,7 @@ class TestSpeechTranscribeUrl:
             ),
         ):
             result = handler._transcribe_from_url(mock_handler, {})
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_transcribe_url_invalid_url(self, handler):
         """Test URL transcribe validates URL format."""
@@ -243,7 +243,7 @@ class TestSpeechTranscribeUrl:
             ),
         ):
             result = handler._transcribe_from_url(mock_handler, {})
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestSpeechRateLimiting:
@@ -270,7 +270,7 @@ class TestSpeechRateLimiting:
             return_value="127.0.0.1",
         ):
             result = handler.handle_post("/api/v1/speech/transcribe", {}, mock_handler)
-            assert result.status == 429
+            assert result.status_code == 429
 
 
 class TestSpeechParseUpload:

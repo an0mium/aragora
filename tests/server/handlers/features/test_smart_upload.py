@@ -177,7 +177,7 @@ class TestSmartUpload:
         assert result.filename == "script.py"
         assert result.category == FileCategory.CODE
         assert result.action == ProcessingAction.INDEX
-        assert result.status == "completed"
+        assert result.status_code == "completed"
 
     @pytest.mark.asyncio
     async def test_smart_upload_stores_result(self):
@@ -251,7 +251,7 @@ class TestSmartUploadEndpoints:
         handler = SmartUploadHandler({})
 
         result = handler._get_status("invalid-id")
-        assert result.status == 404
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_handle_smart_upload_missing_content(self):
@@ -260,7 +260,7 @@ class TestSmartUploadEndpoints:
         mock_handler = MagicMock()
 
         result = await handler._handle_smart_upload({"filename": "test.txt"}, mock_handler)
-        assert result.status == 400
+        assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_handle_smart_upload_success(self):
@@ -275,7 +275,7 @@ class TestSmartUploadEndpoints:
         result = await handler._handle_smart_upload(
             {"content": content, "filename": "test.txt"}, mock_handler
         )
-        assert result.status == 200
+        assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_batch_upload_missing_files(self):
@@ -284,7 +284,7 @@ class TestSmartUploadEndpoints:
         mock_handler = MagicMock()
 
         result = await handler._handle_batch_upload({}, mock_handler)
-        assert result.status == 400
+        assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_handle_batch_upload_success(self):
@@ -305,7 +305,7 @@ class TestSmartUploadEndpoints:
             },
             mock_handler,
         )
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 

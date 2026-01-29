@@ -95,7 +95,7 @@ class TestSchedulerStatus:
 
         with patch.object(handler, "_get_scheduler", return_value=mock_scheduler):
             result = handler._get_scheduler_status()
-            assert result.status == 200
+            assert result.status_code == 200
 
             import json
 
@@ -124,7 +124,7 @@ class TestSchedulerListJobs:
             ),
         ):
             result = handler._list_jobs({})
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_list_jobs_with_status_filter(self, handler):
         """Test listing jobs with status filter."""
@@ -145,7 +145,7 @@ class TestSchedulerListJobs:
         ):
             MockStatus.return_value = "active"
             result = handler._list_jobs({"status": ["active"]})
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_list_jobs_invalid_status(self, handler):
         """Test listing jobs with invalid status returns error."""
@@ -167,7 +167,7 @@ class TestSchedulerListJobs:
             ),
         ):
             result = handler._list_jobs({"status": ["invalid_status"]})
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestSchedulerGetJob:
@@ -192,7 +192,7 @@ class TestSchedulerGetJob:
             ),
         ):
             result = handler._get_job("job123")
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_get_job_not_found(self, handler):
         """Test getting non-existent job."""
@@ -211,7 +211,7 @@ class TestSchedulerGetJob:
             ),
         ):
             result = handler._get_job("invalid_job")
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestSchedulerCreateJob:
@@ -233,7 +233,7 @@ class TestSchedulerCreateJob:
             ),
         ):
             result = handler._create_job(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_create_job_missing_body(self, handler):
         """Test create job requires body."""
@@ -251,7 +251,7 @@ class TestSchedulerCreateJob:
             ),
         ):
             result = handler._create_job(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_create_job_cron_missing_schedule(self, handler):
         """Test cron job requires cron field."""
@@ -276,7 +276,7 @@ class TestSchedulerCreateJob:
             MockTrigger.return_value = MagicMock(value="cron")
             MockTrigger.CRON = MagicMock(value="cron")
             result = handler._create_job(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_create_job_interval_missing_minutes(self, handler):
         """Test interval job requires interval_minutes."""
@@ -302,7 +302,7 @@ class TestSchedulerCreateJob:
             MockTrigger.CRON = MagicMock(value="cron")
             MockTrigger.INTERVAL = MagicMock(value="interval")
             result = handler._create_job(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestSchedulerDeleteJob:
@@ -326,7 +326,7 @@ class TestSchedulerDeleteJob:
             ),
         ):
             result = handler._delete_job("job123")
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_delete_job_not_found(self, handler):
         """Test deleting non-existent job."""
@@ -345,7 +345,7 @@ class TestSchedulerDeleteJob:
             ),
         ):
             result = handler._delete_job("invalid_job")
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestSchedulerJobActions:
@@ -369,7 +369,7 @@ class TestSchedulerJobActions:
             ),
         ):
             result = handler._pause_job("job123")
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_pause_job_not_found(self, handler):
         """Test pausing non-existent job."""
@@ -388,7 +388,7 @@ class TestSchedulerJobActions:
             ),
         ):
             result = handler._pause_job("invalid_job")
-            assert result.status == 404
+            assert result.status_code == 404
 
     def test_resume_job(self, handler):
         """Test resuming a job."""
@@ -408,7 +408,7 @@ class TestSchedulerJobActions:
             ),
         ):
             result = handler._resume_job("job123")
-            assert result.status == 200
+            assert result.status_code == 200
 
 
 class TestSchedulerJobHistory:
@@ -432,7 +432,7 @@ class TestSchedulerJobHistory:
             ),
         ):
             result = handler._get_job_history("job123", limit=10)
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_get_job_history_not_found(self, handler):
         """Test getting history for non-existent job."""
@@ -451,7 +451,7 @@ class TestSchedulerJobHistory:
             ),
         ):
             result = handler._get_job_history("invalid_job")
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestSchedulerWebhook:
@@ -463,7 +463,7 @@ class TestSchedulerWebhook:
 
         with patch.object(handler, "read_json_body", return_value=None):
             result = handler._handle_webhook(mock_handler, "wh123")
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestSchedulerGitPush:
@@ -475,7 +475,7 @@ class TestSchedulerGitPush:
 
         with patch.object(handler, "read_json_body", return_value=None):
             result = handler._handle_git_push(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestSchedulerFileUpload:
@@ -497,7 +497,7 @@ class TestSchedulerFileUpload:
             ),
         ):
             result = handler._handle_file_upload(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_handle_file_upload_missing_documents(self, handler):
         """Test file upload requires document_ids."""
@@ -515,4 +515,4 @@ class TestSchedulerFileUpload:
             ),
         ):
             result = handler._handle_file_upload(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400

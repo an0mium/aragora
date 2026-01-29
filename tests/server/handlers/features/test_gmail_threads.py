@@ -107,7 +107,7 @@ class TestGmailThreadsAuthentication:
 
             result = await handler.handle("/api/v1/gmail/threads", {}, mock_handler)
             assert result is not None
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_handle_post_requires_authentication(self):
@@ -122,7 +122,7 @@ class TestGmailThreadsAuthentication:
 
             result = await handler.handle_post("/api/v1/gmail/drafts", {}, mock_handler)
             assert result is not None
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_handle_delete_requires_authentication(self):
@@ -137,7 +137,7 @@ class TestGmailThreadsAuthentication:
 
             result = await handler.handle_delete("/api/v1/gmail/drafts/draft123", {}, mock_handler)
             assert result is not None
-            assert result.status == 401
+            assert result.status_code == 401
 
 
 class TestGmailThreadOperations:
@@ -160,7 +160,7 @@ class TestGmailThreadOperations:
             mock_get_state.return_value = None
 
             result = await handler.handle("/api/v1/gmail/threads", {}, mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_thread_not_connected(self):
@@ -179,7 +179,7 @@ class TestGmailThreadOperations:
             mock_get_state.return_value = None
 
             result = await handler.handle("/api/v1/gmail/threads/thread123", {}, mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_archive_thread_not_connected(self):
@@ -200,7 +200,7 @@ class TestGmailThreadOperations:
             result = await handler.handle_post(
                 "/api/v1/gmail/threads/thread123/archive", {}, mock_handler
             )
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_modify_labels_requires_labels(self):
@@ -224,7 +224,7 @@ class TestGmailThreadOperations:
             result = await handler.handle_post(
                 "/api/v1/gmail/threads/thread123/labels", {}, mock_handler
             )
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestGmailDraftOperations:
@@ -247,7 +247,7 @@ class TestGmailDraftOperations:
             mock_get_state.return_value = None
 
             result = await handler.handle("/api/v1/gmail/drafts", {}, mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_draft_not_connected(self):
@@ -266,7 +266,7 @@ class TestGmailDraftOperations:
             mock_get_state.return_value = None
 
             result = await handler.handle("/api/v1/gmail/drafts/draft123", {}, mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_delete_draft_not_connected(self):
@@ -285,7 +285,7 @@ class TestGmailDraftOperations:
             mock_get_state.return_value = None
 
             result = await handler.handle_delete("/api/v1/gmail/drafts/draft123", {}, mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_update_draft_not_connected(self):
@@ -304,7 +304,7 @@ class TestGmailDraftOperations:
             mock_get_state.return_value = None
 
             result = await handler.handle_put("/api/v1/gmail/drafts/draft123", {}, mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
 
 class TestGmailAttachments:
@@ -329,7 +329,7 @@ class TestGmailAttachments:
             result = await handler.handle(
                 "/api/v1/gmail/messages/msg123/attachments/att456", {}, mock_handler
             )
-            assert result.status == 401
+            assert result.status_code == 401
 
 
 class TestGmailPermissions:
@@ -352,7 +352,7 @@ class TestGmailPermissions:
             mock_check.side_effect = ForbiddenError("Permission denied")
 
             result = await handler.handle("/api/v1/gmail/threads", {}, mock_handler)
-            assert result.status == 403
+            assert result.status_code == 403
             mock_check.assert_called_with(mock_auth.return_value, GMAIL_READ_PERMISSION)
 
     @pytest.mark.asyncio
@@ -372,5 +372,5 @@ class TestGmailPermissions:
             mock_check.side_effect = ForbiddenError("Permission denied")
 
             result = await handler.handle_post("/api/v1/gmail/drafts", {}, mock_handler)
-            assert result.status == 403
+            assert result.status_code == 403
             mock_check.assert_called_with(mock_auth.return_value, GMAIL_WRITE_PERMISSION)

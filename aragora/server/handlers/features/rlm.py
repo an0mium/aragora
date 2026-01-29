@@ -244,6 +244,7 @@ class RLMHandler(BaseHandler):
             context=context,
             strategy=strategy,
             max_iterations=max_iterations,
+            start_level=start_level,
         )
 
         return result

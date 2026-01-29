@@ -131,6 +131,13 @@ class NomicDebateProfile:
             proposer_count=self.proposer_count,
             role_rotation=self.role_rotation,
             asymmetric_stances=self.asymmetric_stances,
+            agreement_intensity=self.agreement_intensity,
+            early_stopping=False if self.force_full_rounds else True,
+            early_stop_threshold=self.early_stop_threshold,
+            min_rounds_before_early_stop=(
+                self.rounds if self.force_full_rounds else self.min_rounds_before_early_stop
+            ),
+            convergence_detection=False if self.force_full_rounds else self.convergence_detection,
         )
 
     @classmethod

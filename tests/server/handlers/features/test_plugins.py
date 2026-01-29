@@ -116,7 +116,7 @@ class TestPluginsList:
             mock_get_reg.return_value = mock_registry
 
             result = handler.handle("/api/v1/plugins", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_list_plugins_unavailable(self, handler):
         """Test listing plugins when module unavailable."""
@@ -125,7 +125,7 @@ class TestPluginsList:
 
         with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False):
             result = handler.handle("/api/v1/plugins", {}, mock_handler)
-            assert result.status == 503
+            assert result.status_code == 503
 
 
 class TestPluginsMarketplace:
@@ -148,7 +148,7 @@ class TestPluginsMarketplace:
             mock_get_reg.return_value = mock_registry
 
             result = handler.handle("/api/v1/plugins/marketplace", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
             import json
 
@@ -164,7 +164,7 @@ class TestPluginsMarketplace:
 
         with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False):
             result = handler.handle("/api/v1/plugins/marketplace", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
             import json
 
@@ -183,7 +183,7 @@ class TestPluginsInstalled:
 
         with patch.object(handler, "get_current_user", return_value=None):
             result = handler.handle("/api/v1/plugins/installed", {}, mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
     def test_list_installed_empty(self, handler):
         """Test listing installed with no plugins."""
@@ -194,7 +194,7 @@ class TestPluginsInstalled:
 
         with patch.object(handler, "get_current_user", return_value=mock_user):
             result = handler.handle("/api/v1/plugins/installed", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
             import json
 
@@ -219,7 +219,7 @@ class TestPluginDetails:
             mock_get_reg.return_value = mock_registry
 
             result = handler.handle("/api/v1/plugins/nonexistent", {}, mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
     def test_get_plugin_success(self, handler):
         """Test getting existing plugin."""
@@ -237,7 +237,7 @@ class TestPluginDetails:
             mock_get_reg.return_value = mock_registry
 
             result = handler.handle("/api/v1/plugins/test-plugin", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
 
 class TestPluginInstall:
@@ -255,7 +255,7 @@ class TestPluginInstall:
             result = handler.handle_post(
                 "/api/v1/plugins/test-plugin/install", {}, mock_handler
             )
-            assert result.status == 401
+            assert result.status_code == 401
 
     def test_install_plugin_not_found(self, handler):
         """Test install non-existent plugin."""
@@ -276,7 +276,7 @@ class TestPluginInstall:
             mock_get_reg.return_value = mock_registry
 
             result = handler._install_plugin("nonexistent", mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestPluginUninstall:
@@ -291,7 +291,7 @@ class TestPluginUninstall:
 
         with patch.object(handler, "get_current_user", return_value=mock_user):
             result = handler._uninstall_plugin("test-plugin", mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
     def test_uninstall_plugin_success(self, handler):
         """Test successful plugin uninstallation."""
@@ -305,7 +305,7 @@ class TestPluginUninstall:
 
         with patch.object(handler, "get_current_user", return_value=mock_user):
             result = handler._uninstall_plugin("test-plugin", mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
             assert "test-plugin" not in _installed_plugins.get("user123", {})
 
 
@@ -319,7 +319,7 @@ class TestPluginRun:
 
         with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", False):
             result = handler._run_plugin("test-plugin", mock_handler)
-            assert result.status == 503
+            assert result.status_code == 503
 
     def test_run_plugin_invalid_body(self, handler):
         """Test run with invalid JSON body."""
@@ -331,7 +331,7 @@ class TestPluginRun:
             patch.object(handler, "read_json_body", return_value=None),
         ):
             result = handler._run_plugin("test-plugin", mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestPluginSubmit:
@@ -344,7 +344,7 @@ class TestPluginSubmit:
 
         with patch.object(handler, "get_current_user", return_value=None):
             result = handler._submit_plugin(mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
     def test_submit_plugin_missing_manifest(self, handler):
         """Test submit requires manifest."""
@@ -358,7 +358,7 @@ class TestPluginSubmit:
             patch.object(handler, "read_json_body", return_value={}),
         ):
             result = handler._submit_plugin(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestPluginSubmissions:
@@ -371,7 +371,7 @@ class TestPluginSubmissions:
 
         with patch.object(handler, "get_current_user", return_value=None):
             result = handler.handle("/api/v1/plugins/submissions", {}, mock_handler)
-            assert result.status == 401
+            assert result.status_code == 401
 
     def test_list_submissions_empty(self, handler):
         """Test list submissions when none exist."""
@@ -382,7 +382,7 @@ class TestPluginSubmissions:
 
         with patch.object(handler, "get_current_user", return_value=mock_user):
             result = handler.handle("/api/v1/plugins/submissions", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
             import json
 

@@ -100,7 +100,7 @@ class TestBatchUpload:
             ),
         ):
             result = handler._batch_upload(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_batch_upload_empty_files(self, handler):
         """Test batch upload rejects empty files list."""
@@ -119,7 +119,7 @@ class TestBatchUpload:
             ),
         ):
             result = handler._batch_upload(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestBatchStatus:
@@ -146,7 +146,7 @@ class TestBatchStatus:
             )
 
             result = handler.handle("/api/v1/documents/batch/job123", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_get_batch_status_not_found(self, handler):
         """Test getting status for non-existent batch."""
@@ -163,7 +163,7 @@ class TestBatchStatus:
             mock_get_job.return_value = None
 
             result = handler.handle("/api/v1/documents/batch/invalid-job", {}, mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestBatchMultipart:
@@ -180,7 +180,7 @@ class TestBatchMultipart:
             lambda f: f,
         ):
             result = handler._handle_multipart_upload(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestBatchCancel:
@@ -201,7 +201,7 @@ class TestBatchCancel:
             mock_get_job.return_value = None
 
             result = handler.handle_delete("/api/v1/documents/batch/invalid-job", {}, mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
     def test_cancel_batch_success(self, handler):
         """Test successful batch cancellation."""
@@ -222,7 +222,7 @@ class TestBatchCancel:
             mock_cancel.return_value = True
 
             result = handler.handle_delete("/api/v1/documents/batch/job123", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
 
 class TestBatchRateLimiting:
@@ -247,4 +247,4 @@ class TestBatchRateLimiting:
             return_value="127.0.0.1",
         ):
             result = handler.handle("/api/v1/documents/batch/status", {}, mock_handler)
-            assert result.status == 429
+            assert result.status_code == 429

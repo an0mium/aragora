@@ -96,7 +96,7 @@ class TestBroadcastVoices:
         mock_handler.client_address = ("127.0.0.1", 12345)
 
         result = handler.handle("/api/v1/broadcast/voices", {}, mock_handler)
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 
@@ -121,7 +121,7 @@ class TestBroadcastGenerate:
             ),
         ):
             result = handler.handle_post("/api/v1/broadcast/generate", {}, mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_generate_debate_not_found(self, handler):
@@ -140,7 +140,7 @@ class TestBroadcastGenerate:
             mock_get_debate.return_value = None
 
             result = handler.handle_post("/api/v1/broadcast/generate", {}, mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_generate_success(self, handler):
@@ -177,7 +177,7 @@ class TestBroadcastGenerate:
             mock_generate.return_value = MagicMock(job_id="job123", status="processing")
 
             result = handler.handle_post("/api/v1/broadcast/generate", {}, mock_handler)
-            assert result.status == 202  # Accepted
+            assert result.status_code == 202  # Accepted
 
 
 class TestBroadcastJobs:
@@ -194,7 +194,7 @@ class TestBroadcastJobs:
             mock_get_jobs.return_value = []
 
             result = handler.handle("/api/v1/broadcast/jobs", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_get_job_status(self, handler):
         """Test getting job status."""
@@ -209,7 +209,7 @@ class TestBroadcastJobs:
             )
 
             result = handler.handle("/api/v1/broadcast/jobs/job123", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
     def test_get_job_not_found(self, handler):
         """Test getting non-existent job."""
@@ -220,7 +220,7 @@ class TestBroadcastJobs:
             mock_get_job.return_value = None
 
             result = handler.handle("/api/v1/broadcast/jobs/invalid-job", {}, mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestBroadcastCancel:
@@ -237,7 +237,7 @@ class TestBroadcastCancel:
             result = handler.handle_post(
                 "/api/v1/broadcast/jobs/invalid-job/cancel", {}, mock_handler
             )
-            assert result.status == 404
+            assert result.status_code == 404
 
     def test_cancel_job_success(self, handler):
         """Test successful job cancellation."""
@@ -252,7 +252,7 @@ class TestBroadcastCancel:
             mock_cancel.return_value = True
 
             result = handler.handle_post("/api/v1/broadcast/jobs/job123/cancel", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
 
 class TestBroadcastDownload:
@@ -267,7 +267,7 @@ class TestBroadcastDownload:
             mock_get_job.return_value = None
 
             result = handler.handle("/api/v1/broadcast/jobs/invalid-job/download", {}, mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
     def test_download_job_not_completed(self, handler):
         """Test download job that isn't completed."""
@@ -280,7 +280,7 @@ class TestBroadcastDownload:
             )
 
             result = handler.handle("/api/v1/broadcast/jobs/job123/download", {}, mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestBroadcastRateLimiting:
@@ -305,4 +305,4 @@ class TestBroadcastRateLimiting:
             return_value="127.0.0.1",
         ):
             result = handler.handle("/api/v1/broadcast/voices", {}, mock_handler)
-            assert result.status == 429
+            assert result.status_code == 429

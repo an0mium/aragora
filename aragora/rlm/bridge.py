@@ -717,6 +717,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
         strategy: str = "auto",
         max_iterations: int = 3,
         feedback_generator: Optional[Callable[[RLMResult], str]] = None,
+        start_level: str = "SUMMARY",
     ) -> RLMResult:
         """
         Query with iterative refinement (Prime Intellect alignment).
@@ -732,10 +733,17 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             max_iterations: Maximum refinement iterations
             feedback_generator: Optional function to generate feedback from
                               incomplete result. If None, uses default feedback.
+            start_level: Initial abstraction level (FULL, DETAILED, SUMMARY,
+                        ABSTRACT, METADATA). Default is SUMMARY.
 
         Returns:
             RLMResult with final answer and refinement history
         """
+        # Store start level in context for strategies to access
+        if not context.compression_stats:
+            context.compression_stats = {}
+        context.compression_stats["start_level"] = start_level
+
         refinement_history: list[str] = []
         iteration = 0
         result: Optional[RLMResult] = None

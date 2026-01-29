@@ -113,7 +113,7 @@ class TestLegalStatus:
             MockConnector.return_value = mock_instance
 
             result = await handler._handle_status(mock_request, "test_tenant")
-            assert result.status == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_status_import_error(self):
@@ -127,7 +127,7 @@ class TestLegalStatus:
         ):
             # The import happens inside _handle_status, so we need to mock it there
             result = await handler._handle_status(mock_request, "test_tenant")
-            assert result.status == 200
+            assert result.status_code == 200
 
 
 class TestLegalEnvelopes:
@@ -146,7 +146,7 @@ class TestLegalEnvelopes:
             mock_get_connector.return_value = None
 
             result = await handler._handle_list_envelopes(mock_request, "test_tenant")
-            assert result.status == 503
+            assert result.status_code == 503
 
     @pytest.mark.asyncio
     async def test_create_envelope_missing_subject(self):
@@ -168,7 +168,7 @@ class TestLegalEnvelopes:
             mock_body.return_value = {"recipients": [], "documents": []}
 
             result = await handler._handle_create_envelope(mock_request, "test_tenant")
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_envelope_missing_recipients(self):
@@ -190,7 +190,7 @@ class TestLegalEnvelopes:
             mock_body.return_value = {"email_subject": "Test", "documents": []}
 
             result = await handler._handle_create_envelope(mock_request, "test_tenant")
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_create_envelope_missing_documents(self):
@@ -215,7 +215,7 @@ class TestLegalEnvelopes:
             }
 
             result = await handler._handle_create_envelope(mock_request, "test_tenant")
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_get_envelope_not_found(self):
@@ -234,7 +234,7 @@ class TestLegalEnvelopes:
             mock_get_connector.return_value = mock_connector
 
             result = await handler._handle_get_envelope(mock_request, "test_tenant", "invalid_id")
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestLegalVoid:
@@ -253,7 +253,7 @@ class TestLegalVoid:
             mock_get_connector.return_value = None
 
             result = await handler._handle_void_envelope(mock_request, "test_tenant", "env123")
-            assert result.status == 503
+            assert result.status_code == 503
 
 
 class TestLegalWebhook:
@@ -273,7 +273,7 @@ class TestLegalWebhook:
             }
 
             result = await handler._handle_docusign_webhook(mock_request, "test_tenant")
-            assert result.status == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_webhook_invalid_payload(self):
@@ -286,7 +286,7 @@ class TestLegalWebhook:
 
             result = await handler._handle_docusign_webhook(mock_request, "test_tenant")
             # Should still return 200 to prevent retries
-            assert result.status == 200
+            assert result.status_code == 200
 
 
 class TestLegalTemplates:
@@ -299,7 +299,7 @@ class TestLegalTemplates:
         mock_request = MagicMock()
 
         result = await handler._handle_list_templates(mock_request, "test_tenant")
-        assert result.status == 200
+        assert result.status_code == 200
 
 
 class TestGetDocuSignConnector:

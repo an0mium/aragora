@@ -174,7 +174,7 @@ class TestFolderScan:
             ),
         ):
             result = await handler._scan_folder(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_scan_path_not_exists(self, handler):
@@ -198,7 +198,7 @@ class TestFolderScan:
             MockPath.return_value = mock_path
 
             result = await handler._scan_folder(mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_scan_path_not_directory(self, handler):
@@ -223,7 +223,7 @@ class TestFolderScan:
             MockPath.return_value = mock_path
 
             result = await handler._scan_folder(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestFolderUploadStart:
@@ -241,7 +241,7 @@ class TestFolderUploadStart:
             ),
         ):
             result = handler._start_upload(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_start_upload_path_not_exists(self, handler):
         """Test start upload with non-existent path."""
@@ -264,7 +264,7 @@ class TestFolderUploadStart:
             MockPath.return_value = mock_path
 
             result = handler._start_upload(mock_handler)
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestGetFolderUploadStatus:
@@ -273,7 +273,7 @@ class TestGetFolderUploadStatus:
     def test_get_status_not_found(self, handler):
         """Test getting status for non-existent folder."""
         result = handler._get_upload_status("invalid-folder")
-        assert result.status == 404
+        assert result.status_code == 404
 
     def test_get_status_success(self, handler):
         """Test getting status for existing folder."""
@@ -290,7 +290,7 @@ class TestGetFolderUploadStatus:
         FolderUploadHandler._jobs["folder123"] = job
 
         result = handler._get_upload_status("folder123")
-        assert result.status == 200
+        assert result.status_code == 200
 
 
 class TestFolderList:
@@ -299,7 +299,7 @@ class TestFolderList:
     def test_list_folders_empty(self, handler):
         """Test listing folders when none exist."""
         result = handler._list_folders({})
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 
@@ -320,7 +320,7 @@ class TestFolderList:
         FolderUploadHandler._jobs["folder123"] = job
 
         result = handler._list_folders({})
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 
@@ -334,7 +334,7 @@ class TestFolderDelete:
     def test_delete_folder_not_found(self, handler):
         """Test deleting non-existent folder."""
         result = handler._delete_folder("invalid-folder")
-        assert result.status == 404
+        assert result.status_code == 404
 
     def test_delete_folder_success(self, handler):
         """Test successful folder deletion."""
@@ -353,7 +353,7 @@ class TestFolderDelete:
             lambda f: f,
         ):
             result = handler._delete_folder("folder123")
-            assert result.status == 200
+            assert result.status_code == 200
             assert "folder123" not in FolderUploadHandler._jobs
 
 

@@ -70,7 +70,7 @@ def _cache_decision(debate_id: str, decision: Any) -> None:
 
     # Prune old entries
     if len(_decision_cache) > 100:
-        oldest = min(_cache_timestamps, key=_cache_timestamps.get)  # type: ignore
+        oldest = min(_cache_timestamps, key=_cache_timestamps.get)  # type: ignore[arg-type]
         del _decision_cache[oldest]
         del _cache_timestamps[oldest]
 

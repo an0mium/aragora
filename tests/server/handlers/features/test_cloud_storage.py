@@ -123,7 +123,7 @@ class TestCloudStorageAuthentication:
 
             result = await handler.handle("/api/v1/cloud/status", {}, mock_handler)
             assert result is not None
-            assert result.status == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_handle_checks_permission(self):
@@ -142,7 +142,7 @@ class TestCloudStorageAuthentication:
 
             result = await handler.handle("/api/v1/cloud/status", {}, mock_handler)
             assert result is not None
-            assert result.status == 403
+            assert result.status_code == 403
 
 
 class TestGetProviderConnector:
@@ -365,7 +365,7 @@ class TestCloudStorageHandlerEndpoints:
             mock_status.return_value = {"google_drive": {"connected": False}}
 
             result = await handler.handle("/api/v1/cloud/status", {}, mock_handler)
-            assert result.status == 200
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_invalid_provider_endpoint(self):
@@ -382,7 +382,7 @@ class TestCloudStorageHandlerEndpoints:
             result = await handler.handle(
                 "/api/v1/cloud/invalid_provider/auth/url", {}, mock_handler
             )
-            assert result.status == 400
+            assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_auth_callback_missing_code(self):
@@ -400,4 +400,4 @@ class TestCloudStorageHandlerEndpoints:
             result = await handler.handle_post(
                 "/api/v1/cloud/google_drive/auth/callback", {}, mock_handler
             )
-            assert result.status == 400
+            assert result.status_code == 400

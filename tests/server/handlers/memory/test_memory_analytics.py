@@ -155,9 +155,9 @@ def handler(mock_tracker):
 @pytest.fixture
 def handler_no_tracker():
     """Create a test handler without tracker."""
-    h = MemoryAnalyticsHandler(ctx={})
-    h._tracker = None
-    return h
+    with patch.object(MemoryAnalyticsHandler, 'tracker', new_callable=lambda: property(lambda self: None)):
+        h = MemoryAnalyticsHandler(ctx={})
+        yield h
 
 
 @pytest.fixture(autouse=True)
@@ -234,43 +234,20 @@ class TestGetTierStats:
 
     def test_get_tier_stats_fast(self, handler):
         """Test tier stats for fast tier."""
-        with patch("aragora.server.handlers.memory.memory_analytics.MemoryTier") as mock_tier:
-            from enum import Enum
+        # The handler uses tracker.get_tier_stats which returns mock tier stats
+        result = handler._get_tier_stats("fast", days=30)
 
-            class MockMemoryTier(Enum):
-                FAST = "fast"
-                MEDIUM = "medium"
-                SLOW = "slow"
-                GLACIAL = "glacial"
-
-            mock_tier.__iter__ = lambda self: iter([MockMemoryTier.FAST])
-            mock_tier.__getitem__ = lambda self, key: MockMemoryTier[key]
-            mock_tier.FAST = MockMemoryTier.FAST
-
-            result = handler._get_tier_stats("fast", days=30)
-
-            assert result.status_code == 200
-            data = parse_response(result)
-            assert "tier_name" in data
+        assert result.status_code == 200
+        data = parse_response(result)
+        assert "tier_name" in data
 
     def test_get_tier_stats_medium(self, handler):
         """Test tier stats for medium tier."""
-        with patch("aragora.server.handlers.memory.memory_analytics.MemoryTier") as mock_tier:
-            from enum import Enum
+        result = handler._get_tier_stats("medium", days=30)
 
-            class MockMemoryTier(Enum):
-                FAST = "fast"
-                MEDIUM = "medium"
-                SLOW = "slow"
-                GLACIAL = "glacial"
-
-            mock_tier.__iter__ = lambda self: iter([MockMemoryTier.MEDIUM])
-            mock_tier.__getitem__ = lambda self, key: MockMemoryTier[key]
-            mock_tier.MEDIUM = MockMemoryTier.MEDIUM
-
-            result = handler._get_tier_stats("medium", days=30)
-
-            assert result.status_code == 200
+        assert result.status_code == 200
+        data = parse_response(result)
+        assert "tier_name" in data
 
     def test_get_tier_stats_no_tracker(self, handler_no_tracker):
         """Test tier stats when tracker not available."""

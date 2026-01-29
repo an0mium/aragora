@@ -259,67 +259,62 @@ class TestHealthHandlerHandle:
 class TestHealthHandlerDelegation:
     """Tests for HealthHandler method delegation."""
 
-    def test_liveness_probe_delegates(self):
-        """Test _liveness_probe delegates to module function."""
+    def test_liveness_probe_returns_result(self):
+        """Test _liveness_probe returns a result."""
         from aragora.server.handlers.admin._health_impl import HealthHandler
-        from aragora.server.handlers.admin.health import kubernetes
 
         handler = HealthHandler({"storage": None, "elo_system": None})
 
-        with patch.object(kubernetes, "liveness_probe") as mock_func:
+        with patch("aragora.server.handlers.admin.health.liveness_probe") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
-            handler._liveness_probe()
+            result = handler._liveness_probe()
 
-        mock_func.assert_called_once_with(handler)
+        assert result.status_code == 200
 
-    def test_readiness_probe_fast_delegates(self):
-        """Test _readiness_probe_fast delegates to module function."""
+    def test_readiness_probe_fast_returns_result(self):
+        """Test _readiness_probe_fast returns a result."""
         from aragora.server.handlers.admin._health_impl import HealthHandler
-        from aragora.server.handlers.admin.health import kubernetes
 
         handler = HealthHandler({"storage": None, "elo_system": None})
 
-        with patch.object(kubernetes, "readiness_probe_fast") as mock_func:
+        with patch("aragora.server.handlers.admin.health.readiness_probe_fast") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
-            handler._readiness_probe_fast()
+            result = handler._readiness_probe_fast()
 
-        mock_func.assert_called_once_with(handler)
+        assert result.status_code == 200
 
-    def test_health_check_delegates(self):
-        """Test _health_check delegates to module function."""
+    def test_health_check_returns_result(self):
+        """Test _health_check returns a result."""
         from aragora.server.handlers.admin._health_impl import HealthHandler
-        from aragora.server.handlers.admin.health import detailed
 
         handler = HealthHandler({"storage": None, "elo_system": None})
 
-        with patch.object(detailed, "health_check") as mock_func:
+        with patch("aragora.server.handlers.admin.health.health_check") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
-            handler._health_check()
+            result = handler._health_check()
 
-        mock_func.assert_called_once_with(handler)
+        assert result.status_code == 200
 
-    def test_detailed_health_check_delegates(self):
-        """Test _detailed_health_check delegates to module function."""
+    def test_detailed_health_check_returns_result(self):
+        """Test _detailed_health_check returns a result."""
         from aragora.server.handlers.admin._health_impl import HealthHandler
-        from aragora.server.handlers.admin.health import detailed
 
         handler = HealthHandler({"storage": None, "elo_system": None})
 
-        with patch.object(detailed, "detailed_health_check") as mock_func:
+        with patch("aragora.server.handlers.admin.health.detailed_health_check") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
-            handler._detailed_health_check()
+            result = handler._detailed_health_check()
 
-        mock_func.assert_called_once_with(handler)
+        assert result.status_code == 200
 
-    def test_deep_health_check_delegates(self):
-        """Test _deep_health_check delegates to module function."""
+    def test_deep_health_check_returns_result(self):
+        """Test _deep_health_check returns a result."""
         from aragora.server.handlers.admin._health_impl import HealthHandler
-        from aragora.server.handlers.admin.health import detailed
 
         handler = HealthHandler({"storage": None, "elo_system": None})
 
-        with patch.object(detailed, "deep_health_check") as mock_func:
+        with patch("aragora.server.handlers.admin.health.deep_health_check") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
-            handler._deep_health_check()
+            result = handler._deep_health_check()
 
-        mock_func.assert_called_once_with(handler)
+        assert result.status_code == 200

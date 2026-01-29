@@ -268,10 +268,11 @@ class TestFetchRankings:
         """Test fetch rankings returns empty when no ELO system."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
+        # Pass None for elo_system to simulate no ELO available
         handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
-        with patch.object(handler, "get_elo_system", return_value=None):
-            result = handler._fetch_rankings(10, None)
+        # The handler uses ctx.get("elo_system") internally
+        result = handler._fetch_rankings(10, None)
 
         assert result["agents"] == []
         assert result["count"] == 0
@@ -318,10 +319,10 @@ class TestFetchMatches:
         """Test fetch matches returns empty when no ELO system."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
+        # Pass None for elo_system to simulate no ELO available
         handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
-        with patch.object(handler, "get_elo_system", return_value=None):
-            result = handler._fetch_matches(10, None)
+        result = handler._fetch_matches(10, None)
 
         assert result["matches"] == []
 
@@ -348,19 +349,17 @@ class TestFetchTeams:
         """Test fetch teams returns team combinations."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
-        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
+        mock_elo = MagicMock()
+        handler = LeaderboardViewHandler({"storage": None, "elo_system": mock_elo, "nomic_dir": None})
 
         mock_selector = MagicMock()
         mock_selector.get_best_team_combinations.return_value = [
             {"agents": ["claude", "gemini"], "win_rate": 0.7},
         ]
 
-        with (
-            patch.object(handler, "get_elo_system", return_value=MagicMock()),
-            patch(
-                "aragora.server.handlers.agents.leaderboard.AgentSelector",
-                return_value=mock_selector,
-            ),
+        with patch(
+            "aragora.server.handlers.agents.leaderboard.AgentSelector",
+            return_value=mock_selector,
         ):
             result = handler._fetch_teams(3, 10)
 
@@ -397,10 +396,10 @@ class TestFetchStats:
         """Test fetch stats returns defaults when no ELO system."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
+        # Pass None for elo_system to simulate no ELO available
         handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
-        with patch.object(handler, "get_elo_system", return_value=None):
-            result = handler._fetch_stats()
+        result = handler._fetch_stats()
 
         assert result["mean_elo"] == 1500
         assert result["total_agents"] == 0
@@ -413,17 +412,15 @@ class TestFetchIntrospection:
         """Test fetch introspection with default agents when no nomic dir."""
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
 
+        # Pass None for nomic_dir to simulate no nomic dir available
         handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
         mock_snapshot = MagicMock()
         mock_snapshot.to_dict.return_value = {"agent": "claude", "traits": []}
 
-        with (
-            patch.object(handler, "get_nomic_dir", return_value=None),
-            patch(
-                "aragora.server.handlers.agents.leaderboard.get_agent_introspection",
-                return_value=mock_snapshot,
-            ),
+        with patch(
+            "aragora.server.handlers.agents.leaderboard.get_agent_introspection",
+            return_value=mock_snapshot,
         ):
             result = handler._fetch_introspection()
 

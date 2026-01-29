@@ -122,7 +122,7 @@ class TestGetFindingEvidence:
             mock_auditor.return_value = MagicMock(_sessions={})
 
             result = handler._get_finding_evidence("invalid-finding")
-            assert result.status == 404
+            assert result.status_code == 404
 
     def test_get_evidence_not_enriched(self, handler):
         """Test getting evidence when not yet enriched."""
@@ -149,7 +149,7 @@ class TestGetFindingEvidence:
             mock_auditor.return_value = MagicMock(_sessions={"session1": mock_session})
 
             result = handler._get_finding_evidence("finding123")
-            assert result.status == 200
+            assert result.status_code == 200
 
             import json
 
@@ -182,7 +182,7 @@ class TestGetFindingEvidence:
             mock_auditor.return_value = MagicMock(_sessions={"session1": mock_session})
 
             result = handler._get_finding_evidence("finding123")
-            assert result.status == 200
+            assert result.status_code == 200
 
             import json
 
@@ -210,7 +210,7 @@ class TestEnrichFinding:
             ),
         ):
             result = handler._enrich_finding(mock_handler, "invalid-finding")
-            assert result.status == 404
+            assert result.status_code == 404
 
 
 class TestBatchEnrich:
@@ -228,7 +228,7 @@ class TestBatchEnrich:
             ),
         ):
             result = handler._batch_enrich(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_batch_enrich_missing_finding_ids(self, handler):
         """Test batch enrich requires finding_ids."""
@@ -242,7 +242,7 @@ class TestBatchEnrich:
             ),
         ):
             result = handler._batch_enrich(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
     def test_batch_enrich_empty_finding_ids(self, handler):
         """Test batch enrich rejects empty finding_ids."""
@@ -256,7 +256,7 @@ class TestBatchEnrich:
             ),
         ):
             result = handler._batch_enrich(mock_handler)
-            assert result.status == 400
+            assert result.status_code == 400
 
 
 class TestAsyncEnrichment:
