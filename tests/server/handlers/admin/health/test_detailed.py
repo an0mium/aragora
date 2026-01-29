@@ -39,6 +39,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Check if psutil is available for tests that need it
+try:
+    import psutil  # noqa: F401
+
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
 
 class MockHandler:
     """Mock handler for testing detailed health functions."""
@@ -414,6 +422,7 @@ class TestDetailedHealthCheck:
         body = json.loads(result.body.decode("utf-8"))
         assert body["status"] == "degraded"
 
+    @pytest.mark.skipif(not HAS_PSUTIL, reason="psutil not installed")
     def test_detailed_health_memory_stats(self, tmp_path):
         """Test detailed health includes memory stats when psutil available."""
         from aragora.server.handlers.admin.health.detailed import detailed_health_check
@@ -485,6 +494,7 @@ class TestDeepHealthCheck:
         assert "redis" in body["checks"]
         assert "ai_providers" in body["checks"]
 
+    @pytest.mark.skipif(not HAS_PSUTIL, reason="psutil not installed")
     def test_deep_health_system_resources(self, tmp_path):
         """Test deep health checks system resources."""
         from aragora.server.handlers.admin.health.detailed import deep_health_check
@@ -533,6 +543,7 @@ class TestDeepHealthCheck:
         assert "cpu" in body["checks"]
         assert "disk" in body["checks"]
 
+    @pytest.mark.skipif(not HAS_PSUTIL, reason="psutil not installed")
     def test_deep_health_high_memory_usage(self, tmp_path):
         """Test deep health warns on high memory usage."""
         from aragora.server.handlers.admin.health.detailed import deep_health_check
@@ -575,6 +586,7 @@ class TestDeepHealthCheck:
         assert body["checks"]["memory"]["healthy"] is False
         assert any("memory" in w.lower() for w in body.get("warnings", []))
 
+    @pytest.mark.skipif(not HAS_PSUTIL, reason="psutil not installed")
     def test_deep_health_low_disk_space(self, tmp_path):
         """Test deep health warns on low disk space."""
         from aragora.server.handlers.admin.health.detailed import deep_health_check
