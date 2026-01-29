@@ -277,7 +277,7 @@ class NudgeRouter:
                 return []
 
             queue = self._queues[agent_id]
-            messages = []
+            messages: list[Any] = []
 
             # Collect non-expired messages
             remaining = []

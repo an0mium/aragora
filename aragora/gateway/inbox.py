@@ -171,7 +171,7 @@ class InboxAggregator:
             self._threads.clear()
             return count
 
-        to_keep = deque(maxlen=self._max_size)
+        to_keep: deque[Any] = deque(maxlen=self._max_size)
         removed = 0
         for msg in self._messages:
             if msg.channel == channel:

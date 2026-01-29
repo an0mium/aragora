@@ -1647,9 +1647,9 @@ class TestGetAnalyticsDashboard:
 
 class TestEdgeCases:
     @pytest.mark.asyncio
-    async def test_debate_analytics_multiple_elo_updates(self):
+    async def test_debate_analytics_multiple_elo_updates(self, tmp_db_path):
         """Latest ELO should be used."""
-        analytics = DebateAnalytics()
+        analytics = DebateAnalytics(db_path=tmp_db_path)
         await analytics.record_agent_activity(
             agent_id="claude",
             debate_id="d1",
@@ -1663,9 +1663,9 @@ class TestEdgeCases:
         assert perf.current_elo == 1550.0
 
     @pytest.mark.asyncio
-    async def test_debate_stats_zero_completed_no_division_error(self):
+    async def test_debate_stats_zero_completed_no_division_error(self, tmp_db_path):
         """When no debates are completed, consensus_rate should be 0."""
-        analytics = DebateAnalytics()
+        analytics = DebateAnalytics(db_path=tmp_db_path)
         await analytics.record_debate(
             debate_id="d1",
             rounds=1,
@@ -1678,17 +1678,17 @@ class TestEdgeCases:
         assert stats.consensus_rate == 0.0
 
     @pytest.mark.asyncio
-    async def test_agent_performance_zero_messages_no_division_error(self):
+    async def test_agent_performance_zero_messages_no_division_error(self, tmp_db_path):
         """Agent with no records should not cause division error."""
-        analytics = DebateAnalytics()
+        analytics = DebateAnalytics(db_path=tmp_db_path)
         perf = await analytics.get_agent_performance("ghost")
         assert perf.error_rate == 0.0
         assert perf.avg_cost_per_debate == Decimal("0")
 
     @pytest.mark.asyncio
-    async def test_cost_breakdown_no_agent_records(self):
+    async def test_cost_breakdown_no_agent_records(self, tmp_db_path):
         """Cost breakdown with debates but no agent records."""
-        analytics = DebateAnalytics()
+        analytics = DebateAnalytics(db_path=tmp_db_path)
         await analytics.record_debate(
             debate_id="d1",
             rounds=3,
@@ -1715,7 +1715,5 @@ class TestEdgeCases:
 
     def test_usage_trend_granularities(self):
         """Ensure all granularity strings are covered."""
-        analytics = DebateAnalytics()
-        # This just tests that the code won't raise on each granularity
         for gran in DebateTimeGranularity:
             assert isinstance(gran.value, str)
