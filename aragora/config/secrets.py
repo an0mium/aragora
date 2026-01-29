@@ -6,6 +6,12 @@ This module provides secure secret management with multiple fallback strategies:
 2. Environment variables (local development)
 3. Default values (for non-sensitive config)
 
+Security Features:
+- Strict mode: Critical secrets MUST come from Secrets Manager in production
+- Audit logging for SOC 2 compliance
+- Automatic cache expiration
+- Thread-safe secret access
+
 Usage:
     from aragora.config.secrets import get_secret, SecretManager
 
@@ -16,6 +22,13 @@ Usage:
     # Or use the manager for batch loading
     manager = SecretManager()
     secrets = manager.get_secrets(["JWT_SECRET_KEY", "STRIPE_SECRET_KEY"])
+
+Production Mode:
+    In production (ARAGORA_ENV=production), critical secrets will NOT fall back
+    to environment variables. This prevents accidental use of .env files in
+    production and enforces proper secret management.
+
+    Set ARAGORA_SECRETS_STRICT=false to disable strict mode (not recommended).
 """
 
 from __future__ import annotations
@@ -38,6 +51,8 @@ MANAGED_SECRETS = frozenset(
         "ARAGORA_JWT_SECRET",
         # Encryption
         "ARAGORA_ENCRYPTION_KEY",
+        # Audit signing
+        "ARAGORA_AUDIT_SIGNING_KEY",
         # OAuth
         "GOOGLE_OAUTH_CLIENT_ID",
         "GOOGLE_OAUTH_CLIENT_SECRET",
@@ -79,6 +94,73 @@ MANAGED_SECRETS = frozenset(
         "SENTRY_DSN",
     }
 )
+
+# CRITICAL SECRETS - These MUST NOT fall back to environment variables in production
+# These are high-value secrets where env var fallback could indicate a security issue
+CRITICAL_SECRETS = frozenset(
+    {
+        # Authentication - Compromise allows session forging
+        "JWT_SECRET_KEY",
+        "JWT_REFRESH_SECRET",
+        "ARAGORA_JWT_SECRET",
+        # Encryption - Compromise allows data decryption
+        "ARAGORA_ENCRYPTION_KEY",
+        "ARAGORA_AUDIT_SIGNING_KEY",
+        # Database - Full data access
+        "DATABASE_URL",
+        "ARAGORA_POSTGRES_DSN",
+        "SUPABASE_DB_PASSWORD",
+        "SUPABASE_POSTGRES_DSN",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        # Payment - Financial data access
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+    }
+)
+
+
+class SecretNotFoundError(Exception):
+    """Raised when a critical secret is not found in Secrets Manager."""
+
+    def __init__(self, name: str, message: str | None = None):
+        self.name = name
+        if message:
+            super().__init__(message)
+        else:
+            super().__init__(
+                f"Critical secret '{name}' not found in AWS Secrets Manager. "
+                f"In production, critical secrets must be stored in Secrets Manager, "
+                f"not environment variables. Configure AWS Secrets Manager or set "
+                f"ARAGORA_SECRETS_STRICT=false to disable strict mode (not recommended)."
+            )
+
+
+def is_strict_mode() -> bool:
+    """
+    Check if strict secrets mode is enabled.
+
+    Strict mode is enabled by default in production/staging environments.
+    In strict mode, critical secrets MUST come from AWS Secrets Manager,
+    not environment variables.
+
+    Returns:
+        True if strict mode is enabled
+    """
+    # Check explicit override first
+    explicit = os.environ.get("ARAGORA_SECRETS_STRICT", "").lower()
+    if explicit in ("false", "0", "no"):
+        return False
+    if explicit in ("true", "1", "yes"):
+        return True
+
+    # Default: strict in production/staging
+    env = os.environ.get("ARAGORA_ENV", "").lower()
+    return env in ("production", "prod", "staging", "stage")
+
+
+def is_critical_secret(name: str) -> bool:
+    """Check if a secret is classified as critical."""
+    return name in CRITICAL_SECRETS
 
 
 @dataclass
@@ -298,27 +380,65 @@ class SecretManager:
         self._initialize(force_refresh=True)
         logger.info("Secrets manually refreshed")
 
-    def get(self, name: str, default: str | None = None) -> str | None:
+    def get(
+        self,
+        name: str,
+        default: str | None = None,
+        strict: bool | None = None,
+    ) -> str | None:
         """
         Get a secret value.
 
         Args:
             name: Secret name (e.g., "JWT_SECRET_KEY")
             default: Default value if not found
+            strict: Override strict mode for this call (None = use global setting)
 
         Returns:
             Secret value or default
+
+        Raises:
+            SecretNotFoundError: If strict mode is enabled for a critical secret
+                and it's not found in AWS Secrets Manager
         """
         self._initialize()
+
+        # Determine if strict mode applies
+        use_strict = strict if strict is not None else is_strict_mode()
+        is_critical = is_critical_secret(name)
 
         # 1. Check AWS cache first
         if name in self._cached_secrets:
             self._log_access(name, "aws", True)
             return self._cached_secrets[name]
 
-        # 2. Fall back to environment variable
+        # 2. Check environment variable
         env_value = os.environ.get(name)
+
+        # In strict mode, critical secrets MUST NOT come from env vars
+        if use_strict and is_critical:
+            if env_value is not None:
+                # Log warning - env var exists but shouldn't be used
+                logger.warning(
+                    "SECURITY: Critical secret '%s' found in environment variable "
+                    "but strict mode is enabled. This secret should be in AWS "
+                    "Secrets Manager. Ignoring env var value.",
+                    name,
+                )
+                self._log_access(name, "env_blocked", False)
+            # Secret not in AWS - raise error
+            self._log_access(name, "not_found_strict", False)
+            raise SecretNotFoundError(name)
+
+        # Non-strict mode or non-critical secret - allow env fallback
         if env_value is not None:
+            if is_critical:
+                # Warn even in non-strict mode
+                logger.warning(
+                    "SECURITY: Critical secret '%s' loaded from environment variable. "
+                    "Consider migrating to AWS Secrets Manager for production use.",
+                    name,
+                )
             self._log_access(name, "env", True)
             return env_value
 
@@ -409,7 +529,11 @@ def reset_secret_manager() -> None:
     _manager = None
 
 
-def get_secret(name: str, default: str | None = None) -> str | None:
+def get_secret(
+    name: str,
+    default: str | None = None,
+    strict: bool | None = None,
+) -> str | None:
     """
     Get a secret value.
 
@@ -419,15 +543,23 @@ def get_secret(name: str, default: str | None = None) -> str | None:
     Args:
         name: Secret name (e.g., "JWT_SECRET_KEY")
         default: Default value if not found
+        strict: Override strict mode for this call (None = use global setting)
 
     Returns:
         Secret value or default
 
+    Raises:
+        SecretNotFoundError: If strict mode is enabled for a critical secret
+            and it's not found in AWS Secrets Manager
+
     Example:
         jwt_secret = get_secret("JWT_SECRET_KEY")
         stripe_key = get_secret("STRIPE_SECRET_KEY", "")
+
+        # Force non-strict for local development
+        api_key = get_secret("API_KEY", strict=False)
     """
-    return get_secret_manager().get(name, default)
+    return get_secret_manager().get(name, default, strict=strict)
 
 
 def get_required_secret(name: str) -> str:

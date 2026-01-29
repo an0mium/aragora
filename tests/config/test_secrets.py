@@ -22,12 +22,16 @@ import boto3
 from botocore.exceptions import ClientError
 
 from aragora.config.secrets import (
+    CRITICAL_SECRETS,
     MANAGED_SECRETS,
     SecretManager,
     SecretsConfig,
+    SecretNotFoundError,
     clear_secret_cache,
     get_required_secret,
     get_secret,
+    is_critical_secret,
+    is_strict_mode,
     get_secret_manager,
     reset_secret_manager,
 )
@@ -437,3 +441,165 @@ class TestManagedSecrets:
         """MANAGED_SECRETS contains expected number of secrets."""
         # At least 20 secrets should be managed
         assert len(MANAGED_SECRETS) >= 20
+
+
+class TestStrictMode:
+    """Tests for strict secrets mode (production security)."""
+
+    @pytest.fixture(autouse=True)
+    def reset_manager(self):
+        """Reset global manager before and after each test."""
+        reset_secret_manager()
+        clear_secret_cache()
+        yield
+        reset_secret_manager()
+        clear_secret_cache()
+
+    def test_is_strict_mode_disabled_by_default(self):
+        """Strict mode is disabled in development by default."""
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "development"}, clear=True):
+            assert is_strict_mode() is False
+
+    def test_is_strict_mode_enabled_in_production(self):
+        """Strict mode is enabled in production by default."""
+
+        for env in ["production", "prod", "staging", "stage"]:
+            with patch.dict(os.environ, {"ARAGORA_ENV": env}, clear=True):
+                assert is_strict_mode() is True, f"Failed for env={env}"
+
+    def test_is_strict_mode_explicit_override(self):
+        """Explicit ARAGORA_SECRETS_STRICT overrides default behavior."""
+
+        # Force strict even in development
+        with patch.dict(
+            os.environ, {"ARAGORA_ENV": "development", "ARAGORA_SECRETS_STRICT": "true"}
+        ):
+            assert is_strict_mode() is True
+
+        # Disable strict even in production
+        with patch.dict(
+            os.environ, {"ARAGORA_ENV": "production", "ARAGORA_SECRETS_STRICT": "false"}
+        ):
+            assert is_strict_mode() is False
+
+    def test_is_critical_secret(self):
+        """Critical secrets are correctly identified."""
+
+        # Critical secrets
+        assert is_critical_secret("JWT_SECRET_KEY") is True
+        assert is_critical_secret("DATABASE_URL") is True
+        assert is_critical_secret("STRIPE_SECRET_KEY") is True
+
+        # Non-critical secrets
+        assert is_critical_secret("OPENAI_API_KEY") is False
+        assert is_critical_secret("SENTRY_DSN") is False
+        assert is_critical_secret("RANDOM_CONFIG") is False
+
+    def test_strict_mode_raises_for_critical_secret_not_in_aws(self):
+        """In strict mode, critical secrets not in AWS raise error."""
+
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+        manager._cached_secrets = {}  # AWS has no secrets
+        manager._initialized = True
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", "JWT_SECRET_KEY": "env_value"},
+            clear=True,
+        ):
+            with pytest.raises(SecretNotFoundError) as exc_info:
+                manager.get("JWT_SECRET_KEY")
+
+            assert "JWT_SECRET_KEY" in str(exc_info.value)
+            assert "Secrets Manager" in str(exc_info.value)
+
+    def test_strict_mode_allows_non_critical_env_fallback(self):
+        """In strict mode, non-critical secrets can still use env fallback."""
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+        manager._cached_secrets = {}  # AWS has no secrets for this test
+        manager._initialized = True
+
+        # Use a non-critical secret name that won't exist in AWS
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", "TEST_NON_CRITICAL_SECRET": "test-value-123"},
+            clear=True,
+        ):
+            result = manager.get("TEST_NON_CRITICAL_SECRET")
+            assert result == "test-value-123"
+
+    def test_strict_mode_allows_aws_critical_secrets(self):
+        """In strict mode, critical secrets from AWS are allowed."""
+        import time
+
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+        manager._cached_secrets = {"JWT_SECRET_KEY": "aws_value"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True):
+            result = manager.get("JWT_SECRET_KEY")
+            assert result == "aws_value"
+
+    def test_strict_mode_per_call_override(self):
+        """Strict mode can be overridden per-call."""
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+        manager._cached_secrets = {}
+        manager._initialized = True
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", "JWT_SECRET_KEY": "env_value"},
+            clear=True,
+        ):
+            # With strict=False override, env fallback is allowed
+            result = manager.get("JWT_SECRET_KEY", strict=False)
+            assert result == "env_value"
+
+    def test_non_strict_mode_warns_for_critical_env_secrets(self, caplog):
+        """In non-strict mode, critical secrets from env log a warning."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+
+        config = SecretsConfig(use_aws=False)
+        manager = SecretManager(config)
+        manager._initialized = True
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "development", "JWT_SECRET_KEY": "env_value"},
+            clear=True,
+        ):
+            result = manager.get("JWT_SECRET_KEY")
+            assert result == "env_value"
+
+        # Should have logged a warning
+        assert any("JWT_SECRET_KEY" in record.message for record in caplog.records)
+        assert any("environment variable" in record.message for record in caplog.records)
+
+    def test_secret_not_found_error_message(self):
+        """SecretNotFoundError has helpful message."""
+
+        error = SecretNotFoundError("TEST_SECRET")
+        message = str(error)
+
+        assert "TEST_SECRET" in message
+        assert "Secrets Manager" in message
+        assert "ARAGORA_SECRETS_STRICT" in message
+
+    def test_critical_secrets_is_frozenset(self):
+        """CRITICAL_SECRETS is immutable."""
+
+        assert isinstance(CRITICAL_SECRETS, frozenset)
+
+    def test_critical_secrets_subset_of_managed(self):
+        """All critical secrets should be in managed secrets."""
+
+        for secret in CRITICAL_SECRETS:
+            assert secret in MANAGED_SECRETS, f"Critical secret {secret} not in MANAGED_SECRETS"
