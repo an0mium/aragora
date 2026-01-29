@@ -271,8 +271,8 @@ class TeamsSSO:
                 try:
                     key = self._jwks_cache.get_signing_key(kid)
                     return key.key
-                except Exception:
-                    pass  # Key not in cache, refetch
+                except (KeyError, ValueError, AttributeError) as e:
+                    logger.debug(f"Key {kid} not in JWKS cache, will refetch: {e}")
 
             # Fetch fresh JWKS
             jwks_url = f"https://login.microsoftonline.com/{self.tenant_id}/discovery/v2.0/keys"
