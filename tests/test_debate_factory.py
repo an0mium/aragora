@@ -9,7 +9,12 @@ from aragora.server.debate_factory import (
     DebateConfig,
     DebateFactory,
 )
-from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE
+from aragora.config import (
+    ALLOWED_AGENT_TYPES,
+    DEFAULT_AGENTS,
+    DEFAULT_ROUNDS,
+    MAX_AGENTS_PER_DEBATE,
+)
 
 
 class TestAgentSpec:
@@ -89,8 +94,8 @@ class TestDebateConfig:
     def test_default_values(self):
         """Default values are set correctly."""
         config = DebateConfig(question="Test question")
-        assert config.agents_str == "anthropic-api,openai-api"
-        assert config.rounds == 8  # 9-round format (0-8) for web debates
+        assert config.agents_str == DEFAULT_AGENTS
+        assert config.rounds == DEFAULT_ROUNDS  # 9-round format (0-8) for web debates
         assert config.consensus == "judge"  # Judge-based for final decisions
         assert config.debate_format == "full"  # Full thorough debate by default
 

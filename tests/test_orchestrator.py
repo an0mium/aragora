@@ -76,8 +76,10 @@ class TestDebateProtocol:
 
     def test_default_protocol(self):
         """Test default protocol settings."""
+        from aragora.config import DEFAULT_ROUNDS
+
         protocol = DebateProtocol()
-        assert protocol.rounds == 8  # Structured 8-round format (0-7), Round 8 is adjudication
+        assert protocol.rounds == DEFAULT_ROUNDS  # Structured 9-round format (0-8)
         assert protocol.consensus == "judge"  # Default to judge-based consensus
         assert protocol.early_stopping is True
 

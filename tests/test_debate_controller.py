@@ -16,6 +16,7 @@ import time
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from dataclasses import asdict
 
+from aragora.config import DEFAULT_ROUNDS, MAX_ROUNDS
 from aragora.server.debate_controller import (
     DebateRequest,
     DebateResponse,
@@ -33,7 +34,7 @@ class TestDebateRequest:
         request = DebateRequest.from_dict(data)
 
         assert request.question == "What is the meaning of life?"
-        assert request.rounds == 8  # Default
+        assert request.rounds == DEFAULT_ROUNDS  # Default
         assert request.consensus == "judge"  # Default
         assert request.auto_select is False
         assert request.auto_select_config == {}
@@ -88,16 +89,16 @@ class TestDebateRequest:
         assert request.rounds == 1
 
     def test_from_dict_rounds_clamped_max(self):
-        """Rounds should be clamped to maximum of 10."""
+        """Rounds should be clamped to maximum of MAX_ROUNDS."""
         data = {"question": "Test?", "rounds": 100}
         request = DebateRequest.from_dict(data)
-        assert request.rounds == 10
+        assert request.rounds == MAX_ROUNDS
 
     def test_from_dict_invalid_rounds_defaults(self):
-        """Invalid rounds value should default to 8."""
+        """Invalid rounds value should default to DEFAULT_ROUNDS."""
         data = {"question": "Test?", "rounds": "invalid"}
         request = DebateRequest.from_dict(data)
-        assert request.rounds == 8
+        assert request.rounds == DEFAULT_ROUNDS
 
     def test_post_init_sets_empty_config(self):
         """__post_init__ should initialize None config to empty dict."""

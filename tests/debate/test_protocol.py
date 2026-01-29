@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pytest
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.debate.protocol import (
     DebateProtocol,
     RoundPhase,
@@ -76,9 +77,9 @@ class TestDebateProtocolDefaults:
         assert protocol.topology == "all-to-all"
 
     def test_default_rounds(self):
-        """Default rounds is 9."""
+        """Default rounds uses global settings."""
         protocol = DebateProtocol()
-        assert protocol.rounds == 9
+        assert protocol.rounds == DEFAULT_ROUNDS
 
     def test_default_consensus(self):
         """Default consensus is judge."""
@@ -312,8 +313,8 @@ class TestAragoraAIProtocol:
     """Tests for ARAGORA_AI_PROTOCOL preset."""
 
     def test_rounds_count(self):
-        """ARAGORA_AI_PROTOCOL has 9 rounds."""
-        assert ARAGORA_AI_PROTOCOL.rounds == 9
+        """ARAGORA_AI_PROTOCOL uses global default rounds."""
+        assert ARAGORA_AI_PROTOCOL.rounds == DEFAULT_ROUNDS
 
     def test_uses_structured_phases(self):
         """ARAGORA_AI_PROTOCOL uses structured phases."""

@@ -8,6 +8,7 @@ user_vote_multiplier conviction-weighted voting calculation.
 import pytest
 from dataclasses import fields
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.debate.protocol import DebateProtocol, user_vote_multiplier
 
 
@@ -23,22 +24,22 @@ class TestDebateProtocol:
         """Default values should be sensible."""
         protocol = DebateProtocol()
 
-        # Core defaults (updated for 8-round structured format)
+        # Core defaults (updated for 9-round structured format)
         assert protocol.topology == "all-to-all"
-        assert protocol.rounds == 8
+        assert protocol.rounds == DEFAULT_ROUNDS
         assert protocol.consensus == "judge"
         assert protocol.consensus_threshold == 0.6
 
         # Role and voting defaults
         assert protocol.allow_abstain is True
         assert protocol.require_reasoning is True
-        assert protocol.proposer_count == -1  # All agents propose in 8-round format
+        assert protocol.proposer_count == -1  # All agents propose in structured format
         assert protocol.critic_count == -1  # All non-proposers
 
         # Early stopping defaults (higher thresholds for structured debates)
         assert protocol.early_stopping is True
         assert protocol.early_stop_threshold == 0.95
-        assert protocol.min_rounds_before_early_stop == 7
+        assert protocol.min_rounds_before_early_stop == max(DEFAULT_ROUNDS - 1, 1)
 
         # Convergence defaults (higher threshold for quality)
         assert protocol.convergence_detection is True

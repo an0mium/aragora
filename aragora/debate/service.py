@@ -104,8 +104,14 @@ class DebateOptions:
             # Cast from settings string to literal type (validated at config load)
             consensus_value = settings.debate.default_consensus
             if consensus_value in (
-                "majority", "unanimous", "judge", "none",
-                "weighted", "supermajority", "any", "byzantine"
+                "majority",
+                "unanimous",
+                "judge",
+                "none",
+                "weighted",
+                "supermajority",
+                "any",
+                "byzantine",
             ):
                 self.consensus = consensus_value  # type: ignore[assignment]
 
@@ -280,7 +286,7 @@ class DebateService:
         self,
         task: str,
         agents: Optional[Union[list[Agent], list[str]]] = None,
-        rounds: int = 5,
+        rounds: Optional[int] = None,
     ) -> DebateResult:
         """Run a thorough debate with more rounds and stricter consensus.
 
@@ -289,11 +295,14 @@ class DebateService:
         Args:
             task: The topic to debate
             agents: Optional agents (uses defaults if not provided)
-            rounds: Number of rounds (default 5)
+            rounds: Number of rounds (defaults to global debate settings)
 
         Returns:
             DebateResult
         """
+        if rounds is None:
+            rounds = get_settings().debate.default_rounds
+
         return await self.run(
             task=task,
             agents=agents,

@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, Optional
 
-from aragora.config import AGENT_TIMEOUT_SECONDS, DEBATE_TIMEOUT_SECONDS
+from aragora.config import AGENT_TIMEOUT_SECONDS, DEBATE_TIMEOUT_SECONDS, DEFAULT_ROUNDS
 from aragora.debate.role_matcher import RoleMatchingConfig
 from aragora.debate.roles import RoleRotationConfig
 from aragora.resilience import CircuitBreaker  # Re-export for backwards compatibility
@@ -48,7 +48,7 @@ class RoundPhase:
     cognitive_mode: str  # Analyst, Skeptic, Lateral, Synthesizer, etc.
 
 
-# Default 9-round structured debate format for aragora.ai
+# Default structured debate format for aragora.ai (defaults to ARAGORA_DEFAULT_ROUNDS=9)
 # Round 0 (Context Gathering) runs parallel with Round 1
 # Rounds 1-7 are the core debate cycle
 # Round 8 (Adjudication) handles voting, judge verdict, and final synthesis
@@ -118,6 +118,9 @@ STRUCTURED_ROUND_PHASES: list[RoundPhase] = [
     ),
 ]
 
+# Derived defaults (kept in sync with config)
+DEFAULT_MIN_ROUNDS_BEFORE_EARLY_STOP = max(DEFAULT_ROUNDS - 1, 1)
+
 
 @dataclass
 class DebateProtocol:
@@ -130,7 +133,7 @@ class DebateProtocol:
         0.5  # fraction of possible critique connections (for sparse/random-graph)
     )
     topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
-    rounds: int = 9  # Structured 9-round format (0-8), Round 8 is adjudication
+    rounds: int = DEFAULT_ROUNDS  # Structured default format (0-8), Round 8 is adjudication
 
     # Structured round phases: Use predefined phase structure for each round
     # When enabled, each round has a specific focus (Analysis, Skeptic, Lateral, etc.)
@@ -186,7 +189,9 @@ class DebateProtocol:
     early_stop_threshold: float = (
         0.95  # fraction of agents saying stop to trigger (near-impossible)
     )
-    min_rounds_before_early_stop: int = 8  # minimum rounds before allowing early exit
+    min_rounds_before_early_stop: int = (
+        DEFAULT_MIN_ROUNDS_BEFORE_EARLY_STOP  # minimum rounds before allowing early exit
+    )
 
     # Asymmetric debate roles: Assign affirmative/negative/neutral stances
     # Forces perspective diversity, prevents premature consensus
@@ -433,10 +438,10 @@ def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
 # CLI, SDK, and API users retain full flexibility with custom configurations.
 
 ARAGORA_AI_PROTOCOL = DebateProtocol(
-    # 9-round structured format
-    rounds=9,
+    # Structured format (defaults to ARAGORA_DEFAULT_ROUNDS)
+    rounds=DEFAULT_ROUNDS,
     use_structured_phases=True,
-    round_phases=None,  # Uses STRUCTURED_ROUND_PHASES (9 rounds)
+    round_phases=None,  # Uses STRUCTURED_ROUND_PHASES (DEFAULT_ROUNDS phases)
     # Judge-based consensus for final decision
     consensus="judge",
     consensus_threshold=0.6,
@@ -447,7 +452,7 @@ ARAGORA_AI_PROTOCOL = DebateProtocol(
     # Near-impossible early stopping (require 95% uniform consensus)
     early_stopping=True,
     early_stop_threshold=0.95,
-    min_rounds_before_early_stop=7,
+    min_rounds_before_early_stop=DEFAULT_MIN_ROUNDS_BEFORE_EARLY_STOP,
     # High convergence bar to prevent premature consensus
     convergence_detection=True,
     convergence_threshold=0.95,
