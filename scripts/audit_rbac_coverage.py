@@ -53,9 +53,14 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
         r'@(get|post|put|delete|patch)\s*\(\s*["\']([^"\']+)["\']', re.IGNORECASE
     )
     # Pattern for check_permission method calls within function body
+    # Includes SecureHandler methods: require_permission_or_error, require_auth_or_error
     manual_check_pattern = re.compile(
         r"\bcheck_permission\s*\(|self\.check_permission\s*\(|_check_permission\s*\("
+        r"|require_permission_or_error\s*\(|require_auth_or_error\s*\("
+        r"|self\.require_permission_or_error\s*\(|self\.require_auth_or_error\s*\("
     )
+    # Pattern for SecureHandler inheritance
+    secure_handler_pattern = re.compile(r"class\s+\w+\s*\([^)]*SecureHandler[^)]*\)\s*:")
 
     for py_file in handler_dir.rglob("*.py"):
         if py_file.name.startswith("_"):
@@ -64,6 +69,9 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
         try:
             content = py_file.read_text()
             lines = content.split("\n")
+
+            # Check if file has SecureHandler inheritance (class-level protection)
+            file_has_secure_handler = bool(secure_handler_pattern.search(content))
 
             i = 0
             while i < len(lines):
@@ -123,6 +131,10 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                     elif manual_check_match:
                         has_perm = True
                         protection_type = "manual_check"
+                    elif file_has_secure_handler:
+                        # Handler class extends SecureHandler (provides auth + permission checks)
+                        has_perm = True
+                        protection_type = "secure_handler"
 
                     handler = HandlerInfo(
                         file=str(py_file.relative_to(handler_dir.parent.parent)),
