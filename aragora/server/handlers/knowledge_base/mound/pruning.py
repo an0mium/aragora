@@ -44,6 +44,10 @@ class PruningHandlerProtocol(Protocol):
 class PruningOperationsMixin:
     """Mixin providing pruning API endpoints."""
 
+    def _get_mound(self) -> Optional["KnowledgeMound"]:
+        """Provided by host class."""
+        ...
+
     @require_permission("knowledge:admin")
     @rate_limit(requests_per_minute=30)
     async def get_prunable_items(

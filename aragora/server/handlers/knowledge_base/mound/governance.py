@@ -47,6 +47,10 @@ class GovernanceHandlerProtocol(Protocol):
 class GovernanceOperationsMixin:
     """Mixin providing governance (RBAC + audit) API endpoints."""
 
+    def _get_mound(self) -> Optional["KnowledgeMound"]:
+        """Provided by host class."""
+        ...
+
     @require_permission("governance:admin")
     @rate_limit(requests_per_minute=20)
     async def create_role(

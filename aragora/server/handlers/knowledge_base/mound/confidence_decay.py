@@ -42,6 +42,10 @@ class ConfidenceDecayHandlerProtocol(Protocol):
 class ConfidenceDecayOperationsMixin:
     """Mixin providing confidence decay API endpoints."""
 
+    def _get_mound(self) -> Optional["KnowledgeMound"]:
+        """Provided by host class."""
+        ...
+
     @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=10)
     async def apply_confidence_decay_endpoint(

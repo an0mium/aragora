@@ -39,6 +39,10 @@ class CurationHandlerProtocol(Protocol):
 class CurationOperationsMixin:
     """Mixin providing curation management endpoints."""
 
+    def _get_mound(self) -> Optional["KnowledgeMound"]:
+        """Provided by host class."""
+        ...
+
     def _check_knowledge_permission(
         self, handler: Any, action: str = "read"
     ) -> Optional[HandlerResult]:

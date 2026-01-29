@@ -40,6 +40,10 @@ class DedupHandlerProtocol(Protocol):
 class DedupOperationsMixin:
     """Mixin providing deduplication API endpoints."""
 
+    def _get_mound(self) -> Optional["KnowledgeMound"]:
+        """Provided by host class."""
+        ...
+
     @rate_limit(requests_per_minute=30)
     @require_permission("knowledge:read")
     async def get_duplicate_clusters(

@@ -44,6 +44,10 @@ class AnalyticsHandlerProtocol(Protocol):
 class AnalyticsOperationsMixin:
     """Mixin providing analytics API endpoints."""
 
+    def _get_mound(self) -> Optional["KnowledgeMound"]:
+        """Provided by host class."""
+        ...
+
     @require_permission("analytics:read")
     @rate_limit(requests_per_minute=20)
     async def analyze_coverage(

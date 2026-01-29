@@ -41,6 +41,10 @@ class ExtractionHandlerProtocol(Protocol):
 class ExtractionOperationsMixin:
     """Mixin providing knowledge extraction API endpoints."""
 
+    def _get_mound(self) -> Optional["KnowledgeMound"]:
+        """Provided by host class."""
+        ...
+
     @require_permission("extraction:create")
     @rate_limit(requests_per_minute=20)
     async def extract_from_debate(

@@ -42,6 +42,10 @@ class ContradictionHandlerProtocol(Protocol):
 class ContradictionOperationsMixin:
     """Mixin providing contradiction detection API endpoints."""
 
+    def _get_mound(self) -> Optional["KnowledgeMound"]:
+        """Provided by host class."""
+        ...
+
     @require_permission("knowledge:read")
     @rate_limit(requests_per_minute=10)
     async def detect_contradictions(
