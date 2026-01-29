@@ -1526,3 +1526,300 @@ PERM_DR_EXECUTE = _permission(
     "Execute DR Procedures",
     "Execute disaster recovery procedures",
 )
+
+# ============================================================================
+# METRICS PERMISSIONS
+# ============================================================================
+
+PERM_METRICS_READ = _permission(
+    ResourceType.METRICS, Action.READ, "View Metrics", "Access system and admin metrics"
+)
+
+# ============================================================================
+# A2A (AGENT-TO-AGENT) PERMISSIONS
+# ============================================================================
+
+PERM_A2A_READ = _permission(
+    ResourceType.A2A, Action.READ, "View A2A", "View agent-to-agent communication"
+)
+PERM_A2A_CREATE = _permission(
+    ResourceType.A2A, Action.CREATE, "Create A2A", "Create agent-to-agent interactions"
+)
+
+# ============================================================================
+# TRANSCRIPTION PERMISSIONS
+# ============================================================================
+
+PERM_TRANSCRIPTION_READ = _permission(
+    ResourceType.TRANSCRIPTION, Action.READ, "View Transcription", "View transcription results"
+)
+PERM_TRANSCRIPTION_CREATE = _permission(
+    ResourceType.TRANSCRIPTION,
+    Action.CREATE,
+    "Create Transcription",
+    "Create new transcription jobs",
+)
+
+# ============================================================================
+# RLM PERMISSIONS
+# ============================================================================
+
+PERM_RLM_READ = _permission(
+    ResourceType.RLM, Action.READ, "View RLM", "View recursive language model state"
+)
+PERM_RLM_CREATE = _permission(ResourceType.RLM, Action.CREATE, "Create RLM", "Create RLM sessions")
+
+# ============================================================================
+# REVIEWS PERMISSIONS
+# ============================================================================
+
+PERM_REVIEWS_READ = _permission(
+    ResourceType.REVIEWS, Action.READ, "View Reviews", "View user reviews and ratings"
+)
+
+# ============================================================================
+# ACCOUNTS PAYABLE PERMISSIONS
+# ============================================================================
+
+PERM_AP_READ = _permission(ResourceType.AP, Action.READ, "View AP", "View accounts payable data")
+
+# ============================================================================
+# EXPENSES PERMISSIONS
+# ============================================================================
+
+PERM_EXPENSES_READ = _permission(
+    ResourceType.EXPENSES, Action.READ, "View Expenses", "View expense records"
+)
+PERM_EXPENSES_WRITE = _permission(
+    ResourceType.EXPENSES, Action.WRITE, "Manage Expenses", "Create and modify expenses"
+)
+PERM_EXPENSES_APPROVE = _permission(
+    ResourceType.EXPENSES, Action.APPROVE, "Approve Expenses", "Approve expense reports"
+)
+
+# ============================================================================
+# PAYMENTS PERMISSIONS
+# ============================================================================
+
+PERM_PAYMENTS_READ = _permission(
+    ResourceType.PAYMENTS, Action.READ, "View Payments", "View payment transactions"
+)
+PERM_PAYMENTS_CHARGE = _permission(
+    ResourceType.PAYMENTS, Action.CHARGE, "Charge Payments", "Process payment charges"
+)
+PERM_PAYMENTS_AUTHORIZE = _permission(
+    ResourceType.PAYMENTS, Action.AUTHORIZE, "Authorize Payments", "Authorize payment transactions"
+)
+PERM_PAYMENTS_CAPTURE = _permission(
+    ResourceType.PAYMENTS, Action.CAPTURE, "Capture Payments", "Capture authorized payments"
+)
+PERM_PAYMENTS_REFUND = _permission(
+    ResourceType.PAYMENTS, Action.REFUND, "Refund Payments", "Process payment refunds"
+)
+PERM_PAYMENTS_VOID = _permission(
+    ResourceType.PAYMENTS, Action.VOID, "Void Payments", "Void pending transactions"
+)
+PERM_PAYMENTS_CUSTOMER_CREATE = _permission(
+    ResourceType.PAYMENTS,
+    Action.CREATE,
+    "Create Payment Customers",
+    "Create payment customer profiles",
+)
+PERM_PAYMENTS_CUSTOMER_READ = _permission(
+    ResourceType.PAYMENTS, Action.READ, "View Payment Customers", "View payment customer profiles"
+)
+PERM_PAYMENTS_SUBSCRIPTION_CREATE = _permission(
+    ResourceType.PAYMENTS, Action.CREATE, "Create Subscriptions", "Create payment subscriptions"
+)
+
+# ============================================================================
+# HR PERMISSIONS
+# ============================================================================
+
+PERM_HR_READ = _permission(ResourceType.HR, Action.READ, "View HR", "View human resources data")
+
+# ============================================================================
+# EMAIL PERMISSIONS
+# ============================================================================
+
+PERM_EMAIL_READ = _permission(ResourceType.EMAIL, Action.READ, "View Email", "View email messages")
+PERM_EMAIL_CREATE = _permission(
+    ResourceType.EMAIL, Action.CREATE, "Create Email", "Create and send emails"
+)
+PERM_EMAIL_UPDATE = _permission(
+    ResourceType.EMAIL, Action.UPDATE, "Update Email", "Modify email drafts and settings"
+)
+PERM_EMAIL_DELETE = _permission(
+    ResourceType.EMAIL, Action.DELETE, "Delete Email", "Delete email messages"
+)
+
+# ============================================================================
+# INTEGRATIONS PERMISSIONS
+# ============================================================================
+
+PERM_INTEGRATIONS_READ = _permission(
+    ResourceType.INTEGRATIONS, Action.READ, "View Integrations", "View third-party integrations"
+)
+PERM_INTEGRATIONS_DELETE = _permission(
+    ResourceType.INTEGRATIONS, Action.DELETE, "Delete Integrations", "Remove integrations"
+)
+
+# ============================================================================
+# ONBOARDING PERMISSIONS
+# ============================================================================
+
+PERM_ONBOARDING_READ = _permission(
+    ResourceType.ONBOARDING, Action.READ, "View Onboarding", "View onboarding status"
+)
+PERM_ONBOARDING_CREATE = _permission(
+    ResourceType.ONBOARDING, Action.CREATE, "Create Onboarding", "Start onboarding flows"
+)
+PERM_ONBOARDING_UPDATE = _permission(
+    ResourceType.ONBOARDING, Action.UPDATE, "Update Onboarding", "Modify onboarding progress"
+)
+
+# ============================================================================
+# PARTNER PERMISSIONS
+# ============================================================================
+
+PERM_PARTNER_READ = _permission(
+    ResourceType.PARTNER, Action.READ, "View Partners", "View partner information"
+)
+
+# ============================================================================
+# EVALUATION PERMISSIONS
+# ============================================================================
+
+PERM_EVALUATION_READ = _permission(
+    ResourceType.EVALUATION, Action.READ, "View Evaluations", "View evaluation results"
+)
+PERM_EVALUATION_CREATE = _permission(
+    ResourceType.EVALUATION, Action.CREATE, "Create Evaluations", "Run new evaluations"
+)
+
+# ============================================================================
+# PULSE PERMISSIONS
+# ============================================================================
+
+PERM_PULSE_READ = _permission(
+    ResourceType.PULSE, Action.READ, "View Pulse", "View trending topics and pulse data"
+)
+PERM_PULSE_CREATE = _permission(
+    ResourceType.PULSE, Action.CREATE, "Create Pulse", "Create pulse monitoring"
+)
+PERM_PULSE_UPDATE = _permission(
+    ResourceType.PULSE, Action.UPDATE, "Update Pulse", "Modify pulse settings"
+)
+
+# ============================================================================
+# PLUGINS PERMISSIONS
+# ============================================================================
+
+PERM_PLUGINS_EXECUTE = _permission(
+    ResourceType.PLUGINS, Action.EXECUTE, "Execute Plugins", "Run plugin operations"
+)
+PERM_PLUGINS_INSTALL = _permission(
+    ResourceType.PLUGINS, Action.INSTALL, "Install Plugins", "Install new plugins"
+)
+PERM_PLUGINS_UNINSTALL = _permission(
+    ResourceType.PLUGINS, Action.UNINSTALL, "Uninstall Plugins", "Remove plugins"
+)
+PERM_PLUGINS_SUBMIT = _permission(
+    ResourceType.PLUGINS, Action.SUBMIT, "Submit Plugins", "Submit plugins for review"
+)
+
+# ============================================================================
+# LEGAL PERMISSIONS
+# ============================================================================
+
+PERM_LEGAL_READ = _permission(
+    ResourceType.LEGAL, Action.READ, "View Legal", "View legal documents and status"
+)
+
+# ============================================================================
+# RECONCILIATION PERMISSIONS
+# ============================================================================
+
+PERM_RECONCILIATION_READ = _permission(
+    ResourceType.RECONCILIATION, Action.READ, "View Reconciliation", "View reconciliation data"
+)
+
+# ============================================================================
+# FEATURES PERMISSIONS
+# ============================================================================
+
+PERM_FEATURES_READ = _permission(
+    ResourceType.FEATURES, Action.READ, "View Features", "View feature flag status"
+)
+
+# ============================================================================
+# DR (DISASTER RECOVERY) ALIAS PERMISSIONS
+# ============================================================================
+
+PERM_DR_ALIAS_READ = _permission(
+    ResourceType.DR, Action.READ, "View DR Status", "View disaster recovery status (alias)"
+)
+PERM_DR_DRILL = _permission(
+    ResourceType.DR, Action.DRILL, "Run DR Drill", "Execute disaster recovery drills"
+)
+
+# ============================================================================
+# ADDITIONAL MISSING PERMISSIONS FOR EXISTING RESOURCES
+# ============================================================================
+
+# Inbox - additional actions
+PERM_INBOX_CREATE = _permission(
+    ResourceType.INBOX, Action.CREATE, "Create Inbox Items", "Create action items and meetings"
+)
+PERM_INBOX_WRITE = _permission(
+    ResourceType.INBOX, Action.WRITE, "Write Inbox", "Full write access to inbox"
+)
+
+# Skills - additional actions
+PERM_SKILLS_INVOKE = _permission(
+    ResourceType.SKILLS, Action.INVOKE, "Invoke Skills", "Execute skill operations"
+)
+
+# Memory - additional actions
+PERM_MEMORY_WRITE = _permission(
+    ResourceType.MEMORY, Action.WRITE, "Write Memory", "Full write access to memory"
+)
+
+# Documents - additional actions
+PERM_DOCUMENTS_DELETE = _permission(
+    ResourceType.DOCUMENTS, Action.DELETE, "Delete Documents", "Permanently delete documents"
+)
+
+# Scheduler - additional actions
+PERM_SCHEDULER_UPDATE = _permission(
+    ResourceType.SCHEDULER, Action.UPDATE, "Update Scheduler", "Modify scheduled jobs"
+)
+PERM_SCHEDULER_DELETE = _permission(
+    ResourceType.SCHEDULER, Action.DELETE, "Delete Scheduler", "Remove scheduled jobs"
+)
+
+# Billing - additional actions
+PERM_BILLING_DELETE = _permission(
+    ResourceType.BILLING, Action.DELETE, "Delete Billing", "Remove billing records"
+)
+PERM_BILLING_CANCEL = _permission(
+    ResourceType.BILLING, Action.CANCEL, "Cancel Billing", "Cancel subscriptions"
+)
+
+# Receipts - additional actions
+PERM_RECEIPT_SHARE = _permission(
+    ResourceType.RECEIPT, Action.SHARE, "Share Receipts", "Share receipts with stakeholders"
+)
+PERM_RECEIPT_SIGN = _permission(
+    ResourceType.RECEIPT, Action.SIGN, "Sign Receipts", "Cryptographically sign receipts"
+)
+
+# Organization - additional actions for usage
+PERM_ORG_USAGE_READ = _permission(
+    ResourceType.ORGANIZATION, Action.READ, "View Org Usage", "View organization usage metrics"
+)
+
+# Organization - members management
+PERM_ORG_MEMBERS = _permission(
+    ResourceType.ORGANIZATION, Action.READ, "View Org Members", "View organization members"
+)

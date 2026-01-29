@@ -126,6 +126,28 @@ class ResourceType(str, Enum):
     # Computer-use operations
     COMPUTER_USE = "computer_use"  # Computer-use orchestration (browser, shell, file access)
 
+    # Additional handler-required resource types
+    METRICS = "metrics"  # System and admin metrics
+    A2A = "a2a"  # Agent-to-Agent communication protocol
+    TRANSCRIPTION = "transcription"  # Speech transcription operations
+    RLM = "rlm"  # Recursive Language Models
+    REVIEWS = "reviews"  # User reviews and ratings
+    AP = "ap"  # Accounts payable automation
+    EXPENSES = "expenses"  # Expense management and tracking
+    PAYMENTS = "payments"  # Payment processing operations
+    HR = "hr"  # Human resources operations
+    EMAIL = "email"  # Email management operations
+    INTEGRATIONS = "integrations"  # Third-party integration management
+    ONBOARDING = "onboarding"  # User onboarding flows
+    PARTNER = "partner"  # Partner management
+    EVALUATION = "evaluation"  # Evaluation and assessment operations
+    PULSE = "pulse"  # Trending topics and pulse monitoring
+    PLUGINS = "plugins"  # Plugin installation and management
+    LEGAL = "legal"  # Legal document operations
+    RECONCILIATION = "reconciliation"  # Financial reconciliation
+    FEATURES = "features"  # Feature flag management
+    DR = "dr"  # Disaster recovery (alias for handlers)
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""
@@ -265,6 +287,22 @@ class Action(str, Enum):
     FILE_WRITE = "file_write"  # Write files to filesystem
     SCREENSHOT = "screenshot"  # Take screenshots
     NETWORK = "network"  # Network access (HTTP requests, etc.)
+
+    # Skills-specific actions
+    INVOKE = "invoke"  # Invoke/execute a skill
+
+    # DR-specific actions
+    DRILL = "drill"  # Execute disaster recovery drill
+
+    # Payment-specific actions
+    CHARGE = "charge"  # Charge a payment method
+    CAPTURE = "capture"  # Capture an authorized payment
+    REFUND = "refund"  # Refund a payment
+    VOID = "void"  # Void a pending transaction
+
+    # Plugin-specific actions
+    INSTALL = "install"  # Install a plugin
+    UNINSTALL = "uninstall"  # Uninstall a plugin
 
     # Wildcard
     ALL = "*"

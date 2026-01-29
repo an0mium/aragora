@@ -282,7 +282,7 @@ class HierarchyRegistry:
             if max_depth is not None and depth >= max_depth:
                 break
 
-            parent = self._nodes.get(current.parent_key)  # type: ignore
+            parent = self._nodes.get(current.parent_key)  # type: ignore[arg-type]  # parent_key checked via has_parent
             if parent:
                 ancestors.append(parent)
                 current = parent
