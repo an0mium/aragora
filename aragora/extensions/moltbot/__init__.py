@@ -6,6 +6,8 @@ Provides multi-channel consumer engagement:
 - Inbox: Unified multi-channel message aggregation
 - Voice: Speech-to-text and TTS integration
 - Canvas: Rich media rendering and interaction
+- Voice Wake: Wake word detection and voice commands
+- Capabilities: Device capability models and matching
 - Onboarding: User journey and activation flows
 
 Inspired by moltbot/moltbot, adapted for Aragora's enterprise semantics.
@@ -28,6 +30,43 @@ from .inbox import InboxManager
 from .gateway import LocalGateway
 from .voice import VoiceProcessor
 from .onboarding import OnboardingOrchestrator
+from .canvas import (
+    Canvas,
+    CanvasConfig,
+    CanvasElement,
+    CanvasLayer,
+    CanvasManager,
+    ElementType,
+)
+from .voice_wake import (
+    VoiceActivityState,
+    VoiceCommand,
+    VoiceSession as VoiceWakeSession,
+    VoiceWakeManager,
+    WakeWordConfig,
+    WakeWordEngine,
+    WakeWordEvent,
+)
+from .capabilities import (
+    ActuatorCapability,
+    AudioCapability,
+    CapabilityCategory,
+    CapabilityMatcher,
+    CapabilityRequirement,
+    CapabilitySpec,
+    ComputeCapability,
+    DeviceCapabilities,
+    DisplayCapability,
+    InputCapability,
+    NetworkCapability,
+    SensorCapability,
+    VideoCapability,
+    edge_compute_capabilities,
+    iot_hub_capabilities,
+    mobile_app_capabilities,
+    smart_display_capabilities,
+    smart_speaker_capabilities,
+)
 
 __all__ = [
     # Models
@@ -47,4 +86,38 @@ __all__ = [
     "LocalGateway",
     "VoiceProcessor",
     "OnboardingOrchestrator",
+    # Canvas
+    "Canvas",
+    "CanvasConfig",
+    "CanvasElement",
+    "CanvasLayer",
+    "CanvasManager",
+    "ElementType",
+    # Voice Wake
+    "VoiceActivityState",
+    "VoiceCommand",
+    "VoiceWakeManager",
+    "VoiceWakeSession",
+    "WakeWordConfig",
+    "WakeWordEngine",
+    "WakeWordEvent",
+    # Capabilities
+    "ActuatorCapability",
+    "AudioCapability",
+    "CapabilityCategory",
+    "CapabilityMatcher",
+    "CapabilityRequirement",
+    "CapabilitySpec",
+    "ComputeCapability",
+    "DeviceCapabilities",
+    "DisplayCapability",
+    "InputCapability",
+    "NetworkCapability",
+    "SensorCapability",
+    "VideoCapability",
+    "edge_compute_capabilities",
+    "iot_hub_capabilities",
+    "mobile_app_capabilities",
+    "smart_display_capabilities",
+    "smart_speaker_capabilities",
 ]
