@@ -71,8 +71,8 @@ class OAuthRotationHandler(RotationHandler):
 
                 client_id = client_id or get_secret(f"{provider.upper()}_CLIENT_ID")
                 client_secret = client_secret or get_secret(f"{provider.upper()}_CLIENT_SECRET")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not load OAuth client credentials from secrets: {e}")
 
         if not client_id or not client_secret:
             raise RotationError(

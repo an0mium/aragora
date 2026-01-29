@@ -111,8 +111,8 @@ class APIKeyRotationHandler(RotationHandler):
                 from aragora.config.secrets import get_secret
 
                 admin_key = get_secret("OPENAI_ADMIN_KEY")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not load OpenAI admin key from secrets: {e}")
 
         if not admin_key:
             await self._notify_manual_rotation(secret_id, "openai", metadata)
@@ -359,8 +359,8 @@ class APIKeyRotationHandler(RotationHandler):
                 from aragora.config.secrets import get_secret
 
                 admin_key = get_secret("OPENAI_ADMIN_KEY")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not load OpenAI admin key from secrets for revocation: {e}")
 
         if not admin_key:
             logger.warning(f"No admin key for OpenAI revocation of {secret_id}")
