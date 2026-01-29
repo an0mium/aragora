@@ -200,9 +200,9 @@ class TestArenaConfigDefaults:
         assert config.performance_monitor is None
 
     def test_default_enable_performance_monitor(self):
-        """Test default enable_performance_monitor is False."""
+        """Test default enable_performance_monitor is True."""
         config = ArenaConfig()
-        assert config.enable_performance_monitor is False
+        assert config.enable_performance_monitor is True
 
     def test_default_enable_telemetry(self):
         """Test default enable_telemetry is False."""
@@ -215,9 +215,9 @@ class TestArenaConfigDefaults:
         assert config.agent_selector is None
 
     def test_default_use_performance_selection(self):
-        """Test default use_performance_selection is False."""
+        """Test default use_performance_selection is True."""
         config = ArenaConfig()
-        assert config.use_performance_selection is False
+        assert config.use_performance_selection is True
 
     def test_default_use_airlock(self):
         """Test default use_airlock is False."""
