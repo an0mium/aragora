@@ -559,10 +559,11 @@ class TestSyncSchedulerRegistration:
         with tempfile.TemporaryDirectory() as tmpdir:
             scheduler = SyncScheduler(state_dir=Path(tmpdir))
 
-            for tenant in ["acme", "acme", "beta"]:
+            entries = [("acme", "jira"), ("acme", "confluence"), ("beta", "jira")]
+            for tenant, tool in entries:
                 connector = MagicMock()
-                connector.connector_id = f"jira-{tenant}"
-                connector.name = f"Jira ({tenant})"
+                connector.connector_id = f"{tool}-{tenant}"
+                connector.name = f"{tool.title()} ({tenant})"
                 scheduler.register_connector(connector, tenant_id=tenant)
 
             acme_jobs = scheduler.list_jobs(tenant_id="acme")

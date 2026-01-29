@@ -2215,6 +2215,7 @@ ROLE_MEMBER = Role(
         # Decisions
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
+        PERM_DECISION_UPDATE.key,
         # Workspaces (read and share)
         PERM_WORKSPACE_READ.key,
         PERM_WORKSPACE_SHARE.key,
@@ -2346,6 +2347,7 @@ ROLE_TEAM_LEAD = Role(
         # Decisions
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
+        PERM_DECISION_UPDATE.key,
     },
     parent_roles=["member"],
     priority=55,  # Between debate_creator and member

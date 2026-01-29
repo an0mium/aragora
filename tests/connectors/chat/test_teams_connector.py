@@ -595,18 +595,12 @@ class TestTeamsFileOperations:
             "webUrl": "https://view.example.com/file",
         }
 
-        # Mock download
-        mock_download_response = MagicMock()
-        mock_download_response.status_code = 200
-        mock_download_response.content = b"PDF content here"
-        mock_download_response.raise_for_status = MagicMock()
+        with patch.object(connector, "_graph_api_request", new_callable=AsyncMock) as mock_graph:
+            mock_graph.return_value = (True, meta_response, None)
 
-        with patch.object(connector, "_graph_api_request", new_callable=AsyncMock) as mock_req:
-            mock_req.return_value = (True, meta_response, None)
-
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_instance = mock_client.return_value.__aenter__.return_value
-                mock_instance.get = AsyncMock(return_value=mock_download_response)
+            # Mock _http_request for the download (used instead of direct httpx)
+            with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_http:
+                mock_http.return_value = (True, b"PDF content here", None)
 
                 result = await connector.download_file(
                     file_id="file-id-123",
@@ -616,6 +610,11 @@ class TestTeamsFileOperations:
         assert result.filename == "document.pdf"
         assert result.content_type == "application/pdf"
         assert result.content == b"PDF content here"
+        # Verify _http_request was called with return_raw=True
+        mock_http.assert_called_once()
+        call_kwargs = mock_http.call_args[1]
+        assert call_kwargs.get("return_raw") is True
+        assert call_kwargs.get("method") == "GET"
 
 
 class TestTeamsChannelHistory:

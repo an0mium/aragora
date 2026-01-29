@@ -114,7 +114,7 @@ class SQLServerConnector(EnterpriseConnector):
         self.pool_size = pool_size
 
         self._pool = None
-        self._cdc_task = None
+        self._cdc_task: Optional[asyncio.Task[None]] = None
         self._last_lsn: Optional[bytes] = None  # Last processed LSN for CDC
 
         # CDC support
@@ -426,7 +426,7 @@ class SQLServerConnector(EnterpriseConnector):
             return
 
         logger.info(f"[SQL Server CDC] Starting CDC polling for {self.database}")
-        self._cdc_task = asyncio.create_task(self._poll_cdc_changes())  # type: ignore[assignment]
+        self._cdc_task = asyncio.create_task(self._poll_cdc_changes())
 
     async def _poll_cdc_changes(self) -> None:
         """Poll CDC tables for changes."""
@@ -545,7 +545,7 @@ class SQLServerConnector(EnterpriseConnector):
             return
 
         logger.info(f"[SQL Server CT] Starting Change Tracking polling for {self.database}")
-        self._cdc_task = asyncio.create_task(self._poll_change_tracking())  # type: ignore[assignment]
+        self._cdc_task = asyncio.create_task(self._poll_change_tracking())
 
     async def _poll_change_tracking(self) -> None:
         """Poll Change Tracking for changes."""
