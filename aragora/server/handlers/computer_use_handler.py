@@ -92,7 +92,7 @@ class ComputerUseHandler(BaseHandler):
             return None
         if self._orchestrator is None:
             policy = create_default_computer_policy()
-            config = ComputerUseConfig(max_steps=20, timeout_seconds=300)
+            config = ComputerUseConfig(max_steps=20, timeout_seconds=300)  # type: ignore[call-arg]
             self._orchestrator = ComputerUseOrchestrator(policy=policy, config=config)
         return self._orchestrator
 
@@ -293,16 +293,16 @@ class ComputerUseHandler(BaseHandler):
             # Run the task asynchronously
             try:
                 result = run_async(orchestrator.run_task(goal=goal, max_steps=max_steps))
-                task["status"] = "completed" if result.success else "failed"
+                task["status"] = "completed" if result.success else "failed"  # type: ignore[attr-defined]
                 task["result"] = {
-                    "success": result.success,
+                    "success": result.success,  # type: ignore[attr-defined]
                     "message": result.message if hasattr(result, "message") else "",
                     "steps_taken": result.steps_taken if hasattr(result, "steps_taken") else 0,
                 }
                 task["steps"] = [
                     {
                         "action": s.action.value if hasattr(s.action, "value") else str(s.action),
-                        "success": s.success,
+                        "success": s.success,  # type: ignore[attr-defined]
                     }
                     for s in (result.steps if hasattr(result, "steps") else [])
                 ]

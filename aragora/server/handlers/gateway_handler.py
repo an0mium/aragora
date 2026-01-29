@@ -445,7 +445,7 @@ class GatewayHandler(BaseHandler):
         if not router:
             return error_response("Agent router not available", 503)
 
-        rules = router.list_rules() if hasattr(router, "list_rules") else []
+        rules: list = router.list_rules() if hasattr(router, "list_rules") else []
 
         return json_response(
             {
@@ -491,7 +491,7 @@ class GatewayHandler(BaseHandler):
             return error_response("content is required", 400)
 
         # Route the message
-        result = run_async(router.route(channel=channel, content=content))
+        result = run_async(router.route(channel=channel, content=content))  # type: ignore[call-arg]
 
         return json_response(
             {
