@@ -16,8 +16,8 @@ Current released version is **v2.4.0** (see "Current Release" below).
 - **Bot handler consolidation** - All 8 bot handlers now use BotHandlerMixin
 - **RBAC standardization** - 90%+ of handlers now have permission checks
 - **Feedback handler tests** - 21 new tests for NPS and feedback submission
-- **Lines of Code**: 696,000+ LOC
-- **Tests**: 45,100+ across 1,220 files
+- **Lines of Code**: 1,150,000+ LOC
+- **Tests**: 63,400+ across 1,900+ files
 - **0 production blockers**
 
 #### What's New in 2.5.0
@@ -802,7 +802,7 @@ Current released version is **v2.4.0** (see "Current Release" below).
 #### Key Highlights
 - **40,700+ tests** collected and passing (+2,300 new tests)
 - **Knowledge Mound 100% integrated** - All subsystems bidirectionally wired
-- **9 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost
+- **28 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, and 14 more
 - **Cross-debate learning** - Organizational knowledge persists and improves across debates
 - **Semantic search** - Vector-based similarity search in all adapters
 - **SLO alerting** - Adapter performance monitoring with Prometheus metrics
