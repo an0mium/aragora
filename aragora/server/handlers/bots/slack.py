@@ -23,6 +23,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import parse_qs
 
 from aragora.audit.unified import audit_data
+from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
@@ -46,6 +47,20 @@ SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 # In production, this would be in Redis/database
 _active_debates: dict[str, dict[str, Any]] = {}
 _user_votes: dict[str, dict[str, str]] = {}  # debate_id -> {user_id: vote}
+
+# Agent display name mapping
+AGENT_DISPLAY_NAMES: dict[str, str] = {
+    "claude": "Claude",
+    "gpt4": "GPT-4",
+    "gemini": "Gemini",
+    "mistral": "Mistral",
+    "deepseek": "DeepSeek",
+    "grok": "Grok",
+    "qwen": "Qwen",
+    "kimi": "Kimi",
+    "anthropic-api": "Claude",
+    "openai-api": "GPT-4",
+}
 
 # Slack integration singleton
 _slack_integration: Optional[Any] = None
@@ -626,9 +641,9 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
                     values.get("rounds_block", {})
                     .get("rounds_select", {})
                     .get("selected_option", {})
-                    .get("value", "5")
+                    .get("value", str(DEFAULT_ROUNDS))
                 )
-                rounds = int(rounds_str) if rounds_str.isdigit() else 5
+                rounds = int(rounds_str) if rounds_str.isdigit() else DEFAULT_ROUNDS
 
                 if not task:
                     return json_response(
@@ -651,15 +666,8 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
 
                 debate_id = str(uuid.uuid4())
 
-                # Map agent values to display names
-                agent_names = {
-                    "claude": "Claude",
-                    "gpt4": "GPT-4",
-                    "gemini": "Gemini",
-                    "mistral": "Mistral",
-                    "deepseek": "DeepSeek",
-                }
-                agent_display_names = [agent_names.get(a, a) for a in agents]
+                # Map agent values to display names using module-level constant
+                agent_display_names = [AGENT_DISPLAY_NAMES.get(a, a) for a in agents]
 
                 _active_debates[debate_id] = {
                     "task": task,
@@ -731,9 +739,9 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                     "blocks": build_debate_message_blocks(
                         debate_id=debate_id,
                         task=args,
-                        agents=["Claude", "GPT-4", "Gemini", "Mistral"],
+                        agents=[AGENT_DISPLAY_NAMES.get(a, a) for a in DEFAULT_AGENTS],
                         current_round=1,
-                        total_rounds=5,
+                        total_rounds=DEFAULT_ROUNDS,
                         include_vote_buttons=False,
                     ),
                 }
@@ -843,6 +851,9 @@ def _build_start_debate_modal() -> dict[str, Any]:
                         {"text": {"type": "plain_text", "text": "Gemini"}, "value": "gemini"},
                         {"text": {"type": "plain_text", "text": "Mistral"}, "value": "mistral"},
                         {"text": {"type": "plain_text", "text": "DeepSeek"}, "value": "deepseek"},
+                        {"text": {"type": "plain_text", "text": "Grok"}, "value": "grok"},
+                        {"text": {"type": "plain_text", "text": "Qwen"}, "value": "qwen"},
+                        {"text": {"type": "plain_text", "text": "Kimi"}, "value": "kimi"},
                     ],
                 },
                 "label": {
@@ -864,10 +875,11 @@ def _build_start_debate_modal() -> dict[str, Any]:
                         {"text": {"type": "plain_text", "text": "3 rounds"}, "value": "3"},
                         {"text": {"type": "plain_text", "text": "5 rounds"}, "value": "5"},
                         {"text": {"type": "plain_text", "text": "8 rounds"}, "value": "8"},
+                        {"text": {"type": "plain_text", "text": "9 rounds"}, "value": "9"},
                     ],
                     "initial_option": {
-                        "text": {"type": "plain_text", "text": "5 rounds"},
-                        "value": "5",
+                        "text": {"type": "plain_text", "text": f"{DEFAULT_ROUNDS} rounds"},
+                        "value": str(DEFAULT_ROUNDS),
                     },
                 },
                 "label": {

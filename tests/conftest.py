@@ -159,6 +159,23 @@ HAS_BROADCAST = _check_aragora_module("aragora.broadcast.pipeline")
 REQUIRES_BROADCAST = "Broadcast module not available (see #134)"
 requires_broadcast = not HAS_BROADCAST
 
+
+# Broadcast E2E tests require specific APIs not yet implemented
+def _check_broadcast_e2e_api() -> bool:
+    """Check if broadcast E2E test API is available."""
+    try:
+        from aragora.broadcast.audio_engine import AudioEngine, get_voice_for_agent
+        from aragora.broadcast.rss_gen import create_episode, generate_feed
+
+        return True
+    except ImportError:
+        return False
+
+
+HAS_BROADCAST_E2E_API = _check_broadcast_e2e_api()
+REQUIRES_BROADCAST_E2E_API = "Broadcast E2E API not fully implemented (AudioEngine, create_episode)"
+requires_broadcast_e2e_api = not HAS_BROADCAST_E2E_API
+
 HAS_BROADCAST_STORAGE = _check_aragora_module("aragora.broadcast.storage")
 REQUIRES_BROADCAST_STORAGE = "Broadcast storage not available (see #134)"
 requires_broadcast_storage = not HAS_BROADCAST_STORAGE
