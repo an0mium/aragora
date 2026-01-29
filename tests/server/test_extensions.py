@@ -223,26 +223,24 @@ class TestExtensionHandlers:
 
         return AuthorizationContext(
             user_id="test-user",
-            tenant_id="test-tenant",
-            roles=["admin"],  # Admin role has all permissions
-            permissions=frozenset(
-                [
-                    "workspaces:read",
-                    "workspaces:write",
-                    "convoys:read",
-                    "convoys:write",
-                    "inbox:read",
-                    "inbox:write",
-                    "devices:read",
-                    "devices:write",
-                    "onboarding:read",
-                    "onboarding:write",
-                    "agents:read",
-                    "agents:write",
-                    "tasks:read",
-                    "tasks:write",
-                ]
-            ),
+            org_id="test-org",
+            roles={"admin"},  # Admin role has all permissions
+            permissions={
+                "workspaces:read",
+                "workspaces:write",
+                "convoys:read",
+                "convoys:write",
+                "inbox:read",
+                "inbox:write",
+                "devices:read",
+                "devices:write",
+                "onboarding:read",
+                "onboarding:write",
+                "agents:read",
+                "agents:write",
+                "tasks:read",
+                "tasks:write",
+            },
         )
 
     @pytest.mark.asyncio
