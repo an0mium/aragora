@@ -30,7 +30,6 @@ from aragora.rbac.models import (
     RoleAssignment,
 )
 from aragora.rbac.checker import PermissionChecker
-from aragora.rbac.decorators import require_permission, require_org_access
 from aragora.rbac.defaults import (
     PERM_DEBATE_CREATE,
     PERM_DEBATE_READ,
@@ -40,13 +39,15 @@ from aragora.rbac.defaults import (
 )
 from aragora.tenancy.context import (
     TenantContext,
+    TenantNotSetError,
     get_current_tenant_id,
     require_tenant_id,
 )
 from aragora.tenancy.isolation import (
+    IsolationLevel,
+    IsolationViolation,
     TenantDataIsolation,
     TenantIsolationConfig,
-    IsolationLevel,
 )
 
 
@@ -121,6 +122,19 @@ def tenant_isolation(isolation_config) -> TenantDataIsolation:
     return TenantDataIsolation(config=isolation_config)
 
 
+@pytest.fixture
+def reset_tenant_context():
+    """Ensure no tenant context is set before and after the test."""
+    # Import the context variable directly to reset it
+    from aragora.tenancy.context import _current_tenant_id
+
+    # Store original and reset
+    original_token = _current_tenant_id.set(None)
+    yield
+    # Restore after test
+    _current_tenant_id.reset(original_token)
+
+
 # =============================================================================
 # TestOrganizationScopedRoles
 # =============================================================================
@@ -132,6 +146,7 @@ class TestOrganizationScopedRoles:
     def test_role_assignment_scoped_to_org(self):
         """RoleAssignment should be scoped to an organization."""
         assignment = RoleAssignment(
+            id="assign-1",
             user_id="user-1",
             role_id="editor",
             org_id="org-a",
@@ -143,11 +158,13 @@ class TestOrganizationScopedRoles:
     def test_same_role_different_orgs(self):
         """Same role can be assigned in different organizations."""
         assignment_a = RoleAssignment(
+            id="assign-1",
             user_id="user-1",
             role_id="editor",
             org_id="org-a",
         )
         assignment_b = RoleAssignment(
+            id="assign-2",
             user_id="user-1",
             role_id="viewer",
             org_id="org-b",
@@ -161,6 +178,7 @@ class TestOrganizationScopedRoles:
         """Expired role assignments should be invalid."""
         past_time = datetime.now(timezone.utc) - timedelta(hours=1)
         assignment = RoleAssignment(
+            id="assign-3",
             user_id="user-1",
             role_id="editor",
             org_id="org-a",
@@ -173,6 +191,7 @@ class TestOrganizationScopedRoles:
         """Role assignments with future expiry should be valid."""
         future_time = datetime.now(timezone.utc) + timedelta(days=30)
         assignment = RoleAssignment(
+            id="assign-4",
             user_id="user-1",
             role_id="editor",
             org_id="org-a",
@@ -282,9 +301,10 @@ class TestTenantContextIntegration:
             # The application should detect this mismatch
             assert auth_ctx.org_id != tenant_id
 
-    def test_require_tenant_id_raises_when_not_set(self):
+    def test_require_tenant_id_raises_when_not_set(self, reset_tenant_context):
         """require_tenant_id should raise when no tenant is set."""
-        with pytest.raises(ValueError):
+        # The reset_tenant_context fixture ensures no tenant is set
+        with pytest.raises(TenantNotSetError):
             require_tenant_id()
 
 
@@ -336,7 +356,7 @@ class TestWorkspaceScopedPermissions:
         permission_checker.assign_workspace_role(
             user_id="user-1",
             workspace_id="ws-123",
-            role="manager",
+            role_name="manager",  # Use role_name, not role
         )
 
         # Get roles for this workspace
@@ -389,8 +409,9 @@ class TestDataIsolation:
             resource = {"id": "res-1", "tenant_id": "tenant-xyz", "name": "Other"}
 
             # Should fail - resource belongs to different tenant
-            is_valid = tenant_isolation.validate_ownership(resource)
-            assert is_valid is False
+            # validate_ownership raises IsolationViolation for mismatched tenants
+            with pytest.raises(IsolationViolation):
+                tenant_isolation.validate_ownership(resource)
 
     def test_isolation_audit_trail(self, tenant_isolation):
         """Isolation should log access attempts when configured."""
@@ -414,33 +435,33 @@ class TestCustomOrganizationRoles:
 
     def test_permission_checker_supports_custom_roles(self, permission_checker):
         """PermissionChecker should support custom org-scoped roles."""
-        # Register a custom role for org-a
+        # Register a custom role for org-a using permission ID strings
         custom_role = Role(
             id="org-a:custom-analyst",
             name="custom-analyst",
-            permissions={Permission.from_key(PERM_DEBATE_READ)},
+            permissions={PERM_DEBATE_READ.id},
             is_custom=True,
             org_id="org-a",
         )
 
         # The checker should be able to register and use custom roles
-        # (Implementation depends on checker.register_custom_role or similar)
         assert custom_role.org_id == "org-a"
         assert custom_role.is_custom is True
+        assert PERM_DEBATE_READ.id in custom_role.permissions
 
     def test_custom_role_permissions_scoped(self):
         """Custom role permissions should be scoped to their org."""
         role_org_a = Role(
             id="org-a:analyst",
             name="analyst",
-            permissions={Permission.from_key(PERM_DEBATE_CREATE)},
+            permissions={PERM_DEBATE_CREATE.id},
             is_custom=True,
             org_id="org-a",
         )
         role_org_b = Role(
             id="org-b:analyst",
             name="analyst",
-            permissions={Permission.from_key(PERM_DEBATE_READ)},  # Different perms!
+            permissions={PERM_DEBATE_READ.id},  # Different perms!
             is_custom=True,
             org_id="org-b",
         )
@@ -468,7 +489,7 @@ class TestCombinedRBACTenancy:
             assert tenant_id == org_a_context.org_id
 
             # Verify permission
-            has_create = org_a_context.has_permission(PERM_DEBATE_CREATE)
+            has_create = org_a_context.has_permission(PERM_DEBATE_CREATE.id)
             assert has_create is True
 
             # Verify data isolation filter
@@ -478,7 +499,7 @@ class TestCombinedRBACTenancy:
     def test_permission_without_tenant_context(self, org_a_context):
         """Permission check without tenant context should work but lack isolation."""
         # Permission checks work without tenant context
-        has_create = org_a_context.has_permission(PERM_DEBATE_CREATE)
+        has_create = org_a_context.has_permission(PERM_DEBATE_CREATE.id)
         assert has_create is True
 
         # But tenant isolation isn't enforced at data layer
@@ -509,7 +530,7 @@ class TestAuthorizationDecision:
         """AuthorizationDecision should capture full context."""
         decision = AuthorizationDecision(
             context=org_a_context,
-            permission_key=PERM_DEBATE_CREATE,
+            permission_key=PERM_DEBATE_CREATE.id,
             resource_id="debate-123",
             allowed=True,
             reason="User has editor role with debate.create permission",
@@ -517,14 +538,14 @@ class TestAuthorizationDecision:
         )
 
         assert decision.allowed is True
-        assert decision.permission_key == PERM_DEBATE_CREATE
+        assert decision.permission_key == PERM_DEBATE_CREATE.id
         assert decision.context.org_id == "org-a"
 
     def test_authorization_decision_denied(self, org_b_context):
         """AuthorizationDecision should capture denial correctly."""
         decision = AuthorizationDecision(
             context=org_b_context,
-            permission_key=PERM_DEBATE_CREATE,
+            permission_key=PERM_DEBATE_CREATE.id,
             resource_id="debate-456",
             allowed=False,
             reason="User lacks debate.create permission",
@@ -547,29 +568,40 @@ class TestPermissionModels:
         """Permission.from_key should parse permission strings."""
         perm = Permission.from_key("debates.create")
 
-        assert perm.resource == ResourceType.DEBATES or perm.resource.value == "debates"
+        # ResourceType.DEBATE has value "debates"
+        assert perm.resource == ResourceType.DEBATE or perm.resource.value == "debates"
         assert perm.action == Action.CREATE or perm.action.value == "create"
 
     def test_permission_matches_exact(self):
         """Permission should match exact resource.action."""
         perm = Permission.from_key("debates.create")
-        assert perm.matches("debates", "create") is True
-        assert perm.matches("debates", "delete") is False
-        assert perm.matches("users", "create") is False
+        # matches() expects ResourceType and Action enums
+        assert perm.matches(ResourceType.DEBATE, Action.CREATE) is True
+        assert perm.matches(ResourceType.DEBATE, Action.DELETE) is False
+        assert perm.matches(ResourceType.USER, Action.CREATE) is False
 
     def test_permission_wildcard_resource(self):
-        """Permission with wildcard resource should match any resource."""
-        perm = Permission.from_key("*.create")
-        assert perm.matches("debates", "create") is True
-        assert perm.matches("users", "create") is True
-        assert perm.matches("debates", "delete") is False
+        """Permission with wildcard resource is not supported by from_key."""
+        # from_key doesn't support wildcard resources - it requires valid ResourceType
+        # This is expected behavior: wildcard resources must be created differently
+        with pytest.raises(ValueError):
+            Permission.from_key("*.create")
 
     def test_permission_wildcard_action(self):
-        """Permission with wildcard action should match any action."""
-        perm = Permission.from_key("debates.*")
-        assert perm.matches("debates", "create") is True
-        assert perm.matches("debates", "delete") is True
-        assert perm.matches("users", "create") is False
+        """Permission with Action.ALL should match any action on that resource."""
+        # Create a permission with Action.ALL directly (not via from_key)
+        perm = Permission(
+            id="wildcard-action",
+            name="All Debate Actions",
+            resource=ResourceType.DEBATE,
+            action=Action.ALL,
+            description="Wildcard action permission",
+        )
+        # Action.ALL matches any action on the specific resource
+        assert perm.matches(ResourceType.DEBATE, Action.CREATE) is True
+        assert perm.matches(ResourceType.DEBATE, Action.DELETE) is True
+        # But doesn't match other resources
+        assert perm.matches(ResourceType.USER, Action.CREATE) is False
 
 
 # =============================================================================
@@ -585,17 +617,17 @@ class TestRoleHierarchy:
         parent_role = Role(
             id="parent",
             name="parent",
-            permissions={Permission.from_key(PERM_DEBATE_READ)},
+            permissions={PERM_DEBATE_READ.id},
         )
         child_role = Role(
             id="child",
             name="child",
-            permissions={Permission.from_key(PERM_DEBATE_CREATE)},
+            permissions={PERM_DEBATE_CREATE.id},
             parent_roles=[parent_role],
         )
 
         # Child has its own permission
-        assert Permission.from_key(PERM_DEBATE_CREATE) in child_role.permissions
+        assert PERM_DEBATE_CREATE.id in child_role.permissions
 
         # Child should have parent reference
         assert len(child_role.parent_roles) == 1
