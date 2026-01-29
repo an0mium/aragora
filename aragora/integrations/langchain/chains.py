@@ -39,12 +39,12 @@ try:
 except ImportError:
     LANGCHAIN_AVAILABLE = False
 
-    class Chain:  # type: ignore
+    class Chain:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub Chain when LangChain not installed."""
 
         pass
 
-    class BaseModel:  # type: ignore
+    class BaseModel:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub BaseModel."""
 
         pass

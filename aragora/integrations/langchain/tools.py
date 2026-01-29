@@ -44,12 +44,12 @@ except ImportError:
     LANGCHAIN_AVAILABLE = False
 
     # Provide stub classes for type hints
-    class BaseTool:  # type: ignore
+    class BaseTool:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub BaseTool when LangChain not installed."""
 
         pass
 
-    class BaseModel:  # type: ignore
+    class BaseModel:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub BaseModel."""
 
         pass

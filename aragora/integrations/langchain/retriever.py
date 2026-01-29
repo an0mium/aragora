@@ -24,12 +24,12 @@ try:
 except ImportError:
     LANGCHAIN_AVAILABLE = False
 
-    class BaseRetriever:  # type: ignore
+    class BaseRetriever:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub BaseRetriever when LangChain not installed."""
 
         pass
 
-    class Document:  # type: ignore
+    class Document:  # type: ignore[no-redef]  # Stub when LangChain not installed
         """Stub Document."""
 
         def __init__(self, page_content: str = "", metadata: dict = None):
