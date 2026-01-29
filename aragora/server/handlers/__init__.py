@@ -120,6 +120,11 @@ from .features import FolderUploadHandler  # Folder upload support
 from .features import GmailIngestHandler  # Gmail inbox ingestion API
 from .features import GmailQueryHandler  # Gmail querying API
 from .features import IntegrationsHandler  # Integration config API
+from .external_integrations import ExternalIntegrationsHandler  # Zapier/Make/n8n integrations
+from .integration_management import (
+    IntegrationsHandler as IntegrationManagementHandler,
+)  # v2 integration management API
+from .oauth_wizard import OAuthWizardHandler  # OAuth wizard endpoints
 from .features import LegalHandler  # Legal integrations API
 from .features import MarketplaceHandler  # Template marketplace API
 from .features import ReconciliationHandler  # Financial reconciliation API
@@ -350,6 +355,9 @@ ALL_HANDLERS = [
     ConnectorsHandler,  # Unified connectors registry
     TeamsIntegrationHandler,  # Microsoft Teams integration endpoints
     IntegrationsHandler,  # Integration config API
+    ExternalIntegrationsHandler,  # Zapier/Make/n8n integrations
+    IntegrationManagementHandler,  # v2 integration management
+    OAuthWizardHandler,  # OAuth wizard endpoints
     GmailIngestHandler,  # Gmail OAuth + sync ingestion API
     GmailQueryHandler,  # Gmail search/query API
     UnifiedInboxHandler,  # Unified inbox API
@@ -457,6 +465,9 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "FeaturesHandler": Stability.STABLE,
     "ConnectorsHandler": Stability.STABLE,  # Unified connectors registry - 36 tests
     "IntegrationsHandler": Stability.EXPERIMENTAL,  # Integration config API
+    "ExternalIntegrationsHandler": Stability.EXPERIMENTAL,  # Zapier/Make/n8n integrations
+    "IntegrationManagementHandler": Stability.EXPERIMENTAL,  # v2 integration management
+    "OAuthWizardHandler": Stability.EXPERIMENTAL,  # OAuth wizard endpoints
     "TeamsIntegrationHandler": Stability.EXPERIMENTAL,  # Teams bot integration endpoints
     "AuthHandler": Stability.STABLE,
     # Extended - Stable
@@ -742,6 +753,9 @@ __all__ = [
     "FeaturesHandler",
     "ConnectorsHandler",
     "IntegrationsHandler",
+    "ExternalIntegrationsHandler",
+    "IntegrationManagementHandler",
+    "OAuthWizardHandler",
     "TeamsIntegrationHandler",
     "MemoryAnalyticsHandler",
     "GauntletHandler",
