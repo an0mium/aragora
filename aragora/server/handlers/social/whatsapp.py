@@ -65,11 +65,11 @@ from ..utils.rate_limit import rate_limit
 # RBAC imports - optional dependency
 try:
     from aragora.rbac.checker import check_permission
-    from aragora.rbac.middleware import extract_user_from_request
+    from aragora.rbac.middleware import extract_user_from_request  # type: ignore[attr-defined]
     from aragora.rbac.models import AuthorizationContext
 
     RBAC_AVAILABLE = True
-except ImportError:
+except (ImportError, AttributeError):
     RBAC_AVAILABLE = False
     check_permission = None  # type: ignore[assignment, misc]
     extract_user_from_request = None  # type: ignore[assignment, misc]
