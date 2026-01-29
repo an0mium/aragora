@@ -1,7 +1,8 @@
 """Base class for Knowledge Mound adapters.
 
 Provides shared utilities for event emission, metrics recording, SLO monitoring,
-and reverse flow state management that are common across all adapters.
+reverse flow state management, and resilience patterns that are common across
+all adapters.
 
 This consolidates ~200 lines of duplicated code from 10+ adapters.
 
@@ -14,6 +15,12 @@ Usage:
         def __init__(self, source_system, **kwargs):
             super().__init__(**kwargs)
             self._source = source_system
+
+        async def my_operation(self):
+            # Use resilient call wrapper for automatic circuit breaker,
+            # bulkhead, timeout, and SLO monitoring
+            async with self._resilient_call("my_operation"):
+                return await self._do_operation()
 """
 
 from __future__ import annotations
@@ -23,6 +30,7 @@ import time
 from typing import Any, Callable, Dict, Optional
 
 from aragora.observability.tracing import get_tracer
+from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +38,7 @@ logger = logging.getLogger(__name__)
 EventCallback = Callable[[str, Dict[str, Any]], None]
 
 
-class KnowledgeMoundAdapter:
+class KnowledgeMoundAdapter(ResilientAdapterMixin):
     """Base class for all Knowledge Mound adapters.
 
     Provides:
@@ -38,10 +46,18 @@ class KnowledgeMoundAdapter:
     - Prometheus metrics recording
     - SLO monitoring and alerting
     - Reverse flow state tracking
+    - Circuit breaker protection (via ResilientAdapterMixin)
+    - Bulkhead isolation (via ResilientAdapterMixin)
+    - Automatic retry with exponential backoff (via ResilientAdapterMixin)
     - Common utility methods
 
     Subclasses should override:
     - adapter_name: Unique identifier for metrics/logging
+
+    Resilience Features:
+        All adapters inherit circuit breaker, bulkhead, and timeout protection.
+        Use `async with self._resilient_call("operation_name"):` in async methods
+        to automatically apply these patterns.
     """
 
     adapter_name: str = "base"
@@ -51,6 +67,8 @@ class KnowledgeMoundAdapter:
         enable_dual_write: bool = False,
         event_callback: Optional[EventCallback] = None,
         enable_tracing: bool = True,
+        enable_resilience: bool = True,
+        resilience_timeout: float = 5.0,
     ):
         """Initialize the adapter with common configuration.
 
@@ -58,14 +76,25 @@ class KnowledgeMoundAdapter:
             enable_dual_write: If True, writes go to both systems during migration.
             event_callback: Optional callback for emitting events (event_type, data).
             enable_tracing: If True, OpenTelemetry tracing is enabled for operations.
+            enable_resilience: If True, enables circuit breaker, bulkhead, and
+                timeout protection for adapter operations.
+            resilience_timeout: Default timeout for resilient operations in seconds.
         """
         self._enable_dual_write = enable_dual_write
         self._event_callback = event_callback
         self._enable_tracing = enable_tracing
+        self._enable_resilience = enable_resilience
         self._tracer = get_tracer() if enable_tracing else None
         self._last_operation_time: float = 0.0
         self._error_count: int = 0
         self._init_reverse_flow_state()
+
+        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
+        if enable_resilience:
+            self._init_resilience(
+                adapter_name=self.adapter_name,
+                timeout_seconds=resilience_timeout,
+            )
 
     def _init_reverse_flow_state(self) -> None:
         """Initialize tracking state for reverse flow operations.
@@ -248,15 +277,22 @@ class KnowledgeMoundAdapter:
         """Return adapter health status for monitoring.
 
         Returns:
-            Dict containing health status, last operation time, and error counts.
+            Dict containing health status, last operation time, error counts,
+            and resilience statistics (circuit breaker state, bulkhead usage).
         """
-        return {
+        health = {
             "adapter": self.adapter_name,
             "healthy": self._error_count < 5,  # Unhealthy if 5+ consecutive errors
             "last_operation_time": self._last_operation_time,
             "error_count": self._error_count,
             "reverse_flow_stats": self.get_reverse_flow_stats(),
         }
+
+        # Include resilience stats if enabled
+        if getattr(self, "_enable_resilience", False) and hasattr(self, "get_resilience_stats"):
+            health["resilience"] = self.get_resilience_stats()
+
+        return health
 
     def reset_health_counters(self) -> None:
         """Reset health counters (e.g., after recovering from errors)."""

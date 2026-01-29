@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Import mixins for semantic search and fusion functionality
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 
 @dataclass
@@ -81,7 +82,7 @@ class ContinuumSearchResult:
             self.matched_keywords = []
 
 
-class ContinuumAdapter(FusionMixin, SemanticSearchMixin):
+class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
     Adapter that bridges ContinuumMemory to the Knowledge Mound.
 
@@ -195,6 +196,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin):
         continuum: "ContinuumMemory",
         enable_dual_write: bool = False,
         event_callback: Optional[EventCallback] = None,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -203,10 +205,15 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin):
             continuum: The ContinuumMemory instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
             event_callback: Optional callback for emitting events (event_type, data)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
         self._continuum = continuum
         self._enable_dual_write = enable_dual_write
         self._event_callback = event_callback
+
+        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
+        if enable_resilience:
+            self._init_resilience(adapter_name=self.adapter_name)
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""

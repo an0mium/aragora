@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 # Import mixin for reverse flow functionality
 from aragora.knowledge.mound.adapters._reverse_flow_base import ReverseFlowMixin
+from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 # Import mixin for reverse flow functionality
 
@@ -88,7 +89,7 @@ class CostAnomaly:
         }
 
 
-class CostAdapter(ReverseFlowMixin):
+class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
     """
     Adapter that bridges CostTracker to the Knowledge Mound.
 
@@ -131,6 +132,7 @@ class CostAdapter(ReverseFlowMixin):
         cost_tracker: Optional["CostTracker"] = None,
         enable_dual_write: bool = False,
         event_callback: Optional[EventCallback] = None,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -139,6 +141,7 @@ class CostAdapter(ReverseFlowMixin):
             cost_tracker: Optional CostTracker instance
             enable_dual_write: If True, writes go to both systems during migration
             event_callback: Optional callback for emitting events (event_type, data)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
         self._cost_tracker = cost_tracker
         self._enable_dual_write = enable_dual_write
@@ -153,6 +156,10 @@ class CostAdapter(ReverseFlowMixin):
         self._workspace_alerts: Dict[str, List[str]] = {}  # workspace -> [alert_ids]
         self._workspace_anomalies: Dict[str, List[str]] = {}  # workspace -> [anomaly_ids]
         self._agent_costs: Dict[str, List[str]] = {}  # agent -> [snapshot_ids]
+
+        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
+        if enable_resilience:
+            self._init_resilience(adapter_name=self.adapter_name)
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""

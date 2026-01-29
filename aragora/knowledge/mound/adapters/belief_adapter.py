@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
@@ -124,7 +125,7 @@ class CruxSearchResult:
             self.debate_ids = []
 
 
-class BeliefAdapter(FusionMixin):
+class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     """
     Adapter that bridges BeliefNetwork to the Knowledge Mound.
 
@@ -256,6 +257,7 @@ class BeliefAdapter(FusionMixin):
         network: Optional["BeliefNetwork"] = None,
         enable_dual_write: bool = False,
         event_callback: Optional[EventCallback] = None,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -264,6 +266,7 @@ class BeliefAdapter(FusionMixin):
             network: Optional BeliefNetwork instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
             event_callback: Optional callback for emitting events (event_type, data)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
         self._network = network
         self._enable_dual_write = enable_dual_write
@@ -278,6 +281,10 @@ class BeliefAdapter(FusionMixin):
         self._debate_beliefs: Dict[str, List[str]] = {}  # debate_id -> [belief_ids]
         self._debate_cruxes: Dict[str, List[str]] = {}  # debate_id -> [crux_ids]
         self._topic_cruxes: Dict[str, List[str]] = {}  # topic -> [crux_ids]
+
+        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
+        if enable_resilience:
+            self._init_resilience(adapter_name=self.adapter_name)
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""

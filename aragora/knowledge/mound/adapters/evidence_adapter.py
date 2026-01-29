@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
@@ -75,7 +76,7 @@ class EvidenceSearchResult:
             self.matched_topics = []
 
 
-class EvidenceAdapter(FusionMixin, SemanticSearchMixin):
+class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
     Adapter that bridges EvidenceStore to the Knowledge Mound.
 
@@ -189,6 +190,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin):
         store: Optional["EvidenceStore"] = None,
         enable_dual_write: bool = False,
         event_callback: Optional[EventCallback] = None,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -198,10 +200,15 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin):
             enable_dual_write: If True, writes go to both systems during migration
             event_callback: Optional callback for emitting events (event_type, data)
                           Used for WebSocket updates when adapter is in server context
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
         self._store = store
         self._enable_dual_write = enable_dual_write
         self._event_callback = event_callback
+
+        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
+        if enable_resilience:
+            self._init_resilience(adapter_name=self.adapter_name)
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications.

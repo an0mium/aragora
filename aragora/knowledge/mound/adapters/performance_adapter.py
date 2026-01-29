@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 # Import mixins for fusion and search capabilities
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 
 # =============================================================================
@@ -151,7 +152,7 @@ class ExpertiseSearchResult:
 # =============================================================================
 
 
-class PerformanceAdapter(FusionMixin, SemanticSearchMixin):
+class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
     Unified adapter for agent performance metrics (ELO + domain expertise).
 
@@ -231,6 +232,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin):
         enable_dual_write: bool = False,
         event_callback: Optional[EventCallback] = None,
         cache_ttl_seconds: float = DEFAULT_CACHE_TTL_SECONDS,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -240,6 +242,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin):
             enable_dual_write: If True, writes go to both systems during migration
             event_callback: Optional callback for emitting events (event_type, data)
             cache_ttl_seconds: TTL for cached queries (default: 60 seconds)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
         self._elo_system = elo_system
         self._enable_dual_write = enable_dual_write
@@ -269,6 +272,10 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin):
         self._domain_experts_cache: Dict[str, tuple] = {}  # {cache_key: (timestamp, results)}
         self._cache_hits = 0
         self._cache_misses = 0
+
+        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
+        if enable_resilience:
+            self._init_resilience(adapter_name=self.adapter_name)
 
     # =========================================================================
     # Event System (from EloAdapter)

@@ -49,6 +49,7 @@ from aragora.knowledge.mound.adapters._reverse_flow_base import (
     ValidationSyncResult,
 )
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 
 @dataclass
@@ -64,7 +65,7 @@ class ConsensusSearchResult:
             self.dissents = []
 
 
-class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin):
+class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
     Adapter that bridges ConsensusMemory to the Knowledge Mound.
 
@@ -73,6 +74,11 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin):
     - to_knowledge_item: Convert records to unified format
     - get_dissents: Retrieve dissenting views for a topic
     - semantic_search: Vector-based similarity search (via SemanticSearchMixin)
+
+    Resilience Features:
+    - Circuit breaker protection for external service calls
+    - Bulkhead isolation to prevent cascading failures
+    - Automatic retry with exponential backoff
 
     Usage:
         from aragora.memory.consensus import ConsensusMemory
@@ -97,6 +103,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin):
         consensus: "ConsensusMemory",
         enable_dual_write: bool = False,
         event_callback: Optional[EventCallback] = None,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -105,10 +112,15 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin):
             consensus: The ConsensusMemory instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
             event_callback: Optional callback for emitting events (event_type, data)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
         self._consensus = consensus
         self._enable_dual_write = enable_dual_write
         self._event_callback = event_callback
+
+        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
+        if enable_resilience:
+            self._init_resilience(adapter_name=self.adapter_name)
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""
