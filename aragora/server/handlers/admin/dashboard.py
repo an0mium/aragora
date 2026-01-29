@@ -915,8 +915,8 @@ class DashboardHandler(SecureHandler):
                         )
                         row = cursor.fetchone()
                         overview["total_debates_today"] = row[0] if row else 0
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Could not get today's debates count: {e}")
 
             # Agent performance as stat cards
             perf = self._get_agent_performance(5)
@@ -1053,8 +1053,8 @@ class DashboardHandler(SecureHandler):
                         for row in cursor.fetchall():
                             if row[0]:
                                 stats["debates"]["by_status"][row[0]] = row[1]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Could not get debate stats: {e}")
 
             # Agent stats from ELO
             perf = self._get_agent_performance(100)
@@ -1326,8 +1326,8 @@ class DashboardHandler(SecureHandler):
                         )
                         row = cursor.fetchone()
                         summary["today_count"] = row[0] if row else 0
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Could not get today's inbox count: {e}")
         except Exception as e:
             logger.warning("Inbox summary error: %s: %s", type(e).__name__, e)
 

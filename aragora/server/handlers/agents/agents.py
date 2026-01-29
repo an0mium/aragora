@@ -87,8 +87,9 @@ def _secret_configured(name: str) -> bool:
         value = get_secret(name)
         if value and value.strip():
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        # Secrets module may not be available, fall back to env vars
+        logger.debug(f"Could not get secret '{name}': {e}")
     env_value = os.getenv(name)
     return bool(env_value and env_value.strip())
 

@@ -457,8 +457,8 @@ class GasTownDashboardHandler(SecureHandler):
                 total = len(convoys)
                 if total > 0:
                     metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not get convoy metrics: {e}")
         except Exception as e:
             logger.debug(f"Could not get detailed metrics: {e}")
 
