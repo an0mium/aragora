@@ -242,7 +242,7 @@ class TestHealthCheck:
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health.detailed.get_circuit_breaker_metrics",
+                "aragora.resilience.get_circuit_breaker_metrics",
                 return_value=mock_metrics,
             ),
             patch.dict(
