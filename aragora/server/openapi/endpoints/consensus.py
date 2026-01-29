@@ -136,7 +136,8 @@ These views are preserved to:
 - Contradictory historical positions
 - Potential bias indicators""",
             "operationId": "getRiskWarnings",
-            "responses": {"200": _ok_response("Risk warnings")},
+            "responses": {"200": _ok_response("Risk warnings", "RiskWarningsResponse")},
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/consensus/domain/{domain}": {
