@@ -33,6 +33,7 @@ __all__ = [
     "RoundPhase",
     "STRUCTURED_LIGHT_ROUND_PHASES",
     "STRUCTURED_ROUND_PHASES",
+    "resolve_default_protocol",
     "user_vote_multiplier",
 ]
 
@@ -553,3 +554,24 @@ ARAGORA_AI_LIGHT_PROTOCOL = DebateProtocol(
     # No breakpoints in light mode
     enable_breakpoints=False,
 )
+
+
+def resolve_default_protocol(
+    protocol: DebateProtocol | None = None,
+) -> DebateProtocol:
+    """Resolve the default protocol, honoring debate profile overrides."""
+    if protocol is not None:
+        return protocol
+
+    import os
+
+    profile = os.environ.get("ARAGORA_DEBATE_PROFILE", "").lower()
+    if profile in {"full", "nomic", "structured"}:
+        try:
+            from aragora.nomic.debate_profile import NomicDebateProfile
+
+            return NomicDebateProfile.from_env().to_protocol()
+        except Exception as exc:
+            logger.warning("Failed to apply debate profile '%s': %s", profile, exc)
+
+    return DebateProtocol()

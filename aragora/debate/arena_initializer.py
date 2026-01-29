@@ -198,7 +198,9 @@ class ArenaInitializer:
         auto_evolve = resolve_auto_evolve(auto_evolve)
         enable_prompt_evolution = resolve_prompt_evolution(enable_prompt_evolution)
 
-        protocol = protocol or DebateProtocol()
+        from aragora.debate.protocol import resolve_default_protocol
+
+        protocol = resolve_default_protocol(protocol)
 
         # Wrap agents with airlock protection if enabled
         if use_airlock:
