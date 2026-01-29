@@ -55,13 +55,15 @@ def _check_permission(ctx: ServerContext, permission: str) -> Optional[HandlerRe
 
     # Build minimal auth context from server context
     org_id = ctx.get("org_id")
-    roles = ctx.get("roles", set())
-    permissions = ctx.get("permissions", set())
+    roles_raw = ctx.get("roles", set())
+    permissions_raw = ctx.get("permissions", set())
+    roles_set: set[str] = set(roles_raw) if roles_raw else set()
+    permissions_set: set[str] = set(permissions_raw) if permissions_raw else set()
     auth_context = AuthorizationContext(
         user_id=user_id,
         org_id=str(org_id) if org_id else None,
-        roles=roles if isinstance(roles, set) else set(roles) if roles else set(),  # type: ignore[arg-type]
-        permissions=permissions if isinstance(permissions, set) else set(permissions) if permissions else set(),  # type: ignore[arg-type]
+        roles=roles_set,
+        permissions=permissions_set,
     )
 
     checker = get_permission_checker()

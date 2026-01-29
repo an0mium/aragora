@@ -297,6 +297,8 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
         from aragora.server.stream.arena_hooks import streaming_task_context
 
         agent_start = time.perf_counter()
+        heartbeat_task: Optional[asyncio.Task] = None
+        done_event = asyncio.Event()
         try:
             self._log(f"  {name} ({harness}): exploring codebase...", agent=name)
             prompt = self._build_explore_prompt()
@@ -311,6 +313,25 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
                         timeout = None
                 if timeout is None:
                     timeout = getattr(agent, "timeout", None)
+                if timeout is None:
+                    self._log(
+                        f"  {name}: no timeout configured; set NOMIC_CONTEXT_AGENT_TIMEOUT "
+                        "to enforce a limit",
+                        agent=name,
+                    )
+                else:
+                    self._log(f"  {name}: timeout={timeout}s", agent=name)
+
+                async def _heartbeat() -> None:
+                    while not done_event.is_set():
+                        await asyncio.sleep(60)
+                        if done_event.is_set():
+                            break
+                        elapsed = time.perf_counter() - agent_start
+                        self._log(f"  {name}: still running ({elapsed:.0f}s)...", agent=name)
+
+                heartbeat_task = asyncio.create_task(_heartbeat())
+
                 if timeout and timeout > 0:
                     result = await asyncio.wait_for(
                         agent.generate(prompt, context=[]),
@@ -325,10 +346,16 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
                     "on_log_message", result, level="info", phase="context", agent=name
                 )
             return (name, harness, result if result else "No response")
+        except asyncio.TimeoutError:
+            self._log(f"  {name}: timeout exceeded", agent=name)
+            return (name, harness, "Error: timeout exceeded")
         except Exception as e:
-            self._log(f"  {name}: error - {e}", agent=name)
-            return (name, harness, f"Error: {e}")
+            self._log(f"  {name}: error - {type(e).__name__}: {e}", agent=name)
+            return (name, harness, f"Error: {type(e).__name__}: {e}")
         finally:
+            done_event.set()
+            if heartbeat_task:
+                heartbeat_task.cancel()
             # Record per-agent metrics
             if _agent_metrics_recorder:
                 agent_duration = time.perf_counter() - agent_start

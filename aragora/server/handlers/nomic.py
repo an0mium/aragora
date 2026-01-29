@@ -30,7 +30,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.server.stream.nomic_loop_stream import NomicLoopStreamServer
@@ -106,7 +106,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         """Get the stream server from context or instance."""
         if self._stream:
             return self._stream
-        return self.ctx.get("nomic_loop_stream")  # type: ignore[return-value]
+        return cast(Optional["NomicLoopStreamServer"], self.ctx.get("nomic_loop_stream"))
 
     def _emit_event(
         self,
