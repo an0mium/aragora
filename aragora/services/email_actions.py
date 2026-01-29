@@ -216,13 +216,13 @@ class EmailActionsService:
             if provider_str == "gmail":
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-                connector = GmailConnector()
+                connector = GmailConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
                 # In production: await connector.authenticate(tokens_from_db)
                 self._connectors[key] = connector
             elif provider_str == "outlook":
                 from aragora.connectors.enterprise.communication.outlook import OutlookConnector
 
-                outlook_connector = OutlookConnector()
+                outlook_connector = OutlookConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
                 self._connectors[key] = outlook_connector
             else:
                 raise ValueError(f"Unsupported provider: {provider}")

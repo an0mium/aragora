@@ -160,7 +160,7 @@ def get_gmail_connector(user_id: str = "default"):
         if _gmail_connector is None:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            _gmail_connector = GmailConnector()
+            _gmail_connector = GmailConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
         return _gmail_connector
 
 

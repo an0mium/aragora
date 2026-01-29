@@ -271,7 +271,7 @@ class GmailIngestHandler(SecureHandler):
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            connector = GmailConnector()
+            connector = GmailConnector()  # type: ignore[abstract]
             url = connector.get_oauth_url(redirect_uri, state)
 
             return json_response({"url": url})
@@ -288,7 +288,7 @@ class GmailIngestHandler(SecureHandler):
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            connector = GmailConnector()
+            connector = GmailConnector()  # type: ignore[abstract]
             url = connector.get_oauth_url(redirect_uri, state)
 
             return json_response(
@@ -379,7 +379,7 @@ class GmailIngestHandler(SecureHandler):
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            connector = GmailConnector()
+            connector = GmailConnector()  # type: ignore[abstract]
 
             success = await connector.authenticate(code=code, redirect_uri=redirect_uri)
 
@@ -487,7 +487,7 @@ class GmailIngestHandler(SecureHandler):
                 emit_sync_start,
             )
 
-            connector = GmailConnector(
+            connector = GmailConnector(  # type: ignore[abstract]
                 labels=labels,
                 max_results=max_messages,
             )
@@ -606,7 +606,7 @@ class GmailIngestHandler(SecureHandler):
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            connector = GmailConnector(max_results=limit)
+            connector = GmailConnector(max_results=limit)  # type: ignore[abstract]
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
@@ -646,7 +646,7 @@ class GmailIngestHandler(SecureHandler):
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            connector = GmailConnector()
+            connector = GmailConnector()  # type: ignore[abstract]
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
@@ -675,7 +675,7 @@ class GmailIngestHandler(SecureHandler):
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            connector = GmailConnector(max_results=limit)
+            connector = GmailConnector(max_results=limit)  # type: ignore[abstract]
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
