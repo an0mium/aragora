@@ -2182,3 +2182,1315 @@ class TestOAuthConstants:
         from aragora.server.handlers._oauth_impl import APPLE_AUTH_URL
 
         assert "appleid.apple.com" in APPLE_AUTH_URL
+
+
+# ===========================================================================
+# Tests: _exchange_code_for_tokens (Google)
+# ===========================================================================
+
+
+class TestExchangeCodeForTokens:
+    def test_successful_exchange(self):
+        oh = _make_oauth_handler()
+        with (
+            mock.patch("urllib.request.urlopen") as mock_urlopen,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_google_client_secret",
+                return_value="secret",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_google_redirect_uri",
+                return_value="http://localhost:8080/callback",
+            ),
+        ):
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"access_token": "at123", "refresh_token": "rt456", "expires_in": 3600}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._exchange_code_for_tokens("auth-code-123")
+            assert result["access_token"] == "at123"
+            assert result["refresh_token"] == "rt456"
+
+    def test_invalid_json_response(self):
+        oh = _make_oauth_handler()
+        with (
+            mock.patch("urllib.request.urlopen") as mock_urlopen,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_google_client_secret",
+                return_value="secret",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_google_redirect_uri",
+                return_value="http://localhost:8080/callback",
+            ),
+        ):
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = b"not valid json"
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            with pytest.raises(ValueError, match="Invalid JSON"):
+                oh._exchange_code_for_tokens("auth-code")
+
+
+# ===========================================================================
+# Tests: _get_google_user_info
+# ===========================================================================
+
+
+class TestGetGoogleUserInfo:
+    def test_successful_user_info(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {
+                    "id": "google-user-123",
+                    "email": "user@gmail.com",
+                    "name": "Test User",
+                    "picture": "https://photo.url",
+                    "verified_email": True,
+                }
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._get_google_user_info("access-token")
+            assert result.provider == "google"
+            assert result.email == "user@gmail.com"
+            assert result.name == "Test User"
+            assert result.email_verified is True
+
+    def test_name_fallback_to_email(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"id": "g123", "email": "noname@example.com", "verified_email": False}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._get_google_user_info("access-token")
+            assert result.name == "noname"
+
+    def test_invalid_json_response(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = b"invalid json"
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            with pytest.raises(ValueError, match="Invalid JSON"):
+                oh._get_google_user_info("access-token")
+
+
+# ===========================================================================
+# Tests: _exchange_github_code
+# ===========================================================================
+
+
+class TestExchangeGitHubCode:
+    def test_successful_exchange(self):
+        oh = _make_oauth_handler()
+        with (
+            mock.patch("urllib.request.urlopen") as mock_urlopen,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_github_client_secret",
+                return_value="gh-secret",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_github_redirect_uri",
+                return_value="http://localhost:8080/callback",
+            ),
+        ):
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"access_token": "ghat123", "token_type": "bearer", "scope": "read:user"}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._exchange_github_code("gh-auth-code")
+            assert result["access_token"] == "ghat123"
+
+    def test_invalid_json_response(self):
+        oh = _make_oauth_handler()
+        with (
+            mock.patch("urllib.request.urlopen") as mock_urlopen,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_github_client_secret",
+                return_value="gh-secret",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_github_redirect_uri",
+                return_value="http://localhost:8080/callback",
+            ),
+        ):
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = b"not json"
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            with pytest.raises(ValueError, match="Invalid JSON"):
+                oh._exchange_github_code("gh-auth-code")
+
+
+# ===========================================================================
+# Tests: _get_github_user_info
+# ===========================================================================
+
+
+class TestGetGitHubUserInfo:
+    def test_user_info_with_public_email(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {
+                    "id": 12345,
+                    "email": "public@github.com",
+                    "login": "ghuser",
+                    "name": "GitHub User",
+                    "avatar_url": "https://avatar.url",
+                }
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._get_github_user_info("gh-access-token")
+            assert result.provider == "github"
+            assert result.email == "public@github.com"
+            assert result.provider_user_id == "12345"
+
+    def test_user_info_without_public_email_fetches_from_emails_api(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            # First call returns user without email
+            user_response = mock.MagicMock()
+            user_response.read.return_value = json.dumps(
+                {"id": 99, "login": "privateuser", "name": "Private User"}
+            ).encode()
+            user_response.__enter__ = mock.MagicMock(return_value=user_response)
+            user_response.__exit__ = mock.MagicMock(return_value=False)
+
+            # Second call returns emails list
+            emails_response = mock.MagicMock()
+            emails_response.read.return_value = json.dumps(
+                [
+                    {"email": "secondary@gh.com", "primary": False, "verified": True},
+                    {"email": "primary@gh.com", "primary": True, "verified": True},
+                ]
+            ).encode()
+            emails_response.__enter__ = mock.MagicMock(return_value=emails_response)
+            emails_response.__exit__ = mock.MagicMock(return_value=False)
+
+            mock_urlopen.side_effect = [user_response, emails_response]
+
+            result = oh._get_github_user_info("gh-access-token")
+            assert result.email == "primary@gh.com"
+            assert result.email_verified is True
+
+    def test_fallback_to_any_verified_email(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            user_response = mock.MagicMock()
+            user_response.read.return_value = json.dumps(
+                {"id": 100, "login": "fallbackuser"}
+            ).encode()
+            user_response.__enter__ = mock.MagicMock(return_value=user_response)
+            user_response.__exit__ = mock.MagicMock(return_value=False)
+
+            # No primary email, but one verified
+            emails_response = mock.MagicMock()
+            emails_response.read.return_value = json.dumps(
+                [{"email": "verified@gh.com", "primary": False, "verified": True}]
+            ).encode()
+            emails_response.__enter__ = mock.MagicMock(return_value=emails_response)
+            emails_response.__exit__ = mock.MagicMock(return_value=False)
+
+            mock_urlopen.side_effect = [user_response, emails_response]
+
+            result = oh._get_github_user_info("token")
+            assert result.email == "verified@gh.com"
+
+    def test_fallback_to_any_email(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            user_response = mock.MagicMock()
+            user_response.read.return_value = json.dumps({"id": 101, "login": "u"}).encode()
+            user_response.__enter__ = mock.MagicMock(return_value=user_response)
+            user_response.__exit__ = mock.MagicMock(return_value=False)
+
+            emails_response = mock.MagicMock()
+            emails_response.read.return_value = json.dumps(
+                [{"email": "unverified@gh.com", "primary": False, "verified": False}]
+            ).encode()
+            emails_response.__enter__ = mock.MagicMock(return_value=emails_response)
+            emails_response.__exit__ = mock.MagicMock(return_value=False)
+
+            mock_urlopen.side_effect = [user_response, emails_response]
+
+            result = oh._get_github_user_info("token")
+            assert result.email == "unverified@gh.com"
+
+    def test_no_email_raises(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            user_response = mock.MagicMock()
+            user_response.read.return_value = json.dumps({"id": 102, "login": "noemail"}).encode()
+            user_response.__enter__ = mock.MagicMock(return_value=user_response)
+            user_response.__exit__ = mock.MagicMock(return_value=False)
+
+            emails_response = mock.MagicMock()
+            emails_response.read.return_value = json.dumps([]).encode()
+            emails_response.__enter__ = mock.MagicMock(return_value=emails_response)
+            emails_response.__exit__ = mock.MagicMock(return_value=False)
+
+            mock_urlopen.side_effect = [user_response, emails_response]
+
+            with pytest.raises(ValueError, match="Could not retrieve email"):
+                oh._get_github_user_info("token")
+
+    def test_invalid_json_in_user_response(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            user_response = mock.MagicMock()
+            user_response.read.return_value = b"not json"
+            user_response.__enter__ = mock.MagicMock(return_value=user_response)
+            user_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = user_response
+
+            with pytest.raises(ValueError, match="Invalid JSON"):
+                oh._get_github_user_info("token")
+
+    def test_name_fallback_to_login(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"id": 103, "email": "user@gh.com", "login": "mylogin"}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._get_github_user_info("token")
+            assert result.name == "mylogin"
+
+
+# ===========================================================================
+# Tests: Microsoft OAuth methods
+# ===========================================================================
+
+
+class TestMicrosoftOAuth:
+    def test_exchange_microsoft_code_success(self):
+        oh = _make_oauth_handler()
+        with (
+            mock.patch("urllib.request.urlopen") as mock_urlopen,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_microsoft_tenant", return_value="common"
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_microsoft_client_id",
+                return_value="ms-client",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_microsoft_client_secret",
+                return_value="ms-secret",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_microsoft_redirect_uri",
+                return_value="http://localhost:8080/callback",
+            ),
+        ):
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"access_token": "msat123", "id_token": "msid456"}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._exchange_microsoft_code("ms-code")
+            assert result["access_token"] == "msat123"
+
+    def test_get_microsoft_user_info_with_mail(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"id": "ms-user-1", "mail": "user@microsoft.com", "displayName": "MS User"}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._get_microsoft_user_info("ms-token")
+            assert result.provider == "microsoft"
+            assert result.email == "user@microsoft.com"
+            assert result.name == "MS User"
+
+    def test_get_microsoft_user_info_with_upn_fallback(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"id": "ms-user-2", "userPrincipalName": "upn@tenant.com", "displayName": "UPN User"}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._get_microsoft_user_info("ms-token")
+            assert result.email == "upn@tenant.com"
+
+    def test_get_microsoft_user_info_no_email_raises(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"id": "ms-user-3", "displayName": "No Email"}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            with pytest.raises(ValueError, match="Could not retrieve email"):
+                oh._get_microsoft_user_info("ms-token")
+
+    def test_microsoft_callback_error_from_provider(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/microsoft/callback",
+                {"error": "consent_required", "error_description": "Admin consent needed"},
+                handler,
+                method="GET",
+            )
+            assert result.status_code == 302
+            assert "error" in result.headers.get("Location", "").lower()
+
+    def test_microsoft_callback_missing_state(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/microsoft/callback", {}, handler, method="GET"
+            )
+            assert result.status_code == 302
+
+    def test_microsoft_callback_invalid_state(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.server.handlers._oauth_impl._validate_state", return_value=None),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/microsoft/callback",
+                {"state": "invalid"},
+                handler,
+                method="GET",
+            )
+            assert result.status_code == 302
+
+    def test_microsoft_callback_token_exchange_failure(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._validate_state",
+                return_value={"redirect_url": "http://localhost:3000"},
+            ),
+            mock.patch.object(oh, "_exchange_microsoft_code", side_effect=Exception("Network")),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/microsoft/callback",
+                {"state": "valid", "code": "mscode"},
+                handler,
+                method="GET",
+            )
+            assert result.status_code == 302
+
+
+# ===========================================================================
+# Tests: Apple OAuth methods
+# ===========================================================================
+
+
+class TestAppleOAuth:
+    def test_exchange_apple_code_success(self):
+        oh = _make_oauth_handler()
+        with (
+            mock.patch("urllib.request.urlopen") as mock_urlopen,
+            mock.patch.object(oh, "_generate_apple_client_secret", return_value="apple-secret-jwt"),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_apple_client_id",
+                return_value="apple-client",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_apple_redirect_uri",
+                return_value="http://localhost:8080/callback",
+            ),
+        ):
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"access_token": "apple-at", "id_token": "apple-idt"}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._exchange_apple_code("apple-code")
+            assert result["access_token"] == "apple-at"
+
+    def test_generate_apple_client_secret_missing_config(self):
+        oh = _make_oauth_handler()
+        with (
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_apple_team_id", return_value=""
+            ),
+            mock.patch("aragora.server.handlers._oauth_impl._get_apple_key_id", return_value=""),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_apple_private_key", return_value=""
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_apple_client_id", return_value=""
+            ),
+        ):
+            with pytest.raises(ValueError, match="not fully configured"):
+                oh._generate_apple_client_secret()
+
+    def test_apple_callback_error_from_provider(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/apple/callback", {"error": "user_cancelled"}, handler, method="GET"
+            )
+            assert result.status_code == 302
+
+    def test_apple_callback_missing_state(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/apple/callback", {}, handler, method="GET")
+            assert result.status_code == 302
+
+    def test_apple_callback_missing_code_and_id_token(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._validate_state",
+                return_value={"redirect_url": "http://localhost:3000"},
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/apple/callback", {"state": "valid"}, handler, method="GET"
+            )
+            assert result.status_code == 302
+            loc = result.headers.get("Location", "").lower()
+            assert "missing" in loc or "error" in loc
+
+
+# ===========================================================================
+# Tests: OIDC OAuth methods
+# ===========================================================================
+
+
+class TestOIDCOAuth:
+    def test_get_oidc_discovery_success(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {
+                    "authorization_endpoint": "https://oidc.example.com/auth",
+                    "token_endpoint": "https://oidc.example.com/token",
+                    "userinfo_endpoint": "https://oidc.example.com/userinfo",
+                }
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._get_oidc_discovery("https://oidc.example.com")
+            assert result["authorization_endpoint"] == "https://oidc.example.com/auth"
+
+    def test_get_oidc_discovery_failure(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen", side_effect=Exception("Network error")):
+            result = oh._get_oidc_discovery("https://bad.issuer.com")
+            assert result == {}
+
+    def test_exchange_oidc_code_success(self):
+        oh = _make_oauth_handler()
+        discovery = {"token_endpoint": "https://oidc.example.com/token"}
+        with (
+            mock.patch("urllib.request.urlopen") as mock_urlopen,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oidc_client_id",
+                return_value="oidc-client",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oidc_client_secret",
+                return_value="oidc-secret",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oidc_redirect_uri",
+                return_value="http://localhost:8080/callback",
+            ),
+        ):
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {"access_token": "oidc-at", "id_token": "oidc-idt"}
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._exchange_oidc_code("oidc-code", discovery)
+            assert result["access_token"] == "oidc-at"
+
+    def test_exchange_oidc_code_no_token_endpoint(self):
+        oh = _make_oauth_handler()
+        with pytest.raises(ValueError, match="No token endpoint"):
+            oh._exchange_oidc_code("code", {})
+
+    def test_get_oidc_user_info_from_userinfo_endpoint(self):
+        oh = _make_oauth_handler()
+        discovery = {"userinfo_endpoint": "https://oidc.example.com/userinfo"}
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {
+                    "sub": "oidc-sub-123",
+                    "email": "user@oidc.com",
+                    "name": "OIDC User",
+                    "picture": "https://pic.url",
+                    "email_verified": True,
+                }
+            ).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oh._get_oidc_user_info("access-token", "id-token", discovery)
+            assert result.provider == "oidc"
+            assert result.email == "user@oidc.com"
+
+    def test_get_oidc_user_info_from_id_token_fallback(self):
+        import base64
+
+        oh = _make_oauth_handler()
+        discovery = {}  # No userinfo endpoint
+        payload = {"sub": "oidc-sub-456", "email": "idtoken@oidc.com", "name": "ID Token User"}
+        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+        header_b64 = base64.urlsafe_b64encode(b'{"alg":"RS256"}').decode().rstrip("=")
+        sig_b64 = base64.urlsafe_b64encode(b"sig").decode().rstrip("=")
+        id_token = f"{header_b64}.{payload_b64}.{sig_b64}"
+
+        result = oh._get_oidc_user_info(None, id_token, discovery)
+        assert result.email == "idtoken@oidc.com"
+
+    def test_get_oidc_user_info_no_email_raises(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps({"sub": "no-email-sub"}).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            with pytest.raises(ValueError, match="No email"):
+                oh._get_oidc_user_info("token", None, {"userinfo_endpoint": "https://x.com"})
+
+    def test_get_oidc_user_info_no_subject_raises(self):
+        oh = _make_oauth_handler()
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = mock.MagicMock()
+            mock_response.read.return_value = json.dumps({"email": "has@email.com"}).encode()
+            mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
+            mock_response.__exit__ = mock.MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            with pytest.raises(ValueError, match="No subject"):
+                oh._get_oidc_user_info("token", None, {"userinfo_endpoint": "https://x.com"})
+
+    def test_oidc_callback_error_from_provider(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/oidc/callback",
+                {"error": "invalid_request", "error_description": "Bad request"},
+                handler,
+                method="GET",
+            )
+            assert result.status_code == 302
+
+    def test_oidc_auth_start_discovery_fails(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oidc_issuer",
+                return_value="https://oidc.example.com",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oidc_client_id",
+                return_value="oidc-client",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_success_url",
+                return_value="http://localhost:3000/callback",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
+                return_value=frozenset({"localhost"}),
+            ),
+            mock.patch(
+                "aragora.billing.jwt_auth.extract_user_from_request", return_value=_make_auth_ctx()
+            ),
+            mock.patch("aragora.server.handlers._oauth_impl._generate_state", return_value="st"),
+            mock.patch.object(oh, "_get_oidc_discovery", return_value={}),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/oidc", {}, handler, method="GET")
+            assert result.status_code == 503
+
+
+# ===========================================================================
+# Tests: _create_oauth_user
+# ===========================================================================
+
+
+class TestCreateOAuthUser:
+    def test_successful_user_creation(self):
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+
+        user_store = mock.MagicMock()
+        user = _make_user(user_id="new-oauth-user")
+        user_store.create_user.return_value = user
+        oh = _make_oauth_handler({"user_store": user_store})
+
+        info = OAuthUserInfo(
+            provider="google", provider_user_id="g123", email="new@user.com", name="New User"
+        )
+        with (
+            mock.patch("aragora.billing.models.hash_password", return_value=("hash", "salt")),
+            mock.patch.object(oh, "_link_oauth_to_user", return_value=True),
+        ):
+            result = oh._create_oauth_user(user_store, info)
+            assert result.id == "new-oauth-user"
+            user_store.create_user.assert_called_once()
+
+    def test_user_creation_failure(self):
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+
+        user_store = mock.MagicMock()
+        user_store.create_user.side_effect = ValueError("Email already exists")
+        oh = _make_oauth_handler({"user_store": user_store})
+
+        info = OAuthUserInfo(
+            provider="google", provider_user_id="g456", email="exists@user.com", name="Exists"
+        )
+        with mock.patch("aragora.billing.models.hash_password", return_value=("hash", "salt")):
+            result = oh._create_oauth_user(user_store, info)
+            assert result is None
+
+
+# ===========================================================================
+# Tests: _handle_link_account (additional tests)
+# ===========================================================================
+
+
+class TestHandleLinkAccountAdditional:
+    def test_google_link_returns_auth_url(self, _patch_google_secrets):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-link")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "read_json_body", return_value={"provider": "google"}),
+            mock.patch("aragora.server.handlers._oauth_impl._generate_state", return_value="lnk-st"),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/link", {}, handler, method="POST")
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert "auth_url" in data
+            assert "accounts.google.com" in data["auth_url"]
+
+    def test_github_link_returns_auth_url(self, _patch_github_secrets):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-link")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "read_json_body", return_value={"provider": "github"}),
+            mock.patch("aragora.server.handlers._oauth_impl._generate_state", return_value="lnk-st"),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/link", {}, handler, method="POST")
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert "github.com" in data["auth_url"]
+
+    def test_link_invalid_redirect_url(self, _patch_google_secrets):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-link")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(
+                oh,
+                "read_json_body",
+                return_value={"provider": "google", "redirect_url": "http://evil.com"},
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._validate_redirect_url", return_value=False
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/link", {}, handler, method="POST")
+            assert result.status_code == 400
+
+    def test_link_google_not_configured(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-link")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "read_json_body", return_value={"provider": "google"}),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_success_url",
+                return_value="http://localhost:3000",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
+                return_value=frozenset({"localhost"}),
+            ),
+            mock.patch("aragora.server.handlers._oauth_impl.GOOGLE_CLIENT_ID", ""),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/link", {}, handler, method="POST")
+            assert result.status_code == 503
+
+    def test_link_microsoft_not_implemented(self, _patch_microsoft_secrets):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-link")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "read_json_body", return_value={"provider": "microsoft"}),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_success_url",
+                return_value="http://localhost:3000",
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
+                return_value=frozenset({"localhost"}),
+            ),
+            mock.patch("aragora.server.handlers._oauth_impl._generate_state", return_value="st"),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/link", {}, handler, method="POST")
+            # Microsoft link returns 501 (not implemented in _handle_link_account)
+            assert result.status_code == 501
+
+
+# ===========================================================================
+# Tests: _handle_unlink_account (additional tests)
+# ===========================================================================
+
+
+class TestHandleUnlinkAccountAdditional:
+    def test_unlink_failure_returns_500(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="DELETE")
+        user = _make_user(password_hash="has_pw")
+        user_store = mock.MagicMock()
+        user_store.get_user_by_id.return_value = user
+        user_store.unlink_oauth_provider.return_value = False
+
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-unlink")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "_get_user_store", return_value=user_store),
+            mock.patch.object(oh, "read_json_body", return_value={"provider": "google"}),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/unlink", {}, handler, method="DELETE")
+            assert result.status_code == 500
+
+    def test_unlink_store_without_method(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="DELETE")
+        user = _make_user(password_hash="has_pw")
+        user_store = mock.MagicMock(spec=["get_user_by_id"])  # No unlink_oauth_provider method
+        user_store.get_user_by_id.return_value = user
+
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-unlink")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "_get_user_store", return_value=user_store),
+            mock.patch.object(oh, "read_json_body", return_value={"provider": "github"}),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/unlink", {}, handler, method="DELETE")
+            # Should succeed even without the method (logs warning)
+            assert result.status_code == 200
+
+
+# ===========================================================================
+# Tests: _handle_get_user_providers (additional tests)
+# ===========================================================================
+
+
+class TestHandleGetUserProvidersAdditional:
+    def test_oauth_repo_fallback(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        user_store = mock.MagicMock(spec=["_oauth_repo"])
+        user_store._oauth_repo.get_providers_for_user.return_value = [
+            {"provider": "github", "email": "gh@test.com"}
+        ]
+
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-prov")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "_get_user_store", return_value=user_store),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/user/oauth-providers", {}, handler, method="GET")
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert len(data["providers"]) == 1
+            assert data["providers"][0]["provider"] == "github"
+
+    def test_no_providers_method_returns_empty(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        user_store = mock.MagicMock(spec=[])  # No get_oauth_providers or _oauth_repo
+
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid-prov")
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "_get_user_store", return_value=user_store),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/user/oauth-providers", {}, handler, method="GET")
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert data["providers"] == []
+
+
+# ===========================================================================
+# Tests: _handle_oauth_callback_api (additional tests)
+# ===========================================================================
+
+
+class TestHandleOAuthCallbackApiAdditional:
+    def test_successful_google_callback(self):
+        from aragora.server.handlers.base import HandlerResult
+
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+
+        redirect_with_tokens = (
+            "http://localhost:3000/callback?"
+            "access_token=tok123&refresh_token=rtok456&token_type=Bearer&expires_in=3600"
+        )
+        fake_result = HandlerResult(
+            status_code=302,
+            content_type="text/html",
+            body=b"",
+            headers={"Location": redirect_with_tokens},
+        )
+
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch.object(
+                oh,
+                "read_json_body",
+                return_value={"provider": "google", "code": "authcode", "state": "st"},
+            ),
+            mock.patch.object(oh, "_handle_google_callback", return_value=fake_result),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/callback", {}, handler, method="POST")
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert data["access_token"] == "tok123"
+            assert data["refresh_token"] == "rtok456"
+
+    def test_callback_api_returns_error_from_redirect(self):
+        from aragora.server.handlers.base import HandlerResult
+
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+
+        error_redirect = "http://localhost:3000/error?error=access_denied"
+        fake_result = HandlerResult(
+            status_code=302,
+            content_type="text/html",
+            body=b"",
+            headers={"Location": error_redirect},
+        )
+
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch.object(
+                oh,
+                "read_json_body",
+                return_value={"provider": "google", "code": "code", "state": "state"},
+            ),
+            mock.patch.object(oh, "_handle_google_callback", return_value=fake_result),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/callback", {}, handler, method="POST")
+            assert result.status_code == 400
+
+    def test_callback_api_no_redirect_returns_502(self):
+        from aragora.server.handlers.base import HandlerResult
+
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+
+        fake_result = HandlerResult(
+            status_code=302, content_type="text/html", body=b"", headers={}
+        )
+
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch.object(
+                oh,
+                "read_json_body",
+                return_value={"provider": "github", "code": "code", "state": "state"},
+            ),
+            mock.patch.object(oh, "_handle_github_callback", return_value=fake_result),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/callback", {}, handler, method="POST")
+            assert result.status_code == 502
+
+    def test_callback_api_handles_expires_in_parsing(self):
+        from aragora.server.handlers.base import HandlerResult
+
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj(command="POST")
+
+        redirect_url = (
+            "http://localhost:3000/callback?"
+            "access_token=tok&refresh_token=rt&token_type=Bearer&expires_in=invalid"
+        )
+        fake_result = HandlerResult(
+            status_code=302,
+            content_type="text/html",
+            body=b"",
+            headers={"Location": redirect_url},
+        )
+
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch.object(
+                oh,
+                "read_json_body",
+                return_value={"provider": "google", "code": "code", "state": "state"},
+            ),
+            mock.patch.object(oh, "_handle_google_callback", return_value=fake_result),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/callback", {}, handler, method="POST")
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert data["expires_in"] is None
+
+
+# ===========================================================================
+# Tests: _handle_oauth_url (additional tests)
+# ===========================================================================
+
+
+class TestHandleOAuthUrlAdditional:
+    def test_failed_url_generation_returns_500(self):
+        from aragora.server.handlers.base import HandlerResult
+
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+
+        # Result without Location header
+        fake_result = HandlerResult(
+            status_code=503, content_type="application/json", body=b'{"error":"not configured"}'
+        )
+
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch.object(oh, "_handle_google_auth_start", return_value=fake_result),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle("/api/auth/oauth/url", {"provider": "google"}, handler, method="GET")
+            assert result.status_code == 500
+
+
+# ===========================================================================
+# Tests: _check_permission
+# ===========================================================================
+
+
+class TestCheckPermission:
+    def test_unauthenticated_returns_401(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        auth = _make_auth_ctx(is_authenticated=False)
+        with (
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "_get_user_store", return_value=mock.MagicMock()),
+        ):
+            result = oh._check_permission(handler, "some.permission")
+            assert result is not None
+            assert result.status_code == 401
+
+    def test_authenticated_with_permission_allowed(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid", role="admin")
+        with (
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "_get_user_store", return_value=mock.MagicMock()),
+            mock.patch(
+                "aragora.rbac.defaults.get_role_permissions",
+                return_value={"authentication.read", "authentication.update"},
+            ),
+            mock.patch("aragora.rbac.checker.check_permission") as mock_check,
+        ):
+            mock_check.return_value = mock.MagicMock(allowed=True)
+            result = oh._check_permission(handler, "authentication.read")
+            assert result is None  # None means allowed
+
+    def test_permission_denied_returns_403(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        auth = _make_auth_ctx(is_authenticated=True, user_id="uid", role="viewer")
+        with (
+            mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
+            mock.patch.object(oh, "_get_user_store", return_value=mock.MagicMock()),
+            mock.patch("aragora.rbac.defaults.get_role_permissions", return_value=set()),
+            mock.patch("aragora.rbac.checker.check_permission") as mock_check,
+        ):
+            mock_check.return_value = mock.MagicMock(allowed=False, reason="No permission")
+            result = oh._check_permission(handler, "authentication.update")
+            assert result is not None
+            assert result.status_code == 403
+
+
+# ===========================================================================
+# Tests: Configuration getters
+# ===========================================================================
+
+
+class TestConfigurationGetters:
+    def test_get_secret_import_error_fallback(self, monkeypatch):
+        monkeypatch.setenv("TEST_SECRET_VAR", "env_value")
+        # Force ImportError by making the module import fail
+        with mock.patch.dict("sys.modules", {"aragora.config.secrets": None}):
+            from aragora.server.handlers._oauth_impl import _get_secret
+
+            # When ImportError occurs, should fall back to os.environ
+            result = _get_secret("TEST_SECRET_VAR", "default")
+            assert result == "env_value"
+
+    def test_oauth_success_url_default(self, monkeypatch):
+        monkeypatch.delenv("ARAGORA_ENV", raising=False)
+        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+            from aragora.server.handlers._oauth_impl import _get_oauth_success_url
+
+            result = _get_oauth_success_url()
+            assert "localhost" in result
+
+    def test_oauth_error_url_default(self, monkeypatch):
+        monkeypatch.delenv("ARAGORA_ENV", raising=False)
+        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+            from aragora.server.handlers._oauth_impl import _get_oauth_error_url
+
+            result = _get_oauth_error_url()
+            assert "localhost" in result
+            assert "error" in result
+
+    def test_microsoft_tenant_default(self):
+        with mock.patch("aragora.server.handlers._oauth_impl._get_secret", return_value=""):
+            from aragora.server.handlers._oauth_impl import _get_microsoft_tenant
+
+            result = _get_microsoft_tenant()
+            assert result == "common"
+
+
+# ===========================================================================
+# Tests: GitHub callback full flow
+# ===========================================================================
+
+
+class TestGitHubCallbackFullFlow:
+    def test_github_callback_no_access_token(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._validate_state",
+                return_value={"redirect_url": "http://localhost:3000"},
+            ),
+            mock.patch.object(
+                oh, "_exchange_github_code", return_value={"error": "bad_verification_code"}
+            ),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/github/callback",
+                {"state": "valid", "code": "badcode"},
+                handler,
+                method="GET",
+            )
+            assert result.status_code == 302
+            loc = result.headers.get("Location", "").lower()
+            assert "no access token" in loc or "error" in loc
+
+    def test_github_callback_user_info_failure(self):
+        oh = _make_oauth_handler()
+        handler = _make_handler_obj()
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._validate_state",
+                return_value={"redirect_url": "http://localhost:3000"},
+            ),
+            mock.patch.object(oh, "_exchange_github_code", return_value={"access_token": "tok"}),
+            mock.patch.object(oh, "_get_github_user_info", side_effect=Exception("API failed")),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/github/callback",
+                {"state": "valid", "code": "code"},
+                handler,
+                method="GET",
+            )
+            assert result.status_code == 302
+
+    def test_github_callback_user_store_unavailable(self):
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+
+        oh = _make_oauth_handler({})  # No user_store
+        handler = _make_handler_obj()
+        user_info = OAuthUserInfo(
+            provider="github", provider_user_id="gh1", email="gh@test.com", name="GH"
+        )
+        with (
+            mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._validate_state",
+                return_value={"redirect_url": "http://localhost:3000"},
+            ),
+            mock.patch.object(oh, "_exchange_github_code", return_value={"access_token": "tok"}),
+            mock.patch.object(oh, "_get_github_user_info", return_value=user_info),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._get_oauth_error_url",
+                return_value="http://localhost:3000/auth/error",
+            ),
+        ):
+            lim.is_allowed.return_value = True
+            result = oh.handle(
+                "/api/auth/oauth/github/callback",
+                {"state": "valid", "code": "code"},
+                handler,
+                method="GET",
+            )
+            assert result.status_code == 302
+            loc = result.headers.get("Location", "").lower()
+            assert "unavailable" in loc or "error" in loc
