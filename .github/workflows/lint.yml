@@ -67,7 +67,7 @@ jobs:
       - name: Run typecheck tier
         run: bash scripts/test_tiers.sh typecheck
         shell: bash
-        # Note: typecheck is informational-only until all errors are fixed
+        # Phase 5: mypy now REQUIRED (43→0 errors fixed Jan 2026)
 
   typecheck-core:
     runs-on: ubuntu-latest

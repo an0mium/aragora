@@ -130,11 +130,24 @@ case "$tier" in
     ;;
 
   typecheck)
-    # Run mypy on core modules - informational only
-    echo -e "${YELLOW}=== Type checking aragora (informational) ===${NC}"
-    mypy aragora/ --ignore-missing-imports --no-error-summary --show-error-codes || true
-    echo ""
-    echo -e "${GREEN}=== Type check complete (non-blocking) ===${NC}"
+    # Run mypy on aragora - REQUIRED (0 errors as of Phase 5)
+    echo -e "${YELLOW}=== Type checking aragora (REQUIRED) ===${NC}"
+
+    # Count actual errors (not notes) - pattern: "file:line:col: error:"
+    # Use grep -c || true to prevent exit on no matches (set -e compatible)
+    ERROR_COUNT=$(mypy aragora/ --ignore-missing-imports --show-error-codes 2>/dev/null | { grep -cE "^[^:]+:[0-9]+:[0-9]+: error:" || true; } | tr -d '[:space:]')
+    ERROR_COUNT=${ERROR_COUNT:-0}
+
+    if [ "$ERROR_COUNT" -gt 0 ]; then
+      echo -e "${RED}Found $ERROR_COUNT mypy error(s)!${NC}"
+      mypy aragora/ --ignore-missing-imports --show-error-codes
+      echo ""
+      echo -e "${RED}=== Type check FAILED ===${NC}"
+      echo "mypy error count must remain at 0 (currently: $ERROR_COUNT)"
+      exit 1
+    fi
+
+    echo -e "${GREEN}=== Type check passed (0 errors) ===${NC}"
     ;;
 
   frontend)
