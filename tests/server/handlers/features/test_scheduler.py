@@ -160,7 +160,7 @@ class TestSchedulerListJobs:
                 "aragora.server.handlers.features.scheduler.require_permission",
                 lambda p: lambda f: f,
             ),
-            patch("aragora.server.handlers.features.scheduler.ScheduleStatus") as MockStatus,
+            patch("aragora.scheduler.ScheduleStatus") as MockStatus,
         ):
             MockStatus.return_value = "active"
             result = handler._list_jobs({"status": ["active"]})
@@ -181,7 +181,7 @@ class TestSchedulerListJobs:
                 lambda p: lambda f: f,
             ),
             patch(
-                "aragora.server.handlers.features.scheduler.ScheduleStatus",
+                "aragora.scheduler.ScheduleStatus",
                 side_effect=ValueError("Invalid"),
             ),
         ):
@@ -290,7 +290,7 @@ class TestSchedulerCreateJob:
                 "aragora.server.handlers.features.scheduler.require_permission",
                 lambda p: lambda f: f,
             ),
-            patch("aragora.server.handlers.features.scheduler.TriggerType") as MockTrigger,
+            patch("aragora.scheduler.TriggerType") as MockTrigger,
         ):
             MockTrigger.return_value = MagicMock(value="cron")
             MockTrigger.CRON = MagicMock(value="cron")
@@ -315,7 +315,7 @@ class TestSchedulerCreateJob:
                 "aragora.server.handlers.features.scheduler.require_permission",
                 lambda p: lambda f: f,
             ),
-            patch("aragora.server.handlers.features.scheduler.TriggerType") as MockTrigger,
+            patch("aragora.scheduler.TriggerType") as MockTrigger,
         ):
             MockTrigger.return_value = MagicMock(value="interval")
             MockTrigger.CRON = MagicMock(value="cron")
