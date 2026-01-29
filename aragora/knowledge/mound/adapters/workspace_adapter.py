@@ -24,8 +24,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from ._base import KnowledgeMoundAdapter
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound
     from aragora.workspace import WorkspaceManager
+
+# KnowledgeMound is used dynamically, use Any for typing
+KnowledgeMound = Any
 
 logger = logging.getLogger(__name__)
 
@@ -820,7 +822,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
     # Sync from Workspace Manager
     # =========================================================================
 
-    async def sync_from_workspace(self) -> Dict[str, int]:
+    async def sync_from_workspace(self) -> Dict[str, Any]:
         """
         Sync current workspace state to Knowledge Mound.
 

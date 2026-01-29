@@ -25,8 +25,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from ._base import KnowledgeMoundAdapter
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound
     from aragora.gateway import LocalGateway
+
+# KnowledgeMound is used dynamically, use Any for typing
+KnowledgeMound = Any
 
 logger = logging.getLogger(__name__)
 
@@ -798,7 +800,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
     # Sync from Gateway
     # =========================================================================
 
-    async def sync_from_gateway(self) -> Dict[str, int]:
+    async def sync_from_gateway(self) -> Dict[str, Any]:
         """
         Sync current gateway state to Knowledge Mound.
 
@@ -838,7 +840,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                         synced["channels"] += 1
 
                 # Sync device registrations
-                devices = await self._gateway.list_devices()
+                devices = await self._gateway.list_devices()  # type: ignore[attr-defined]
                 for device in devices:
                     record = DeviceRegistrationRecord(
                         device_id=device.device_id,

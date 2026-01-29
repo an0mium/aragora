@@ -24,8 +24,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from ._base import KnowledgeMoundAdapter
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound
     from aragora.computer_use import ComputerUseOrchestrator, TaskResult
+
+# KnowledgeMound is used dynamically, use Any for typing
+KnowledgeMound = Any
 
 logger = logging.getLogger(__name__)
 
@@ -642,7 +644,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         # Analyze successful patterns
         avg_steps = sum(t.total_steps for t in similar) / len(similar)
         avg_duration = sum(t.duration_seconds for t in similar) / len(similar)
-        common_agents = {}
+        common_agents: Dict[str, int] = {}
         for t in similar:
             if t.agent_id:
                 common_agents[t.agent_id] = common_agents.get(t.agent_id, 0) + 1
@@ -797,7 +799,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
     # Sync from Orchestrator
     # =========================================================================
 
-    async def sync_from_orchestrator(self) -> Dict[str, int]:
+    async def sync_from_orchestrator(self) -> Dict[str, Any]:
         """
         Sync current orchestrator metrics to Knowledge Mound.
 
@@ -814,7 +816,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
         with self._timed_operation("sync_from_orchestrator"):
             try:
-                metrics = self._orchestrator.get_metrics()
+                metrics = self._orchestrator.get_metrics()  # type: ignore[attr-defined]
 
                 # Store action performance aggregates
                 action_types = ["click", "type", "scroll", "key", "screenshot", "wait"]
