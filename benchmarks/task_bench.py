@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -72,11 +73,11 @@ def load_tasks(task_dir: Path, only: set[str] | None = None) -> list[TaskCase]:
     return tasks
 
 
-def _protocol_overrides(profile: str) -> dict[str, Any]:
+def _protocol_overrides(profile: str, enable_trending: bool) -> dict[str, Any]:
     # Keep in sync with DebateProtocol fields.
     overrides = {
         "enable_research": False,
-        "enable_trending_injection": False,
+        "enable_trending_injection": enable_trending,
         "enable_rhetorical_observer": False,
         "enable_trickster": False,
         "enable_evolution": False,
@@ -168,6 +169,7 @@ def _run_debate_task(
     agents_str: str,
     rounds: int,
     profile: str,
+    enable_trending: bool,
 ) -> dict[str, Any]:
     start = time.perf_counter()
     result = asyncio.run(
@@ -179,7 +181,7 @@ def _run_debate_task(
             context=task.context,
             learn=False,
             enable_audience=False,
-            protocol_overrides=_protocol_overrides(profile),
+            protocol_overrides=_protocol_overrides(profile, enable_trending),
         )
     )
     duration = time.perf_counter() - start
@@ -204,6 +206,7 @@ async def _run_review_debate(
     agents_str: str,
     rounds: int,
     profile: str,
+    enable_trending: bool,
 ) -> Any:
     agent_types = [spec.strip() for spec in agents_str.split(",") if spec.strip()]
     if not agent_types:
@@ -221,7 +224,11 @@ async def _run_review_debate(
         )
     task_prompt = build_review_prompt(diff)
     env = Environment(task=task_prompt, max_rounds=rounds)
-    protocol = DebateProtocol(rounds=rounds, consensus="majority", **_protocol_overrides(profile))
+    protocol = DebateProtocol(
+        rounds=rounds,
+        consensus="majority",
+        **_protocol_overrides(profile, enable_trending),
+    )
     arena = Arena(env, agents, protocol)
     return await arena.run()
 
@@ -231,9 +238,12 @@ def _run_review_task(
     agents_str: str,
     rounds: int,
     profile: str,
+    enable_trending: bool,
 ) -> dict[str, Any]:
     start = time.perf_counter()
-    result = asyncio.run(_run_review_debate(task.input, agents_str, rounds, profile))
+    result = asyncio.run(
+        _run_review_debate(task.input, agents_str, rounds, profile, enable_trending)
+    )
     duration = time.perf_counter() - start
     findings = extract_review_findings(result)
     findings.pop("all_critiques", None)
@@ -298,11 +308,12 @@ def run_task(
     agents_str: str,
     rounds: int,
     profile: str,
+    enable_trending: bool,
 ) -> dict[str, Any]:
     if task.kind == "debate":
-        return _run_debate_task(task, agents_str, rounds, profile)
+        return _run_debate_task(task, agents_str, rounds, profile, enable_trending)
     if task.kind == "review":
-        return _run_review_task(task, agents_str, rounds, profile)
+        return _run_review_task(task, agents_str, rounds, profile, enable_trending)
     if task.kind == "gauntlet":
         agents = [spec.strip() for spec in agents_str.split(",") if spec.strip()]
         return _run_gauntlet_task(task, agents, profile)
@@ -376,7 +387,17 @@ def main() -> int:
         nargs="*",
         help="Optional task ids to run (space-separated).",
     )
+    parser.add_argument(
+        "--enable-trending",
+        action="store_true",
+        help="Enable Pulse trending context (disabled by default for deterministic runs).",
+    )
     args = parser.parse_args()
+
+    if args.enable_trending:
+        os.environ.pop("ARAGORA_DISABLE_TRENDING", None)
+    else:
+        os.environ["ARAGORA_DISABLE_TRENDING"] = "1"
 
     task_dir = Path(args.task_dir)
     output_dir = Path(args.output_dir)
@@ -398,7 +419,7 @@ def main() -> int:
     results: list[dict[str, Any]] = []
     for task in tasks:
         for label, agents_str in (("baseline", baseline_agents), ("multi", multi_agents)):
-            run = run_task(task, agents_str, args.rounds, args.profile)
+            run = run_task(task, agents_str, args.rounds, args.profile, args.enable_trending)
             run.update(
                 {
                     "task_id": task.id,

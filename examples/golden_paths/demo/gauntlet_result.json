@@ -12,7 +12,7 @@
     "successful_attacks": 0,
     "total_attacks": 0
   },
-  "completed_at": "2026-01-28T22:20:45.114272",
+  "completed_at": "2026-01-28T22:38:28.800758",
   "confidence": 0.8999999999999999,
   "config_used": {
     "agents": [
@@ -78,8 +78,8 @@
   },
   "consensus_points": [],
   "dissenting_views": [],
-  "duration_seconds": 30.587642,
-  "gauntlet_id": "gauntlet-bf8c9c445ecf",
+  "duration_seconds": 17.882109,
+  "gauntlet_id": "gauntlet-84871ecae2a9",
   "input_hash": "f19efca4d4d42686a5ef804b863ffc2d82807e442ad056f73e7a7d73f3bd0cb6",
   "input_summary": "# Payment Webhook Service (Draft)\n\n## Goals\n- Accept payment webhooks from multiple providers.\n- Normalize events and write to a ledger table.\n- Expose an API for finance to query event status.\n\n## Constraints\n- Must be idempotent.\n- Must handle spikes (10k events/min).\n- Must log audit trails for compliance.\n\n## Open Questions\n- How do we validate webhook signatures consistently?\n- What is the retry/backoff strategy for provider outages?\n",
   "probe_summary": {
@@ -112,7 +112,7 @@
     "scenarios_run": 8,
     "universal_conclusions": []
   },
-  "started_at": "2026-01-28T22:20:14.526630",
+  "started_at": "2026-01-28T22:38:10.918649",
   "verdict": "pass",
   "verdict_reasoning": "No vulnerabilities found; Strong robustness (100.0%); Consistent conclusions across scenarios",
   "vulnerabilities": []

@@ -67,6 +67,35 @@ Status legend:
 10. **Agent Fabric MVP**
    - Acceptance: scheduler + isolation + budgets + telemetry for 50–100 concurrent agents
 
+## Milestone Checklist (Owners + Test Hooks)
+
+Owners are suggested teams/areas to align work; adjust as needed.
+
+### M0 (P0 foundation)
+
+| Item | Suggested owner | Acceptance summary | Test hooks |
+| --- | --- | --- | --- |
+| Unify bead storage and status mapping | Workspace | Nomic BeadStore is authoritative; workspace APIs preserved; status mapping stable | `tests/workspace/test_workspace_nomic.py`, `tests/workspace/test_workspace.py` |
+| Unify convoy storage and IDs | Workspace | Convoys share Nomic backend; workspace/gastown metadata preserved | `tests/workspace/test_workspace_nomic.py`, `tests/extensions/test_gastown.py` |
+| Canonical ownership of Gastown primitives | Extensions | Single source of truth module + compatibility adapters | `tests/extensions/test_gastown.py` |
+
+### M1 (Protocol + device parity)
+
+| Item | Suggested owner | Acceptance summary | Test hooks |
+| --- | --- | --- | --- |
+| Gateway WS protocol adapter | Gateway | Sessions + presence + config endpoints mapped to gateway | `tests/gateway/test_protocol_adapter.py` |
+| Device node runtime reference | Gateway | Pairing + heartbeat + capability reports working | `tests/gateway/test_device_node_runtime.py`, `tests/gateway/test_gateway.py` |
+| Voice wake engine integration | Extensions | Wake engine wired to device mic + session handoff | `tests/extensions/moltbot/test_voice_wake.py` |
+| Canvas A2UI contract | Extensions | push/reset/snapshot handled end-to-end | `tests/extensions/moltbot/test_canvas.py` |
+
+### M2 (Expansion + hardening)
+
+| Item | Suggested owner | Acceptance summary | Test hooks |
+| --- | --- | --- | --- |
+| Consumer channel expansion | Integrations | Each channel wired with routing + RBAC | `tests/extensions/moltbot/test_capabilities.py` |
+| Policy + approval unification | Security | Device + computer-use share approvals + audit | `tests/extensions/moltbot/test_capabilities.py` |
+| Agent Fabric MVP | Platform | Scheduler + isolation + budgets + telemetry at scale | `tests/extensions/test_gastown.py` |
+
 ## Implementation Notes
 - Avoid SDK regeneration until endpoint stability improves.
 - Prefer adapters over invasive rewrites; keep enterprise core stable.

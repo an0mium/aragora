@@ -53,7 +53,7 @@ jobs:
       - name: Check version alignment
         run: python scripts/check_version_alignment.py
       - name: Repo hygiene guard
-        run: python scripts/guard_repo_clean.py
+        run: python scripts/guard_repo_clean.py --check-working-tree
 
       - name: Check OpenAPI spec is up to date
         run: |

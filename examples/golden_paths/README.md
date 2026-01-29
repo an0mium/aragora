@@ -7,6 +7,11 @@ Generate (demo agents, full mode):
 python scripts/golden_paths.py --mode full --output-dir examples/golden_paths/demo
 ```
 
+Optional: include Pulse trending context (requires network access):
+```bash
+python scripts/golden_paths.py --mode full --enable-trending --output-dir examples/golden_paths/demo
+```
+
 Artifacts:
 - `ask_result.json`
 - `gauntlet_result.json`

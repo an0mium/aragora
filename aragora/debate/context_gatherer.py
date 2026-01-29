@@ -109,6 +109,7 @@ class ContextGatherer:
         enable_belief_guidance: bool = True,
         enable_threat_intel_enrichment: bool = True,
         threat_intel_enrichment: Optional[Any] = None,
+        enable_trending_context: bool = True,
     ):
         """
         Initialize the context gatherer.
@@ -128,6 +129,7 @@ class ContextGatherer:
             enable_belief_guidance: Whether to inject historical cruxes from similar debates.
             enable_threat_intel_enrichment: Whether to enrich security topics with threat intel.
             threat_intel_enrichment: Optional pre-configured ThreatIntelEnrichment instance.
+            enable_trending_context: Whether to gather Pulse trending context.
         """
         self._evidence_store_callback = evidence_store_callback
         self._prompt_builder = prompt_builder
@@ -144,6 +146,18 @@ class ContextGatherer:
 
         # Cache for trending topics (TrendingTopic objects, not just formatted string)
         self._trending_topics_cache: list[Any] = []
+
+        disable_trending = os.getenv("ARAGORA_DISABLE_TRENDING", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        self._enable_trending_context = enable_trending_context and not disable_trending
+        if disable_trending:
+            logger.info(
+                "[pulse] ContextGatherer: Trending context disabled via ARAGORA_DISABLE_TRENDING"
+            )
 
         # RLM configuration - use factory for consistent initialization
         self._enable_rlm = enable_rlm_compression and HAS_RLM
@@ -327,9 +341,10 @@ class ContextGatherer:
             if aragora_ctx:
                 context_parts.append(aragora_ctx)
 
-            # 3. ALWAYS gather trending context for real-time relevance
-            # This provides current context even when Claude search succeeds
-            trending_task = asyncio.create_task(self._gather_trending_with_timeout())
+            # 3. Gather trending context for real-time relevance (if enabled)
+            trending_task = None
+            if self._enable_trending_context:
+                trending_task = asyncio.create_task(self._gather_trending_with_timeout())
 
             # 4. Gather knowledge mound context for institutional knowledge
             knowledge_task = asyncio.create_task(self._gather_knowledge_mound_with_timeout(task))
@@ -344,27 +359,15 @@ class ContextGatherer:
             threat_intel_task = asyncio.create_task(self._gather_threat_intel_with_timeout(task))
 
             # 8. Gather additional evidence in parallel (fallback if Claude search weak)
+            tasks = [knowledge_task, belief_task, culture_task, threat_intel_task]
+            if trending_task is not None:
+                tasks.append(trending_task)
+
             if not claude_ctx or len(claude_ctx) < 500:
                 evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
-                results = await asyncio.gather(
-                    evidence_task,
-                    trending_task,
-                    knowledge_task,
-                    belief_task,
-                    culture_task,
-                    threat_intel_task,
-                    return_exceptions=True,
-                )
-            else:
-                # Still wait for trending, knowledge, belief, culture, and threat intel
-                results = await asyncio.gather(
-                    trending_task,
-                    knowledge_task,
-                    belief_task,
-                    culture_task,
-                    threat_intel_task,
-                    return_exceptions=True,
-                )
+                tasks.insert(0, evidence_task)
+
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
             for result in results:
                 if isinstance(result, str) and result:
@@ -737,6 +740,9 @@ class ContextGatherer:
         Returns:
             Formatted trending topics context, or None if unavailable.
         """
+        if not self._enable_trending_context:
+            logger.debug("[pulse] Trending context disabled")
+            return None
         try:
             from aragora.pulse.ingestor import (
                 GitHubTrendingIngestor,

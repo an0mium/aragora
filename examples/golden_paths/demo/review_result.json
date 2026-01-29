@@ -5,8 +5,8 @@
       "demo_security_reviewer": 0.0
     },
     "agents_used": [
-      "demo_security_reviewer",
-      "demo_performance_reviewer"
+      "demo_performance_reviewer",
+      "demo_security_reviewer"
     ],
     "agreement_score": 1.0,
     "critical_issues": [],

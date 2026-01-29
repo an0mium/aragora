@@ -216,7 +216,10 @@ Optional: run the golden-path harness (offline, demo agents).
 
 ```bash
 python scripts/golden_paths.py --mode fast
+python scripts/golden_paths.py --mode fast --enable-trending  # optional network context
 ```
+
+Sample artifacts live in `examples/golden_paths/demo`.
 
 > **See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete setup and usage guide.**
 

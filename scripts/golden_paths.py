@@ -17,6 +17,7 @@ import asyncio
 import itertools
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Callable
 
@@ -82,11 +83,11 @@ def _demo_agent_factory() -> Callable[[str], Any]:
     return factory
 
 
-def _protocol_overrides(mode: str) -> dict[str, Any]:
+def _protocol_overrides(mode: str, enable_trending: bool) -> dict[str, Any]:
     # Keep these in sync with DebateProtocol fields.
     overrides = {
         "enable_research": False,
-        "enable_trending_injection": False,
+        "enable_trending_injection": enable_trending,
         "enable_rhetorical_observer": False,
         "enable_trickster": False,
         "enable_evolution": False,
@@ -114,7 +115,14 @@ def _protocol_overrides(mode: str) -> dict[str, Any]:
     return overrides
 
 
-def run_ask(output_dir: Path, mode: str = "fast") -> dict[str, Any]:
+def _configure_trending(enable_trending: bool) -> None:
+    if enable_trending:
+        os.environ.pop("ARAGORA_DISABLE_TRENDING", None)
+    else:
+        os.environ["ARAGORA_DISABLE_TRENDING"] = "1"
+
+
+def run_ask(output_dir: Path, mode: str = "fast", enable_trending: bool = False) -> dict[str, Any]:
     rounds = 1 if mode == "fast" else 3
     result = asyncio.run(
         run_debate(
@@ -125,7 +133,7 @@ def run_ask(output_dir: Path, mode: str = "fast") -> dict[str, Any]:
             context="",
             learn=False,
             enable_audience=False,
-            protocol_overrides=_protocol_overrides(mode),
+            protocol_overrides=_protocol_overrides(mode, enable_trending),
             mode=None,
         )
     )
@@ -163,14 +171,16 @@ async def _run_review_debate(
     return await arena.run()
 
 
-def run_review(output_dir: Path, mode: str = "fast") -> dict[str, Any]:
+def run_review(
+    output_dir: Path, mode: str = "fast", enable_trending: bool = False
+) -> dict[str, Any]:
     rounds = 1 if mode == "fast" else 2
     result = asyncio.run(
         _run_review_debate(
             diff=DEFAULT_DIFF,
             agents_str="demo,demo",
             rounds=rounds,
-            protocol_overrides=_protocol_overrides(mode),
+            protocol_overrides=_protocol_overrides(mode, enable_trending),
         )
     )
     findings = extract_review_findings(result)
@@ -201,13 +211,13 @@ def run_gauntlet(output_dir: Path, mode: str = "fast") -> dict[str, Any]:
     return payload
 
 
-def run_all(output_dir: Path, mode: str = "fast") -> dict[str, Any]:
+def run_all(output_dir: Path, mode: str = "fast", enable_trending: bool = False) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     results = {
-        "ask": run_ask(output_dir, mode=mode),
+        "ask": run_ask(output_dir, mode=mode, enable_trending=enable_trending),
         "gauntlet": run_gauntlet(output_dir, mode=mode),
-        "review": run_review(output_dir, mode=mode),
+        "review": run_review(output_dir, mode=mode, enable_trending=enable_trending),
     }
 
     summary = {
@@ -241,18 +251,24 @@ def main() -> int:
         default="all",
         help="Run only a single workflow.",
     )
+    parser.add_argument(
+        "--enable-trending",
+        action="store_true",
+        help="Enable Pulse trending context (disabled by default for deterministic runs).",
+    )
 
     args = parser.parse_args()
     output_dir = Path(args.output_dir)
+    _configure_trending(args.enable_trending)
 
     if args.only == "ask":
-        run_ask(output_dir, mode=args.mode)
+        run_ask(output_dir, mode=args.mode, enable_trending=args.enable_trending)
     elif args.only == "gauntlet":
         run_gauntlet(output_dir, mode=args.mode)
     elif args.only == "review":
-        run_review(output_dir, mode=args.mode)
+        run_review(output_dir, mode=args.mode, enable_trending=args.enable_trending)
     else:
-        run_all(output_dir, mode=args.mode)
+        run_all(output_dir, mode=args.mode, enable_trending=args.enable_trending)
 
     print(f"[golden-paths] artifacts written to {output_dir}")
     return 0

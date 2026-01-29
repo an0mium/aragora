@@ -98,7 +98,9 @@ Keep runtime artifacts out of the repo. Use `.nomic/` (via `ARAGORA_DATA_DIR`) a
 run the guard script before commits:
 
 ```bash
-python scripts/guard_repo_clean.py
+python3 scripts/guard_repo_clean.py
+make guard
+make guard-strict  # includes untracked artifacts
 ```
 
 ## Running Tests

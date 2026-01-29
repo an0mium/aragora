@@ -627,6 +627,8 @@ pytest tests/benchmarks/ -v
 
 # Run task ROI/quality benchmark harness (offline demo mode)
 python benchmarks/task_bench.py --mode demo --profile fast
+# Include Pulse trending context (network required)
+python benchmarks/task_bench.py --mode demo --profile fast --enable-trending
 
 # Run with timing info
 pytest tests/ --durations=10

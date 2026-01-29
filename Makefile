@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test lint format typecheck clean clean-all clean-runtime clean-runtime-dry docs serve docker
+.PHONY: help install dev test lint format typecheck guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker
 
 # Default target
 help:
@@ -27,6 +27,8 @@ help:
 	@echo "  make format       Format code (ruff format)"
 	@echo "  make typecheck    Run type checker (mypy)"
 	@echo "  make check        Run all checks (lint + typecheck)"
+	@echo "  make guard        Check repo hygiene (tracked artifacts)"
+	@echo "  make guard-strict Check repo hygiene (tracked + untracked artifacts)"
 	@echo ""
 	@echo "Development:"
 	@echo "  make serve        Start development server"
@@ -97,6 +99,12 @@ typecheck:
 	mypy aragora/ --ignore-missing-imports
 
 check: lint typecheck
+
+guard:
+	python3 scripts/guard_repo_clean.py
+
+guard-strict:
+	python3 scripts/guard_repo_clean.py --check-working-tree
 
 # Development
 serve:

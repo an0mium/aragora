@@ -17,4 +17,5 @@ Fields:
 Run:
 ```bash
 python benchmarks/task_bench.py --mode demo --profile fast
+python benchmarks/task_bench.py --mode demo --profile fast --enable-trending  # optional
 ```
