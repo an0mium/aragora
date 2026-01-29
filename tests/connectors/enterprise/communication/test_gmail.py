@@ -643,6 +643,138 @@ class TestMessageOperations:
             assert message.is_starred is True  # Has STARRED label
 
 
+class TestBatchMessageFetching:
+    """Tests for batch message fetching (get_messages)."""
+
+    @pytest.mark.asyncio
+    async def test_get_messages_empty_list(self, authenticated_connector):
+        """Test get_messages with empty list returns empty list."""
+        result = await authenticated_connector.get_messages([])
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_get_messages_single(self, authenticated_connector, sample_gmail_message):
+        """Test get_messages with single message ID."""
+        with patch.object(
+            authenticated_connector, "_api_request", return_value=sample_gmail_message
+        ):
+            messages = await authenticated_connector.get_messages(["msg_123"])
+
+            assert len(messages) == 1
+            assert isinstance(messages[0], EmailMessage)
+            assert messages[0].id == "msg_123"
+
+    @pytest.mark.asyncio
+    async def test_get_messages_multiple(self, authenticated_connector, sample_gmail_message):
+        """Test get_messages with multiple message IDs fetches in parallel."""
+        msg_1 = {**sample_gmail_message, "id": "msg_1"}
+        msg_2 = {**sample_gmail_message, "id": "msg_2"}
+        msg_3 = {**sample_gmail_message, "id": "msg_3"}
+
+        call_count = 0
+
+        async def mock_api_request(endpoint, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if "msg_1" in endpoint:
+                return msg_1
+            elif "msg_2" in endpoint:
+                return msg_2
+            elif "msg_3" in endpoint:
+                return msg_3
+            return sample_gmail_message
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            messages = await authenticated_connector.get_messages(["msg_1", "msg_2", "msg_3"])
+
+            assert len(messages) == 3
+            assert call_count == 3  # All three fetched
+            ids = {msg.id for msg in messages}
+            assert ids == {"msg_1", "msg_2", "msg_3"}
+
+    @pytest.mark.asyncio
+    async def test_get_messages_handles_failures_gracefully(
+        self, authenticated_connector, sample_gmail_message
+    ):
+        """Test get_messages continues on individual failures and returns partial results."""
+        msg_1 = {**sample_gmail_message, "id": "msg_1"}
+        msg_3 = {**sample_gmail_message, "id": "msg_3"}
+
+        async def mock_api_request(endpoint, **kwargs):
+            if "msg_1" in endpoint:
+                return msg_1
+            elif "msg_2" in endpoint:
+                raise Exception("API error for msg_2")
+            elif "msg_3" in endpoint:
+                return msg_3
+            return sample_gmail_message
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            messages = await authenticated_connector.get_messages(["msg_1", "msg_2", "msg_3"])
+
+            # Should return 2 messages (msg_2 failed)
+            assert len(messages) == 2
+            ids = {msg.id for msg in messages}
+            assert ids == {"msg_1", "msg_3"}
+
+    @pytest.mark.asyncio
+    async def test_get_messages_respects_max_concurrent(
+        self, authenticated_connector, sample_gmail_message
+    ):
+        """Test get_messages respects max_concurrent limit."""
+        import asyncio
+
+        concurrent_count = 0
+        max_concurrent_observed = 0
+
+        async def mock_api_request(endpoint, **kwargs):
+            nonlocal concurrent_count, max_concurrent_observed
+            concurrent_count += 1
+            max_concurrent_observed = max(max_concurrent_observed, concurrent_count)
+            await asyncio.sleep(0.01)  # Small delay to test concurrency
+            concurrent_count -= 1
+            return {**sample_gmail_message, "id": endpoint.split("/")[-1]}
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            message_ids = [f"msg_{i}" for i in range(20)]
+            messages = await authenticated_connector.get_messages(
+                message_ids, max_concurrent=5
+            )
+
+            assert len(messages) == 20
+            # max_concurrent should have limited concurrent requests
+            assert max_concurrent_observed <= 5
+
+    @pytest.mark.asyncio
+    async def test_get_messages_with_format_parameter(
+        self, authenticated_connector, sample_gmail_message
+    ):
+        """Test get_messages passes format parameter correctly."""
+        formats_requested = []
+
+        async def mock_api_request(endpoint, params=None, **kwargs):
+            if params:
+                formats_requested.append(params.get("format"))
+            return sample_gmail_message
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            await authenticated_connector.get_messages(["msg_1", "msg_2"], format="metadata")
+
+            assert all(f == "metadata" for f in formats_requested)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_all_fail(self, authenticated_connector):
+        """Test get_messages returns empty list when all fetches fail."""
+
+        async def mock_api_request(endpoint, **kwargs):
+            raise Exception("All API calls fail")
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            messages = await authenticated_connector.get_messages(["msg_1", "msg_2", "msg_3"])
+
+            assert messages == []
+
+
 class TestMessageParsing:
     """Tests for message parsing logic."""
 
@@ -808,27 +940,63 @@ class TestSearchAndFetch:
 
     @pytest.mark.asyncio
     async def test_search(self, authenticated_connector, sample_gmail_message):
-        """Test Gmail search."""
+        """Test Gmail search uses batch fetching to avoid N+1 queries."""
+        mock_msg = EmailMessage(
+            id="msg_123",
+            thread_id="thread_456",
+            subject="Test",
+            from_address="test@example.com",
+            to_addresses=["recipient@example.com"],
+            date=datetime.now(timezone.utc),
+            body_text="Body",
+            snippet="Snippet",
+        )
+
         with patch.object(
             authenticated_connector, "list_messages", return_value=(["msg_123"], None)
         ):
-            with patch.object(authenticated_connector, "get_message") as mock_get:
-                mock_msg = EmailMessage(
-                    id="msg_123",
-                    thread_id="thread_456",
-                    subject="Test",
-                    from_address="test@example.com",
-                    to_addresses=["recipient@example.com"],
-                    date=datetime.now(timezone.utc),
-                    body_text="Body",
-                    snippet="Snippet",
-                )
-                mock_get.return_value = mock_msg
-
+            with patch.object(
+                authenticated_connector, "get_messages", return_value=[mock_msg]
+            ) as mock_get_batch:
                 results = await authenticated_connector.search("from:test@example.com", limit=10)
 
                 assert len(results) == 1
                 assert results[0].source_id == "msg_123"
+                # Verify batch method was called instead of individual get_message
+                mock_get_batch.assert_called_once_with(["msg_123"], format="metadata")
+
+    @pytest.mark.asyncio
+    async def test_search_multiple_results(self, authenticated_connector):
+        """Test Gmail search with multiple results uses batch fetching."""
+        mock_msgs = [
+            EmailMessage(
+                id=f"msg_{i}",
+                thread_id=f"thread_{i}",
+                subject=f"Test {i}",
+                from_address="test@example.com",
+                to_addresses=["recipient@example.com"],
+                date=datetime.now(timezone.utc),
+                body_text="Body",
+                snippet="Snippet",
+            )
+            for i in range(3)
+        ]
+
+        with patch.object(
+            authenticated_connector,
+            "list_messages",
+            return_value=(["msg_0", "msg_1", "msg_2"], None),
+        ):
+            with patch.object(
+                authenticated_connector, "get_messages", return_value=mock_msgs
+            ) as mock_get_batch:
+                results = await authenticated_connector.search("from:test@example.com", limit=10)
+
+                assert len(results) == 3
+                # Verify single batch call instead of 3 individual calls
+                mock_get_batch.assert_called_once_with(
+                    ["msg_0", "msg_1", "msg_2"], format="metadata"
+                )
 
     @pytest.mark.asyncio
     async def test_fetch(self, authenticated_connector):
@@ -1639,7 +1807,7 @@ class TestPrioritization:
 
     @pytest.mark.asyncio
     async def test_rank_inbox(self, authenticated_connector):
-        """Test rank inbox convenience method."""
+        """Test rank inbox uses batch fetching to avoid N+1 queries."""
         mock_msg = EmailMessage(
             id="msg_1",
             thread_id="thread_1",
@@ -1651,13 +1819,52 @@ class TestPrioritization:
         )
 
         with patch.object(authenticated_connector, "list_messages", return_value=(["msg_1"], None)):
-            with patch.object(authenticated_connector, "get_message", return_value=mock_msg):
+            with patch.object(
+                authenticated_connector, "get_messages", return_value=[mock_msg]
+            ) as mock_get_batch:
                 with patch.object(authenticated_connector, "sync_with_prioritization") as mock_prio:
                     mock_prio.return_value = [{"message": mock_msg, "priority": "HIGH"}]
 
                     results = await authenticated_connector.rank_inbox(max_messages=10)
 
                     assert len(results) == 1
+                    # Verify batch method was used instead of individual get_message
+                    mock_get_batch.assert_called_once_with(["msg_1"])
+
+    @pytest.mark.asyncio
+    async def test_rank_inbox_multiple_messages(self, authenticated_connector):
+        """Test rank inbox with multiple messages uses batch fetching."""
+        mock_msgs = [
+            EmailMessage(
+                id=f"msg_{i}",
+                thread_id=f"thread_{i}",
+                subject=f"Test {i}",
+                from_address="sender@example.com",
+                to_addresses=["test@example.com"],
+                date=datetime.now(timezone.utc),
+                body_text="Body",
+            )
+            for i in range(5)
+        ]
+
+        with patch.object(
+            authenticated_connector,
+            "list_messages",
+            return_value=([f"msg_{i}" for i in range(5)], None),
+        ):
+            with patch.object(
+                authenticated_connector, "get_messages", return_value=mock_msgs
+            ) as mock_get_batch:
+                with patch.object(authenticated_connector, "sync_with_prioritization") as mock_prio:
+                    mock_prio.return_value = [
+                        {"message": msg, "priority": "HIGH"} for msg in mock_msgs
+                    ]
+
+                    results = await authenticated_connector.rank_inbox(max_messages=10)
+
+                    assert len(results) == 5
+                    # Verify single batch call instead of 5 individual calls
+                    mock_get_batch.assert_called_once()
 
 
 # =============================================================================

@@ -144,7 +144,9 @@ class MockTokenCounter:
         return " ".join(words[:max_tokens])
 
 
-def create_multipart_body(files: list[tuple[str, bytes]], form_data: dict = None) -> tuple[bytes, str]:
+def create_multipart_body(
+    files: list[tuple[str, bytes]], form_data: dict = None
+) -> tuple[bytes, str]:
     """Create multipart/form-data body for testing."""
     boundary = "----TestBoundary1234567890"
     parts = []
@@ -154,7 +156,9 @@ def create_multipart_body(files: list[tuple[str, bytes]], form_data: dict = None
         parts.append(f"------{boundary}\r\n")
         parts.append(f'Content-Disposition: form-data; name="files[]"; filename="{filename}"\r\n')
         parts.append("Content-Type: application/octet-stream\r\n\r\n")
-        parts.append(content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content)
+        parts.append(
+            content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content
+        )
         parts.append("\r\n")
 
     # Add form fields
@@ -209,10 +213,13 @@ def mock_processor():
 @pytest.fixture(autouse=True)
 def bypass_rbac():
     """Bypass RBAC decorator for testing."""
+
     def passthrough_decorator(*args, **kwargs):
         """Return identity decorator."""
+
         def identity(func):
             return func
+
         # If used as @require_permission("permission"), return identity
         if args and callable(args[0]):
             return args[0]
@@ -840,9 +847,7 @@ class TestHelperMethods:
         """Test that _get_batch_processor creates a processor if not in context."""
         handler.ctx = {}
 
-        with patch(
-            "aragora.documents.ingestion.batch_processor.BatchProcessor"
-        ) as MockProcessor:
+        with patch("aragora.documents.ingestion.batch_processor.BatchProcessor") as MockProcessor:
             MockProcessor.return_value = MagicMock()
             processor = handler._get_batch_processor()
 

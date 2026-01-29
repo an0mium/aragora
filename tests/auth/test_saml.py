@@ -271,7 +271,9 @@ class TestSAMLAuthorizationUrl:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 url = await provider.get_authorization_url()
 
@@ -287,7 +289,9 @@ class TestSAMLAuthorizationUrl:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 url = await provider.get_authorization_url(relay_state="custom-state")
 
@@ -299,7 +303,9 @@ class TestSAMLAuthorizationUrl:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 url = await provider.get_authorization_url(state="csrf-token")
 
@@ -311,7 +317,9 @@ class TestSAMLAuthorizationUrl:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 url = await provider.get_authorization_url()
 
@@ -348,7 +356,9 @@ class TestSAMLAuthentication:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
 
                 with pytest.raises(SSOAuthenticationError) as exc:
@@ -363,7 +373,9 @@ class TestSAMLAuthentication:
         saml_response = create_saml_response()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 # Add the state to the store (valid, not expired)
                 provider._state_store["valid-state"] = time.time()
@@ -382,7 +394,9 @@ class TestSAMLAuthentication:
         saml_response = create_saml_response()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 # Add expired state (10 minutes ago, beyond typical 5-min expiry)
                 provider._state_store["expired-state"] = time.time() - 600
@@ -408,7 +422,9 @@ class TestSAMLAuthentication:
         )
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 user = await provider.authenticate(saml_response=saml_response)
 
@@ -425,7 +441,9 @@ class TestSAMLAuthentication:
         )
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
 
                 with pytest.raises(SSOAuthenticationError) as exc:
@@ -453,7 +471,9 @@ class TestSAMLAuthentication:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
 
                 with pytest.raises(SSOAuthenticationError) as exc:
@@ -468,7 +488,9 @@ class TestSAMLAuthentication:
         saml_response = create_saml_response(name_id="user@other.com")
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
 
                 with pytest.raises(SSOAuthenticationError) as exc:
@@ -483,7 +505,9 @@ class TestSAMLAuthentication:
         saml_response = create_saml_response(name_id="user@example.com")
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 user = await provider.authenticate(saml_response=saml_response)
 
@@ -496,7 +520,9 @@ class TestSAMLAuthentication:
         saml_response = base64.b64encode(b"not valid xml").decode()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
 
                 with pytest.raises(SSOAuthenticationError) as exc:
@@ -523,7 +549,9 @@ class TestSAMLAttributeMapping:
         )
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 user = await provider.authenticate(saml_response=saml_response)
 
@@ -543,7 +571,9 @@ class TestSAMLAttributeMapping:
         )
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 user = await provider.authenticate(saml_response=saml_response)
 
@@ -564,7 +594,9 @@ class TestSAMLAttributeMapping:
         )
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 user = await provider.authenticate(saml_response=saml_response)
 
@@ -585,7 +617,9 @@ class TestSAMLAttributeMapping:
         )
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 user = await provider.authenticate(saml_response=saml_response)
 
@@ -606,7 +640,9 @@ class TestSAMLMetadata:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 metadata = await provider.get_metadata()
 
@@ -626,7 +662,9 @@ class TestSAMLMetadata:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
                 metadata = await provider.get_metadata()
 
@@ -670,7 +708,9 @@ class TestSAMLHelpers:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
 
                 host = provider._get_host_from_url("https://example.com:8080/path")
@@ -681,7 +721,9 @@ class TestSAMLHelpers:
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
                 provider = SAMLProvider(config)
 
                 path = provider._get_path_from_url("https://example.com/saml/acs")

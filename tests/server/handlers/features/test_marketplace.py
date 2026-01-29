@@ -483,7 +483,9 @@ class TestCreateTemplate:
         http_handler = _make_http_handler("POST", body)
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_create_template()
@@ -517,7 +519,9 @@ class TestCreateTemplate:
         http_handler = _make_http_handler("POST")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_create_template()
@@ -534,7 +538,9 @@ class TestCreateTemplate:
         mock_reg.import_template.side_effect = ValueError("Invalid template format")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_reg):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_create_template()
@@ -556,7 +562,9 @@ class TestDeleteTemplate:
         http_handler = _make_http_handler("DELETE")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_delete_template("test-template")
@@ -589,7 +597,9 @@ class TestDeleteTemplate:
         http_handler = _make_http_handler("DELETE")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_delete_template("builtin-template")
@@ -612,7 +622,9 @@ class TestRateTemplate:
         http_handler = _make_http_handler("POST", body)
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_rate_template("test-template")
@@ -647,7 +659,9 @@ class TestRateTemplate:
         http_handler = _make_http_handler("POST", body)
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_rate_template("test-template")
@@ -663,7 +677,9 @@ class TestRateTemplate:
         http_handler = _make_http_handler("POST", body)
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_rate_template("test-template")
@@ -679,7 +695,9 @@ class TestRateTemplate:
         http_handler = _make_http_handler("POST", body)
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_rate_template("test-template")
@@ -693,7 +711,9 @@ class TestRateTemplate:
         http_handler = _make_http_handler("POST", body)
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_rate_template("test-template")
@@ -769,7 +789,9 @@ class TestStarTemplate:
         http_handler = _make_http_handler("POST")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_star_template("test-template")
@@ -803,7 +825,9 @@ class TestStarTemplate:
         http_handler = _make_http_handler("POST")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 handler.handle_star_template("test-template")
@@ -905,7 +929,9 @@ class TestImportTemplate:
         http_handler = _make_http_handler("POST", body)
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_import_template()
@@ -928,9 +954,11 @@ class TestPermissions:
 
         handler = MarketplaceHandler(server_context={})
         # Check the method has the permission decorator
-        assert hasattr(handler.handle_list_templates, "__wrapped__") or hasattr(
-            handler.handle_list_templates.__func__, "__wrapped__"
-        ) or True  # Decorator is applied
+        assert (
+            hasattr(handler.handle_list_templates, "__wrapped__")
+            or hasattr(handler.handle_list_templates.__func__, "__wrapped__")
+            or True
+        )  # Decorator is applied
 
     def test_write_permission_required_for_create(self):
         """Test that marketplace:write is required for creating."""
@@ -993,7 +1021,9 @@ class TestEdgeCases:
         http_handler = _make_http_handler("POST", body)
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_rate_template("test-template")
@@ -1006,7 +1036,9 @@ class TestEdgeCases:
         http_handler = _make_http_handler("POST")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
-            with patch.object(handler, "require_auth_or_error", return_value=(MockAuthUser(), None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(MockAuthUser(), None)
+            ):
                 handler.set_request_context(http_handler, {})
                 handler._current_handler = http_handler
                 result = handler.handle_star_template("nonexistent-template")

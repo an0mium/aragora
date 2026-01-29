@@ -1086,7 +1086,9 @@ class TestHandleSsoCallbackEdgeCases:
             assert status == 200
 
     @pytest.mark.asyncio
-    async def test_callback_user_expires_at(self, valid_auth_session, mock_oidc_provider, mock_sso_user):
+    async def test_callback_user_expires_at(
+        self, valid_auth_session, mock_oidc_provider, mock_sso_user
+    ):
         """Callback response should include token expiration."""
         state, _ = valid_auth_session
         mock_sso_user.token_expires_at = time.time() + 7200  # 2 hours
@@ -1457,10 +1459,7 @@ class TestThreadSafety:
             with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                 mock_jwt.return_value = "jwt_token"
 
-                tasks = [
-                    handle_sso_callback({"code": "code", "state": state})
-                    for state in states
-                ]
+                tasks = [handle_sso_callback({"code": "code", "state": state}) for state in states]
                 results = await asyncio.gather(*tasks)
 
         # All should succeed (each state used exactly once)

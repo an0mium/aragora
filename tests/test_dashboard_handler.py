@@ -13,9 +13,10 @@ def run_handle(handler, path, params=None, request=None):
 
 @pytest.fixture(autouse=True)
 def bypass_dashboard_auth():
-    with patch.object(
-        DashboardHandler, "get_auth_context", new=AsyncMock(return_value=MagicMock())
-    ), patch.object(DashboardHandler, "check_permission", return_value=None):
+    with (
+        patch.object(DashboardHandler, "get_auth_context", new=AsyncMock(return_value=MagicMock())),
+        patch.object(DashboardHandler, "check_permission", return_value=None),
+    ):
         yield
 
 

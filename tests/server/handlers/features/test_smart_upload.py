@@ -177,7 +177,7 @@ class TestSmartUpload:
         assert result.filename == "script.py"
         assert result.category == FileCategory.CODE
         assert result.action == ProcessingAction.INDEX
-        assert result.status_code == "completed"
+        assert result.status == "completed"
 
     @pytest.mark.asyncio
     async def test_smart_upload_stores_result(self):

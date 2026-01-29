@@ -81,7 +81,7 @@ describe('DebateInput', () => {
     submitPending = false;
     submitResponse = jsonResponse(data, ok, status);
   };
-  const setSubmitError = (error: Error) => {
+  const _setSubmitError = (error: Error) => {
     submitError = error;
   };
   const setSubmitPending = () => {

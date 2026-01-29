@@ -86,9 +86,7 @@ class TestCLIAgentInit:
         """Test initialization with circuit breaker disabled."""
         from aragora.agents.cli_agents import CLIAgent
 
-        agent = DummyCLIAgent(
-            name="test-agent", model="test-model", enable_circuit_breaker=False
-        )
+        agent = DummyCLIAgent(name="test-agent", model="test-model", enable_circuit_breaker=False)
 
         assert agent.enable_circuit_breaker is False
         assert agent._circuit_breaker is None
@@ -119,9 +117,7 @@ class TestCLIAgentCircuitBreaker:
         from aragora.resilience import CircuitBreaker
 
         custom_cb = CircuitBreaker(name="custom", failure_threshold=5)
-        agent = DummyCLIAgent(
-            name="test-agent", model="test-model", circuit_breaker=custom_cb
-        )
+        agent = DummyCLIAgent(name="test-agent", model="test-model", circuit_breaker=custom_cb)
 
         assert agent._circuit_breaker is custom_cb
 
@@ -137,9 +133,7 @@ class TestCLIAgentCircuitBreaker:
         """Test is_circuit_open returns False when no breaker."""
         from aragora.agents.cli_agents import CLIAgent
 
-        agent = DummyCLIAgent(
-            name="test-agent", model="test-model", enable_circuit_breaker=False
-        )
+        agent = DummyCLIAgent(name="test-agent", model="test-model", enable_circuit_breaker=False)
 
         assert agent.is_circuit_open() is False
 
@@ -171,9 +165,7 @@ class TestCLIAgentFallback:
         """Test _get_fallback_agent creates agent with API key."""
         from aragora.agents.cli_agents import CLIAgent
 
-        agent = DummyCLIAgent(
-            name="test-agent", model="claude", enable_fallback=True
-        )
+        agent = DummyCLIAgent(name="test-agent", model="claude", enable_fallback=True)
 
         with patch("os.environ.get", return_value="test-api-key"):
             with patch(

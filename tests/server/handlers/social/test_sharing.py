@@ -213,9 +213,7 @@ class TestListShares:
         """Test successful shares listing."""
         http_handler = MockHandler(path="/api/v1/social/shares", method="GET")
 
-        result = share_handler.handle(
-            "/api/v1/social/shares", {}, http_handler, method="GET"
-        )
+        result = share_handler.handle("/api/v1/social/shares", {}, http_handler, method="GET")
         assert result is not None
 
     def test_list_shares_with_type_filter(self, share_handler, mock_user):
@@ -276,25 +274,17 @@ class TestCreateShare:
             "platform": "slack",
             "message": "Check this out!",
         }
-        http_handler = MockHandler.with_json_body(
-            body, path="/api/v1/social/shares", method="POST"
-        )
+        http_handler = MockHandler.with_json_body(body, path="/api/v1/social/shares", method="POST")
 
-        result = share_handler.handle(
-            "/api/v1/social/shares", {}, http_handler, method="POST"
-        )
+        result = share_handler.handle("/api/v1/social/shares", {}, http_handler, method="POST")
         assert result is not None
 
     def test_create_share_missing_resource(self, share_handler):
         """Test error when resource info is missing."""
         body = {"channel_id": "C12345", "platform": "slack"}
-        http_handler = MockHandler.with_json_body(
-            body, path="/api/v1/social/shares", method="POST"
-        )
+        http_handler = MockHandler.with_json_body(body, path="/api/v1/social/shares", method="POST")
 
-        result = share_handler.handle(
-            "/api/v1/social/shares", {}, http_handler, method="POST"
-        )
+        result = share_handler.handle("/api/v1/social/shares", {}, http_handler, method="POST")
         assert result is not None
 
 
@@ -308,9 +298,7 @@ class TestDeleteShare:
 
     def test_delete_share_success(self, share_handler, mock_user):
         """Test successful share deletion."""
-        http_handler = MockHandler(
-            path="/api/v1/social/shares/share-123", method="DELETE"
-        )
+        http_handler = MockHandler(path="/api/v1/social/shares/share-123", method="DELETE")
 
         result = share_handler.handle(
             "/api/v1/social/shares/share-123", {}, http_handler, method="DELETE"
@@ -334,9 +322,7 @@ class TestRateLimiting:
             "aragora.server.handlers.social.sharing._share_limiter.is_allowed",
             return_value=False,
         ):
-            result = share_handler.handle(
-                "/api/v1/social/shares", {}, http_handler, method="GET"
-            )
+            result = share_handler.handle("/api/v1/social/shares", {}, http_handler, method="GET")
             assert result is not None
             assert result.status_code == 429
 
@@ -353,8 +339,6 @@ class TestMethodNotAllowed:
         """Test method not allowed for shares list."""
         http_handler = MockHandler(path="/api/v1/social/shares", method="PUT")
 
-        result = share_handler.handle(
-            "/api/v1/social/shares", {}, http_handler, method="PUT"
-        )
+        result = share_handler.handle("/api/v1/social/shares", {}, http_handler, method="PUT")
         assert result is not None
         assert result.status_code == 405

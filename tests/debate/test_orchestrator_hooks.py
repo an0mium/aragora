@@ -753,9 +753,7 @@ class TestRecoverPendingDebates:
     """Tests for recover_pending_debates function."""
 
     @pytest.mark.asyncio
-    async def test_returns_empty_list_when_no_work(
-        self, mock_beads_module, mock_hook_queue_module
-    ):
+    async def test_returns_empty_list_when_no_work(self, mock_beads_module, mock_hook_queue_module):
         """When no pending work, return empty list."""
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 

@@ -520,8 +520,7 @@ class TestCacheThreadSafety:
                     errors.append(e)
 
         threads = [
-            threading.Thread(target=check_permissions, args=(f"user-{i}",))
-            for i in range(5)
+            threading.Thread(target=check_permissions, args=(f"user-{i}",)) for i in range(5)
         ]
 
         for t in threads:

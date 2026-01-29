@@ -180,8 +180,9 @@ class TestGetMetrics:
     @pytest.mark.asyncio
     async def test_get_metrics_success(self, handler, mock_coordinator):
         """Test successful metrics retrieval."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission"),
         ):
             mock_auth.return_value = MockAuthContext()
 
@@ -195,8 +196,9 @@ class TestGetMetrics:
 
     def test_get_metrics_with_memory_systems(self, handler):
         """Test metrics include memory system status."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission"),
         ):
             mock_auth.return_value = MockAuthContext()
 
@@ -211,8 +213,9 @@ class TestGetMetrics:
 
     def test_get_metrics_with_rollback_handlers(self, handler):
         """Test metrics include rollback handlers."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission"),
         ):
             mock_auth.return_value = MockAuthContext()
 
@@ -225,8 +228,9 @@ class TestGetMetrics:
 
     def test_get_metrics_no_coordinator(self, handler_no_coordinator):
         """Test metrics when coordinator not configured."""
-        with patch.object(handler_no_coordinator, "get_auth_context") as mock_auth, patch.object(
-            handler_no_coordinator, "check_permission"
+        with (
+            patch.object(handler_no_coordinator, "get_auth_context") as mock_auth,
+            patch.object(handler_no_coordinator, "check_permission"),
         ):
             mock_auth.return_value = MockAuthContext()
 
@@ -248,8 +252,9 @@ class TestGetConfig:
 
     def test_get_config_success(self, handler):
         """Test successful config retrieval."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission"),
         ):
             mock_auth.return_value = MockAuthContext()
 
@@ -263,8 +268,9 @@ class TestGetConfig:
 
     def test_get_config_all_options(self, handler):
         """Test config includes all options."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission"),
         ):
             mock_auth.return_value = MockAuthContext()
 
@@ -283,8 +289,9 @@ class TestGetConfig:
 
     def test_get_config_no_coordinator(self, handler_no_coordinator):
         """Test config when coordinator not configured."""
-        with patch.object(handler_no_coordinator, "get_auth_context") as mock_auth, patch.object(
-            handler_no_coordinator, "check_permission"
+        with (
+            patch.object(handler_no_coordinator, "get_auth_context") as mock_auth,
+            patch.object(handler_no_coordinator, "check_permission"),
         ):
             mock_auth.return_value = MockAuthContext()
 
@@ -311,9 +318,7 @@ class TestAuthentication:
         with patch.object(handler, "get_auth_context") as mock_auth:
             mock_auth.side_effect = UnauthorizedError("Not authenticated")
 
-            result = await handler.handle(
-                "/api/v1/memory/coordinator/metrics", {}, MockHandler()
-            )
+            result = await handler.handle("/api/v1/memory/coordinator/metrics", {}, MockHandler())
 
             assert result.status_code == 401
 
@@ -322,15 +327,14 @@ class TestAuthentication:
         """Test endpoint requires coordinator permission."""
         from aragora.server.handlers.secure import ForbiddenError
 
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
-        ) as mock_perm:
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission") as mock_perm,
+        ):
             mock_auth.return_value = MockAuthContext(permissions=[])
             mock_perm.side_effect = ForbiddenError("Missing permission")
 
-            result = await handler.handle(
-                "/api/v1/memory/coordinator/metrics", {}, MockHandler()
-            )
+            result = await handler.handle("/api/v1/memory/coordinator/metrics", {}, MockHandler())
 
             assert result.status_code == 403
 
@@ -346,17 +350,17 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_allows_initial_requests(self, handler):
         """Test rate limiter allows initial requests."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch.object(
-            handler, "check_permission"
-        ), patch(
-            "aragora.server.handlers.memory.coordinator._coordinator_limiter"
-        ) as mock_limiter:
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch.object(handler, "check_permission"),
+            patch(
+                "aragora.server.handlers.memory.coordinator._coordinator_limiter"
+            ) as mock_limiter,
+        ):
             mock_auth.return_value = MockAuthContext()
             mock_limiter.is_allowed.return_value = True
 
-            result = await handler.handle(
-                "/api/v1/memory/coordinator/metrics", {}, MockHandler()
-            )
+            result = await handler.handle("/api/v1/memory/coordinator/metrics", {}, MockHandler())
 
             assert result.status_code == 200
 
@@ -368,9 +372,7 @@ class TestRateLimiting:
         ) as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
-            result = await handler.handle(
-                "/api/v1/memory/coordinator/metrics", {}, MockHandler()
-            )
+            result = await handler.handle("/api/v1/memory/coordinator/metrics", {}, MockHandler())
 
             assert result.status_code == 429
             assert "Rate limit" in parse_response(result)["error"]

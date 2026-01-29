@@ -1,14 +1,25 @@
 """Tests for handler caching utilities."""
+
 import sys
 import types as _types_mod
 
 # Pre-stub Slack modules to prevent import chain failures
 _SLACK_ATTRS = [
-    "SlackHandler", "get_slack_handler", "get_slack_integration",
-    "get_workspace_store", "resolve_workspace", "create_tracked_task",
-    "_validate_slack_url", "SLACK_SIGNING_SECRET", "SLACK_BOT_TOKEN",
-    "SLACK_WEBHOOK_URL", "SLACK_ALLOWED_DOMAINS", "SignatureVerifierMixin",
-    "CommandsMixin", "EventsMixin", "init_slack_handler",
+    "SlackHandler",
+    "get_slack_handler",
+    "get_slack_integration",
+    "get_workspace_store",
+    "resolve_workspace",
+    "create_tracked_task",
+    "_validate_slack_url",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_BOT_TOKEN",
+    "SLACK_WEBHOOK_URL",
+    "SLACK_ALLOWED_DOMAINS",
+    "SignatureVerifierMixin",
+    "CommandsMixin",
+    "EventsMixin",
+    "init_slack_handler",
 ]
 for _mod_name in (
     "aragora.server.handlers.social.slack.handler",

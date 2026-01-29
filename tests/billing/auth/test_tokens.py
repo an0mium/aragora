@@ -841,12 +841,8 @@ class TestTokenPair:
             token_version=2,
         )
 
-        access_payload = validate_access_token(
-            pair.access_token, use_persistent_blacklist=False
-        )
-        refresh_payload = validate_refresh_token(
-            pair.refresh_token, use_persistent_blacklist=False
-        )
+        access_payload = validate_access_token(pair.access_token, use_persistent_blacklist=False)
+        refresh_payload = validate_refresh_token(pair.refresh_token, use_persistent_blacklist=False)
 
         assert access_payload is not None
         assert access_payload.sub == "user123"

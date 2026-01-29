@@ -738,7 +738,9 @@ class TestSSOHandleLogin:
             )
 
         headers = get_result_headers(result)
-        assert "relay_state=https" in headers.get("Location", "") or get_result_status(result) == 302
+        assert (
+            "relay_state=https" in headers.get("Location", "") or get_result_status(result) == 302
+        )
 
     @pytest.mark.asyncio
     async def test_login_handles_configuration_error(self):
@@ -935,7 +937,9 @@ class TestSSOHandleCallback:
         handler = SSOHandler()
         mock_http = MockHTTPHandler()
         mock_provider = MockSSOProvider()
-        mock_provider.authenticate = AsyncMock(side_effect=Exception("DOMAIN_NOT_ALLOWED: test.com"))
+        mock_provider.authenticate = AsyncMock(
+            side_effect=Exception("DOMAIN_NOT_ALLOWED: test.com")
+        )
 
         with patch.object(handler, "_get_provider", return_value=mock_provider):
             result = await handler.handle_callback(mock_http, {"code": "auth_code"})

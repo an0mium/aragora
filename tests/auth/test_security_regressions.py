@@ -125,8 +125,7 @@ class TestJWTTimingAttackProtection:
 
         # Must use hmac.compare_digest for signature comparison
         assert "hmac.compare_digest" in source, (
-            "JWT signature comparison must use hmac.compare_digest() "
-            "to prevent timing attacks"
+            "JWT signature comparison must use hmac.compare_digest() to prevent timing attacks"
         )
 
         # Must NOT use simple == comparison for signatures
@@ -373,6 +372,5 @@ class TestSecurityDefenseInDepth:
                         bare_excepts.append(f"{py_file.name}:{node.lineno}")
 
         assert len(bare_excepts) == 0, (
-            f"Found bare except handlers that may silently swallow security errors: "
-            f"{bare_excepts}"
+            f"Found bare except handlers that may silently swallow security errors: {bare_excepts}"
         )

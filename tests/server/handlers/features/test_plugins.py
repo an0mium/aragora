@@ -51,10 +51,37 @@ def clear_plugin_stores():
     yield
 
 
+@pytest.fixture(autouse=True)
+def mock_auth():
+    """Mock authentication for all tests."""
+    from aragora.server.auth import auth_config
+
+    # Directly patch the singleton's attributes
+    original_token = auth_config.api_token
+    original_validate = auth_config.validate_token
+
+    auth_config.api_token = "test-token"
+    auth_config.validate_token = lambda t: True
+
+    yield
+
+    # Restore
+    auth_config.api_token = original_token
+    auth_config.validate_token = original_validate
+
+
 @pytest.fixture
 def handler():
     """Create handler instance."""
     return PluginsHandler({})
+
+
+def _make_mock_handler(path: str = "/api/v1/plugins"):
+    """Create a mock HTTP handler with proper auth headers."""
+    mock_handler = MagicMock()
+    mock_handler.path = path
+    mock_handler.headers = {"Authorization": "Bearer test-token"}
+    return mock_handler
 
 
 class TestPluginsHandler:
@@ -106,9 +133,10 @@ class TestPluginsList:
         mock_handler = MagicMock()
         mock_handler.path = "/api/v1/plugins"
 
-        with patch(
-            "aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True
-        ), patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg,
+        ):
             mock_registry = MagicMock()
             mock_plugin = MagicMock()
             mock_plugin.to_dict.return_value = {"name": "test-plugin", "version": "1.0.0"}
@@ -136,9 +164,10 @@ class TestPluginsMarketplace:
         mock_handler = MagicMock()
         mock_handler.path = "/api/v1/plugins/marketplace"
 
-        with patch(
-            "aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True
-        ), patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg,
+        ):
             mock_registry = MagicMock()
             mock_plugin = MagicMock()
             mock_plugin.to_dict.return_value = {"name": "test-plugin"}
@@ -187,8 +216,7 @@ class TestPluginsInstalled:
 
     def test_list_installed_empty(self, handler):
         """Test listing installed with no plugins."""
-        mock_handler = MagicMock()
-        mock_handler.path = "/api/v1/plugins/installed"
+        mock_handler = _make_mock_handler("/api/v1/plugins/installed")
         mock_user = MagicMock()
         mock_user.user_id = "user123"
 
@@ -211,9 +239,10 @@ class TestPluginDetails:
         mock_handler = MagicMock()
         mock_handler.path = "/api/v1/plugins/nonexistent"
 
-        with patch(
-            "aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True
-        ), patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg,
+        ):
             mock_registry = MagicMock()
             mock_registry.get.return_value = None
             mock_get_reg.return_value = mock_registry
@@ -226,9 +255,10 @@ class TestPluginDetails:
         mock_handler = MagicMock()
         mock_handler.path = "/api/v1/plugins/test-plugin"
 
-        with patch(
-            "aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True
-        ), patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg:
+        with (
+            patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
+            patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg,
+        ):
             mock_registry = MagicMock()
             mock_manifest = MagicMock()
             mock_manifest.to_dict.return_value = {"name": "test-plugin", "version": "1.0.0"}
@@ -252,9 +282,7 @@ class TestPluginInstall:
             patch.object(handler, "get_current_user", return_value=None),
             patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
         ):
-            result = handler.handle_post(
-                "/api/v1/plugins/test-plugin/install", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/plugins/test-plugin/install", {}, mock_handler)
             assert result.status_code == 401
 
     def test_install_plugin_not_found(self, handler):
@@ -268,7 +296,9 @@ class TestPluginInstall:
             patch.object(handler, "get_current_user", return_value=mock_user),
             patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True),
             patch("aragora.server.handlers.features.plugins.get_registry") as mock_get_reg,
-            patch("aragora.server.handlers.features.plugins.require_permission", lambda p: lambda f: f),
+            patch(
+                "aragora.server.handlers.features.plugins.require_permission", lambda p: lambda f: f
+            ),
             patch("aragora.server.handlers.features.plugins.rate_limit", lambda **kw: lambda f: f),
         ):
             mock_registry = MagicMock()
@@ -410,7 +440,7 @@ class TestLegacyPathHandling:
         """Test Sunset header is added for legacy paths."""
         from aragora.server.handlers.base import HandlerResult
 
-        response = HandlerResult(status=200, body="{}")
+        response = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         mock_handler = MagicMock()
         mock_handler.path = "/api/plugins"
 
@@ -423,7 +453,7 @@ class TestLegacyPathHandling:
         """Test no Sunset header for versioned paths."""
         from aragora.server.handlers.base import HandlerResult
 
-        response = HandlerResult(status=200, body="{}")
+        response = HandlerResult(status_code=200, content_type="application/json", body=b"{}")
         mock_handler = MagicMock()
         mock_handler.path = "/api/v1/plugins"
 

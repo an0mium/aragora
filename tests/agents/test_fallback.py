@@ -116,9 +116,7 @@ class TestQuotaFallbackMixin:
         from aragora.agents.fallback import QuotaFallbackMixin
 
         agent = MockAgentWithMixin()
-        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(
-            agent, MockAgentWithMixin
-        )
+        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(agent, MockAgentWithMixin)
 
         assert agent.is_quota_error(429, "") is True
 
@@ -127,9 +125,7 @@ class TestQuotaFallbackMixin:
         from aragora.agents.fallback import QuotaFallbackMixin
 
         agent = MockAgentWithMixin()
-        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(
-            agent, MockAgentWithMixin
-        )
+        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(agent, MockAgentWithMixin)
 
         assert agent.is_quota_error(408, "") is True  # Request Timeout
         assert agent.is_quota_error(504, "") is True  # Gateway Timeout
@@ -140,9 +136,7 @@ class TestQuotaFallbackMixin:
         from aragora.agents.fallback import QuotaFallbackMixin
 
         agent = MockAgentWithMixin()
-        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(
-            agent, MockAgentWithMixin
-        )
+        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(agent, MockAgentWithMixin)
 
         assert agent.is_quota_error(403, "Quota exceeded for this project") is True
         assert agent.is_quota_error(403, "Permission denied") is False
@@ -152,9 +146,7 @@ class TestQuotaFallbackMixin:
         from aragora.agents.fallback import QuotaFallbackMixin
 
         agent = MockAgentWithMixin()
-        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(
-            agent, MockAgentWithMixin
-        )
+        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(agent, MockAgentWithMixin)
 
         assert agent.is_quota_error(400, "Credit balance is too low") is True
         assert agent.is_quota_error(400, "Invalid request") is False
@@ -164,9 +156,7 @@ class TestQuotaFallbackMixin:
         from aragora.agents.fallback import QuotaFallbackMixin
 
         agent = MockAgentWithMixin()
-        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(
-            agent, MockAgentWithMixin
-        )
+        agent.is_quota_error = QuotaFallbackMixin.is_quota_error.__get__(agent, MockAgentWithMixin)
 
         assert agent.is_quota_error(500, "Request timed out") is True
         assert agent.is_quota_error(500, "Connection timeout") is True
@@ -314,9 +304,7 @@ class TestFallbackTimeoutError:
         """Test error stores attributes correctly."""
         from aragora.agents.fallback import FallbackTimeoutError
 
-        error = FallbackTimeoutError(
-            elapsed=45.5, limit=30.0, tried=["openai", "openrouter"]
-        )
+        error = FallbackTimeoutError(elapsed=45.5, limit=30.0, tried=["openai", "openrouter"])
 
         assert error.elapsed == 45.5
         assert error.limit == 30.0
@@ -326,9 +314,7 @@ class TestFallbackTimeoutError:
         """Test error message format."""
         from aragora.agents.fallback import FallbackTimeoutError
 
-        error = FallbackTimeoutError(
-            elapsed=45.5, limit=30.0, tried=["openai", "openrouter"]
-        )
+        error = FallbackTimeoutError(elapsed=45.5, limit=30.0, tried=["openai", "openrouter"])
 
         assert "45.5s" in str(error)
         assert "30" in str(error)

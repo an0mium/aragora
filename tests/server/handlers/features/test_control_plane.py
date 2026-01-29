@@ -1039,9 +1039,7 @@ class TestHealthCheck:
     @pytest.mark.asyncio
     async def test_health_check_with_shared_state(self, handler, mock_shared_state):
         """Health check using shared state backend."""
-        mock_shared_state.list_agents = AsyncMock(
-            return_value=[_make_agent(status="active")]
-        )
+        mock_shared_state.list_agents = AsyncMock(return_value=[_make_agent(status="active")])
         mock_shared_state.list_tasks = AsyncMock(return_value=[])
 
         req = _make_request(path="/api/v1/control-plane/health")

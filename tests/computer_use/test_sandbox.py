@@ -124,9 +124,7 @@ class TestProcessSandboxProvider:
         instance = await provider.create(config)
         await provider.start(instance)
 
-        exit_code, stdout, stderr = await provider.execute(
-            instance, ["echo", "hello"]
-        )
+        exit_code, stdout, stderr = await provider.execute(instance, ["echo", "hello"])
 
         assert exit_code == 0
         assert "hello" in stdout
@@ -141,9 +139,7 @@ class TestProcessSandboxProvider:
         instance = await provider.create(config)
         await provider.start(instance)
 
-        exit_code, stdout, stderr = await provider.execute(
-            instance, ["sleep", "5"], timeout=0.5
-        )
+        exit_code, stdout, stderr = await provider.execute(instance, ["sleep", "5"], timeout=0.5)
 
         assert exit_code == -1
         assert "timed out" in stderr.lower()
@@ -251,9 +247,7 @@ class TestSandboxManager:
         instance = await manager.create_sandbox(config)
         await manager.start_sandbox(instance.id)
 
-        exit_code, stdout, stderr = await manager.execute_in_sandbox(
-            instance.id, ["echo", "test"]
-        )
+        exit_code, stdout, stderr = await manager.execute_in_sandbox(instance.id, ["echo", "test"])
 
         assert exit_code == 0
         assert "test" in stdout

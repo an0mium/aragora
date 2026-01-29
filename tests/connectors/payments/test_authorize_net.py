@@ -404,9 +404,7 @@ class TestTransactionResult:
             "transactionResponse": {
                 "responseCode": "2",
                 "transId": "987654321",
-                "errors": [
-                    {"errorCode": "2", "errorText": "This transaction has been declined."}
-                ],
+                "errors": [{"errorCode": "2", "errorText": "This transaction has been declined."}],
             },
             "messages": {
                 "resultCode": "Error",
@@ -455,9 +453,7 @@ class TestTransactionResult:
             "transactionResponse": {
                 "responseCode": "3",
                 "transId": "",
-                "errors": [
-                    {"errorCode": "6", "errorText": "Invalid card number."}
-                ],
+                "errors": [{"errorCode": "6", "errorText": "Invalid card number."}],
             },
             "messages": {
                 "resultCode": "Error",
@@ -732,11 +728,15 @@ class TestWebhookVerification:
         connector = AuthorizeNetConnector(creds)
 
         payload = b'{"eventType": "net.authorize.payment.authcapture.created"}'
-        expected_sig = hmac.new(
-            signature_key.encode(),
-            payload,
-            hashlib.sha512,
-        ).hexdigest().upper()
+        expected_sig = (
+            hmac.new(
+                signature_key.encode(),
+                payload,
+                hashlib.sha512,
+            )
+            .hexdigest()
+            .upper()
+        )
 
         result = connector.verify_webhook_signature(payload, expected_sig)
 
@@ -860,17 +860,19 @@ class TestChargeTransaction:
         )
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "transactionResponse": {
-                "responseCode": "1",
-                "transId": "12345",
-                "authCode": "AUTH",
-            },
-            "messages": {
-                "resultCode": "Ok",
-                "message": [{"code": "I00001", "text": "Successful."}],
-            },
-        })
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {
+                    "responseCode": "1",
+                    "transId": "12345",
+                    "authCode": "AUTH",
+                },
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{"code": "I00001", "text": "Successful."}],
+                },
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -894,10 +896,12 @@ class TestChargeTransaction:
         )
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "transactionResponse": {"responseCode": "1", "transId": "67890"},
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {"responseCode": "1", "transId": "67890"},
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -934,10 +938,12 @@ class TestAuthorizeTransaction:
         )
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "transactionResponse": {"responseCode": "1", "transId": "AUTH123"},
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {"responseCode": "1", "transId": "AUTH123"},
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -960,10 +966,12 @@ class TestCaptureTransaction:
         from aragora.connectors.payments.authorize_net import TransactionStatus
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "transactionResponse": {"responseCode": "1", "transId": "CAP123"},
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {"responseCode": "1", "transId": "CAP123"},
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -985,10 +993,12 @@ class TestRefundTransaction:
         from aragora.connectors.payments.authorize_net import TransactionStatus
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "transactionResponse": {"responseCode": "1", "transId": "REF123"},
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {"responseCode": "1", "transId": "REF123"},
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1011,10 +1021,12 @@ class TestVoidTransaction:
         from aragora.connectors.payments.authorize_net import TransactionStatus
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "transactionResponse": {"responseCode": "1", "transId": "VOID123"},
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {"responseCode": "1", "transId": "VOID123"},
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1036,10 +1048,12 @@ class TestCreateCustomerProfile:
     async def test_create_customer_profile_basic(self, mock_connector):
         """Create basic customer profile."""
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "customerProfileId": "PROF123",
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "customerProfileId": "PROF123",
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1058,10 +1072,12 @@ class TestCreateCustomerProfile:
         from aragora.connectors.payments.authorize_net import CreditCard, BillingAddress
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "customerProfileId": "PROF456",
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "customerProfileId": "PROF456",
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1084,16 +1100,18 @@ class TestGetCustomerProfile:
     async def test_get_customer_profile(self, mock_connector):
         """Get customer profile by ID."""
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "profile": {
-                "customerProfileId": "PROF789",
-                "merchantCustomerId": "CUST003",
-                "email": "test@example.com",
-                "paymentProfiles": [{"paymentProfileId": "PP1"}],
-                "shipToList": [],
-            },
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "profile": {
+                    "customerProfileId": "PROF789",
+                    "merchantCustomerId": "CUST003",
+                    "email": "test@example.com",
+                    "paymentProfiles": [{"paymentProfileId": "PP1"}],
+                    "shipToList": [],
+                },
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1111,9 +1129,11 @@ class TestDeleteCustomerProfile:
     async def test_delete_customer_profile_success(self, mock_connector):
         """Delete customer profile successfully."""
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1125,9 +1145,11 @@ class TestDeleteCustomerProfile:
     async def test_delete_customer_profile_failure(self, mock_connector):
         """Delete customer profile fails."""
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "messages": {"resultCode": "Error", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "messages": {"resultCode": "Error", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1153,10 +1175,12 @@ class TestCreateSubscription:
         )
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "subscriptionId": "SUB123",
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "subscriptionId": "SUB123",
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1188,10 +1212,12 @@ class TestCreateSubscription:
         )
 
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "subscriptionId": "SUB_TRIAL",
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "subscriptionId": "SUB_TRIAL",
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1223,9 +1249,11 @@ class TestCancelSubscription:
     async def test_cancel_subscription_success(self, mock_connector):
         """Cancel subscription successfully."""
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "messages": {"resultCode": "Ok", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 
@@ -1237,9 +1265,11 @@ class TestCancelSubscription:
     async def test_cancel_subscription_failure(self, mock_connector):
         """Cancel subscription fails."""
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "messages": {"resultCode": "Error", "message": [{}]},
-        })
+        mock_response.text = json.dumps(
+            {
+                "messages": {"resultCode": "Error", "message": [{}]},
+            }
+        )
         mock_response.raise_for_status = MagicMock()
         mock_connector._client.post = AsyncMock(return_value=mock_response)
 

@@ -155,7 +155,9 @@ def handler(mock_tracker):
 @pytest.fixture
 def handler_no_tracker():
     """Create a test handler without tracker."""
-    with patch.object(MemoryAnalyticsHandler, 'tracker', new_callable=lambda: property(lambda self: None)):
+    with patch.object(
+        MemoryAnalyticsHandler, "tracker", new_callable=lambda: property(lambda self: None)
+    ):
         h = MemoryAnalyticsHandler(ctx={})
         yield h
 

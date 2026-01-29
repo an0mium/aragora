@@ -2549,7 +2549,11 @@ class TestMicrosoftOAuth:
         with mock.patch("urllib.request.urlopen") as mock_urlopen:
             mock_response = mock.MagicMock()
             mock_response.read.return_value = json.dumps(
-                {"id": "ms-user-2", "userPrincipalName": "upn@tenant.com", "displayName": "UPN User"}
+                {
+                    "id": "ms-user-2",
+                    "userPrincipalName": "upn@tenant.com",
+                    "displayName": "UPN User",
+                }
             ).encode()
             mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
             mock_response.__exit__ = mock.MagicMock(return_value=False)
@@ -2603,9 +2607,7 @@ class TestMicrosoftOAuth:
             ),
         ):
             lim.is_allowed.return_value = True
-            result = oh.handle(
-                "/api/auth/oauth/microsoft/callback", {}, handler, method="GET"
-            )
+            result = oh.handle("/api/auth/oauth/microsoft/callback", {}, handler, method="GET")
             assert result.status_code == 302
 
     def test_microsoft_callback_invalid_state(self):
@@ -2711,16 +2713,12 @@ class TestAppleOAuth:
     def test_generate_apple_client_secret_missing_config(self):
         oh = _make_oauth_handler()
         with (
-            mock.patch(
-                "aragora.server.handlers._oauth_impl._get_apple_team_id", return_value=""
-            ),
+            mock.patch("aragora.server.handlers._oauth_impl._get_apple_team_id", return_value=""),
             mock.patch("aragora.server.handlers._oauth_impl._get_apple_key_id", return_value=""),
             mock.patch(
                 "aragora.server.handlers._oauth_impl._get_apple_private_key", return_value=""
             ),
-            mock.patch(
-                "aragora.server.handlers._oauth_impl._get_apple_client_id", return_value=""
-            ),
+            mock.patch("aragora.server.handlers._oauth_impl._get_apple_client_id", return_value=""),
         ):
             with pytest.raises(ValueError, match="not fully configured"):
                 oh._generate_apple_client_secret()
@@ -3007,7 +3005,9 @@ class TestHandleLinkAccountAdditional:
             mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
             mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
             mock.patch.object(oh, "read_json_body", return_value={"provider": "google"}),
-            mock.patch("aragora.server.handlers._oauth_impl._generate_state", return_value="lnk-st"),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._generate_state", return_value="lnk-st"
+            ),
             mock.patch("aragora.server.handlers._oauth_impl.GOOGLE_CLIENT_ID", "test-google-id"),
         ):
             lim.is_allowed.return_value = True
@@ -3025,7 +3025,9 @@ class TestHandleLinkAccountAdditional:
             mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
             mock.patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=auth),
             mock.patch.object(oh, "read_json_body", return_value={"provider": "github"}),
-            mock.patch("aragora.server.handlers._oauth_impl._generate_state", return_value="lnk-st"),
+            mock.patch(
+                "aragora.server.handlers._oauth_impl._generate_state", return_value="lnk-st"
+            ),
             mock.patch("aragora.server.handlers._oauth_impl.GITHUB_CLIENT_ID", "test-github-id"),
         ):
             lim.is_allowed.return_value = True
@@ -3262,9 +3264,7 @@ class TestHandleOAuthCallbackApiAdditional:
         oh = _make_oauth_handler()
         handler = _make_handler_obj(command="POST")
 
-        fake_result = HandlerResult(
-            status_code=302, content_type="text/html", body=b"", headers={}
-        )
+        fake_result = HandlerResult(status_code=302, content_type="text/html", body=b"", headers={})
 
         with (
             mock.patch("aragora.server.handlers._oauth_impl._oauth_limiter") as lim,
@@ -3436,9 +3436,7 @@ class TestConfigurationGetters:
         # Test that the default fallback is called with "common"
         from aragora.server.handlers._oauth_impl import _get_microsoft_tenant
 
-        with mock.patch(
-            "aragora.server.handlers._oauth_impl._get_secret"
-        ) as mock_get:
+        with mock.patch("aragora.server.handlers._oauth_impl._get_secret") as mock_get:
             mock_get.return_value = "common"  # Simulate default being used
             result = _get_microsoft_tenant()
             mock_get.assert_called_once_with("MICROSOFT_OAUTH_TENANT", "common")

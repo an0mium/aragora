@@ -162,12 +162,8 @@ class TestRegistryExhaustion:
 
         # Make some stale
         with _circuit_breakers_lock:
-            _circuit_breakers["stale_1"]._last_accessed = (
-                time.time() - STALE_THRESHOLD_SECONDS - 1
-            )
-            _circuit_breakers["stale_2"]._last_accessed = (
-                time.time() - STALE_THRESHOLD_SECONDS - 1
-            )
+            _circuit_breakers["stale_1"]._last_accessed = time.time() - STALE_THRESHOLD_SECONDS - 1
+            _circuit_breakers["stale_2"]._last_accessed = time.time() - STALE_THRESHOLD_SECONDS - 1
 
         # Prune
         pruned = prune_circuit_breakers()

@@ -106,12 +106,14 @@ def mock_user():
     user.api_key_expires_at = None
     user.created_at = datetime.now(timezone.utc)
     user.verify_password = MagicMock(return_value=True)
-    user.to_dict = MagicMock(return_value={
-        "id": "user-123",
-        "email": "test@example.com",
-        "name": "Test User",
-        "role": "member",
-    })
+    user.to_dict = MagicMock(
+        return_value={
+            "id": "user-123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "role": "member",
+        }
+    )
     user.generate_api_key = MagicMock(return_value="ara_testkey123456")
     return user
 
@@ -121,10 +123,9 @@ def mock_mfa_user(mock_user):
     """Create a mock user with MFA enabled."""
     mock_user.mfa_enabled = True
     mock_user.mfa_secret = "TESTSECRET123456"
-    mock_user.mfa_backup_codes = json.dumps([
-        hashlib.sha256(f"backup{i}".encode()).hexdigest()
-        for i in range(10)
-    ])
+    mock_user.mfa_backup_codes = json.dumps(
+        [hashlib.sha256(f"backup{i}".encode()).hexdigest() for i in range(10)]
+    )
     return mock_user
 
 
@@ -153,10 +154,12 @@ def mock_org():
     org.name = "Test Org"
     org.limits = MagicMock()
     org.limits.api_access = True
-    org.to_dict = MagicMock(return_value={
-        "id": "org-456",
-        "name": "Test Org",
-    })
+    org.to_dict = MagicMock(
+        return_value={
+            "id": "org-456",
+            "name": "Test Org",
+        }
+    )
     return org
 
 
@@ -202,12 +205,14 @@ def mock_tokens():
     tokens = MagicMock()
     tokens.access_token = "access_token_123"
     tokens.refresh_token = "refresh_token_456"
-    tokens.to_dict = MagicMock(return_value={
-        "access_token": "access_token_123",
-        "refresh_token": "refresh_token_456",
-        "token_type": "Bearer",
-        "expires_in": 3600,
-    })
+    tokens.to_dict = MagicMock(
+        return_value={
+            "access_token": "access_token_123",
+            "refresh_token": "refresh_token_456",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        }
+    )
     return tokens
 
 
@@ -230,9 +235,7 @@ def mock_lockout_tracker():
 class TestRegistration:
     """Test user registration flows."""
 
-    def test_register_success_basic(
-        self, auth_handler, mock_user_store, mock_user, mock_tokens
-    ):
+    def test_register_success_basic(self, auth_handler, mock_user_store, mock_user, mock_tokens):
         """Test successful registration with basic fields."""
         mock_user_store.get_user_by_email.return_value = None  # Email not taken
         mock_user_store.create_user.return_value = mock_user
@@ -294,9 +297,7 @@ class TestRegistration:
         assert parsed["status_code"] == 201
         mock_user_store.create_organization.assert_called_once()
 
-    def test_register_email_already_exists(
-        self, auth_handler, mock_user_store, mock_user
-    ):
+    def test_register_email_already_exists(self, auth_handler, mock_user_store, mock_user):
         """Test registration fails when email exists."""
         mock_user_store.get_user_by_email.return_value = mock_user
 
@@ -498,9 +499,7 @@ class TestLogin:
         assert parsed["status_code"] == 401
         assert "disabled" in parsed.get("error", "").lower()
 
-    def test_login_account_locked(
-        self, auth_handler, mock_user_store, mock_user
-    ):
+    def test_login_account_locked(self, auth_handler, mock_user_store, mock_user):
         """Test login fails when account is locked."""
         mock_user_store.get_user_by_email.return_value = mock_user
 
@@ -528,9 +527,7 @@ class TestLogin:
         assert parsed["status_code"] == 429
         assert "too many" in parsed.get("error", "").lower()
 
-    def test_login_user_not_found(
-        self, auth_handler, mock_user_store, mock_lockout_tracker
-    ):
+    def test_login_user_not_found(self, auth_handler, mock_user_store, mock_lockout_tracker):
         """Test login fails when user not found."""
         mock_user_store.get_user_by_email.return_value = None
 
@@ -574,9 +571,7 @@ class TestLogin:
 class TestTokenRefresh:
     """Test token refresh flows."""
 
-    def test_refresh_success(
-        self, auth_handler, mock_user_store, mock_user, mock_tokens
-    ):
+    def test_refresh_success(self, auth_handler, mock_user_store, mock_user, mock_tokens):
         """Test successful token refresh."""
         mock_user_store.get_user_by_id.return_value = mock_user
 
@@ -631,9 +626,7 @@ class TestTokenRefresh:
         assert parsed["success"] is False
         assert parsed["status_code"] == 401
 
-    def test_refresh_user_disabled(
-        self, auth_handler, mock_user_store, mock_user
-    ):
+    def test_refresh_user_disabled(self, auth_handler, mock_user_store, mock_user):
         """Test refresh fails if user is disabled."""
         mock_user.is_active = False
         mock_user_store.get_user_by_id.return_value = mock_user
@@ -656,9 +649,7 @@ class TestTokenRefresh:
         assert parsed["success"] is False
         assert parsed["status_code"] == 401
 
-    def test_refresh_user_not_found(
-        self, auth_handler, mock_user_store
-    ):
+    def test_refresh_user_not_found(self, auth_handler, mock_user_store):
         """Test refresh fails if user not found."""
         mock_user_store.get_user_by_id.return_value = None
 
@@ -702,9 +693,7 @@ class TestTokenRefresh:
 class TestLogout:
     """Test logout flows."""
 
-    def test_logout_success(
-        self, auth_handler, mock_user_store, mock_auth_context
-    ):
+    def test_logout_success(self, auth_handler, mock_user_store, mock_auth_context):
         """Test successful logout."""
         request = make_mock_handler(command="POST")
         request.headers["Authorization"] = "Bearer test_token"
@@ -716,9 +705,7 @@ class TestLogout:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
@@ -739,9 +726,7 @@ class TestLogout:
         assert parsed["success"] is True
         assert "logged out" in parsed.get("message", "").lower()
 
-    def test_logout_all_success(
-        self, auth_handler, mock_user_store, mock_auth_context
-    ):
+    def test_logout_all_success(self, auth_handler, mock_user_store, mock_auth_context):
         """Test successful logout from all devices."""
         request = make_mock_handler(command="POST")
         request.headers["Authorization"] = "Bearer test_token"
@@ -753,9 +738,7 @@ class TestLogout:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
@@ -798,9 +781,7 @@ class TestProfileOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_get_me(request)
@@ -810,9 +791,7 @@ class TestProfileOperations:
         assert "user" in parsed
         assert "organization" in parsed
 
-    def test_get_me_user_not_found(
-        self, auth_handler, mock_user_store, mock_auth_context
-    ):
+    def test_get_me_user_not_found(self, auth_handler, mock_user_store, mock_auth_context):
         """Test get me fails when user not found."""
         mock_user_store.get_user_by_id.return_value = None
 
@@ -822,9 +801,7 @@ class TestProfileOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_get_me(request)
@@ -833,9 +810,7 @@ class TestProfileOperations:
         assert parsed["success"] is False
         assert parsed["status_code"] == 404
 
-    def test_update_me_success(
-        self, auth_handler, mock_user_store, mock_user, mock_auth_context
-    ):
+    def test_update_me_success(self, auth_handler, mock_user_store, mock_user, mock_auth_context):
         """Test successful profile update."""
         mock_user_store.get_user_by_id.return_value = mock_user
 
@@ -848,9 +823,7 @@ class TestProfileOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_update_me(request)
@@ -878,9 +851,7 @@ class TestProfileOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
@@ -912,9 +883,7 @@ class TestProfileOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_change_password(request)
@@ -942,9 +911,7 @@ class TestProfileOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_change_password(request)
@@ -962,9 +929,7 @@ class TestProfileOperations:
 class TestMFAOperations:
     """Test MFA operations."""
 
-    def test_mfa_setup_success(
-        self, auth_handler, mock_user_store, mock_user, mock_auth_context
-    ):
+    def test_mfa_setup_success(self, auth_handler, mock_user_store, mock_user, mock_auth_context):
         """Test successful MFA setup."""
         mock_user.mfa_enabled = False
         mock_user_store.get_user_by_id.return_value = mock_user
@@ -975,9 +940,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch("pyotp.random_base32", return_value="TESTSECRET"):
@@ -1007,9 +970,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_mfa_setup(request)
@@ -1019,9 +980,7 @@ class TestMFAOperations:
         assert parsed["status_code"] == 400
         assert "already enabled" in parsed.get("error", "").lower()
 
-    def test_mfa_enable_success(
-        self, auth_handler, mock_user_store, mock_user, mock_auth_context
-    ):
+    def test_mfa_enable_success(self, auth_handler, mock_user_store, mock_user, mock_auth_context):
         """Test successful MFA enable."""
         mock_user.mfa_enabled = False
         mock_user.mfa_secret = "TESTSECRET"
@@ -1036,9 +995,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch("pyotp.TOTP") as mock_totp:
@@ -1070,9 +1027,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch("pyotp.TOTP") as mock_totp:
@@ -1103,9 +1058,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_mfa_enable(request)
@@ -1130,9 +1083,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch("pyotp.TOTP") as mock_totp:
@@ -1161,9 +1112,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_mfa_disable(request)
@@ -1294,9 +1243,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch("pyotp.TOTP") as mock_totp:
@@ -1328,9 +1275,7 @@ class TestMFAOperations:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_mfa_backup_codes(request)
@@ -1360,9 +1305,7 @@ class TestAPIKeyManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_generate_api_key(request)
@@ -1386,9 +1329,7 @@ class TestAPIKeyManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_generate_api_key(request)
@@ -1409,9 +1350,7 @@ class TestAPIKeyManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_revoke_api_key(request)
@@ -1435,9 +1374,7 @@ class TestAPIKeyManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_list_api_keys(request)
@@ -1447,9 +1384,7 @@ class TestAPIKeyManagement:
         assert "keys" in parsed
         assert parsed["count"] == 1
 
-    def test_list_api_keys_none(
-        self, auth_handler, mock_user_store, mock_user, mock_auth_context
-    ):
+    def test_list_api_keys_none(self, auth_handler, mock_user_store, mock_user, mock_auth_context):
         """Test API key listing when user has no keys."""
         mock_user.api_key_prefix = None
         mock_user_store.get_user_by_id.return_value = mock_user
@@ -1460,9 +1395,7 @@ class TestAPIKeyManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_list_api_keys(request)
@@ -1484,14 +1417,10 @@ class TestAPIKeyManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
-                result = auth_handler._handle_revoke_api_key_prefix(
-                    request, "ara_test123"
-                )
+                result = auth_handler._handle_revoke_api_key_prefix(request, "ara_test123")
 
         parsed = parse_result(result)
         assert parsed["success"] is True
@@ -1509,14 +1438,10 @@ class TestAPIKeyManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
-                result = auth_handler._handle_revoke_api_key_prefix(
-                    request, "ara_wrong"
-                )
+                result = auth_handler._handle_revoke_api_key_prefix(request, "ara_wrong")
 
         parsed = parse_result(result)
         assert parsed["success"] is False
@@ -1531,9 +1456,7 @@ class TestAPIKeyManagement:
 class TestSessionManagement:
     """Test session management operations."""
 
-    def test_list_sessions_success(
-        self, auth_handler, mock_user_store, mock_auth_context
-    ):
+    def test_list_sessions_success(self, auth_handler, mock_user_store, mock_auth_context):
         """Test successful session listing."""
         request = make_mock_handler(command="GET")
         request.headers["Authorization"] = "Bearer test_token"
@@ -1554,18 +1477,14 @@ class TestSessionManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
                     "aragora.server.middleware.auth.extract_token",
                     return_value="test_token",
                 ):
-                    with patch(
-                        "aragora.billing.jwt_auth.decode_jwt"
-                    ) as mock_decode:
+                    with patch("aragora.billing.jwt_auth.decode_jwt") as mock_decode:
                         mock_decode.return_value = MagicMock(jti="current-jti")
 
                         with patch(
@@ -1579,9 +1498,7 @@ class TestSessionManagement:
         assert "sessions" in parsed
         assert parsed["total"] == 1
 
-    def test_revoke_session_success(
-        self, auth_handler, mock_user_store, mock_auth_context
-    ):
+    def test_revoke_session_success(self, auth_handler, mock_user_store, mock_auth_context):
         """Test successful session revocation."""
         request = make_mock_handler(command="DELETE")
         request.headers["Authorization"] = "Bearer test_token"
@@ -1596,18 +1513,14 @@ class TestSessionManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
                     "aragora.server.middleware.auth.extract_token",
                     return_value="test_token",
                 ):
-                    with patch(
-                        "aragora.billing.jwt_auth.decode_jwt"
-                    ) as mock_decode:
+                    with patch("aragora.billing.jwt_auth.decode_jwt") as mock_decode:
                         mock_decode.return_value = MagicMock(jti="current-jti")
 
                         with patch(
@@ -1622,9 +1535,7 @@ class TestSessionManagement:
         assert parsed["success"] is True
         assert parsed.get("session_id") == "session-to-revoke"
 
-    def test_revoke_session_not_found(
-        self, auth_handler, mock_user_store, mock_auth_context
-    ):
+    def test_revoke_session_not_found(self, auth_handler, mock_user_store, mock_auth_context):
         """Test session revocation fails when session not found."""
         request = make_mock_handler(command="DELETE")
         request.headers["Authorization"] = "Bearer test_token"
@@ -1636,18 +1547,14 @@ class TestSessionManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
                     "aragora.server.middleware.auth.extract_token",
                     return_value="test_token",
                 ):
-                    with patch(
-                        "aragora.billing.jwt_auth.decode_jwt"
-                    ) as mock_decode:
+                    with patch("aragora.billing.jwt_auth.decode_jwt") as mock_decode:
                         mock_decode.return_value = MagicMock(jti="current-jti")
 
                         with patch(
@@ -1673,32 +1580,24 @@ class TestSessionManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
                     "aragora.server.middleware.auth.extract_token",
                     return_value="test_token",
                 ):
-                    with patch(
-                        "aragora.billing.jwt_auth.decode_jwt"
-                    ) as mock_decode:
+                    with patch("aragora.billing.jwt_auth.decode_jwt") as mock_decode:
                         mock_decode.return_value = MagicMock(jti="current-session")
 
-                        result = auth_handler._handle_revoke_session(
-                            request, "current-session"
-                        )
+                        result = auth_handler._handle_revoke_session(request, "current-session")
 
         parsed = parse_result(result)
         assert parsed["success"] is False
         assert parsed["status_code"] == 400
         assert "current session" in parsed.get("error", "").lower()
 
-    def test_invalid_session_id_format(
-        self, auth_handler, mock_user_store, mock_auth_context
-    ):
+    def test_invalid_session_id_format(self, auth_handler, mock_user_store, mock_auth_context):
         """Test session revocation rejects invalid session ID format."""
         request = make_mock_handler(command="DELETE")
 
@@ -1706,9 +1605,7 @@ class TestSessionManagement:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 result = auth_handler._handle_revoke_session(request, "ab")  # Too short
@@ -1726,9 +1623,7 @@ class TestSessionManagement:
 class TestTokenRevocation:
     """Test token revocation operations."""
 
-    def test_revoke_token_success(
-        self, auth_handler, mock_user_store, mock_auth_context
-    ):
+    def test_revoke_token_success(self, auth_handler, mock_user_store, mock_auth_context):
         """Test successful token revocation."""
         request = make_mock_handler(
             body={"token": "token_to_revoke"},
@@ -1743,9 +1638,7 @@ class TestTokenRevocation:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
@@ -1780,9 +1673,7 @@ class TestTokenRevocation:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            with patch(
-                "aragora.server.handlers.auth.handler.check_permission"
-            ) as mock_check:
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
@@ -1843,12 +1734,8 @@ class TestRouteHandling:
             command="POST",
         )
 
-        with patch.object(
-            auth_handler, "_handle_register"
-        ) as mock_register:
-            mock_register.return_value = MagicMock(
-                status_code=201, body=b'{"success": true}'
-            )
+        with patch.object(auth_handler, "_handle_register") as mock_register:
+            mock_register.return_value = MagicMock(status_code=201, body=b'{"success": true}')
 
             result = maybe_await(
                 auth_handler.handle(
@@ -1872,9 +1759,7 @@ class TestRouteHandling:
         )
 
         with patch.object(auth_handler, "_handle_login") as mock_login:
-            mock_login.return_value = MagicMock(
-                status_code=200, body=b'{"success": true}'
-            )
+            mock_login.return_value = MagicMock(status_code=200, body=b'{"success": true}')
 
             result = maybe_await(
                 auth_handler.handle(
@@ -1892,9 +1777,7 @@ class TestRouteHandling:
         request = make_mock_handler(command="GET")
 
         with patch.object(auth_handler, "_handle_get_me") as mock_me:
-            mock_me.return_value = MagicMock(
-                status_code=200, body=b'{"user": {}}'
-            )
+            mock_me.return_value = MagicMock(status_code=200, body=b'{"user": {}}')
 
             result = maybe_await(
                 auth_handler.handle(
@@ -1931,9 +1814,7 @@ class TestRouteHandling:
         request = make_mock_handler(command="GET")
 
         with patch.object(auth_handler, "_handle_list_api_keys") as mock_list:
-            mock_list.return_value = MagicMock(
-                status_code=200, body=b'{"keys": []}'
-            )
+            mock_list.return_value = MagicMock(status_code=200, body=b'{"keys": []}')
 
             result = maybe_await(
                 auth_handler.handle(
@@ -1950,12 +1831,8 @@ class TestRouteHandling:
         """Test DELETE /api/auth/api-keys/:prefix routes correctly."""
         request = make_mock_handler(command="DELETE")
 
-        with patch.object(
-            auth_handler, "_handle_revoke_api_key_prefix"
-        ) as mock_revoke:
-            mock_revoke.return_value = MagicMock(
-                status_code=200, body=b'{"message": "revoked"}'
-            )
+        with patch.object(auth_handler, "_handle_revoke_api_key_prefix") as mock_revoke:
+            mock_revoke.return_value = MagicMock(status_code=200, body=b'{"message": "revoked"}')
 
             result = maybe_await(
                 auth_handler.handle(
@@ -1977,9 +1854,7 @@ class TestRouteHandling:
 class TestErrorHandling:
     """Test error handling scenarios."""
 
-    def test_refresh_revocation_failure_rollback(
-        self, auth_handler, mock_user_store, mock_user
-    ):
+    def test_refresh_revocation_failure_rollback(self, auth_handler, mock_user_store, mock_user):
         """Test token refresh handles revocation failure."""
         mock_user_store.get_user_by_id.return_value = mock_user
 

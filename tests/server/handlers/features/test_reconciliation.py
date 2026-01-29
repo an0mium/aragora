@@ -515,9 +515,7 @@ class TestListReconciliations:
             result = await handler.handle(req, "/api/v1/reconciliation/list", "GET")
         body, status = _parse_result(result)
         assert status == 200
-        mock_service.list_reconciliations.assert_called_once_with(
-            account_id="acc_001", limit=10
-        )
+        mock_service.list_reconciliations.assert_called_once_with(account_id="acc_001", limit=10)
 
     @pytest.mark.asyncio
     async def test_list_reconciliations_no_service(self, handler):
@@ -626,9 +624,7 @@ class TestResolveDiscrepancy:
     async def test_resolve_missing_discrepancy_id(self, handler, mock_service):
         req = _make_request(json_body={"resolution": "Fixed manually"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/resolve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/resolve", "POST")
         body, status = _parse_result(result)
         assert status == 400
         assert "discrepancy_id" in body.get("error", "").lower()
@@ -637,9 +633,7 @@ class TestResolveDiscrepancy:
     async def test_resolve_service_unavailable(self, handler):
         req = _make_request(json_body={"discrepancy_id": "disc_001"})
         with _patch_permission(), _patch_service(None):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/resolve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/resolve", "POST")
         body, status = _parse_result(result)
         assert status == 503
 
@@ -658,9 +652,7 @@ class TestResolveDiscrepancy:
             }
         )
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/resolve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/resolve", "POST")
         body, status = _parse_result(result)
         assert status == 200
         assert body["status"] == "resolved"
@@ -672,9 +664,7 @@ class TestResolveDiscrepancy:
 
         req = _make_request(json_body={"discrepancy_id": "disc_001"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/resolve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/resolve", "POST")
         body, status = _parse_result(result)
         assert status == 400
 
@@ -698,9 +688,7 @@ class TestBulkResolve:
 
     @pytest.mark.asyncio
     async def test_bulk_resolve_service_unavailable(self, handler):
-        req = _make_request(
-            json_body={"reconciliation_id": "recon_001", "resolutions": []}
-        )
+        req = _make_request(json_body={"reconciliation_id": "recon_001", "resolutions": []})
         with _patch_permission(), _patch_service(None):
             result = await handler.handle(
                 req, "/api/v1/reconciliation/discrepancies/bulk-resolve", "POST"
@@ -769,9 +757,7 @@ class TestApproveReconciliation:
     async def test_approve_service_unavailable(self, handler):
         req = _make_request(json_body={"notes": "Approved"})
         with _patch_permission(), _patch_service(None):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/approve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/approve", "POST")
         body, status = _parse_result(result)
         assert status == 503
 
@@ -780,9 +766,7 @@ class TestApproveReconciliation:
         mock_service.get_reconciliation = MagicMock(return_value=None)
         req = _make_request(json_body={"notes": "Approved"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/approve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/approve", "POST")
         body, status = _parse_result(result)
         assert status == 404
 
@@ -795,9 +779,7 @@ class TestApproveReconciliation:
 
         req = _make_request(json_body={"notes": "Approved"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/approve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/approve", "POST")
         body, status = _parse_result(result)
         assert status == 400
         assert "unresolved" in body.get("error", "").lower()
@@ -810,9 +792,7 @@ class TestApproveReconciliation:
 
         req = _make_request(json_body={"notes": "Reviewed and approved"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/approve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/approve", "POST")
         body, status = _parse_result(result)
         assert status == 200
         assert body["status"] == "approved"
@@ -830,9 +810,7 @@ class TestGetDiscrepancies:
     async def test_get_discrepancies_no_service(self, handler):
         req = _make_request()
         with _patch_permission(), _patch_service(None):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/discrepancies", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/discrepancies", "GET")
         body, status = _parse_result(result)
         assert status == 200
         assert body["discrepancies"] == []
@@ -847,9 +825,7 @@ class TestGetDiscrepancies:
 
         req = _make_request()
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/discrepancies", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/discrepancies", "GET")
         body, status = _parse_result(result)
         assert status == 200
         assert body["total"] == 1
@@ -868,9 +844,7 @@ class TestGetDiscrepancies:
         # Filter by status=pending
         req = _make_request(query={"status": "pending"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/discrepancies", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/discrepancies", "GET")
         body, status = _parse_result(result)
         assert status == 200
         assert body["total"] == 1
@@ -886,9 +860,7 @@ class TestGetDiscrepancies:
 
         req = _make_request()
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/discrepancies", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/discrepancies", "GET")
         body, status = _parse_result(result)
         assert status == 200
         # Should be sorted by severity (critical first)
@@ -906,9 +878,7 @@ class TestGenerateReport:
     async def test_report_service_unavailable(self, handler):
         req = _make_request()
         with _patch_permission(), _patch_service(None):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/report", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/report", "GET")
         body, status = _parse_result(result)
         assert status == 503
 
@@ -917,9 +887,7 @@ class TestGenerateReport:
         mock_service.get_reconciliation = MagicMock(return_value=None)
         req = _make_request()
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_999/report", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_999/report", "GET")
         body, status = _parse_result(result)
         assert status == 404
 
@@ -931,9 +899,7 @@ class TestGenerateReport:
 
         req = _make_request(query={"format": "json"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/report", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/report", "GET")
         body, status = _parse_result(result)
         assert status == 200
         assert "report" in body
@@ -950,9 +916,7 @@ class TestGenerateReport:
 
         req = _make_request(query={"format": "csv"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/report", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/report", "GET")
         body, status = _parse_result(result)
         assert status == 200
         assert result.content_type == "text/csv"
@@ -967,9 +931,7 @@ class TestGenerateReport:
 
         req = _make_request(query={"format": "pdf"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/report", "GET"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/report", "GET")
         body, status = _parse_result(result)
         assert status == 400
         assert "unsupported" in body.get("error", "").lower()
@@ -1018,9 +980,7 @@ class TestHandleReconciliationEntryPoint:
     async def test_handle_reconciliation_function(self, mock_service):
         req = _make_request()
         with _patch_permission(), _patch_service(mock_service):
-            result = await handle_reconciliation(
-                req, "/api/v1/reconciliation/list", "GET"
-            )
+            result = await handle_reconciliation(req, "/api/v1/reconciliation/list", "GET")
         body, status = _parse_result(result)
         assert status == 200
 
@@ -1113,9 +1073,7 @@ class TestGetReconciliationService:
 
     def test_creates_new_service_per_tenant(self):
         _service_instances.clear()
-        with patch(
-            "aragora.services.accounting.reconciliation.ReconciliationService"
-        ) as mock_cls:
+        with patch("aragora.services.accounting.reconciliation.ReconciliationService") as mock_cls:
             mock_cls.return_value = MagicMock()
             svc1 = get_reconciliation_service("tenant1")
             svc2 = get_reconciliation_service("tenant1")
@@ -1131,9 +1089,7 @@ class TestGetReconciliationService:
 class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_general_exception_returns_500(self, handler, mock_service):
-        mock_service.list_reconciliations = MagicMock(
-            side_effect=RuntimeError("Database error")
-        )
+        mock_service.list_reconciliations = MagicMock(side_effect=RuntimeError("Database error"))
         req = _make_request()
         with _patch_permission(), _patch_service(mock_service):
             result = await handler.handle(req, "/api/v1/reconciliation/list", "GET")
@@ -1143,26 +1099,18 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_resolve_exception_returns_500(self, handler, mock_service):
-        mock_service.resolve_discrepancy = AsyncMock(
-            side_effect=RuntimeError("Resolution failed")
-        )
+        mock_service.resolve_discrepancy = AsyncMock(side_effect=RuntimeError("Resolution failed"))
         req = _make_request(json_body={"discrepancy_id": "disc_001"})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/resolve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/resolve", "POST")
         body, status = _parse_result(result)
         assert status == 500
 
     @pytest.mark.asyncio
     async def test_approve_exception_returns_500(self, handler, mock_service):
-        mock_service.get_reconciliation = MagicMock(
-            side_effect=RuntimeError("Database error")
-        )
+        mock_service.get_reconciliation = MagicMock(side_effect=RuntimeError("Database error"))
         req = _make_request(json_body={})
         with _patch_permission(), _patch_service(mock_service):
-            result = await handler.handle(
-                req, "/api/v1/reconciliation/recon_001/approve", "POST"
-            )
+            result = await handler.handle(req, "/api/v1/reconciliation/recon_001/approve", "POST")
         body, status = _parse_result(result)
         assert status == 500

@@ -228,7 +228,9 @@ class TestNudgeRouterPriority:
     async def test_same_priority_fifo(self, router):
         # Same priority should be FIFO
         for i in range(3):
-            await router.send(NudgeMessage(from_agent="a", to_agent="b", content=f"msg-{i}", priority=5))
+            await router.send(
+                NudgeMessage(from_agent="a", to_agent="b", content=f"msg-{i}", priority=5)
+            )
 
         messages = await router.receive("b")
         assert messages[0].content == "msg-0"

@@ -173,9 +173,7 @@ class TestQueueForSupabaseSync:
         mock_sync.enabled = False
         mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
-        with patch.dict(
-            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.persistence.sync_service": mock_sync_module}):
             queue_for_supabase_sync(mock_ctx, mock_result)
 
         mock_sync.queue_debate.assert_not_called()
@@ -188,16 +186,12 @@ class TestQueueForSupabaseSync:
         mock_sync.enabled = True
         mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
-        with patch.dict(
-            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.persistence.sync_service": mock_sync_module}):
             queue_for_supabase_sync(mock_ctx, mock_result)
 
         mock_sync.queue_debate.assert_called_once()
 
-    def test_builds_correct_debate_data_structure(
-        self, mock_ctx, mock_result, mock_sync_module
-    ):
+    def test_builds_correct_debate_data_structure(self, mock_ctx, mock_result, mock_sync_module):
         """Debate data includes all required fields."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
@@ -205,9 +199,7 @@ class TestQueueForSupabaseSync:
         mock_sync.enabled = True
         mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
-        with patch.dict(
-            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.persistence.sync_service": mock_sync_module}):
             queue_for_supabase_sync(mock_ctx, mock_result)
 
         call_args = mock_sync.queue_debate.call_args[0][0]
@@ -237,9 +229,7 @@ class TestQueueForSupabaseSync:
         mock_sync.queue_debate.side_effect = ConnectionError("Network error")
         mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
-        with patch.dict(
-            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.persistence.sync_service": mock_sync_module}):
             # Should not raise
             queue_for_supabase_sync(mock_ctx, mock_result)
 
@@ -252,15 +242,11 @@ class TestQueueForSupabaseSync:
         mock_sync.queue_debate.side_effect = TimeoutError("Timeout")
         mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
-        with patch.dict(
-            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.persistence.sync_service": mock_sync_module}):
             # Should not raise
             queue_for_supabase_sync(mock_ctx, mock_result)
 
-    def test_limits_transcript_to_50_messages(
-        self, mock_ctx, mock_result, mock_sync_module
-    ):
+    def test_limits_transcript_to_50_messages(self, mock_ctx, mock_result, mock_sync_module):
         """Transcript is limited to first 50 messages."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
@@ -270,9 +256,7 @@ class TestQueueForSupabaseSync:
         mock_sync.enabled = True
         mock_sync_module.get_sync_service = MagicMock(return_value=mock_sync)
 
-        with patch.dict(
-            sys.modules, {"aragora.persistence.sync_service": mock_sync_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.persistence.sync_service": mock_sync_module}):
             queue_for_supabase_sync(mock_ctx, mock_result)
 
         # The function should work without error
@@ -427,9 +411,7 @@ class TestInitRlmLimiterState:
         mock_limiter = MagicMock()
         mock_rlm_module.RLMCognitiveLoadLimiter.return_value = mock_limiter
 
-        with patch.dict(
-            sys.modules, {"aragora.debate.cognitive_limiter_rlm": mock_rlm_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.debate.cognitive_limiter_rlm": mock_rlm_module}):
             result = init_rlm_limiter_state(
                 use_rlm_limiter=True,
                 rlm_limiter=None,
@@ -534,9 +516,7 @@ class TestInitCheckpointBridge:
         mock_bridge = MagicMock()
         mock_checkpoint_module.create_checkpoint_bridge.return_value = mock_bridge
 
-        with patch.dict(
-            sys.modules, {"aragora.debate.checkpoint_bridge": mock_checkpoint_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.debate.checkpoint_bridge": mock_checkpoint_module}):
             result = init_checkpoint_bridge(
                 protocol=mock_protocol,
                 checkpoint_manager=mock_manager,
@@ -744,9 +724,7 @@ class TestInitCrossSubscriberBridge:
         mock_bridge = MagicMock()
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(
-            sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result == mock_bridge
@@ -760,9 +738,7 @@ class TestInitCrossSubscriberBridge:
         mock_bridge = MagicMock()
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(
-            sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
             init_cross_subscriber_bridge(event_bus=mock_bus)
 
         mock_bridge.connect_to_cross_subscribers.assert_called_once()
@@ -787,9 +763,7 @@ class TestInitCrossSubscriberBridge:
         mock_bridge.connect_to_cross_subscribers.side_effect = AttributeError("No attr")
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(
-            sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}
-        ):
+        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result is None

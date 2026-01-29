@@ -178,9 +178,7 @@ class TestComputerUseRoleAssignments:
         viewer_perms = get_role_permissions("viewer")
 
         for perm_key in viewer_perms:
-            assert not perm_key.startswith(
-                "computer_use."
-            ), f"Viewer should not have: {perm_key}"
+            assert not perm_key.startswith("computer_use."), f"Viewer should not have: {perm_key}"
 
     def test_member_no_computer_use_by_default(self):
         """Member role should not have computer-use permissions by default."""
@@ -228,7 +226,9 @@ class TestComputerUsePermissionGranularity:
         shell_perm = PERM_COMPUTER_USE_SHELL
 
         assert shell_perm.action == Action.SHELL
-        assert "shell" in shell_perm.description.lower() or "command" in shell_perm.description.lower()
+        assert (
+            "shell" in shell_perm.description.lower() or "command" in shell_perm.description.lower()
+        )
 
     def test_browser_separate_from_shell(self):
         """Browser automation should be separate from shell execution."""

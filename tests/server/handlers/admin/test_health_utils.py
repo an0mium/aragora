@@ -1,14 +1,25 @@
 """Tests for health utility functions."""
+
 import sys
 import types as _types_mod
 
 # Pre-stub Slack modules to prevent import chain failures
 _SLACK_ATTRS = [
-    "SlackHandler", "get_slack_handler", "get_slack_integration",
-    "get_workspace_store", "resolve_workspace", "create_tracked_task",
-    "_validate_slack_url", "SLACK_SIGNING_SECRET", "SLACK_BOT_TOKEN",
-    "SLACK_WEBHOOK_URL", "SLACK_ALLOWED_DOMAINS", "SignatureVerifierMixin",
-    "CommandsMixin", "EventsMixin", "init_slack_handler",
+    "SlackHandler",
+    "get_slack_handler",
+    "get_slack_integration",
+    "get_workspace_store",
+    "resolve_workspace",
+    "create_tracked_task",
+    "_validate_slack_url",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_BOT_TOKEN",
+    "SLACK_WEBHOOK_URL",
+    "SLACK_ALLOWED_DOMAINS",
+    "SignatureVerifierMixin",
+    "CommandsMixin",
+    "EventsMixin",
+    "init_slack_handler",
 ]
 for _mod_name in (
     "aragora.server.handlers.social.slack.handler",
@@ -133,10 +144,14 @@ class TestCheckAiProvidersHealth:
         """Test multiple providers configured."""
         from aragora.server.handlers.admin.health_utils import check_ai_providers_health
 
-        with patch.dict("os.environ", {
-            "ANTHROPIC_API_KEY": "sk-ant-1234567890",
-            "OPENAI_API_KEY": "sk-1234567890",
-        }, clear=True):
+        with patch.dict(
+            "os.environ",
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-1234567890",
+                "OPENAI_API_KEY": "sk-1234567890",
+            },
+            clear=True,
+        ):
             result = check_ai_providers_health()
 
         assert result["available_count"] == 2
@@ -153,12 +168,15 @@ class TestCheckSecurityServices:
 
         mock_service = MagicMock()
 
-        with patch(
-            "aragora.security.encryption.get_encryption_service",
-            return_value=mock_service,
-        ), patch(
-            "aragora.config.secrets.get_secret",
-            return_value="encryption_key_value",
+        with (
+            patch(
+                "aragora.security.encryption.get_encryption_service",
+                return_value=mock_service,
+            ),
+            patch(
+                "aragora.config.secrets.get_secret",
+                return_value="encryption_key_value",
+            ),
         ):
             result = check_security_services()
 
@@ -169,12 +187,15 @@ class TestCheckSecurityServices:
         """Test encryption warning in production without key."""
         from aragora.server.handlers.admin.health_utils import check_security_services
 
-        with patch(
-            "aragora.security.encryption.get_encryption_service",
-            return_value=MagicMock(),
-        ), patch(
-            "aragora.config.secrets.get_secret",
-            return_value=None,
+        with (
+            patch(
+                "aragora.security.encryption.get_encryption_service",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.config.secrets.get_secret",
+                return_value=None,
+            ),
         ):
             result = check_security_services(is_production=True)
 
